@@ -71,15 +71,17 @@ function useSessionPreviewData(sessionId: string) {
 
   const enhancedNoteIds = useEnhancedNotes(sessionId);
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
-  const { content: enhancedContent } = useEnhancedNote(
+  const { content: enhancedContent, title: enhancedTitle } = useEnhancedNote(
     firstEnhancedNoteId ?? "",
   );
 
   const hasEnhanced = !!firstEnhancedNoteId && !!enhancedContent;
 
-  const previewMarkdown = useMemo(() => {
+  const { previewMarkdown, previewPlainText } = useMemo(() => {
     const source = hasEnhanced ? (enhancedContent as string) : rawMd;
-    if (typeof source !== "string" || !source.trim()) return null;
+    if (typeof source !== "string" || !source.trim()) {
+      return { previewMarkdown: null, previewPlainText: "" };
+    }
 
     const trimmed = source.trim();
     if (trimmed.startsWith("{")) {
@@ -87,22 +89,28 @@ function useSessionPreviewData(sessionId: string) {
         const parsed = JSON.parse(trimmed);
         if (isValidTiptapContent(parsed)) {
           const md = json2md(parsed).trim();
-          if (md) return md;
+          if (md) return { previewMarkdown: md, previewPlainText: "" };
         }
       } catch {}
     }
-    return null;
+
+    const plain = extractPlainText(source);
+    const truncated =
+      plain.length > MAX_PREVIEW_LENGTH
+        ? plain.slice(0, MAX_PREVIEW_LENGTH) + "…"
+        : plain;
+    return { previewMarkdown: null, previewPlainText: truncated };
   }, [hasEnhanced, enhancedContent, rawMd]);
 
-  const previewPlainText = useMemo(() => {
-    if (previewMarkdown) return "";
-    const source = hasEnhanced ? (enhancedContent as string) : rawMd;
-    const text = extractPlainText(source);
-    if (!text) return "";
-    return text.length > MAX_PREVIEW_LENGTH
-      ? text.slice(0, MAX_PREVIEW_LENGTH) + "…"
-      : text;
-  }, [previewMarkdown, hasEnhanced, enhancedContent, rawMd]);
+  const hasContent = !!previewMarkdown || !!previewPlainText;
+
+  const previewLabel = useMemo(() => {
+    if (hasEnhanced && hasContent) {
+      return (enhancedTitle as string | undefined) || "Summary";
+    }
+    if (hasContent) return "Notes";
+    return null;
+  }, [hasEnhanced, hasContent, enhancedTitle]);
 
   const dateDisplay = useMemo(() => {
     let timestamp = createdAt;
@@ -121,6 +129,7 @@ function useSessionPreviewData(sessionId: string) {
     title,
     previewMarkdown,
     previewPlainText,
+    previewLabel,
     dateDisplay,
     participantMappingIds,
   };
@@ -211,6 +220,7 @@ export function SessionPreviewCard({
     title,
     previewMarkdown,
     previewPlainText,
+    previewLabel,
     dateDisplay,
     participantMappingIds,
   } = useSessionPreviewData(sessionId);
@@ -273,20 +283,27 @@ export function SessionPreviewCard({
           <ParticipantsList mappingIds={participantMappingIds} />
 
           {(previewMarkdown || previewPlainText) && (
-            <div className="mt-1 max-h-24 overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
-              {previewMarkdown ? (
-                <Streamdown
-                  components={streamdownComponents}
-                  className="flex flex-col text-xs"
-                  isAnimating={false}
-                >
-                  {previewMarkdown}
-                </Streamdown>
-              ) : (
-                <div className="text-xs leading-relaxed">
-                  {previewPlainText}
+            <div className="mt-1 flex flex-col gap-1">
+              {previewLabel && (
+                <div className="text-xs font-medium text-neutral-400">
+                  {previewLabel}
                 </div>
               )}
+              <div className="max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
+                {previewMarkdown ? (
+                  <Streamdown
+                    components={streamdownComponents}
+                    className="flex flex-col text-xs"
+                    isAnimating={false}
+                  >
+                    {previewMarkdown}
+                  </Streamdown>
+                ) : (
+                  <div className="text-xs leading-relaxed">
+                    {previewPlainText}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
