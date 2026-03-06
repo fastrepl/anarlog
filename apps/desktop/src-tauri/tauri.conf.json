@@ -25,6 +25,9 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
+    "externalBin": [
+      "binaries/check-permissions"
+    ],
     "icon": [
       "icons/stable/32x32.png",
       "icons/stable/128x128.png",

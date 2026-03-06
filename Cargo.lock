@@ -18588,6 +18588,7 @@ dependencies = [
  "tauri",
  "tauri-plugin",
  "tauri-plugin-shell",
+ "tauri-plugin-sidecar2",
  "tauri-specta",
  "tcc",
  "thiserror 2.0.18",
