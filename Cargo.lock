@@ -5910,7 +5910,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
- "specta",
 ]
 
 [[package]]
@@ -5923,7 +5922,6 @@ dependencies = [
  "chrono",
  "data",
  "frontmatter",
- "fs-format",
  "glob",
  "mp3",
  "predicates",
