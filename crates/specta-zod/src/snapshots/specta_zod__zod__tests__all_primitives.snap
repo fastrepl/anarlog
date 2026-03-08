@@ -1,0 +1,20 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const allPrimitivesSchema = z.object({
+  a_i8: z.number(),
+  a_i16: z.number(),
+  a_i32: z.number(),
+  a_i64: z.number(),
+  a_u8: z.number(),
+  a_u16: z.number(),
+  a_u32: z.number(),
+  a_u64: z.number(),
+  a_f32: z.number(),
+  a_f64: z.number(),
+  a_bool: z.boolean(),
+  a_string: z.string(),
+  a_char: z.string(),
+});
+export type AllPrimitives = z.infer<typeof allPrimitivesSchema>;

@@ -22,7 +22,6 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
 tauri-plugin-misc = { workspace = true }
-tauri-plugin-updater = { workspace = true }
 tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-windows = { workspace = true }
 

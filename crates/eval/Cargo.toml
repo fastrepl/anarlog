@@ -2,7 +2,7 @@
 name = "eval"
 version = "0.1.0"
 edition = "2021"
-description = "LLM evaluation runner for Hyprnote"
+description = "LLM evaluation runner for Char"
 
 [dependencies]
 backon = { workspace = true }

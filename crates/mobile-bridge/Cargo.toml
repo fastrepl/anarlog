@@ -1,0 +1,14 @@
+[package]
+name = "mobile-bridge"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "mobile_bridge"
+
+[dependencies]
+hypr-tiptap = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+uniffi = { version = "0.29" }

@@ -5,7 +5,7 @@ import {
   SESSION_NOTE_EXTENSION,
   SESSION_TRANSCRIPT_FILE,
   type TablesContent,
-} from "../shared";
+} from "~/store/tinybase/persister/shared";
 
 export function parseSessionIdFromPath(path: string): string | null {
   const parts = path.split("/");
@@ -46,24 +46,6 @@ export function getChangedSessionIds(
     {
       table: "transcripts",
       extractId: (id, tables) => tables.transcripts?.[id]?.session_id,
-    },
-    {
-      table: "words",
-      extractId: (id, tables) => {
-        const word = tables.words?.[id];
-        if (!word?.transcript_id) return undefined;
-        return tables.transcripts?.[word.transcript_id]?.session_id;
-      },
-      ignoreMissingParent: true,
-    },
-    {
-      table: "speaker_hints",
-      extractId: (id, tables) => {
-        const hint = tables.speaker_hints?.[id];
-        if (!hint?.transcript_id) return undefined;
-        return tables.transcripts?.[hint.transcript_id]?.session_id;
-      },
-      ignoreMissingParent: true,
     },
     {
       table: "enhanced_notes",

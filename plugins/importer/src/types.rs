@@ -49,7 +49,7 @@ impl ImportSource {
             kind: Some(ImportSourceKind::HyprnoteV0Stable),
             transform: TransformKind::HyprnoteV0,
             path,
-            name: "Hyprnote v0 - Stable".to_string(),
+            name: "Char v0 - Stable".to_string(),
         })
     }
 
@@ -61,7 +61,7 @@ impl ImportSource {
             kind: Some(ImportSourceKind::HyprnoteV0Nightly),
             transform: TransformKind::HyprnoteV0,
             path,
-            name: "Hyprnote v0 - Nightly".to_string(),
+            name: "Char v0 - Nightly".to_string(),
         })
     }
 

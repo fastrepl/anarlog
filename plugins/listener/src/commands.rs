@@ -1,7 +1,8 @@
 use owhisper_client::AdapterKind;
 use std::str::FromStr;
 
-use crate::{ListenerPluginExt, actors::SessionParams};
+use crate::ListenerPluginExt;
+use hypr_listener_core::actors::SessionParams;
 
 #[tauri::command]
 #[specta::specta]
@@ -62,7 +63,7 @@ pub async fn stop_session<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result
 #[specta::specta]
 pub async fn get_state<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<crate::fsm::State, String> {
+) -> Result<hypr_listener_core::State, String> {
     Ok(app.listener().get_state().await)
 }
 
@@ -74,7 +75,7 @@ pub async fn is_supported_languages_live<R: tauri::Runtime>(
     model: Option<String>,
     languages: Vec<String>,
 ) -> Result<bool, String> {
-    if provider == "custom" || provider == "hyprnote" {
+    if provider == "custom" {
         return Ok(true);
     }
 
@@ -110,6 +111,8 @@ pub async fn suggest_providers_for_languages_live<R: tauri::Runtime>(
         AdapterKind::OpenAI,
         AdapterKind::Gladia,
         AdapterKind::ElevenLabs,
+        AdapterKind::DashScope,
+        AdapterKind::Mistral,
     ];
 
     let mut with_support: Vec<_> = all_providers

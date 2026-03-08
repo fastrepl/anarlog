@@ -24,21 +24,21 @@ export function ChartSkeleton() {
   const heights = [95, 88, 82, 76, 70, 64, 58, 52, 46, 40, 35, 30, 26, 22, 18];
 
   return (
-    <div className="h-full w-full flex flex-col">
-      <div className="flex-1 flex items-end justify-around pb-8">
+    <div className="flex h-full w-full flex-col">
+      <div className="flex flex-1 items-end justify-around pb-8">
         {heights.slice(0, barCount).map((height, i) => (
           <div
             key={i}
-            className="w-6 bg-neutral-200 rounded animate-pulse"
+            className="w-6 animate-pulse rounded bg-neutral-200"
             style={{ height: `${height}%` }}
           />
         ))}
       </div>
-      <div className="h-8 flex justify-around">
+      <div className="flex h-8 justify-around">
         {Array.from({ length: barCount }).map((_, i) => (
           <div
             key={i}
-            className="w-6 h-3 bg-neutral-200 rounded animate-pulse"
+            className="h-3 w-6 animate-pulse rounded bg-neutral-200"
           />
         ))}
       </div>

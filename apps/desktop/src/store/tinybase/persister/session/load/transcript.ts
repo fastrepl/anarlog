@@ -1,5 +1,6 @@
-import type { TranscriptJson } from "../types";
 import type { LoadedSessionData } from "./types";
+
+import type { TranscriptJson } from "~/store/tinybase/persister/session/types";
 
 const LABEL = "SessionPersister";
 
@@ -15,6 +16,10 @@ export function processTranscriptFile(
       const { id, words, speaker_hints, ...transcriptData } = transcript;
       result.transcripts[id] = {
         ...transcriptData,
+        memo_md:
+          typeof transcriptData.memo_md === "string"
+            ? transcriptData.memo_md
+            : "",
         words: JSON.stringify(words),
         speaker_hints: JSON.stringify(speaker_hints),
       };

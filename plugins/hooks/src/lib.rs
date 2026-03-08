@@ -1,17 +1,13 @@
 mod commands;
 mod config;
 mod error;
-mod event;
 mod ext;
-mod naming;
-mod runner;
 
 #[cfg(test)]
 mod docs;
 
 pub use error::*;
 pub use ext::*;
-pub use runner::*;
 
 const PLUGIN_NAME: &str = "hooks";
 
@@ -21,7 +17,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::run_event_hooks::<tauri::Wry>,
         ])
-        .typ::<config::HooksConfig>()
+        .typ::<hypr_hooks::HooksConfig>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 

@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const internallyTaggedEnumSchema = z.union([z.object({ type: z.literal("Variant1"), value: z.string() }), z.object({ type: z.literal("Variant2"), count: z.number() })]);
+export type InternallyTaggedEnum = z.infer<typeof internallyTaggedEnumSchema>;

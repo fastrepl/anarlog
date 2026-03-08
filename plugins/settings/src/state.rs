@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 use tokio::sync::RwLock;
 
-use crate::vault;
-
 pub struct State {
     vault_base: PathBuf,
     lock: RwLock<()>,
@@ -17,7 +15,7 @@ impl State {
     }
 
     fn path(&self) -> PathBuf {
-        vault::compute_settings_path(&self.vault_base)
+        hypr_storage::vault::compute_settings_path(&self.vault_base)
     }
 
     pub fn vault_base(&self) -> &PathBuf {
@@ -44,12 +42,12 @@ impl State {
         let merged = merge_settings(existing, settings);
         let content = serde_json::to_string_pretty(&merged)?;
 
-        crate::fs::atomic_write_async(&self.path(), &content).await?;
+        hypr_storage::fs::atomic_write_async(&self.path(), &content).await?;
         Ok(())
     }
 
     pub fn reset(&self) -> crate::Result<()> {
-        crate::fs::atomic_write(&self.path(), "{}")?;
+        hypr_storage::fs::atomic_write(&self.path(), "{}")?;
         Ok(())
     }
 }

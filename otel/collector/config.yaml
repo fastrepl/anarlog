@@ -1,0 +1,38 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+  batch:
+
+exporters:
+  otlp:
+    endpoint: ${env:HONEYCOMB_API_ENDPOINT:-api.honeycomb.io:443}
+    headers:
+      x-honeycomb-team: ${env:HONEYCOMB_API_KEY}
+
+service:
+  extensions:
+    - health_check
+  pipelines:
+    traces:
+      receivers:
+        - otlp
+      processors:
+        - memory_limiter
+        - batch
+      exporters:
+        - otlp
+  telemetry:
+    logs:
+      level: info

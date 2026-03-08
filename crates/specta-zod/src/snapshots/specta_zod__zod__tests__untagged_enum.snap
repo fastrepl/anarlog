@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const untaggedEnumSchema = z.union([z.string(), z.number()]);
+export type UntaggedEnum = z.infer<typeof untaggedEnumSchema>;

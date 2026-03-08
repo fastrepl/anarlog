@@ -1,0 +1,36 @@
+---
+date: "2026-02-24"
+---
+
+## Transcription
+
+- Fixed transcript segmentation producing incorrect splits between speakers
+- Smarter mic detection: app now recognizes when a calendar event is recently active when prompting to record
+
+## Notes
+
+- Link text edits now automatically update the underlying URL — no more stale hrefs after renaming a link
+- Pressing Enter on an empty line now clears active formatting (bold, italic, underline)
+
+## Audio
+
+- Recordings are now saved as MP3 files
+
+## Calendar
+
+- Session creation from a calendar event now correctly populates participants from event attendees
+- Calendar onboarding now shows a **Request Access to Calendar** button instead of a dead-end "No calendars found" message
+
+## Onboarding
+
+- Redesigned onboarding flow with clearer step states, checkmark completion indicators, and auto-scroll navigation between steps
+
+## Auth
+
+- Fixed sign-in flow when the user was already logged into char.com in their browser
+
+## Other fixes and improvements
+
+- Fixed red artifact line appearing in the left sidebar timeline
+- Fixed account page side borders not extending to full height
+- AI generation is now more resilient when output validation retries exhaust — gracefully yields instead of erroring out

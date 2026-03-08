@@ -1,10 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { getRpcCanStartTrial } from "@hypr/api-client";
+import {
+  canStartTrial as canStartTrialApi,
+  deleteAccount as deleteAccountApi,
+  startTrial as startTrialApi,
+} from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 
-import { env } from "@/env";
+import { env, requireEnv } from "@/env";
+import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getStripeClient } from "@/functions/stripe";
 import { getSupabaseServerClient } from "@/functions/supabase";
 
@@ -54,7 +59,7 @@ const getStripeCustomerIdForUser = async (
 
 const createCheckoutSessionInput = z.object({
   period: z.enum(["monthly", "yearly"]),
-  scheme: z.string().optional(),
+  scheme: desktopSchemeSchema.optional(),
 });
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
@@ -117,8 +122,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
     const priceId =
       data.period === "yearly"
-        ? env.STRIPE_YEARLY_PRICE_ID
-        : env.STRIPE_MONTHLY_PRICE_ID;
+        ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+        : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
     const successParams = new URLSearchParams({ success: "true" });
     if (data.scheme) {
@@ -234,7 +239,7 @@ export const canStartTrial = createServerFn({ method: "POST" }).handler(
       },
     });
 
-    const { data, error } = await getRpcCanStartTrial({ client });
+    const { data, error } = await canStartTrialApi({ client });
 
     if (error) {
       console.error("can_start_trial error:", error);
@@ -245,80 +250,57 @@ export const canStartTrial = createServerFn({ method: "POST" }).handler(
   },
 );
 
-const createTrialCheckoutSessionInput = z.object({
-  scheme: z.string().optional(),
-});
-
-export const createTrialCheckoutSession = createServerFn({
-  method: "POST",
-})
-  .inputValidator(createTrialCheckoutSessionInput)
-  .handler(async ({ data }) => {
+export const startTrial = createServerFn({ method: "POST" }).handler(
+  async () => {
     const supabase = getSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: sessionData } = await supabase.auth.getSession();
 
-    if (!user?.id) {
+    if (!sessionData.session) {
       throw new Error("Unauthorized");
     }
 
-    const stripe = getStripeClient();
-
-    let stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
-      id: user.id,
-      user_metadata: user.user_metadata,
-    });
-
-    if (!stripeCustomerId) {
-      const newCustomer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          userId: user.id,
-        },
-      });
-
-      await Promise.all([
-        supabase.auth.updateUser({
-          data: {
-            stripe_customer_id: newCustomer.id,
-          },
-        }),
-        supabase
-          .from("profiles")
-          .update({ stripe_customer_id: newCustomer.id })
-          .eq("id", user.id),
-      ]);
-
-      stripeCustomerId = newCustomer.id;
-    }
-
-    const successParams = new URLSearchParams({ trial: "started" });
-    if (data.scheme) {
-      successParams.set("scheme", data.scheme);
-    }
-
-    const checkout = await stripe.checkout.sessions.create({
-      customer: stripeCustomerId,
-      mode: "subscription",
-      payment_method_collection: "if_required",
-      line_items: [
-        {
-          price: env.STRIPE_MONTHLY_PRICE_ID,
-          quantity: 1,
-        },
-      ],
-      subscription_data: {
-        trial_period_days: 14,
-        trial_settings: {
-          end_behavior: {
-            missing_payment_method: "cancel",
-          },
-        },
+    const client = createClient({
+      baseUrl: env.VITE_API_URL,
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
       },
-      success_url: `${env.VITE_APP_URL}/app/account?${successParams.toString()}`,
-      cancel_url: `${env.VITE_APP_URL}/app/account`,
     });
 
-    return { url: checkout.url };
-  });
+    const { data, error } = await startTrialApi({
+      client,
+      query: { interval: "monthly" },
+    });
+
+    if (error) {
+      throw new Error("Failed to start trial");
+    }
+
+    return { started: data?.started ?? false };
+  },
+);
+
+export const deleteAccount = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (!sessionData.session) {
+      throw new Error("Not authenticated");
+    }
+
+    const client = createClient({
+      baseUrl: env.VITE_API_URL,
+      headers: {
+        Authorization: `Bearer ${sessionData.session.access_token}`,
+      },
+    });
+
+    const { error } = await deleteAccountApi({ client });
+    if (error) {
+      throw new Error("Failed to delete account");
+    }
+
+    await supabase.auth.signOut({ scope: "local" });
+    return { success: true };
+  },
+);

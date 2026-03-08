@@ -56,7 +56,6 @@ jobs:
 
             echo "resolved=true" >> $GITHUB_OUTPUT
             echo "target_sha=$TAG_SHA" >> $GITHUB_OUTPUT
-            echo "target_ref=$NIGHTLY_TAG" >> $GITHUB_OUTPUT
             echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
           else
             PR_DATA=$(gh api repos/$REPO/pulls/${{ inputs.issue_number }} 2>/dev/null) || {
@@ -79,7 +78,6 @@ jobs:
 
             echo "resolved=true" >> $GITHUB_OUTPUT
             echo "target_sha=$MERGE_SHA" >> $GITHUB_OUTPUT
-            echo "target_ref=$MERGE_SHA" >> $GITHUB_OUTPUT
             echo "branch=$TEMP_BRANCH" >> $GITHUB_OUTPUT
           fi
       - if: steps.resolve.outputs.resolved == 'true'
@@ -98,7 +96,6 @@ jobs:
           CHANNEL="${{ inputs.channel }}"
           RESOLVED="${{ steps.resolve.outputs.resolved }}"
           TARGET_SHA="${{ steps.resolve.outputs.target_sha }}"
-          TARGET_REF="${{ steps.resolve.outputs.target_ref }}"
           ERROR="${{ steps.resolve.outputs.error }}"
           RUN_ID="${{ steps.trigger.outputs.run_id }}"
 
@@ -111,13 +108,13 @@ jobs:
           elif [ -n "$RUN_ID" ]; then
             DATA=$(jq -cn \
               --arg channel "\`$CHANNEL\`" \
-              --arg sha "[\`${TARGET_SHA:0:8}\`](https://github.com/$REPO/commit/$TARGET_SHA) ($TARGET_REF)" \
+              --arg sha "[\`${TARGET_SHA:0:8}\`](https://github.com/$REPO/commit/$TARGET_SHA)" \
               --arg status "[View](https://github.com/$REPO/actions/runs/$RUN_ID)" \
               '[{header: "Channel", value: $channel}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           else
             DATA=$(jq -cn \
               --arg channel "\`$CHANNEL\`" \
-              --arg sha "[\`${TARGET_SHA:0:8}\`](https://github.com/$REPO/commit/$TARGET_SHA) ($TARGET_REF)" \
+              --arg sha "[\`${TARGET_SHA:0:8}\`](https://github.com/$REPO/commit/$TARGET_SHA)" \
               --arg status "[Logs](https://github.com/$REPO/actions/runs/${{ github.run_id }})" \
               '[{header: "Channel", value: $channel}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           fi

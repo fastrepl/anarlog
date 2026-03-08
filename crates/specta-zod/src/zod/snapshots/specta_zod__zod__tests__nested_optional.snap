@@ -1,0 +1,8 @@
+---
+source: crates/specta-zod/src/zod/tests.rs
+expression: output
+---
+export const withNestedOptionalSchema = z.object({
+  nested: z.preprocess((val) => val ?? undefined, jsonObject(z.array(z.string())).optional()),
+});
+export type WithNestedOptional = z.infer<typeof withNestedOptionalSchema>;

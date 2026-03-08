@@ -367,6 +367,18 @@
           "markdownDescription": "Denies the delete_session_folder command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_device_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-device-info",
+          "markdownDescription": "Enables the get_device_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_device_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-device-info",
+          "markdownDescription": "Denies the get_device_info command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_fingerprint command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-fingerprint",
@@ -427,10 +439,10 @@
           "markdownDescription": "Denies the reveal_session_in_finder command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-opinionated-md-to-html`\n- `allow-parse-meeting-link`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-opinionated-md-to-html`\n- `allow-parse-meeting-link`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-opinionated-md-to-html`\n- `allow-parse-meeting-link`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-git-hash`\n- `allow-get-fingerprint`\n- `allow-get-device-info`\n- `allow-opinionated-md-to-html`\n- `allow-parse-meeting-link`"
         }
       ]
     }

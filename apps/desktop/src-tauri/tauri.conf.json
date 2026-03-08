@@ -1,12 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Hyprnote Dev",
-  "mainBinaryName": "hyprnote-dev",
+  "productName": "Char Dev",
+  "mainBinaryName": "char-dev",
   "identifier": "com.hyprnote.dev",
   "build": {
     "beforeDevCommand": "pnpm -F desktop dev",
     "devUrl": "http://localhost:1422",
     "beforeBuildCommand": "pnpm -F desktop build",
+    "beforeBundleCommand": "./src-tauri/scripts/fix-dylib.sh",
     "frontendDist": "../dist"
   },
   "app": {
@@ -39,6 +40,7 @@
     },
     "macOS": {
       "minimumSystemVersion": "14.2",
+      "frameworks": [],
       "entitlements": "./Entitlements.plist",
       "dmg": {
         "background": "assets/dmg-background-stable.png",
@@ -59,7 +61,9 @@
   },
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["hyprnote"] }
+      "desktop": {
+        "schemes": ["hyprnote", "char"]
+      }
     },
     "updater": {
       "active": false,

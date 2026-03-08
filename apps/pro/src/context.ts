@@ -19,11 +19,11 @@ export const contextCache = (): MiddlewareHandler => {
   return async (c, next) => {
     c.set("cache", globalCache);
 
-    c.set("cacheSet", <T,>(key: string, value: T, ttl?: string | number) => {
+    c.set("cacheSet", <T>(key: string, value: T, ttl?: string | number) => {
       globalCache.set(key, value, ttl);
     });
 
-    c.set("cacheGet", <T,>(key: string): T | undefined => {
+    c.set("cacheGet", <T>(key: string): T | undefined => {
       return globalCache.get<T>(key);
     });
 

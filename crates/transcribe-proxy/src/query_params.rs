@@ -77,6 +77,18 @@ impl QueryParams {
             })
             .unwrap_or_default()
     }
+
+    pub fn parse_keywords(&self) -> Vec<String> {
+        self.get("keyword")
+            .or_else(|| self.get("keywords"))
+            .map(|v| {
+                v.iter()
+                    .flat_map(|s| s.split(','))
+                    .map(|k| k.trim().to_string())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl Deref for QueryParams {

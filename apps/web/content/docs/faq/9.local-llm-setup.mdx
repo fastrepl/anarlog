@@ -1,10 +1,12 @@
 ---
 title: "Local LLM Setup"
 section: "FAQ"
-description: "How to set up LM Studio or Ollama for local AI in Hyprnote."
+description: "How to set up LM Studio or Ollama for local AI in Char."
 ---
 
-## LM Studio Setup
+This guide covers setting up local LLMs for AI features like summaries and notes. If you're looking for local speech-to-text models, see [Local Models](/docs/developers/local-models#speech-to-text-stt).
+
+## LM Studio setup
 
 [LM Studio](https://lmstudio.ai) is a desktop application that lets you run large language models locally on your computer.
 
@@ -12,40 +14,56 @@ description: "How to set up LM Studio or Ollama for local AI in Hyprnote."
 
 1. Go to the **Developer** tab in LM Studio
 2. Click **Start Server** to start the local server (default port is 1234)
-3. Enable **CORS** in the server settings - this is required for Hyprnote to connect
+3. Enable **CORS** in the server settings - this is required for Char to connect
 
 ![Enable CORS in LM Studio](/api/images/docs/faq/lmstudio-setup-1.jpg)
 
-### Connecting to Hyprnote
+### Connecting to Char
 
-1. Open Hyprnote and go to **Settings** > **Intelligence**
+1. Open Char and go to **Settings** > **Intelligence**
 2. Expand the **LM Studio** provider card
 3. The default base URL `http://127.0.0.1:1234/v1` should work if you haven't changed the port
 4. Select LM Studio as your provider and choose a model from the dropdown
 
+### Tool calling fallback
+
+Some local models (e.g., Gemma) do not support tool calling, which Char uses for structured output during summarization. Char automatically detects this and falls back to plain text generation with JSON extraction, so summarization still works with these models. No configuration is needed.
+
 ### Troubleshooting
 
-If Hyprnote cannot connect to LM Studio:
+If Char cannot connect to LM Studio:
 
 - Ensure the LM Studio server is running (check the Developer tab)
 - Verify CORS is enabled in LM Studio settings
 - Check that the port matches (default is 1234)
 - Make sure no firewall is blocking the connection
 
-## Ollama Setup
+#### Context length error
+
+If you see an error like "Cannot truncate prompt with n_keep >= n_ctx" or "request exceeds the available context size", this means the model's context length is too small for your conversation or transcript.
+
+To fix this:
+
+1. Open LM Studio and go to the **Context** tab in the model settings (on the right panel)
+2. Increase the **Context Length** value - try setting it to at least 16384 or higher depending on your needs
+3. Note that higher context lengths require more memory, so adjust based on your system's capabilities
+
+![Increase Context Length in LM Studio](/api/images/docs/faq/lmstudio-context-length.png)
+
+## Ollama setup
 
 [Ollama](https://ollama.ai) is a command-line tool for running large language models locally.
 
-### Connecting to Hyprnote
+### Connecting to Char
 
-1. Open Hyprnote and go to **Settings** > **Intelligence**
+1. Open Char and go to **Settings** > **Intelligence**
 2. Expand the **Ollama** provider card
 3. The default base URL `http://127.0.0.1:11434/v1` should work
 4. Select Ollama as your provider and choose a model from the dropdown
 
 ### Troubleshooting
 
-If Hyprnote cannot connect to Ollama:
+If Char cannot connect to Ollama:
 
 - Ensure Ollama is running (`ollama serve`)
 - Check that you have at least one model pulled (`ollama list`)
@@ -53,3 +71,7 @@ If Hyprnote cannot connect to Ollama:
 - On macOS, Ollama may already be running as a background service
 
 ![Expose Ollama to the network](/api/images/docs/faq/ollama-setup-1.jpg)
+
+## Privacy
+
+When using local LLMs, your data never leaves your device. For more details on how Char handles data with different AI providers, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).

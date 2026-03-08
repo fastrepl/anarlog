@@ -1,5 +1,8 @@
 pub mod external;
+#[cfg(feature = "whisper-cpp")]
 pub mod internal;
+#[cfg(target_arch = "aarch64")]
+pub mod internal2;
 pub mod supervisor;
 
 #[derive(
@@ -26,5 +29,5 @@ pub enum ServerStatus {
 pub struct ServerInfo {
     pub url: Option<String>,
     pub status: ServerStatus,
-    pub model: Option<crate::SupportedSttModel>,
+    pub model: Option<crate::LocalModel>,
 }

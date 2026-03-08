@@ -3,10 +3,12 @@
 mod from_ast;
 mod from_md;
 mod to_ast;
+mod validate;
 
 pub use from_ast::mdast_to_markdown;
 pub use from_md::md_to_tiptap_json;
 pub use to_ast::tiptap_json_to_mdast;
+pub use validate::validate_tiptap_json;
 
 pub fn tiptap_json_to_md(json: &serde_json::Value) -> Result<String, String> {
     let mdast = tiptap_json_to_mdast(json);
@@ -811,5 +813,367 @@ mod tests {
         let json = md_to_tiptap_json(md).unwrap();
         let result = to_md(json);
         assert_eq!(result.trim(), md);
+    }
+
+    #[test]
+    fn test_listitem_always_starts_with_paragraph() {
+        let json = md_to_tiptap_json("1. Item").unwrap();
+        let list_item = &json["content"][0]["content"][0];
+        assert_eq!(list_item["type"], "listItem");
+        assert_eq!(list_item["content"][0]["type"], "paragraph");
+
+        let json = md_to_tiptap_json("- Item").unwrap();
+        let list_item = &json["content"][0]["content"][0];
+        assert_eq!(list_item["type"], "listItem");
+        assert_eq!(list_item["content"][0]["type"], "paragraph");
+
+        let json = md_to_tiptap_json("- [ ] Task").unwrap();
+        let task_item = &json["content"][0]["content"][0];
+        assert_eq!(task_item["type"], "taskItem");
+        assert_eq!(task_item["content"][0]["type"], "paragraph");
+    }
+
+    #[test]
+    fn test_empty_listitem_has_paragraph() {
+        let json = md_to_tiptap_json("1. ").unwrap();
+        let list_item = &json["content"][0]["content"][0];
+        assert_eq!(list_item["type"], "listItem");
+        assert!(
+            list_item["content"]
+                .as_array()
+                .map(|a| !a.is_empty())
+                .unwrap_or(false)
+        );
+        assert_eq!(list_item["content"][0]["type"], "paragraph");
+    }
+
+    fn assert_schema_valid(md: &str) {
+        let json = md_to_tiptap_json(md).unwrap();
+        let errors = validate_tiptap_json(&json);
+        assert!(
+            errors.is_empty(),
+            "schema validation failed for markdown:\n{md}\n\nproduced JSON:\n{json:#}\n\nerrors:\n{}",
+            errors
+                .iter()
+                .map(|e| e.to_string())
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+    }
+
+    #[test]
+    fn test_schema_valid_simple_paragraph() {
+        assert_schema_valid("Hello, world!");
+    }
+
+    #[test]
+    fn test_schema_valid_heading() {
+        assert_schema_valid("# Heading 1\n\n## Heading 2\n\n### Heading 3");
+    }
+
+    #[test]
+    fn test_schema_valid_bullet_list() {
+        assert_schema_valid("- Item 1\n- Item 2\n- Item 3");
+    }
+
+    #[test]
+    fn test_schema_valid_ordered_list() {
+        assert_schema_valid("1. First\n2. Second\n3. Third");
+    }
+
+    #[test]
+    fn test_schema_valid_task_list() {
+        assert_schema_valid("- [ ] Todo\n- [x] Done");
+    }
+
+    #[test]
+    fn test_schema_valid_nested_bullet_list() {
+        assert_schema_valid("- Parent\n  - Child 1\n  - Child 2\n- Another parent");
+    }
+
+    #[test]
+    fn test_schema_valid_deeply_nested_list() {
+        assert_schema_valid("- Level 1\n  - Level 2\n    - Level 3\n      - Level 4");
+    }
+
+    #[test]
+    fn test_schema_valid_list_without_text_only_sublist() {
+        assert_schema_valid("-\n  - Sub item");
+    }
+
+    #[test]
+    fn test_schema_valid_nested_ordered_in_bullet() {
+        assert_schema_valid("- Bullet\n  1. Ordered child\n  2. Another");
+    }
+
+    #[test]
+    fn test_schema_valid_blockquote() {
+        assert_schema_valid("> A quote\n>\n> Another paragraph");
+    }
+
+    #[test]
+    fn test_schema_valid_code_block() {
+        assert_schema_valid("```rust\nfn main() {}\n```");
+    }
+
+    #[test]
+    fn test_schema_valid_horizontal_rule() {
+        assert_schema_valid("Before\n\n---\n\nAfter");
+    }
+
+    #[test]
+    fn test_schema_valid_image() {
+        assert_schema_valid("![alt](https://example.com/img.png)");
+    }
+
+    #[test]
+    fn test_schema_valid_inline_formatting() {
+        assert_schema_valid("**bold** and *italic* and `code` and ~~strike~~");
+    }
+
+    #[test]
+    fn test_schema_valid_bold_wrapping_code() {
+        assert_schema_valid("**`code`**");
+    }
+
+    #[test]
+    fn test_schema_valid_italic_wrapping_code() {
+        assert_schema_valid("*`code`*");
+    }
+
+    #[test]
+    fn test_schema_valid_strike_wrapping_code() {
+        assert_schema_valid("~~`code`~~");
+    }
+
+    #[test]
+    fn test_bold_code_produces_only_code_mark() {
+        let json = md_to_tiptap_json("**`code`**").unwrap();
+        let text_node = &json["content"][0]["content"][0];
+        assert_eq!(text_node["type"], "text");
+        assert_eq!(text_node["text"], "code");
+        let marks = text_node["marks"].as_array().unwrap();
+        assert_eq!(marks.len(), 1, "expected only code mark, got: {:?}", marks);
+        assert_eq!(marks[0]["type"], "code");
+    }
+
+    #[test]
+    fn test_italic_code_produces_only_code_mark() {
+        let json = md_to_tiptap_json("*`code`*").unwrap();
+        let text_node = &json["content"][0]["content"][0];
+        let marks = text_node["marks"].as_array().unwrap();
+        assert_eq!(marks.len(), 1);
+        assert_eq!(marks[0]["type"], "code");
+    }
+
+    #[test]
+    fn test_strike_code_produces_only_code_mark() {
+        let json = md_to_tiptap_json("~~`code`~~").unwrap();
+        let text_node = &json["content"][0]["content"][0];
+        let marks = text_node["marks"].as_array().unwrap();
+        assert_eq!(marks.len(), 1);
+        assert_eq!(marks[0]["type"], "code");
+    }
+
+    #[test]
+    fn test_schema_valid_links() {
+        assert_schema_valid("[link text](https://example.com)");
+    }
+
+    #[test]
+    fn test_schema_valid_complex_document() {
+        assert_schema_valid(
+            "# Title\n\n\
+             Some text with **bold** and *italic*.\n\n\
+             - Item 1\n  - Nested\n- Item 2\n\n\
+             > A blockquote\n\n\
+             ```js\nconsole.log('hi');\n```\n\n\
+             ---\n\n\
+             1. First\n2. Second\n\n\
+             - [ ] Task 1\n- [x] Task 2\n\n\
+             ![img](https://example.com/img.png)\n\n\
+             Final paragraph.",
+        );
+    }
+
+    #[test]
+    fn test_schema_valid_list_item_with_nested_task_list() {
+        assert_schema_valid("- Parent\n  - [ ] Sub-task\n  - [x] Done sub-task");
+    }
+
+    #[test]
+    fn test_schema_valid_blockquote_with_list() {
+        assert_schema_valid("> - Item in quote\n> - Another item");
+    }
+
+    #[test]
+    fn test_schema_valid_empty_list_items() {
+        assert_schema_valid("- \n- \n- ");
+    }
+
+    #[test]
+    fn test_schema_valid_list_with_code_block() {
+        assert_schema_valid("- Item\n\n  ```\n  code\n  ```\n\n- Next");
+    }
+
+    #[test]
+    fn test_schema_valid_multibyte_chars_no_panic() {
+        let json = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "bulletList",
+                "content": [
+                    {
+                        "type": "listItem",
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{
+                                "type": "text",
+                                "text": "Sad music track began playing on one side, noted aloud as \u{201C}"
+                            }]
+                        }]
+                    },
+                    {
+                        "type": "listItem",
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{
+                                "type": "text",
+                                "text": "\"Projet 'A à Z' sans supervision\"\u{00A0}"
+                            }]
+                        }]
+                    }
+                ]
+            }]
+        });
+
+        let result = tiptap_json_to_md(&json);
+        assert!(result.is_ok(), "should not panic on multi-byte chars");
+    }
+
+    #[test]
+    fn test_mention_to_markdown() {
+        let json = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [
+                    { "type": "text", "text": "Talk to " },
+                    {
+                        "type": "mention-@",
+                        "attrs": { "id": "human-1", "type": "human", "label": "Alice" }
+                    },
+                    { "type": "text", "text": " about the project" }
+                ]
+            }]
+        });
+
+        let md = to_md(json);
+        assert!(md.contains(
+            r#"<mention data-id="human-1" data-type="human" data-label="Alice"></mention>"#
+        ));
+        assert!(md.contains("Talk to "));
+        assert!(md.contains(" about the project"));
+    }
+
+    #[test]
+    fn test_mention_from_markdown() {
+        let md = r#"Talk to <mention data-id="human-1" data-type="human" data-label="Alice"></mention> about the project"#;
+        let json = md_to_tiptap_json(md).unwrap();
+
+        let paragraph = &json["content"][0];
+        assert_eq!(paragraph["type"], "paragraph");
+
+        let content = paragraph["content"].as_array().unwrap();
+        let mention = content.iter().find(|n| n["type"] == "mention-@").unwrap();
+        assert_eq!(mention["attrs"]["id"], "human-1");
+        assert_eq!(mention["attrs"]["type"], "human");
+        assert_eq!(mention["attrs"]["label"], "Alice");
+    }
+
+    #[test]
+    fn test_mention_roundtrip() {
+        let original = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [
+                    { "type": "text", "text": "Talk to " },
+                    {
+                        "type": "mention-@",
+                        "attrs": { "id": "human-1", "type": "human", "label": "Alice" }
+                    },
+                    { "type": "text", "text": " about the project" }
+                ]
+            }]
+        });
+
+        let md = to_md(original);
+        let restored = md_to_tiptap_json(&md).unwrap();
+
+        let content = restored["content"][0]["content"].as_array().unwrap();
+        let mention = content.iter().find(|n| n["type"] == "mention-@").unwrap();
+        assert_eq!(mention["attrs"]["id"], "human-1");
+        assert_eq!(mention["attrs"]["type"], "human");
+        assert_eq!(mention["attrs"]["label"], "Alice");
+    }
+
+    #[test]
+    fn test_multiple_mentions_in_paragraph() {
+        let json = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [
+                    {
+                        "type": "mention-@",
+                        "attrs": { "id": "human-1", "type": "human", "label": "Alice" }
+                    },
+                    { "type": "text", "text": " and " },
+                    {
+                        "type": "mention-@",
+                        "attrs": { "id": "session-1", "type": "session", "label": "Meeting" }
+                    }
+                ]
+            }]
+        });
+
+        let md = to_md(json);
+        assert!(md.contains(r#"data-label="Alice"#));
+        assert!(md.contains(r#"data-label="Meeting"#));
+
+        let restored = md_to_tiptap_json(&md).unwrap();
+        let content = restored["content"][0]["content"].as_array().unwrap();
+        let mentions: Vec<_> = content
+            .iter()
+            .filter(|n| n["type"] == "mention-@")
+            .collect();
+        assert_eq!(mentions.len(), 2);
+        assert_eq!(mentions[0]["attrs"]["label"], "Alice");
+        assert_eq!(mentions[1]["attrs"]["label"], "Meeting");
+    }
+
+    #[test]
+    fn test_mention_schema_validation() {
+        let json = serde_json::json!({
+            "type": "doc",
+            "content": [{
+                "type": "paragraph",
+                "content": [
+                    { "type": "text", "text": "Hello " },
+                    {
+                        "type": "mention-@",
+                        "attrs": { "id": "human-1", "type": "human", "label": "Alice" }
+                    }
+                ]
+            }]
+        });
+
+        let errors = validate_tiptap_json(&json);
+        assert!(
+            errors.is_empty(),
+            "mention nodes should be valid inline content: {:?}",
+            errors
+        );
     }
 }

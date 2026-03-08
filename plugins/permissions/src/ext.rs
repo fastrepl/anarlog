@@ -19,7 +19,6 @@ macro_rules! check {
     }};
 }
 
-
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Permission {
@@ -117,7 +116,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
-                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                .arg(
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+                )
                 .spawn()?
                 .wait()?;
         }
@@ -129,7 +130,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
-                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                .arg(
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+                )
                 .spawn()?
                 .wait()?;
         }
@@ -139,10 +142,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_calendar(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!(
-            "calendar",
-            unsafe { EKEventStore::authorizationStatusForEntityType(EKEntityType::Event) }
-        );
+        return check!("calendar", unsafe {
+            EKEventStore::authorizationStatusForEntityType(EKEntityType::Event)
+        });
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -152,10 +154,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_contacts(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!(
-            "contacts",
-            unsafe { CNContactStore::authorizationStatusForEntityType(CNEntityType::Contacts) }
-        );
+        return check!("contacts", unsafe {
+            CNContactStore::authorizationStatusForEntityType(CNEntityType::Contacts)
+        });
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -202,7 +203,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_accessibility(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!("accessibility", macos_accessibility_client::accessibility::application_is_trusted());
+        return check!(
+            "accessibility",
+            macos_accessibility_client::accessibility::application_is_trusted()
+        );
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -379,4 +383,3 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> PermissionsPluginExt<R> for T {
         }
     }
 }
-

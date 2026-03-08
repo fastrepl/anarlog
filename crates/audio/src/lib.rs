@@ -1,6 +1,8 @@
+mod async_ring;
 mod errors;
 mod mic;
 mod norm;
+mod rt_ring;
 mod speaker;
 
 pub use errors::*;
@@ -83,7 +85,10 @@ impl AudioInput {
         {
             let host = cpal::default_host();
             let device = host.default_input_device().unwrap();
-            device.name().unwrap_or("Unknown Microphone".to_string())
+            device
+                .description()
+                .map(|d| d.name().to_string())
+                .unwrap_or("Unknown Microphone".to_string())
         }
     }
 
@@ -105,7 +110,7 @@ impl AudioInput {
 
         devices
             .into_iter()
-            .filter_map(|d| d.name().ok())
+            .filter_map(|d| d.description().map(|desc| desc.name().to_string()).ok())
             .filter(|d| d != "hypr-audio-tap")
             .collect()
     }

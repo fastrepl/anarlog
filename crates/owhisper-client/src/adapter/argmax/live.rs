@@ -35,7 +35,7 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
     }
 
     fn build_auth_header(&self, api_key: Option<&str>) -> Option<(&'static str, String)> {
-        api_key.map(|key| ("Authorization", format!("Token {}", key)))
+        api_key.and_then(|k| crate::providers::Provider::Deepgram.build_auth_header(k))
     }
 
     fn keep_alive_message(&self) -> Option<Message> {
@@ -60,8 +60,8 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
             Err(_) => {
                 if let Ok(error) = serde_json::from_str::<ArgmaxError>(raw) {
                     tracing::error!(
-                        error_type = %error.error_type,
-                        error_message = %error.message,
+                        error.type = %error.error_type,
+                        error.message = %error.message,
                         "argmax_error"
                     );
                     vec![StreamResponse::ErrorResponse {
@@ -70,7 +70,7 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
                         provider: "argmax".to_string(),
                     }]
                 } else {
-                    tracing::warn!(raw = raw, "argmax_unknown_message");
+                    tracing::warn!(hyprnote.payload.raw = raw, "argmax_unknown_message");
                     vec![]
                 }
             }
@@ -105,7 +105,7 @@ mod tests {
                     name: "english",
                     model: None,
                     languages: &[ISO639::En],
-                    contains: &["language=en"],
+                    contains: &["language=en", "detect_language=false"],
                     not_contains: &["language=multi", "languages="],
                 },
                 UrlTestCase {
@@ -113,7 +113,7 @@ mod tests {
                     model: None,
                     languages: &[],
                     contains: &["language=en"],
-                    not_contains: &[],
+                    not_contains: &["detect_language=false"],
                 },
             ],
         );
@@ -128,7 +128,7 @@ mod tests {
                 name: "multi_lang_picks_first",
                 model: None,
                 languages: &[ISO639::De, ISO639::Fr],
-                contains: &["language=de"],
+                contains: &["language=de", "detect_language=false"],
                 not_contains: &["language=multi", "language=fr"],
             }],
         );
@@ -143,7 +143,7 @@ mod tests {
                 name: "parakeet_v2_always_english",
                 model: Some("parakeet-v2-something"),
                 languages: &[ISO639::De],
-                contains: &["language=en"],
+                contains: &["language=en", "detect_language=false"],
                 not_contains: &["language=de"],
             }],
         );
@@ -159,21 +159,21 @@ mod tests {
                     name: "parakeet_v3_supported_language",
                     model: Some("parakeet-v3-something"),
                     languages: &[ISO639::De],
-                    contains: &["language=de"],
+                    contains: &["language=de", "detect_language=false"],
                     not_contains: &[],
                 },
                 UrlTestCase {
                     name: "parakeet_v3_unsupported_fallback",
                     model: Some("parakeet-v3-something"),
                     languages: &[ISO639::Ko],
-                    contains: &["language=en"],
+                    contains: &["language=en", "detect_language=false"],
                     not_contains: &["language=ko"],
                 },
                 UrlTestCase {
                     name: "parakeet_v3_multi_lang_picks_first_supported",
                     model: Some("parakeet-v3-something"),
                     languages: &[ISO639::Ko, ISO639::Fr],
-                    contains: &["language=fr"],
+                    contains: &["language=fr", "detect_language=false"],
                     not_contains: &[],
                 },
             ],

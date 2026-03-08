@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 const repoRoot = join(__dirname, "../../..");
 const outputPath = join(__dirname, "../content/docs/developers/10.agents.mdx");
 
-const GITHUB_REPO = "fastrepl/hyprnote";
+const GITHUB_REPO = "fastrepl/char";
 const GITHUB_BASE_URL = `https://github.com/${GITHUB_REPO}/blob/main`;
 
 const SKIP_DIRS = new Set(["node_modules", "target", "dist"]);

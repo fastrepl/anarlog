@@ -17,17 +17,17 @@ export function VideoThumbnail({
   return (
     <div
       className={cn([
-        "relative w-full h-full overflow-hidden group cursor-pointer",
+        "group relative h-full w-full cursor-pointer overflow-hidden",
         className,
       ])}
       onClick={onPlay}
     >
       <MuxPlayer
         playbackId={playbackId}
-        poster="/api/images/hyprnote/poster-image.png"
+        poster="https://image.mux.com/bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ/thumbnail.png?width=1152&height=648&time=58.6"
         muted
         playsInline
-        className="w-full h-full object-cover pointer-events-none aspect-video"
+        className="pointer-events-none aspect-video h-full w-full object-cover"
         style={
           {
             "--controls": "none",
@@ -35,7 +35,7 @@ export function VideoThumbnail({
         }
       />
 
-      <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-all duration-200 group-hover:bg-black/30">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -44,8 +44,8 @@ export function VideoThumbnail({
           className={cn([
             "size-16 rounded-full bg-white/90 backdrop-blur-xs",
             "flex items-center justify-center",
-            "hover:bg-white hover:scale-110 transition-all duration-200",
-            "shadow-xl cursor-pointer",
+            "transition-all duration-200 hover:scale-110 hover:bg-white",
+            "cursor-pointer shadow-xl",
           ])}
           aria-label="Play video"
         >

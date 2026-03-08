@@ -1,80 +1,301 @@
 ---
 title: "AI Models & Data Privacy"
 section: "FAQ"
-description: "Information about the AI models used in Hyprnote and how your data is handled."
+description: "Exactly how Char handles your data: what stays local, what gets sent externally, and to whom."
 ---
 
-## What AI models does Hyprnote use?
+This page documents every way Char stores and processes your data. Nothing is hidden. Where possible, we include code snippets from the actual codebase so you can verify each claim yourself.
 
-Hyprnote uses two types of AI models: speech-to-text (STT) models for transcription and large language models (LLMs) for generating summaries and notes.
+## How data is stored
 
-### Speech-to-Text Models
+All core data is stored locally on your device as plain Markdown and JSON files — not in a database. This is a deliberate choice. Files are portable, inspectable, and yours. You can open them in any text editor, back them up however you want, or drop them into an existing vault alongside tools like Obsidian. There is no proprietary format or opaque data layer between you and your data. For more on why we believe in this approach, see [The Filesystem Is the Cortex](/blog/filesystem-is-coretex).
 
-Hyprnote supports multiple cloud-based STT providers for transcription. See the cloud providers section below for details.
+Nothing leaves your machine unless you explicitly enable a cloud feature.
 
-### Large Language Models
+### Directory layout
 
-Hyprnote offers multiple options for AI features like summaries and note generation:
+Char uses two base directories. See [Data](/docs/guides/data) for the full directory layout.
 
-**Pro Curated Models** - Subscribe to Pro for access to curated cloud AI models that work out of the box with no configuration required.
+**Global base** (shared across stable and nightly builds):
+- `models/stt/` — downloaded speech-to-text model files (Whisper GGUF, Argmax tarballs)
+- `store.json` — app state (onboarding status, pinned tabs, recently opened sessions, dismissed toasts, analytics preference, auth tokens)
+- `hyprnote.json` — vault configuration (custom vault path if set)
+- `search/` — Tantivy full-text search index
 
-**BYOK (Bring Your Own Key)** - Enter your own API key for OpenAI, Anthropic, Google, or Mistral if you want to use a specific provider.
+On macOS, this is typically `~/Library/Application Support/hyprnote/`. On Linux, `~/.local/share/hyprnote/`.
 
-**Local Models** - Run models locally using [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com) for maximum privacy.
+The `store.json` keys are defined by this enum — nothing else is persisted through the Tauri store:
 
-**Recommended local models:**
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src-tauri/src/store.rs#L4-L11" />
 
-**Gemma** - Google's open-source language model family, available in various sizes. Great balance of quality and performance.
+**Vault base** (customizable, defaults to the global base):
+- `sessions/` — one subdirectory per session containing recorded audio, transcripts, notes, and attachments
+- `humans/` — contact and participant data
+- `organizations/` — organization data
+- `chats/` — chat conversation data
+- `prompts/` — custom prompt templates
+- `settings.json` — your app settings
 
-**Qwen** - Alibaba's open-source language model with strong multilingual capabilities.
+**Application logs** are stored in the system app log directory as rotating files (`app.log`, `app.log.1`, etc.).
 
-See our [Local LLM Setup guide](/docs/faq/local-llm-setup) for instructions on configuring LM Studio or Ollama with Hyprnote.
+### Session files
 
-## Does my audio data leave my device?
+Each session gets its own subdirectory. Here is how Char loads session content from disk — this shows exactly what files exist per session:
 
-When using cloud-based transcription, your audio is sent to the selected STT provider for processing. See the cloud providers section below for details on each provider's data practices.
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/session_content.rs#L10-L110" />
 
-Your recordings are stored locally on your device. Transcripts and notes remain on your computer unless you explicitly choose to use cloud AI features.
+Transcript data uses this structure — word-level timestamps, speaker channels, and optional speaker hints:
 
-## What cloud transcription providers does Hyprnote support?
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/types.rs#L83-L119" />
 
-When cloud transcription is enabled, Hyprnote can use the following providers:
+### Audio recording
 
-**Deepgram** - Real-time speech recognition with support for 30+ languages. [Privacy Policy](https://deepgram.com/privacy)
+When you start a recording session, Char spawns three actors in parallel:
 
-**AssemblyAI** - Speech-to-text with speaker diarization. [Privacy Policy](https://www.assemblyai.com/legal/privacy-policy)
+1. **SourceActor** — captures audio from your microphone and system speaker
+2. **RecorderActor** — writes audio samples to local WAV files
+3. **ListenerActor** — streams audio to your configured STT provider (cloud or local)
 
-**Soniox** - High-accuracy transcription with support for 70+ languages. [Privacy Policy](https://soniox.com/privacy)
+Here is the session supervisor that orchestrates these actors:
 
-**Fireworks AI** - Fast inference for Whisper models. [Privacy Policy](https://fireworks.ai/privacy-policy)
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/session/supervisor.rs#L56-L106" />
 
-**Gladia** - Real-time transcription service. [Privacy Policy](https://www.gladia.io/privacy-policy)
+Audio is written to WAV files on your local disk. Here is the recorder handling incoming audio samples:
 
-**OpenAI** - Whisper API for transcription. [Privacy Policy](https://openai.com/policies/privacy-policy)
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/recorder/mod.rs#L130-L168" />
 
-## How is my data handled by cloud providers?
+Audio files are stored at `{vault}/sessions/{session_id}/audio.wav` — they never leave your device unless you explicitly use cloud transcription.
 
-When using cloud transcription, your audio is sent to the selected provider for processing. Each provider has different data retention and privacy policies:
+### Encryption
 
-Most providers process audio in real-time and do not retain your data after transcription is complete. However, we recommend reviewing each provider's privacy policy for specific details about data handling, retention periods, and security measures.
+Char stores data as plain Markdown and JSON files on disk — formats you can read, move, and version-control yourself. Char does not currently add its own encryption layer. Your data is protected by your operating system's file permissions and any full-disk encryption you have enabled (such as FileVault on macOS or LUKS on Linux).
 
-Hyprnote Pro users who use cloud transcription through our proxy benefit from our agreements with these providers, which include data processing terms designed to protect your privacy.
+We are actively investigating end-to-end encryption (E2EE) to add an additional layer of protection. This would encrypt your data at rest so that only you can decrypt it, independent of OS-level encryption. We do not have a timeline yet, but it is a priority for us.
 
-## Can I use Hyprnote completely offline?
+### Cloud sync (optional)
 
-Hyprnote can record audio offline, but transcription and AI features require an internet connection when using cloud providers. If you run a local LLM server (via LM Studio or Ollama), you can generate summaries offline after transcription is complete.
+Char supports optional cloud database sync.
 
-## Does Hyprnote train AI models on my data?
+**When enabled:** Your session data can be synced to a remote database. This is only active if you explicitly configure a cloud database connection.
 
-No. Hyprnote does not use your recordings, transcripts, or notes to train AI models. When using cloud providers, your data is processed according to their respective privacy policies, but Hyprnote itself does not collect or use your data for training purposes.
+**When not configured:** All data stays in local Markdown and JSON files on disk.
 
-## How do I ensure maximum privacy?
+## How data is processed
 
-For maximum privacy:
+The following sections document every case where Char sends data to an external server. If a feature is not listed here, it does not send data externally.
 
-1. Use a local LLM server (LM Studio or Ollama) for AI features instead of cloud providers
-2. Keep your recordings stored locally on your device
-3. Review the privacy policies of your chosen STT provider
-4. Review your settings in Settings > Intelligence
+### Speech-to-text
 
-When using local LLM servers, your notes and summaries are generated on your device without being sent to external servers.
+Char supports both local and cloud transcription.
+
+**Local models** run entirely on your device — your audio never leaves your machine:
+- Cactus models (Whisper Small/Medium in INT4/INT8 quantizations, with Apple NPU variants) — see [Local Models](/docs/developers/local-models#cactus-engine-beta)
+- Argmax models (ParakeetV2, ParakeetV3, WhisperLargeV3) — downloaded as tarballs
+
+For local model details and download instructions, see [Local Models](/docs/developers/local-models).
+
+**Cloud models** send your audio to the selected provider for processing. Here is how the listener actor connects to your configured STT provider:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/listener/adapters.rs#L22-L102" />
+
+The `ListenerArgs` passed to the STT adapter contain the following — this is all the data sent to the provider along with your audio stream:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/session/supervisor.rs#L122-L134" />
+
+**What is sent:**
+- Your recorded audio (streamed in real-time or sent as a file for batch transcription)
+- Configured language preferences and keywords
+- The model name and API key for your provider
+
+**Where it goes depends on your setup:**
+
+- **Pro curated models:** Audio is proxied through `pro.hyprnote.com` (our server) and forwarded to a curated STT provider. The proxy does not store your audio.
+- **BYOK (Bring Your Own Key):** Audio is sent directly from your device to the provider you selected.
+
+**Supported cloud STT providers:**
+
+| Provider | Privacy Policy |
+|----------|---------------|
+| Deepgram | [Privacy Policy](https://deepgram.com/privacy) |
+| AssemblyAI | [Privacy Policy](https://www.assemblyai.com/legal/privacy-policy) |
+| Soniox | [Privacy Policy](https://soniox.com/privacy) |
+| Gladia | [Privacy Policy](https://www.gladia.io/privacy-policy) |
+| OpenAI | [Privacy Policy](https://openai.com/policies/privacy-policy) |
+| ElevenLabs | [Privacy Policy](https://elevenlabs.io/privacy-policy) |
+| DashScope | [Privacy Policy](https://www.alibabacloud.com/help/en/legal/latest/Chinese-mainland-chinese-version-Chinese-mainland-chinese-version) |
+| Mistral | [Privacy Policy](https://mistral.ai/terms/#privacy-policy) |
+| Fireworks AI | [Privacy Policy](https://fireworks.ai/privacy-policy) |
+
+### Large language models
+
+Char uses LLMs for summaries, enhanced notes, and chat. You can use cloud providers, bring your own key, or run models locally.
+
+**Pro Curated Models** — Subscribe to Pro for curated cloud AI models that work out of the box.
+
+**BYOK (Bring Your Own Key)** — Enter your own API key for OpenAI, Anthropic, Google, or Mistral.
+
+**Local Models** — Run models locally using [LM Studio](https://lmstudio.ai) or [Ollama](https://ollama.com). See [Local LLM Setup](/docs/faq/local-llm-setup). Recommended: **Gemma** (Google) and **Qwen** (Alibaba).
+
+When using cloud-based AI features, your session content is sent to the selected LLM provider. **When using local LLMs, everything stays on your device.**
+
+Here is how the language model client is created — each provider connects directly to its own API:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/ai/hooks/useLLMConnection.ts#L230-L310" />
+
+When auto-enhance runs after a session ends, the enhanced result is stored locally:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/store/tinybase/persister/session/save/note.ts#L39-L69" />
+
+An analytics event is also fired when auto-enhance runs — it includes only the provider and model name, not the content:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/services/enhancer/index.ts#L191-L197" />
+
+**What is sent:**
+- Transcript text, raw notes, and prompt templates
+- The content you are asking the AI to process
+
+**Where it goes depends on your setup:**
+
+- **Pro curated models:** Requests are proxied through `pro.hyprnote.com` and forwarded to a curated LLM provider via [OpenRouter](https://openrouter.ai). Nothing is stored by our proxy. We have [Zero Data Retention (ZDR)](https://openrouter.ai/docs/guides/features/zdr) enabled on our OpenRouter account, so all requests are routed exclusively to endpoints where the provider does not store your data.
+- **BYOK providers:** Requests are sent directly to the provider you selected (OpenAI, Anthropic, Google, or Mistral).
+- **Local LLMs:** Everything stays on your device. See [Local LLM Setup](/docs/faq/local-llm-setup).
+
+### MCP tools (Pro only)
+
+Pro users have access to MCP tools for web search and URL reading during AI-assisted note generation.
+
+**What is sent:**
+- Search queries (for web search)
+- URLs (for content extraction)
+
+**Where it goes:**
+- Proxied through `pro.hyprnote.com`
+- [Exa](https://exa.ai) — web search
+- [Jina AI](https://jina.ai) — URL content reading
+
+### Analytics (opt-out available)
+
+Char collects anonymous usage analytics by default to help improve the product. **You can disable this entirely in Settings.**
+
+Here is the opt-out check — when disabled, the function returns immediately without sending anything:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/analytics/src/ext.rs#L10-L28" />
+
+**What is attached to every analytics event** — this is the complete enrichment logic:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/analytics/src/ext.rs#L45-L76" />
+
+**What is sent:**
+- Event names (e.g. "session_started", "transcription_completed")
+- App version, build identifier, git hash, bundle ID
+- A device fingerprint (a hashed machine identifier via `hypr_host::fingerprint()`, not your name, email, or IP)
+- When signed in: your user ID and email (for account-linked analytics)
+
+**Where it goes:**
+- [PostHog](https://posthog.com) — product analytics. [Privacy Policy](https://posthog.com/privacy)
+- [Outlit](https://outlit.dev) — product analytics
+
+The analytics client sends events to both services:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/analytics/src/lib.rs#L48-L69" />
+
+**How to disable:** Go to Settings and turn off analytics. When disabled, no analytics events are sent — the `is_disabled()` check short-circuits the entire flow.
+
+### Error reporting (Sentry)
+
+Char uses Sentry for crash reporting and error tracking in release builds. Here is the complete initialization:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src-tauri/src/lib.rs#L26-L55" />
+
+**What is sent:**
+- Error messages, stack traces, and crash dumps
+- A device fingerprint (hashed machine ID via `hypr_host::fingerprint()`) — no name, email, or IP
+- App version and platform information (`hyprnote-desktop@{version}`)
+- The tag `service: "hyprnote-desktop"`
+- `auto_session_tracking` is explicitly set to `false`
+
+**Where it goes:**
+- [Sentry](https://sentry.io) — error monitoring. [Privacy Policy](https://sentry.io/privacy/)
+
+### Network connectivity check
+
+Char periodically checks if your device is online. Here is the complete implementation:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/network/src/actor.rs#L7-L9" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/network/src/actor.rs#L83-L95" />
+
+**What happens:**
+- A HEAD request to `https://www.google.com/generate_204` every 2 seconds
+- No user data, cookies, or identifiers are included — it is a bare HEAD request
+- The response is only used to determine if the device is online (boolean)
+
+### Model downloads
+
+When you download a local STT model, Char fetches the model file from a hosting server.
+
+These are the supported local models:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/local-stt/src/model.rs#L4-L15" />
+
+**What happens:**
+- Standard HTTP download requests to S3 (Whisper models) or Argmax hosting servers
+- No user data is sent
+- Downloaded models are verified with checksums before use
+
+### App updates
+
+Char checks for updates automatically in release builds and downloads them in the background when one is available.
+
+**What is sent:**
+- Your current app version and platform
+
+**Where it goes:**
+- [CrabNebula](https://crabnebula.dev) — release hosting and update distribution
+
+**How often:**
+- An update check runs roughly every 30 minutes while the app is open
+- If an update is found, the app downloads it and installs it on the next restart
+
+### Authentication (when signed in)
+
+When you sign in for Pro or cloud features, Char authenticates via Supabase.
+
+**What is stored locally:**
+- Auth session tokens in the local Tauri store (`store.json`)
+- Account info: user ID, email, full name, avatar URL
+
+**What is sent:**
+- Authentication requests to Supabase during sign-in
+- Auth tokens to `pro.hyprnote.com` when using Pro features
+
+## Summary
+
+**Char does not:**
+- Train AI models on your data
+- Sell your data to third parties
+- Collect your audio, transcripts, or notes for any purpose other than the features you explicitly use
+- Send your meeting content in analytics — analytics only includes event names and app metadata
+- Lock your data in a proprietary database — everything is plain Markdown and JSON files you can open, move, and use with other tools
+
+**To keep meeting content fully local:** Use a local STT model for transcription and a local LLM (LM Studio or Ollama) for AI features. Your audio, transcripts, notes, and prompts stay on your device. Background network traffic can still come from the connectivity check, update checks/downloads, analytics if enabled, and crash reporting in release builds.
+
+**To maximize privacy:**
+1. Use a local STT model for transcription — see [Local Models](/docs/developers/local-models)
+2. Use a local LLM (LM Studio or Ollama) for AI features — see [Local LLM Setup](/docs/faq/local-llm-setup)
+3. Disable analytics in Settings
+4. Do not sign in or enable any cloud features
+5. Enable full-disk encryption on your OS (FileVault, LUKS, BitLocker)
+
+## Open source
+
+Char is open source. You can verify everything documented here by reading the code:
+
+- [Desktop app (Tauri backend)](https://github.com/fastrepl/char/tree/main/apps/desktop/src-tauri)
+- [Pro cloud server](https://github.com/fastrepl/char/tree/main/apps/pro)
+- [Analytics plugin](https://github.com/fastrepl/char/tree/main/plugins/analytics)
+- [Analytics crate](https://github.com/fastrepl/char/tree/main/crates/analytics)
+- [Listener plugin](https://github.com/fastrepl/char/tree/main/plugins/listener)
+- [Local STT plugin](https://github.com/fastrepl/char/tree/main/plugins/local-stt)
+- [Database plugin](https://github.com/fastrepl/char/tree/main/plugins/db2)
+- [Network plugin](https://github.com/fastrepl/char/tree/main/plugins/network)

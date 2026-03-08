@@ -1,0 +1,25 @@
+---
+date: "2026-02-18"
+---
+
+## Transcription
+
+- Fix bugs where meta-models (e.g. `cloud`) were incorrectly validated against a specific provider — provider routing is now resolved server-side based on language support
+- Improved language-aware provider selection: the best STT backend (Deepgram vs. Soniox) is now chosen automatically per language
+
+## AI
+
+- AI model selectors now filter out deprecated models (GPT-3.5, Claude 2, etc.), date-snapshot versions, and non-chat models (codex, moderation, realtime)
+- Local provider connection status (Ollama, LM Studio) is now shown with visual indicators — model selection is disabled when the provider is not running
+
+## Calendar
+
+- Improve participant email resolution for Apple Calendar events with a better fallback chain (email → contact → URL → name)
+
+## Other fixes and improvements
+
+- Fix `Cmd+Q` quit behavior — now triggers on keydown instead of keyup for more predictable behavior
+- Status banner position adjusts dynamically based on timeline visibility
+- Profile avatars now use [Facehash](https://github.com/flutterando/facehash)-generated faces
+- Fix hover jump on interactive buttons caused by gradient backgrounds
+- Remove contacts permission request from onboarding

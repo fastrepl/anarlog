@@ -6,6 +6,7 @@
 @import "tailwindcss";
 
 @source "../../node_modules/streamdown/dist/index.js";
+@source "../../../../packages/transcript/src";
 
 @theme {
   --font-serif: Lora, Georgia, serif;
@@ -13,7 +14,33 @@
 
   --animate-shimmer: shimmer 2s infinite;
   --animate-reveal-left: reveal-left 0.5s ease-out forwards;
+  --animate-kbd-press: kbd-press 0.4s ease-out forwards;
 
+  --animate-wiggle: wiggle 1s ease-in-out infinite;
+
+  @keyframes wiggle {
+    0%, 100% {
+      transform: rotate(0deg);
+    }
+    15% {
+      transform: rotate(14deg);
+    }
+    30% {
+      transform: rotate(-8deg);
+    }
+    40% {
+      transform: rotate(7deg);
+    }
+    50% {
+      transform: rotate(-4deg);
+    }
+    60% {
+      transform: rotate(2deg);
+    }
+    70%, 100% {
+      transform: rotate(0deg);
+    }
+  }
   @keyframes shimmer {
     0% {
       transform: translateX(-100%);
@@ -28,6 +55,22 @@
     }
     100% {
       clip-path: inset(0 0 0 0);
+    }
+  }
+  @keyframes kbd-press {
+    0% {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+    50% {
+      transform: translateY(2px);
+      box-shadow: none;
+    }
+    100% {
+      transform: translateY(0);
+      box-shadow:
+        0 1px 0 0 rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
     }
   }
 }
@@ -176,15 +219,13 @@
   }
 }
 
-/* Search result highlighting styles */
+/* Search result highlighting styles — matches transcript's bg-yellow-200/50 and bg-yellow-500 */
 .search-result {
-  background-color: #ffeb3b;
+  background-color: rgb(254 240 138 / 0.5);
   border-radius: 2px;
-  padding: 1px 0;
 }
 
 .search-result-current {
-  background-color: #31e054 !important;
+  background-color: rgb(234 179 8) !important;
   border-radius: 2px;
-  padding: 1px 0;
 }

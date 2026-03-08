@@ -1,19 +1,212 @@
 ---
 title: "Data"
 section: "Guides"
-description: "How Hyprnote stores and manages your data."
+description: "How Char stores and manages your data using the filesystem as its primary data layer."
 ---
 
-## Base
+Char has no database. Every piece of data — sessions, transcripts, notes, contacts, settings — lives as plain files on your filesystem. Markdown files with YAML frontmatter for human-readable content, JSON files for structured data. This is a deliberate architectural choice: the filesystem _is_ the data layer.
 
-There is two type of base directories. `global` and `vault`.
+This means you can browse your data in Finder, back it up with any tool, sync it with git, or open your notes in Obsidian. Nothing is locked inside a proprietary format or opaque database.
+
+## How it works
+
+The architecture has three layers:
+
+1. **TinyBase** — an in-memory reactive store that the UI reads from and writes to
+2. **Persisters** — custom bridges that sync TinyBase tables to and from the filesystem
+3. **fs-sync plugin** — a Rust layer (via Tauri) that handles the actual file I/O
+
+When you edit a note in the UI, the change flows: UI → TinyBase store → Persister → fs-sync → disk. When a file changes on disk (e.g. you edited it externally), the flow reverses: disk → file watcher → Persister → TinyBase → UI.
+
+## Base directories
+
+There are two types of base directories: `global` and `vault`.
 
 ### Global
 
-- Shared between `stable` and `nightly` builds. (`staging` and `dev` builds use different folders).
-- `models/`, `store.json`, `hyprnote.json` are stored here.
+- Shared between `stable` and `nightly` builds (`staging` and `dev` builds use different folders).
+- On macOS: `~/Library/Application Support/hyprnote/`
+- On Linux: `~/.local/share/hyprnote/`
+
+Contents:
+- `models/stt/` — downloaded speech-to-text model files
+- `store.json` — app state (onboarding status, pinned tabs, recently opened sessions, dismissed toasts, analytics preference, auth tokens)
+- `hyprnote.json` — vault configuration (custom vault path if set)
+- `search/` — full-text search index (Tantivy)
 
 ### Vault
 
-- Customizable, defaults to be the same as `global` base, for backward compatibility.
-- Contents like `sessions/`, `humans/`, `organizations/`, `chats/`, `prompts/`, and configs like `settings.json` are stored here.
+- Customizable, defaults to be the same as `global` base for backward compatibility.
+- You can change the vault location in Settings > General.
+
+Contents:
+- `sessions/` — one subdirectory per session, each containing:
+  - `_meta.json` — session metadata (title, created date, participants)
+  - `_memo.md` — raw notes in Markdown with YAML frontmatter
+  - `transcript.json` — transcription data (words, timestamps, speakers)
+  - `*.md` — AI-generated enhanced notes (summaries, action items)
+  - `attachments/` — file attachments
+  - Audio `.wav` files — recorded audio
+- `humans/` — contact and participant data (Markdown with frontmatter)
+- `organizations/` — organization data (Markdown with frontmatter)
+- `chats/` — chat conversation data
+- `prompts/` — custom prompt templates
+- `settings.json` — app settings
+
+## File formats
+
+### Markdown with frontmatter
+
+Humans, organizations, and notes are stored as Markdown files with YAML frontmatter. For example, a contact file in `humans/` looks like:
+
+```markdown
+---
+user_id: "usr_abc123"
+name: "Alice Johnson"
+emails:
+  - alice@example.com
+org_id: "org_xyz"
+job_title: "Engineering Manager"
+linkedin_username: "alicejohnson"
+pinned: false
+---
+Personal notes about Alice go here.
+```
+
+The frontmatter holds structured fields; the body holds free-form Markdown content. This format is both machine-parseable and human-readable — you can open these files in any text editor or Markdown tool.
+
+Enhanced notes (AI-generated summaries, action items) follow the same pattern with their own frontmatter fields:
+
+```markdown
+---
+id: "note_def456"
+session_id: "sess_abc123"
+template_id: "tmpl_summary"
+position: 0
+title: "Summary"
+---
+## Key Points
+
+- Discussed Q1 roadmap priorities...
+```
+
+### JSON files
+
+Session metadata (`_meta.json`), transcripts (`transcript.json`), and settings (`settings.json`) use JSON. For example, a session's `_meta.json`:
+
+```json
+{
+  "id": "sess_abc123",
+  "user_id": "usr_abc123",
+  "created_at": "2025-12-15T10:30:00Z",
+  "title": "Q1 Planning",
+  "participants": [
+    {
+      "id": "part_1",
+      "user_id": "usr_abc123",
+      "session_id": "sess_abc123",
+      "human_id": "human_xyz",
+      "source": "calendar"
+    }
+  ],
+  "tags": ["planning", "quarterly"]
+}
+```
+
+Transcript files store word-level timestamps and speaker information:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/types.rs#L83-L119" />
+
+## Session directory structure
+
+Each session gets its own directory under `sessions/`, named by its UUID. Sessions can also be organized into user-created folders:
+
+```
+sessions/
+├── a1b2c3d4-.../ (session at root)
+│   ├── _meta.json
+│   ├── _memo.md
+│   ├── transcript.json
+│   ├── _summary.md
+│   ├── Action Items.md
+│   ├── attachments/
+│   │   └── screenshot.png
+│   └── recording.wav
+├── work/
+│   └── e5f6g7h8-.../ (session in "work" folder)
+│       ├── _meta.json
+│       └── ...
+└── personal/
+    └── projects/
+        └── i9j0k1l2-.../ (session in nested folder)
+            ├── _meta.json
+            └── ...
+```
+
+Here is how Char loads session content from disk — this shows exactly what files are read per session:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/session_content.rs#L10-L110" />
+
+## The persister layer
+
+Persisters are the bridges between TinyBase (the in-memory store) and the filesystem. There are three persister factories, each designed for a different data shape:
+
+### JSON file persister
+
+Used for data stored as a single JSON file (e.g. `settings.json`). Reads the file into a TinyBase table on load, writes the full table back on save. Supports both polling and filesystem notification-based change detection.
+
+### Markdown directory persister
+
+Used for entities stored as individual Markdown files in a directory (e.g. `humans/`, `organizations/`, `prompts/`). Each entity is one `.md` file. The frontmatter maps to TinyBase row fields; the body maps to a content field (like `memo`).
+
+### Multi-table directory persister
+
+Used for complex entities that span multiple TinyBase tables (e.g. sessions). A single session directory produces rows in the `sessions`, `transcripts`, `enhanced_notes`, `mapping_session_participant`, `tags`, and `mapping_tag_session` tables. This persister coordinates loading and saving across all these tables atomically.
+
+All three factories share a common `collector` layer that handles batching write operations, file-change listening, and orphan cleanup.
+
+## File watching
+
+Char watches the vault directory for external changes. When files are modified outside the app (e.g. you edit a Markdown file in another editor), the persister detects the change and reloads the affected data into TinyBase, which updates the UI reactively.
+
+The file watcher uses two strategies:
+- **Filesystem notifications** — instant detection via OS-level file events
+- **Polling** — periodic re-reads as a fallback (default: every 3 seconds for JSON files, 30 seconds for directory-based persisters)
+
+To avoid reacting to its own writes, the app marks paths it has just written and ignores notifications for those paths.
+
+## Orphan cleanup
+
+When data is deleted in the UI, the persister removes the corresponding files from disk. A safeguard prevents accidental mass deletion: if the number of items to keep drops below 50% of what's on disk (with a minimum threshold of 5 items), cleanup is skipped and a warning is logged. This protects against data loss from load failures being misinterpreted as deletions.
+
+## The fs-sync plugin
+
+The actual file I/O runs in Rust via the `fs-sync` Tauri plugin. It provides commands for:
+
+- **Batch JSON writes** — serialize and write multiple JSON files in parallel using rayon
+- **Batch document writes** — render Markdown with frontmatter and write multiple files in parallel
+- **Directory scanning** — recursively scan directories for files matching glob patterns, reading content in parallel
+- **Session discovery** — find session directories by ID, even when nested in user-created folders
+- **Folder management** — create, rename, move, and delete session folders
+- **Attachment handling** — save, list, and remove file attachments within session directories
+- **Orphan cleanup** — remove files and directories that no longer correspond to data in the store
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/fs-sync/src/lib.rs#L27-L56" />
+
+## App state
+
+The app state persisted in `store.json` is defined by this enum — nothing else is stored there:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src-tauri/src/store.rs#L4-L11" />
+
+### Logs
+
+Application logs are stored in the system app log directory as rotating files (`app.log`, `app.log.1`, etc.).
+
+For details on what data leaves your device, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).
+
+## Further reading
+
+- [The Filesystem Is the Cortex](/blog/filesystem-is-coretex) — our philosophy on why files matter
+- [Why Local-First?](/docs/about/why-local-first) — the case for local-first architecture
+- [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy) — what data leaves your device

@@ -2,22 +2,27 @@
   "scripts": {
     "fmt:check": "echo 'TODO'",
     "fmt": "dprint fmt",
-    "lint": "pnpm exec oxlint --type-aware || pnpm exec eslint"
+    "lint": "oxlint --type-aware || eslint",
+    "plugin:hello-world:install": "pnpm --dir examples/plugins/hello-world install:dev"
   },
   "devDependencies": {
-    "@dotenvx/dotenvx": "^1.51.4",
-    "@prettier/plugin-oxc": "^0.1.3",
-    "@tanstack/eslint-plugin-query": "^5.91.2",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@dotenvx/dotenvx": "^1.52.0",
+    "@infisical/cli": "^0.43.40",
+    "@tanstack/eslint-plugin-query": "^5.91.4",
+    "dprint": "^0.51.1",
     "eslint": "^9.39.2",
-    "oxfmt": "^0.18.0",
-    "oxlint": "^1.39.0",
-    "oxlint-tsgolint": "^0.11.1",
-    "prettier": "^3.8.0",
-    "turbo": "2.6.3",
-    "typescript-eslint": "^8.53.0"
+    "lint-staged": "^16.3.2",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
+    "oxlint-tsgolint": "^0.12.2",
+    "supabase": "^2.76.8",
+    "turbo": "2.8.3",
+    "typescript-eslint": "^8.55.0"
   },
-  "packageManager": "pnpm@10.28.2",
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,css,md}": "dprint fmt"
+  },
+  "packageManager": "pnpm@10.30.0",
   "engines": {
     "node": ">=22"
   }

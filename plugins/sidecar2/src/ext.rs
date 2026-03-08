@@ -16,7 +16,7 @@ impl<'a, R: tauri::Runtime, M: Manager<R>> Sidecar2<'a, R, M> {
 
         #[cfg(debug_assertions)]
         {
-            if let Some(binary_name) = name.strip_prefix("hyprnote-sidecar-") {
+            if let Some(binary_name) = name.strip_prefix("char-sidecar-") {
                 let (passthrough, binary) =
                     resolve_debug_paths(binary_name).ok_or(Error::BinaryNotFound)?;
                 return Ok(self

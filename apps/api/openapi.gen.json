@@ -1,291 +1,624 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Hyprnote API",
-    "description": "Development documentation",
+    "title": "Char AI API",
+    "description": "AI services API for speech-to-text transcription, LLM chat completions, and subscription management",
+    "license": {
+      "name": ""
+    },
     "version": "1.0.0"
   },
-  "tags": [
-    {
-      "name": "private"
-    },
-    {
-      "name": "public"
-    }
-  ],
-  "components": {
-    "securitySchemes": {
-      "Bearer": {
-        "type": "http",
-        "scheme": "bearer"
-      }
-    },
-    "schemas": {}
-  },
-  "servers": [
-    {
-      "url": "https://api.hyprnote.com",
-      "description": "Production server"
-    },
-    {
-      "url": "http://localhost:4000",
-      "description": "Local development server"
-    }
-  ],
   "paths": {
-    "/health": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["status"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        },
-        "operationId": "getHealth",
-        "tags": ["private-skip-openapi"],
-        "parameters": []
-      }
-    },
-    "/billing/start-trial": {
+    "/calendar/google/list-calendars": {
       "post": {
-        "responses": {
-          "200": {
-            "description": "result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "started": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["started"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          }
-        },
-        "operationId": "postBillingStart-trial",
-        "tags": ["private"],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "interval",
-            "schema": {
-              "default": "monthly",
-              "type": "string",
-              "enum": ["monthly", "yearly"]
-            },
-            "required": true
-          }
-        ]
-      }
-    },
-    "/chat/completions": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "-"
-          },
-          "401": {
-            "description": "-"
-          }
-        },
-        "operationId": "postChatCompletions",
-        "tags": ["private-skip-openapi"],
-        "parameters": [],
-        "security": [
-          {
-            "Bearer": []
-          }
+        "tags": [
+          "calendar"
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "model": {
-                    "type": "string"
-                  },
-                  "messages": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "role": {
-                          "type": "string",
-                          "enum": ["system", "user", "assistant"]
-                        },
-                        "content": {
-                          "type": "string"
-                        }
-                      },
-                      "required": ["role", "content"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "tools": {
-                    "type": "array",
-                    "items": {}
-                  },
-                  "tool_choice": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "enum": ["none", "auto", "required"]
-                      },
-                      {
-                        "type": "object",
-                        "properties": {
-                          "type": {
-                            "type": "string",
-                            "const": "function"
-                          },
-                          "function": {
-                            "type": "object",
-                            "properties": {
-                              "name": {
-                                "type": "string"
-                              }
-                            },
-                            "required": ["name"],
-                            "additionalProperties": false
-                          }
-                        },
-                        "required": ["type", "function"],
-                        "additionalProperties": false
-                      }
-                    ]
-                  },
-                  "stream": {
-                    "type": "boolean"
-                  },
-                  "temperature": {
-                    "type": "number"
-                  },
-                  "max_tokens": {
-                    "type": "number"
-                  }
-                },
-                "required": ["messages"],
-                "additionalProperties": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/file-transcription/start": {
-      "post": {
+        "operationId": "google_list_calendars",
         "responses": {
           "200": {
-            "description": "Pipeline started",
+            "description": "Google calendars fetched",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "pipelineId": {
-                      "type": "string"
-                    },
-                    "invocationId": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["pipelineId", "invocationId"],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/google.ListCalendarsResponse"
                 }
               }
             }
-          },
-          "400": {
-            "description": "Invalid fileId"
           },
           "401": {
             "description": "Unauthorized"
           },
           "500": {
-            "description": "Internal error"
+            "description": "Internal server error"
           }
         },
-        "operationId": "postFile-transcriptionStart",
-        "tags": ["private"],
-        "parameters": [],
         "security": [
           {
-            "Bearer": []
+            "bearer_auth": []
           }
+        ]
+      }
+    },
+    "/calendar/google/list-events": {
+      "post": {
+        "tags": [
+          "calendar"
         ],
+        "operationId": "google_list_events",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "fileId": {
-                    "type": "string"
-                  },
-                  "pipelineId": {
-                    "type": "string"
-                  }
-                },
-                "required": ["fileId"],
-                "additionalProperties": false
+                "$ref": "#/components/schemas/GoogleListEventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google events fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.ListEventsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/calendar/outlook/list-calendars": {
+      "post": {
+        "tags": [
+          "calendar"
+        ],
+        "operationId": "outlook_list_calendars",
+        "responses": {
+          "200": {
+            "description": "Outlook calendars fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/outlook.ListCalendarsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/calendar/outlook/list-events": {
+      "post": {
+        "tags": [
+          "calendar"
+        ],
+        "operationId": "outlook_list_events",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutlookListEventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Outlook events fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/outlook.ListEventsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/feedback/submit": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "operationId": "submit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Feedback submitted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
               }
             }
           }
         }
       }
     },
-    "/file-transcription/status/{pipelineId}": {
+    "/llm/chat/completions": {
+      "post": {
+        "tags": [
+          "llm"
+        ],
+        "operationId": "llm_chat_completions",
+        "parameters": [
+          {
+            "name": "x-char-task",
+            "in": "header",
+            "description": "Task type for model selection",
+            "required": false,
+            "schema": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/components/schemas/CharTask"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat completion response (streaming or non-streaming)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          },
+          "502": {
+            "description": "Upstream provider failed"
+          },
+          "504": {
+            "description": "Request timeout"
+          }
+        }
+      }
+    },
+    "/nango/connections": {
       "get": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "list_connections",
+        "responses": {
+          "200": {
+            "description": "List of active connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListConnectionsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "delete_connection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Connection disconnected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteConnectionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/session": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "create_session",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/nango/webhook": {
+      "post": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "nango_webhook",
+        "responses": {
+          "200": {
+            "description": "Webhook processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Invalid signature"
+          }
+        }
+      }
+    },
+    "/stt/listen": {
+      "get": {
+        "tags": [
+          "stt"
+        ],
+        "operationId": "stt_listen_stream",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "STT provider. Use 'hyprnote' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "description": "Model to use for transcription (provider-specific, e.g. 'nova-3')",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "description": "BCP-47 language hint (e.g. 'en', 'ko', 'ja'). Multiple values or comma-separated supported",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keywords",
+            "in": "query",
+            "description": "Keyword boosting. Comma-separated or repeated query params",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sample_rate",
+            "in": "query",
+            "description": "Audio sample rate in Hz (default: 16000)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "channels",
+            "in": "query",
+            "description": "Number of audio channels (default: 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "encoding",
+            "in": "query",
+            "description": "Audio encoding: linear16, flac, mulaw, opus, ogg-opus, etc.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "WebSocket upgrade. Server sends StreamResponse JSON messages."
+          },
+          "400": {
+            "description": "Bad request (invalid provider, missing params, etc.)"
+          },
+          "502": {
+            "description": "Upstream provider connection failed"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "stt"
+        ],
+        "operationId": "stt_listen_batch",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "STT provider. Use 'hyprnote' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "description": "Model to use for transcription (provider-specific, e.g. 'nova-3')",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "description": "BCP-47 language hint (e.g. 'en', 'ko', 'ja'). Multiple values or comma-separated supported",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "keywords",
+            "in": "query",
+            "description": "Keyword boosting. Comma-separated or repeated query params",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "callback",
+            "in": "query",
+            "description": "When set, enables async callback mode. Body should be JSON with a `url` field instead of raw audio",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Raw audio bytes (sync mode) or JSON `{ \"url\": \"<file_id>\" }` (callback mode)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListenCallbackRequest"
+              }
+            },
+            "application/octet-stream": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "binary",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result (sync) or ListenCallbackResponse (callback)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchListenSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (empty body, invalid provider, etc.)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "502": {
+            "description": "All upstream providers failed"
+          }
+        }
+      }
+    },
+    "/stt/status/{pipeline_id}": {
+      "get": {
+        "tags": [
+          "stt"
+        ],
+        "operationId": "stt_status",
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "description": "Pipeline ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Pipeline status",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "QUEUED",
-                        "TRANSCRIBING",
-                        "TRANSCRIBED",
-                        "LLM_RUNNING",
-                        "DONE",
-                        "ERROR"
-                      ]
-                    },
-                    "transcript": {
-                      "type": "string"
-                    },
-                    "llmResult": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["status"],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/SttStatusResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/subscription/can-start-trial": {
+      "get": {
+        "tags": [
+          "subscription"
+        ],
+        "operationId": "can_start_trial",
+        "responses": {
+          "200": {
+            "description": "Check successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanStartTrialResponse"
                 }
               }
             }
@@ -294,61 +627,29 @@
             "description": "Unauthorized"
           },
           "500": {
-            "description": "Internal error"
+            "description": "Internal server error"
           }
         },
-        "operationId": "getFile-transcriptionStatusByPipelineId",
-        "tags": ["private"],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "pipelineId",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
         "security": [
           {
-            "Bearer": []
+            "bearer_auth": []
           }
         ]
       }
     },
-    "/file-transcription/result/{pipelineId}": {
-      "get": {
+    "/subscription/delete-account": {
+      "delete": {
+        "tags": [
+          "subscription"
+        ],
+        "operationId": "delete_account",
         "responses": {
           "200": {
-            "description": "Pipeline result",
+            "description": "Account deleted successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "enum": [
-                        "QUEUED",
-                        "TRANSCRIBING",
-                        "TRANSCRIBED",
-                        "LLM_RUNNING",
-                        "DONE",
-                        "ERROR"
-                      ]
-                    },
-                    "transcript": {
-                      "type": "string"
-                    },
-                    "llmResult": {
-                      "type": "string"
-                    },
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": ["status"],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/DeleteAccountResponse"
                 }
               }
             }
@@ -357,239 +658,4241 @@
             "description": "Unauthorized"
           },
           "500": {
-            "description": "Internal error"
+            "description": "Internal server error"
           }
         },
-        "operationId": "getFile-transcriptionResultByPipelineId",
-        "tags": ["private"],
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/subscription/start-trial": {
+      "post": {
+        "tags": [
+          "subscription"
+        ],
+        "operationId": "start_trial",
         "parameters": [
           {
-            "in": "path",
-            "name": "pipelineId",
+            "name": "interval",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/Interval"
             },
-            "required": true
+            "example": "monthly"
           }
         ],
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
-      }
-    },
-    "/rpc/can-start-trial": {
-      "get": {
         "responses": {
           "200": {
-            "description": "result",
+            "description": "Trial started successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "canStartTrial": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["canStartTrial"],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/StartTrialResponse"
                 }
               }
             }
-          }
-        },
-        "operationId": "getRpcCan-start-trial",
-        "tags": ["private"],
-        "parameters": []
-      }
-    },
-    "/listen": {
-      "get": {
-        "responses": {
-          "101": {
-            "description": "-"
-          },
-          "400": {
-            "description": "-"
           },
           "401": {
-            "description": "-"
+            "description": "Unauthorized"
           },
-          "502": {
-            "description": "-"
-          },
-          "504": {
-            "description": "-"
+          "500": {
+            "description": "Internal server error"
           }
         },
-        "operationId": "getListen",
-        "tags": ["private-skip-openapi"],
-        "parameters": [],
         "security": [
           {
-            "Bearer": []
+            "bearer_auth": []
           }
         ]
       }
     },
-    "/transcribe": {
+    "/support/chatwoot/contact": {
       "post": {
+        "tags": [
+          "chatwoot"
+        ],
+        "operationId": "create_contact",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateContactRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "description": "result",
+            "description": "Contact created or found",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "metadata": {},
-                    "results": {
-                      "type": "object",
-                      "properties": {
-                        "channels": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "alternatives": {
-                                "type": "array",
-                                "items": {
-                                  "type": "object",
-                                  "properties": {
-                                    "transcript": {
-                                      "type": "string"
-                                    },
-                                    "confidence": {
-                                      "type": "number"
-                                    },
-                                    "words": {
-                                      "type": "array",
-                                      "items": {
-                                        "type": "object",
-                                        "properties": {
-                                          "word": {
-                                            "type": "string"
-                                          },
-                                          "start": {
-                                            "type": "number"
-                                          },
-                                          "end": {
-                                            "type": "number"
-                                          },
-                                          "confidence": {
-                                            "type": "number"
-                                          },
-                                          "speaker": {
-                                            "anyOf": [
-                                              {
-                                                "type": "number"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          },
-                                          "punctuated_word": {
-                                            "anyOf": [
-                                              {
-                                                "type": "string"
-                                              },
-                                              {
-                                                "type": "null"
-                                              }
-                                            ]
-                                          }
-                                        },
-                                        "required": ["word", "start", "end", "confidence"],
-                                        "additionalProperties": false
-                                      }
-                                    }
-                                  },
-                                  "required": ["transcript", "confidence", "words"],
-                                  "additionalProperties": false
-                                }
-                              }
-                            },
-                            "required": ["alternatives"],
-                            "additionalProperties": false
-                          }
-                        }
-                      },
-                      "required": ["channels"],
-                      "additionalProperties": false
-                    }
-                  },
-                  "required": ["metadata", "results"],
-                  "additionalProperties": false
+                  "$ref": "#/components/schemas/CreateContactResponse"
                 }
               }
             }
           },
-          "400": {
-            "description": "-"
-          },
-          "401": {
-            "description": "-"
-          },
           "500": {
-            "description": "-"
-          },
-          "502": {
-            "description": "-"
+            "description": "Chatwoot API error"
           }
-        },
-        "operationId": "postTranscribe",
-        "tags": ["private-skip-openapi"],
-        "parameters": [],
-        "security": [
-          {
-            "Bearer": []
-          }
-        ]
+        }
       }
     },
-    "/webhook/stripe": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  },
-                  "required": ["ok"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "-"
-          },
-          "500": {
-            "description": "-"
-          }
-        },
-        "operationId": "postWebhookStripe",
-        "tags": ["private-skip-openapi"],
+    "/support/chatwoot/conversations": {
+      "get": {
+        "tags": [
+          "chatwoot"
+        ],
+        "operationId": "list_conversations",
         "parameters": [
           {
-            "in": "header",
-            "name": "stripe-signature",
+            "name": "source_id",
+            "in": "query",
+            "description": "Contact source ID",
+            "required": true,
             "schema": {
               "type": "string"
-            },
-            "required": true
+            }
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "List of conversations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationSummary"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Chatwoot API error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chatwoot"
+        ],
+        "operationId": "create_conversation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateConversationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Conversation created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateConversationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Chatwoot API error"
+          }
+        }
+      }
+    },
+    "/support/chatwoot/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "chatwoot"
+        ],
+        "operationId": "get_messages",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "description": "Conversation ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "description": "Contact source ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of messages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageResponse"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Chatwoot API error"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "chatwoot"
+        ],
+        "operationId": "send_message",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "description": "Conversation ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Chatwoot API error"
+          }
+        }
       }
     }
-  }
+  },
+  "components": {
+    "schemas": {
+      "AccessRole": {
+        "type": "string",
+        "enum": [
+          "freeBusyReader",
+          "reader",
+          "writer",
+          "owner",
+          "unknown"
+        ]
+      },
+      "AttendeeResponseStatus": {
+        "type": "string",
+        "enum": [
+          "needsAction",
+          "declined",
+          "tentative",
+          "accepted",
+          "unknown"
+        ]
+      },
+      "AttendeeType": {
+        "type": "string",
+        "enum": [
+          "required",
+          "optional",
+          "resource",
+          "unknown"
+        ]
+      },
+      "AutoDeclineMode": {
+        "type": "string",
+        "enum": [
+          "declineNone",
+          "declineAllConflictingInvitations",
+          "declineOnlyNewConflictingInvitations",
+          "unknown"
+        ]
+      },
+      "BatchAlternatives": {
+        "type": "object",
+        "required": [
+          "transcript",
+          "confidence"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "transcript": {
+            "type": "string"
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchWord"
+            }
+          }
+        }
+      },
+      "BatchChannel": {
+        "type": "object",
+        "required": [
+          "alternatives"
+        ],
+        "properties": {
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchAlternatives"
+            }
+          }
+        }
+      },
+      "BatchListenSuccessResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "Sync"
+            ],
+            "properties": {
+              "Sync": {
+                "$ref": "#/components/schemas/BatchResponse"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Callback"
+            ],
+            "properties": {
+              "Callback": {
+                "$ref": "#/components/schemas/ListenCallbackResponse"
+              }
+            }
+          }
+        ]
+      },
+      "BatchResponse": {
+        "type": "object",
+        "required": [
+          "metadata",
+          "results"
+        ],
+        "properties": {
+          "metadata": {
+            "type": "object"
+          },
+          "results": {
+            "$ref": "#/components/schemas/BatchResults"
+          }
+        }
+      },
+      "BatchResults": {
+        "type": "object",
+        "required": [
+          "channels"
+        ],
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchChannel"
+            }
+          }
+        }
+      },
+      "BatchWord": {
+        "type": "object",
+        "required": [
+          "word",
+          "start",
+          "end",
+          "confidence"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "format": "double"
+          },
+          "punctuated_word": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "speaker": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "start": {
+            "type": "number",
+            "format": "double"
+          },
+          "word": {
+            "type": "string"
+          }
+        }
+      },
+      "BirthdayProperties": {
+        "type": "object",
+        "properties": {
+          "contact": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customTypeName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BirthdayPropertyType"
+              }
+            ]
+          }
+        }
+      },
+      "BirthdayPropertyType": {
+        "type": "string",
+        "enum": [
+          "birthday",
+          "anniversary",
+          "self",
+          "other",
+          "custom",
+          "unknown"
+        ]
+      },
+      "BodyType": {
+        "type": "string",
+        "enum": [
+          "text",
+          "html",
+          "unknown"
+        ]
+      },
+      "Calendar": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "allowedOnlineMeetingProviders": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/OnlineMeetingProviderType"
+            }
+          },
+          "canEdit": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "canShare": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "canViewPrivateItems": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "changeKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarColor"
+              }
+            ]
+          },
+          "defaultOnlineMeetingProvider": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OnlineMeetingProviderType"
+              }
+            ]
+          },
+          "hexColor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "isDefaultCalendar": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isRemovable": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isTallyingResponses": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmailAddress"
+              }
+            ]
+          }
+        }
+      },
+      "CalendarColor": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "lightBlue",
+          "lightGreen",
+          "lightOrange",
+          "lightGray",
+          "lightYellow",
+          "lightTeal",
+          "lightPink",
+          "lightBrown",
+          "lightRed",
+          "maxColor",
+          "unknown"
+        ]
+      },
+      "CalendarListEntry": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "accessRole": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessRole"
+              }
+            ]
+          },
+          "autoAcceptInvitations": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "backgroundColor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "colorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conferenceProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceProperties"
+              }
+            ]
+          },
+          "dataOwner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "defaultReminders": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            }
+          },
+          "deleted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "foregroundColor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "hidden": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notificationSettings": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/NotificationSettings"
+              }
+            ]
+          },
+          "primary": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "selected": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summaryOverride": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CalendarNotification": {
+        "type": "object",
+        "required": [
+          "method",
+          "type"
+        ],
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/NotificationMethod"
+          },
+          "type": {
+            "$ref": "#/components/schemas/NotificationType"
+          }
+        }
+      },
+      "CanStartTrialReason": {
+        "type": "string",
+        "enum": [
+          "eligible",
+          "not_eligible",
+          "error"
+        ]
+      },
+      "CanStartTrialResponse": {
+        "type": "object",
+        "required": [
+          "canStartTrial"
+        ],
+        "properties": {
+          "canStartTrial": {
+            "type": "boolean",
+            "example": true
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CanStartTrialReason"
+              }
+            ]
+          }
+        }
+      },
+      "CharTask": {
+        "type": "string",
+        "enum": [
+          "chat",
+          "enhance",
+          "title"
+        ]
+      },
+      "ChatStatus": {
+        "type": "string",
+        "enum": [
+          "available",
+          "doNotDisturb",
+          "unknown"
+        ]
+      },
+      "ConferenceCreateRequest": {
+        "type": "object",
+        "properties": {
+          "conferenceSolutionKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceSolutionKey"
+              }
+            ]
+          },
+          "requestId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceCreateRequestStatus"
+              }
+            ]
+          }
+        }
+      },
+      "ConferenceCreateRequestStatus": {
+        "type": "object",
+        "required": [
+          "statusCode"
+        ],
+        "properties": {
+          "statusCode": {
+            "$ref": "#/components/schemas/ConferenceCreateStatusCode"
+          }
+        }
+      },
+      "ConferenceCreateStatusCode": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "success",
+          "failure",
+          "unknown"
+        ]
+      },
+      "ConferenceData": {
+        "type": "object",
+        "properties": {
+          "conferenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conferenceSolution": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceSolution"
+              }
+            ]
+          },
+          "createRequest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceCreateRequest"
+              }
+            ]
+          },
+          "entryPoints": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/EntryPoint"
+            }
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConferenceProperties": {
+        "type": "object",
+        "properties": {
+          "allowedConferenceSolutionTypes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ConferenceSolutionType"
+            }
+          }
+        }
+      },
+      "ConferenceSolution": {
+        "type": "object",
+        "properties": {
+          "iconUri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceSolutionKey"
+              }
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConferenceSolutionKey": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/ConferenceSolutionType"
+          }
+        }
+      },
+      "ConferenceSolutionType": {
+        "type": "string",
+        "enum": [
+          "addOn",
+          "hangoutsMeet",
+          "eventNamedHangout",
+          "eventHangout",
+          "unknown"
+        ]
+      },
+      "ConnectionItem": {
+        "type": "object",
+        "required": [
+          "integration_id",
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "integration_id": {
+            "type": "string"
+          },
+          "last_error_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConversationSummary": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "inboxId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateContactRequest": {
+        "type": "object",
+        "required": [
+          "identifier"
+        ],
+        "properties": {
+          "customAttributes": {},
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateContactResponse": {
+        "type": "object",
+        "required": [
+          "sourceId",
+          "pubsubToken"
+        ],
+        "properties": {
+          "pubsubToken": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateConversationRequest": {
+        "type": "object",
+        "required": [
+          "sourceId"
+        ],
+        "properties": {
+          "customAttributes": {},
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateConversationResponse": {
+        "type": "object",
+        "required": [
+          "conversationId"
+        ],
+        "properties": {
+          "conversationId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CreateEventRequest": {
+        "type": "object",
+        "required": [
+          "calendar_id",
+          "event"
+        ],
+        "properties": {
+          "calendar_id": {
+            "type": "string"
+          },
+          "event": {
+            "$ref": "#/components/schemas/google.CreateEventBody"
+          }
+        }
+      },
+      "CreateSessionRequest": {
+        "type": "object",
+        "required": [
+          "integration_id"
+        ],
+        "properties": {
+          "integration_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomLocation": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DateTimeTimeZone": {
+        "type": "object",
+        "required": [
+          "dateTime"
+        ],
+        "properties": {
+          "dateTime": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DayOfWeek": {
+        "type": "string",
+        "enum": [
+          "sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+          "unknown"
+        ]
+      },
+      "DeleteAccountResponse": {
+        "type": "object",
+        "required": [
+          "deleted"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DeleteConnectionRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "integration_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "integration_id": {
+            "type": "string"
+          }
+        }
+      },
+      "DeleteConnectionResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "DeviceInfo": {
+        "type": "object",
+        "required": [
+          "platform",
+          "arch",
+          "osVersion",
+          "appVersion"
+        ],
+        "properties": {
+          "appVersion": {
+            "type": "string"
+          },
+          "arch": {
+            "type": "string"
+          },
+          "buildHash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locale": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "osVersion": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          }
+        }
+      },
+      "EmailAddress": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EntryPoint": {
+        "type": "object",
+        "required": [
+          "entryPointType",
+          "uri"
+        ],
+        "properties": {
+          "accessCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "entryPointType": {
+            "$ref": "#/components/schemas/EntryPointType"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meetingCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "passcode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uri": {
+            "type": "string"
+          }
+        }
+      },
+      "EntryPointType": {
+        "type": "string",
+        "enum": [
+          "video",
+          "phone",
+          "sip",
+          "more",
+          "unknown"
+        ]
+      },
+      "EventAttachment": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fileUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iconLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EventDateTime": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "dateTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EventOrderBy": {
+        "type": "string",
+        "enum": [
+          "startTime",
+          "updated"
+        ]
+      },
+      "EventPerson": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "self": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "EventShowAs": {
+        "type": "string",
+        "enum": [
+          "free",
+          "tentative",
+          "busy",
+          "oof",
+          "workingElsewhere",
+          "unknown",
+          "other"
+        ]
+      },
+      "EventSource": {
+        "type": "object",
+        "required": [
+          "url",
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "EventStatus": {
+        "type": "string",
+        "enum": [
+          "confirmed",
+          "tentative",
+          "cancelled",
+          "unknown"
+        ]
+      },
+      "ExtendedProperties": {
+        "type": "object",
+        "properties": {
+          "private": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "shared": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "FeedbackRequest": {
+        "type": "object",
+        "required": [
+          "description",
+          "deviceInfo"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "deviceInfo": {
+            "$ref": "#/components/schemas/DeviceInfo"
+          },
+          "logs": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          }
+        }
+      },
+      "FeedbackResponse": {
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issueUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "success": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FeedbackType": {
+        "type": "string",
+        "enum": [
+          "bug",
+          "feature"
+        ]
+      },
+      "FocusTimeProperties": {
+        "type": "object",
+        "properties": {
+          "autoDeclineMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoDeclineMode"
+              }
+            ]
+          },
+          "chatStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ChatStatus"
+              }
+            ]
+          },
+          "declineMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Gadget": {
+        "type": "object",
+        "properties": {
+          "display": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/GadgetDisplay"
+              }
+            ]
+          },
+          "height": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "iconLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "link": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "preferences": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "width": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "GadgetDisplay": {
+        "type": "string",
+        "enum": [
+          "chip",
+          "icon",
+          "unknown"
+        ]
+      },
+      "GoogleListEventsRequest": {
+        "type": "object",
+        "required": [
+          "calendar_id"
+        ],
+        "properties": {
+          "calendar_id": {
+            "type": "string"
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "order_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "single_events": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "time_max": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time_min": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Importance": {
+        "type": "string",
+        "enum": [
+          "low",
+          "normal",
+          "high",
+          "unknown"
+        ]
+      },
+      "Interval": {
+        "type": "string",
+        "enum": [
+          "monthly",
+          "yearly"
+        ]
+      },
+      "ItemBody": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contentType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BodyType"
+              }
+            ]
+          }
+        }
+      },
+      "ListConnectionsResponse": {
+        "type": "object",
+        "required": [
+          "connections"
+        ],
+        "properties": {
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionItem"
+            }
+          }
+        }
+      },
+      "ListConversationsQuery": {
+        "type": "object",
+        "required": [
+          "sourceId"
+        ],
+        "properties": {
+          "sourceId": {
+            "type": "string"
+          }
+        }
+      },
+      "ListEventsRequest": {
+        "type": "object",
+        "required": [
+          "calendar_id"
+        ],
+        "properties": {
+          "calendar_id": {
+            "type": "string"
+          },
+          "event_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/google.EventType"
+            }
+          },
+          "i_cal_uid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "order_by": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventOrderBy"
+              }
+            ]
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "show_deleted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "show_hidden_invitations": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "single_events": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "sync_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time_max": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "time_min": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "time_zone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated_min": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ListenCallbackRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "ListenCallbackResponse": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Location": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PhysicalAddress"
+              }
+            ]
+          },
+          "coordinates": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OutlookGeoCoordinates"
+              }
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locationType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LocationType"
+              }
+            ]
+          },
+          "uniqueId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uniqueIdType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "LocationType": {
+        "type": "string",
+        "enum": [
+          "default",
+          "conferenceRoom",
+          "homeAddress",
+          "businessAddress",
+          "geoCoordinates",
+          "streetAddress",
+          "hotel",
+          "restaurant",
+          "localBusiness",
+          "postalAddress",
+          "unknown"
+        ]
+      },
+      "MessageResponse": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NotificationMethod": {
+        "type": "string",
+        "enum": [
+          "email",
+          "unknown"
+        ]
+      },
+      "NotificationSettings": {
+        "type": "object",
+        "properties": {
+          "notifications": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CalendarNotification"
+            }
+          }
+        }
+      },
+      "NotificationType": {
+        "type": "string",
+        "enum": [
+          "eventCreation",
+          "eventChange",
+          "eventCancellation",
+          "eventResponse",
+          "agenda",
+          "unknown"
+        ]
+      },
+      "OfficeLocation": {
+        "type": "object",
+        "properties": {
+          "buildingId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deskId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "floorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "floorSectionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OnlineMeetingInfo": {
+        "type": "object",
+        "properties": {
+          "conferenceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "joinUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quickDial": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tollFreeNumbers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "tollNumber": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OnlineMeetingProviderType": {
+        "type": "string",
+        "enum": [
+          "teamsForBusiness",
+          "skypeForBusiness",
+          "skypeForConsumer",
+          "unknown",
+          "other"
+        ]
+      },
+      "OutOfOfficeProperties": {
+        "type": "object",
+        "properties": {
+          "autoDeclineMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AutoDeclineMode"
+              }
+            ]
+          },
+          "declineMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OutlookGeoCoordinates": {
+        "type": "object",
+        "properties": {
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "altitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "altitudeAccuracy": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "OutlookListEventsRequest": {
+        "type": "object",
+        "required": [
+          "calendar_id"
+        ],
+        "properties": {
+          "calendar_id": {
+            "type": "string"
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "order_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time_max": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "time_min": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PatternedRecurrence": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrencePattern"
+              }
+            ]
+          },
+          "range": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceRange"
+              }
+            ]
+          }
+        }
+      },
+      "PhysicalAddress": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "countryOrRegion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "street": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PipelineStatus": {
+        "type": "string",
+        "enum": [
+          "processing",
+          "done",
+          "error"
+        ]
+      },
+      "Recipient": {
+        "type": "object",
+        "properties": {
+          "emailAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmailAddress"
+              }
+            ]
+          }
+        }
+      },
+      "RecurrencePattern": {
+        "type": "object",
+        "properties": {
+          "dayOfMonth": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "daysOfWeek": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DayOfWeek"
+            }
+          },
+          "firstDayOfWeek": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "index": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WeekIndex"
+              }
+            ]
+          },
+          "interval": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "month": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrencePatternType"
+              }
+            ]
+          }
+        }
+      },
+      "RecurrencePatternType": {
+        "type": "string",
+        "enum": [
+          "daily",
+          "weekly",
+          "absoluteMonthly",
+          "relativeMonthly",
+          "absoluteYearly",
+          "relativeYearly",
+          "unknown"
+        ]
+      },
+      "RecurrenceRange": {
+        "type": "object",
+        "properties": {
+          "endDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "numberOfOccurrences": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "recurrenceTimeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "startDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecurrenceRangeType"
+              }
+            ]
+          }
+        }
+      },
+      "RecurrenceRangeType": {
+        "type": "string",
+        "enum": [
+          "endDate",
+          "noEnd",
+          "numbered",
+          "unknown"
+        ]
+      },
+      "Reminder": {
+        "type": "object",
+        "required": [
+          "method",
+          "minutes"
+        ],
+        "properties": {
+          "method": {
+            "$ref": "#/components/schemas/ReminderMethod"
+          },
+          "minutes": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReminderMethod": {
+        "type": "string",
+        "enum": [
+          "email",
+          "popup",
+          "unknown"
+        ]
+      },
+      "Reminders": {
+        "type": "object",
+        "properties": {
+          "overrides": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            }
+          },
+          "useDefault": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "ResponseStatus": {
+        "type": "object",
+        "properties": {
+          "response": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResponseType"
+              }
+            ]
+          },
+          "time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ResponseType": {
+        "type": "string",
+        "enum": [
+          "none",
+          "organizer",
+          "tentativelyAccepted",
+          "accepted",
+          "declined",
+          "notResponded",
+          "unknown"
+        ]
+      },
+      "SendMessageRequest": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "messageType": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Sensitivity": {
+        "type": "string",
+        "enum": [
+          "normal",
+          "personal",
+          "private",
+          "confidential",
+          "unknown"
+        ]
+      },
+      "SessionResponse": {
+        "type": "object",
+        "required": [
+          "token",
+          "expires_at",
+          "mode"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "StartTrialReason": {
+        "type": "string",
+        "enum": [
+          "started",
+          "not_eligible"
+        ]
+      },
+      "StartTrialResponse": {
+        "type": "object",
+        "required": [
+          "started"
+        ],
+        "properties": {
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StartTrialReason"
+              }
+            ]
+          },
+          "started": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "StreamAlternatives": {
+        "type": "object",
+        "required": [
+          "transcript",
+          "words",
+          "confidence"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "transcript": {
+            "type": "string"
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StreamWord"
+            }
+          }
+        }
+      },
+      "StreamChannel": {
+        "type": "object",
+        "required": [
+          "alternatives"
+        ],
+        "properties": {
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StreamAlternatives"
+            }
+          }
+        }
+      },
+      "StreamMetadata": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "model_info",
+          "model_uuid"
+        ],
+        "properties": {
+          "extra": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "model_info": {
+            "$ref": "#/components/schemas/StreamModelInfo"
+          },
+          "model_uuid": {
+            "type": "string"
+          },
+          "request_id": {
+            "type": "string"
+          }
+        }
+      },
+      "StreamModelInfo": {
+        "type": "object",
+        "required": [
+          "name",
+          "version",
+          "arch"
+        ],
+        "properties": {
+          "arch": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "StreamResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "start",
+              "duration",
+              "is_final",
+              "speech_final",
+              "from_finalize",
+              "channel",
+              "metadata",
+              "channel_index",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "$ref": "#/components/schemas/StreamChannel"
+              },
+              "channel_index": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              },
+              "duration": {
+                "type": "number",
+                "format": "double"
+              },
+              "from_finalize": {
+                "type": "boolean"
+              },
+              "is_final": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "$ref": "#/components/schemas/StreamMetadata"
+              },
+              "speech_final": {
+                "type": "boolean"
+              },
+              "start": {
+                "type": "number",
+                "format": "double"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Results"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "request_id",
+              "created",
+              "duration",
+              "channels",
+              "type"
+            ],
+            "properties": {
+              "channels": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "created": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number",
+                "format": "double"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Metadata"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel",
+              "timestamp",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                }
+              },
+              "timestamp": {
+                "type": "number",
+                "format": "double"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "SpeechStarted"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "channel",
+              "last_word_end",
+              "type"
+            ],
+            "properties": {
+              "channel": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32",
+                  "minimum": 0
+                }
+              },
+              "last_word_end": {
+                "type": "number",
+                "format": "double"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "UtteranceEnd"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "error_message",
+              "provider",
+              "type"
+            ],
+            "properties": {
+              "error_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32"
+              },
+              "error_message": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Error"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "StreamWord": {
+        "type": "object",
+        "required": [
+          "word",
+          "start",
+          "end",
+          "confidence"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "number",
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "format": "double"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "punctuated_word": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "speaker": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "start": {
+            "type": "number",
+            "format": "double"
+          },
+          "word": {
+            "type": "string"
+          }
+        }
+      },
+      "SttStatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rawResult": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/PipelineStatus"
+          }
+        }
+      },
+      "Transparency": {
+        "type": "string",
+        "enum": [
+          "opaque",
+          "transparent",
+          "unknown"
+        ]
+      },
+      "Visibility": {
+        "type": "string",
+        "enum": [
+          "default",
+          "public",
+          "private",
+          "confidential",
+          "unknown"
+        ]
+      },
+      "WebhookResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "WeekIndex": {
+        "type": "string",
+        "enum": [
+          "first",
+          "second",
+          "third",
+          "fourth",
+          "last",
+          "unknown"
+        ]
+      },
+      "WorkingLocationProperties": {
+        "type": "object",
+        "properties": {
+          "customLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CustomLocation"
+              }
+            ]
+          },
+          "homeOffice": {},
+          "officeLocation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OfficeLocation"
+              }
+            ]
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkingLocationType"
+              }
+            ]
+          }
+        }
+      },
+      "WorkingLocationType": {
+        "type": "string",
+        "enum": [
+          "homeOffice",
+          "officeLocation",
+          "customLocation",
+          "unknown"
+        ]
+      },
+      "google.Attendee": {
+        "type": "object",
+        "properties": {
+          "additionalGuests": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "displayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "optional": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "organizer": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "resource": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "responseStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttendeeResponseStatus"
+              }
+            ]
+          },
+          "self": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "google.CreateEventBody": {
+        "type": "object",
+        "properties": {
+          "attendees": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/google.Attendee"
+            }
+          },
+          "colorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conferenceData": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceData"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "$ref": "#/components/schemas/EventDateTime"
+          },
+          "eventType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/google.EventType"
+              }
+            ]
+          },
+          "extendedProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ExtendedProperties"
+              }
+            ]
+          },
+          "guestsCanInviteOthers": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "guestsCanModify": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "guestsCanSeeOtherGuests": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recurrence": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "reminders": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Reminders"
+              }
+            ]
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventSource"
+              }
+            ]
+          },
+          "start": {
+            "$ref": "#/components/schemas/EventDateTime"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "transparency": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Transparency"
+              }
+            ]
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Visibility"
+              }
+            ]
+          }
+        }
+      },
+      "google.Event": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "anyoneCanAddSelf": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "attachments": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/EventAttachment"
+            }
+          },
+          "attendees": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/google.Attendee"
+            }
+          },
+          "attendeesOmitted": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "birthdayProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/BirthdayProperties"
+              }
+            ]
+          },
+          "colorId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "conferenceData": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConferenceData"
+              }
+            ]
+          },
+          "created": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "creator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventPerson"
+              }
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventDateTime"
+              }
+            ]
+          },
+          "endTimeUnspecified": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eventType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/google.EventType"
+              }
+            ]
+          },
+          "extendedProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ExtendedProperties"
+              }
+            ]
+          },
+          "focusTimeProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/FocusTimeProperties"
+              }
+            ]
+          },
+          "gadget": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Gadget"
+              }
+            ]
+          },
+          "guestsCanInviteOthers": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "guestsCanModify": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "guestsCanSeeOtherGuests": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hangoutLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "htmlLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "iCalUID": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "locked": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "organizer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventPerson"
+              }
+            ]
+          },
+          "originalStartTime": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventDateTime"
+              }
+            ]
+          },
+          "outOfOfficeProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OutOfOfficeProperties"
+              }
+            ]
+          },
+          "privateCopy": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "recurrence": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "recurringEventId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reminders": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Reminders"
+              }
+            ]
+          },
+          "sequence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventSource"
+              }
+            ]
+          },
+          "start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventDateTime"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventStatus"
+              }
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transparency": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Transparency"
+              }
+            ]
+          },
+          "updated": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "visibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Visibility"
+              }
+            ]
+          },
+          "workingLocationProperties": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WorkingLocationProperties"
+              }
+            ]
+          }
+        }
+      },
+      "google.EventType": {
+        "type": "string",
+        "enum": [
+          "default",
+          "birthday",
+          "focusTime",
+          "fromGmail",
+          "outOfOffice",
+          "workingLocation",
+          "unknown"
+        ]
+      },
+      "google.ListCalendarsResponse": {
+        "type": "object",
+        "properties": {
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalendarListEntry"
+            }
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextPageToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextSyncToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "google.ListEventsResponse": {
+        "type": "object",
+        "properties": {
+          "accessRole": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AccessRole"
+              }
+            ]
+          },
+          "defaultReminders": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            }
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "etag": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/google.Event"
+            }
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextPageToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextSyncToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updated": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "outlook.Attendee": {
+        "type": "object",
+        "properties": {
+          "emailAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EmailAddress"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResponseStatus"
+              }
+            ]
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AttendeeType"
+              }
+            ]
+          }
+        }
+      },
+      "outlook.CreateEventBody": {
+        "type": "object",
+        "properties": {
+          "allowNewTimeProposals": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "attendees": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/outlook.Attendee"
+            }
+          },
+          "body": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ItemBody"
+              }
+            ]
+          },
+          "categories": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "end": {
+            "$ref": "#/components/schemas/DateTimeTimeZone"
+          },
+          "hideAttendees": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "importance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Importance"
+              }
+            ]
+          },
+          "isAllDay": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isOnlineMeeting": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isReminderOn": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Location"
+              }
+            ]
+          },
+          "onlineMeetingProvider": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OnlineMeetingProviderType"
+              }
+            ]
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatternedRecurrence"
+              }
+            ]
+          },
+          "reminderMinutesBeforeStart": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "responseRequested": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "sensitivity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Sensitivity"
+              }
+            ]
+          },
+          "showAs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventShowAs"
+              }
+            ]
+          },
+          "start": {
+            "$ref": "#/components/schemas/DateTimeTimeZone"
+          },
+          "subject": {
+            "type": "string"
+          }
+        }
+      },
+      "outlook.Event": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "allowNewTimeProposals": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "attendees": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/outlook.Attendee"
+            }
+          },
+          "body": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ItemBody"
+              }
+            ]
+          },
+          "bodyPreview": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "categories": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "changeKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdDateTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "end": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DateTimeTimeZone"
+              }
+            ]
+          },
+          "hasAttachments": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "hideAttendees": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "iCalUId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "importance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Importance"
+              }
+            ]
+          },
+          "isAllDay": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isCancelled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isDraft": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isOnlineMeeting": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isOrganizer": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "isReminderOn": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "lastModifiedDateTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Location"
+              }
+            ]
+          },
+          "locations": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Location"
+            }
+          },
+          "onlineMeeting": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OnlineMeetingInfo"
+              }
+            ]
+          },
+          "onlineMeetingProvider": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OnlineMeetingProviderType"
+              }
+            ]
+          },
+          "onlineMeetingUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "organizer": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Recipient"
+              }
+            ]
+          },
+          "originalEndTimeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "originalStartTimeZone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recurrence": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatternedRecurrence"
+              }
+            ]
+          },
+          "reminderMinutesBeforeStart": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "responseRequested": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "responseStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ResponseStatus"
+              }
+            ]
+          },
+          "sensitivity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Sensitivity"
+              }
+            ]
+          },
+          "seriesMasterId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "showAs": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventShowAs"
+              }
+            ]
+          },
+          "start": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DateTimeTimeZone"
+              }
+            ]
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transactionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/outlook.EventType"
+              }
+            ]
+          },
+          "webLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "outlook.EventType": {
+        "type": "string",
+        "enum": [
+          "singleInstance",
+          "occurrence",
+          "exception",
+          "seriesMaster",
+          "unknown"
+        ]
+      },
+      "outlook.ListCalendarsResponse": {
+        "type": "object",
+        "properties": {
+          "@odata.context": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "@odata.nextLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Calendar"
+            }
+          }
+        }
+      },
+      "outlook.ListEventsResponse": {
+        "type": "object",
+        "properties": {
+          "@odata.context": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "@odata.nextLink": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/outlook.Event"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Supabase JWT token"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "stt",
+      "description": "Speech-to-text transcription endpoints"
+    },
+    {
+      "name": "llm",
+      "description": "LLM chat completions endpoints"
+    },
+    {
+      "name": "calendar",
+      "description": "Calendar management"
+    },
+    {
+      "name": "nango",
+      "description": "Integration management via Nango"
+    },
+    {
+      "name": "subscription",
+      "description": "Subscription and trial management"
+    },
+    {
+      "name": "stt",
+      "description": "Speech-to-text transcription proxy"
+    },
+    {
+      "name": "llm",
+      "description": "LLM chat completions proxy"
+    },
+    {
+      "name": "support",
+      "description": "User feedback and support"
+    },
+    {
+      "name": "chatwoot",
+      "description": "Chatwoot conversation persistence"
+    }
+  ]
 }

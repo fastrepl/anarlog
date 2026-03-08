@@ -1,0 +1,27 @@
+name: mobile_ci
+
+on:
+  pull_request:
+    paths:
+      - apps/mobile/**
+      - crates/mobile-bridge/**
+      - crates/uniffi-bindgen/**
+      - crates/xtask/**
+      - .cargo/config.toml
+      - Cargo.toml
+      - Cargo.lock
+
+jobs:
+  mobile_ci:
+    runs-on: depot-macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: ios
+      - run: cargo check -p mobile-bridge -p uniffi-bindgen -p xtask
+      - run: cargo xtask mobile-bridge
+      - run: |
+          test -f apps/mobile/ios/HyprMobile/Generated/HyprMobileBridge.swift
+          test -f apps/mobile/ios/HyprMobile/Generated/HyprMobileBridgeFFI.h
+          test -d apps/mobile/ios/HyprMobile/MobileBridge.xcframework

@@ -214,34 +214,34 @@ export function MediaSelectorModal({
   const modalContent = (
     <>
       <div
-        className="fixed inset-0 z-50 bg-black/80 animate-in fade-in-0"
+        className="animate-in fade-in-0 fixed inset-0 z-50 bg-black/80"
         onClick={() => onOpenChange(false)}
       />
-      <div className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] max-w-4xl w-full h-[80vh] border bg-white shadow-lg rounded-sm flex flex-col overflow-hidden animate-in fade-in-0 zoom-in-95">
+      <div className="animate-in fade-in-0 zoom-in-95 fixed top-[50%] left-[50%] z-50 flex h-[80vh] w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-sm border bg-white shadow-lg">
         {/* Header with search and breadcrumbs */}
         <div className="shrink-0">
-          <div className="flex items-center gap-1.5 px-4 py-3 border-b border-neutral-200">
+          <div className="flex items-center gap-1.5 border-b border-neutral-200 px-4 py-3">
             <Icon
               icon="mdi:magnify"
-              className="text-neutral-400 text-lg shrink-0"
+              className="shrink-0 text-lg text-neutral-400"
             />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search files..."
-              className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-neutral-400"
+              className="flex-1 bg-transparent text-sm placeholder:text-neutral-400 focus:outline-none"
             />
           </div>
-          <div className="flex items-center gap-2 pl-2 pr-4 py-2 text-sm text-neutral-600 border-b border-neutral-200">
+          <div className="flex items-center gap-2 border-b border-neutral-200 py-2 pr-4 pl-2 text-sm text-neutral-600">
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={goBack}
                 disabled={!canGoBack}
                 className={cn([
-                  "p-1 rounded hover:bg-neutral-100 cursor-pointer",
-                  !canGoBack && "opacity-30 cursor-not-allowed",
+                  "cursor-pointer rounded p-1 hover:bg-neutral-100",
+                  !canGoBack && "cursor-not-allowed opacity-30",
                 ])}
               >
                 <ChevronLeftIcon className="size-4" />
@@ -251,8 +251,8 @@ export function MediaSelectorModal({
                 onClick={goForward}
                 disabled={!canGoForward}
                 className={cn([
-                  "p-1 rounded hover:bg-neutral-100 cursor-pointer",
-                  !canGoForward && "opacity-30 cursor-not-allowed",
+                  "cursor-pointer rounded p-1 hover:bg-neutral-100",
+                  !canGoForward && "cursor-not-allowed opacity-30",
                 ])}
               >
                 <ChevronRightIcon className="size-4" />
@@ -263,7 +263,7 @@ export function MediaSelectorModal({
                 type="button"
                 onClick={() => navigateTo("")}
                 className={cn([
-                  "hover:text-neutral-900 cursor-pointer",
+                  "cursor-pointer hover:text-neutral-900",
                   selectedPath === "" && "font-medium text-neutral-900",
                 ])}
               >
@@ -278,7 +278,7 @@ export function MediaSelectorModal({
                       navigateTo(breadcrumbs.slice(0, i + 1).join("/"))
                     }
                     className={cn([
-                      "hover:text-neutral-900 cursor-pointer",
+                      "cursor-pointer hover:text-neutral-900",
                       i === breadcrumbs.length - 1 &&
                         "font-medium text-neutral-900",
                     ])}
@@ -305,15 +305,15 @@ export function MediaSelectorModal({
           onDragLeave={() => setDragOver(false)}
         >
           {mediaQuery.isLoading ? (
-            <div className="flex items-center justify-center h-full text-neutral-500">
-              <Icon icon="mdi:loading" className="animate-spin text-2xl mr-2" />
+            <div className="flex h-full items-center justify-center text-neutral-500">
+              <Icon icon="mdi:loading" className="mr-2 animate-spin text-2xl" />
               Loading...
             </div>
           ) : filteredFolders.length === 0 && filteredFiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-neutral-500">
-              <Icon icon="mdi:folder-open-outline" className="text-4xl mb-3" />
+            <div className="flex h-full flex-col items-center justify-center text-neutral-500">
+              <Icon icon="mdi:folder-open-outline" className="mb-3 text-4xl" />
               <p className="text-sm">No files found</p>
-              <p className="text-xs mt-1">
+              <p className="mt-1 text-xs">
                 Drag and drop files here or click "Add new file"
               </p>
             </div>
@@ -321,19 +321,19 @@ export function MediaSelectorModal({
             <div className="flex flex-col gap-4">
               {filteredFolders.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+                  <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
                     Folders
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                     {filteredFolders.map((folder) => (
                       <div
                         key={folder.path}
-                        className="group relative rounded border border-neutral-200 overflow-hidden cursor-pointer transition-all hover:border-neutral-300"
+                        className="group relative cursor-pointer overflow-hidden rounded border border-neutral-200 transition-all hover:border-neutral-300"
                         onClick={() =>
                           handleFolderClick(getRelativePath(folder.path))
                         }
                       >
-                        <div className="aspect-square bg-neutral-50 flex items-center justify-center">
+                        <div className="flex aspect-square items-center justify-center bg-neutral-50">
                           <Icon
                             icon="mdi:folder"
                             className="text-4xl text-amber-400"
@@ -341,7 +341,7 @@ export function MediaSelectorModal({
                         </div>
                         <div className="p-1.5">
                           <p
-                            className="text-xs text-neutral-700 truncate"
+                            className="truncate text-xs text-neutral-700"
                             title={folder.name}
                           >
                             {folder.name}
@@ -355,10 +355,10 @@ export function MediaSelectorModal({
 
               {filteredFiles.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+                  <p className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
                     Files
                   </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                     {filteredFiles.map((item) => {
                       const isSelected =
                         selectionMode === "single"
@@ -368,19 +368,19 @@ export function MediaSelectorModal({
                         <div
                           key={item.path}
                           className={cn([
-                            "group relative rounded border overflow-hidden cursor-pointer transition-all",
+                            "group relative cursor-pointer overflow-hidden rounded border transition-all",
                             isSelected
                               ? "border-blue-500 ring-1 ring-blue-500"
                               : "border-neutral-200 hover:border-neutral-300",
                           ])}
                           onClick={() => handleFileSelect(item.publicUrl)}
                         >
-                          <div className="aspect-square bg-neutral-100 flex items-center justify-center overflow-hidden">
+                          <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
                             {item.publicUrl ? (
                               <img
                                 src={item.publicUrl}
                                 alt={item.name}
-                                className="w-full h-full object-cover"
+                                className="h-full w-full object-cover"
                                 loading="lazy"
                               />
                             ) : (
@@ -392,7 +392,7 @@ export function MediaSelectorModal({
                           </div>
                           <div className="p-1.5">
                             <p
-                              className="text-xs text-neutral-700 truncate"
+                              className="truncate text-xs text-neutral-700"
                               title={item.name}
                             >
                               {item.name}
@@ -403,10 +403,10 @@ export function MediaSelectorModal({
                           </div>
                           {isSelected && (
                             <div className="absolute top-1 left-1">
-                              <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                              <div className="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500">
                                 <Icon
                                   icon="mdi:check"
-                                  className="text-white text-xs"
+                                  className="text-xs text-white"
                                 />
                               </div>
                             </div>
@@ -422,18 +422,18 @@ export function MediaSelectorModal({
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 h-14 border-t border-neutral-200 flex items-center justify-between px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between border-t border-neutral-200 px-4">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadMutation.isPending}
-            className="px-2 py-1.5 text-xs font-medium font-mono rounded-xs text-neutral-700 border border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 cursor-pointer"
+            className="cursor-pointer rounded-xs border border-neutral-200 px-2 py-1.5 font-mono text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
           >
             {uploadMutation.isPending ? "Uploading..." : "Add new file"}
           </button>
           <div className="flex items-center gap-3">
             {selectionCount > 0 && (
-              <span className="text-xs font-mono text-neutral-500">
+              <span className="font-mono text-xs text-neutral-500">
                 {selectionCount} selected
               </span>
             )}
@@ -442,10 +442,10 @@ export function MediaSelectorModal({
               onClick={handleConfirm}
               disabled={selectionCount === 0}
               className={cn([
-                "px-2 py-1.5 text-xs font-medium font-mono rounded-xs cursor-pointer",
+                "cursor-pointer rounded-xs px-2 py-1.5 font-mono text-xs font-medium",
                 selectionCount > 0
-                  ? "text-white bg-neutral-900 hover:bg-neutral-800"
-                  : "text-neutral-400 bg-neutral-100 cursor-not-allowed",
+                  ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                  : "cursor-not-allowed bg-neutral-100 text-neutral-400",
               ])}
             >
               Confirm

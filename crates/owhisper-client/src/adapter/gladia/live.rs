@@ -164,7 +164,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 .send()
                 .await
                 .map_err(|e| {
-                    tracing::error!(error = ?e, "gladia_init_request_failed");
+                    tracing::error!(error.message = ?e, "gladia_init_request_failed");
                 })
                 .ok()?;
 
@@ -172,7 +172,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 .json()
                 .await
                 .map_err(|e| {
-                    tracing::error!(error = ?e, "gladia_init_parse_failed");
+                    tracing::error!(error.message = ?e, "gladia_init_parse_failed");
                 })
                 .ok()?;
 
@@ -182,7 +182,11 @@ impl RealtimeSttAdapter for GladiaAdapter {
                     message,
                     validation_errors,
                 } => {
-                    tracing::error!(message = %message, ?validation_errors, "gladia_init_failed");
+                    tracing::error!(
+                        error.message = %message,
+                        hyprnote.validation.errors = ?validation_errors,
+                        "gladia_init_failed"
+                    );
                     return None;
                 }
             };
@@ -218,7 +222,11 @@ impl RealtimeSttAdapter for GladiaAdapter {
         let msg: GladiaMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "gladia_json_parse_failed");
+                tracing::warn!(
+                    error.message = ?e,
+                    hyprnote.payload.raw = raw,
+                    "gladia_json_parse_failed"
+                );
                 return vec![];
             }
         };
@@ -226,15 +234,22 @@ impl RealtimeSttAdapter for GladiaAdapter {
         match msg {
             GladiaMessage::Transcript(transcript) => Self::parse_transcript(transcript),
             GladiaMessage::StartSession { id } => {
-                tracing::debug!(session_id = %id, "gladia_session_started");
+                tracing::debug!(hyprnote.stt.provider_session.id = %id, "gladia_session_started");
                 vec![]
             }
             GladiaMessage::EndSession { id } => {
                 let channels = SessionChannels::remove(&id).unwrap_or_else(|| {
-                    tracing::warn!(session_id = %id, "gladia_session_channels_not_found");
+                    tracing::warn!(
+                        hyprnote.stt.provider_session.id = %id,
+                        "gladia_session_channels_not_found"
+                    );
                     1
                 });
-                tracing::debug!(session_id = %id, channels = channels, "gladia_session_ended");
+                tracing::debug!(
+                    hyprnote.stt.provider_session.id = %id,
+                    hyprnote.audio.channel_count = channels,
+                    "gladia_session_ended"
+                );
                 vec![StreamResponse::TerminalResponse {
                     request_id: id,
                     created: String::new(),
@@ -247,7 +262,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
             GladiaMessage::StartRecording { .. } => vec![],
             GladiaMessage::EndRecording { .. } => vec![],
             GladiaMessage::Error { message, code } => {
-                tracing::error!(error = %message, code = ?code, "gladia_error");
+                tracing::error!(error.message = %message, error.code = ?code, "gladia_error");
                 vec![StreamResponse::ErrorResponse {
                     error_code: code,
                     error_message: message,
@@ -255,7 +270,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 }]
             }
             GladiaMessage::Unknown => {
-                tracing::debug!(raw = raw, "gladia_unknown_message");
+                tracing::debug!(hyprnote.payload.raw = raw, "gladia_unknown_message");
                 vec![]
             }
         }

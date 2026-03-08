@@ -1,17 +1,28 @@
 use serde::de::DeserializeOwned;
 
-use backon::{ConstantBuilder, Retryable};
 use futures_util::{
     SinkExt, Stream, StreamExt,
     future::{FutureExt, pending},
 };
-use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
-
 pub use tokio_tungstenite::tungstenite::{ClientRequestBuilder, Utf8Bytes, protocol::Message};
+
+pub use crate::retry::{WebSocketConnectPolicy, WebSocketRetryCallback, WebSocketRetryEvent};
+
+const TRAILING_MESSAGE_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
 #[derive(Debug)]
 enum ControlCommand {
     Finalize(Option<Message>),
+}
+
+struct OutputDropGuard(Option<tokio::sync::oneshot::Sender<()>>);
+
+impl Drop for OutputDropGuard {
+    fn drop(&mut self) {
+        if let Some(cancel_tx) = self.0.take() {
+            let _ = cancel_tx.send(());
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -40,12 +51,14 @@ pub trait WebSocketIO: Send + 'static {
 
     fn to_input(data: Self::Data) -> Self::Input;
     fn to_message(input: Self::Input) -> Message;
-    fn from_message(msg: Message) -> Option<Self::Output>;
+    fn from_message(msg: Message) -> Result<Option<Self::Output>, crate::Error>;
 }
 
 pub struct WebSocketClient {
     request: ClientRequestBuilder,
     keep_alive: Option<KeepAliveConfig>,
+    connect_policy: WebSocketConnectPolicy,
+    on_retry: Option<WebSocketRetryCallback>,
 }
 
 impl WebSocketClient {
@@ -53,6 +66,8 @@ impl WebSocketClient {
         Self {
             request,
             keep_alive: None,
+            connect_policy: WebSocketConnectPolicy::default(),
+            on_retry: None,
         }
     }
 
@@ -62,6 +77,16 @@ impl WebSocketClient {
         message: Message,
     ) -> Self {
         self.keep_alive = Some(KeepAliveConfig { interval, message });
+        self
+    }
+
+    pub fn with_connect_policy(mut self, policy: WebSocketConnectPolicy) -> Self {
+        self.connect_policy = policy;
+        self
+    }
+
+    pub fn on_retry(mut self, callback: WebSocketRetryCallback) -> Self {
+        self.on_retry = Some(callback);
         self
     }
 
@@ -77,26 +102,28 @@ impl WebSocketClient {
         crate::Error,
     > {
         let keep_alive_config = self.keep_alive.clone();
-        let ws_stream = (|| self.try_connect(self.request.clone()))
-            .retry(
-                ConstantBuilder::default()
-                    .with_max_times(3)
-                    .with_delay(std::time::Duration::from_millis(500)),
-            )
-            .when(|e| {
-                tracing::error!("ws_connect_failed: {:?}", e);
-                !e.is_auth_error()
-            })
-            .sleep(tokio::time::sleep)
-            .await?;
+        let ws_stream = crate::retry::connect_with_retry(
+            self.request.clone(),
+            &self.connect_policy,
+            self.on_retry.as_ref(),
+        )
+        .await?;
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();
 
         let (control_tx, mut control_rx) = tokio::sync::mpsc::unbounded_channel();
         let (error_tx, mut error_rx) = tokio::sync::mpsc::unbounded_channel::<crate::Error>();
+        let (cancel_tx, mut cancel_rx) = tokio::sync::oneshot::channel();
         let handle = WebSocketHandle { control_tx };
 
         let _send_task = tokio::spawn(async move {
+            enum SendLoopExit {
+                Finalize,
+                InputEnded,
+                Error,
+                Cancelled,
+            }
+
             if let Some(msg) = initial_message
                 && let Err(e) = ws_sender.send(msg).await
             {
@@ -106,9 +133,27 @@ impl WebSocketClient {
             }
 
             let mut last_outbound_at = tokio::time::Instant::now();
-            loop {
-                let mut keep_alive_fut = if let Some(cfg) = keep_alive_config.as_ref() {
-                    tokio::time::sleep_until(last_outbound_at + cfg.interval).boxed()
+            let mut audio_closed = false;
+            let mut control_closed = false;
+            let mut input_end_deadline: Option<tokio::time::Instant> = None;
+            let mut waited_for_input_end = false;
+
+            let exit_reason = loop {
+                if audio_closed && control_closed {
+                    break SendLoopExit::InputEnded;
+                }
+
+                let mut keep_alive_fut = if !audio_closed {
+                    if let Some(cfg) = keep_alive_config.as_ref() {
+                        tokio::time::sleep_until(last_outbound_at + cfg.interval).boxed()
+                    } else {
+                        pending().boxed()
+                    }
+                } else {
+                    pending().boxed()
+                };
+                let mut input_end_fut = if let Some(deadline) = input_end_deadline {
+                    tokio::time::sleep_until(deadline).boxed()
                 } else {
                     pending().boxed()
                 };
@@ -116,82 +161,117 @@ impl WebSocketClient {
                 tokio::select! {
                     biased;
 
+                    _ = &mut cancel_rx => break SendLoopExit::Cancelled,
                     _ = keep_alive_fut.as_mut() => {
                         if let Some(cfg) = keep_alive_config.as_ref() {
                             if let Err(e) = ws_sender.send(cfg.message.clone()).await {
                                 tracing::error!("ws_keepalive_failed: {:?}", e);
                                 let _ = error_tx.send(e.into());
-                                break;
+                                break SendLoopExit::Error;
                             }
                             last_outbound_at = tokio::time::Instant::now();
                         }
                     }
-                    Some(data) = audio_stream.next() => {
-                        let input = T::to_input(data);
-                        let msg = T::to_message(input);
+                    maybe_data = audio_stream.next(), if !audio_closed => {
+                        match maybe_data {
+                            Some(data) => {
+                                let input = T::to_input(data);
+                                let msg = T::to_message(input);
 
-                        if let Err(e) = ws_sender.send(msg).await {
-                            tracing::error!("ws_send_failed: {:?}", e);
-                            let _ = error_tx.send(e.into());
-                            break;
-                        }
-                        last_outbound_at = tokio::time::Instant::now();
-                    }
-                    Some(ControlCommand::Finalize(maybe_msg)) = control_rx.recv() => {
-                        if let Some(msg) = maybe_msg
-                            && let Err(e) = ws_sender.send(msg).await {
-                                tracing::error!("ws_finalize_failed: {:?}", e);
-                                let _ = error_tx.send(e.into());
+                                if let Err(e) = ws_sender.send(msg).await {
+                                    tracing::error!("ws_send_failed: {:?}", e);
+                                    let _ = error_tx.send(e.into());
+                                    break SendLoopExit::Error;
+                                }
+                                last_outbound_at = tokio::time::Instant::now();
                             }
-                        break;
+                            None => {
+                                audio_closed = true;
+                                input_end_deadline = Some(tokio::time::Instant::now() + TRAILING_MESSAGE_GRACE);
+                            }
+                        }
                     }
-                    else => break,
+                    _ = input_end_fut.as_mut(), if input_end_deadline.is_some() => {
+                        waited_for_input_end = true;
+                        break SendLoopExit::InputEnded;
+                    }
+                    command = control_rx.recv(), if !control_closed => {
+                        match command {
+                            Some(ControlCommand::Finalize(maybe_msg)) => {
+                                if let Some(msg) = maybe_msg
+                                    && let Err(e) = ws_sender.send(msg).await {
+                                        tracing::error!("ws_finalize_failed: {:?}", e);
+                                        let _ = error_tx.send(e.into());
+                                    }
+                                break SendLoopExit::Finalize;
+                            }
+                            None => {
+                                control_closed = true;
+                            }
+                        }
+                    }
+                    else => break SendLoopExit::InputEnded,
+                }
+            };
+
+            if matches!(exit_reason, SendLoopExit::Finalize)
+                || (matches!(exit_reason, SendLoopExit::InputEnded) && !waited_for_input_end)
+            {
+                tokio::select! {
+                    _ = tokio::time::sleep(TRAILING_MESSAGE_GRACE) => {}
+                    _ = &mut cancel_rx => {}
                 }
             }
 
-            // Wait 5 seconds before closing the connection
-            // TODO: This might not be enough to ensure receiving remaining transcripts from the server.
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             let _ = ws_sender.close().await;
         });
 
         let output_stream = async_stream::stream! {
+            let _drop_guard = OutputDropGuard(Some(cancel_tx));
+
             loop {
                 tokio::select! {
+                    biased;
+
                     Some(msg_result) = ws_receiver.next() => {
                         match msg_result {
                             Ok(msg) => {
-                                let is_text = matches!(msg, Message::Text(_));
-                                let is_binary = matches!(msg, Message::Binary(_));
-                                let text_preview = if let Message::Text(ref t) = msg {
-                                    Some(t.to_string())
-                                } else {
-                                    None
-                                };
-
                                 match msg {
                                     Message::Text(_) | Message::Binary(_) => {
-                                        if let Some(output) = T::from_message(msg) {
-                                            yield Ok(output);
-                                        } else if is_text {
-                                            if let Some(text) = text_preview {
-                                                tracing::warn!("ws_message_parse_failed: {}", text);
+                                        match T::from_message(msg) {
+                                            Ok(Some(output)) => {
+                                                yield Ok(output);
                                             }
-                                        } else if is_binary {
-                                            tracing::warn!("ws_binary_message_parse_failed");
+                                            Ok(None) => {}
+                                            Err(error) => {
+                                                yield Err(error);
+                                                break;
+                                            }
                                         }
-                                    },
+                                    }
                                     Message::Ping(_) | Message::Pong(_) | Message::Frame(_) => continue,
-                                    Message::Close(_) => break,
+                                    Message::Close(frame) => {
+                                        if let Ok(error) = error_rx.try_recv() {
+                                            yield Err(error);
+                                            break;
+                                        }
+
+                                        if let Some(frame) = frame
+                                            && frame.code != tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode::Normal
+                                        {
+                                            yield Err(crate::Error::remote_closed(
+                                                Some(u16::from(frame.code)),
+                                                frame.reason.to_string(),
+                                            ));
+                                        }
+
+                                        break;
+                                    }
                                 }
                             }
                             Err(e) => {
-                                if let tokio_tungstenite::tungstenite::Error::Protocol(tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake) = &e {
-                                    tracing::debug!("ws_receiver_failed: {:?}", e);
-                                } else {
-                                    tracing::error!("ws_receiver_failed: {:?}", e);
-                                    yield Err(e.into());
-                                }
+                                tracing::error!("ws_receiver_failed: {:?}", e);
+                                yield Err(e.into());
                                 break;
                             }
                         }
@@ -200,30 +280,16 @@ impl WebSocketClient {
                         yield Err(error);
                         break;
                     }
-                    else => break,
+                    else => {
+                        if let Ok(error) = error_rx.try_recv() {
+                            yield Err(error);
+                        }
+                        break;
+                    }
                 }
             }
         };
 
         Ok((output_stream, handle))
-    }
-
-    async fn try_connect(
-        &self,
-        req: ClientRequestBuilder,
-    ) -> Result<
-        tokio_tungstenite::WebSocketStream<
-            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
-        >,
-        crate::Error,
-    > {
-        let req = req.into_client_request().unwrap();
-
-        tracing::info!("connect_async: {:?}", req.uri());
-
-        let (ws_stream, _) =
-            tokio::time::timeout(std::time::Duration::from_secs(8), connect_async(req)).await??;
-
-        Ok(ws_stream)
     }
 }

@@ -5,7 +5,7 @@ import { SCHEMA } from "@hypr/store";
 import {
   SCHEMA as SETTINGS_SCHEMA,
   type Store as SettingsStore,
-} from "../../store/settings";
+} from "~/store/tinybase/store/settings";
 
 export const MOCK_DATA_DIR = "/mock/data/dir/hyprnote";
 

@@ -1,12 +1,14 @@
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
-use tokio_tungstenite::{WebSocketStream, accept_async};
+use tokio_tungstenite::{WebSocketStream, accept_hdr_async};
 
 use super::recording::{MessageKind, WsMessage, WsRecording};
 
@@ -41,18 +43,21 @@ struct MockUpstreamServer {
     recording: WsRecording,
     config: MockUpstreamConfig,
     listener: TcpListener,
+    captured_requests: Arc<Mutex<Vec<String>>>,
 }
 
 impl MockUpstreamServer {
     async fn with_config(
         recording: WsRecording,
         config: MockUpstreamConfig,
+        captured_requests: Arc<Mutex<Vec<String>>>,
     ) -> std::io::Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         Ok(Self {
             recording,
             config,
             listener,
+            captured_requests,
         })
     }
 
@@ -62,7 +67,14 @@ impl MockUpstreamServer {
 
     async fn accept_one(&self) -> Result<(), MockUpstreamError> {
         let (stream, _) = self.listener.accept().await?;
-        let ws_stream = accept_async(stream).await?;
+        let captured_requests = self.captured_requests.clone();
+        let ws_stream = accept_hdr_async(stream, move |req: &Request, resp: Response| {
+            if let Ok(mut requests) = captured_requests.lock() {
+                requests.push(req.uri().to_string());
+            }
+            Ok(resp)
+        })
+        .await?;
         self.handle_connection(ws_stream).await
     }
 
@@ -156,6 +168,7 @@ pub enum MockUpstreamError {
 
 pub struct MockServerHandle {
     addr: SocketAddr,
+    captured_requests: Arc<Mutex<Vec<String>>>,
     #[allow(dead_code)]
     shutdown_tx: tokio::sync::oneshot::Sender<()>,
 }
@@ -163,6 +176,13 @@ pub struct MockServerHandle {
 impl MockServerHandle {
     pub fn ws_url(&self) -> String {
         format!("ws://{}", self.addr)
+    }
+
+    pub fn captured_requests(&self) -> Vec<String> {
+        self.captured_requests
+            .lock()
+            .map(|requests| requests.clone())
+            .unwrap_or_default()
     }
 }
 
@@ -175,7 +195,9 @@ pub async fn start_mock_server_with_config(
     recording: WsRecording,
     config: MockUpstreamConfig,
 ) -> std::io::Result<MockServerHandle> {
-    let server = MockUpstreamServer::with_config(recording, config).await?;
+    let captured_requests = Arc::new(Mutex::new(Vec::new()));
+    let server =
+        MockUpstreamServer::with_config(recording, config, captured_requests.clone()).await?;
     let addr = server.addr();
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel();
@@ -195,5 +217,9 @@ pub async fn start_mock_server_with_config(
 
     tokio::time::sleep(Duration::from_millis(10)).await;
 
-    Ok(MockServerHandle { addr, shutdown_tx })
+    Ok(MockServerHandle {
+        addr,
+        captured_requests,
+        shutdown_tx,
+    })
 }

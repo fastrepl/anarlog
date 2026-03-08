@@ -27,6 +27,7 @@ describe("processTranscriptFile", () => {
       created_at: "2024-01-01T00:00:00Z",
       session_id: "session-1",
       started_at: 0,
+      memo_md: "",
       words: JSON.stringify([{ id: "w1", text: "hello" }]),
       speaker_hints: JSON.stringify([{ id: "sh1", speaker: "Speaker 1" }]),
     });

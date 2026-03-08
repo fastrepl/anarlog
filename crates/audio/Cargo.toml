@@ -17,6 +17,7 @@ serde_json = { workspace = true }
 
 futures-channel = { workspace = true }
 futures-util = { workspace = true }
+pin-project = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros"] }
 
 cpal = { workspace = true }
@@ -39,5 +40,6 @@ libpulse-binding = "2.30.1"
 hound = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-data = { workspace = true }
+hypr-resampler = { workspace = true }
 rodio = { workspace = true }
 serial_test = { workspace = true }

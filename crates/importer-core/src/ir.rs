@@ -129,6 +129,18 @@ common_derives! {
         pub end_ms: Option<f64>,
         #[serde(default)]
         pub words: Vec<Word>,
+        #[serde(default)]
+        pub speaker_hints: Vec<SpeakerHint>,
+    }
+}
+
+common_derives! {
+    pub struct SpeakerHint {
+        pub word_id: String,
+        #[serde(default)]
+        pub hint_type: String,
+        #[serde(default)]
+        pub value: String,
     }
 }
 

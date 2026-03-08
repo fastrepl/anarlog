@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::time::Duration;
 
-use futures_util::{Stream, StreamExt};
+use futures_util::StreamExt;
 use hypr_audio_utils::{Source, f32_to_i16_bytes, resample_audio, source_from_path};
 use owhisper_interface::batch::Response as BatchResponse;
 use owhisper_interface::stream::StreamResponse;
@@ -17,6 +16,10 @@ use crate::error::Error;
 use super::{ArgmaxAdapter, keywords::ArgmaxKeywordStrategy, language::ArgmaxLanguageStrategy};
 
 impl BatchSttAdapter for ArgmaxAdapter {
+    fn provider_name(&self) -> &'static str {
+        "argmax"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -151,14 +154,7 @@ impl StreamingBatchConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct StreamingBatchEvent {
-    pub response: StreamResponse,
-    pub percentage: f64,
-}
-
-pub type StreamingBatchStream =
-    Pin<Box<dyn Stream<Item = Result<StreamingBatchEvent, Error>> + Send>>;
+pub use crate::adapter::{StreamingBatchEvent, StreamingBatchStream};
 
 impl ArgmaxAdapter {
     pub async fn transcribe_file_streaming<P: AsRef<Path>>(

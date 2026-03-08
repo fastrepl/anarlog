@@ -53,13 +53,11 @@ async windowIsExists(window: AppWindow) : Promise<Result<boolean, string>> {
 
 export const events = __makeEvents__<{
 navigate: Navigate,
-openFeedback: OpenFeedback,
 openTab: OpenTab,
 visibilityEvent: VisibilityEvent,
 windowDestroyed: WindowDestroyed
 }>({
 navigate: "plugin:windows:navigate",
-openFeedback: "plugin:windows:open-feedback",
 openTab: "plugin:windows:open-tab",
 visibilityEvent: "plugin:windows:visibility-event",
 windowDestroyed: "plugin:windows:window-destroyed"
@@ -72,20 +70,22 @@ windowDestroyed: "plugin:windows:window-destroyed"
 /** user-defined types **/
 
 export type AiState = { tab: AiTab | null }
-export type AiTab = "transcription" | "intelligence"
-export type AppWindow = { type: "onboarding" } | { type: "main" } | { type: "control" }
+export type AiTab = "transcription" | "intelligence" | "templates" | "shortcuts" | "prompts" | "memory"
+export type AppWindow = { type: "main" } | { type: "control" }
 export type ChangelogState = { previous: string | null; current: string }
 export type ChatShortcutsState = { isWebMode: boolean | null; selectedMineId: string | null; selectedWebIndex: number | null }
-export type ContactsState = { selectedOrganization: string | null; selectedPerson: string | null }
+export type ChatState = { groupId: string | null; initialMessage: string | null }
+export type ContactsSelection = { type: "person"; id: string } | { type: "organization"; id: string }
+export type ContactsState = { selected: ContactsSelection | null }
 export type EditorView = { type: "raw" } | { type: "transcript" } | { type: "enhanced"; id: string } | { type: "attachments" }
 export type ExtensionsState = { selectedExtension: string | null }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type Navigate = { path: string; search: Partial<{ [key in string]: JsonValue }> | null }
-export type OpenFeedback = { feedback_type: string }
 export type OpenTab = { tab: TabInput }
 export type PromptsState = { selectedTask: string | null }
+export type SearchState = { selectedTypes: string[] | null; initialQuery: string | null }
 export type SessionsState = { view: EditorView | null; autoStart: boolean | null }
-export type TabInput = { type: "sessions"; id: string; state?: SessionsState | null } | { type: "contacts"; state?: ContactsState | null } | { type: "templates"; state?: TemplatesState | null } | { type: "prompts"; state?: PromptsState | null } | { type: "chat_shortcuts"; state?: ChatShortcutsState | null } | { type: "extensions"; state?: ExtensionsState | null } | { type: "humans"; id: string } | { type: "organizations"; id: string } | { type: "folders"; id: string | null } | { type: "empty" } | { type: "extension"; extensionId: string; state?: Partial<{ [key in string]: JsonValue }> | null } | { type: "calendar" } | { type: "changelog"; state: ChangelogState } | { type: "settings" } | { type: "ai"; state?: AiState | null }
+export type TabInput = { type: "sessions"; id: string; state?: SessionsState | null } | { type: "contacts"; state?: ContactsState | null } | { type: "templates"; state?: TemplatesState | null } | { type: "prompts"; state?: PromptsState | null } | { type: "chat_shortcuts"; state?: ChatShortcutsState | null } | { type: "extensions"; state?: ExtensionsState | null } | { type: "humans"; id: string } | { type: "organizations"; id: string } | { type: "folders"; id: string | null } | { type: "empty" } | { type: "extension"; extensionId: string; state?: Partial<{ [key in string]: JsonValue }> | null } | { type: "calendar" } | { type: "changelog"; state: ChangelogState } | { type: "settings" } | { type: "ai"; state?: AiState | null } | { type: "search"; state?: SearchState | null } | { type: "chat_support"; state?: ChatState | null } | { type: "onboarding" } | { type: "edit"; requestId: string }
 export type TemplatesState = { showHomepage: boolean | null; isWebMode: boolean | null; selectedMineId: string | null; selectedWebIndex: number | null }
 export type VisibilityEvent = { window: AppWindow; visible: boolean }
 export type WindowDestroyed = { window: AppWindow }

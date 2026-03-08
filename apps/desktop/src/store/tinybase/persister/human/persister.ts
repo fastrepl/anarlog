@@ -1,10 +1,11 @@
 import type { HumanStorage } from "@hypr/store";
 import type { Schemas } from "@hypr/store";
 
-import type { Store } from "../../store/main";
-import { createMarkdownDirPersister } from "../factories";
 import { parseHumanIdFromPath } from "./changes";
 import { frontmatterToHuman, humanToFrontmatter } from "./transform";
+
+import { createMarkdownDirPersister } from "~/store/tinybase/persister/factories";
+import type { Store } from "~/store/tinybase/store/main";
 
 export function createHumanPersister(store: Store) {
   return createMarkdownDirPersister<Schemas, HumanStorage>(store, {

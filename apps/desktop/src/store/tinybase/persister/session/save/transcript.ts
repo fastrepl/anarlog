@@ -1,13 +1,16 @@
 import { sep } from "@tauri-apps/api/path";
 
+import type {
+  TranscriptJson,
+  TranscriptWithData,
+} from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,
   iterateTableRows,
   SESSION_TRANSCRIPT_FILE,
   type TablesContent,
   type WriteOperation,
-} from "../../shared";
-import type { TranscriptJson, TranscriptWithData } from "../types";
+} from "~/store/tinybase/persister/shared";
 
 type BuildContext = {
   tables: TablesContent;
@@ -46,6 +49,7 @@ function groupTranscriptsBySession(
       created_at: transcript.created_at ?? "",
       session_id: transcript.session_id,
       started_at: transcript.started_at ?? 0,
+      memo_md: transcript.memo_md ?? "",
       ended_at: transcript.ended_at,
       words: transcript.words ? JSON.parse(transcript.words) : [],
       speaker_hints: transcript.speaker_hints

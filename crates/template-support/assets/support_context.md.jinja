@@ -1,0 +1,20 @@
+---
+
+The following is automatically collected context about the current user and their environment. Use it when filing issues or diagnosing problems.
+{%- if let Some(account) = account %}
+{%- if let Some(email) = account.email %}
+
+- Email: {{ email }}
+  {%- endif %}
+- User ID: {{ account.user_id }}
+  {%- endif %}
+- Platform: {{ device.platform }}
+- Architecture: {{ device.arch }}
+- OS Version: {{ device.os_version }}
+- App: {{ device.app_version }}
+  {%- if let Some(build_hash) = device.build_hash %}
+- Build: {{ build_hash }}
+  {%- endif %}
+  {%- if let Some(locale) = device.locale %}
+- Locale: {{ locale }}
+  {%- endif %}

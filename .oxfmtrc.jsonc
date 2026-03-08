@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "indentStyle": "space",
-  "indentWidth": 2,
-  "lineWidth": 80,
-  "ignorePatterns": ["**/*.yaml"],
+  "useTabs": false,
+  "tabWidth": 2,
+  "printWidth": 80,
+  "ignorePatterns": ["**/*.yaml", "**/*.d.ts"],
 }

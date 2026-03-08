@@ -176,6 +176,33 @@ pub(super) fn parse_inline_hints_to_map(json: &str) -> HashMap<String, String> {
         .collect()
 }
 
+pub(super) fn parse_inline_hints_raw(json: &str) -> Vec<SpeakerHint> {
+    let Ok(arr) = serde_json::from_str::<Vec<Value>>(json) else {
+        return vec![];
+    };
+
+    arr.into_iter()
+        .filter_map(|v| {
+            let obj = v.as_object()?;
+            let word_id = obj.get("word_id").and_then(|v| v.as_str())?;
+            if word_id.is_empty() {
+                return None;
+            }
+            let hint_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or_default();
+            let value = obj
+                .get("value")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+
+            Some(SpeakerHint {
+                word_id: word_id.to_string(),
+                hint_type: hint_type.to_string(),
+                value: value.to_string(),
+            })
+        })
+        .collect()
+}
+
 pub(super) fn parse_human(id: &str, cells: &serde_json::Map<String, Value>) -> Option<Human> {
     if id == "00000000-0000-0000-0000-000000000000" {
         return None;

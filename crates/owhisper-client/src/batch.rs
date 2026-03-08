@@ -6,7 +6,7 @@ use owhisper_interface::batch::Response as BatchResponse;
 use reqwest_middleware::ClientWithMiddleware;
 
 use crate::DeepgramAdapter;
-use crate::adapter::BatchSttAdapter;
+use crate::adapter::{BatchSttAdapter, append_provider_param, is_hyprnote_proxy};
 use crate::error::Error;
 use crate::http_client::create_client;
 
@@ -72,6 +72,17 @@ pub struct BatchClient<A: BatchSttAdapter = DeepgramAdapter> {
 }
 
 impl<A: BatchSttAdapter> BatchClient<A> {
+    fn normalize_api_base(api_base: String) -> String {
+        if !is_hyprnote_proxy(&api_base) {
+            return api_base;
+        }
+        let provider_name = A::default().provider_name();
+        if provider_name == "unknown" {
+            return api_base;
+        }
+        append_provider_param(&api_base, provider_name)
+    }
+
     pub fn builder() -> BatchClientBuilder<A> {
         BatchClientBuilder {
             api_base: None,
@@ -82,6 +93,7 @@ impl<A: BatchSttAdapter> BatchClient<A> {
     }
 
     pub fn new(api_base: String, api_key: String, params: ListenParams) -> Self {
+        let api_base = Self::normalize_api_base(api_base);
         Self {
             client: create_client(),
             api_base,
@@ -95,8 +107,7 @@ impl<A: BatchSttAdapter> BatchClient<A> {
         &self,
         file_path: P,
     ) -> Result<BatchResponse, Error> {
-        let adapter = A::default();
-        adapter
+        A::default()
             .transcribe_file(
                 &self.client,
                 &self.api_base,
@@ -105,5 +116,53 @@ impl<A: BatchSttAdapter> BatchClient<A> {
                 file_path,
             )
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{DeepgramAdapter, HyprnoteAdapter, OpenAIAdapter};
+
+    #[test]
+    fn injects_provider_for_hyprnote_proxy() {
+        let client = BatchClient::<HyprnoteAdapter>::builder()
+            .api_base("https://api.hyprnote.com/stt")
+            .api_key("test")
+            .build();
+
+        assert!(client.api_base.contains("provider=hyprnote"));
+    }
+
+    #[test]
+    fn does_not_inject_provider_for_direct_provider_url() {
+        let client = BatchClient::<OpenAIAdapter>::builder()
+            .api_base("https://api.openai.com/v1")
+            .api_key("test")
+            .build();
+
+        assert_eq!(client.api_base, "https://api.openai.com/v1");
+    }
+
+    #[test]
+    fn injects_provider_for_direct_provider_adapter_on_hyprnote_proxy() {
+        let client = BatchClient::<DeepgramAdapter>::builder()
+            .api_base("https://api.hyprnote.com/stt")
+            .api_key("test")
+            .build();
+
+        assert!(client.api_base.contains("provider=deepgram"));
+    }
+
+    #[test]
+    fn rewrites_existing_provider_for_direct_provider_adapter() {
+        let client = BatchClient::<OpenAIAdapter>::builder()
+            .api_base("https://api.hyprnote.com/stt?provider=hyprnote&model=whisper-1")
+            .api_key("test")
+            .build();
+
+        assert!(client.api_base.contains("provider=openai"));
+        assert!(!client.api_base.contains("provider=hyprnote"));
+        assert!(client.api_base.contains("model=whisper-1"));
     }
 }

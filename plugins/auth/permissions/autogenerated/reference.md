@@ -4,10 +4,12 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
+- `allow-decode-claims`
 - `allow-get-item`
 - `allow-set-item`
 - `allow-remove-item`
 - `allow-clear`
+- `allow-get-account-info`
 
 ## Permission Table
 
@@ -40,6 +42,58 @@ Enables the clear command without any pre-configured scope.
 <td>
 
 Denies the clear command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:allow-decode-claims`
+
+</td>
+<td>
+
+Enables the decode_claims command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:deny-decode-claims`
+
+</td>
+<td>
+
+Denies the decode_claims command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:allow-get-account-info`
+
+</td>
+<td>
+
+Enables the get_account_info command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`auth:deny-get-account-info`
+
+</td>
+<td>
+
+Denies the get_account_info command without any pre-configured scope.
 
 </td>
 </tr>

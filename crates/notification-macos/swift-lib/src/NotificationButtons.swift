@@ -168,6 +168,48 @@ class DetailsButton: NotificationButton {
   }
 }
 
+class OptionsButton: NotificationButton {
+  var options: [String] = []
+
+  override func performAction() {
+    showOptionsMenu()
+  }
+
+  func showOptionsMenu() {
+    guard notification != nil else { return }
+
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+
+    for (index, option) in options.enumerated() {
+      let item = NSMenuItem(
+        title: option, action: #selector(optionSelected(_:)), keyEquivalent: "")
+      item.target = self
+      item.tag = index
+      item.isEnabled = true
+      menu.addItem(item)
+    }
+
+    menu.addItem(NSMenuItem.separator())
+
+    let createNewItem = NSMenuItem(
+      title: "Create New Note...", action: #selector(optionSelected(_:)), keyEquivalent: "")
+    createNewItem.target = self
+    createNewItem.tag = options.count
+    createNewItem.isEnabled = true
+    menu.addItem(createNewItem)
+
+    let location = NSPoint(x: 0, y: bounds.height)
+    menu.popUp(positioning: nil, at: location, in: self)
+  }
+
+  @objc func optionSelected(_ sender: NSMenuItem) {
+    guard let notification = notification else { return }
+    RustBridge.onOptionSelected(key: notification.key, selectedIndex: Int32(sender.tag))
+    notification.dismiss()
+  }
+}
+
 class CollapseButton: NSButton, TrackableButton {
   weak var notification: NotificationInstance?
   var trackingArea: NSTrackingArea?

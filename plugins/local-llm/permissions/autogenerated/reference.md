@@ -5,13 +5,11 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-models-dir`
-- `allow-is-server-running`
 - `allow-is-model-downloading`
 - `allow-is-model-downloaded`
 - `allow-download-model`
-- `allow-start-server`
-- `allow-stop-server`
-- `allow-restart-server`
+- `allow-cancel-download`
+- `allow-delete-model`
 - `allow-get-current-model`
 - `allow-set-current-model`
 - `allow-list-downloaded-model`
@@ -19,6 +17,9 @@ Default permissions for the plugin
 - `allow-list-custom-models`
 - `allow-get-current-model-selection`
 - `allow-set-current-model-selection`
+- `allow-start-server`
+- `allow-stop-server`
+- `allow-server-url`
 
 ## Permission Table
 
@@ -28,6 +29,58 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`local-llm:allow-cancel-download`
+
+</td>
+<td>
+
+Enables the cancel_download command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-cancel-download`
+
+</td>
+<td>
+
+Denies the cancel_download command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:allow-delete-model`
+
+</td>
+<td>
+
+Enables the delete_model command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-llm:deny-delete-model`
+
+</td>
+<td>
+
+Denies the delete_model command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -110,32 +163,6 @@ Denies the get_current_model_selection command without any pre-configured scope.
 <tr>
 <td>
 
-`local-llm:allow-get-status`
-
-</td>
-<td>
-
-Enables the get_status command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-llm:deny-get-status`
-
-</td>
-<td>
-
-Denies the get_status command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `local-llm:allow-is-model-downloaded`
 
 </td>
@@ -181,32 +208,6 @@ Enables the is_model_downloading command without any pre-configured scope.
 <td>
 
 Denies the is_model_downloading command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-llm:allow-is-server-running`
-
-</td>
-<td>
-
-Enables the is_server_running command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-llm:deny-is-server-running`
-
-</td>
-<td>
-
-Denies the is_server_running command without any pre-configured scope.
 
 </td>
 </tr>
@@ -318,12 +319,12 @@ Denies the models_dir command without any pre-configured scope.
 <tr>
 <td>
 
-`local-llm:allow-restart-server`
+`local-llm:allow-server-url`
 
 </td>
 <td>
 
-Enables the restart_server command without any pre-configured scope.
+Enables the server_url command without any pre-configured scope.
 
 </td>
 </tr>
@@ -331,12 +332,12 @@ Enables the restart_server command without any pre-configured scope.
 <tr>
 <td>
 
-`local-llm:deny-restart-server`
+`local-llm:deny-server-url`
 
 </td>
 <td>
 
-Denies the restart_server command without any pre-configured scope.
+Denies the server_url command without any pre-configured scope.
 
 </td>
 </tr>

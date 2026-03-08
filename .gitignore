@@ -10,13 +10,14 @@ Secrets*.toml
 **/__pycache__/
 .supabase/
 .stripe/
+supabase/.seed/
 
 *storybook.log
 .cache/
-restate-data
 
 internal
 .turbo
 
 # Local Netlify folder
 .netlify
+

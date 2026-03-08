@@ -1,0 +1,24 @@
+[package]
+name = "api-nango"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-auth = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-api-error = { workspace = true }
+hypr-nango = { workspace = true }
+
+chrono = { workspace = true }
+urlencoding = { workspace = true }
+utoipa = { workspace = true }
+
+axum = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+sentry = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

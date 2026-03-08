@@ -307,10 +307,34 @@
           "markdownDescription": "Denies the get_available_deep_links command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`",
+          "description": "Enables the start_callback_server command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-callback-server",
+          "markdownDescription": "Enables the start_callback_server command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_callback_server command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-callback-server",
+          "markdownDescription": "Denies the start_callback_server command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_callback_server command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-callback-server",
+          "markdownDescription": "Enables the stop_callback_server command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_callback_server command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-callback-server",
+          "markdownDescription": "Denies the stop_callback_server command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-available-deep-links`\n- `allow-start-callback-server`\n- `allow-stop-callback-server`"
         }
       ]
     }

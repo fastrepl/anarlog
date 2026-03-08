@@ -1,3 +1,5 @@
+import "../../styles.css";
+
 import { isNodeActive } from "@tiptap/core";
 import {
   EditorContent,
@@ -8,11 +10,10 @@ import {
 import { forwardRef, useEffect, useMemo, useRef } from "react";
 import { useDebounceCallback } from "usehooks-ts";
 
-import "../../styles.css";
 import * as shared from "../shared";
-import type { FileHandlerConfig } from "../shared/extensions";
+import type { ExtensionOptions, FileHandlerConfig } from "../shared/extensions";
 import type { PlaceholderFunction } from "../shared/extensions/placeholder";
-import { mention, type MentionConfig } from "./mention";
+import { isMentionActive, mention, type MentionConfig } from "./mention";
 
 const safeRequestIdleCallback =
   typeof requestIdleCallback !== "undefined"
@@ -37,6 +38,7 @@ interface EditorProps {
   mentionConfig?: MentionConfig;
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
+  extensionOptions?: ExtensionOptions;
   onNavigateToTitle?: () => void;
 }
 
@@ -50,6 +52,7 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
       mentionConfig,
       placeholderComponent,
       fileHandlerConfig,
+      extensionOptions,
       onNavigateToTitle,
     } = props;
     const previousContentRef = useRef<JSONContent>(initialContent);
@@ -70,10 +73,19 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
 
     const extensions = useMemo(
       () => [
-        ...shared.getExtensions(placeholderComponent, fileHandlerConfig),
+        ...shared.getExtensions(
+          placeholderComponent,
+          fileHandlerConfig,
+          extensionOptions,
+        ),
         ...(mentionConfig ? [mention(mentionConfig)] : []),
       ],
-      [mentionConfig, placeholderComponent, fileHandlerConfig],
+      [
+        mentionConfig,
+        placeholderComponent,
+        fileHandlerConfig,
+        extensionOptions,
+      ],
     );
 
     const editorProps: Parameters<typeof useEditor>[0]["editorProps"] = useMemo(
@@ -93,20 +105,25 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
           const isAtStart = state.selection.$head.pos === 0;
 
           const $head = state.selection.$head;
-          const depth = $head.depth;
           let isInFirstBlock = false;
 
-          for (let d = depth; d > 0; d--) {
-            const node = $head.node(d);
-            if (node.type.name === "doc") continue;
-            const parentNode = $head.node(d - 1);
-            if (parentNode.type.name === "doc") {
-              isInFirstBlock = parentNode.firstChild === node;
-              break;
-            }
+          let node = state.doc.firstChild;
+          let firstTextBlockPos = 0;
+          while (node && !node.isTextblock) {
+            firstTextBlockPos += 1;
+            node = node.firstChild;
           }
 
-          if (event.key === "ArrowUp" && isInFirstBlock && onNavigateToTitle) {
+          if (node) {
+            isInFirstBlock = $head.start($head.depth) === firstTextBlockPos + 1;
+          }
+
+          if (
+            event.key === "ArrowUp" &&
+            isInFirstBlock &&
+            onNavigateToTitle &&
+            !isMentionActive(state)
+          ) {
             event.preventDefault();
 
             const firstBlock = state.doc.firstChild;

@@ -5,13 +5,14 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { allHandbooks } from "content-collections";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { NotFoundContent } from "@/components/not-found";
 import { SearchPaletteProvider } from "@/components/search";
 import { SidebarNavigation } from "@/components/sidebar-navigation";
+import { BlogTocContext } from "@/hooks/use-blog-toc";
 import { DocsDrawerContext } from "@/hooks/use-docs-drawer";
 import { HandbookDrawerContext } from "@/hooks/use-handbook-drawer";
 import { HeroContext } from "@/hooks/use-hero-context";
@@ -29,9 +30,21 @@ function Component() {
   const isDocsPage = router.location.pathname.startsWith("/docs");
   const isHandbookPage =
     router.location.pathname.startsWith("/company-handbook");
+  const isChoosePage = router.location.pathname.startsWith("/choose");
   const [onTrigger, setOnTrigger] = useState<(() => void) | null>(null);
   const [isDocsDrawerOpen, setIsDocsDrawerOpen] = useState(false);
   const [isHandbookDrawerOpen, setIsHandbookDrawerOpen] = useState(false);
+  const [blogToc, setBlogToc] = useState<
+    Array<{ id: string; text: string; level: number }>
+  >([]);
+  const [blogActiveId, setBlogActiveId] = useState<string | null>(null);
+
+  const scrollToHeading = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
 
   return (
     <SearchPaletteProvider>
@@ -41,39 +54,49 @@ function Component() {
           setOnTrigger: (callback) => setOnTrigger(() => callback),
         }}
       >
-        <DocsDrawerContext.Provider
+        <BlogTocContext.Provider
           value={{
-            isOpen: isDocsDrawerOpen,
-            setIsOpen: setIsDocsDrawerOpen,
+            toc: blogToc,
+            activeId: blogActiveId,
+            setToc: setBlogToc,
+            setActiveId: setBlogActiveId,
+            scrollToHeading,
           }}
         >
-          <HandbookDrawerContext.Provider
+          <DocsDrawerContext.Provider
             value={{
-              isOpen: isHandbookDrawerOpen,
-              setIsOpen: setIsHandbookDrawerOpen,
+              isOpen: isDocsDrawerOpen,
+              setIsOpen: setIsDocsDrawerOpen,
             }}
           >
-            <div className="min-h-screen flex flex-col">
-              <Header />
-              <main className="flex-1">
-                <Outlet />
-              </main>
-              <Footer />
-              {isDocsPage && (
-                <MobileDocsDrawer
-                  isOpen={isDocsDrawerOpen}
-                  onClose={() => setIsDocsDrawerOpen(false)}
-                />
-              )}
-              {isHandbookPage && (
-                <MobileHandbookDrawer
-                  isOpen={isHandbookDrawerOpen}
-                  onClose={() => setIsHandbookDrawerOpen(false)}
-                />
-              )}
-            </div>
-          </HandbookDrawerContext.Provider>
-        </DocsDrawerContext.Provider>
+            <HandbookDrawerContext.Provider
+              value={{
+                isOpen: isHandbookDrawerOpen,
+                setIsOpen: setIsHandbookDrawerOpen,
+              }}
+            >
+              <div className="flex min-h-screen flex-col">
+                {!isChoosePage && <Header />}
+                <main className="flex-1">
+                  <Outlet />
+                </main>
+                {!isChoosePage && <Footer />}
+                {isDocsPage && (
+                  <MobileDocsDrawer
+                    isOpen={isDocsDrawerOpen}
+                    onClose={() => setIsDocsDrawerOpen(false)}
+                  />
+                )}
+                {isHandbookPage && (
+                  <MobileHandbookDrawer
+                    isOpen={isHandbookDrawerOpen}
+                    onClose={() => setIsHandbookDrawerOpen(false)}
+                  />
+                )}
+              </div>
+            </HandbookDrawerContext.Provider>
+          </DocsDrawerContext.Provider>
+        </BlogTocContext.Provider>
       </HeroContext.Provider>
     </SearchPaletteProvider>
   );
@@ -105,7 +128,7 @@ function MobileDocsDrawer({
         />
       )}
       <div
-        className={`fixed top-17.25 left-0 h-[calc(100vh-69px)] w-72 bg-white/80 backdrop-blur-xs border-r border-neutral-100 shadow-2xl shadow-neutral-900/20 z-50 md:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed top-17.25 left-0 z-50 h-[calc(100vh-69px)] w-72 border-r border-neutral-100 bg-white/80 shadow-2xl shadow-neutral-900/20 backdrop-blur-xs transition-transform duration-300 ease-in-out md:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
@@ -114,7 +137,7 @@ function MobileDocsDrawer({
       >
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto scrollbar-hide p-4"
+          className="scrollbar-hide h-full overflow-y-auto p-4"
         >
           <SidebarNavigation
             sections={sections}
@@ -191,7 +214,7 @@ function MobileHandbookDrawer({
         />
       )}
       <div
-        className={`fixed top-17.25 left-0 h-[calc(100vh-69px)] w-72 bg-white/80 backdrop-blur-xs border-r border-neutral-100 shadow-2xl shadow-neutral-900/20 z-50 md:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed top-17.25 left-0 z-50 h-[calc(100vh-69px)] w-72 border-r border-neutral-100 bg-white/80 shadow-2xl shadow-neutral-900/20 backdrop-blur-xs transition-transform duration-300 ease-in-out md:hidden ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
@@ -200,7 +223,7 @@ function MobileHandbookDrawer({
       >
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto scrollbar-hide p-4"
+          className="scrollbar-hide h-full overflow-y-auto p-4"
         >
           <SidebarNavigation
             sections={handbooksBySection.sections}

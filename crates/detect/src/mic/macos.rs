@@ -342,20 +342,3 @@ impl crate::Observer for Detector {
         self.background.stop();
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{Observer, new_callback};
-
-    #[tokio::test]
-    async fn test_detector() {
-        let mut detector = Detector::default();
-        detector.start(new_callback(|v| {
-            println!("{:?}", v);
-        }));
-
-        tokio::time::sleep(Duration::from_secs(60)).await;
-        detector.stop();
-    }
-}

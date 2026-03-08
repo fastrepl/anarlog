@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import MuxPlayer, { type MuxPlayerRefAttributes } from "@mux/mux-player-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -12,6 +13,7 @@ import { GitHubOpenSource } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import { LogoCloud } from "@/components/logo-cloud";
+import { FAQ, FAQItem } from "@/components/mdx-jobs";
 import { MockWindow } from "@/components/mock-window";
 import { SlashSeparator } from "@/components/slash-separator";
 import { SocialCard } from "@/components/social-card";
@@ -24,92 +26,73 @@ import { useAnalytics } from "@/hooks/use-posthog";
 
 const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
 
+const heroContent = {
+  title: "AI Notepad for Meetings\u2014No Strings Attached.",
+  subtitle: "No forced cloud. No data held hostage. No bots in your meetings.",
+  valueProps: [
+    {
+      title: "Zero lock-in",
+      description:
+        "Choose your preferred STT and LLM provider. Cloud or local.",
+    },
+    {
+      title: "You own your data",
+      description: "Plain markdown files on your device. Works with any tool.",
+    },
+    {
+      title: "Just works",
+      description:
+        "A simple, familiar notepad, real-time transcription, and AI summaries.",
+    },
+  ],
+};
+
 const mainFeatures = [
   {
     icon: "mdi:text-box-outline",
-    title: "Transcript",
-    description: "Realtime transcript and speaker identification",
+    title: "Real-time transcription",
+    description:
+      "While you take notes, Char listens and generates a live transcript",
     image: "/api/images/hyprnote/transcript.jpg",
-    link: "/product/ai-notetaking#transcription",
+    muxPlaybackId: "rbkYuZpGJGLHx023foq9DCSt3pY1RegJU5PvMCkRE3rE",
+    link: "/product/ai-notetaking/#transcription",
   },
   {
     icon: "mdi:file-document-outline",
-    title: "Summary",
+    title: "AI summary",
     description:
-      "Create customized summaries with templates for various formats",
+      "Char combines your notes and the transcript to create a perfect summary",
     image: "/api/images/hyprnote/summary.jpg",
-    link: "/product/ai-notetaking#summaries",
+    muxPlaybackId: "lKr5l1fWGNnRqOehiz15mV79VHtFOCiuO9urmgqs6V8",
+    link: "/product/ai-notetaking/#summaries",
   },
   {
     icon: "mdi:chat-outline",
-    title: "Chat",
+    title: "AI Chat",
     description:
-      "Get context-aware answers in realtime, even from past meetings",
+      "Use natural language to get answers pulled directly from your transcript",
     image: "/api/images/hyprnote/chat.jpg",
     link: "/product/ai-assistant",
   },
   {
     icon: "mdi:window-restore",
-    title: "Floating Panel",
-    description:
-      "Compact notepad with transcript, summary, and chat during meetings",
-    comingSoon: true,
+    title: "Floating panel",
+    description: "Overlay to quick access recording controls during calls",
+    image: "/api/images/hyprnote/floating.jpg",
+    link: "/product/ai-notetaking/#floating-panel",
   },
   {
-    icon: "mdi:calendar-check-outline",
-    title: "Daily Note",
-    description:
-      "Track todos and navigate emails and events throughout the day",
-    comingSoon: true,
-  },
-];
-
-const activeFeatureIndices = mainFeatures
-  .map((f, i) => (!f.comingSoon ? i : -1))
-  .filter((i) => i !== -1);
-const FEATURES_AUTO_ADVANCE_DURATION = 5000;
-
-const detailsFeatures = [
-  {
-    icon: "mdi:text-box-edit-outline",
-    title: "Notion-like Editor",
-    description: "Full markdown support with distraction-free writing",
+    icon: "mdi:keyboard-outline",
+    title: "Keyboard shortcuts",
+    description: "Navigate and format quickly without touching your mouse",
     image: "/api/images/hyprnote/editor.jpg",
-    link: "/product/ai-notetaking#editor",
-  },
-  {
-    icon: "mdi:upload-outline",
-    title: "Upload Audio",
-    description: "Import audio files or transcripts to convert into notes",
-    image: "/api/images/hyprnote/upload-audio.jpg",
-    link: "/product/ai-notetaking#transcription",
-  },
-  {
-    icon: "mdi:account-multiple-outline",
-    title: "Contacts",
-    description: "Organize and manage your contacts with ease",
-    image: "/api/images/hyprnote/contacts.jpg",
-    link: "/product/mini-apps#contacts",
-  },
-  {
-    icon: "mdi:calendar-outline",
-    title: "Calendar",
-    description: "Stay on top of your schedule with integrated calendar",
-    image: "/api/images/hyprnote/calendar.jpg",
-    link: "/product/mini-apps#calendar",
-  },
-  {
-    icon: "mdi:bookshelf",
-    title: "Noteshelf",
-    description: "Browse and organize all your notes in one place",
-    comingSoon: true,
+    muxPlaybackId: "sMWkuSxKWfH3RYnX51Xa2acih01ZP5yfQy01Q00XRd1yTQ",
+    link: "/docs/faq/keyboard-shortcuts",
   },
 ];
 
-const activeDetailIndices = detailsFeatures
-  .map((f, i) => (!f.comingSoon ? i : -1))
-  .filter((i) => i !== -1);
-const DETAILS_AUTO_ADVANCE_DURATION = 5000;
+const activeFeatureIndices = mainFeatures.map((_, i) => i);
+const FEATURES_AUTO_ADVANCE_DURATION = 8000;
 
 export const Route = createFileRoute("/_view/")({
   component: Component,
@@ -117,20 +100,9 @@ export const Route = createFileRoute("/_view/")({
 
 function Component() {
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
-  const [selectedDetail, setSelectedDetail] = useState(0);
   const [selectedFeature, setSelectedFeature] = useState(0);
-  const detailsScrollRef = useRef<HTMLDivElement>(null);
   const featuresScrollRef = useRef<HTMLDivElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
-
-  const scrollToDetail = (index: number) => {
-    setSelectedDetail(index);
-    if (detailsScrollRef.current) {
-      const container = detailsScrollRef.current;
-      const scrollLeft = container.offsetWidth * index;
-      container.scrollTo({ left: scrollLeft, behavior: "smooth" });
-    }
-  };
 
   const scrollToFeature = (index: number) => {
     setSelectedFeature(index);
@@ -143,11 +115,11 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen flex-1 overflow-x-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
-        <YCombinatorBanner />
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+        <AnnouncementBanner />
         <HeroSection
           onVideoExpand={setExpandedVideo}
           heroInputRef={heroInputRef}
@@ -166,14 +138,11 @@ function Component() {
           scrollToFeature={scrollToFeature}
         />
         <SlashSeparator />
-        <DetailsSection
-          detailsScrollRef={detailsScrollRef}
-          selectedDetail={selectedDetail}
-          setSelectedDetail={setSelectedDetail}
-          scrollToDetail={scrollToDetail}
-        />
+        <TemplatesSection />
         <SlashSeparator />
         <GitHubOpenSource />
+        <SlashSeparator />
+        <FAQSection />
         <SlashSeparator />
         <ManifestoSection />
         <SlashSeparator />
@@ -190,34 +159,25 @@ function Component() {
   );
 }
 
-function YCombinatorBanner() {
+function AnnouncementBanner() {
   return (
-    <a
-      href="https://www.ycombinator.com/companies/hyprnote"
-      target="_blank"
-      rel="noopener noreferrer"
+    <Link
+      to="/blog/$slug/"
+      params={{ slug: "hyprnote-is-now-char" }}
       className="group"
     >
       <div
         className={cn([
           "flex items-center justify-center gap-2 text-center",
-          "bg-stone-50/70 border-b border-stone-100",
-          "py-3 px-4",
+          "border-b border-stone-100 bg-stone-50/70",
+          "px-4 py-3",
           "font-serif text-sm text-stone-700",
-          "hover:bg-stone-50 transition-all",
+          "transition-all hover:bg-stone-50",
         ])}
       >
-        <span className="group-hover:font-medium">Backed by</span>
-        <Image
-          src="/icons/yc_stone.svg"
-          alt="Y Combinator"
-          width={16}
-          height={16}
-          className="h-4 w-4 inline-block group-hover:scale-105"
-        />
-        <span className="group-hover:font-medium">Y Combinator</span>
+        <span className="group-hover:font-medium">Hyprnote is now Char.</span>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -233,6 +193,12 @@ function HeroSection({
   const heroContext = useHeroContext();
   const { track } = useAnalytics();
   const [shake, setShake] = useState(false);
+
+  useEffect(() => {
+    track("hero_section_viewed", {
+      timestamp: new Date().toISOString(),
+    });
+  }, [track]);
 
   const mutation = useMutation({
     mutationFn: async (email: string) => {
@@ -288,20 +254,17 @@ function HeroSection({
 
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center text-center">
+      <div className="flex w-full min-w-0 flex-col items-center text-center">
         <section
           id="hero"
-          className="flex flex-col items-center text-center gap-12 py-24 px-4 laptop:px-0"
+          className="laptop:px-0 flex w-full min-w-0 flex-col items-center gap-12 px-4 py-24 text-center"
         >
-          <div className="flex flex-col gap-6 max-w-4xl">
-            <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600">
-              The AI notepad for <br className="block sm:hidden" />
-              private meetings
+          <div className="flex w-full max-w-full min-w-0 flex-col gap-6">
+            <h1 className="min-w-0 font-serif text-2xl tracking-tight break-words text-stone-700 sm:text-5xl">
+              {heroContent.title}
             </h1>
-            <p className="text-lg sm:text-xl text-neutral-600">
-              Hyprnote listens and summarizes your meetings{" "}
-              <br className="hidden sm:block" />
-              without sending any voice to remote servers
+            <p className="min-w-0 text-base break-words text-neutral-600 sm:text-xl">
+              {heroContent.subtitle}
             </p>
           </div>
 
@@ -331,7 +294,7 @@ function HeroSection({
                   <>
                     <div
                       className={cn([
-                        "relative flex items-center border-2 rounded-full overflow-hidden transition-all duration-200",
+                        "relative flex items-center overflow-hidden rounded-full border-2 transition-all duration-200",
                         shake && "animate-shake border-stone-600",
                         !shake && mutation.isError && "border-red-500",
                         !shake && mutation.isSuccess && "border-green-500",
@@ -348,13 +311,13 @@ function HeroSection({
                         onChange={(e) => field.handleChange(e.target.value)}
                         onBlur={field.handleBlur}
                         placeholder={heroCTA.inputPlaceholder}
-                        className="flex-1 px-6 py-4 text-base outline-hidden bg-white"
+                        className="flex-1 bg-white px-6 py-4 text-base outline-hidden"
                         disabled={mutation.isPending || mutation.isSuccess}
                       />
                       <button
                         type="submit"
                         disabled={mutation.isPending || mutation.isSuccess}
-                        className="absolute right-1 px-6 py-3 text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all disabled:opacity-50"
+                        className="absolute right-1 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 sm:px-6"
                       >
                         {mutation.isPending
                           ? "Sending..."
@@ -364,12 +327,12 @@ function HeroSection({
                       </button>
                     </div>
                     {mutation.isSuccess && (
-                      <p className="text-green-600 mt-4 text-sm">
+                      <p className="mt-4 text-sm text-green-600">
                         Thanks! We'll be in touch soon.
                       </p>
                     )}
                     {mutation.isError && (
-                      <p className="text-red-600 mt-4 text-sm">
+                      <p className="mt-4 text-sm text-red-600">
                         {mutation.error instanceof Error
                           ? mutation.error.message
                           : "Something went wrong. Please try again."}
@@ -382,12 +345,12 @@ function HeroSection({
                           to={heroCTA.subtextLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-neutral-500 hover:text-neutral-700 hover:underline decoration-dotted mt-4 text-sm block transition-colors"
+                          className="mt-4 block text-sm text-neutral-500 decoration-dotted transition-colors hover:text-neutral-700 hover:underline"
                         >
                           {heroCTA.subtext}
                         </Link>
                       ) : (
-                        <p className="text-neutral-500 mt-4 text-sm">
+                        <p className="mt-4 text-sm text-neutral-500">
                           {heroCTA.subtext}
                         </p>
                       ))}
@@ -396,23 +359,23 @@ function HeroSection({
               </form.Field>
             </form>
           ) : (
-            <div className="flex flex-col gap-4 items-center">
+            <div className="flex flex-col items-center gap-4">
               <DownloadButton />
               {heroCTA.subtextLink ? (
                 <Link
                   to={heroCTA.subtextLink}
-                  className="text-neutral-500 hover:text-neutral-700 text-sm transition-colors"
+                  className="text-sm text-neutral-500 transition-colors hover:text-neutral-700"
                 >
                   {heroCTA.subtext}
                 </Link>
               ) : (
-                <p className="text-neutral-500 text-sm">{heroCTA.subtext}</p>
+                <p className="text-sm text-neutral-500">{heroCTA.subtext}</p>
               )}
             </div>
           )}
         </section>
 
-        <div className="relative aspect-video w-full max-w-4xl border-t border-neutral-100 md:hidden overflow-hidden">
+        <div className="relative aspect-video w-full max-w-4xl overflow-hidden border-t border-neutral-100 md:hidden">
           <VideoThumbnail
             playbackId={MUX_PLAYBACK_ID}
             onPlay={() => onVideoExpand(MUX_PLAYBACK_ID)}
@@ -420,8 +383,8 @@ function HeroSection({
         </div>
 
         <div className="w-full">
-          <ValuePropsGrid />
-          <div className="relative aspect-video w-full border-t border-neutral-100 hidden md:block overflow-hidden">
+          <ValuePropsGrid valueProps={heroContent.valueProps} />
+          <div className="relative hidden aspect-video w-full overflow-hidden border-t border-neutral-100 md:block">
             <VideoThumbnail
               playbackId={MUX_PLAYBACK_ID}
               onPlay={() => onVideoExpand(MUX_PLAYBACK_ID)}
@@ -433,32 +396,33 @@ function HeroSection({
   );
 }
 
-function ValuePropsGrid() {
+function ValuePropsGrid({
+  valueProps,
+}: {
+  valueProps: ReadonlyArray<{
+    readonly title: string;
+    readonly description: string;
+  }>;
+}) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 border-t border-neutral-100">
-      <div className="p-6 text-left border-b md:border-b-0 md:border-r border-neutral-100">
-        <h3 className="font-medium mb-1 text-neutral-900 font-mono">Private</h3>
-        <p className="text-sm text-neutral-600 leading-relaxed">
-          Your notes stay local by default. Sync to a cloud only when you
-          choose.
-        </p>
-      </div>
-      <div className="p-6 text-left border-b md:border-b-0 md:border-r border-neutral-100">
-        <h3 className="font-medium mb-1 text-neutral-900 font-mono">
-          Effortless
-        </h3>
-        <p className="text-sm text-neutral-600 leading-relaxed">
-          A simple notepad that just works—fast, minimal, and distraction-free.
-        </p>
-      </div>
-      <div className="p-6 text-left">
-        <h3 className="font-medium mb-1 text-neutral-900 font-mono">
-          Flexible
-        </h3>
-        <p className="text-sm text-neutral-600 leading-relaxed">
-          Use any STT or LLM. Local or cloud. No lock-ins, no forced stack.
-        </p>
-      </div>
+    <div className="grid grid-cols-1 border-t border-neutral-100 md:grid-cols-3">
+      {valueProps.map((prop, index) => (
+        <div
+          key={prop.title}
+          className={cn([
+            "border-b p-6 text-left md:border-b-0",
+            index < valueProps.length - 1 && "md:border-r",
+            "border-neutral-100",
+          ])}
+        >
+          <h3 className="mb-1 font-serif font-medium text-stone-700">
+            {prop.title}
+          </h3>
+          <p className="text-base leading-relaxed text-neutral-600">
+            {prop.description}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -467,7 +431,7 @@ function TestimonialsSection() {
   return (
     <section>
       <div className="text-center">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Loved by professionals at
         </p>
 
@@ -484,7 +448,7 @@ function TestimonialsSection() {
 
 function TestimonialsMobileGrid() {
   return (
-    <div className="md:hidden flex flex-col">
+    <div className="flex flex-col md:hidden">
       <SocialCard
         platform="reddit"
         author="spilledcarryout"
@@ -511,7 +475,7 @@ Cheers!"
         author="Flavius Catalin Miron"
         role="Product Engineer"
         company="Waveful"
-        body="Guys at Hyprnote (YC S25) are wild.
+        body="Guys at Char are wild.
 
 Had a call with John Jeong about their product (privacy-first AI notepad).
 
@@ -581,7 +545,7 @@ Thank you for your dedication and for building a tool that not only saves time, 
 
 Cheers!"
           url="https://www.reddit.com/r/macapps/comments/1lo24b9/comment/n15dr0t/"
-          className="w-full h-full border-l-0 border-r-0 border-b-0"
+          className="h-full w-full border-r-0 border-b-0 border-l-0"
         />
       </div>
 
@@ -591,7 +555,7 @@ Cheers!"
           author="Flavius Catalin Miron"
           role="Product Engineer"
           company="Waveful"
-          body="Guys at Hyprnote (YC S25) are wild.
+          body="Guys at Char are wild.
 
 Had a call with John Jeong about their product (privacy-first AI notepad).
 
@@ -615,7 +579,7 @@ Been using it for daily tasks, even simple note-taking is GREAT because I can re
 
 Mad respect to the team. This is how you build in 2025. 🚀"
           url="https://www.linkedin.com/posts/flaviews_guys-at-hyprnote-yc-s25-are-wild-had-activity-7360606765530386434-Klj-"
-          className="w-full h-full border-r-0 border-b-0"
+          className="h-full w-full border-r-0 border-b-0"
         />
       </div>
 
@@ -626,7 +590,7 @@ Mad respect to the team. This is how you build in 2025. 🚀"
           username="yoran_beisher"
           body="Been using Hypernote for a while now, truly one of the best AI apps I've used all year. Like they said, the best thing since sliced bread"
           url="https://x.com/yoran_beisher/status/1953147865486012611"
-          className="w-full h-full overflow-hidden border-r-0 border-b-0"
+          className="h-full w-full overflow-hidden border-r-0 border-b-0"
         />
       </div>
 
@@ -637,7 +601,7 @@ Mad respect to the team. This is how you build in 2025. 🚀"
           username="tomyang11_"
           body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
           url="https://twitter.com/tomyang11_/status/1956395933538902092"
-          className="w-full h-full overflow-hidden border-r-0 border-b-0"
+          className="h-full w-full overflow-hidden border-r-0 border-b-0"
         />
       </div>
     </div>
@@ -647,51 +611,51 @@ Mad respect to the team. This is how you build in 2025. 🚀"
 export function CoolStuffSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
-          What makes Hyprnote different
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+          Secure by Design
         </p>
       </div>
 
       <div className="hidden sm:grid sm:grid-cols-2">
-        <div className="border-r border-neutral-100 flex flex-col">
-          <div className="p-8 flex flex-col gap-4">
+        <div className="flex flex-col border-r border-neutral-100">
+          <div className="flex flex-col gap-4 p-8">
             <div className="flex items-center gap-3">
               <Icon
                 icon="mdi:robot-off-outline"
                 className="text-3xl text-stone-600"
               />
-              <h3 className="text-2xl font-serif text-stone-600">No bots</h3>
+              <h3 className="font-serif text-2xl text-stone-700">No bots</h3>
             </div>
-            <p className="text-base text-neutral-600 leading-relaxed">
-              No intrusive bots joining your meetings.
+            <p className="text-base leading-relaxed text-neutral-600">
+              Captures system audio—no bots join your calls.
             </p>
           </div>
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
+          <div className="flex flex-1 items-center justify-center overflow-hidden">
             <Image
               src="/api/images/hyprnote/no-bots.jpg"
               alt="No bots interface"
-              className="w-full h-full object-contain"
+              className="h-full w-full object-contain"
             />
           </div>
         </div>
         <div className="flex flex-col">
-          <div className="p-8 flex flex-col gap-4">
+          <div className="flex flex-col gap-4 p-8">
             <div className="flex items-center gap-3">
               <Icon icon="mdi:wifi-off" className="text-3xl text-stone-600" />
-              <h3 className="text-2xl font-serif text-stone-600">
-                No internet
+              <h3 className="font-serif text-2xl text-stone-700">
+                Fully local option
               </h3>
             </div>
-            <p className="text-base text-neutral-600 leading-relaxed">
-              Hyprnote is local-first. Take notes anywhere.
+            <p className="text-base leading-relaxed text-neutral-600">
+              Audio, transcripts, and notes stay on your device as files.
             </p>
           </div>
-          <div className="flex-1 flex items-center justify-center overflow-hidden">
+          <div className="flex flex-1 items-center justify-center overflow-hidden">
             <Image
               src="/api/images/hyprnote/no-wifi.png"
               alt="No internet interface"
-              className="w-full h-full object-contain"
+              className="h-full w-full object-contain"
             />
           </div>
         </div>
@@ -700,40 +664,42 @@ export function CoolStuffSection() {
       <div className="sm:hidden">
         <div className="border-b border-neutral-100">
           <div className="p-6">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="mb-3 flex items-center gap-3">
               <Icon
                 icon="mdi:robot-off-outline"
                 className="text-2xl text-stone-600"
               />
-              <h3 className="text-xl font-serif text-stone-600">No bots</h3>
+              <h3 className="font-serif text-xl text-stone-700">No bots</h3>
             </div>
-            <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-              No intrusive bots joining your meetings.
+            <p className="mb-4 text-base leading-relaxed text-neutral-600">
+              Captures system audio—no bots join your calls.
             </p>
           </div>
           <div className="overflow-hidden">
             <Image
               src="/api/images/hyprnote/no-bots.jpg"
               alt="No bots interface"
-              className="w-full h-auto object-contain"
+              className="h-auto w-full object-contain"
             />
           </div>
         </div>
         <div>
           <div className="p-6">
-            <div className="flex items-center gap-3 mb-3">
+            <div className="mb-3 flex items-center gap-3">
               <Icon icon="mdi:wifi-off" className="text-2xl text-stone-600" />
-              <h3 className="text-xl font-serif text-stone-600">No internet</h3>
+              <h3 className="font-serif text-xl text-stone-700">
+                Fully local option
+              </h3>
             </div>
-            <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-              Hyprnote is local-first. Take notes anywhere.
+            <p className="mb-4 text-base leading-relaxed text-neutral-600">
+              Audio, transcripts, and notes stay on your device as files.
             </p>
           </div>
           <div className="overflow-hidden">
             <Image
               src="/api/images/hyprnote/no-wifi.png"
               alt="No internet interface"
-              className="w-full h-auto object-contain"
+              className="h-auto w-full object-contain"
             />
           </div>
         </div>
@@ -807,28 +773,28 @@ export function HowItWorksSection() {
 
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           How it works
         </p>
       </div>
       <div className="hidden sm:grid sm:grid-cols-2">
-        <div className="border-r border-neutral-100 flex flex-col overflow-clip">
-          <div className="p-8 flex flex-col gap-4">
-            <p className="text-lg font-serif text-neutral-600 leading-relaxed">
-              <span className="font-semibold">While you take notes,</span>{" "}
-              Hyprnote listens and keeps track of everything that happens during
-              the meeting.
+        <div className="flex flex-col overflow-clip border-r border-neutral-100">
+          <div className="flex flex-col gap-4 p-8">
+            <p className="font-serif text-lg leading-relaxed text-neutral-600">
+              <span className="font-semibold">While you take notes,</span> Char
+              listens and keeps track of everything that happens during the
+              meeting.
             </p>
           </div>
-          <div className="flex-1 flex items-end justify-center px-8 pb-0 bg-stone-50/30">
+          <div className="flex flex-1 items-end justify-center bg-stone-50/30 px-8 pb-0">
             <MockWindow showAudioIndicator={enhancedLines === 0}>
-              <div className="p-6 h-75 overflow-hidden">
+              <div className="h-75 overflow-hidden p-6">
                 <div className="text-neutral-700">ui update - moble</div>
                 <div className="text-neutral-700">api</div>
-                <div className="text-neutral-700 mt-4">new dash - urgnet</div>
+                <div className="mt-4 text-neutral-700">new dash - urgnet</div>
                 <div className="text-neutral-700">a/b tst next wk</div>
-                <div className="text-neutral-700 mt-4">
+                <div className="mt-4 text-neutral-700">
                   {typedText1}
                   {typedText1 && typedText1.length < text1.length && (
                     <span className="animate-pulse">|</span>
@@ -846,16 +812,16 @@ export function HowItWorksSection() {
         </div>
 
         <div className="flex flex-col overflow-clip">
-          <div className="p-8 flex flex-col gap-4">
-            <p className="text-lg font-serif text-neutral-600 leading-relaxed">
+          <div className="flex flex-col gap-4 p-8">
+            <p className="font-serif text-lg leading-relaxed text-neutral-600">
               <span className="font-semibold">After the meeting is over,</span>{" "}
-              Hyprnote combines your notes with transcripts to create a perfect
+              Char combines your notes with transcripts to create a perfect
               summary.
             </p>
           </div>
-          <div className="flex-1 flex items-end justify-center px-8 pb-0 bg-stone-50/30">
+          <div className="flex flex-1 items-end justify-center bg-stone-50/30 px-8 pb-0">
             <MockWindow>
-              <div className="p-6 flex flex-col gap-4 h-75 overflow-hidden">
+              <div className="flex h-75 flex-col gap-4 overflow-hidden p-6">
                 <div className="flex flex-col gap-2">
                   <h4
                     className={cn([
@@ -865,7 +831,7 @@ export function HowItWorksSection() {
                   >
                     Mobile UI Update and API Adjustments
                   </h4>
-                  <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-5">
+                  <ul className="flex list-disc flex-col gap-2 pl-5 text-neutral-700">
                     <li
                       className={cn(
                         "transition-opacity duration-500",
@@ -907,7 +873,7 @@ export function HowItWorksSection() {
                   >
                     New Dashboard – Urgent Priority
                   </h4>
-                  <ul className="flex flex-col gap-2 text-sm text-neutral-700 list-disc pl-5">
+                  <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-neutral-700">
                     <li
                       className={cn([
                         "transition-opacity duration-500",
@@ -937,23 +903,23 @@ export function HowItWorksSection() {
       <div className="sm:hidden">
         <div className="border-b border-neutral-100">
           <div className="p-6 pb-2">
-            <p className="text-base font-serif text-neutral-600 leading-relaxed mb-4">
-              <span className="font-semibold">While you take notes,</span>{" "}
-              Hyprnote listens and keeps track of everything that happens during
-              the meeting.
+            <p className="mb-4 font-serif text-base leading-relaxed text-neutral-600">
+              <span className="font-semibold">While you take notes,</span> Char
+              listens and keeps track of everything that happens during the
+              meeting.
             </p>
           </div>
-          <div className="px-6 pb-0 bg-stone-50/30 overflow-clip">
+          <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
             <MockWindow
               variant="mobile"
               showAudioIndicator={enhancedLines === 0}
             >
-              <div className="p-6 h-50 overflow-hidden">
+              <div className="h-50 overflow-hidden p-6">
                 <div className="text-neutral-700">ui update - moble</div>
                 <div className="text-neutral-700">api</div>
-                <div className="text-neutral-700 mt-3">new dash - urgnet</div>
+                <div className="mt-3 text-neutral-700">new dash - urgnet</div>
                 <div className="text-neutral-700">a/b tst next wk</div>
-                <div className="text-neutral-700 mt-3">
+                <div className="mt-3 text-neutral-700">
                   {typedText1}
                   {typedText1 && typedText1.length < text1.length && (
                     <span className="animate-pulse">|</span>
@@ -972,20 +938,20 @@ export function HowItWorksSection() {
 
         <div>
           <div className="p-6 pb-2">
-            <p className="text-base font-serif text-neutral-600 leading-relaxed mb-4">
+            <p className="mb-4 font-serif text-base leading-relaxed text-neutral-600">
               <span className="font-semibold">After the meeting is over,</span>{" "}
-              Hyprnote combines your notes with transcripts to create a perfect
+              Char combines your notes with transcripts to create a perfect
               summary.
             </p>
           </div>
-          <div className="px-6 pb-0 bg-stone-50/30 overflow-clip">
+          <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
             <MockWindow variant="mobile">
-              <div className="p-6 flex flex-col gap-4 h-50 overflow-hidden">
+              <div className="flex h-50 flex-col gap-4 overflow-hidden p-6">
                 <div className="flex flex-col gap-2">
                   <h4 className="text-lg font-semibold text-stone-700">
                     Mobile UI Update and API Adjustments
                   </h4>
-                  <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-4">
+                  <ul className="flex list-disc flex-col gap-2 pl-4 text-neutral-700">
                     <li
                       className={cn([
                         "transition-opacity duration-500",
@@ -1022,7 +988,7 @@ export function HowItWorksSection() {
                   <h4 className="text-lg font-semibold text-stone-700">
                     New Dashboard – Urgent Priority
                   </h4>
-                  <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-4">
+                  <ul className="flex list-disc flex-col gap-2 pl-4 text-neutral-700">
                     <li
                       className={cn([
                         "transition-opacity duration-500",
@@ -1091,7 +1057,6 @@ export function MainFeaturesSection({
   scrollToFeature: (index: number) => void;
 }) {
   const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
   const progressRef = useRef(0);
 
   const handleFeatureIndexChange = useCallback(
@@ -1099,16 +1064,11 @@ export function MainFeaturesSection({
       setSelectedFeature(nextIndex);
       setProgress(0);
       progressRef.current = 0;
-
-      const feature = mainFeatures[nextIndex];
-      setIsPaused(!!feature?.comingSoon);
     },
     [setSelectedFeature],
   );
 
   useEffect(() => {
-    if (isPaused) return;
-
     const startTime =
       Date.now() - (progressRef.current / 100) * FEATURES_AUTO_ADVANCE_DURATION;
     let animationId: number;
@@ -1146,32 +1106,30 @@ export function MainFeaturesSection({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [selectedFeature, setSelectedFeature, featuresScrollRef, isPaused]);
+  }, [selectedFeature, setSelectedFeature, featuresScrollRef]);
 
   const handleScrollToFeature = (index: number) => {
     scrollToFeature(index);
     setProgress(0);
     progressRef.current = 0;
-    const feature = mainFeatures[index];
-    setIsPaused(!!feature?.comingSoon);
   };
 
   return (
     <section>
-      <div className="text-center py-16 px-4">
-        <div className="mb-6 mx-auto size-28 shadow-xl border border-neutral-100 flex justify-center items-center rounded-4xl bg-transparent">
+      <div className="px-4 py-16 text-center">
+        <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-transparent shadow-xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={96}
             height={96}
             className="size-24 rounded-3xl border border-neutral-100"
           />
         </div>
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">
           Works like charm
         </h2>
-        <p className="text-neutral-600 max-w-lg mx-auto">
+        <p className="mx-auto max-w-lg text-neutral-600">
           {
             "Super simple and easy to use with its clean interface. And it's getting better with every update — every single week."
           }
@@ -1202,11 +1160,20 @@ function FeaturesMobileCarousel({
   scrollToFeature: (index: number) => void;
   progress: number;
 }) {
+  const isSwiping = useRef(false);
+
   return (
-    <div className="max-[800px]:block hidden">
+    <div className="hidden max-[800px]:block">
       <div
         ref={featuresScrollRef}
-        className="overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        className="scrollbar-hide snap-x snap-mandatory overflow-x-auto"
+        onTouchStart={() => {
+          isSwiping.current = true;
+          onIndexChange(selectedFeature);
+        }}
+        onTouchEnd={() => {
+          isSwiping.current = false;
+        }}
         onScroll={(e) => {
           const container = e.currentTarget;
           const scrollLeft = container.scrollLeft;
@@ -1220,34 +1187,46 @@ function FeaturesMobileCarousel({
         <div className="flex">
           {mainFeatures.map((feature, index) => (
             <div key={index} className="w-full shrink-0 snap-center">
-              <div className="border-y border-neutral-100 overflow-hidden flex flex-col">
-                <div className="aspect-video border-b border-neutral-100 overflow-hidden">
-                  {feature.image ? (
+              <div className="flex flex-col overflow-hidden border-y border-neutral-100">
+                <Link
+                  to={feature.link}
+                  className={cn([
+                    "relative block aspect-video overflow-hidden border-b border-neutral-100",
+                    (feature.image || feature.muxPlaybackId) &&
+                      "bg-neutral-100",
+                  ])}
+                >
+                  {feature.muxPlaybackId ? (
+                    <MobileFeatureVideo
+                      playbackId={feature.muxPlaybackId}
+                      alt={`${feature.title} feature`}
+                      isActive={selectedFeature === index}
+                    />
+                  ) : feature.image ? (
                     <Image
                       src={feature.image}
                       alt={`${feature.title} feature`}
-                      className="w-full h-full object-contain"
+                      className="h-full w-full object-contain"
                     />
                   ) : (
                     <img
                       src="/api/images/hyprnote/static.webp"
                       alt={`${feature.title} feature`}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   )}
-                </div>
+                </Link>
                 <div className="p-6">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-lg font-serif text-stone-600">
+                  <div className="mb-2 flex items-center gap-3">
+                    <Icon
+                      icon={feature.icon}
+                      className="text-2xl text-stone-600"
+                    />
+                    <h3 className="font-serif text-lg text-stone-700">
                       {feature.title}
                     </h3>
-                    {feature.comingSoon && (
-                      <span className="text-xs font-medium bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 px-2 py-1 rounded-full shadow-xs">
-                        Coming Soon
-                      </span>
-                    )}
                   </div>
-                  <p className="text-sm text-neutral-600">
+                  <p className="text-base text-neutral-600">
                     {feature.description}
                   </p>
                 </div>
@@ -1258,19 +1237,19 @@ function FeaturesMobileCarousel({
       </div>
 
       <div className="flex justify-center gap-2 py-6">
-        {mainFeatures.map((feature, index) => (
+        {mainFeatures.map((_, index) => (
           <button
             key={index}
             onClick={() => scrollToFeature(index)}
             className={cn([
-              "h-1 rounded-full cursor-pointer overflow-hidden",
+              "h-1 cursor-pointer overflow-hidden rounded-full",
               selectedFeature === index
                 ? "w-8 bg-neutral-300"
                 : "w-8 bg-neutral-300 hover:bg-neutral-400",
             ])}
             aria-label={`Go to feature ${index + 1}`}
           >
-            {selectedFeature === index && !feature.comingSoon && (
+            {selectedFeature === index && (
               <div
                 className="h-full bg-stone-600 transition-none"
                 style={{ width: `${progress}%` }}
@@ -1279,6 +1258,120 @@ function FeaturesMobileCarousel({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function MobileFeatureVideo({
+  playbackId,
+  alt,
+  isActive,
+}: {
+  playbackId: string;
+  alt: string;
+  isActive: boolean;
+}) {
+  const playerRef = useRef<MuxPlayerRefAttributes>(null);
+  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (isActive) {
+      player.play()?.catch(() => {
+        // Autoplay blocked or player not ready - fail silently
+      });
+    } else {
+      player.pause();
+      player.currentTime = 0;
+    }
+  }, [isActive]);
+
+  return (
+    <div className="relative h-full w-full">
+      <img
+        src={thumbnailUrl}
+        alt={alt}
+        className={cn([
+          "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
+          isActive ? "opacity-0" : "opacity-100",
+        ])}
+      />
+      <MuxPlayer
+        ref={playerRef}
+        playbackId={playbackId}
+        muted
+        loop
+        playsInline
+        maxResolution="1080p"
+        minResolution="720p"
+        className={cn([
+          "h-full w-full object-contain transition-opacity duration-300",
+          isActive ? "opacity-100" : "opacity-0",
+        ])}
+        style={
+          {
+            "--controls": "none",
+          } as React.CSSProperties & { [key: `--${string}`]: string }
+        }
+      />
+    </div>
+  );
+}
+
+function FeatureVideo({
+  playbackId,
+  alt,
+  isHovered,
+}: {
+  playbackId: string;
+  alt: string;
+  isHovered: boolean;
+}) {
+  const playerRef = useRef<MuxPlayerRefAttributes>(null);
+  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (isHovered) {
+      player.play();
+    } else {
+      player.pause();
+      player.currentTime = 0;
+    }
+  }, [isHovered]);
+
+  return (
+    <div className="relative h-full w-full">
+      <img
+        src={thumbnailUrl}
+        alt={alt}
+        className={cn([
+          "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
+          isHovered ? "opacity-0" : "opacity-100",
+        ])}
+      />
+      <MuxPlayer
+        ref={playerRef}
+        playbackId={playbackId}
+        muted
+        loop
+        playsInline
+        maxResolution="1080p"
+        minResolution="720p"
+        className={cn([
+          "h-full w-full object-contain transition-opacity duration-300",
+          isHovered ? "opacity-100" : "opacity-0",
+        ])}
+        style={
+          {
+            "--controls": "none",
+          } as React.CSSProperties & { [key: `--${string}`]: string }
+        }
+      />
     </div>
   );
 }
@@ -1295,78 +1388,52 @@ function FeaturesDesktopGrid() {
   ];
 
   return (
-    <div className="min-[800px]:grid hidden grid-cols-6">
+    <div className="hidden grid-cols-6 min-[800px]:grid">
       {mainFeatures.map((feature, index) => (
         <div
           key={index}
           className={cn(
             gridClasses[index],
-            "border-neutral-100 overflow-hidden flex flex-col",
+            "flex flex-col overflow-hidden border-neutral-100",
           )}
         >
-          <div
+          <Link
+            to={feature.link}
             className={cn([
-              "aspect-video border-b border-neutral-100 overflow-hidden relative group",
-              feature.image && "bg-neutral-100",
+              "group relative block aspect-video overflow-hidden border-b border-neutral-100",
+              (feature.image || feature.muxPlaybackId) && "bg-neutral-100",
             ])}
             onMouseEnter={() => setHoveredFeature(index)}
             onMouseLeave={() => setHoveredFeature(null)}
           >
-            {feature.image ? (
-              <>
-                <Image
-                  src={feature.image}
-                  alt={`${feature.title} feature`}
-                  className="w-full h-full object-contain"
-                />
-                {feature.link && (
-                  <div
-                    className={cn([
-                      "absolute bottom-0 left-0 right-0",
-                      "transition-all duration-300 ease-out",
-                      hoveredFeature === index
-                        ? "translate-y-0 opacity-100"
-                        : "translate-y-full opacity-0",
-                    ])}
-                  >
-                    <Link
-                      to={feature.link}
-                      className={cn([
-                        "w-full py-4 text-xs font-mono cursor-pointer block text-center",
-                        "bg-stone-100/95 text-stone-800",
-                        "hover:bg-stone-200/95 active:bg-stone-400/95",
-                        "transition-all duration-150",
-                        "backdrop-blur-xs",
-                      ])}
-                    >
-                      Learn more
-                    </Link>
-                  </div>
-                )}
-              </>
+            {feature.muxPlaybackId ? (
+              <FeatureVideo
+                playbackId={feature.muxPlaybackId}
+                alt={`${feature.title} feature`}
+                isHovered={hoveredFeature === index}
+              />
+            ) : feature.image ? (
+              <Image
+                src={feature.image}
+                alt={`${feature.title} feature`}
+                className="h-full w-full object-contain"
+              />
             ) : (
               <img
                 src="/api/images/hyprnote/static.webp"
                 alt={`${feature.title} feature`}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             )}
-          </div>
-          <div className="p-6 flex-1">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-3">
-                <Icon icon={feature.icon} className="text-2xl text-stone-600" />
-                <h3 className="text-lg font-serif text-stone-600">
-                  {feature.title}
-                </h3>
-              </div>
-              {feature.comingSoon && (
-                <span className="text-xs font-medium bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 px-2 py-1 rounded-full shadow-xs">
-                  Coming Soon
-                </span>
-              )}
+          </Link>
+          <div className="flex-1 p-6">
+            <div className="mb-2 flex items-center gap-3">
+              <Icon icon={feature.icon} className="text-2xl text-stone-600" />
+              <h3 className="font-serif text-lg text-stone-700">
+                {feature.title}
+              </h3>
             </div>
-            <p className="text-sm text-neutral-600">{feature.description}</p>
+            <p className="text-base text-neutral-600">{feature.description}</p>
           </div>
         </div>
       ))}
@@ -1374,463 +1441,194 @@ function FeaturesDesktopGrid() {
   );
 }
 
-export function DetailsSection({
-  detailsScrollRef,
-  selectedDetail,
-  setSelectedDetail,
-  scrollToDetail,
-}: {
-  detailsScrollRef: React.RefObject<HTMLDivElement | null>;
-  selectedDetail: number;
-  setSelectedDetail: (index: number) => void;
-  scrollToDetail: (index: number) => void;
-}) {
-  const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const progressRef = useRef(0);
+const templateCategories = [
+  {
+    icon: "mdi:handshake-outline",
+    category: "Sales",
+    description: "Close deals with organized discovery and follow-ups",
+    templates: ["Sales Discovery Call", "Client Kickoff", "Investor Pitch"],
+  },
+  {
+    icon: "mdi:lightbulb-outline",
+    category: "Product",
+    description: "Build the right things with clear alignment",
+    templates: [
+      "Product Roadmap Review",
+      "Brainstorming Session",
+      "Project Kickoff",
+    ],
+  },
+  {
+    icon: "mdi:code-braces",
+    category: "Engineering",
+    description: "Ship faster with focused technical discussions",
+    templates: [
+      "Sprint Planning",
+      "Sprint Retrospective",
+      "Technical Design Review",
+    ],
+  },
+];
 
-  const handleDetailIndexChange = useCallback(
-    (nextIndex: number) => {
-      setSelectedDetail(nextIndex);
-      setProgress(0);
-      progressRef.current = 0;
-
-      const feature = detailsFeatures[nextIndex];
-      setIsPaused(!!feature?.comingSoon);
-    },
-    [setSelectedDetail],
-  );
-
-  useEffect(() => {
-    if (isPaused) return;
-
-    const startTime =
-      Date.now() - (progressRef.current / 100) * DETAILS_AUTO_ADVANCE_DURATION;
-    let animationId: number;
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min(
-        (elapsed / DETAILS_AUTO_ADVANCE_DURATION) * 100,
-        100,
-      );
-      setProgress(newProgress);
-      progressRef.current = newProgress;
-
-      if (newProgress >= 100) {
-        const currentActiveIndex = activeDetailIndices.indexOf(selectedDetail);
-        const nextActiveIndex =
-          (currentActiveIndex + 1) % activeDetailIndices.length;
-        const nextIndex = activeDetailIndices[nextActiveIndex];
-        setSelectedDetail(nextIndex);
-        setProgress(0);
-        progressRef.current = 0;
-        if (detailsScrollRef.current) {
-          const container = detailsScrollRef.current;
-          const scrollLeft = container.offsetWidth * nextIndex;
-          container.scrollTo({
-            left: scrollLeft,
-            behavior: "smooth",
-          });
-        }
-      } else {
-        animationId = requestAnimationFrame(animate);
-      }
-    };
-
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [selectedDetail, setSelectedDetail, detailsScrollRef, isPaused]);
-
-  const handleTabClick = (index: number) => {
-    setSelectedDetail(index);
-    setProgress(0);
-    progressRef.current = 0;
-    const feature = detailsFeatures[index];
-    setIsPaused(!!feature?.comingSoon);
-  };
-
-  const handleScrollToDetail = (index: number) => {
-    scrollToDetail(index);
-    setProgress(0);
-    progressRef.current = 0;
-    const feature = detailsFeatures[index];
-    setIsPaused(!!feature?.comingSoon);
-  };
-
+export function TemplatesSection() {
   return (
-    <div>
-      <DetailsSectionHeader />
-      <DetailsMobileCarousel
-        detailsScrollRef={detailsScrollRef}
-        selectedDetail={selectedDetail}
-        onIndexChange={handleDetailIndexChange}
-        scrollToDetail={handleScrollToDetail}
-        progress={progress}
-      />
-      <DetailsTabletView
-        selectedDetail={selectedDetail}
-        progress={progress}
-        onTabClick={handleTabClick}
-        onPauseChange={setIsPaused}
-      />
-      <DetailsDesktopView />
-    </div>
-  );
-}
-
-function DetailsSectionHeader() {
-  return (
-    <div className="text-center py-12 px-4 laptop:px-0">
-      <h2 className="text-3xl font-serif text-stone-600 mb-4">
-        We focus on every bit of details
-      </h2>
-      <p className="text-neutral-600 max-w-lg mx-auto">
-        From powerful editing to seamless organization, every feature is crafted
-        with care
-      </p>
-    </div>
-  );
-}
-
-function DetailsMobileCarousel({
-  detailsScrollRef,
-  selectedDetail,
-  onIndexChange,
-  scrollToDetail,
-  progress,
-}: {
-  detailsScrollRef: React.RefObject<HTMLDivElement | null>;
-  selectedDetail: number;
-  onIndexChange: (index: number) => void;
-  scrollToDetail: (index: number) => void;
-  progress: number;
-}) {
-  return (
-    <div className="max-[800px]:block hidden">
-      <div
-        ref={detailsScrollRef}
-        className="overflow-x-auto scrollbar-hide snap-x snap-mandatory"
-        onScroll={(e) => {
-          const container = e.currentTarget;
-          const scrollLeft = container.scrollLeft;
-          const itemWidth = container.offsetWidth;
-          const index = Math.round(scrollLeft / itemWidth);
-          if (index !== selectedDetail) {
-            onIndexChange(index);
-          }
-        }}
-      >
-        <div className="flex">
-          {detailsFeatures.map((feature, index) => (
-            <div key={index} className="w-full shrink-0 snap-center">
-              <div className="border-y border-neutral-100 overflow-hidden flex flex-col">
-                <div className="aspect-video border-y border-neutral-100 overflow-hidden">
-                  {feature.image ? (
-                    <Image
-                      src={feature.image}
-                      alt={`${feature.title} feature`}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <img
-                      src="/api/images/hyprnote/static.webp"
-                      alt={`${feature.title} feature`}
-                      className="w-full h-full object-contain"
-                    />
-                  )}
-                </div>
-                <div className="p-6">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <h3 className="text-lg font-serif text-stone-600">
-                      {feature.title}
-                    </h3>
-                    {feature.comingSoon && (
-                      <span className="text-xs font-medium bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 px-2 py-1 rounded-full shadow-xs">
-                        Coming Soon
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-neutral-600">
-                    {feature.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+    <section>
+      <div className="laptop:px-0 px-4 py-12 text-center">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          A template for every meeting
+        </h2>
+        <p className="text-neutral-600">
+          Char adapts to how you work with customizable templates for any
+          meeting type
+        </p>
       </div>
 
-      <div className="flex justify-center gap-2 py-6">
-        {detailsFeatures.map((feature, index) => (
-          <button
-            key={index}
-            onClick={() => scrollToDetail(index)}
-            className={cn([
-              "h-1 rounded-full cursor-pointer overflow-hidden",
-              selectedDetail === index
-                ? "w-8 bg-neutral-300"
-                : "w-8 bg-neutral-300 hover:bg-neutral-400",
-            ])}
-            aria-label={`Go to detail ${index + 1}`}
-          >
-            {selectedDetail === index && !feature.comingSoon && (
-              <div
-                className="h-full bg-stone-600 transition-none"
-                style={{ width: `${progress}%` }}
-              />
-            )}
-          </button>
-        ))}
+      <TemplatesMobileView />
+      <TemplatesDesktopView />
+
+      <div className="border-t border-neutral-100 py-8 text-center">
+        <Link
+          to="/gallery/"
+          search={{ type: "template" }}
+          className={cn([
+            "inline-flex items-center gap-2",
+            "text-stone-600 hover:text-stone-800",
+            "font-medium transition-colors",
+          ])}
+        >
+          View all templates
+          <Icon icon="mdi:arrow-right" className="text-lg" />
+        </Link>
       </div>
-    </div>
+    </section>
   );
 }
 
-function DetailsTabletView({
-  selectedDetail,
-  progress,
-  onTabClick,
-  onPauseChange,
-}: {
-  selectedDetail: number;
-  progress: number;
-  onTabClick: (index: number) => void;
-  onPauseChange: (paused: boolean) => void;
-}) {
+function TemplatesMobileView() {
   return (
-    <div className="min-[800px]:max-[1200px]:block hidden border-t border-neutral-100">
-      <div className="flex flex-col">
-        <div className="overflow-x-auto scrollbar-hide border-b border-neutral-100">
-          <div className="flex">
-            {detailsFeatures.map((feature, index) => (
-              <button
-                key={index}
-                onClick={() => onTabClick(index)}
-                onMouseEnter={() =>
-                  selectedDetail === index && onPauseChange(true)
-                }
-                onMouseLeave={() =>
-                  selectedDetail === index && onPauseChange(false)
-                }
-                className={cn([
-                  "cursor-pointer p-6 border-r border-neutral-100 last:border-r-0 min-w-70 text-left transition-colors relative overflow-hidden",
-                  selectedDetail !== index && "hover:bg-neutral-50",
-                ])}
+    <div className="border-t border-neutral-100 md:hidden">
+      {templateCategories.map((category, index) => (
+        <div
+          key={category.category}
+          className={cn([
+            "p-6",
+            index < templateCategories.length - 1 &&
+              "border-b border-neutral-100",
+          ])}
+        >
+          <div className="mb-3 flex items-center gap-3">
+            <Icon icon={category.icon} className="text-2xl text-stone-600" />
+            <h3 className="font-serif text-lg text-stone-700">
+              {category.category}
+            </h3>
+          </div>
+          <p className="mb-4 text-base text-neutral-600">
+            {category.description}
+          </p>
+          <div className="text-left">
+            {category.templates.map((template, i) => (
+              <span
+                key={template}
+                className="font-mono text-[11px] text-stone-400"
               >
-                {selectedDetail === index && !feature.comingSoon && (
-                  <div
-                    className="absolute inset-0 bg-stone-100 transition-none"
-                    style={{ width: `${progress}%` }}
-                  />
-                )}
-                <div className="relative">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <h3 className="text-base font-serif font-medium text-stone-600">
-                      {feature.title}
-                    </h3>
-                    {feature.comingSoon && (
-                      <span className="text-xs font-medium bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 px-2 py-1 rounded-full shadow-xs">
-                        Coming Soon
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-neutral-600">
-                    {feature.description}
-                  </p>
-                </div>
-              </button>
+                {template}
+                {i < category.templates.length - 1 ? ", " : ""}
+              </span>
             ))}
           </div>
         </div>
-
-        <div
-          className="aspect-video"
-          onMouseEnter={() => onPauseChange(true)}
-          onMouseLeave={() => onPauseChange(false)}
-        >
-          {detailsFeatures[selectedDetail].image ? (
-            <Image
-              src={detailsFeatures[selectedDetail].image}
-              alt={`${detailsFeatures[selectedDetail].title} feature`}
-              className="w-full h-full object-contain"
-            />
-          ) : (
-            <img
-              src="/api/images/hyprnote/static.webp"
-              alt={`${detailsFeatures[selectedDetail].title} feature`}
-              className="w-full h-full object-contain"
-            />
-          )}
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
 
-function DetailsDesktopView() {
-  const [selectedDetail, setSelectedDetail] = useState<number>(0);
-  const [hoveredDetail, setHoveredDetail] = useState<number | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const progressRef = useRef(0);
-  const selectedFeature =
-    selectedDetail !== null ? detailsFeatures[selectedDetail] : null;
-
-  useEffect(() => {
-    if (isPaused) return;
-    if (detailsFeatures[selectedDetail]?.comingSoon) return;
-
-    const startTime =
-      Date.now() - (progressRef.current / 100) * DETAILS_AUTO_ADVANCE_DURATION;
-    let animationId: number;
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min(
-        (elapsed / DETAILS_AUTO_ADVANCE_DURATION) * 100,
-        100,
-      );
-      setProgress(newProgress);
-      progressRef.current = newProgress;
-
-      if (newProgress >= 100) {
-        const currentActiveIndex = activeDetailIndices.indexOf(selectedDetail);
-        const nextActiveIndex =
-          (currentActiveIndex + 1) % activeDetailIndices.length;
-        const nextIndex = activeDetailIndices[nextActiveIndex];
-        setSelectedDetail(nextIndex);
-        setProgress(0);
-        progressRef.current = 0;
-      } else {
-        animationId = requestAnimationFrame(animate);
-      }
-    };
-
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [selectedDetail, isPaused]);
-
-  const handleTabClick = (index: number) => {
-    setSelectedDetail(index);
-    setProgress(0);
-    progressRef.current = 0;
-  };
-
+function TemplatesDesktopView() {
   return (
-    <div className="min-[1200px]:grid hidden grid-cols-2 border-t border-neutral-100">
-      <div
-        className="border-r border-neutral-100 relative overflow-hidden"
-        style={{ paddingBottom: "56.25%" }}
-      >
-        <div className="absolute inset-0 overflow-y-auto">
-          {detailsFeatures.map((feature, index) => (
-            <div
-              key={index}
-              onClick={() => handleTabClick(index)}
-              onMouseEnter={() => selectedDetail === index && setIsPaused(true)}
-              onMouseLeave={() =>
-                selectedDetail === index && setIsPaused(false)
-              }
-              className={cn([
-                "p-6 cursor-pointer transition-colors relative overflow-hidden",
-                index < detailsFeatures.length - 1 &&
-                  "border-b border-neutral-100",
-                selectedDetail !== index && "hover:bg-neutral-50",
-              ])}
-            >
-              {selectedDetail === index && !feature.comingSoon && (
-                <div
-                  className="absolute inset-0 bg-stone-100 transition-none"
-                  style={{ width: `${progress}%` }}
-                />
-              )}
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      icon={feature.icon}
-                      className="text-xl text-stone-600"
-                    />
-                    <h3 className="text-base font-serif font-medium text-stone-600">
-                      {feature.title}
-                    </h3>
-                  </div>
-                  {feature.comingSoon && (
-                    <span className="text-xs font-medium text-neutral-500 bg-neutral-200 px-2 py-1 rounded-full whitespace-nowrap">
-                      Coming Soon
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-neutral-600">
-                  {feature.description}
-                </p>
-              </div>
-            </div>
-          ))}
+    <div className="hidden grid-cols-3 border-t border-neutral-100 md:grid">
+      {templateCategories.map((category, index) => (
+        <div
+          key={category.category}
+          className={cn([
+            "p-6",
+            index < templateCategories.length - 1 &&
+              "border-r border-neutral-100",
+          ])}
+        >
+          <div className="mb-3 flex items-center gap-3">
+            <Icon icon={category.icon} className="text-2xl text-stone-600" />
+            <h3 className="font-serif text-lg text-stone-700">
+              {category.category}
+            </h3>
+          </div>
+          <p className="mb-4 text-base text-neutral-600">
+            {category.description}
+          </p>
+          <div className="text-left">
+            {category.templates.map((template, i) => (
+              <span
+                key={template}
+                className="font-mono text-[11px] text-stone-400"
+              >
+                {template}
+                {i < category.templates.length - 1 ? ", " : ""}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
-
-      <div
-        className="aspect-video overflow-hidden bg-neutral-100 relative group"
-        onMouseEnter={() => {
-          setHoveredDetail(selectedDetail);
-          setIsPaused(true);
-        }}
-        onMouseLeave={() => {
-          setHoveredDetail(null);
-          setIsPaused(false);
-        }}
-      >
-        {selectedFeature &&
-          (selectedFeature.image ? (
-            <>
-              <Image
-                src={selectedFeature.image}
-                alt={`${selectedFeature.title} feature`}
-                className="w-full h-full object-contain"
-              />
-              {selectedFeature.link && (
-                <div
-                  className={cn([
-                    "absolute bottom-0 left-0 right-0",
-                    "transition-all duration-300 ease-out",
-                    hoveredDetail === selectedDetail
-                      ? "translate-y-0 opacity-100"
-                      : "translate-y-full opacity-0",
-                  ])}
-                >
-                  <Link
-                    to={selectedFeature.link}
-                    className={cn([
-                      "w-full py-4 text-xs font-mono cursor-pointer block text-center",
-                      "bg-stone-100/95 text-stone-800",
-                      "hover:bg-stone-200/95 active:bg-stone-400/95",
-                      "transition-all duration-150",
-                      "backdrop-blur-xs",
-                    ])}
-                  >
-                    Learn more
-                  </Link>
-                </div>
-              )}
-            </>
-          ) : (
-            <img
-              src="/api/images/hyprnote/static.webp"
-              alt={`${selectedFeature.title} feature`}
-              className="w-full h-full object-contain"
-            />
-          ))}
-      </div>
+      ))}
     </div>
+  );
+}
+
+function FAQSection() {
+  return (
+    <section className="laptop:px-0 px-4 py-16">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+            Frequently Asked Questions
+          </h2>
+        </div>
+
+        <FAQ>
+          <FAQItem question="What languages does Char support?">
+            45+ languages including English, Spanish, French, German, Japanese,
+            Mandarin, and more.
+          </FAQItem>
+
+          <FAQItem question="Can I import existing recordings?">
+            Yes. Upload audio files or transcripts to turn them into searchable,
+            summarized notes.
+          </FAQItem>
+
+          <FAQItem question="Does Char train AI models on my data?">
+            No. Char does not use your recordings, transcripts, or notes to
+            train AI models. When using cloud providers, your data is processed
+            according to their privacy policies, but Char itself never collects
+            or uses your data for training.
+          </FAQItem>
+
+          <FAQItem question="Is Char safe?">
+            Char doesn't store your conversations. Every meeting audio,
+            transcript, and note is a file on your computer. You decide if your
+            data ever leaves your device.
+          </FAQItem>
+
+          <FAQItem question="How is Char different from other AI note-takers?">
+            Plain markdown files instead of proprietary databases. System audio
+            capture instead of meeting bots. Your choice of AI provider instead
+            of vendor lock-in. Open source instead of a black box.
+          </FAQItem>
+        </FAQ>
+      </div>
+    </section>
   );
 }
 
 function ManifestoSection() {
   return (
-    <section className="py-16 px-4 laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px]">
-      <div className="max-w-4xl mx-auto">
+    <section className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16">
+      <div className="mx-auto max-w-4xl">
         <div
           className="border border-neutral-200 p-4"
           style={{
@@ -1838,27 +1636,27 @@ function ManifestoSection() {
           }}
         >
           <div
-            className="bg-stone-50 border border-neutral-200 rounded-xs p-8 sm:p-12"
+            className="rounded-xs border border-neutral-200 bg-stone-50 p-8 sm:p-12"
             style={{
               backgroundImage: "url(/api/images/texture/paper.png)",
             }}
           >
-            <h2 className="text-2xl sm:text-3xl font-serif text-stone-600 mb-4">
+            <h2 className="mb-4 font-serif text-2xl text-stone-700 sm:text-3xl">
               Our manifesto
             </h2>
 
-            <div className="flex flex-col gap-4 text-neutral-700 leading-relaxed">
+            <div className="flex flex-col gap-4 leading-relaxed text-neutral-700">
               <p>
                 We believe in the power of notetaking, not notetakers. Meetings
                 should be moments of presence, not passive attendance. If you
-                are not added value, your time is better spent elsewhere for you
-                and your team.
+                are not adding value, your time is better spent elsewhere for
+                you and your team.
               </p>
               <p>
-                Hyprnote exists to preserve what makes us human: conversations
-                that spark ideas, collaborations that move work forward. We
-                build tools that amplify human agency, not replace it. No ghost
-                bots. No silent note lurkers. Just people, thinking together.
+                Char exists to preserve what makes us human: conversations that
+                spark ideas, collaborations that move work forward. We build
+                tools that amplify human agency, not replace it. No ghost bots.
+                No silent note lurkers. Just people, thinking together.
               </p>
               <p>
                 We stand with those who value real connection and purposeful
@@ -1866,27 +1664,27 @@ function ManifestoSection() {
               </p>
             </div>
 
-            <div className="flex gap-2 mt-12 mb-4">
+            <div className="mt-12 mb-4 flex gap-2">
               <Image
                 src="/api/images/team/john.png"
                 alt="John Jeong"
                 width={32}
                 height={32}
-                className="rounded-full object-cover border border-neutral-200"
+                className="rounded-full border border-neutral-200 object-cover"
               />
               <Image
                 src="/api/images/team/yujong.png"
                 alt="Yujong Lee"
                 width={32}
                 height={32}
-                className="rounded-full object-cover border border-neutral-200"
+                className="rounded-full border border-neutral-200 object-cover"
               />
             </div>
 
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-base text-neutral-600 font-medium italic font-serif">
-                  Hyprnote
+                <p className="font-serif text-base font-medium text-neutral-600 italic">
+                  Char
                 </p>
                 <p className="text-sm text-neutral-500">
                   John Jeong, Yujong Lee
@@ -1895,12 +1693,12 @@ function ManifestoSection() {
 
               <div>
                 <Image
-                  src="/api/images/hyprnote/signature-dark.svg"
-                  alt="Hyprnote Signature"
+                  src="/char-signature.svg"
+                  alt="Char Signature"
                   width={124}
                   height={60}
                   layout="constrained"
-                  className="opacity-80 object-contain"
+                  className="object-contain opacity-80"
                 />
               </div>
             </div>
@@ -1912,8 +1710,7 @@ function ManifestoSection() {
 }
 
 function BlogSection() {
-  const sortedArticles = allArticles
-    .filter((a) => import.meta.env.DEV || a.published !== false)
+  const sortedArticles = [...allArticles]
     .sort((a, b) => {
       const aDate = a.date;
       const bDate = b.date;
@@ -1927,20 +1724,20 @@ function BlogSection() {
 
   return (
     <section className="border-t border-neutral-100 py-16">
-      <div className="text-center mb-12 px-4">
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">
+      <div className="mb-12 px-4 text-center">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">
           Latest from our blog
         </h2>
-        <p className="text-neutral-600 max-w-lg mx-auto">
-          Insights, updates, and stories from the Hyprnote team
+        <p className="mx-auto max-w-lg text-neutral-600">
+          Insights, updates, and stories from the Char team
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 px-4">
+      <div className="grid gap-4 px-4 md:grid-cols-3">
         {sortedArticles.map((article) => {
           const ogImage =
             article.coverImage ||
-            `https://hyprnote.com/og?type=blog&title=${encodeURIComponent(article.title)}${article.author ? `&author=${encodeURIComponent(article.author)}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
+            `https://char.com/og?type=blog&title=${encodeURIComponent(article.title ?? "")}${article.author.length > 0 ? `&author=${encodeURIComponent(article.author.join(", "))}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
 
           return (
             <Link
@@ -1949,25 +1746,25 @@ function BlogSection() {
               params={{ slug: article.slug }}
               className="group block h-full"
             >
-              <article className="h-full border border-neutral-100 rounded-xs overflow-hidden bg-white hover:shadow-lg transition-all duration-300 flex flex-col">
+              <article className="flex h-full flex-col overflow-hidden rounded-xs border border-neutral-100 bg-white transition-all duration-300 hover:shadow-lg">
                 <div className="aspect-40/21 overflow-hidden border-b border-neutral-100 bg-stone-50">
                   <img
                     src={ogImage}
                     alt={article.display_title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                    className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
                   />
                 </div>
 
-                <div className="p-6 flex flex-col flex-1">
-                  <h3 className="text-xl font-serif text-stone-600 mb-2 group-hover:text-stone-800 transition-colors line-clamp-2">
+                <div className="flex flex-1 flex-col p-6">
+                  <h3 className="mb-2 line-clamp-2 font-serif text-xl text-stone-700 transition-colors group-hover:text-stone-800">
                     {article.display_title || article.meta_title}
                   </h3>
 
-                  <p className="text-sm text-neutral-600 leading-relaxed mb-4 line-clamp-3 flex-1">
+                  <p className="mb-4 line-clamp-3 flex-1 text-base leading-relaxed text-neutral-600">
                     {article.meta_description}
                   </p>
 
-                  <div className="flex items-center justify-between gap-4 pt-4 border-t border-neutral-100">
+                  <div className="flex items-center justify-between gap-4 border-t border-neutral-100 pt-4">
                     <time
                       dateTime={article.date}
                       className="text-xs text-neutral-500"
@@ -1979,7 +1776,7 @@ function BlogSection() {
                       })}
                     </time>
 
-                    <span className="text-xs text-neutral-500 group-hover:text-stone-600 transition-colors font-medium">
+                    <span className="text-xs font-medium text-neutral-500 transition-colors group-hover:text-stone-600">
                       Read →
                     </span>
                   </div>
@@ -1990,10 +1787,10 @@ function BlogSection() {
         })}
       </div>
 
-      <div className="text-center mt-8">
+      <div className="mt-8 text-center">
         <Link
           to="/blog/"
-          className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-800 font-medium transition-colors"
+          className="inline-flex items-center gap-2 font-medium text-stone-600 transition-colors hover:text-stone-800"
         >
           View all articles
           <svg
@@ -2053,35 +1850,34 @@ export function CTASection({
   };
 
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 laptop:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="laptop:px-0 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
-          Where conversations
-          <br className="sm:hidden" /> stay yours
+        <h2 className="font-serif text-2xl text-stone-700 sm:text-3xl">
+          Your meetings. Your data.
+          <br className="sm:hidden" /> Your control.
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
-          Start using Hyprnote today and bring clarity to your back-to-back
-          meetings
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+          Start taking meeting notes with AI—without the lock-in
         </p>
-        <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
           {platformCTA.action === "download" ? (
             <DownloadButton />
           ) : (
             <button
               onClick={handleCTAClick}
               className={cn([
-                "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-                "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-                "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
                 "transition-all",
               ])}
             >
@@ -2092,7 +1888,7 @@ export function CTASection({
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
                 stroke="currentColor"
-                className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform"
+                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
               >
                 <path
                   strokeLinecap="round"

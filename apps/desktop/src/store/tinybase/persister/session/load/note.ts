@@ -1,9 +1,10 @@
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { md2json } from "@hypr/tiptap/shared";
 
-import { SESSION_MEMO_FILE } from "../../shared";
-import type { NoteFrontmatter } from "../types";
 import type { LoadedSessionData } from "./types";
+
+import type { NoteFrontmatter } from "~/store/tinybase/persister/session/types";
+import { SESSION_MEMO_FILE } from "~/store/tinybase/persister/shared";
 
 const LABEL = "SessionPersister";
 

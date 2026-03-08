@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-relay-result"
+description = "Enables the relay_result command without any pre-configured scope."
+commands.allow = ["relay_result"]
+
+[[permission]]
+identifier = "deny-relay-result"
+description = "Denies the relay_result command without any pre-configured scope."
+commands.deny = ["relay_result"]

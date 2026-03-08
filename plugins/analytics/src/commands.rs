@@ -42,3 +42,16 @@ pub(crate) async fn is_disabled<R: tauri::Runtime>(
 ) -> Result<bool, String> {
     app.analytics().is_disabled().map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn identify<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    user_id: String,
+    payload: hypr_analytics::PropertiesPayload,
+) -> Result<(), String> {
+    app.analytics()
+        .identify(user_id, payload)
+        .await
+        .map_err(|e| e.to_string())
+}

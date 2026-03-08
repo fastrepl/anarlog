@@ -1,5 +1,6 @@
 mod ext;
 mod menu_items;
+mod tray_icon;
 
 pub use ext::*;
 pub use menu_items::{HyprMenuItem, UpdateMenuState};
@@ -27,8 +28,16 @@ fn setup_update_listeners(app: &tauri::AppHandle) {
     });
 
     let handle = app.clone();
-    tauri_plugin_updater2::UpdateReadyEvent::listen(app, move |_event| {
-        let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::RestartToApply);
+    tauri_plugin_updater2::UpdateReadyEvent::listen(app, move |event| {
+        let _ = menu_items::TrayCheckUpdate::set_state(
+            &handle,
+            UpdateMenuState::RestartToApply(event.payload.version.clone()),
+        );
+    });
+
+    let handle = app.clone();
+    tauri_plugin_updater2::UpdateDownloadFailedEvent::listen(app, move |_event| {
+        let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::CheckForUpdate);
     });
 
     let handle = app.clone();

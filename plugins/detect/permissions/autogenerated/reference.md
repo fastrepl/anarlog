@@ -11,6 +11,7 @@ Default permissions for the plugin
 - `allow-list-default-ignored-bundle-ids`
 - `allow-get-preferred-languages`
 - `allow-get-current-locale-identifier`
+- `allow-set-mic-active-threshold`
 
 ## Permission Table
 
@@ -199,6 +200,32 @@ Enables the set_ignored_bundle_ids command without any pre-configured scope.
 <td>
 
 Denies the set_ignored_bundle_ids command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-set-mic-active-threshold`
+
+</td>
+<td>
+
+Enables the set_mic_active_threshold command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-set-mic-active-threshold`
+
+</td>
+<td>
+
+Denies the set_mic_active_threshold command without any pre-configured scope.
 
 </td>
 </tr>

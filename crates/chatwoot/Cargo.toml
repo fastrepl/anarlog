@@ -1,0 +1,14 @@
+[package]
+name = "chatwoot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true, features = ["serde"] }
+progenitor-client = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[build-dependencies]
+progenitor-utils = { path = "../progenitor-utils" }

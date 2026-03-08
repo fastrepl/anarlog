@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const externallyTaggedEnumSchema = z.union([z.literal("Unit"), z.object({ WithData: z.string() }), z.object({ WithStruct: z.object({ field: z.number() }) })]);
+export type ExternallyTaggedEnum = z.infer<typeof externallyTaggedEnumSchema>;

@@ -14,6 +14,10 @@ required-features = ["examples"]
 name = "test_notification_with_event"
 required-features = ["examples"]
 
+[[example]]
+name = "test_notification_with_options"
+required-features = ["examples"]
+
 [build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }
 

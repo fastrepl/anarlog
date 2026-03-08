@@ -18,18 +18,18 @@ export const Route = createFileRoute("/_view/changelog/")({
   },
   head: () => ({
     meta: [
-      { title: "Changelog - Hyprnote" },
+      { title: "Changelog - Char" },
       {
         name: "description",
-        content: "Track every update, improvement, and fix to Hyprnote",
+        content: "Track every update, improvement, and fix to Char",
       },
-      { property: "og:title", content: "Changelog - Hyprnote" },
+      { property: "og:title", content: "Changelog - Char" },
       {
         property: "og:description",
-        content: "Track every update, improvement, and fix to Hyprnote",
+        content: "Track every update, improvement, and fix to Char",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://hyprnote.com/changelog" },
+      { property: "og:url", content: "https://char.com/changelog" },
     ],
   }),
 });
@@ -39,21 +39,21 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <div className="px-6 py-16 lg:py-24">
           <HeroSection />
         </div>
         <div className="mt-16">
           {changelogs.map((changelog, index) => (
             <div key={changelog.slug}>
-              <div className="max-w-4xl mx-auto px-6">
+              <div className="mx-auto max-w-4xl px-6">
                 <ChangelogSection changelog={changelog} />
               </div>
               {index < changelogs.length - 1 && (
-                <div className="border-b border-neutral-100 my-12" />
+                <div className="my-12 border-b border-neutral-100" />
               )}
             </div>
           ))}
@@ -67,11 +67,11 @@ function Component() {
 function HeroSection() {
   return (
     <div className="text-center">
-      <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
         Changelog
       </h1>
-      <p className="text-lg sm:text-xl text-neutral-600">
-        Track every update, improvement, and fix to Hyprnote
+      <p className="text-lg text-neutral-600 sm:text-xl">
+        Track every update, improvement, and fix to Char
       </p>
     </div>
   );
@@ -86,35 +86,37 @@ function ChangelogSection({ changelog }: { changelog: ChangelogWithMeta }) {
       : null;
 
   return (
-    <section className="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-6 md:gap-12">
-      <div className="md:sticky md:top-24 md:self-start flex flex-col gap-6">
+    <section className="grid grid-cols-1 gap-6 md:grid-cols-[160px_1fr] md:gap-12">
+      <div className="flex flex-col gap-6 md:sticky md:top-24 md:self-start">
         <div className="flex flex-col gap-1">
           {!isPrerelease && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-linear-to-t from-stone-200 to-stone-100 text-stone-700 rounded-full w-fit">
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-linear-to-t from-stone-200 to-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-700">
               <Icon icon="ri:rocket-fill" className="text-xs" />
               Stable
             </span>
           )}
           {isPrerelease && (
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium bg-linear-to-b from-[#03BCF1] to-[#127FE5] text-white rounded-full">
+              <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-b from-[#03BCF1] to-[#127FE5] px-1.5 py-0.5 text-xs font-medium text-white">
                 <Icon icon="ri:moon-fill" className="text-xs" />
                 Beta
               </span>
               {nightlyNumber !== null && (
-                <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-stone-100 text-stone-600 rounded-full">
+                <span className="inline-flex items-center rounded-full bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">
                   #{nightlyNumber}
                 </span>
               )}
             </div>
           )}
-          <h2 className="text-4xl font-mono font-medium text-stone-700">
-            {currentVersion
-              ? `${currentVersion.major}.${currentVersion.minor}.${currentVersion.patch}`
-              : changelog.version}
-          </h2>
+          <Link to="/changelog/$slug/" params={{ slug: changelog.slug }}>
+            <h2 className="cursor-pointer font-mono text-4xl font-medium text-stone-700 transition-colors hover:text-stone-900">
+              {currentVersion
+                ? `${currentVersion.major}.${currentVersion.minor}.${currentVersion.patch}`
+                : changelog.version}
+            </h2>
+          </Link>
           <time
-            className="text-sm text-neutral-500 mt-1"
+            className="mt-1 text-sm text-neutral-500"
             dateTime={changelog.date}
           >
             {new Date(changelog.date).toLocaleDateString("en-US", {
@@ -136,7 +138,7 @@ function ChangelogSection({ changelog }: { changelog: ChangelogWithMeta }) {
         <Link
           to="/changelog/$slug/"
           params={{ slug: changelog.slug }}
-          className="inline-flex items-center gap-1 text-sm text-stone-600 hover:text-stone-900 transition-colors mt-4"
+          className="mt-4 inline-flex items-center gap-1 text-sm text-stone-600 transition-colors hover:text-stone-900"
         >
           Read more
           <Icon icon="mdi:arrow-right" className="text-base" />
@@ -153,7 +155,7 @@ function DownloadLinks({ version }: { version: string }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h3 className="flex items-center gap-1.5 text-xs font-medium text-stone-500 uppercase tracking-wider mb-2">
+        <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wider text-stone-500 uppercase">
           <Icon icon="simple-icons:apple" className="text-sm" />
           macOS
         </h3>
@@ -163,10 +165,10 @@ function DownloadLinks({ version }: { version: string }) {
               key={link.url}
               href={link.url}
               className={cn([
-                "flex items-center gap-2 px-4 h-8 text-sm rounded-full transition-all",
+                "flex h-8 items-center gap-2 rounded-full px-4 text-sm transition-all",
                 "bg-linear-to-b from-white to-stone-50 text-neutral-700",
                 "border border-neutral-300",
-                "hover:shadow-xs hover:scale-[102%] active:scale-[98%]",
+                "hover:scale-[102%] hover:shadow-xs active:scale-[98%]",
               ])}
             >
               <Download className="size-3.5 shrink-0" />
@@ -177,7 +179,7 @@ function DownloadLinks({ version }: { version: string }) {
       </div>
 
       <div>
-        <h3 className="flex items-center gap-1.5 text-xs font-medium text-stone-500 uppercase tracking-wider mb-2">
+        <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wider text-stone-500 uppercase">
           <Icon icon="simple-icons:linux" className="text-sm" />
           Linux
         </h3>
@@ -187,10 +189,10 @@ function DownloadLinks({ version }: { version: string }) {
               key={link.url}
               href={link.url}
               className={cn([
-                "flex items-center gap-2 px-4 h-8 text-sm rounded-full transition-all",
+                "flex h-8 items-center gap-2 rounded-full px-4 text-sm transition-all",
                 "bg-linear-to-b from-white to-stone-50 text-neutral-700",
                 "border border-neutral-300",
-                "hover:shadow-xs hover:scale-[102%] active:scale-[98%]",
+                "hover:scale-[102%] hover:shadow-xs active:scale-[98%]",
               ])}
             >
               <Download className="size-3.5 shrink-0" />

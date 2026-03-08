@@ -1,4 +1,3 @@
-import { agent as analyticAgent } from "@hypr/agent-analytic";
 import { agent as designerAgent } from "@hypr/agent-designer";
 import type { CompiledAgentGraph } from "@hypr/agent-support";
 import { agent as internalAgent } from "@hypr/agent-support";
@@ -15,17 +14,13 @@ export const agents = {
   internal: {
     agent: internalAgent,
     name: "Internal Ops Agent",
-    description: "Handles internal operations, Stripe, Loops, Supabase",
+    description:
+      "Handles internal operations, Stripe, Loops, Supabase, PostHog",
   },
   designer: {
     agent: designerAgent,
     name: "Designer Agent",
     description: "Handles UI/UX design tasks using Magic Patterns",
-  },
-  analytic: {
-    agent: analyticAgent,
-    name: "Analytics Agent",
-    description: "Handles PostHog analytics operations",
   },
 } as const satisfies Record<string, AgentConfig>;
 

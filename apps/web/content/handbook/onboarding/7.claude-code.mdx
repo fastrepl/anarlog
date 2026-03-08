@@ -1,0 +1,63 @@
+---
+title: "Claude Code"
+section: "Onboarding"
+summary: "Set up Claude Code — the AI coding assistant that runs in your terminal"
+---
+
+## What it is
+
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) is an AI assistant that lives in your terminal. You describe what you want in plain English, and it reads files, writes code, runs commands, and makes changes across your project. Think of it as a very capable teammate you can pair-program with.
+
+We use Claude Code for everything from writing features to debugging to content edits.
+
+## Prerequisites
+
+- [Homebrew](/company-handbook/onboarding/homebrew) installed
+- [Node.js & pnpm](/company-handbook/onboarding/node-and-pnpm) installed
+- A terminal ([Warp](/company-handbook/onboarding/warp) recommended)
+
+## Install
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+## First launch
+
+1. Open your terminal
+2. Navigate to the Char repo: `cd ~/Dev/hyprnote` (or wherever you cloned it)
+3. Run: `claude`
+4. On first launch, it will ask you to authenticate with your Anthropic account
+
+## How it works
+
+Once inside a Claude Code session:
+
+- **Describe what you want** — "Fix the typo in the homepage header" or "Add a new blog post template"
+- **It reads your codebase** — Claude Code understands the project structure and can find relevant files
+- **It makes changes** — You review each change before it's applied
+- **It runs commands** — It can run tests, builds, and other commands with your permission
+
+## Useful commands
+
+```
+/help          — See available commands
+/clear         — Clear conversation history
+```
+
+Type your request in natural language. Be specific about what you want — "change the button color to blue" works better than "make it look better".
+
+## For non-engineers
+
+Claude Code is powerful even if you don't write code:
+
+- **Edit content** — "Update the blog post title to 'Building in Public'"
+- **Find things** — "Where is the pricing page defined?"
+- **Understand code** — "Explain what this file does"
+- **Make changes** — "Add a new section to the handbook about onboarding"
+
+You review every change before it's applied, so you can't accidentally break anything.
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

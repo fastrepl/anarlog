@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "sortImports": {
+    "newlinesBetween": true,
+    "groups": [
+      "side_effect",
+      [
+        "builtin",
+        "external"
+      ],
+      "hypr-internal",
+      "app-internal",
+      [
+        "parent",
+        "sibling",
+        "index"
+      ],
+      "unknown"
+    ],
+    "customGroups": [
+      {
+        "groupName": "hypr-internal",
+        "elementNamePattern": [
+          "@hypr/**"
+        ]
+      },
+      {
+        "groupName": "app-internal",
+        "elementNamePattern": [
+          "@/**"
+        ]
+      }
+    ]
+  },
+  "sortTailwindcss": {
+    "functions": [
+      "cn",
+      "clsx",
+      "cva"
+    ]
+  },
+  "ignorePatterns": [
+    "**/.venv",
+    "**/.turbo",
+    "**/node_modules",
+    "**/target",
+    "**/__pycache__",
+    "crates",
+    "apps/desktop/dist",
+    "apps/desktop/src-tauri",
+    "apps/web/dist",
+    "apps/web/.content-collections"
+  ]
+}

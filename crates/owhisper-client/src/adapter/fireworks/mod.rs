@@ -52,39 +52,15 @@ impl FireworksAdapter {
     }
 
     pub(crate) fn build_ws_url_from_base(api_base: &str) -> (url::Url, Vec<(String, String)>) {
-        let default_url = || {
-            (
-                Provider::Fireworks
-                    .default_ws_url()
-                    .parse()
-                    .expect("invalid_default_ws_url"),
-                Vec::new(),
+        super::build_ws_url_from_base_with(Provider::Fireworks, api_base, |_parsed| {
+            format!(
+                "wss://{}{}",
+                Self::ws_host(api_base),
+                Provider::Fireworks.ws_path()
             )
-        };
-
-        if api_base.is_empty() {
-            return default_url();
-        }
-
-        if let Some(proxy_result) = super::build_proxy_ws_url(api_base) {
-            return proxy_result;
-        }
-
-        let parsed: url::Url = match api_base.parse() {
-            Ok(u) => u,
-            Err(_) => return default_url(),
-        };
-
-        let existing_params = super::extract_query_params(&parsed);
-
-        let url: url::Url = format!(
-            "wss://{}{}",
-            Self::ws_host(api_base),
-            Provider::Fireworks.ws_path()
-        )
-        .parse()
-        .expect("invalid_ws_url");
-        (url, existing_params)
+            .parse()
+            .expect("invalid_ws_url")
+        })
     }
 }
 

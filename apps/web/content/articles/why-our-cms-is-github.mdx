@@ -3,144 +3,67 @@ meta_title: "Why Our CMS Is GitHub"
 meta_description: "Most teams store code in GitHub. We store everything — blog posts, docs, ideas — because Git already solves the hardest parts of publishing: versioning, reviews, portability, and scale."
 author: "John Jeong"
 coverImage: "/api/images/blog/why-our-cms-is-github/cover.png"
-featured: true
-published: true
+featured: false
+category: "Engineering"
 date: "2025-11-26"
 ---
 
-Most teams think of GitHub as a place to store code. We treat it as the place where everything lives — code, docs, blog posts, ideas, experiments, and the entire history of how Hyprnote evolves.
+Most teams think of GitHub as a place to store code. We treat it as the place where everything lives — code, docs, blog posts, ideas, experiments, and the entire history of how Char evolves.
 
-This wasn't a grand strategy. It just slowly became obvious: if our work already happens in GitHub, why should publishing be anywhere else?
+We didn't plan this. It just became obvious over time: if our work already happens in GitHub, why should publishing be anywhere else? The more we worked this way, the more natural it felt. Now it's just how we ship.
 
-The more we leaned into that idea, the more natural it felt. Now it's just how we ship.
+## You don't need a CMS when you already have Git
 
-## You Don't Need a CMS When You Already Have Git
-
-Most CMS platforms try to solve two problems:
+Most CMS platforms solve two problems:
 
 - where your content lives
 - how your team edits it
 
-Git already solves both.
+Git already does both.
 
-Content lives in plain files. Editing happens through commits, branches, reviews, comments, and diffs.
+Content lives in plain files. Editing happens through commits, branches, reviews, comments, and diffs. There are no plugins, no migrations, no schema lock-in, and no surprise updates that break your content model.
 
-There are no plugins. No migrations. No schema lock-in. No "oops our CMS updated and it broke your content model."
+You get Markdown, MDX, and a repo.
 
-Just Markdown, MDX, and a repo.
+Everything is portable. You can zip the folder and move it anywhere. Modern CMS platforms hide your content behind their own formats — Git doesn't. That portability is real insurance.
 
-You never worry about losing access to your writing because everything is portable. You can zip the folder and take it anywhere. There's something comforting about that — a simplicity modern CMS platforms forgot.
+## PRs are a better editorial workflow
 
-## PRs Are a Better Editorial Workflow
+If you're a technical team, this clicks immediately.
 
-If you're a technical team, this is the part that just clicks.
+A blog post becomes a pull request. Review comments become edits. A merge becomes publication. No ceremony, no separate editorial queue, no abstracted "content status," no dashboards reinventing what Git already does.
 
-A blog post becomes a pull request. A pull request becomes a draft. Review comments become edits. A merge becomes publication.
+You get inline comments, suggested changes, clear diffs, commit history, revert ability, preview builds, CI checks for grammar and broken links, and permanent traceability. Every engineer already understands this system. No CMS collaboration feature matches that.
 
-There's no ceremony. No separate editorial queue. No abstracted "content status." No dashboards trying to reinvent what Git already does perfectly.
+## Content is just code
 
-You get:
+Once blog posts live in the repo, everything becomes composable. Need a new MDX component? Ship it. Need to fix a typo? Commit it. Need to update metadata? It's frontmatter. Need to refactor how posts are structured? Write a script.
 
-- inline comments
-- suggested changes
-- clear diffs
-- commit-by-commit history
-- revert ability
-- preview builds
-- CI checks for grammar, broken links, lint rules
-- permanent traceability
+You're never stuck asking "How do I do this in the CMS?" Instead you ask "How do I want this to work?" That's a better question.
 
-This is more powerful than any CMS collaboration feature because it's built on top of something every engineer already understands.
+## GitHub scales with your team
 
-## Content Is Just Code, So You Get All the Benefits
+Most CMS systems age poorly. Content models become rigid. Plugins break. WYSIWYG editors drift. Migrations become risky. Versioning becomes chaotic.
 
-Once your blog posts live in the repo, everything becomes composable.
+GitHub doesn't have these problems. As your team grows, its primitives become more valuable: branch-based workflows, code owners for reviewing specific areas, protected branches, required checks, automation bots, and auditability. GitHub solved these problems at global scale. Why rebuild them in a CMS?
 
-Need a new MDX component? Ship it. Need to fix a typo? Commit it. Need to update metadata? It's just frontmatter. Need to refactor how posts are structured? Rip through it with a script.
+## Images, assets, and everything else
 
-There is never a moment where you're stuck thinking:
+CMS platforms market the convenience of dragging in an image and having it appear instantly.
 
-"How do I do this in the CMS again?"
+You don't lose that with Git. You just do it differently. Drag images into GitHub's web editor, upload screenshots to Supabase or S3, paste the URL into MDX, or commit images to the repo. It takes seconds.
 
-Instead the question becomes:
+The difference is you own the storage and the URLs forever. They're not locked to whatever CMS you were using that year.
 
-"How do I want this to work?"
+## Portability matters
 
-And that's a better question.
+Every CMS feels safe until you want to leave. Then you find proprietary block formats, hidden HTML, vendor-specific markdown, custom schemas, and migration scripts that only half-work.
 
-## GitHub Scales With Your Team, Not Against It
+A folder of .mdx files has none of that. If we move frameworks, hosting providers, or redesign everything from scratch, the content survives untouched. Portability isn't a convenience feature. It's insurance.
 
-Most CMS systems age poorly:
+## GitHub works for us
 
-- content models become rigid
-- plugins break
-- WYSIWYG editors drift
-- migrations become risky
-- versioning becomes chaotic
-
-GitHub is the opposite.
-
-The larger your team grows, the more valuable its primitives become:
-
-- branch-based workflows
-- code owners for reviewing specific areas
-- protected branches
-- required checks
-- bots for automation
-- auditability
-
-These are problems GitHub already solved at a global scale.
-
-Why recreate them in a CMS?
-
-## Images, Assets, and the Non-Code Stuff
-
-A common argument for CMS platforms is the convenience of asset uploads.
-
-Paste an image → instantly appears. Drag a file → gets stored in their bucket.
-
-It is nice.
-
-But we don't lose that. We just do it differently.
-
-You can:
-
-- drag images directly into GitHub's web editor
-- upload screenshots into Supabase, S3, or R2
-- paste the public URL into MDX
-- or commit images directly into the repo
-
-It takes seconds.
-
-The difference is you control the storage and the URLs forever — they're not tied to whatever CMS you happened to be using that year.
-
-## Portability Matters More Than People Think
-
-Every CMS feels safe until the day you want to leave.
-
-Then you find:
-
-- proprietary block formats
-- hidden HTML
-- vendor-specific markdown
-- custom schemas
-- migration scripts that only half-work
-
-A folder of .mdx files has none of that.
-
-If we move frameworks, hosting providers, or even redesign everything from scratch, the content survives untouched.
-
-Portability isn't a feature. It's insurance.
-
-## GitHub Gives Us the Kind of Freedom We Care About
-
-Writing should be simple. Shipping should be fast. Content should last.
-
-For us, GitHub checks all three.
-
-We don't need a CMS to feel modern. We just need something that respects how we work.
-
-GitHub does.
+Writing should be simple. Shipping should be fast. Content should last. GitHub checks all three.
 
 ---
 
@@ -148,8 +71,8 @@ This is Part 2 of our publishing series.
 
 1. [Why We Write Our Blog in an IDE](/blog/using-ide-for-writing)
 2. [Why Our CMS Is GitHub](/blog/why-our-cms-is-github) (You are here)
-3. [Choosing a CMS in 2025](/blog/choosing-a-cms)
+3. [Choosing a CMS in 2026](/blog/choosing-a-cms)
 4. [Don't Use a CMS Until You Absolutely Need One](/blog/dont-use-a-cms)
 5. [Docs Edition: What to Use for Developer Documentation](/blog/developer-documentation-tools)
-6. [How We Built Hyprnote's Publishing Stack](/blog/hyprnote-publishing-stack)
+6. [How We Built Char's Publishing Stack](/blog/hyprnote-publishing-stack)
 7. [Building an Editorial Workflow with GitHub and Slack](/blog/building-editorial-workflow-github-slack)

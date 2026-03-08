@@ -110,6 +110,7 @@ describe("General Listener Slice", () => {
       expect(store.getState().batch[sessionId]).toEqual({
         percentage: 0.5,
         isComplete: false,
+        phase: "transcribing",
       });
 
       clearBatchSession(sessionId);

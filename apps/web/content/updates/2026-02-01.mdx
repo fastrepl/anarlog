@@ -1,0 +1,40 @@
+---
+title: "Char Weekly: February 1, 2026"
+date: "2026-02-01"
+---
+
+This was a big week for Char. We shipped our v1.0.2 stable release, introduced a new Git plugin, and made several quality-of-life improvements.
+
+## v1.0.2 stable release
+
+The v1.0.2 stable release brings months of work from our nightly builds into a production-ready release.
+
+**Acoustic Echo Cancellation (AEC)** is the standout feature. Previously, we used heuristics-based mic-only mode to avoid feedback loops when recording both microphone and speaker audio. AEC eliminates that complexity. You can now record both audio sources simultaneously without echo or feedback.
+
+**PDF export** now includes a metadata cover page with the session title, date, and participants. PDFs save directly to your Downloads folder and open automatically.
+
+**Table support** landed in the editor. You can insert and edit tables directly in your notes, useful for meeting minutes with action items or comparison notes.
+
+Other improvements in v1.0.2 include sleep detection that stops recording when you close your laptop lid, a redesigned settings panel, and improved authentication that persists across app updates.
+
+## Git plugin
+
+We introduced a new Git plugin built on gix, a pure Rust implementation of Git. The plugin provides core Git operations with a modular architecture. It's not user-facing yet, but it sets up infrastructure for future version control and collaboration features.
+
+## Persistent pinned tabs
+
+Pinned tabs now persist across app restarts. If you pin a session tab, it stays pinned when you reopen the app.
+
+## Smarter notification filtering
+
+We centralized our notification policy with explicit skip conditions. Mic notification filtering now reduces noise by avoiding alerts when the app already knows what's happening.
+
+## Bug fixes
+
+We fixed a startup issue on macOS where a stale single-instance socket could prevent the app from launching. We also fixed timeline sorting to use event start time as a fallback, improved the feedback submission flow with direct log attachment, and made video chat link visibility adapt to editor width.
+
+## What's next
+
+We're continuing to polish the experience and work on some features we're not ready to announce yet. If you're on the nightly channel, you'll see these improvements land incrementally. If you're on stable, v1.0.2 is available now.
+
+You can download the latest version from our [changelog](/changelog) or let the app auto-update.

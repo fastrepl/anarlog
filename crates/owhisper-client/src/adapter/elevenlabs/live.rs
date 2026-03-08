@@ -95,14 +95,21 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
         let msg: ElevenLabsMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "elevenlabs_json_parse_failed");
+                tracing::warn!(
+                    error.message = ?e,
+                    hyprnote.payload.raw = raw,
+                    "elevenlabs_json_parse_failed"
+                );
                 return vec![];
             }
         };
 
         match msg {
             ElevenLabsMessage::SessionStarted { session_id, .. } => {
-                tracing::debug!(session_id = %session_id, "elevenlabs_session_started");
+                tracing::debug!(
+                    hyprnote.stt.provider_session.id = %session_id,
+                    "elevenlabs_session_started"
+                );
                 vec![]
             }
             ElevenLabsMessage::PartialTranscript { text } => {
@@ -127,7 +134,11 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
                 error_type,
                 message,
             } => {
-                tracing::error!(error_type = %error_type, message = %message, "elevenlabs_error");
+                tracing::error!(
+                    error.type = %error_type,
+                    error.message = %message,
+                    "elevenlabs_error"
+                );
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: format!("{}: {}", error_type, message),
@@ -135,7 +146,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
                 }]
             }
             ElevenLabsMessage::Unknown => {
-                tracing::debug!(raw = raw, "elevenlabs_unknown_message");
+                tracing::debug!(hyprnote.payload.raw = raw, "elevenlabs_unknown_message");
                 vec![]
             }
         }

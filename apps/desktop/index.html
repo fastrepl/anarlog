@@ -7,31 +7,20 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Hyprnote</title>
+    <title>Char</title>
     <style>
       html, body, #root {
         background: transparent !important;
         background-color: transparent !important;
       }
     </style>
-    <!-- Polyfill __TAURI_INTERNALS__ in iframe context (extension host). See docs/developers/extensions. -->
-    <script>
-      (function() {
-        var isIframeContext = window.self !== window.top;
-        if (!isIframeContext) return;
-
-        window.__TAURI_INTERNALS__ = {
-          _metadata: {
-            currentWindow: { label: "iframe", kind: "WebviewWindow" },
-            currentWebview: { label: "iframe", windowLabel: "iframe" },
-            windows: [],
-            webviews: []
-          },
-          invoke: function() { return Promise.reject(new Error("Tauri not available in iframe")); },
-          transformCallback: function() { return 0; },
-          convertFileSrc: function(path) { return path; }
-        };
-      })();
+    <script src="/relay-shim.js"></script>
+    <script type="module">
+      if (import.meta.env.DEV) {
+        import("react-grab").then(() => {
+          window.__REACT_GRAB__?.setToolbarState({ collapsed: true, edge: "right" });
+        });
+      }
     </script>
   </head>
   <body spellcheck="false">

@@ -1,7 +1,7 @@
 use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::SonioxAdapter;
 use crate::adapter::RealtimeSttAdapter;
@@ -56,13 +56,7 @@ impl RealtimeSttAdapter for SonioxAdapter {
     ) -> Option<Message> {
         let api_key = api_key.unwrap_or("");
 
-        let default = crate::providers::Provider::Soniox.default_live_model();
-        let model = match params.model.as_deref() {
-            Some(m) if crate::providers::is_meta_model(m) => default,
-            Some("stt-v3") => default,
-            Some(m) => m,
-            None => default,
-        };
+        let model = SonioxAdapter::resolve_model(params.model.as_deref()).live_model();
 
         let context = if params.keywords.is_empty() {
             None
@@ -97,16 +91,24 @@ impl RealtimeSttAdapter for SonioxAdapter {
     }
 
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
-        let msg: SonioxMessage = match serde_json::from_str(raw) {
+        let msg: soniox::StreamMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "soniox_json_parse_failed");
+                tracing::warn!(
+                    error.message = ?e,
+                    hyprnote.payload.raw = raw,
+                    "soniox_json_parse_failed"
+                );
                 return vec![];
             }
         };
 
         if let Some(error_msg) = &msg.error_message {
-            tracing::error!(error_code = ?msg.error_code, error_message = %error_msg, "soniox_error");
+            tracing::error!(
+                error.code = ?msg.error_code,
+                error.message = %error_msg,
+                "soniox_error"
+            );
             return vec![StreamResponse::ErrorResponse {
                 error_code: msg.error_code,
                 error_message: error_msg.clone(),
@@ -114,15 +116,11 @@ impl RealtimeSttAdapter for SonioxAdapter {
             }];
         }
 
-        let has_fin_token = msg.tokens.iter().any(Token::is_fin_marker);
-        let has_end_token = msg.tokens.iter().any(|t| t.text == "<end>");
-        let is_finished = msg.finished.unwrap_or(false) || has_fin_token || has_end_token;
+        let has_fin_token = msg.tokens.iter().any(|t| t.is_fin());
+        let is_finished =
+            msg.finished.unwrap_or(false) || msg.tokens.iter().any(|t| t.is_fin() || t.is_end());
 
-        let content_tokens: Vec<_> = msg
-            .tokens
-            .into_iter()
-            .filter(|t| t.text != "<fin>" && t.text != "<end>")
-            .collect();
+        let content_tokens: Vec<_> = msg.tokens.into_iter().filter(|t| !t.is_control()).collect();
 
         if content_tokens.is_empty() && !is_finished {
             return vec![];
@@ -203,62 +201,9 @@ struct SonioxConfig<'a> {
     context: Option<Context>,
 }
 
-#[derive(Debug, Deserialize)]
-struct Token {
-    text: String,
-    #[serde(default)]
-    start_ms: Option<u64>,
-    #[serde(default)]
-    end_ms: Option<u64>,
-    #[serde(default)]
-    confidence: Option<f64>,
-    #[serde(default)]
-    is_final: Option<bool>,
-    #[serde(default)]
-    speaker: Option<SpeakerId>,
-}
-
-impl Token {
-    // https://soniox.com/docs/stt/rt/manual-finalization
-    fn is_fin_marker(&self) -> bool {
-        self.text == "<fin>" && self.is_final == Some(true)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum SpeakerId {
-    Num(i32),
-    Str(String),
-}
-
-impl SpeakerId {
-    fn as_i32(&self) -> Option<i32> {
-        match self {
-            SpeakerId::Num(n) => Some(*n),
-            SpeakerId::Str(s) => s
-                .trim_start_matches(|c: char| !c.is_ascii_digit())
-                .parse()
-                .ok(),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct SonioxMessage {
-    #[serde(default)]
-    tokens: Vec<Token>,
-    #[serde(default)]
-    finished: Option<bool>,
-    #[serde(default)]
-    error_code: Option<i32>,
-    #[serde(default)]
-    error_message: Option<String>,
-}
-
 impl SonioxAdapter {
     fn build_response(
-        tokens: &[&Token],
+        tokens: &[&soniox::Token],
         is_final: bool,
         speech_final: bool,
         from_finalize: bool,
