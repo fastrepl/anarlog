@@ -20,6 +20,15 @@ Char detects your system timezone automatically. If you need to override it (e.g
 
 Under **Settings** > **General**, the **Week starts on** option lets you choose the first day of the week in the calendar view. You can pick **System** (follows your locale), **Sunday**, or **Monday**.
 
+## Storage
+
+Under **Settings** > **General**, the **Storage** section shows where Char keeps your data:
+
+- **Content** — notes, recordings, and session data. Click the path to open it in your file manager.
+- **Others** — app-wide settings and configuration files.
+
+You can also set a custom content location with the `CHAR_VAULT_BASE` environment variable. The path supports shell expansion (e.g., `~` and `$HOME`). Char validates that the path is absolute and writable before switching.
+
 ## Mic Active Threshold
 
 Under **Settings** > **Notification**, the **Mic Active Threshold** slider lets you configure how long (5–120 seconds) a meeting app like Zoom or Google Meet must be using your microphone before Char sends a reminder notification to start recording. This replaces the previous Lab toggle and gives you finer control over when the reminder fires.

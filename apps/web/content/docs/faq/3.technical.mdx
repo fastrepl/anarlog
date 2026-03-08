@@ -18,11 +18,15 @@ Yes! Since Char uses local AI, it works completely offline. You don't need an in
 
 ## Is there a CLI version?
 
-A CLI app (`apps/cli`) is in early development. It provides a TUI-based live transcription interface using the same `listener-core` engine as the desktop app. The CLI binary is named `char` and supports `auth` and `tui` subcommands.
+A CLI app (`apps/cli`) is in early development. It provides a TUI-based live transcription interface using the same `listener-core` engine as the desktop app. The CLI binary is named `char` and supports `auth` and `tui` subcommands. Recent improvements include theme support and various UX refinements.
 
 ## What audio formats does Char record in?
 
 Char records audio as WAV files by default. MP3 encoding support has been added via a new `AudioEncoder` trait, allowing recordings to be saved as compressed MP3 files.
+
+## What export formats does Char support?
+
+Char can export sessions as PDF, VTT (WebVTT subtitle format), and Org mode (`.org`). PDF export includes options for which sections to include (summary, transcript, memos). VTT exports the transcript with timestamps. Org mode produces an Emacs-compatible file.
 
 ## What cloud STT providers does Char support?
 
