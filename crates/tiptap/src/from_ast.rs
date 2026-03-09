@@ -21,15 +21,13 @@ fn unescape_markdown(md: &str) -> String {
     let mut chars = md.chars().peekable();
 
     while let Some(c) = chars.next() {
-        if c == '\\' {
-            if let Some(&next) = chars.peek() {
-                if is_markdown_escapable(next) {
+        if c == '\\'
+            && let Some(&next) = chars.peek()
+                && is_markdown_escapable(next) {
                     result.push(next);
                     chars.next();
                     continue;
                 }
-            }
-        }
         result.push(c);
     }
 
