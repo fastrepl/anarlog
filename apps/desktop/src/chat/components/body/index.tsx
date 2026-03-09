@@ -1,11 +1,11 @@
 import type { ChatStatus } from "ai";
 import { ChevronDownIcon } from "lucide-react";
-import { type WheelEvent, useEffect, useRef, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 
 import { ChatBodyEmpty } from "./empty";
 import { ChatBodyNonEmpty } from "./non-empty";
+import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
 import type { HyprUIMessage } from "~/chat/types";
 
@@ -27,95 +27,15 @@ export function ChatBody({
     parts: Array<{ type: "text"; text: string }>,
   ) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-  const shouldAutoScrollRef = useRef(true);
-  const previousIsGeneratingRef = useRef(false);
-  const pendingUserScrollIntentRef = useRef(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
-  const [showGoToRecent, setShowGoToRecent] = useState(false);
-  const isGenerating = status === "submitted" || status === "streaming";
-
-  const scrollToBottom = () => {
-    if (!scrollRef.current) {
-      return;
-    }
-
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    shouldAutoScrollRef.current = true;
-    pendingUserScrollIntentRef.current = false;
-    setIsAtBottom(true);
-    setShowGoToRecent(false);
-  };
-
-  const updateAutoScrollState = () => {
-    if (!scrollRef.current) {
-      return;
-    }
-
-    const { scrollTop, clientHeight, scrollHeight } = scrollRef.current;
-    const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
-    const isAtBottom = distanceFromBottom <= 24;
-    setIsAtBottom(isAtBottom);
-
-    if (isAtBottom) {
-      shouldAutoScrollRef.current = true;
-      pendingUserScrollIntentRef.current = false;
-      setShowGoToRecent(false);
-      return;
-    }
-
-    if (pendingUserScrollIntentRef.current) {
-      shouldAutoScrollRef.current = false;
-    }
-  };
-
-  const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
-    if (event.deltaY > 0 && !isAtBottom) {
-      setShowGoToRecent(true);
-      return;
-    }
-
-    if (event.deltaY < 0) {
-      setShowGoToRecent(false);
-    }
-
-    if (!isGenerating || event.deltaY >= 0) {
-      return;
-    }
-
-    pendingUserScrollIntentRef.current = true;
-  };
-
-  useEffect(() => {
-    if (isGenerating && !previousIsGeneratingRef.current) {
-      shouldAutoScrollRef.current = true;
-      pendingUserScrollIntentRef.current = false;
-      setShowGoToRecent(false);
-    }
-
-    previousIsGeneratingRef.current = isGenerating;
-
-    if (shouldAutoScrollRef.current) {
-      scrollToBottom();
-    }
-  }, [messages, status, error, isGenerating]);
-
-  useEffect(() => {
-    if (!contentRef.current) {
-      return;
-    }
-
-    const observer = new ResizeObserver(() => {
-      if (shouldAutoScrollRef.current) {
-        scrollToBottom();
-      }
-    });
-
-    observer.observe(contentRef.current);
-
-    return () => observer.disconnect();
-  }, []);
+  const {
+    contentRef,
+    isAtBottom,
+    scrollRef,
+    scrollToBottom,
+    showGoToRecent,
+    updateAutoScrollState,
+    handleWheel,
+  } = useChatAutoScroll(status);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
