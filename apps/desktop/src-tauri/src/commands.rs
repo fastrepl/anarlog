@@ -80,10 +80,25 @@ pub fn show_devtool() -> bool {
 pub async fn resize_window_for_chat<R: tauri::Runtime>(
     window: tauri::Window<R>,
 ) -> Result<(), String> {
+    const CHAT_PANEL_EXPANSION_WIDTH: u32 = 400;
+
     let outer_size = window.outer_size().map_err(|e| e.to_string())?;
+    let outer_position = window.outer_position().map_err(|e| e.to_string())?;
+    let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+
+    if let Some(monitor) = monitor {
+        let monitor_position = monitor.position();
+        let monitor_size = monitor.size();
+        let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
+        let monitor_right = i64::from(monitor_position.x) + i64::from(monitor_size.width);
+
+        if monitor_right - window_right < i64::from(CHAT_PANEL_EXPANSION_WIDTH) {
+            return Ok(());
+        }
+    }
 
     let new_size = tauri::PhysicalSize {
-        width: outer_size.width + 400,
+        width: outer_size.width + CHAT_PANEL_EXPANSION_WIDTH,
         height: outer_size.height,
     };
     window
