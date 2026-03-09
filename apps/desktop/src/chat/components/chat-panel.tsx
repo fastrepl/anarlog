@@ -56,9 +56,6 @@ export function ChatView() {
         onSelectChat={handleSelectChat}
         handleClose={() => chat.sendEvent({ type: "CLOSE" })}
       />
-      <div className="bg-sky-100 px-3 py-1.5 text-[11px] text-neutral-900">
-        NOTE: Chat is mostly READ ONLY. More editing updates coming soon.
-      </div>
       <ChatSession
         key={stableSessionId}
         sessionId={stableSessionId}

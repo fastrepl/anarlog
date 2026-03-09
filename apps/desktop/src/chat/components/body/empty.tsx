@@ -48,6 +48,7 @@ export function ChatBodyEmpty({
             <span className="text-sm font-medium text-neutral-800">
               Char AI
             </span>
+            <BetaChip />
           </div>
           <p className="mb-2 text-sm text-neutral-700">
             Hey! I need you to configure a language model to start chatting with
@@ -71,6 +72,7 @@ export function ChatBodyEmpty({
         <div className="mb-2 flex items-center gap-1">
           <img src="/assets/dynamic.gif" alt="Char" className="h-5 w-5" />
           <span className="text-sm font-medium text-neutral-800">Char AI</span>
+          <BetaChip />
         </div>
         <p className="mb-2 text-sm text-neutral-700">
           Hey! I can help you with a lot of cool stuff :)
@@ -92,5 +94,13 @@ export function ChatBodyEmpty({
         </div>
       </div>
     </div>
+  );
+}
+
+function BetaChip() {
+  return (
+    <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-900">
+      Beta
+    </span>
   );
 }
