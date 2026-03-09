@@ -2,6 +2,7 @@ import {
   type ChatTransport,
   convertToModelMessages,
   type LanguageModel,
+  smoothStream,
   stepCountIs,
   ToolLoopAgent,
   type ToolSet,
@@ -221,6 +222,10 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
 
     const result = await agent.stream({
       messages: await convertToModelMessages(messagesWithContext),
+      experimental_transform: smoothStream({
+        chunking: "line",
+        delayInMs: null,
+      }),
     });
 
     return result.toUIMessageStream({
