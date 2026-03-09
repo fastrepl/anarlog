@@ -34,7 +34,7 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="flex max-h-[80vh] w-85 flex-col rounded-lg p-0 shadow-lg"
+        className="select-text-deep flex max-h-[80vh] w-85 flex-col rounded-lg p-0 shadow-lg"
       >
         <ContentInner sessionId={sessionId} />
       </PopoverContent>
