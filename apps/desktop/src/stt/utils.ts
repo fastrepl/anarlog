@@ -1,11 +1,14 @@
 import type { SpeakerHintWithId, WordWithId } from "./types";
 
-interface TranscriptStore {
+interface TranscriptReadStore {
   getCell(
     tableId: "transcripts",
     rowId: string,
     cellId: "words" | "speaker_hints",
   ): unknown;
+}
+
+interface TranscriptWriteStore extends TranscriptReadStore {
   setCell(
     tableId: "transcripts",
     rowId: string,
@@ -15,7 +18,7 @@ interface TranscriptStore {
 }
 
 export function parseTranscriptWords(
-  store: TranscriptStore,
+  store: TranscriptReadStore,
   transcriptId: string,
 ): WordWithId[] {
   const wordsJson = store.getCell("transcripts", transcriptId, "words");
@@ -31,7 +34,7 @@ export function parseTranscriptWords(
 }
 
 export function parseTranscriptHints(
-  store: TranscriptStore,
+  store: TranscriptReadStore,
   transcriptId: string,
 ): SpeakerHintWithId[] {
   const hintsJson = store.getCell("transcripts", transcriptId, "speaker_hints");
@@ -47,7 +50,7 @@ export function parseTranscriptHints(
 }
 
 export function updateTranscriptWords(
-  store: TranscriptStore,
+  store: TranscriptWriteStore,
   transcriptId: string,
   words: WordWithId[],
 ): void {
@@ -55,7 +58,7 @@ export function updateTranscriptWords(
 }
 
 export function updateTranscriptHints(
-  store: TranscriptStore,
+  store: TranscriptWriteStore,
   transcriptId: string,
   hints: SpeakerHintWithId[],
 ): void {
