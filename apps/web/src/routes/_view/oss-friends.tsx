@@ -12,13 +12,13 @@ export const Route = createFileRoute("/_view/oss-friends")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "OSS Friends - Hyprnote" },
+      { title: "OSS Friends - Char" },
       {
         name: "description",
         content:
-          "Discover amazing open source projects and tools built by our friends in the community. Hyprnote is proud to be part of the open source ecosystem.",
+          "Discover amazing open source projects and tools built by our friends in the community. Char is proud to be part of the open source ecosystem.",
       },
-      { property: "og:title", content: "OSS Friends - Hyprnote" },
+      { property: "og:title", content: "OSS Friends - Char" },
       {
         property: "og:description",
         content:
@@ -27,10 +27,10 @@ export const Route = createFileRoute("/_view/oss-friends")({
       { property: "og:type", content: "website" },
       {
         property: "og:url",
-        content: "https://hyprnote.com/oss-friends",
+        content: "https://char.com/oss-friends",
       },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "OSS Friends - Hyprnote" },
+      { name: "twitter:title", content: "OSS Friends - Char" },
       {
         name: "twitter:description",
         content:
@@ -69,10 +69,10 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection search={search} onSearchChange={setSearch} />
         <SlashSeparator />
         <FriendsSection
@@ -97,21 +97,21 @@ function HeroSection({
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mb-8 text-center max-w-4xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif text-stone-600 mb-6">
+        <header className="mx-auto mb-8 max-w-4xl text-center">
+          <h1 className="mb-6 font-serif text-4xl text-stone-700 sm:text-5xl lg:text-6xl">
             OSS Friends
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600 leading-relaxed max-w-3xl mx-auto mb-8">
+          <p className="mx-auto mb-8 max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
             Discover amazing open source projects and tools built by our friends
             in the community. We believe in the power of open source and are
             proud to be part of this ecosystem.
           </p>
-          <div className="max-w-md mx-auto">
+          <div className="mx-auto max-w-md">
             <div
               className={cn([
                 "relative flex items-center",
-                "border border-neutral-200 rounded-full bg-white",
-                "focus-within:border-stone-400 transition-colors",
+                "rounded-full border border-neutral-200 bg-white",
+                "transition-colors focus-within:border-stone-400",
               ])}
             >
               <Icon
@@ -123,7 +123,7 @@ function HeroSection({
                 placeholder="Search projects..."
                 value={search}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full px-12 py-3 rounded-full bg-transparent outline-hidden text-neutral-800 placeholder:text-neutral-400"
+                className="w-full rounded-full bg-transparent px-12 py-3 text-neutral-800 outline-hidden placeholder:text-neutral-400"
               />
             </div>
           </div>
@@ -144,7 +144,7 @@ function FriendsSection({
 }) {
   return (
     <section>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-neutral-200">
+      <div className="grid grid-cols-1 gap-px bg-neutral-200 sm:grid-cols-2 lg:grid-cols-3">
         {friends.map((friend) => (
           <a
             key={friend.slug}
@@ -152,31 +152,31 @@ function FriendsSection({
             target="_blank"
             rel="noopener noreferrer"
             className={cn([
-              "group flex flex-col bg-white overflow-hidden h-full",
-              "hover:bg-stone-50 transition-all",
+              "group flex h-full flex-col overflow-hidden bg-white",
+              "transition-all hover:bg-stone-50",
               "border-b border-neutral-200",
             ])}
           >
-            <div className="aspect-40/21 bg-neutral-100 overflow-hidden shrink-0">
+            <div className="aspect-40/21 shrink-0 overflow-hidden bg-neutral-100">
               <Image
                 src={friend.image || "/api/images/hyprnote/default-cover.jpg"}
                 alt={friend.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 objectFit="cover"
                 layout="fullWidth"
               />
             </div>
-            <div className="p-4 flex flex-col flex-1 border-t border-neutral-200">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <h3 className="text-lg font-medium text-stone-600 group-hover:text-stone-800">
+            <div className="flex flex-1 flex-col border-t border-neutral-200 p-4">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <h3 className="text-lg font-medium text-stone-700 group-hover:text-stone-800">
                   {friend.name}
                 </h3>
                 <Icon
                   icon="mdi:arrow-top-right"
-                  className="text-lg text-neutral-400 group-hover:text-stone-600 transition-colors shrink-0"
+                  className="shrink-0 text-lg text-neutral-400 transition-colors group-hover:text-stone-600"
                 />
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed mb-3 flex-1 line-clamp-2">
+              <p className="mb-3 line-clamp-2 flex-1 text-sm leading-relaxed text-neutral-600">
                 {friend.description}
               </p>
               <a
@@ -184,7 +184,7 @@ function FriendsSection({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-700 transition-colors mt-auto"
+                className="mt-auto inline-flex items-center gap-1.5 text-xs text-neutral-500 transition-colors hover:text-neutral-700"
               >
                 <Icon icon="mdi:github" className="text-sm" />
                 <span>View on GitHub</span>
@@ -194,14 +194,14 @@ function FriendsSection({
         ))}
       </div>
       {hasMore && (
-        <div className="flex justify-center py-8 bg-white">
+        <div className="flex justify-center bg-white py-8">
           <button
             onClick={onLoadMore}
             className={cn([
-              "cursor-pointer inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-medium rounded-full",
+              "inline-flex cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium",
               "border border-neutral-200 text-neutral-700",
               "bg-linear-to-t from-stone-100 to-white",
-              "hover:from-stone-200 hover:to-stone-50 hover:border-stone-300 transition-all",
+              "transition-all hover:border-stone-300 hover:from-stone-200 hover:to-stone-50",
             ])}
           >
             Load more
@@ -214,23 +214,23 @@ function FriendsSection({
 
 function JoinSection() {
   return (
-    <section className="px-6 py-12 lg:py-16 bg-stone-50/30">
-      <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-2xl sm:text-3xl font-serif text-stone-600 mb-4">
+    <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 className="mb-4 font-serif text-2xl text-stone-700 sm:text-3xl">
           Want to be listed?
         </h2>
-        <p className="text-neutral-600 mb-6">
+        <p className="mb-6 text-neutral-600">
           If you're building an open source project and would like to be
           featured on this page, we'd love to hear from you.
         </p>
         <a
-          href="https://github.com/fastrepl/hyprnote/issues/new?title=OSS%20Friends%20Request&body=Project%20Name:%0AProject%20URL:%0ADescription:"
+          href="https://github.com/fastrepl/char/issues/new?title=OSS%20Friends%20Request&body=Project%20Name:%0AProject%20URL:%0ADescription:"
           target="_blank"
           rel="noopener noreferrer"
           className={cn([
-            "inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-medium rounded-full",
+            "inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-medium",
             "bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
-            "hover:scale-105 active:scale-95 transition-transform",
+            "transition-transform hover:scale-105 active:scale-95",
           ])}
         >
           <Icon icon="mdi:github" className="text-lg" />

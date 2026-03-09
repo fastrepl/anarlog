@@ -1,14 +1,60 @@
 mod batch;
+mod callback;
 pub mod error;
 mod language;
 mod live;
 
 use super::LanguageSupport;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumString, strum::AsRefStr)]
+pub enum SonioxModel {
+    #[default]
+    #[strum(
+        serialize = "stt-v4",
+        serialize = "stt-rt-v4",
+        serialize = "stt-async-v4"
+    )]
+    V4,
+    #[strum(
+        serialize = "stt-v3",
+        serialize = "stt-rt-v3",
+        serialize = "stt-async-v3",
+        serialize = "stt-rt-v3-preview",
+        serialize = "stt-rt-preview-v2",
+        serialize = "stt-async-preview-v1",
+        serialize = "stt-async-preview"
+    )]
+    V3,
+}
+
+impl SonioxModel {
+    pub fn live_model(&self) -> &'static str {
+        match self {
+            Self::V4 => "stt-rt-v4",
+            Self::V3 => "stt-rt-v3",
+        }
+    }
+
+    pub fn batch_model(&self) -> &'static str {
+        match self {
+            Self::V4 => "stt-async-v4",
+            Self::V3 => "stt-async-v3",
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct SonioxAdapter;
 
 impl SonioxAdapter {
+    pub fn resolve_model(model: Option<&str>) -> SonioxModel {
+        match model {
+            Some(m) if crate::providers::is_meta_model(m) => SonioxModel::default(),
+            Some(m) => m.parse::<SonioxModel>().unwrap_or_default(),
+            None => SonioxModel::default(),
+        }
+    }
+
     pub fn language_support_live(languages: &[hypr_language::Language]) -> LanguageSupport {
         LanguageSupport::min(languages.iter().map(language::single_language_support))
     }
@@ -53,31 +99,15 @@ impl SonioxAdapter {
     pub(crate) fn build_ws_url_from_base(api_base: &str) -> (url::Url, Vec<(String, String)>) {
         use crate::providers::Provider;
 
-        if api_base.is_empty() {
-            return (
-                Provider::Soniox
-                    .default_ws_url()
-                    .parse()
-                    .expect("invalid_default_ws_url"),
-                Vec::new(),
-            );
-        }
-
-        if let Some(proxy_result) = super::build_proxy_ws_url(api_base) {
-            return proxy_result;
-        }
-
-        let parsed: url::Url = api_base.parse().expect("invalid_api_base");
-        let existing_params = super::extract_query_params(&parsed);
-
-        let url: url::Url = format!(
-            "wss://{}{}",
-            Self::ws_host(api_base),
-            Provider::Soniox.ws_path()
-        )
-        .parse()
-        .expect("invalid_ws_url");
-        (url, existing_params)
+        super::build_ws_url_from_base_with(Provider::Soniox, api_base, |_parsed| {
+            format!(
+                "wss://{}{}",
+                Self::ws_host(api_base),
+                Provider::Soniox.ws_path()
+            )
+            .parse()
+            .expect("invalid_ws_url")
+        })
     }
 }
 

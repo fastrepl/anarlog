@@ -26,10 +26,11 @@ pub fn parse(name: &str) -> Version {
 
     if let Some(&tag) = parts.get(3)
         && PRERELEASE_TAGS.contains(&tag)
-            && let Some(&num) = parts.get(4)
-                && num.chars().all(|c| c.is_ascii_digit()) {
-                    version_str.push_str(&format!("-{tag}.{num}"));
-                }
+        && let Some(&num) = parts.get(4)
+        && num.chars().all(|c| c.is_ascii_digit())
+    {
+        version_str.push_str(&format!("-{tag}.{num}"));
+    }
 
     version_str.parse().unwrap()
 }

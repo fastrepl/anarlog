@@ -1,25 +1,10 @@
 on:
   workflow_dispatch:
   pull_request:
-    branches-ignore:
-      - "**/graphite-base/**"
     paths:
       - apps/bot/**
 jobs:
-  optimize_ci:
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check_skip.outputs.skip }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check_skip
-        uses: ./.github/actions/graphite_optimizer
-        with:
-          graphite_token: ${{ secrets.GRAPHITE_TOKEN }}
-
   ci:
-    needs: optimize_ci
-    if: needs.optimize_ci.outputs.skip == 'false'
     runs-on: depot-ubuntu-24.04-8
     steps:
       - uses: actions/checkout@v4

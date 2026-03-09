@@ -3,15 +3,17 @@ dotenv: [".env"]
 includes:
   web:
     taskfile: ./apps/web
-  api:
-    taskfile: ./apps/api
 
 tasks:
   py:init: POETRY_VIRTUALENVS_IN_PROJECT=true poetry install --no-cache --no-interaction --all-extras
   py:run: poetry run python3 {{.CLI_ARGS}}
 
-  stripe: stripe listen --skip-verify --forward-to http://localhost:5000/webhook/stripe
+  stripe:
+    cmds:
+      - stripe listen --print-secret | tr -d '\r\n' | (echo -n 'STRIPE_WEBHOOK_SECRET="'; cat; echo '"') > .env.stripe
+      - stripe listen --skip-verify --forward-to http://localhost:8788/webhook/stripe
   bacon: bacon {{.CLI_ARGS}}
+  stat: btop -f hyprnote -u 500 --preset 1
 
   clean-plugins:
     cmds:
@@ -68,11 +70,11 @@ tasks:
 
   supabase:
     cmds:
-      - supabase {{.CLI_ARGS}}
+      - pnpm exec supabase {{.CLI_ARGS}}
 
   supabase-stop:
     cmds:
-      - supabase stop
+      - pnpm exec supabase stop
       - task: supabase-tunnel-stop
 
   supabase-tunnel-start:
@@ -102,7 +104,7 @@ tasks:
     internal: true
     cmds:
       - |
-          supabase status --output=env | awk -F= '
+          pnpm exec supabase status --output=env | awk -F= '
             /^ANON_KEY=/ { print "SUPABASE_ANON_KEY=" $2; print "VITE_SUPABASE_ANON_KEY=" $2 }
             /^API_URL=/ { print "SUPABASE_URL=" $2; print "VITE_SUPABASE_URL=" $2 }
             /^DB_URL=/ { print "DATABASE_URL=" $2 }
@@ -118,6 +120,30 @@ tasks:
             /^SERVICE_ROLE_KEY=/ { print "SUPABASE_SERVICE_ROLE_KEY=" $2 }
             /^STUDIO_URL=/ { print "SUPABASE_STUDIO_URL=" $2 }
           ' > .env.supabase
+
+  supabase-storage-seed-config:
+    internal: true
+    vars:
+      SUPABASE_STORAGE_ASSETS_DIR: '{{.SUPABASE_STORAGE_ASSETS_DIR | default "./.seed/storage/assets"}}'
+      SUPABASE_STORAGE_ASSETS_BUCKET: '{{.SUPABASE_STORAGE_ASSETS_BUCKET | default "assets"}}'
+      SUPABASE_STORAGE_MODELS_DIR: '{{.SUPABASE_STORAGE_MODELS_DIR | default "./.seed/storage/models"}}'
+      SUPABASE_STORAGE_MODELS_BUCKET: '{{.SUPABASE_STORAGE_MODELS_BUCKET | default "models"}}'
+      SUPABASE_STORAGE_AUDIO_FILES_DIR: '{{.SUPABASE_STORAGE_AUDIO_FILES_DIR | default "./.seed/storage/audio-files"}}'
+      SUPABASE_STORAGE_AUDIO_FILES_BUCKET: '{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET | default "audio-files"}}'
+    cmds:
+      - mkdir -p supabase/{{.SUPABASE_STORAGE_ASSETS_DIR}} supabase/{{.SUPABASE_STORAGE_MODELS_DIR}} supabase/{{.SUPABASE_STORAGE_AUDIO_FILES_DIR}}
+      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.public'
+      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.file_size_limit'
+      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.allowed_mime_types'
+      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_ASSETS_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.objects_path'
+      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.public'
+      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.file_size_limit'
+      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.allowed_mime_types'
+      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_MODELS_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.objects_path'
+      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.public'
+      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.file_size_limit'
+      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.allowed_mime_types'
+      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_AUDIO_FILES_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.objects_path'
 
   # infisical run --env=dev --projectId=87dad7b5-72a6-4791-9228-b3b86b169db1 --path="/supabase" -- task supabase-start
   supabase-start:
@@ -136,14 +162,61 @@ tasks:
       - '[ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t bool -v false ''auth.external.google.skip_nonce_check'' || true'
       - dasel put -f supabase/config.toml -t bool -v true 'auth.hook.custom_access_token.enabled'
       - dasel put -f supabase/config.toml -t string -v 'pg-functions://postgres/public/custom_access_token_hook' 'auth.hook.custom_access_token.uri'
-      - '[ ! -f supabase/signing_keys.json ] && supabase gen signing-key --algorithm ES256 | jq -s ''.'' > supabase/signing_keys.json || true'
-      - dasel put -f supabase/config.toml -t string -v './signing_keys.json' 'auth.signing_keys_path'
-      - dprint fmt supabase/config.toml
-      - supabase start -x realtime,logflare
+      # - task: supabase-storage-seed-config
+      # - '[ ! -f supabase/signing_keys.json ] && pnpm exec supabase gen signing-key --algorithm ES256 | jq -s ''.'' > supabase/signing_keys.json || true'
+      # - dasel put -f supabase/config.toml -t string -v './signing_keys.json' 'auth.signing_keys_path'
+      - pnpm exec dprint fmt supabase/config.toml
+      - pnpm exec supabase start -x realtime,logflare
       - task: supabase-env
-      - supabase migration up --local
+      - pnpm exec supabase migration up --local
 
-  stripe:
+  nango-dev-connection:
+    silent: true
+    requires:
+      vars: [DEV_NANGO_CONNECTION_ID]
+    vars:
+      USER_ID: '{{.USER_ID | default ""}}'
+      INTEGRATION_ID: '{{.INTEGRATION_ID | default "google-calendar"}}'
+      PROVIDER: '{{.PROVIDER | default "google-calendar"}}'
     cmds:
-      - stripe listen --print-secret | tr -d '\r\n' | xargs -I{} sh -c 'printf "STRIPE_WEBHOOK_SECRET=\"{}\"\n" > .env.stripe'
-      - stripe listen --skip-verify --forward-to http://localhost:8787/webhook/stripe
+      - |
+          DB_URL=$(pnpm exec supabase status --output=env 2>/dev/null | awk -F= '/^DB_URL=/{gsub(/^"|"$/, "", $2); print $2}')
+          if [ -z "$DB_URL" ]; then
+            echo "DB_URL not found. Start local Supabase first (e.g. task supabase-start)." >&2
+            exit 1
+          fi
+
+          USER_ID="{{.USER_ID}}"
+          if [ -z "$USER_ID" ]; then
+            USER_ID=$(psql "$DB_URL" -tAc "SELECT id::text FROM auth.users ORDER BY created_at DESC LIMIT 1")
+          fi
+          if [ -z "$USER_ID" ]; then
+            echo "No user found in auth.users. Sign in once, or pass USER_ID explicitly." >&2
+            exit 1
+          fi
+
+          psql "$DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            -c "INSERT INTO nango_connections (user_id, integration_id, connection_id, provider) VALUES ('$USER_ID'::uuid, '{{.INTEGRATION_ID}}', '{{.DEV_NANGO_CONNECTION_ID}}', '{{.PROVIDER}}') ON CONFLICT (user_id, integration_id) DO UPDATE SET connection_id = EXCLUDED.connection_id, provider = EXCLUDED.provider, updated_at = now(), status = 'connected', last_error_type = NULL, last_error_description = NULL, last_error_at = NULL;" \
+            >/dev/null
+
+          printf 'ok user_id=%s integration_id=%s connection_id=%s\n' "$USER_ID" "{{.INTEGRATION_ID}}" "{{.DEV_NANGO_CONNECTION_ID}}"
+
+  nango-dev-user-id:
+    silent: true
+    internal: true
+    cmds:
+      - |
+          DB_URL=$(pnpm exec supabase status --output=env 2>/dev/null | awk -F= '/^DB_URL=/{gsub(/^"|"$/, "", $2); print $2}')
+          if [ -z "$DB_URL" ]; then
+            echo "DB_URL not found. Start local Supabase first (e.g. task supabase-start)." >&2
+            exit 1
+          fi
+
+          USER_ID=$(psql "$DB_URL" -tAc "SELECT id::text FROM auth.users ORDER BY created_at DESC LIMIT 1")
+          if [ -z "$USER_ID" ]; then
+            echo "No user found in auth.users. Sign in once first." >&2
+            exit 1
+          fi
+
+          printf 'user_id=%s\n' "$USER_ID"

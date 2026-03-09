@@ -9,26 +9,26 @@ export const Route = createFileRoute("/_view/privacy")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Privacy - Hyprnote" },
+      { title: "Privacy - Char" },
       {
         name: "description",
         content:
-          "Your privacy is not just a feature at Hyprnote—it's our foundation. Learn how we protect your meeting data with local-first architecture and zero data collection.",
+          "Your privacy is not just a feature at Char—it's our foundation. Learn how we protect your meeting data with local-first architecture and zero data collection.",
       },
-      { property: "og:title", content: "Privacy - Hyprnote" },
+      { property: "og:title", content: "Privacy - Char" },
       {
         property: "og:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Hyprnote puts your privacy first.",
+          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://hyprnote.com/privacy" },
+      { property: "og:url", content: "https://char.com/privacy" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Privacy - Hyprnote" },
+      { name: "twitter:title", content: "Privacy - Char" },
       {
         name: "twitter:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Hyprnote puts your privacy first.",
+          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
       },
     ],
   }),
@@ -37,10 +37,10 @@ export const Route = createFileRoute("/_view/privacy")({
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <PrivacyPromiseSection />
@@ -63,21 +63,21 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mb-12 text-center max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-stone-100 rounded-full text-sm text-stone-600 mb-6">
+        <header className="mx-auto mb-12 max-w-4xl text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
             <Icon icon="mdi:eye-off" className="text-lg" />
             <span>Privacy-first by design</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif text-stone-600 mb-6">
+          <h1 className="mb-6 font-serif text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
             Your conversations
             <br />
             belong to you
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600 leading-relaxed max-w-3xl mx-auto">
-            At Hyprnote, we believe privacy isn't just a feature—it's a
-            fundamental right. Your meeting conversations contain your most
-            sensitive ideas, strategies, and personal moments. We've built
-            Hyprnote to ensure they stay yours, and yours alone.
+          <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
+            At Char, we believe privacy isn't just a feature—it's a fundamental
+            right. Your meeting conversations contain your most sensitive ideas,
+            strategies, and personal moments. We've built Char to ensure they
+            stay yours, and yours alone.
           </p>
         </header>
       </div>
@@ -103,7 +103,7 @@ function PrivacyPromiseSection() {
       icon: "mdi:account-off",
       title: "No account required",
       description:
-        "Use Hyprnote without creating an account. Your identity remains private, and there's no profile data for us to store or leak.",
+        "Use Char without creating an account. Your identity remains private, and there's no profile data for us to store or leak.",
     },
     {
       icon: "mdi:chart-line",
@@ -115,24 +115,24 @@ function PrivacyPromiseSection() {
 
   return (
     <section className="px-6 py-12 lg:py-16">
-      <h2 className="text-3xl font-serif text-stone-600 mb-4 text-center">
+      <h2 className="mb-4 text-center font-serif text-3xl text-stone-600">
         Our privacy promise
       </h2>
-      <p className="text-neutral-600 text-center mb-12 max-w-2xl mx-auto">
+      <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
         These aren't just policies—they're principles embedded in our
         architecture. We couldn't violate your privacy even if we wanted to.
       </p>
-      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
         {promises.map((promise, index) => (
           <div
             key={index}
-            className="p-6 border border-neutral-200 rounded-lg bg-white"
+            className="rounded-lg border border-neutral-200 bg-white p-6"
           >
             <Icon
               icon={promise.icon}
-              className="text-3xl text-stone-600 mb-4"
+              className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-600">
               {promise.title}
             </h3>
             <p className="text-neutral-600">{promise.description}</p>
@@ -145,52 +145,51 @@ function PrivacyPromiseSection() {
 
 function DataOwnershipSection() {
   return (
-    <section className="px-6 py-12 lg:py-16 bg-stone-50/30">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
+    <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
           <Icon
             icon="mdi:folder-lock"
-            className="text-5xl text-stone-600 mb-4"
+            className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="text-3xl font-serif text-stone-600 mb-4">
+          <h2 className="mb-4 font-serif text-3xl text-stone-600">
             You own your data, completely
           </h2>
-          <p className="text-neutral-600 max-w-2xl mx-auto">
-            With Hyprnote, data ownership isn't a marketing term—it's a
-            technical reality. Your data lives on your device, in formats you
-            control.
+          <p className="mx-auto max-w-2xl text-neutral-600">
+            With Char, data ownership isn't a marketing term—it's a technical
+            reality. Your data lives on your device, in formats you control.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center p-6">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="p-6 text-center">
             <Icon
               icon="mdi:folder-home"
-              className="text-4xl text-stone-600 mb-4 mx-auto"
+              className="mx-auto mb-4 text-4xl text-stone-600"
             />
-            <h3 className="font-medium text-stone-600 mb-2">Local storage</h3>
+            <h3 className="mb-2 font-medium text-stone-600">Local storage</h3>
             <p className="text-sm text-neutral-600">
               All your notes, recordings, and transcripts are stored in a local
               database on your computer. No cloud dependency, no remote access.
             </p>
           </div>
-          <div className="text-center p-6">
+          <div className="p-6 text-center">
             <Icon
               icon="mdi:export"
-              className="text-4xl text-stone-600 mb-4 mx-auto"
+              className="mx-auto mb-4 text-4xl text-stone-600"
             />
-            <h3 className="font-medium text-stone-600 mb-2">Full export</h3>
+            <h3 className="mb-2 font-medium text-stone-600">Full export</h3>
             <p className="text-sm text-neutral-600">
               Export all your data anytime in standard formats. Your notes,
               transcripts, and recordings are always accessible and portable.
             </p>
           </div>
-          <div className="text-center p-6">
+          <div className="p-6 text-center">
             <Icon
               icon="mdi:delete-forever"
-              className="text-4xl text-stone-600 mb-4 mx-auto"
+              className="mx-auto mb-4 text-4xl text-stone-600"
             />
-            <h3 className="font-medium text-stone-600 mb-2">True deletion</h3>
+            <h3 className="mb-2 font-medium text-stone-600">True deletion</h3>
             <p className="text-sm text-neutral-600">
               When you delete something, it's gone. No hidden backups, no
               retention periods, no "soft deletes" that keep your data around.
@@ -198,21 +197,21 @@ function DataOwnershipSection() {
           </div>
         </div>
 
-        <div className="mt-12 p-8 border border-neutral-200 rounded-lg bg-white">
+        <div className="mt-12 rounded-lg border border-neutral-200 bg-white p-8">
           <div className="flex items-start gap-4">
             <Icon
               icon="mdi:sync-off"
-              className="text-3xl text-stone-600 shrink-0"
+              className="shrink-0 text-3xl text-stone-600"
             />
             <div>
-              <h3 className="text-xl font-serif text-stone-600 mb-3">
+              <h3 className="mb-3 font-serif text-xl text-stone-600">
                 Optional sync, your choice
               </h3>
               <p className="text-neutral-600">
                 If you choose to sync across devices, your data is encrypted
                 before it leaves your device. We use end-to-end encryption so
                 even our servers can't read your content. But sync is entirely
-                optional—Hyprnote works perfectly as a standalone, offline
+                optional—Char works perfectly as a standalone, offline
                 application.
               </p>
             </div>
@@ -226,49 +225,49 @@ function DataOwnershipSection() {
 function NoTrackingSection() {
   return (
     <section className="px-6 py-12 lg:py-16">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
           <Icon
             icon="mdi:shield-off-outline"
-            className="text-5xl text-stone-600 mb-4"
+            className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="text-3xl font-serif text-stone-600 mb-4">
+          <h2 className="mb-4 font-serif text-3xl text-stone-600">
             No tracking, no profiling
           </h2>
-          <p className="text-neutral-600 max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-neutral-600">
             We don't track your behavior, build profiles, or analyze your
             content. Your meeting data is not a product.
           </p>
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="p-6 border border-neutral-200 rounded-lg bg-white">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <div className="flex items-start gap-4">
               <Icon
                 icon="mdi:robot-off"
-                className="text-2xl text-stone-600 shrink-0 mt-1"
+                className="mt-1 shrink-0 text-2xl text-stone-600"
               />
               <div>
-                <h3 className="font-medium text-stone-600 mb-2">
+                <h3 className="mb-2 font-medium text-stone-600">
                   No AI training on your data
                 </h3>
                 <p className="text-neutral-600">
                   Your transcripts and notes are never used to train AI models.
-                  The AI features in Hyprnote run locally on your device, and
-                  your content stays private.
+                  The AI features in Char run locally on your device, and your
+                  content stays private.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="p-6 border border-neutral-200 rounded-lg bg-white">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <div className="flex items-start gap-4">
               <Icon
                 icon="mdi:target-account"
-                className="text-2xl text-stone-600 shrink-0 mt-1"
+                className="mt-1 shrink-0 text-2xl text-stone-600"
               />
               <div>
-                <h3 className="font-medium text-stone-600 mb-2">
+                <h3 className="mb-2 font-medium text-stone-600">
                   No behavioral tracking
                 </h3>
                 <p className="text-neutral-600">
@@ -280,14 +279,14 @@ function NoTrackingSection() {
             </div>
           </div>
 
-          <div className="p-6 border border-neutral-200 rounded-lg bg-white">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <div className="flex items-start gap-4">
               <Icon
                 icon="mdi:currency-usd-off"
-                className="text-2xl text-stone-600 shrink-0 mt-1"
+                className="mt-1 shrink-0 text-2xl text-stone-600"
               />
               <div>
-                <h3 className="font-medium text-stone-600 mb-2">
+                <h3 className="mb-2 font-medium text-stone-600">
                   No data monetization
                 </h3>
                 <p className="text-neutral-600">
@@ -306,29 +305,29 @@ function NoTrackingSection() {
 
 function TransparencySection() {
   return (
-    <section className="px-6 py-12 lg:py-16 bg-stone-50/30">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
+    <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
           <Icon
             icon="mdi:code-braces"
-            className="text-5xl text-stone-600 mb-4"
+            className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="text-3xl font-serif text-stone-600 mb-4">
+          <h2 className="mb-4 font-serif text-3xl text-stone-600">
             Verify, don't trust
           </h2>
-          <p className="text-neutral-600 max-w-2xl mx-auto">
-            We don't ask you to take our word for it. Hyprnote is fully open
-            source, so you can verify every privacy claim yourself.
+          <p className="mx-auto max-w-2xl text-neutral-600">
+            We don't ask you to take our word for it. Char is fully open source,
+            so you can verify every privacy claim yourself.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="p-6 border border-neutral-200 rounded-lg bg-white">
+        <div className="grid gap-8 md:grid-cols-2">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <Icon
               icon="mdi:source-repository"
-              className="text-3xl text-stone-600 mb-4"
+              className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-600">
               Open source code
             </h3>
             <p className="text-neutral-600">
@@ -337,12 +336,12 @@ function TransparencySection() {
               information is stored. No black boxes, no hidden behaviors.
             </p>
           </div>
-          <div className="p-6 border border-neutral-200 rounded-lg bg-white">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <Icon
               icon="mdi:file-document-check"
-              className="text-3xl text-stone-600 mb-4"
+              className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-600">
               Clear documentation
             </h3>
             <p className="text-neutral-600">
@@ -353,12 +352,12 @@ function TransparencySection() {
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
           <a
-            href="https://github.com/fastrepl/hyprnote"
+            href="https://github.com/fastrepl/char"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 text-stone-600 hover:text-stone-800 font-medium"
+            className="inline-flex items-center justify-center gap-2 font-medium text-stone-600 hover:text-stone-800"
           >
             <Icon icon="mdi:github" className="text-lg" />
             View source code
@@ -366,7 +365,7 @@ function TransparencySection() {
           </a>
           <a
             href="/legal/privacy"
-            className="inline-flex items-center justify-center gap-2 text-stone-600 hover:text-stone-800 font-medium"
+            className="inline-flex items-center justify-center gap-2 font-medium text-stone-600 hover:text-stone-800"
           >
             <Icon icon="mdi:file-document" className="text-lg" />
             Read privacy policy
@@ -414,13 +413,13 @@ function PrivacyComparisonSection() {
 
   return (
     <section className="px-6 py-12 lg:py-16">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 font-serif text-3xl text-stone-600">
             How we compare
           </h2>
-          <p className="text-neutral-600 max-w-2xl mx-auto">
-            Most meeting tools treat your data as their asset. We built Hyprnote
+          <p className="mx-auto max-w-2xl text-neutral-600">
+            Most meeting tools treat your data as their asset. We built Char
             differently.
           </p>
         </div>
@@ -429,13 +428,13 @@ function PrivacyComparisonSection() {
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-neutral-200">
-                <th className="text-left py-4 px-4 font-medium text-stone-600">
+                <th className="px-4 py-4 text-left font-medium text-stone-600">
                   Feature
                 </th>
-                <th className="text-center py-4 px-4 font-medium text-stone-600 bg-stone-50">
-                  Hyprnote
+                <th className="bg-stone-50 px-4 py-4 text-center font-medium text-stone-600">
+                  Char
                 </th>
-                <th className="text-center py-4 px-4 font-medium text-neutral-500">
+                <th className="px-4 py-4 text-center font-medium text-neutral-500">
                   Others
                 </th>
               </tr>
@@ -443,9 +442,9 @@ function PrivacyComparisonSection() {
             <tbody>
               {comparisons.map((row, index) => (
                 <tr key={index} className="border-b border-neutral-100">
-                  <td className="py-4 px-4 text-neutral-600">{row.feature}</td>
-                  <td className="py-4 px-4 text-center bg-stone-50">
-                    <span className="inline-flex items-center gap-2 text-stone-600 font-medium">
+                  <td className="px-4 py-4 text-neutral-600">{row.feature}</td>
+                  <td className="bg-stone-50 px-4 py-4 text-center">
+                    <span className="inline-flex items-center gap-2 font-medium text-stone-600">
                       <Icon
                         icon="mdi:check-circle"
                         className="text-lg text-green-600"
@@ -453,7 +452,7 @@ function PrivacyComparisonSection() {
                       {row.hyprnote}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-center text-neutral-500">
+                  <td className="px-4 py-4 text-center text-neutral-500">
                     {row.others}
                   </td>
                 </tr>
@@ -468,37 +467,37 @@ function PrivacyComparisonSection() {
 
 function CTASection() {
   return (
-    <section className="px-6 py-16 lg:py-20 bg-stone-50/30">
-      <div className="max-w-3xl mx-auto text-center">
+    <section className="bg-stone-50/30 px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-3xl text-center">
         <Icon
           icon="mdi:shield-lock"
-          className="text-5xl text-stone-600 mb-6 mx-auto"
+          className="mx-auto mb-6 text-5xl text-stone-600"
         />
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">
+        <h2 className="mb-4 font-serif text-3xl text-stone-600">
           Take back control of your meeting data
         </h2>
-        <p className="text-neutral-600 mb-8">
+        <p className="mb-8 text-neutral-600">
           Join thousands of professionals who refuse to compromise on privacy.
           Your conversations deserve better.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col justify-center gap-4 sm:flex-row">
           <Link
             to="/download/"
             className={cn([
-              "inline-flex items-center justify-center gap-2 px-8 py-3 text-base font-medium rounded-full",
+              "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-medium",
               "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-              "hover:scale-105 active:scale-95 transition-transform shadow-md hover:shadow-lg",
+              "shadow-md transition-transform hover:scale-105 hover:shadow-lg active:scale-95",
             ])}
           >
             <Icon icon="mdi:download" className="text-lg" />
-            Download Hyprnote
+            Download Char
           </Link>
           <Link
             to="/security/"
             className={cn([
-              "inline-flex items-center justify-center px-8 py-3 text-base font-medium rounded-full",
+              "inline-flex items-center justify-center rounded-full px-8 py-3 text-base font-medium",
               "border border-neutral-300 text-stone-600",
-              "hover:bg-stone-50 transition-colors",
+              "transition-colors hover:bg-stone-50",
             ])}
           >
             Learn about security

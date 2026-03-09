@@ -15,7 +15,7 @@ function LogoCard({ logo, className, children, ...props }: LogoCardProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-center bg-transparent px-4 py-8 md:p-8 hover:bg-neutral-50 transition-colors",
+        "flex items-center justify-center bg-transparent px-4 py-8 transition-colors hover:bg-neutral-50 md:p-8",
         className,
       )}
       {...props}
@@ -35,7 +35,7 @@ function LogoCard({ logo, className, children, ...props }: LogoCardProps) {
 export function LogoCloud() {
   return (
     <div className="relative grid grid-cols-2 md:grid-cols-5">
-      <div className="-translate-x-1/2 -top-px pointer-events-none absolute left-1/2 w-full border-t border-neutral-100" />
+      <div className="pointer-events-none absolute -top-px left-1/2 w-full -translate-x-1/2 border-t border-neutral-100" />
 
       <LogoCard
         className="relative border-r border-b border-neutral-100"
@@ -46,7 +46,7 @@ export function LogoCloud() {
       />
 
       <LogoCard
-        className="md:border-r border-b border-neutral-100"
+        className="border-b border-neutral-100 md:border-r"
         logo={{
           src: "/icons/meta.svg",
           alt: "Meta Logo",
@@ -117,7 +117,7 @@ export function LogoCloud() {
         }}
       />
 
-      <div className="-translate-x-1/2 -bottom-px pointer-events-none absolute left-1/2 w-full border-b border-neutral-100" />
+      <div className="pointer-events-none absolute -bottom-px left-1/2 w-full -translate-x-1/2 border-b border-neutral-100" />
     </div>
   );
 }

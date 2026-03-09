@@ -13,19 +13,28 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Detect<'a, R, M> {
     }
 
     pub fn list_default_ignored_bundle_ids(&self) -> Vec<String> {
-        crate::handler::default_ignored_bundle_ids()
+        crate::policy::default_ignored_bundle_ids()
     }
 
-    pub async fn set_ignored_bundle_ids(&self, bundle_ids: Vec<String>) {
-        let state = self.manager.state::<crate::SharedState>();
-        let mut state_guard = state.lock().await;
-        state_guard.ignored_bundle_ids = bundle_ids;
+    pub fn set_ignored_bundle_ids(&self, bundle_ids: Vec<String>) {
+        let state = self.manager.state::<crate::ProcessorState>();
+        let mut state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        for id in &bundle_ids {
+            state_guard.mic_usage_tracker.cancel_app(id);
+        }
+        state_guard.policy.user_ignored_bundle_ids = bundle_ids.into_iter().collect();
     }
 
-    pub async fn set_respect_do_not_disturb(&self, enabled: bool) {
-        let state = self.manager.state::<crate::SharedState>();
-        let mut state_guard = state.lock().await;
-        state_guard.respect_do_not_disturb = enabled;
+    pub fn set_respect_do_not_disturb(&self, enabled: bool) {
+        let state = self.manager.state::<crate::ProcessorState>();
+        let mut state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        state_guard.policy.respect_dnd = enabled;
+    }
+
+    pub fn set_mic_active_threshold(&self, secs: u64) {
+        let state = self.manager.state::<crate::ProcessorState>();
+        let mut state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        state_guard.mic_active_threshold_secs = secs;
     }
 }
 

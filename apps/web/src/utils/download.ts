@@ -11,36 +11,50 @@ export interface DownloadLink {
 }
 
 export function getDownloadLinks(version: string): DownloadLink[] {
-  const baseUrl = `https://github.com/fastrepl/hyprnote/releases/download/desktop_v${version}`;
+  const baseUrl = `https://github.com/fastrepl/char/releases/download/desktop_v${version}`;
 
   return [
     {
       platform: "macos",
       arch: "aarch64",
       format: "dmg",
-      url: `${baseUrl}/hyprnote-macos-aarch64.dmg`,
+      url: `${baseUrl}/char-macos-aarch64.dmg`,
       label: "Apple Silicon",
     },
     {
       platform: "macos",
       arch: "x86_64",
       format: "dmg",
-      url: `${baseUrl}/hyprnote-macos-x86_64.dmg`,
+      url: `${baseUrl}/char-macos-x86_64.dmg`,
       label: "Intel",
     },
     {
       platform: "linux",
       arch: "x86_64",
       format: "appimage",
-      url: `${baseUrl}/hyprnote-linux-x86_64.AppImage`,
-      label: "AppImage",
+      url: `${baseUrl}/char-linux-x86_64.AppImage`,
+      label: "AppImage (x86)",
     },
     {
       platform: "linux",
       arch: "x86_64",
       format: "deb",
-      url: `${baseUrl}/hyprnote-linux-x86_64.deb`,
-      label: "Debian",
+      url: `${baseUrl}/char-linux-x86_64.deb`,
+      label: "Debian (x86)",
+    },
+    {
+      platform: "linux",
+      arch: "aarch64",
+      format: "appimage",
+      url: `${baseUrl}/char-linux-aarch64.AppImage`,
+      label: "AppImage (ARM)",
+    },
+    {
+      platform: "linux",
+      arch: "aarch64",
+      format: "deb",
+      url: `${baseUrl}/char-linux-aarch64.deb`,
+      label: "Debian (ARM)",
     },
   ];
 }

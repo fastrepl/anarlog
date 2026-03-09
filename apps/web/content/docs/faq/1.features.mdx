@@ -1,31 +1,85 @@
 ---
 title: "Features"
 section: "FAQ"
-description: "Questions about Hyprnote's features and capabilities."
+description: "Questions about Char's features and capabilities."
 ---
 
-## What apps does Hyprnote work with?
+## What apps does Char work with?
 
-Hyprnote works with any application on your computer - Zoom, Google Meet, Microsoft Teams, Slack, Discord, and more. It captures system audio, so it doesn't depend on specific integrations.
+Char works with any application on your computer - Zoom, Google Meet, Microsoft Teams, Slack, Discord, and more. It captures system audio, so it doesn't depend on specific integrations.
 
 ## Can I record in-person conversations?
 
-Yes! Hyprnote captures your microphone input, so you can record in-person meetings, phone calls, or any conversation where you're using your computer's microphone.
+Yes! Char captures your microphone input, so you can record in-person meetings, phone calls, or any conversation where you're using your computer's microphone.
 
-## What languages does Hyprnote support?
+## What languages does Char support?
 
-Hyprnote supports transcription and AI features in 45+ languages including:
+Char supports transcription and AI features in 90+ languages across multiple providers. You can select your main language and add additional spoken languages in **Settings** > **Language & Vocabulary**. The main language is used for summaries, chats, and AI-generated responses, while spoken languages help improve transcription accuracy in multilingual conversations.
 
-**Major Languages:**
+See the [full language support table](/docs/developers/languages) for a detailed breakdown by provider.
 
-- English, Spanish, French, German, Italian, Portuguese, Russian, Chinese, Japanese, Korean
+## Does Char support speaker diarization?
 
-**European Languages:**
+Yes. Speaker diarization (identifying who said what) is available through select cloud transcription providers on Char Pro. Accuracy depends on the provider and audio quality. For best results, ensure each speaker has a distinct audio source. Local transcription via Whisper does not currently support diarization.
 
-- Dutch, Polish, Swedish, Finnish, Norwegian, Romanian, Czech, Slovak, Croatian, Serbian, Bulgarian, Hungarian, Greek, Danish, Ukrainian, Turkish
+## Do my pinned tabs persist across restarts?
 
-**Other Languages:**
+Yes. Pinned tabs are saved automatically and restored when you relaunch Char, so your workspace stays the way you left it.
 
-- Arabic, Indonesian, Malay, Vietnamese, Thai, Tagalog, Tamil, Hindi, Hebrew, Azerbaijani, Catalan, Galician, Macedonian, Bosnian, Estonian, Slovenian, Latvian, Lithuanian
+## Can I set my timezone manually?
 
-You can select your main language and add additional spoken languages in the app's settings under "Language & Vocabulary". The main language is used for summaries, chats, and AI-generated responses, while spoken languages help improve transcription accuracy when multiple languages are used in a meeting.
+Yes. Go to **Settings** > **General** and use the timezone dropdown to override the automatically detected timezone. This affects how session timestamps are displayed in the sidebar timeline.
+
+## Can I mention other notes or contacts in my notes?
+
+Yes! Char supports backlink mentions. Type `@` in a note to search for and link to other notes, people, or companies. Mentions are displayed as clickable tags that navigate to the referenced item.
+
+## Can I search across all my notes?
+
+Yes. Press <kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>F</kbd> to open the Advanced Search tab, which uses Tantivy-powered full-text search to find matches across all sessions. You can filter by type (meeting notes, people, organizations) and date range (today, this week, this month). Results highlight matching text in context.
+
+Within a note or transcript, <kbd>⌘</kbd> + <kbd>F</kbd> opens an inline search bar with case-sensitive and whole-word matching options. Press <kbd>⌘</kbd> + <kbd>H</kbd> to toggle find-and-replace mode, which supports replacing individual matches or all matches at once.
+
+## What views does the calendar support?
+
+The calendar tab (<kbd>⌘</kbd> + <kbd>⇧</kbd> + <kbd>C</kbd>) supports week, 3-day, and day views. You can switch between them using the controls at the top of the calendar. Events display inline with time slots, and clicking an event opens a popover where you can create a session from it. See [Calendar](/docs/calendar/apple) for setup instructions.
+
+## Can I unignore a calendar event?
+
+Yes. If you previously ignored a calendar event, right-click on it in the sidebar timeline and select "Unignore" from the context menu to restore it.
+
+## Can I create a note from the macOS dock?
+
+Yes. On macOS, right-click the Char icon in the Dock to see a context menu with a **New Note** option. Clicking it creates a new note and brings Char to the foreground.
+
+## Can I open the AI chat as a full tab?
+
+Yes. The AI chat bubble can be expanded into a full tab for a more spacious conversation view. You can also open a support chat tab from the profile menu in the sidebar by selecting **Report Bug** or **Suggest Feature**.
+
+## Can I select and delete multiple notes at once?
+
+Yes. In the sidebar timeline, you can select multiple sessions using <kbd>⌘</kbd> + click or <kbd>⇧</kbd> + click, then right-click to bulk delete them. A confirmation toast appears with an undo option.
+
+## Can I reveal a note's files in Finder?
+
+Yes. Open the overflow menu (three dots) on any session and select **Reveal in Finder** to open the session's directory in macOS Finder. This lets you access the raw Markdown, audio, and transcript files directly.
+
+## Can I set a default template for AI summaries?
+
+Yes. Go to **Settings** > **Intelligence** and select a default template. When auto-enhance runs after a recording, it will use this template. You can also choose a template manually from the enhance button dropdown in any session.
+
+## What is the Memory tab in AI settings?
+
+The Memory tab (under **Settings** > **Intelligence**) lets you define custom vocabulary — names, acronyms, and technical terms that appear frequently in your meetings. These terms are passed to the transcription and AI providers to improve recognition accuracy.
+
+## Does Char auto-generate summaries?
+
+Yes. When you stop a recording, Char can automatically trigger AI-powered note enhancement to generate a summary from the transcript. This also works after uploading or retranscribing a recording.
+
+## Can I see calendar event details in a note?
+
+Yes. When a session is linked to a calendar event, the event description appears as a metadata chip in the session header. Click it to view the full event details.
+
+## Can I undo deleting a note?
+
+Yes! When you delete a note, a toast notification appears giving you a few seconds to undo the deletion. You can also press <kbd>⌘</kbd> + <kbd>Z</kbd> to restore the most recently deleted note before the undo window expires.

@@ -1,7 +1,11 @@
+use hypr_openrouter::{
+    Client as OpenRouterClient, Error as OpenRouterError, ProviderPreferences, ProviderSort,
+    ProviderSortUnion,
+};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::types::{ChatCompletionRequest, ChatMessage, ToolChoice, UsageInfo};
+use crate::types::{ChatCompletionRequest, UsageInfo};
 
 use super::{GenerationMetadata, Provider, ProviderError, StreamAccumulator};
 
@@ -27,35 +31,6 @@ impl OpenRouterProvider {
     }
 }
 
-#[derive(Serialize)]
-struct OpenRouterRequest {
-    pub messages: Vec<ChatMessage>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<serde_json::Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_choice: Option<ToolChoice>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<u32>,
-    pub stream: bool,
-    pub models: Vec<String>,
-    pub provider: OpenRouterProviderPreference,
-    #[serde(flatten)]
-    pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-#[derive(Serialize)]
-struct OpenRouterProviderPreference {
-    sort: &'static str,
-}
-
-impl Default for OpenRouterProviderPreference {
-    fn default() -> Self {
-        Self { sort: "latency" }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct OpenRouterResponse {
     pub id: String,
@@ -78,19 +53,24 @@ impl Provider for OpenRouterProvider {
         models: Vec<String>,
         stream: bool,
     ) -> Result<serde_json::Value, ProviderError> {
-        let openrouter_request = OpenRouterRequest {
-            messages: request.messages.clone(),
-            tools: request.tools.clone(),
-            tool_choice: request.tool_choice.clone(),
-            temperature: request.temperature,
-            max_tokens: request.max_tokens,
-            stream,
-            models,
-            provider: OpenRouterProviderPreference::default(),
-            extra: request.extra.clone(),
+        let mut body = serde_json::to_value(request)?;
+        let obj = body.as_object_mut().unwrap();
+
+        let provider_prefs = ProviderPreferences {
+            sort: Some(ProviderSortUnion::Simple(ProviderSort::Latency)),
+            preferred_min_throughput: None,
+            ..Default::default()
         };
 
-        Ok(serde_json::to_value(openrouter_request)?)
+        obj.remove("model");
+        obj.insert("models".to_string(), serde_json::to_value(models)?);
+        obj.insert("stream".to_string(), serde_json::Value::Bool(stream));
+        obj.insert(
+            "provider".to_string(),
+            serde_json::to_value(provider_prefs)?,
+        );
+
+        Ok(body)
     }
 
     fn parse_response(&self, body: &[u8]) -> Result<GenerationMetadata, ProviderError> {
@@ -160,39 +140,38 @@ impl Provider for OpenRouterProvider {
         let generation_id = generation_id.to_string();
 
         Box::pin(async move {
-            #[derive(Deserialize)]
-            struct OpenRouterGenerationResponse {
-                data: OpenRouterGenerationData,
-            }
+            let openrouter = OpenRouterClient::new(api_key).with_http_client(client);
 
-            #[derive(Deserialize)]
-            struct OpenRouterGenerationData {
-                total_cost: f64,
-            }
-
-            let url = format!(
-                "https://openrouter.ai/api/v1/generation?id={}",
-                generation_id
-            );
-
-            let response = client
-                .get(&url)
-                .header("Authorization", format!("Bearer {}", api_key))
-                .send()
+            match openrouter
+                .generation_total_cost_with_retry(&generation_id, 3)
                 .await
-                .ok()?;
-
-            if !response.status().is_success() {
-                tracing::warn!(
-                    http_status = %response.status().as_u16(),
-                    generation_id = %generation_id,
-                    "generation_metadata_fetch_failed"
-                );
-                return None;
+            {
+                Ok(cost) => cost,
+                Err(OpenRouterError::Api { status, .. }) if status == 404 => {
+                    tracing::debug!(
+                        http.response.status_code = %status,
+                        gen_ai.response.id = %generation_id,
+                        "generation_metadata_unavailable"
+                    );
+                    None
+                }
+                Err(OpenRouterError::Api { status, .. }) => {
+                    tracing::warn!(
+                        http.response.status_code = %status,
+                        gen_ai.response.id = %generation_id,
+                        "generation_metadata_fetch_failed"
+                    );
+                    None
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        error.message = %err,
+                        gen_ai.response.id = %generation_id,
+                        "generation_metadata_fetch_failed"
+                    );
+                    None
+                }
             }
-
-            let data: OpenRouterGenerationResponse = response.json().await.ok()?;
-            Some(data.data.total_cost)
         })
     }
 }

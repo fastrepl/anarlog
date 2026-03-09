@@ -1,0 +1,13 @@
+[package]
+name = "progenitor-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+openapi31to30 = "0.0.1"
+openapiv3 = "2"
+prettyplease = "0.2"
+progenitor = "0.12"
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+syn = "2"

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
-import { env } from "@/env";
+import { env, requireEnv } from "@/env";
 
 const BUCKET_NAME = "blog";
 
@@ -18,8 +18,10 @@ export interface MediaItem {
 }
 
 function getSupabaseClient() {
-  const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
-  return createClient(env.SUPABASE_URL, key);
+  const key =
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    requireEnv(env.SUPABASE_ANON_KEY, "SUPABASE_ANON_KEY");
+  return createClient(requireEnv(env.SUPABASE_URL, "SUPABASE_URL"), key);
 }
 
 function getPublicUrl(path: string): string {

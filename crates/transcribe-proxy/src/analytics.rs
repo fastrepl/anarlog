@@ -4,6 +4,8 @@ use hypr_analytics::{AnalyticsClient, AnalyticsPayload};
 
 #[derive(Debug, Clone)]
 pub struct SttEvent {
+    pub fingerprint: Option<String>,
+    pub user_id: Option<String>,
     pub provider: String,
     pub duration: Duration,
 }
@@ -23,9 +25,26 @@ impl SttAnalyticsReporter for AnalyticsClient {
         Box::pin(async move {
             let payload = AnalyticsPayload::builder("$stt_request")
                 .with("$stt_provider", event.provider.clone())
-                .with("$stt_duration", event.duration.as_secs_f64())
-                .build();
-            let _ = self.event(uuid::Uuid::new_v4().to_string(), payload).await;
+                .with("$stt_duration", event.duration.as_secs_f64());
+
+            let payload = if let Some(user_id) = &event.user_id {
+                payload.with("user_id", user_id.clone())
+            } else {
+                payload
+            };
+
+            let distinct_id = event.fingerprint.unwrap_or_else(|| {
+                let fallback_id = uuid::Uuid::new_v4().to_string();
+                tracing::warn!(
+                    hyprnote.analytics.fallback_distinct_id = %fallback_id,
+                    hyprnote.stt.provider.name = %event.provider,
+                    "device_fingerprint missing, falling back to random UUID for distinct_id"
+                );
+                fallback_id
+            });
+            if let Err(e) = self.event(distinct_id, payload.build()).await {
+                tracing::warn!("analytics event error: {e}");
+            }
         })
     }
 }

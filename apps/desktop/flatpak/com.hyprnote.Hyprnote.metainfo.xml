@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>com.hyprnote.Hyprnote</id>
 
-  <name>Hyprnote</name>
+  <name>Char</name>
   <summary>The AI notepad for private meetings</summary>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -10,13 +10,13 @@
 
   <description>
     <p>
-      Hyprnote is an AI notetaking app specifically designed to take meeting notes.
-      With Hyprnote, you can transcribe all kinds of meetings whether it be online or offline.
+      Char is an AI notetaking app specifically designed to take meeting notes.
+      With Char, you can transcribe all kinds of meetings whether it be online or offline.
     </p>
     <p>Features:</p>
     <ul>
       <li>Listens to your meetings so you can only jot down important stuff</li>
-      <li>No bots joining your meetings - Hyprnote listens directly to sounds coming in and out of your computer</li>
+      <li>No bots joining your meetings - Char listens directly to sounds coming in and out of your computer</li>
       <li>Crafts perfect summaries based on your memos, right after the meeting is over</li>
       <li>Run completely offline by using LM Studio or Ollama</li>
       <li>Bring your own LLM - use local models via Ollama or third-party APIs like Gemini, Claude, or Azure-hosted GPT</li>
@@ -28,9 +28,9 @@
   <launchable type="desktop-id">com.hyprnote.Hyprnote.desktop</launchable>
 
   <url type="homepage">https://hyprnote.com</url>
-  <url type="bugtracker">https://github.com/fastrepl/hyprnote/issues</url>
-  <url type="vcs-browser">https://github.com/fastrepl/hyprnote</url>
-  <url type="contribute">https://github.com/fastrepl/hyprnote/blob/main/CONTRIBUTING.md</url>
+  <url type="bugtracker">https://github.com/fastrepl/char/issues</url>
+  <url type="vcs-browser">https://github.com/fastrepl/char</url>
+  <url type="contribute">https://github.com/fastrepl/char/blob/main/CONTRIBUTING.md</url>
 
   <developer id="com.hyprnote">
     <name>Fastrepl</name>

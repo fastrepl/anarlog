@@ -1,5 +1,7 @@
 use serde::{Serialize, ser::Serializer};
 
+pub use hypr_listener_core::DegradedError;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]

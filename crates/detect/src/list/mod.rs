@@ -28,7 +28,7 @@ pub fn list_mic_using_apps() -> Vec<InstalledApp> {
 
         #[cfg(not(any(target_os = "macos", target_os = "linux")))]
         {
-            Vec::new()
+            Vec::<InstalledApp>::new()
         }
     };
 

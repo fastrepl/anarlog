@@ -1,0 +1,73 @@
+name: devin_weekly_blog
+
+on:
+  schedule:
+    - cron: "0 12 * * 0"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: |
+            You are tasked with writing the weekly "Char Weekly" blog post summarizing the past week's development work.
+
+            ## Context
+            Char is an open-source AI notepad for meetings built for high-agency people who demand complete control over their data and AI stack.
+            Repository: fastrepl/char
+
+            Read and follow positioning guidelines in `apps/web/content/AGENTS.md`.
+
+            ## Your Task
+            1. **Analyze Recent Changes**
+               - Review git commits from the last 7 days using: `git log --since="7 days ago" --stat --oneline`
+               - Review the changelog files in `apps/web/content/changelog/` for any new releases
+               - Focus on changes in: crates/, apps/desktop/, apps/web/, packages/, plugins/
+               - Pay special attention to:
+                 * New features or improvements
+                 * Bug fixes
+                 * UI/UX changes
+                 * Performance improvements
+                 * New integrations or providers
+
+            2. **Write the Blog Post**
+               Determine the ISO week number (W) and year (Y) for today's date, then create a new MDX file at `apps/web/content/articles/wW-Y.mdx` (e.g. `w9-2026.mdx` for ISO week 9 of 2026). You can compute this with: `date -u +"%V-%G"` on Linux.
+
+               Use this frontmatter format:
+               ```
+               ---
+               meta_title: "Char Weekly: [Brief Summary of Key Changes]"
+               display_title: "Char Weekly: [Month Day, Year]"
+               meta_description: "[1-2 sentence summary of the week's highlights]"
+               author: "John Jeong"
+               published: true
+               category: "Char Weekly"
+               date: "YYYY-MM-DD"
+               ---
+               ```
+
+               Write the post in a narrative style (not bullet points). Group related changes into sections with descriptive headings. Focus on what matters to users:
+               - What's new and why it's useful
+               - What was fixed and what problem it solves
+               - What's coming next (if applicable)
+
+               Keep the tone conversational and technical but accessible. Reference the changelog for specific version numbers when relevant.
+
+            3. **Create a PR**
+               - Create a PR with the blog post
+               - The PR title should be: "blog(weekly): [date]"
+               - Include a summary of what the post covers in the PR description
+
+            ## Important Notes
+            - If there are no significant changes this week, still create a brief post noting it was a quiet week
+            - Do not include internal refactoring or CI changes unless they have user-facing impact
+            - Link to the changelog page at the end: `/changelog`
+            - Test that MDX syntax is valid using dprint
+          title: ${{ github.run_id }}-weekly-blog
+          tags: '["weekly_blog"]'

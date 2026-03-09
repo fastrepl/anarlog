@@ -20,9 +20,18 @@ crate::common_derives! {
 }
 
 crate::common_derives! {
+    #[serde(tag = "type")]
+    pub enum ContactsSelection {
+        #[serde(rename = "person")]
+        Person { id: String },
+        #[serde(rename = "organization")]
+        Organization { id: String },
+    }
+}
+
+crate::common_derives! {
     pub struct ContactsState {
-        pub selected_organization: Option<String>,
-        pub selected_person: Option<String>,
+        pub selected: Option<ContactsSelection>,
     }
 }
 
@@ -70,6 +79,14 @@ crate::common_derives! {
         Transcription,
         #[serde(rename = "intelligence")]
         Intelligence,
+        #[serde(rename = "templates")]
+        Templates,
+        #[serde(rename = "shortcuts")]
+        Shortcuts,
+        #[serde(rename = "prompts")]
+        Prompts,
+        #[serde(rename = "memory")]
+        Memory,
     }
 }
 
@@ -77,5 +94,21 @@ crate::common_derives! {
     #[derive(Default)]
     pub struct AiState {
         pub tab: Option<AiTab>,
+    }
+}
+
+crate::common_derives! {
+    #[derive(Default)]
+    pub struct SearchState {
+        pub selected_types: Option<Vec<String>>,
+        pub initial_query: Option<String>,
+    }
+}
+
+crate::common_derives! {
+    #[derive(Default)]
+    pub struct ChatState {
+        pub group_id: Option<String>,
+        pub initial_message: Option<String>,
     }
 }

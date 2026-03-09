@@ -5,6 +5,7 @@
 @theme {
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-hypr-dancing-stick: hypr-dancing-stick 1s ease-in-out infinite;
   --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;
 
   --color-border: hsl(var(--border));
@@ -138,6 +139,17 @@
 
     to {
       transform: translateY(calc(-100% - var(--gap)));
+    }
+  }
+
+  @keyframes hypr-dancing-stick {
+    0%,
+    100% {
+      transform: scaleY(0.2);
+    }
+
+    50% {
+      transform: scaleY(1);
     }
   }
 }

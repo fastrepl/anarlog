@@ -1,20 +1,55 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use ractor::{ActorRef, call_t, registry};
 use tauri_specta::Event;
-use tokio_util::sync::CancellationToken;
 
 use tauri::{Manager, Runtime};
 use tauri_plugin_sidecar2::Sidecar2PluginExt;
 
-use hypr_download_interface::DownloadProgress;
-use hypr_file::download_file_parallel_cancellable;
+use hypr_model_downloader::{ModelDownloadManager, ModelDownloaderRuntime};
 
+#[cfg(feature = "whisper-cpp")]
+use crate::server::internal;
+#[cfg(target_arch = "aarch64")]
+use crate::server::internal2;
 use crate::{
-    model::SupportedSttModel,
-    server::{ServerInfo, ServerStatus, ServerType, external, internal, supervisor},
+    model::LocalModel,
+    server::{ServerInfo, ServerStatus, ServerType, external, supervisor},
     types::DownloadProgressPayload,
 };
+
+struct TauriModelRuntime<R: Runtime> {
+    app_handle: tauri::AppHandle<R>,
+}
+
+impl<R: Runtime> ModelDownloaderRuntime<LocalModel> for TauriModelRuntime<R> {
+    fn models_base(&self) -> Result<PathBuf, hypr_model_downloader::Error> {
+        use tauri_plugin_settings::SettingsPluginExt;
+        Ok(self
+            .app_handle
+            .settings()
+            .global_base()
+            .map(|base| base.join("models").into_std_path_buf())
+            .unwrap_or_else(|_| dirs::data_dir().unwrap_or_default().join("models")))
+    }
+
+    fn emit_progress(&self, model: &LocalModel, progress: i8) {
+        let _ = DownloadProgressPayload {
+            model: model.clone(),
+            progress,
+        }
+        .emit(&self.app_handle);
+    }
+}
+
+pub fn create_model_downloader<R: Runtime>(
+    app_handle: &tauri::AppHandle<R>,
+) -> ModelDownloadManager<LocalModel> {
+    let runtime = Arc::new(TauriModelRuntime {
+        app_handle: app_handle.clone(),
+    });
+    ModelDownloadManager::new(runtime)
+}
 
 pub struct LocalStt<'a, R: Runtime, M: Manager<R>> {
     manager: &'a M,
@@ -22,17 +57,40 @@ pub struct LocalStt<'a, R: Runtime, M: Manager<R>> {
 }
 
 impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
+    fn ensure_stt_model(model: &LocalModel) -> Result<(), crate::Error> {
+        match model {
+            LocalModel::Am(_) | LocalModel::Whisper(_) | LocalModel::Cactus(_) => Ok(()),
+            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+                Err(crate::Error::UnsupportedModelType)
+            }
+        }
+    }
+
     pub fn models_dir(&self) -> PathBuf {
         use tauri_plugin_settings::SettingsPluginExt;
         self.manager
             .settings()
             .global_base()
-            .map(|base| base.join("models").join("stt"))
+            .map(|base| base.join("models").join("stt").into_std_path_buf())
             .unwrap_or_else(|_| {
                 dirs::data_dir()
                     .unwrap_or_default()
                     .join("models")
                     .join("stt")
+            })
+    }
+
+    pub fn cactus_models_dir(&self) -> PathBuf {
+        use tauri_plugin_settings::SettingsPluginExt;
+        self.manager
+            .settings()
+            .global_base()
+            .map(|base| base.join("models").join("cactus").into_std_path_buf())
+            .unwrap_or_else(|_| {
+                dirs::data_dir()
+                    .unwrap_or_default()
+                    .join("models")
+                    .join("cactus")
             })
     }
 
@@ -45,41 +103,34 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             .ok_or(crate::Error::SupervisorNotFound)
     }
 
-    pub async fn is_model_downloaded(
-        &self,
-        model: &SupportedSttModel,
-    ) -> Result<bool, crate::Error> {
-        match model {
-            SupportedSttModel::Am(model) => Ok(model.is_downloaded(self.models_dir())?),
-            SupportedSttModel::Whisper(model) => {
-                let model_path = self.models_dir().join(model.file_name());
+    pub async fn is_model_downloaded(&self, model: &LocalModel) -> Result<bool, crate::Error> {
+        Self::ensure_stt_model(model)?;
 
-                {
-                    let (path, expected) = (model_path, model.model_size_bytes());
-                    if !path.exists() {
-                        return Ok(false);
-                    }
-
-                    let actual = hypr_file::file_size(path)?;
-                    if actual != expected {
-                        return Ok(false);
-                    }
-                }
-
-                Ok(true)
-            }
-        }
+        let downloader = {
+            let state = self.manager.state::<crate::SharedState>();
+            let guard = state.lock().await;
+            guard.model_downloader.clone()
+        };
+        Ok(downloader.is_downloaded(model).await?)
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn start_server(&self, model: SupportedSttModel) -> Result<String, crate::Error> {
+    pub async fn start_server(&self, model: LocalModel) -> Result<String, crate::Error> {
+        Self::ensure_stt_model(&model)?;
+
         let server_type = match &model {
-            SupportedSttModel::Am(_) => ServerType::External,
-            SupportedSttModel::Whisper(_) => ServerType::Internal,
+            LocalModel::Am(_) => ServerType::External,
+            LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
+            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+                return Err(crate::Error::UnsupportedModelType);
+            }
         };
 
         let current_info = match server_type {
-            ServerType::Internal => internal_health().await,
+            #[cfg(target_arch = "aarch64")]
+            ServerType::Internal => internal2_health().await,
+            #[cfg(not(target_arch = "aarch64"))]
+            ServerType::Internal => None,
             ServerType::External => external_health().await,
         };
 
@@ -95,7 +146,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             ));
         }
 
-        if matches!(server_type, ServerType::Internal) && !self.is_model_downloaded(&model).await? {
+        if matches!(server_type, ServerType::External) && !self.is_model_downloaded(&model).await? {
             return Err(crate::Error::ModelNotDownloaded);
         }
 
@@ -107,18 +158,30 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
         match server_type {
             ServerType::Internal => {
-                let cache_dir = self.models_dir();
-                let whisper_model = match model {
-                    SupportedSttModel::Whisper(m) => m,
-                    _ => return Err(crate::Error::UnsupportedModelType),
-                };
+                #[cfg(target_arch = "aarch64")]
+                {
+                    use hypr_transcribe_cactus::CactusConfig;
 
-                start_internal_server(&supervisor, cache_dir, whisper_model).await
+                    let cache_dir = self.cactus_models_dir();
+                    let cactus_model = match model {
+                        LocalModel::Cactus(m) => m,
+                        _ => return Err(crate::Error::UnsupportedModelType),
+                    };
+                    start_internal2_server(
+                        &supervisor,
+                        cache_dir,
+                        cactus_model,
+                        CactusConfig::default(),
+                    )
+                    .await
+                }
+                #[cfg(not(target_arch = "aarch64"))]
+                Err(crate::Error::UnsupportedModelType)
             }
             ServerType::External => {
                 let data_dir = self.models_dir();
                 let am_model = match model {
-                    SupportedSttModel::Am(m) => m,
+                    LocalModel::Am(m) => m,
                     _ => return Err(crate::Error::UnsupportedModelType),
                 };
 
@@ -148,12 +211,45 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
+    pub async fn get_server_for_model(
+        &self,
+        model: &LocalModel,
+    ) -> Result<Option<ServerInfo>, crate::Error> {
+        Self::ensure_stt_model(model)?;
+
+        let server_type = match model {
+            LocalModel::Am(_) => ServerType::External,
+            LocalModel::Whisper(_) | LocalModel::Cactus(_) => ServerType::Internal,
+            LocalModel::GgufLlm(_) | LocalModel::CactusLlm(_) => {
+                return Err(crate::Error::UnsupportedModelType);
+            }
+        };
+
+        let info = match server_type {
+            #[cfg(target_arch = "aarch64")]
+            ServerType::Internal => internal2_health().await,
+            #[cfg(not(target_arch = "aarch64"))]
+            ServerType::Internal => None,
+            ServerType::External => external_health().await,
+        };
+
+        Ok(info)
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn get_servers(&self) -> Result<HashMap<ServerType, ServerInfo>, crate::Error> {
-        let internal_info = internal_health().await.unwrap_or(ServerInfo {
+        #[cfg(target_arch = "aarch64")]
+        let internal_info = internal2_health().await.unwrap_or(ServerInfo {
             url: None,
             status: ServerStatus::Unreachable,
             model: None,
         });
+        #[cfg(not(target_arch = "aarch64"))]
+        let internal_info = ServerInfo {
+            url: None,
+            status: ServerStatus::Unreachable,
+            model: None,
+        };
 
         let external_info = external_health().await.unwrap_or(ServerInfo {
             url: None,
@@ -170,271 +266,52 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn download_model(&self, model: SupportedSttModel) -> Result<(), crate::Error> {
-        {
-            let existing = {
-                let state = self.manager.state::<crate::SharedState>();
-                let mut s = state.lock().await;
-                s.download_task.remove(&model)
-            };
+    pub async fn download_model(&self, model: LocalModel) -> Result<(), crate::Error> {
+        Self::ensure_stt_model(&model)?;
 
-            if let Some((existing_task, existing_token)) = existing {
-                existing_token.cancel();
-                let _ = existing_task.await;
-            }
-        }
-
-        let state_for_cleanup = self.manager.state::<crate::SharedState>().inner().clone();
-        let app_handle = self.manager.app_handle().clone();
-        let create_progress_callback = move |model: SupportedSttModel| {
-            let last_progress = std::sync::Arc::new(std::sync::Mutex::new(0i8));
-            let app = app_handle.clone();
-
-            move |progress: DownloadProgress| {
-                let mut last = last_progress.lock().unwrap();
-
-                match progress {
-                    DownloadProgress::Started => {
-                        *last = 0;
-                        let _ = DownloadProgressPayload {
-                            model: model.clone(),
-                            progress: 0,
-                        }
-                        .emit(&app);
-                    }
-                    DownloadProgress::Progress(downloaded, total_size) => {
-                        let percent = (downloaded as f64 / total_size as f64) * 100.0;
-                        let current = percent as i8;
-
-                        if current > *last {
-                            *last = current;
-                            let _ = DownloadProgressPayload {
-                                model: model.clone(),
-                                progress: current,
-                            }
-                            .emit(&app);
-                        }
-                    }
-                    DownloadProgress::Finished => {
-                        *last = 100;
-                        let _ = DownloadProgressPayload {
-                            model: model.clone(),
-                            progress: 100,
-                        }
-                        .emit(&app);
-                    }
-                }
-            }
-        };
-
-        let app_handle_for_error = self.manager.app_handle().clone();
-        match model.clone() {
-            SupportedSttModel::Am(m) => {
-                let tar_path = self.models_dir().join(format!("{}.tar", m.model_dir()));
-                let final_path = self.models_dir();
-                let cancellation_token = CancellationToken::new();
-                let token_clone = cancellation_token.clone();
-                let model_for_task = model.clone();
-                let state_clone = state_for_cleanup.clone();
-                let model_for_cleanup = model.clone();
-
-                let task = tokio::spawn(async move {
-                    let callback = create_progress_callback(model_for_task.clone());
-
-                    let result = download_file_parallel_cancellable(
-                        m.tar_url(),
-                        &tar_path,
-                        callback,
-                        Some(token_clone),
-                    )
-                    .await;
-
-                    let cleanup = || async {
-                        let mut s = state_clone.lock().await;
-                        s.download_task.remove(&model_for_cleanup);
-                    };
-
-                    if let Err(e) = result {
-                        if !matches!(e, hypr_file::Error::Cancelled) {
-                            tracing::error!("model_download_error: {}", e);
-                            let _ = DownloadProgressPayload {
-                                model: model_for_task.clone(),
-                                progress: -1,
-                            }
-                            .emit(&app_handle_for_error);
-                        }
-                        cleanup().await;
-                        return;
-                    }
-
-                    if let Err(e) = m.tar_verify_and_unpack(&tar_path, &final_path) {
-                        tracing::error!("model_unpack_error: {}", e);
-                        let _ = DownloadProgressPayload {
-                            model: model_for_task.clone(),
-                            progress: -1,
-                        }
-                        .emit(&app_handle_for_error);
-                        cleanup().await;
-                        return;
-                    }
-
-                    cleanup().await;
-                });
-
-                {
-                    let state = self.manager.state::<crate::SharedState>();
-                    let mut s = state.lock().await;
-                    s.download_task
-                        .insert(model.clone(), (task, cancellation_token));
-                }
-
-                Ok(())
-            }
-            SupportedSttModel::Whisper(m) => {
-                let model_path = self.models_dir().join(m.file_name());
-                let cancellation_token = CancellationToken::new();
-                let token_clone = cancellation_token.clone();
-                let model_for_task = model.clone();
-                let state_clone = state_for_cleanup.clone();
-                let model_for_cleanup = model.clone();
-
-                let task = tokio::spawn(async move {
-                    let callback = create_progress_callback(model_for_task.clone());
-
-                    let result = download_file_parallel_cancellable(
-                        m.model_url(),
-                        &model_path,
-                        callback,
-                        Some(token_clone),
-                    )
-                    .await;
-
-                    let cleanup = || async {
-                        let mut s = state_clone.lock().await;
-                        s.download_task.remove(&model_for_cleanup);
-                    };
-
-                    if let Err(e) = result {
-                        if !matches!(e, hypr_file::Error::Cancelled) {
-                            tracing::error!("model_download_error: {}", e);
-                            let _ = DownloadProgressPayload {
-                                model: model_for_task.clone(),
-                                progress: -1,
-                            }
-                            .emit(&app_handle_for_error);
-                        }
-                        cleanup().await;
-                        return;
-                    }
-
-                    let checksum = match hypr_file::calculate_file_checksum(&model_path) {
-                        Ok(c) => c,
-                        Err(e) => {
-                            tracing::error!("model_checksum_error: {}", e);
-                            let _ = DownloadProgressPayload {
-                                model: model_for_task.clone(),
-                                progress: -1,
-                            }
-                            .emit(&app_handle_for_error);
-                            cleanup().await;
-                            return;
-                        }
-                    };
-
-                    if checksum != m.checksum() {
-                        tracing::error!("model_download_error: checksum mismatch");
-                        std::fs::remove_file(&model_path).unwrap();
-                        let _ = DownloadProgressPayload {
-                            model: model_for_task.clone(),
-                            progress: -1,
-                        }
-                        .emit(&app_handle_for_error);
-                        cleanup().await;
-                        return;
-                    }
-
-                    cleanup().await;
-                });
-
-                {
-                    let state = self.manager.state::<crate::SharedState>();
-                    let mut s = state.lock().await;
-                    s.download_task
-                        .insert(model.clone(), (task, cancellation_token));
-                }
-
-                Ok(())
-            }
-        }
-    }
-
-    #[tracing::instrument(skip_all)]
-    pub async fn cancel_download(&self, model: SupportedSttModel) -> bool {
-        let existing = {
+        let downloader = {
             let state = self.manager.state::<crate::SharedState>();
-            let mut s = state.lock().await;
-            s.download_task.remove(&model)
-        };
-
-        if let Some((task, token)) = existing {
-            token.cancel();
-            let _ = task.await;
-
-            match &model {
-                SupportedSttModel::Am(m) => {
-                    let tar_path = self.models_dir().join(format!("{}.tar", m.model_dir()));
-                    let _ = std::fs::remove_file(&tar_path);
-                }
-                SupportedSttModel::Whisper(m) => {
-                    let model_path = self.models_dir().join(m.file_name());
-                    let _ = std::fs::remove_file(&model_path);
-                }
-            }
-
-            let _ = DownloadProgressPayload {
-                model,
-                progress: 100,
-            }
-            .emit(self.manager.app_handle());
-
-            true
-        } else {
-            false
-        }
-    }
-
-    #[tracing::instrument(skip_all)]
-    pub async fn is_model_downloading(&self, model: &SupportedSttModel) -> bool {
-        let state = self.manager.state::<crate::SharedState>();
-        {
             let guard = state.lock().await;
-            guard.download_task.contains_key(model)
-        }
+            guard.model_downloader.clone()
+        };
+        downloader.download(&model).await?;
+        Ok(())
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn delete_model(&self, model: &SupportedSttModel) -> Result<(), crate::Error> {
-        if !self.is_model_downloaded(model).await? {
-            return Err(crate::Error::ModelNotDownloaded);
-        }
+    pub async fn cancel_download(&self, model: LocalModel) -> Result<bool, crate::Error> {
+        Self::ensure_stt_model(&model)?;
 
-        match model {
-            SupportedSttModel::Am(m) => {
-                let model_dir = self.models_dir().join(m.model_dir());
-                if model_dir.exists() {
-                    std::fs::remove_dir_all(&model_dir)
-                        .map_err(|e| crate::Error::ModelDeleteFailed(e.to_string()))?;
-                }
-            }
-            SupportedSttModel::Whisper(m) => {
-                let model_path = self.models_dir().join(m.file_name());
-                if model_path.exists() {
-                    std::fs::remove_file(&model_path)
-                        .map_err(|e| crate::Error::ModelDeleteFailed(e.to_string()))?;
-                }
-            }
-        }
+        let downloader = {
+            let state = self.manager.state::<crate::SharedState>();
+            let guard = state.lock().await;
+            guard.model_downloader.clone()
+        };
+        Ok(downloader.cancel_download(&model).await?)
+    }
 
+    #[tracing::instrument(skip_all)]
+    pub async fn is_model_downloading(&self, model: &LocalModel) -> Result<bool, crate::Error> {
+        Self::ensure_stt_model(model)?;
+
+        let downloader = {
+            let state = self.manager.state::<crate::SharedState>();
+            let guard = state.lock().await;
+            guard.model_downloader.clone()
+        };
+        Ok(downloader.is_downloading(model).await)
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn delete_model(&self, model: &LocalModel) -> Result<(), crate::Error> {
+        Self::ensure_stt_model(model)?;
+
+        let downloader = {
+            let state = self.manager.state::<crate::SharedState>();
+            let guard = state.lock().await;
+            guard.model_downloader.clone()
+        };
+        downloader.delete(model).await?;
         Ok(())
     }
 }
@@ -457,6 +334,31 @@ impl<R: Runtime, T: Manager<R>> LocalSttPluginExt<R> for T {
     }
 }
 
+#[cfg(target_arch = "aarch64")]
+async fn start_internal2_server(
+    supervisor: &supervisor::SupervisorRef,
+    cache_dir: PathBuf,
+    model: hypr_cactus_model::CactusSttModel,
+    cactus_config: hypr_transcribe_cactus::CactusConfig,
+) -> Result<String, crate::Error> {
+    supervisor::start_internal2_stt(
+        supervisor,
+        internal2::Internal2STTArgs {
+            model_cache_dir: cache_dir,
+            model_type: model,
+            cactus_config,
+        },
+    )
+    .await
+    .map_err(|e| crate::Error::ServerStartFailed(e.to_string()))?;
+
+    internal2_health()
+        .await
+        .and_then(|info| info.url)
+        .ok_or_else(|| crate::Error::ServerStartFailed("empty_health".to_string()))
+}
+
+#[cfg(feature = "whisper-cpp")]
 async fn start_internal_server(
     supervisor: &supervisor::SupervisorRef,
     cache_dir: PathBuf,
@@ -502,7 +404,7 @@ async fn start_external_server<R: Runtime, T: Manager<R>>(
     let cmd_builder = external::CommandBuilder::new(move || {
         let mut cmd = app_handle
             .sidecar2()
-            .sidecar("hyprnote-sidecar-stt")?
+            .sidecar("char-sidecar-stt")?
             .args(["serve", "--any-token"]);
 
         #[cfg(debug_assertions)]
@@ -526,6 +428,18 @@ async fn start_external_server<R: Runtime, T: Manager<R>>(
         .ok_or_else(|| crate::Error::ServerStartFailed("empty_health".to_string()))
 }
 
+#[cfg(target_arch = "aarch64")]
+async fn internal2_health() -> Option<ServerInfo> {
+    match registry::where_is(internal2::Internal2STTActor::name()) {
+        Some(cell) => {
+            let actor: ActorRef<internal2::Internal2STTMessage> = cell.into();
+            call_t!(actor, internal2::Internal2STTMessage::GetHealth, 10 * 1000).ok()
+        }
+        None => None,
+    }
+}
+
+#[cfg(feature = "whisper-cpp")]
 async fn internal_health() -> Option<ServerInfo> {
     match registry::where_is(internal::InternalSTTActor::name()) {
         Some(cell) => {

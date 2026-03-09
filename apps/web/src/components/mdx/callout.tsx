@@ -42,13 +42,13 @@ export function Callout({
   return (
     <div
       className={cn([
-        "not-prose my-6 p-4 rounded-xs border flex gap-3",
+        "not-prose my-6 flex gap-3 rounded-xs border p-4",
         ...style.container,
       ])}
     >
       <Icon
         icon={style.icon}
-        className={cn(["text-xl shrink-0", style.iconColor])}
+        className={cn(["shrink-0 text-xl", style.iconColor])}
       />
       <div className="flex-1 text-sm leading-relaxed text-stone-700">
         {children}

@@ -60,7 +60,7 @@ export function Modal({
         >
           <div
             data-tauri-drag-region
-            className="w-full min-h-11"
+            className="min-h-11 w-full"
             onClick={(e) => e.stopPropagation()}
           ></div>
         </div>
@@ -69,8 +69,8 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn([
-          "fixed left-1/2 top-1/2 z-100 -translate-x-1/2 -translate-y-1/2",
-          "overflow-clip rounded-lg bg-background shadow-lg",
+          "fixed top-1/2 left-1/2 z-100 -translate-x-1/2 -translate-y-1/2",
+          "bg-background overflow-clip rounded-lg shadow-lg",
           sizeClasses[size],
           className,
         ])}
@@ -97,7 +97,7 @@ interface ModalBodyProps {
 
 export function ModalBody({ children, className }: ModalBodyProps) {
   return (
-    <div className={cn(["flex-1 overflow-auto p-6 h-full", className])}>
+    <div className={cn(["h-full flex-1 overflow-auto p-6", className])}>
       {children}
     </div>
   );
@@ -128,7 +128,7 @@ interface ModalTitleProps {
 
 export function ModalTitle({ children, className }: ModalTitleProps) {
   return (
-    <h2 className={cn(["text-lg font-semibold leading-none", className])}>
+    <h2 className={cn(["text-lg leading-none font-semibold", className])}>
       {children}
     </h2>
   );
@@ -144,7 +144,7 @@ export function ModalDescription({
   className,
 }: ModalDescriptionProps) {
   return (
-    <p className={cn(["text-sm text-muted-foreground", className])}>
+    <p className={cn(["text-muted-foreground text-sm", className])}>
       {children}
     </p>
   );

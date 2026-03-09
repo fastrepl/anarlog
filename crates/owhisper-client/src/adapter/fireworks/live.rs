@@ -63,15 +63,19 @@ impl RealtimeSttAdapter for FireworksAdapter {
         let msg: FireworksMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "fireworks_json_parse_failed");
+                tracing::warn!(
+                    error.message = ?e,
+                    hyprnote.payload.raw = raw,
+                    "fireworks_json_parse_failed"
+                );
                 return vec![];
             }
         };
 
         if let Some(error) = msg.error {
             tracing::error!(
-                error_message = %error.message,
-                error_code = ?error.code,
+                error.message = %error.message,
+                error.code = ?error.code,
                 "fireworks_error"
             );
             return vec![StreamResponse::ErrorResponse {

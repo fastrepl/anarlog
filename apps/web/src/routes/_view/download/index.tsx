@@ -1,13 +1,11 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
 import { SlashSeparator } from "@/components/slash-separator";
-import { usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 export const Route = createFileRoute("/_view/download/")({
@@ -15,120 +13,56 @@ export const Route = createFileRoute("/_view/download/")({
 });
 
 function Component() {
-  const platform = usePlatform();
-  const isMacDesktop = platform === "mac";
-
   return (
     <div
-      className="bg-linear-to-b from-white via-blue-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-blue-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto bg-white border-x border-neutral-100">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <div
           className={cn([
             "flex items-center justify-center gap-2 text-center",
-            "bg-stone-50/70 border-b border-stone-100",
-            "py-3 px-4",
+            "border-b border-stone-100 bg-stone-50/70",
+            "px-4 py-3",
             "font-serif text-sm text-stone-700",
-            "hover:bg-stone-50 transition-all",
+            "transition-all hover:bg-stone-50",
           ])}
         >
           <span>
             Mac (Apple Silicon) features on-device speech-to-text. Intel Mac
-            available with cloud-based transcription. Windows and Linux coming
-            March 2026.
+            available with cloud-based transcription.
           </span>
         </div>
 
         <div className="py-12">
-          <section className="py-16 px-4 sm:px-6">
-            <div className="flex flex-col gap-6 max-w-2xl mx-auto text-center mb-16">
-              <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600">
-                Download Hyprnote
+          <section className="px-4 py-16 sm:px-6">
+            <div className="mx-auto mb-16 flex max-w-2xl flex-col gap-6 text-center">
+              <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+                Download Char
               </h1>
-              <p className="text-lg sm:text-xl text-neutral-600">
-                Choose your platform to get started with Hyprnote
+              <p className="text-lg text-neutral-600 sm:text-xl">
+                Choose your platform to get started with Char
               </p>
             </div>
 
             <div className="mb-16">
-              <h2 className="text-2xl font-serif tracking-tight mb-6 text-center">
-                Desktop
+              <h2 className="mb-6 text-center font-serif text-2xl tracking-tight">
+                macOS
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 md:grid-cols-2">
                 <DownloadCard
                   iconName="simple-icons:apple"
                   spec="macOS 14.2+ (Apple Silicon)"
                   downloadUrl="/download/apple-silicon"
-                  available={true}
+                  nightlyDownloadUrl="/download/nightly/apple-silicon"
                   platform="macos-apple-silicon"
                 />
                 <DownloadCard
                   iconName="simple-icons:apple"
                   spec="macOS 14.2+ (Intel)"
                   downloadUrl="/download/apple-intel"
-                  available={true}
+                  nightlyDownloadUrl="/download/nightly/apple-intel"
                   platform="macos-intel"
-                />
-                <DownloadCard
-                  iconName="simple-icons:windows"
-                  spec="Windows"
-                  downloadUrl="#"
-                  available={false}
-                  platform="windows"
-                />
-              </div>
-
-              <h2 className="text-2xl font-serif tracking-tight mb-6 mt-16 text-center">
-                Linux
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                <DownloadCard
-                  iconName="simple-icons:linux"
-                  spec="Linux (AppImage)"
-                  downloadUrl="#"
-                  available={false}
-                  platform="linux-appimage"
-                />
-                <DownloadCard
-                  iconName="simple-icons:linux"
-                  spec="Linux (.deb)"
-                  downloadUrl="#"
-                  available={false}
-                  platform="linux-deb"
-                />
-              </div>
-            </div>
-
-            {isMacDesktop && (
-              <div className="mb-16">
-                <h2 className="text-2xl font-serif tracking-tight mb-6 text-center">
-                  Homebrew
-                </h2>
-                <div className="max-w-2xl mx-auto">
-                  <HomebrewCard />
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h2 className="text-2xl font-serif tracking-tight mb-6 text-center">
-                Mobile
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                <DownloadCard
-                  iconName="simple-icons:ios"
-                  spec="iOS 15+"
-                  downloadUrl="#"
-                  available={false}
-                  platform="ios"
-                />
-                <DownloadCard
-                  iconName="simple-icons:android"
-                  spec="Android 10+"
-                  downloadUrl="#"
-                  available={false}
-                  platform="android"
                 />
               </div>
             </div>
@@ -143,120 +77,70 @@ function Component() {
   );
 }
 
-function HomebrewCard() {
-  const [copied, setCopied] = useState(false);
-  const command = "brew tap fastrepl/hyprnote && brew install hyprnote --cask";
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="flex flex-col items-center p-6 rounded-xs border border-neutral-100 bg-white">
-      <Icon
-        icon="simple-icons:homebrew"
-        className="text-5xl text-neutral-700 mb-4"
-      />
-      <p className="text-sm text-neutral-600 mb-4 text-center">
-        Install via Homebrew on macOS
-      </p>
-      <div className="w-full group relative">
-        <code className="flex items-center justify-between w-full px-4 py-3 bg-stone-50 border border-neutral-200 rounded-lg text-sm font-mono text-stone-700">
-          <span className="flex-1 text-center">{command}</span>
-          <button
-            onClick={handleCopy}
-            className={cn([
-              "cursor-pointer flex items-center justify-center transition-all relative",
-              "ml-2 px-2 py-1 rounded",
-              copied
-                ? ["opacity-100 text-green-600"]
-                : [
-                    "opacity-30 group-hover:opacity-100 text-neutral-600 hover:bg-stone-100",
-                  ],
-            ])}
-          >
-            {copied ? (
-              <Check className="size-4" />
-            ) : (
-              <Copy className="size-4" />
-            )}
-            {copied && (
-              <span className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-stone-800 text-white text-xs rounded whitespace-nowrap">
-                Copied!
-              </span>
-            )}
-          </button>
-        </code>
-      </div>
-    </div>
-  );
-}
-
 function DownloadCard({
   iconName,
   spec,
   downloadUrl,
-  available,
+  nightlyDownloadUrl,
   platform,
-  beta = false,
 }: {
   iconName: string;
   spec: string;
   downloadUrl: string;
-  available: boolean;
+  nightlyDownloadUrl: string;
   platform: string;
-  beta?: boolean;
 }) {
   const { track } = useAnalytics();
+  const [isNightly, setIsNightly] = useState(false);
 
   const handleClick = () => {
     track("download_clicked", {
-      platform,
+      platform: isNightly ? `${platform}-nightly` : platform,
       spec,
       source: "download_page",
     });
   };
 
   return (
-    <div className="flex flex-col items-center p-6 rounded-xs border border-neutral-100 bg-white hover:bg-stone-50 transition-all duration-200">
-      <Icon icon={iconName} className="text-5xl text-neutral-700 mb-4" />
-      <p className="text-sm text-neutral-600 mb-6 text-center">{spec}</p>
+    <div
+      className={cn([
+        "flex flex-col items-center rounded-xs border p-6 transition-all duration-200",
+        isNightly
+          ? ["border-blue-200 bg-blue-50/50"]
+          : ["border-neutral-100 bg-white hover:bg-stone-50"],
+      ])}
+    >
+      <Icon icon={iconName} className="mb-4 text-5xl text-neutral-700" />
+      <p className="mb-6 text-center text-sm text-neutral-600">{spec}</p>
 
-      {available ? (
-        <div className="relative w-full group/tooltip">
-          <a
-            href={downloadUrl}
-            download
-            onClick={handleClick}
-            className="group gap-2 w-full px-4 h-11 flex items-center justify-center bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all text-base font-medium"
-          >
-            {beta ? (
-              <>
-                Download <span className="font-mono">Beta</span>
-              </>
-            ) : (
-              "Download"
-            )}
-            <Icon
-              icon="ph:arrow-circle-right"
-              className="text-xl group-hover:translate-x-1 transition-transform"
-            />
-          </a>
-        </div>
-      ) : (
-        <button
-          disabled
+      <div className="group/tooltip relative w-full">
+        <a
+          href={isNightly ? nightlyDownloadUrl : downloadUrl}
+          download
+          onClick={handleClick}
           className={cn([
-            "w-full px-4 h-11 rounded-full font-medium cursor-not-allowed",
-            "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-            "opacity-50",
+            "group flex h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-base font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+            isNightly
+              ? ["bg-linear-to-b from-[#03BCF1] to-[#127FE5] text-white"]
+              : ["bg-linear-to-t from-stone-600 to-stone-500 text-white"],
           ])}
         >
-          Planned
-        </button>
-      )}
+          {isNightly ? "Download Nightly" : "Download"}
+          <Icon
+            icon="ph:arrow-circle-right"
+            className="text-xl transition-transform group-hover:translate-x-1"
+          />
+        </a>
+      </div>
+
+      <button
+        onClick={() => setIsNightly(!isNightly)}
+        className="mt-3 cursor-pointer text-xs text-neutral-400 transition-colors hover:text-neutral-600"
+      >
+        {isNightly
+          ? "It might be less stable though."
+          : "Want to get faster updates?"}
+      </button>
     </div>
   );
 }
@@ -266,7 +150,7 @@ function FAQSection() {
     {
       question: "Which platforms are currently supported?",
       answer:
-        "macOS 14.2+ with Apple Silicon is currently available. Windows and Linux are planned for March 2026, and iOS/Android for April 2026. Please note that these dates are subject to change and may be delayed.",
+        "macOS 14.2+ with both Apple Silicon and Intel is currently available. Windows and Linux are planned for March 2026, and iOS/Android for April 2026.",
     },
     {
       question: "What's special about the Mac version?",
@@ -286,9 +170,9 @@ function FAQSection() {
   ];
 
   return (
-    <section className="py-16 px-4 laptop:px-0">
-      <div className="max-w-3xl mx-auto">
-        <h2 className="text-3xl font-serif text-stone-600 mb-16 text-center">
+    <section className="laptop:px-0 px-4 py-16">
+      <div className="mx-auto max-w-3xl">
+        <h2 className="mb-16 text-center font-serif text-3xl text-stone-700">
           Frequently Asked Questions
         </h2>
         <div className="flex flex-col gap-6">
@@ -297,7 +181,7 @@ function FAQSection() {
               key={idx}
               className="border-b border-neutral-100 pb-6 last:border-b-0"
             >
-              <h3 className="text-lg font-medium text-neutral-900 mb-2">
+              <h3 className="mb-2 text-lg font-medium text-neutral-900">
                 {faq.question}
               </h3>
               <p className="text-neutral-600">{faq.answer}</p>
@@ -311,28 +195,28 @@ function FAQSection() {
 
 function CTASection() {
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 laptop:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="laptop:px-0 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
+        <h2 className="font-serif text-2xl sm:text-3xl">
           Need something else?
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           Book a call to discuss custom solutions for your specific needs
         </p>
         <div className="pt-6">
           <Link
             to="/founders/"
             search={{ source: "download" }}
-            className="px-6 h-12 flex items-center justify-center text-base sm:text-lg bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-12 items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 text-base text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] sm:text-lg"
           >
             Book a call
           </Link>

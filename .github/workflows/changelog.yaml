@@ -72,6 +72,8 @@ jobs:
         with:
           model: zai-coding-plan/glm-4.7
           prompt: |
+            Read and follow positioning guidelines in `apps/web/content/AGENTS.md`.
+
             1.
             Create apps/web/content/changelog/${{ steps.version.outputs.version }}.mdx.
             Changelog should be generated from commits between ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.

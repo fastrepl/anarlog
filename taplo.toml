@@ -1,3 +1,1 @@
-exclude = [
-  "**/restate.toml",
-]
+exclude = []

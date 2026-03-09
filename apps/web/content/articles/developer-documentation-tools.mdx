@@ -1,33 +1,23 @@
 ---
-meta_title: "Developer Documentation Tools: What to Use in 2025"
+meta_title: "Developer Documentation Tools: What to Use in 2026"
 display_title: "Docs Edition: What to Use for Developer Documentation"
-meta_description: "A practical guide to choosing the right developer documentation stack in 2025. Compare file-based docs, Git-based CMS, headless CMS, hosted docs platforms, and fully custom documentation systems."
+meta_description: "A practical guide to choosing the right developer documentation stack in 2026. Compare file-based docs, Git-based CMS, headless CMS, hosted docs platforms, and fully custom documentation systems."
 author: "John Jeong"
-published: true
+category: "Engineering"
 date: "2025-12-02"
 ---
 
 Documentation is not the same thing as blogging.
 
-Docs are a product.
+Docs are a product. People rely on them to unblock themselves, integrate with you, debug issues, and understand how your system actually works. So the tools you'd use for blog posts don't always work for docs.
 
-People rely on them to unblock themselves, integrate with you, debug issues, and understand how your system actually works.
+Docs need structure, navigation, versioning, API examples, sidebars, and searchable knowledge. They also need to be maintainable by a real team — engineers, PMs, support, devrel — not just whoever has access to the CMS.
 
-So the tools you'd use for blog posts don't always work for docs.
+This post breaks down what tools you should consider in 2026 if you're building developer documentation from scratch.
 
-Docs need structure.
+## There are really only five kinds of docs systems
 
-Docs need navigation.
-
-Docs need versioning, API examples, sidebars, and searchable knowledge.
-
-But they also need to be maintainable by a real team — engineers, PMs, support, devrel — not just whoever has access to the CMS.
-
-This post is my honest breakdown of what tools you should consider in 2025 if you're building developer documentation from scratch.
-
-## There Are Really Only Five Kinds of Docs Systems
-
-No matter what marketing pages say, every modern docs system falls into one of these:
+Every modern docs system falls into one of these:
 
 1. **Pure File-Based (MD/MDX)**  
     → Docusaurus, Nextra, Mintlify Open Source, MkDocs, Astro + MDX
@@ -46,19 +36,9 @@ No matter what marketing pages say, every modern docs system falls into one of t
 
 Each has a different cost model, maintenance profile, and failure mode.
 
-Let's break them down.
+## 1. Pure file-based docs (MDX) — the default for technical teams
 
-## 1. Pure File-Based Docs (MDX) — The Default for Technical Teams
-
-This includes:
-
-- Docusaurus
-- Nextra
-- MkDocs / Material for MkDocs
-- Astro + MDX
-- TanStack Start + MDX
-
-This is the modern "docs-as-code" standard.
+This includes Docusaurus, Nextra, MkDocs / Material for MkDocs, Astro + MDX, and TanStack Start + MDX. This is the modern "docs-as-code" standard.
 
 ### Pros
 
@@ -77,29 +57,15 @@ This is the modern "docs-as-code" standard.
 - No built-in search unless you configure it
 - No built-in analytics, roles, review workflows
 
-### When to Use It
+### When to use it
 
-You're a technical team.
+Use this if you're a technical team that wants control without premature complexity. It works well if you don't have 15 PMs writing docs every day.
 
-You want control.
+For 80% of startups, file-based MDX docs will be the right answer. Vercel, Supabase, Clerk, Planetscale, PostHog, and most modern OSS projects use this approach.
 
-You don't want to introduce complexity prematurely.
+## 2. Git-based CMS layer — best middle ground
 
-You don't have 15 PMs writing docs every day.
-
-For 80% of startups, file-based MDX docs will be the right answer.
-
-This is what Vercel, Supabase, Clerk, Planetscale, PostHog, and most modern OSS projects use.
-
-## 2. Git-Based CMS Layer — Best Middle Ground
-
-Tools like:
-
-- Keystatic
-- TinaCMS
-- Decap CMS
-
-These tools give you a visual UI for editing docs while still using Markdown/MDX in Git.
+Tools like Keystatic, TinaCMS, and Decap CMS give you a visual UI for editing docs while still using Markdown/MDX in Git.
 
 ### Pros
 
@@ -115,15 +81,11 @@ These tools give you a visual UI for editing docs while still using Markdown/MDX
 - Contributors still need to understand the repo structure
 - Slight complexity overhead
 
-### When to Use It
+### When to use it
 
-Your PMs, DevRel, Support, or Marketing team needs to contribute regularly.
+Use this when your PMs, DevRel, Support, or Marketing team needs to contribute regularly, but you want to maintain the "content lives in Git" principle. It's the best middle ground.
 
-But you want to maintain the "content lives in Git" principle.
-
-This is the "best of both worlds" middle layer.
-
-## 3. Headless CMS for Docs — Powerful but Often Overkill
+## 3. Headless CMS for docs — powerful but often overkill
 
 Using Sanity, Payload, or Contentful to power docs.
 
@@ -139,28 +101,16 @@ Using Sanity, Payload, or Contentful to power docs.
 - Massive configuration overhead
 - Schema migrations become a real job
 - Docs UI is never as natural as MDX
-- Lock-in increases each quarter
-- You are now maintaining a CMS backend forever
+- Lock-in increases over time
+- You maintain a CMS backend indefinitely
 
-### When to Use It
+### When to use it
 
-You're big.
+Use this if you're a larger organization with multiple products, multiple locales, and multiple teams updating docs. Think Stripe-level documentation needs. If you're under 100 employees, this is almost always unnecessary.
 
-You have multiple products, multiple locales, and multiple teams updating docs.
+## 4. Hosted docs platforms — fastest to deploy, most lock-in
 
-Think Stripe-level documentation needs.
-
-If you're under 100 employees, this is almost always unnecessary.
-
-## 4. Hosted Docs Platforms — Fastest to Deploy, Most Lock-In
-
-Examples:
-
-- GitBook
-- Mintlify Cloud
-- Readme.com
-- Archbee
-- Notion (light docs)
+Examples include GitBook, Mintlify Cloud, Readme.com, Archbee, and Notion (for light docs).
 
 ### Pros
 
@@ -178,30 +128,20 @@ Examples:
 - Outgrows you once you want custom layouts
 - You become dependent on their roadmap
 
-### When to Use It
+### When to use it
 
-You need docs fast, your team is mixed-technical, and you don't mind platform reliance.
+Use this if you need docs fast, your team is mixed-technical, and you don't mind platform reliance. This works well for teams in a hurry or companies without deep frontend capabilities.
 
-This works well for teams in a hurry or companies that don't have deep frontend capabilities.
+## 5. Custom in-product docs — the future for some teams
 
-## 5. Custom In-Product Docs — The Future for Some Teams
-
-Many modern companies (Linear, Raycast, Warp, Replit) are increasingly embedding docs directly into their product or creating heavily customized documentation systems:
-
-- React/MDX component libraries
-- Interactive playgrounds
-- Copyable codeblocks
-- Live components
-- Search that ties into product data
-- Custom navigation patterns
-- AI-assisted docs generation / contextual help
+Many modern companies (Linear, Raycast, Warp, Replit) embed docs directly into their product or create heavily customized documentation systems with React/MDX component libraries, interactive playgrounds, copyable codeblocks, live components, search tied into product data, custom navigation patterns, and AI-assisted docs generation.
 
 ### Pros
 
 - Total control
 - Can be integrated tightly with your app
 - Interactive demos, live sandboxes, code runners
-- Enables future AI-native experiences
+- Enables AI-native experiences
 - Perfect branding
 
 ### Cons
@@ -210,84 +150,37 @@ Many modern companies (Linear, Raycast, Warp, Replit) are increasingly embedding
 - Requires strong frontend & infra engineering
 - Docs become a product, not just content
 
-### When to Use It
+### When to use it
 
-You're building a developer platform and your docs are part of your differentiation.
+Use this if you're building a developer platform and your docs are part of your differentiation. This is the final evolution stage.
 
-This is the final evolution stage.
+## So… Which Should You Use in 2026?
 
-## So… Which Should You Use in 2025? (Decision Guide)
+**If your writers are engineers:** use file-based MDX docs. You'll ship faster than with any CMS.
 
-Here's the simplest way to not overthink it:
+**If non-engineers need to edit:** add Keystatic or Tina. Don't jump to a headless CMS.
 
-**If your writers are engineers** → use file-based MDX docs.
+**If you're large with multiple products and locales:** consider Sanity or Payload, but only when structure becomes real pain.
 
-You'll ship faster than with any CMS.
+**If you need something live tomorrow:** use GitBook or Mintlify Cloud. Accept the lock-in for speed.
 
-**If non-engineers need to edit** → add Keystatic/Tina.
+**If your docs are part of your product:** build custom. This is where world-class developer tooling systems end up.
 
-Do not jump to a headless CMS.
+## Things most teams don't realize about docs
 
-**If you're large with multiple products + locales** → consider Sanity/Payload.
+**Docs age faster than blogs.** They need pruning, refactoring, and maintenance. MDX makes this infinitely easier than any CMS.
 
-But only when structure becomes real pain.
+**Versioning is non-negotiable.** If your API or SDK evolves, you need doc versioning. The simplest approach is a folder per version in Git. A CMS makes this a nightmare.
 
-**If you need something live tomorrow** → GitBook/Mintlify Cloud.
+**Search matters more than design.** Your docs UI can be plain, but your search must be excellent. Algolia DocSearch, Pagefind, or a custom hybrid all work well.
 
-Accept the lock-in for speed.
+**Docs need to survive your future rewrites.** Your framework will change. Your content shouldn't break with it. This is why MDX in Git is the gold standard.
 
-**If your docs are part of your product** → build custom.
+## What we're betting on at Char
 
-This is where world-class developer tooling systems end up.
+We're building our docs on TanStack Start + MDX, with a GitHub PR workflow, custom MDX components (callouts, tabs, code demos), automatic TOC + search, Keystatic as our team grows, and future interactive "live notebooks" tied to Char.
 
-## Things Most Teams Don't Realize About Docs
-
-### 1. Docs age faster than blogs
-
-They need pruning, refactoring, and maintenance.
-
-MDX makes this infinitely easier than any CMS.
-
-### 2. Versioning is non-negotiable
-
-If your API or SDK evolves, you need doc versioning.
-
-The simplest version?
-
-A folder per version in Git.
-
-A CMS makes this a nightmare.
-
-### 3. Search matters more than design
-
-Your docs UI can be plain — but your search must be excellent.
-
-Algolia DocSearch, Pagefind, or a custom hybrid works well.
-
-### 4. Docs need to survive your future rewrites
-
-Your framework will change.
-
-Your content shouldn't break with it.
-
-This is why MDX in Git is the gold standard.
-
-## What We're Betting On at Hyprnote
-
-We're building our docs on:
-
-- TanStack Start + MDX
-- GitHub PR workflow
-- Custom MDX components (callouts, tabs, code demos)
-- Automatic TOC + search
-- Keystatic layer as our team grows
-- Future: interactive "live notebooks" tied to Hyprnote
-
-The principle is simple:
-
-**Docs are code.**
-
-And the best way to maintain code is with tools you already love.
+The principle is simple: docs are code. The best way to maintain code is with tools you already love.
 
 ---
 
@@ -295,8 +188,8 @@ This is Part 5 of our publishing series.
 
 1. [Why We Write Our Blog in an IDE](/blog/using-ide-for-writing)
 2. [Why Our CMS Is GitHub](/blog/why-our-cms-is-github)
-3. [Choosing a CMS in 2025](/blog/choosing-a-cms)
+3. [Choosing a CMS in 2026](/blog/choosing-a-cms)
 4. [Don't Use a CMS Until You Absolutely Need One](/blog/dont-use-a-cms)
 5. [Docs Edition: What to Use for Developer Documentation](/blog/developer-documentation-tools) (You are here)
-6. [How We Built Hyprnote's Publishing Stack](/blog/hyprnote-publishing-stack)
+6. [How We Built Char's Publishing Stack](/blog/hyprnote-publishing-stack)
 7. [Building an Editorial Workflow with GitHub and Slack](/blog/building-editorial-workflow-github-slack)

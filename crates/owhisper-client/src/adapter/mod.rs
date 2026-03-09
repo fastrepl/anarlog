@@ -1,7 +1,7 @@
 mod argmax;
 pub(crate) mod assemblyai;
-#[cfg(feature = "argmax")]
-pub mod audio;
+mod cactus;
+mod dashscope;
 pub mod deepgram;
 mod deepgram_compat;
 pub(crate) mod elevenlabs;
@@ -10,6 +10,7 @@ mod gladia;
 pub mod http;
 mod hyprnote;
 mod language;
+mod mistral;
 mod openai;
 mod owhisper;
 pub mod parsing;
@@ -18,12 +19,15 @@ mod url_builder;
 
 pub use argmax::*;
 pub use assemblyai::*;
+pub use cactus::*;
+pub use dashscope::*;
 pub use deepgram::*;
 pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
 pub use hyprnote::*;
 pub use language::{LanguageQuality, LanguageSupport};
+pub use mistral::*;
 pub use openai::*;
 pub use soniox::*;
 
@@ -42,6 +46,15 @@ use crate::error::Error;
 pub use reqwest_middleware::ClientWithMiddleware;
 
 pub type BatchFuture<'a> = Pin<Box<dyn Future<Output = Result<BatchResponse, Error>> + Send + 'a>>;
+
+#[derive(Debug, Clone)]
+pub struct StreamingBatchEvent {
+    pub response: StreamResponse,
+    pub percentage: f64,
+}
+
+pub type StreamingBatchStream =
+    Pin<Box<dyn futures_util::Stream<Item = Result<StreamingBatchEvent, Error>> + Send>>;
 
 pub fn documented_language_codes_live() -> Vec<String> {
     let mut set: BTreeSet<&'static str> = BTreeSet::new();
@@ -120,6 +133,10 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
 }
 
 pub trait BatchSttAdapter: Clone + Default + Send + Sync + 'static {
+    fn provider_name(&self) -> &'static str {
+        "unknown"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -134,6 +151,56 @@ pub trait BatchSttAdapter: Clone + Default + Send + Sync + 'static {
         params: &'a ListenParams,
         file_path: P,
     ) -> BatchFuture<'a>;
+}
+
+pub enum CallbackResult {
+    Done(serde_json::Value),
+    ProviderError(String),
+}
+
+pub type CallbackSubmitFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<String, Error>> + Send + 'a>>;
+pub type CallbackProcessFuture<'a> =
+    Pin<Box<dyn Future<Output = Result<CallbackResult, Error>> + Send + 'a>>;
+
+pub trait CallbackSttAdapter: Clone + Default + Send + Sync + 'static {
+    fn submit_callback<'a>(
+        &'a self,
+        client: &'a reqwest::Client,
+        api_key: &'a str,
+        audio_url: &'a str,
+        callback_url: &'a str,
+    ) -> CallbackSubmitFuture<'a>;
+
+    fn process_callback<'a>(
+        &'a self,
+        client: &'a reqwest::Client,
+        api_key: &'a str,
+        payload: serde_json::Value,
+    ) -> CallbackProcessFuture<'a>;
+}
+
+pub(crate) fn build_url_with_scheme(
+    parsed: &url::Url,
+    default_host: &str,
+    path: &str,
+    use_ws: bool,
+) -> url::Url {
+    let host = parsed.host_str().unwrap_or(default_host);
+    let is_local = is_local_host(host);
+    let scheme = match (use_ws, is_local) {
+        (true, true) => "ws",
+        (true, false) => "wss",
+        (false, true) => "http",
+        (false, false) => "https",
+    };
+    let host_with_port = match parsed.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_string(),
+    };
+    format!("{scheme}://{host_with_port}{path}")
+        .parse()
+        .expect("invalid_url")
 }
 
 pub fn set_scheme_from_host(url: &mut url::Url) {
@@ -176,7 +243,9 @@ pub(crate) fn host_matches(base_url: &str, predicate: impl Fn(&str) -> bool) -> 
 }
 
 fn is_hyprnote_cloud(base_url: &str) -> bool {
-    host_matches(base_url, |h| h.contains("hyprnote.com"))
+    host_matches(base_url, |h| {
+        h.contains("hyprnote.com") || h.contains("char.com")
+    })
 }
 
 fn is_hyprnote_local_proxy(base_url: &str) -> bool {
@@ -212,6 +281,41 @@ fn is_local_argmax(base_url: &str) -> bool {
     host_matches(base_url, is_local_host) && !is_hyprnote_local_proxy(base_url)
 }
 
+fn is_cactus_model(model: &str) -> bool {
+    model.parse::<hypr_cactus_model::CactusSttModel>().is_ok()
+}
+
+pub(crate) fn build_ws_url_from_base_with(
+    provider: crate::providers::Provider,
+    api_base: &str,
+    make_url: impl FnOnce(&url::Url) -> url::Url,
+) -> (url::Url, Vec<(String, String)>) {
+    let default_url = || -> (url::Url, Vec<(String, String)>) {
+        (
+            provider
+                .default_ws_url()
+                .parse()
+                .expect("invalid_default_ws_url"),
+            Vec::new(),
+        )
+    };
+
+    if api_base.is_empty() {
+        return default_url();
+    }
+
+    if let Some(proxy_result) = build_proxy_ws_url(api_base) {
+        return proxy_result;
+    }
+
+    let parsed: url::Url = match api_base.parse() {
+        Ok(u) => u,
+        Err(_) => return default_url(),
+    };
+    let existing_params = extract_query_params(&parsed);
+    (make_url(&parsed), existing_params)
+}
+
 pub fn build_proxy_ws_url(api_base: &str) -> Option<(url::Url, Vec<(String, String)>)> {
     if api_base.is_empty() {
         return None;
@@ -236,6 +340,13 @@ pub fn build_proxy_ws_url(api_base: &str) -> Option<(url::Url, Vec<(String, Stri
 pub fn append_provider_param(base_url: &str, provider: &str) -> String {
     match url::Url::parse(base_url) {
         Ok(mut url) => {
+            let existing: Vec<(String, String)> = url
+                .query_pairs()
+                .filter(|(k, _)| k != "provider")
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect();
+
+            url.query_pairs_mut().clear().extend_pairs(&existing);
             url.query_pairs_mut().append_pair("provider", provider);
             url.to_string()
         }
@@ -260,25 +371,34 @@ pub enum AdapterKind {
     Gladia,
     #[strum(serialize = "elevenlabs")]
     ElevenLabs,
+    #[strum(serialize = "dashscope")]
+    DashScope,
+    #[strum(serialize = "mistral")]
+    Mistral,
+    #[strum(serialize = "hyprnote")]
+    Hyprnote,
+    #[strum(serialize = "cactus")]
+    Cactus,
 }
 
 impl AdapterKind {
     pub fn from_url_and_languages(
         base_url: &str,
-        languages: &[hypr_language::Language],
-        model: Option<&str>,
+        _languages: &[hypr_language::Language],
+        _model: Option<&str>,
     ) -> Self {
         use crate::providers::Provider;
 
         if is_hyprnote_proxy(base_url) {
-            if DeepgramAdapter::is_supported_languages_live(languages, model) {
-                return Self::Deepgram;
-            } else {
-                return Self::Soniox;
-            }
+            return Self::Hyprnote;
         }
 
         if is_local_argmax(base_url) {
+            if let Some(model) = _model
+                && is_cactus_model(model)
+            {
+                return Self::Cactus;
+            }
             return Self::Argmax;
         }
 
@@ -303,7 +423,12 @@ impl AdapterKind {
             Self::OpenAI => OpenAIAdapter::language_support_live(languages),
             Self::Fireworks => FireworksAdapter::language_support_live(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
+            Self::DashScope => DashScopeAdapter::language_support_live(languages),
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
+            Self::Mistral => MistralAdapter::language_support_live(languages),
+            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+                quality: LanguageQuality::NoData,
+            },
         }
     }
 
@@ -323,7 +448,12 @@ impl AdapterKind {
             Self::OpenAI => OpenAIAdapter::language_support_batch(languages),
             Self::Fireworks => FireworksAdapter::language_support_batch(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_batch(languages),
+            Self::DashScope => DashScopeAdapter::language_support_batch(languages),
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
+            Self::Mistral => MistralAdapter::language_support_batch(languages),
+            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+                quality: LanguageQuality::NoData,
+            },
         }
     }
 
@@ -352,6 +482,16 @@ impl AdapterKind {
             _ => None,
         }
     }
+
+    pub fn recommended_model_batch(
+        &self,
+        languages: &[hypr_language::Language],
+    ) -> Option<&'static str> {
+        match self {
+            Self::Deepgram => DeepgramAdapter::recommended_model_live(languages),
+            _ => None,
+        }
+    }
 }
 
 impl From<crate::providers::Provider> for AdapterKind {
@@ -365,6 +505,8 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::OpenAI => Self::OpenAI,
             Provider::Gladia => Self::Gladia,
             Provider::ElevenLabs => Self::ElevenLabs,
+            Provider::DashScope => Self::DashScope,
+            Provider::Mistral => Self::Mistral,
         }
     }
 }
@@ -433,6 +575,8 @@ mod tests {
     fn test_is_hyprnote_proxy() {
         assert!(is_hyprnote_proxy("https://api.hyprnote.com/stt"));
         assert!(is_hyprnote_proxy("https://api.hyprnote.com"));
+        assert!(is_hyprnote_proxy("https://api.char.com/stt"));
+        assert!(is_hyprnote_proxy("https://api.char.com"));
         assert!(is_hyprnote_proxy("http://localhost:3001/stt"));
         assert!(is_hyprnote_proxy("http://127.0.0.1:3001/stt"));
 
@@ -455,80 +599,80 @@ mod tests {
         use hypr_language::ISO639::*;
 
         let cases: &[(&str, &[hypr_language::ISO639], Option<&str>, AdapterKind)] = &[
-            // HyprnoteCloud - single language (model is ignored for adapter selection)
+            // HyprnoteCloud - always routes to Hyprnote adapter (proxy owns provider selection)
             (
                 "https://api.hyprnote.com/stt",
                 &[En],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[En],
                 Some("cloud"),
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[Zh],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[Ja],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[Ar],
                 None,
-                AdapterKind::Soniox,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[De],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             // HyprnoteCloud - multi-language
             (
                 "https://api.hyprnote.com/stt",
                 &[En, Es],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[En, Ko],
                 None,
-                AdapterKind::Soniox,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[Ko, En],
                 None,
-                AdapterKind::Soniox,
+                AdapterKind::Hyprnote,
             ),
             (
                 "https://api.hyprnote.com/stt",
                 &[En, De],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             // localhost proxy
             (
                 "http://localhost:3001/stt",
                 &[En],
                 None,
-                AdapterKind::Deepgram,
+                AdapterKind::Hyprnote,
             ),
             (
                 "http://localhost:3001/stt",
                 &[Ar],
                 None,
-                AdapterKind::Soniox,
+                AdapterKind::Hyprnote,
             ),
             // localhost argmax
             (
@@ -625,5 +769,111 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_hyprnote_proxy_always_selects_hyprnote_adapter() {
+        use hypr_language::ISO639::*;
+
+        let proxy_urls = &[
+            "https://api.hyprnote.com/stt",
+            "https://api.char.com/stt",
+            "http://localhost:3001/stt",
+            "http://127.0.0.1:3001/stt",
+        ];
+
+        let language_combos: &[&[hypr_language::ISO639]] =
+            &[&[En], &[Ko], &[En, De], &[En, Ko], &[Ar]];
+
+        for url in proxy_urls {
+            for langs in language_combos {
+                let langs: Vec<hypr_language::Language> =
+                    langs.iter().map(|l| (*l).into()).collect();
+                assert_eq!(
+                    AdapterKind::from_url_and_languages(url, &langs, Some("cloud")),
+                    AdapterKind::Hyprnote,
+                    "proxy URL should always select Hyprnote adapter regardless of languages: url={url}, langs={langs:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_hyprnote_adapter_supports_all_languages() {
+        use hypr_language::ISO639::*;
+
+        let combos: &[&[hypr_language::ISO639]] =
+            &[&[En], &[Ko], &[Ar], &[En, De], &[En, Ko], &[Zh]];
+
+        for langs in combos {
+            let langs: Vec<hypr_language::Language> = langs.iter().map(|l| (*l).into()).collect();
+            assert!(
+                AdapterKind::Hyprnote.is_supported_languages_live(&langs, Some("cloud")),
+                "Hyprnote adapter should support all languages: {langs:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_direct_provider_urls_not_affected() {
+        use hypr_language::ISO639::*;
+
+        let en: Vec<hypr_language::Language> = vec![En.into()];
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.deepgram.com/v1", &en, None),
+            AdapterKind::Deepgram,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.soniox.com", &en, None),
+            AdapterKind::Soniox,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),
+            AdapterKind::Argmax,
+        );
+    }
+
+    #[test]
+    fn test_append_provider_param_replaces_existing() {
+        let url =
+            append_provider_param("https://api.hyprnote.com/stt?provider=deepgram", "hyprnote");
+        assert!(
+            url.contains("provider=hyprnote"),
+            "new provider value should be present: {url}"
+        );
+        assert!(
+            !url.contains("provider=deepgram"),
+            "old provider value should be removed: {url}"
+        );
+        assert_eq!(
+            url.matches("provider=").count(),
+            1,
+            "exactly one provider param expected: {url}"
+        );
+    }
+
+    #[test]
+    fn test_append_provider_param_preserves_other_params() {
+        let url = append_provider_param(
+            "https://api.hyprnote.com/stt?model=cloud&provider=soniox&language=en",
+            "hyprnote",
+        );
+        assert!(
+            url.contains("model=cloud"),
+            "model should be preserved: {url}"
+        );
+        assert!(
+            url.contains("language=en"),
+            "language should be preserved: {url}"
+        );
+        assert!(url.contains("provider=hyprnote"));
+        assert!(!url.contains("provider=soniox"));
+    }
+
+    #[test]
+    fn test_append_provider_param_no_existing_provider() {
+        let url = append_provider_param("https://api.hyprnote.com/stt", "hyprnote");
+        assert!(url.contains("provider=hyprnote"));
+        assert_eq!(url.matches("provider=").count(), 1);
     }
 }

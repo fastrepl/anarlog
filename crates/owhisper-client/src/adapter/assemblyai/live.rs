@@ -90,14 +90,22 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
         let msg: AssemblyAIMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "assemblyai_json_parse_failed");
+                tracing::warn!(
+                    error.message = ?e,
+                    hyprnote.payload.raw = raw,
+                    "assemblyai_json_parse_failed"
+                );
                 return vec![];
             }
         };
 
         match msg {
             AssemblyAIMessage::Begin { id, expires_at } => {
-                tracing::debug!(session_id = %id, expires_at = %expires_at, "assemblyai_session_began");
+                tracing::debug!(
+                    hyprnote.stt.provider_session.id = %id,
+                    hyprnote.stt.provider_session.expires_at = %expires_at,
+                    "assemblyai_session_began"
+                );
                 vec![]
             }
             AssemblyAIMessage::Turn(turn) => Self::parse_turn(turn),
@@ -106,8 +114,8 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 session_duration_seconds,
             } => {
                 tracing::debug!(
-                    audio_duration = audio_duration_seconds,
-                    session_duration = session_duration_seconds,
+                    hyprnote.audio.duration_s = audio_duration_seconds,
+                    hyprnote.stt.provider_session.duration_s = session_duration_seconds,
                     "assemblyai_session_terminated"
                 );
                 vec![StreamResponse::TerminalResponse {
@@ -118,7 +126,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 }]
             }
             AssemblyAIMessage::Error { error } => {
-                tracing::error!(error = %error, "assemblyai_error");
+                tracing::error!(error.message = %error, "assemblyai_error");
                 vec![StreamResponse::ErrorResponse {
                     error_code: None,
                     error_message: error,
@@ -126,7 +134,7 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 }]
             }
             AssemblyAIMessage::Unknown => {
-                tracing::debug!(raw = raw, "assemblyai_unknown_message");
+                tracing::debug!(hyprnote.payload.raw = raw, "assemblyai_unknown_message");
                 vec![]
             }
         }

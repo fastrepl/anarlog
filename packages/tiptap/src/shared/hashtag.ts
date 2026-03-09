@@ -4,6 +4,74 @@ import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 export const HASHTAG_REGEX = /#([\p{L}\p{N}_\p{Emoji}\p{Emoji_Component}]+)/gu;
+const LEADING_PUNCTUATION_REGEX = /^[([{<"'`]+/u;
+const HTTP_PREFIXES = ["http://", "https://", "www."];
+
+const normalizeUrlToken = (token: string): string => {
+  const normalized = token.replace(LEADING_PUNCTUATION_REGEX, "");
+
+  if (normalized.toLowerCase().startsWith("www.")) {
+    return `https://${normalized}`;
+  }
+
+  return normalized;
+};
+
+const isUrlFragmentHashtag = (text: string, hashtagStart: number): boolean => {
+  const beforeHashtag = text.slice(0, hashtagStart);
+  const tokenStart = beforeHashtag.search(/\S+$/u);
+
+  if (tokenStart < 0) {
+    return false;
+  }
+
+  const token = beforeHashtag.slice(tokenStart);
+  const normalizedToken = token
+    .replace(LEADING_PUNCTUATION_REGEX, "")
+    .toLowerCase();
+
+  if (!HTTP_PREFIXES.some((prefix) => normalizedToken.startsWith(prefix))) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(normalizeUrlToken(token));
+    return Boolean(parsed.hostname && parsed.hostname.includes("."));
+  } catch {
+    return false;
+  }
+};
+
+export const findHashtags = (
+  text: string,
+): Array<{ tag: string; start: number; end: number }> => {
+  const matches: Array<{ tag: string; start: number; end: number }> = [];
+  let match;
+
+  HASHTAG_REGEX.lastIndex = 0;
+
+  while ((match = HASHTAG_REGEX.exec(text)) !== null) {
+    const start = match.index;
+
+    if (isUrlFragmentHashtag(text, start)) {
+      continue;
+    }
+
+    const tag = match[1].trim();
+
+    if (!tag) {
+      continue;
+    }
+
+    matches.push({
+      tag,
+      start,
+      end: start + match[0].length,
+    });
+  }
+
+  return matches;
+};
 
 export function extractHashtags(content: string): string[] {
   const tempDiv = document.createElement("div");
@@ -26,17 +94,7 @@ export function extractHashtags(content: string): string[] {
 
   textNodes.forEach((node) => {
     const text = node.textContent || "";
-
-    HASHTAG_REGEX.lastIndex = 0;
-
-    let match;
-    while ((match = HASHTAG_REGEX.exec(text)) !== null) {
-      const tag = match[1].trim();
-
-      if (tag) {
-        hashtags.push(tag);
-      }
-    }
+    hashtags.push(...findHashtags(text).map((match) => match.tag));
   });
 
   const uniqueTags = [...new Set(hashtags)];
@@ -60,13 +118,11 @@ export const Hashtag = Extension.create({
             }
 
             const text = node.text as string;
-            let match;
+            const matches = findHashtags(text);
 
-            HASHTAG_REGEX.lastIndex = 0;
-
-            while ((match = HASHTAG_REGEX.exec(text)) !== null) {
-              const start = pos + match.index;
-              const end = start + match[0].length;
+            for (const match of matches) {
+              const start = pos + match.start;
+              const end = pos + match.end;
 
               decorations.push(
                 Decoration.inline(start, end, {

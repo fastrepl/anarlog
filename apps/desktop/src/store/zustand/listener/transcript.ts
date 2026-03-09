@@ -3,8 +3,9 @@ import type { StoreApi } from "zustand";
 
 import type { StreamResponse } from "@hypr/plugin-listener";
 
-import type { RuntimeSpeakerHint, WordLike } from "../../../utils/segment";
 import { transformWordEntries } from "./utils";
+
+import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 type WordsByChannel = Record<number, WordLike[]>;
 

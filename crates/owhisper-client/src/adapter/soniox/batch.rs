@@ -5,20 +5,19 @@ use owhisper_interface::batch::{
     Alternatives as BatchAlternatives, Channel as BatchChannel, Response as BatchResponse,
     Results as BatchResults, Word as BatchWord,
 };
-use serde::{Deserialize, Serialize};
 
 use super::SonioxAdapter;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
 use crate::error::Error;
-use crate::polling::{PollingConfig, PollingResult, poll_until};
 
 impl SonioxAdapter {
-    async fn upload_file(
-        client: &ClientWithMiddleware,
-        api_base: &str,
+    async fn do_transcribe_file(
         api_key: &str,
+        params: &ListenParams,
         file_path: &Path,
-    ) -> Result<String, Error> {
+    ) -> Result<BatchResponse, Error> {
+        let client = reqwest::Client::new();
+
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
@@ -33,264 +32,77 @@ impl SonioxAdapter {
             ))
         })?;
 
-        let part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name);
-        let form = reqwest::multipart::Form::new().part("file", part);
-
-        let url = format!("https://{}/v1/files", Self::api_host(api_base));
-        let response = client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .multipart(form)
-            .send()
-            .await?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(Error::UnexpectedStatus { status, body });
-        }
-
-        #[derive(Deserialize)]
-        struct FileUploadResponse {
-            id: String,
-        }
-
-        let upload_response: FileUploadResponse = response.json().await?;
-        Ok(upload_response.id)
-    }
-
-    async fn delete_file(
-        client: &ClientWithMiddleware,
-        api_base: &str,
-        api_key: &str,
-        file_id: &str,
-    ) {
-        let url = format!("https://{}/v1/files/{}", Self::api_host(api_base), file_id);
-        match client
-            .delete(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .send()
+        tracing::info!(hyprnote.file.path = %file_path.display(), "uploading_file_to_soniox");
+        let file_id = soniox::upload_file(&client, &file_name, file_bytes, api_key)
             .await
-        {
-            Ok(response) if response.status().is_success() => {
-                tracing::info!(file_id = %file_id, "file deleted from Soniox");
-            }
-            Ok(response) => {
-                let status = response.status();
-                let body = response.text().await.unwrap_or_default();
-                tracing::warn!(file_id = %file_id, %status, %body, "failed to delete file from Soniox");
-            }
-            Err(e) => {
-                tracing::warn!(file_id = %file_id, error = ?e, "failed to delete file from Soniox");
-            }
+            .map_err(soniox_err)?;
+
+        tracing::info!(hyprnote.file.id = %file_id, "soniox_file_uploaded");
+        let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;
+
+        if let Err(e) = soniox::delete_file(&client, &file_id, api_key).await {
+            tracing::warn!(
+                hyprnote.file.id = %file_id,
+                error.message = %e,
+                "failed_to_delete_soniox_file"
+            );
         }
+
+        result
     }
 
-    async fn create_transcription(
-        client: &ClientWithMiddleware,
-        api_base: &str,
+    async fn transcribe_and_fetch(
+        client: &reqwest::Client,
         api_key: &str,
         params: &ListenParams,
         file_id: &str,
-    ) -> Result<String, Error> {
-        #[derive(Serialize)]
-        struct Context {
-            #[serde(skip_serializing_if = "Vec::is_empty")]
-            terms: Vec<String>,
-        }
+    ) -> Result<BatchResponse, Error> {
+        let model = SonioxAdapter::resolve_model(params.model.as_deref()).batch_model();
 
-        #[derive(Serialize)]
-        struct CreateTranscriptionRequest<'a> {
-            model: &'a str,
-            file_id: &'a str,
-            #[serde(skip_serializing_if = "Vec::is_empty")]
-            language_hints: Vec<String>,
-            enable_speaker_diarization: bool,
-            enable_language_identification: bool,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            context: Option<Context>,
-        }
-
-        let default = crate::providers::Provider::Soniox.default_batch_model();
-        let model = match params.model.as_deref() {
-            Some(m) if crate::providers::is_meta_model(m) => default,
-            Some("stt-v3") | Some("stt-async-preview") => default,
-            Some(m) => m,
-            None => default,
-        };
-
-        let context = if params.keywords.is_empty() {
-            None
-        } else {
-            Some(Context {
-                terms: params.keywords.clone(),
-            })
-        };
+        let mut body = serde_json::json!({
+            "model": model,
+            "file_id": file_id,
+            "enable_speaker_diarization": true,
+            "enable_language_identification": true,
+        });
 
         let language_hints: Vec<String> = params
             .languages
             .iter()
             .map(|lang| lang.iso639().code().to_string())
             .collect();
-
-        let request = CreateTranscriptionRequest {
-            model,
-            file_id,
-            language_hints,
-            enable_speaker_diarization: true,
-            enable_language_identification: true,
-            context,
-        };
-
-        let url = format!("https://{}/v1/transcriptions", Self::api_host(api_base));
-        let response = client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&request)
-            .send()
-            .await?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(Error::UnexpectedStatus { status, body });
+        if !language_hints.is_empty() {
+            body["language_hints"] = serde_json::json!(language_hints);
+        }
+        if !params.keywords.is_empty() {
+            body["context"] = serde_json::json!({ "terms": params.keywords });
         }
 
-        #[derive(Deserialize)]
-        struct TranscriptionResponse {
-            id: String,
-        }
-
-        let transcription: TranscriptionResponse = response.json().await?;
-        Ok(transcription.id)
-    }
-
-    async fn poll_transcription(
-        client: &ClientWithMiddleware,
-        api_base: &str,
-        api_key: &str,
-        transcription_id: &str,
-    ) -> Result<(), Error> {
-        #[derive(Deserialize)]
-        struct TranscriptionResponse {
-            status: String,
-            #[serde(default)]
-            error_message: Option<String>,
-        }
-
-        let url = format!(
-            "https://{}/v1/transcriptions/{}",
-            Self::api_host(api_base),
-            transcription_id
+        let transcription_id = soniox::create_transcription(client, &body, api_key)
+            .await
+            .map_err(soniox_err)?;
+        tracing::info!(
+            hyprnote.stt.job.id = %transcription_id,
+            "soniox_transcription_created"
         );
 
-        let config =
-            PollingConfig::default().with_timeout_error("transcription timed out".to_string());
-
-        poll_until(
-            || async {
-                let response = client
-                    .get(&url)
-                    .header("Authorization", format!("Bearer {}", api_key))
-                    .send()
-                    .await?;
-
-                let status = response.status();
-                if !status.is_success() {
-                    let body = response.text().await.unwrap_or_default();
-                    return Err(Error::UnexpectedStatus { status, body });
-                }
-
-                let transcription: TranscriptionResponse = response.json().await?;
-
-                match transcription.status.as_str() {
-                    "completed" => Ok(PollingResult::Complete(())),
-                    "error" => {
-                        let error_msg = transcription
-                            .error_message
-                            .unwrap_or_else(|| "unknown error".to_string());
-                        Ok(PollingResult::Failed(format!(
-                            "transcription failed: {}",
-                            error_msg
-                        )))
-                    }
-                    "queued" | "processing" => Ok(PollingResult::Continue),
-                    unknown => Ok(PollingResult::Failed(format!(
-                        "unexpected transcription status: {}",
-                        unknown
-                    ))),
-                }
-            },
-            config,
-        )
-        .await
-    }
-
-    async fn get_transcript(
-        client: &ClientWithMiddleware,
-        api_base: &str,
-        api_key: &str,
-        transcription_id: &str,
-    ) -> Result<BatchResponse, Error> {
-        #[derive(Deserialize)]
-        struct TranscriptResponse {
-            text: String,
-            tokens: Vec<TranscriptToken>,
-        }
-
-        #[derive(Deserialize)]
-        struct TranscriptToken {
-            text: String,
-            #[serde(default)]
-            start_ms: Option<u64>,
-            #[serde(default)]
-            end_ms: Option<u64>,
-            #[serde(default)]
-            confidence: Option<f64>,
-            #[serde(default)]
-            speaker: Option<BatchSpeakerId>,
-        }
-
-        #[derive(Deserialize)]
-        #[serde(untagged)]
-        enum BatchSpeakerId {
-            Num(i32),
-            Str(String),
-        }
-
-        impl BatchSpeakerId {
-            fn as_usize(&self) -> Option<usize> {
-                match self {
-                    BatchSpeakerId::Num(n) if *n >= 0 => Some(*n as usize),
-                    BatchSpeakerId::Num(_) => None,
-                    BatchSpeakerId::Str(s) => s
-                        .trim_start_matches(|c: char| !c.is_ascii_digit())
-                        .parse()
-                        .ok(),
-                }
-            }
-        }
-
-        let url = format!(
-            "https://{}/v1/transcriptions/{}/transcript",
-            Self::api_host(api_base),
-            transcription_id
+        soniox::wait_for_completion(client, &transcription_id, api_key)
+            .await
+            .map_err(soniox_err)?;
+        tracing::info!(
+            hyprnote.stt.job.id = %transcription_id,
+            "soniox_transcription_completed"
         );
 
-        let response = client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .send()
-            .await?;
+        let transcript = soniox::fetch_transcript(client, &transcription_id, api_key)
+            .await
+            .map_err(soniox_err)?;
+        tracing::info!("transcript fetched successfully");
 
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(Error::UnexpectedStatus { status, body });
-        }
+        Ok(Self::to_batch_response(transcript))
+    }
 
-        let transcript: TranscriptResponse = response.json().await?;
-
+    fn to_batch_response(transcript: soniox::TranscriptResponse) -> BatchResponse {
         let words: Vec<BatchWord> = transcript
             .tokens
             .iter()
@@ -314,55 +126,24 @@ impl SonioxAdapter {
             alternatives: vec![alternatives],
         };
 
-        Ok(BatchResponse {
+        BatchResponse {
             metadata: serde_json::json!({}),
             results: BatchResults {
                 channels: vec![channel],
             },
-        })
-    }
-
-    async fn do_transcribe_file(
-        client: &ClientWithMiddleware,
-        api_base: &str,
-        api_key: &str,
-        params: &ListenParams,
-        file_path: &Path,
-    ) -> Result<BatchResponse, Error> {
-        tracing::info!(path = %file_path.display(), "uploading file to Soniox");
-
-        let file_id = Self::upload_file(client, api_base, api_key, file_path).await?;
-        tracing::info!(file_id = %file_id, "file uploaded, creating transcription");
-
-        let result = Self::transcribe_and_fetch(client, api_base, api_key, params, &file_id).await;
-
-        Self::delete_file(client, api_base, api_key, &file_id).await;
-
-        result
-    }
-
-    async fn transcribe_and_fetch(
-        client: &ClientWithMiddleware,
-        api_base: &str,
-        api_key: &str,
-        params: &ListenParams,
-        file_id: &str,
-    ) -> Result<BatchResponse, Error> {
-        let transcription_id =
-            Self::create_transcription(client, api_base, api_key, params, file_id).await?;
-        tracing::info!(transcription_id = %transcription_id, "transcription created, polling for completion");
-
-        Self::poll_transcription(client, api_base, api_key, &transcription_id).await?;
-        tracing::info!(transcription_id = %transcription_id, "transcription completed, fetching transcript");
-
-        let response = Self::get_transcript(client, api_base, api_key, &transcription_id).await?;
-        tracing::info!("transcript fetched successfully");
-
-        Ok(response)
+        }
     }
 }
 
+fn soniox_err(e: soniox::Error) -> Error {
+    Error::provider_failure(e.message, e.is_retryable)
+}
+
 impl BatchSttAdapter for SonioxAdapter {
+    fn provider_name(&self) -> &'static str {
+        "soniox"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -373,16 +154,14 @@ impl BatchSttAdapter for SonioxAdapter {
 
     fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
         &'a self,
-        client: &'a ClientWithMiddleware,
-        api_base: &'a str,
+        _client: &'a ClientWithMiddleware,
+        _api_base: &'a str,
         api_key: &'a str,
         params: &'a ListenParams,
         file_path: P,
     ) -> BatchFuture<'a> {
         let path = file_path.as_ref().to_path_buf();
-        Box::pin(
-            async move { Self::do_transcribe_file(client, api_base, api_key, params, &path).await },
-        )
+        Box::pin(async move { Self::do_transcribe_file(api_key, params, &path).await })
     }
 }
 

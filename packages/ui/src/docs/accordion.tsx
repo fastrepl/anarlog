@@ -47,7 +47,7 @@ export function Accordion({
             />
           </AccordionPrimitive.Trigger>
         </AccordionPrimitive.Header>
-        <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+        <AccordionPrimitive.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
           <div className="px-4 py-3 text-sm text-neutral-700 dark:text-neutral-300">
             {children}
           </div>

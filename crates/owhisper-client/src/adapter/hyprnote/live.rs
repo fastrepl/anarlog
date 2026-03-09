@@ -175,4 +175,41 @@ mod tests {
         let url = adapter.build_ws_url("https://api.hyprnote.com/stt", &params, 1);
         assert!(url.scheme() == "wss");
     }
+
+    #[test]
+    fn test_meta_model_passed_through_without_resolution() {
+        let adapter = HyprnoteAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            model: Some("cloud".to_string()),
+            languages: vec![ISO639::En.into(), ISO639::De.into()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url_str = url.as_str();
+
+        assert!(
+            url_str.contains("model=cloud"),
+            "meta-model 'cloud' should be passed through to proxy as-is, not resolved to a provider-specific model"
+        );
+        assert!(url_str.contains("language=en"));
+        assert!(url_str.contains("language=de"));
+    }
+
+    #[test]
+    fn test_provider_param_preserved_in_url() {
+        let adapter = HyprnoteAdapter::default();
+        let base_with_provider = "https://api.hyprnote.com/stt?provider=hyprnote";
+        let params = owhisper_interface::ListenParams {
+            model: Some("cloud".to_string()),
+            languages: vec![ISO639::En.into()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(base_with_provider, &params, 1);
+        assert!(
+            url.as_str().contains("provider=hyprnote"),
+            "provider=hyprnote query param should be preserved in the final URL"
+        );
+    }
 }

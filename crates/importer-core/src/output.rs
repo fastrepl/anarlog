@@ -56,13 +56,10 @@ struct TranscriptOutput {
 #[derive(Serialize)]
 struct WordInTranscript {
     id: String,
-    user_id: String,
-    transcript_id: String,
     text: String,
     start_ms: i64,
     end_ms: i64,
     channel: i32,
-    created_at: String,
 }
 
 #[derive(Serialize)]
@@ -212,13 +209,10 @@ fn insert_transcripts_and_words(tables: &mut Map<String, Value>, data: &Collecti
             .iter()
             .map(|word| WordInTranscript {
                 id: word.id.clone(),
-                user_id: user_id.to_string(),
-                transcript_id: transcript.id.clone(),
                 text: word.text.clone(),
                 start_ms: word.start_ms.unwrap_or(0.0) as i64,
                 end_ms: word.end_ms.unwrap_or(0.0) as i64,
                 channel: 0,
-                created_at: chrono::Utc::now().to_rfc3339(),
             })
             .collect();
 

@@ -20,20 +20,11 @@ specta-typescript = { workspace = true }
 uuid = { workspace = true }
 
 [dependencies]
-hypr-aec = { workspace = true }
 hypr-audio = { workspace = true }
-hypr-audio-device = { workspace = true }
-hypr-audio-utils = { workspace = true }
-hypr-data = { workspace = true }
-hypr-device-monitor = { workspace = true }
-hypr-host = { workspace = true }
-hypr-intercept = { workspace = true }
 hypr-language = { workspace = true }
-hypr-llm = { workspace = true }
-hypr-mac = { workspace = true }
-hypr-vad-ext = { workspace = true }
-hypr-vad2 = { workspace = true }
-tauri-plugin-fs-sync = { workspace = true }
+hypr-listener-core = { workspace = true, features = ["specta", "tauri-event"] }
+hypr-storage = { workspace = true }
+hypr-transcript = { workspace = true }
 
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
@@ -48,28 +39,10 @@ tauri = { workspace = true, features = ["specta", "test"] }
 specta = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-bytes = { workspace = true }
-chrono = { workspace = true }
-codes-iso-639 = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
+
 dirs = { workspace = true }
-ordered-float = { version = "5", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
-strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
-url = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
-
-hound = { workspace = true }
-vorbis_rs = { workspace = true }
-
-ractor = { workspace = true }
-ractor-supervisor = { workspace = true }
-
-futures-util = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-tokio-stream = { workspace = true }
-tokio-util = { workspace = true }
 tracing = { workspace = true }
-
-sentry = { workspace = true }

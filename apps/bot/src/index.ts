@@ -1,11 +1,6 @@
 import { ApplicationFunctionOptions, Probot } from "probot";
 
-import { startDevinStatusPoller } from "./devin/index.js";
-import {
-  registerDevinStatusHandler,
-  registerFixMergeConflictHandler,
-  registerPrClosedHandler,
-} from "./features/index.js";
+import { registerPrClosedHandler } from "./features/index.js";
 
 export default (app: Probot, { getRouter }: ApplicationFunctionOptions) => {
   if (getRouter) {
@@ -16,11 +11,5 @@ export default (app: Probot, { getRouter }: ApplicationFunctionOptions) => {
     });
   }
 
-  if (process.env.NODE_ENV !== "test") {
-    startDevinStatusPoller(app);
-  }
-
-  registerDevinStatusHandler(app);
-  registerFixMergeConflictHandler(app);
   registerPrClosedHandler(app);
 };

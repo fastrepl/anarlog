@@ -3,66 +3,25 @@
     color: #3b82f6;
     cursor: text;
     text-decoration: underline;
-    position: relative;
+
+    &.mention {
+      text-decoration: none;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    &.mention:hover {
+      color: inherit;
+    }
+
+    &.mention:hover::after,
+    &.mention:hover::before {
+      display: none;
+    }
 
     &:hover {
       color: #1d4ed8;
+      cursor: pointer;
     }
-
-    &:hover::after {
-      content: "Cmd+click to open link";
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      margin-bottom: 8px;
-      padding: 6px 10px;
-      background-color: rgba(0, 0, 0, 0.85);
-      color: white;
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-      border-radius: 6px;
-      pointer-events: none;
-      z-index: 1000;
-      animation: fadeIn 0.15s ease-in;
-    }
-
-    &:hover::before {
-      content: "";
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      margin-bottom: 2px;
-      border: 6px solid transparent;
-      border-top-color: rgba(0, 0, 0, 0.85);
-      pointer-events: none;
-      z-index: 1000;
-      animation: fadeIn 0.15s ease-in;
-    }
-
-    @media (pointer: coarse), (hover: none) {
-      &:hover::after,
-      &:hover::before {
-        display: none;
-      }
-    }
-  }
-}
-
-.platform-windows .tiptap a:hover::after,
-.platform-linux .tiptap a:hover::after {
-  content: "Ctrl+click to open link";
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
 }

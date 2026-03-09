@@ -15,7 +15,6 @@ interface DraftArticle {
   meta_title?: string;
   author?: string;
   date?: string;
-  published?: boolean;
   ready_for_review?: boolean;
 }
 
@@ -73,7 +72,6 @@ export const Route = createFileRoute("/api/admin/content/list-drafts")({
                 meta_title: frontmatter.meta_title as string | undefined,
                 author: frontmatter.author as string | undefined,
                 date: frontmatter.date as string | undefined,
-                published: frontmatter.published as boolean | undefined,
                 ready_for_review: frontmatter.ready_for_review as
                   | boolean
                   | undefined,

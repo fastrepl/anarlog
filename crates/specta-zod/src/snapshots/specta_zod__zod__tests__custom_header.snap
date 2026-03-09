@@ -1,0 +1,13 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+// Custom header
+import { z } from 'zod';
+
+export const simpleStructSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  active: z.boolean(),
+});
+export type SimpleStruct = z.infer<typeof simpleStructSchema>;

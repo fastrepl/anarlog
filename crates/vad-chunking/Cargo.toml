@@ -1,0 +1,18 @@
+[package]
+name = "vad-chunking"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+hound = { workspace = true }
+hypr-data = { workspace = true }
+rodio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+[dependencies]
+hypr-audio-interface = { workspace = true }
+silero-rs = { git = "https://github.com/emotechlab/silero-rs", rev = "193542c", package = "silero" }
+
+futures-util = { workspace = true }
+pin-project = { workspace = true }
+thiserror = { workspace = true }

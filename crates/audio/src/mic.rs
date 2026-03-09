@@ -3,11 +3,14 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use dasp::sample::ToSample;
-use futures_channel::mpsc;
-use futures_util::{Stream, StreamExt};
-use std::pin::Pin;
+use futures_util::Stream;
+use futures_util::task::AtomicWaker;
+use ringbuf::{HeapCons, HeapProd, HeapRb, traits::Split};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::AsyncSource;
+use crate::async_ring::RingbufAsyncReader;
 
 fn is_tap_device(name: &str) -> bool {
     #[cfg(target_os = "macos")]
@@ -22,16 +25,19 @@ fn is_tap_device(name: &str) -> bool {
 }
 
 pub struct MicInput {
-    #[allow(dead_code)]
-    host: cpal::Host,
+    _host: cpal::Host,
     device: cpal::Device,
     config: cpal::SupportedStreamConfig,
 }
 
+const MIC_READ_CHUNK_SIZE: usize = 256;
+const MIC_BUFFER_SIZE: usize = MIC_READ_CHUNK_SIZE * 256;
+
 impl MicInput {
     pub fn device_name(&self) -> String {
         self.device
-            .name()
+            .description()
+            .map(|d| d.name().to_string())
             .unwrap_or("Unknown Microphone".to_string())
     }
 
@@ -40,7 +46,10 @@ impl MicInput {
             .input_devices()
             .unwrap()
             .filter_map(|d| {
-                let name = d.name().unwrap_or("Unknown Microphone".to_string());
+                let name = d
+                    .description()
+                    .map(|desc| desc.name().to_string())
+                    .unwrap_or("Unknown Microphone".to_string());
                 if is_tap_device(&name) {
                     None
                 } else {
@@ -53,15 +62,21 @@ impl MicInput {
     pub fn new(device_name: Option<String>) -> Result<Self, crate::Error> {
         let host = cpal::default_host();
 
+        let get_device_name = |d: &cpal::Device| {
+            d.description()
+                .map(|desc| desc.name().to_string())
+                .unwrap_or_default()
+        };
+
         let default_input_device = host
             .default_input_device()
-            .filter(|d| !is_tap_device(&d.name().unwrap_or_default()));
+            .filter(|d| !is_tap_device(&get_device_name(d)));
 
         let input_devices: Vec<cpal::Device> = host
             .input_devices()
             .map(|devices| {
                 devices
-                    .filter(|d| !is_tap_device(&d.name().unwrap_or_default()))
+                    .filter(|d| !is_tap_device(&get_device_name(d)))
                     .collect()
             })
             .unwrap_or_else(|_| Vec::new());
@@ -72,58 +87,90 @@ impl MicInput {
                 .ok_or(crate::Error::NoInputDevice)?,
             Some(name) => input_devices
                 .into_iter()
-                .find(|d| d.name().unwrap_or_default() == name)
+                .find(|d| get_device_name(d) == name)
                 .or(default_input_device)
                 .or_else(|| {
                     host.input_devices().ok().and_then(|mut devices| {
-                        devices.find(|d| !is_tap_device(&d.name().unwrap_or_default()))
+                        devices.find(|d| !is_tap_device(&get_device_name(d)))
                     })
                 })
                 .ok_or(crate::Error::NoInputDevice)?,
         };
 
         let config = device.default_input_config().unwrap();
-        tracing::info!(sample_rate = ?config.sample_rate());
+        tracing::info!(
+            hyprnote.audio.sample_rate_hz = ?config.sample_rate(),
+            "mic_input_initialized"
+        );
 
         Ok(Self {
-            host,
+            _host: host,
             device,
             config,
         })
     }
 
     pub fn sample_rate(&self) -> u32 {
-        self.config.sample_rate().0
+        self.config.sample_rate()
     }
 }
 
 impl MicInput {
     pub fn stream(&self) -> MicStream {
-        let (tx, rx) = mpsc::unbounded::<Vec<f32>>();
-
         let config = self.config.clone();
         let device = self.device.clone();
         let (drop_tx, drop_rx) = std::sync::mpsc::channel();
+
+        let rb = HeapRb::<f32>::new(MIC_BUFFER_SIZE);
+        let (producer, consumer) = rb.split();
+
+        let waker = Arc::new(AtomicWaker::new());
+        let wake_pending = Arc::new(AtomicBool::new(false));
+        let alive = Arc::new(AtomicBool::new(true));
+        let dropped_samples = Arc::new(AtomicUsize::new(0));
+
+        let waker_for_thread = waker.clone();
+        let wake_pending_for_thread = wake_pending.clone();
+        let alive_for_thread = alive.clone();
+        let dropped_for_thread = dropped_samples.clone();
 
         std::thread::spawn(move || {
             fn build_stream<S: ToSample<f32> + SizedSample>(
                 device: &cpal::Device,
                 config: &cpal::SupportedStreamConfig,
-                mut tx: mpsc::UnboundedSender<Vec<f32>>,
+                mut producer: HeapProd<f32>,
+                waker: Arc<AtomicWaker>,
+                wake_pending: Arc<AtomicBool>,
+                dropped_samples: Arc<AtomicUsize>,
+                alive: Arc<AtomicBool>,
             ) -> Result<cpal::Stream, cpal::BuildStreamError> {
                 let channels = config.channels() as usize;
+                let mut scratch = vec![0.0f32; crate::rt_ring::DEFAULT_SCRATCH_LEN];
+                let waker_for_err = waker.clone();
+                let alive_for_err = alive.clone();
                 device.build_input_stream::<S, _, _>(
                     &config.config(),
                     move |data: &[S], _input_callback_info: &_| {
-                        let _ = tx.start_send(
-                            data.iter()
-                                .step_by(channels)
-                                .map(|&x| x.to_sample())
-                                .collect(),
+                        let stats = crate::rt_ring::push_interleaved_first_channel_to_ringbuf(
+                            data,
+                            channels,
+                            &mut scratch,
+                            &mut producer,
                         );
+
+                        if stats.dropped > 0 {
+                            dropped_samples.fetch_add(stats.dropped, Ordering::Relaxed);
+                        }
+
+                        if stats.pushed > 0 && wake_pending.load(Ordering::Acquire) {
+                            wake_pending.store(false, Ordering::Release);
+                            waker.wake();
+                        }
                     },
-                    |err| {
-                        tracing::error!("an error occurred on stream: {}", err);
+                    move |err| {
+                        tracing::error!(error.message = %err, "mic_stream_error");
+                        alive_for_err.store(false, Ordering::Release);
+                        waker_for_err.wake();
                     },
                     None,
                 )
@@ -131,10 +178,42 @@ impl MicInput {
 
             let start_stream = || {
                 let stream = match config.sample_format() {
-                    cpal::SampleFormat::I8 => build_stream::<i8>(&device, &config, tx),
-                    cpal::SampleFormat::I16 => build_stream::<i16>(&device, &config, tx),
-                    cpal::SampleFormat::I32 => build_stream::<i32>(&device, &config, tx),
-                    cpal::SampleFormat::F32 => build_stream::<f32>(&device, &config, tx),
+                    cpal::SampleFormat::I8 => build_stream::<i8>(
+                        &device,
+                        &config,
+                        producer,
+                        waker_for_thread.clone(),
+                        wake_pending_for_thread.clone(),
+                        dropped_for_thread.clone(),
+                        alive_for_thread.clone(),
+                    ),
+                    cpal::SampleFormat::I16 => build_stream::<i16>(
+                        &device,
+                        &config,
+                        producer,
+                        waker_for_thread.clone(),
+                        wake_pending_for_thread.clone(),
+                        dropped_for_thread.clone(),
+                        alive_for_thread.clone(),
+                    ),
+                    cpal::SampleFormat::I32 => build_stream::<i32>(
+                        &device,
+                        &config,
+                        producer,
+                        waker_for_thread.clone(),
+                        wake_pending_for_thread.clone(),
+                        dropped_for_thread.clone(),
+                        alive_for_thread.clone(),
+                    ),
+                    cpal::SampleFormat::F32 => build_stream::<f32>(
+                        &device,
+                        &config,
+                        producer,
+                        waker_for_thread.clone(),
+                        wake_pending_for_thread.clone(),
+                        dropped_for_thread.clone(),
+                        alive_for_thread.clone(),
+                    ),
                     sample_format => {
                         tracing::error!(sample_format = ?sample_format, "unsupported");
                         return None;
@@ -151,6 +230,7 @@ impl MicInput {
 
                 if let Err(err) = stream.play() {
                     tracing::error!("Error playing stream: {}", err);
+                    return None;
                 }
 
                 Some(stream)
@@ -159,22 +239,32 @@ impl MicInput {
             let stream = match start_stream() {
                 Some(stream) => stream,
                 None => {
+                    alive_for_thread.store(false, Ordering::Release);
+                    waker_for_thread.wake();
                     return;
                 }
             };
 
             // Wait for the stream to be dropped
-            drop_rx.recv().unwrap();
+            let _ = drop_rx.recv();
 
             // Then drop the stream
+            alive_for_thread.store(false, Ordering::Release);
+            waker_for_thread.wake();
             drop(stream);
         });
 
-        let receiver = rx.map(futures_util::stream::iter).flatten();
         MicStream {
             drop_tx,
             config: self.config.clone(),
-            receiver: Box::pin(receiver),
+            reader: RingbufAsyncReader::new(
+                consumer,
+                waker,
+                wake_pending,
+                vec![0.0f32; MIC_READ_CHUNK_SIZE],
+            )
+            .with_alive(alive)
+            .with_dropped_samples(dropped_samples, "mic_samples_dropped"),
         }
     }
 }
@@ -182,12 +272,12 @@ impl MicInput {
 pub struct MicStream {
     drop_tx: std::sync::mpsc::Sender<()>,
     config: cpal::SupportedStreamConfig,
-    receiver: Pin<Box<dyn Stream<Item = f32> + Send + Sync>>,
+    reader: RingbufAsyncReader<HeapCons<f32>>,
 }
 
 impl Drop for MicStream {
     fn drop(&mut self) {
-        self.drop_tx.send(()).unwrap();
+        let _ = self.drop_tx.send(());
     }
 }
 
@@ -198,7 +288,8 @@ impl Stream for MicStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.receiver.as_mut().poll_next_unpin(cx)
+        let this = self.as_mut().get_mut();
+        this.reader.poll_next_sample(cx).poll
     }
 }
 
@@ -208,7 +299,7 @@ impl AsyncSource for MicStream {
     }
 
     fn sample_rate(&self) -> u32 {
-        self.config.sample_rate().0
+        self.config.sample_rate()
     }
 }
 
@@ -235,7 +326,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mic_stream_with_resampling() {
-        use hypr_audio_utils::{ResampleExtDynamicNew, chunk_size_for_stt};
+        use hypr_audio_utils::chunk_size_for_stt;
+        use hypr_resampler::ResampleExtDynamicNew;
 
         let mic = MicInput::new(None).unwrap();
         println!("mic device: {}", mic.device_name());

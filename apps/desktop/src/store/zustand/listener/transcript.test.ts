@@ -3,12 +3,13 @@ import { createStore } from "zustand";
 
 import type { StreamResponse, StreamWord } from "@hypr/plugin-listener";
 
-import type { RuntimeSpeakerHint, WordLike } from "../../../utils/segment";
 import {
   createTranscriptSlice,
   type TranscriptActions,
   type TranscriptState,
 } from "./transcript";
+
+import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 const createTranscriptStore = () => {
   return createStore<TranscriptState & TranscriptActions>((set, get) =>

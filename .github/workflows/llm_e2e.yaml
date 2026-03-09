@@ -6,8 +6,6 @@ on:
     paths:
       - crates/llm-proxy/**
   pull_request:
-    branches-ignore:
-      - "**/graphite-base/**"
     paths:
       - crates/llm-proxy/**
 

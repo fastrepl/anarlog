@@ -1,14 +1,19 @@
+mod commands;
 mod error;
+pub mod server;
 mod types;
 
 #[cfg(test)]
 mod docs;
 
 pub use error::{Error, Result};
-pub use types::{DeepLink, DeepLinkEvent};
+pub use types::{
+    AuthCallbackSearch, BillingRefreshSearch, DeepLink, DeepLinkEvent, IntegrationCallbackSearch,
+};
 
 use std::str::FromStr;
 
+use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_specta::Event;
 
@@ -29,7 +34,10 @@ fn redact_url(url_str: &str) -> String {
 fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
-        .commands(tauri_specta::collect_commands![])
+        .commands(tauri_specta::collect_commands![
+            commands::start_callback_server::<tauri::Wry>,
+            commands::stop_callback_server::<tauri::Wry>,
+        ])
         .events(tauri_specta::collect_events![types::DeepLinkEvent])
         .typ::<types::DeepLink>()
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -42,6 +50,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
+            app.manage(server::CallbackServerState::new());
 
             let app_handle = app.clone();
 

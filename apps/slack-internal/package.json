@@ -7,22 +7,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hypr/agent-analytic": "workspace:^",
     "@hypr/agent-designer": "workspace:^",
     "@hypr/agent-support": "workspace:^",
-    "@langchain/core": "^1.1.15",
-    "@langchain/langgraph": "^1.1.0",
-    "@sentry/bun": "^10.34.0",
+    "@langchain/core": "^1.1.22",
+    "@langchain/langgraph": "^1.1.4",
+    "@sentry/bun": "^10.38.0",
     "@slack/bolt": "^4.6.0",
-    "@slack/types": "^2.19.0",
-    "@slack/web-api": "^7.13.0",
+    "@slack/types": "^2.20.0",
+    "@slack/web-api": "^7.14.0",
     "@t3-oss/env-core": "^0.13.10",
     "jsx-slack": "^6.1.2",
     "marked": "^17.0.1",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/bun": "^1.3.6",
+    "@types/bun": "^1.3.9",
     "@types/marked": "^6.0.0",
     "typescript": "^5.9.3"
   }

@@ -1,0 +1,46 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2024"
+homepage = "https://char.com"
+license = "GPL-3.0"
+repository = "https://github.com/fastrepl/char"
+description = "Live transcription TUI"
+
+[[bin]]
+name = "char"
+path = "src/main.rs"
+
+[dependencies]
+hypr-file = { workspace = true }
+hypr-language = { workspace = true }
+hypr-listener-core = { workspace = true }
+hypr-listener2-core = { workspace = true }
+hypr-local-model = { workspace = true }
+hypr-local-stt-core = { workspace = true }
+hypr-local-stt-server = { workspace = true }
+hypr-model-downloader = { workspace = true }
+hypr-storage = { workspace = true }
+hypr-transcript = { workspace = true }
+owhisper-interface = { workspace = true }
+
+clap = { workspace = true, features = ["derive", "env"] }
+comfy-table = "7"
+crossterm = { workspace = true }
+dirs = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png"] }
+indicatif = "0.17"
+ratatui = { workspace = true }
+ratatui-image = { version = "10.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
+tempfile = { workspace = true }
+textwrap = { version = "0.16", features = ["terminal_size"] }
+tui-textarea = { workspace = true }
+
+open = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
+tokio-stream = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

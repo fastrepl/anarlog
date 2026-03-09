@@ -15,6 +15,8 @@ import { format } from "@hypr/utils";
 
 import { useMainPersisters } from "./persisters";
 
+import { getSessionEvent } from "~/session/utils";
+
 export const STORE_ID = "main";
 
 export const TABLES = Object.keys(
@@ -38,7 +40,7 @@ const {
   useProvideCheckpoints,
 } = _UI as _UI.WithSchemas<Schemas>;
 
-export const UI = _UI as _UI.WithSchemas<Schemas>;
+export const UI = _UI as TypedUI;
 export type Store = MergeableStore<Schemas>;
 export type { Schemas };
 
@@ -77,19 +79,12 @@ export const StoreComponent = () => {
   const relationships = useCreateRelationships(
     store,
     (store) =>
-      createRelationships(store)
-        .setRelationshipDefinition(
-          RELATIONSHIPS.sessionToEvent,
-          "sessions",
-          "events",
-          "event_id",
-        )
-        .setRelationshipDefinition(
-          RELATIONSHIPS.enhancedNoteToSession,
-          "enhanced_notes",
-          "sessions",
-          "session_id",
-        ),
+      createRelationships(store).setRelationshipDefinition(
+        RELATIONSHIPS.enhancedNoteToSession,
+        "enhanced_notes",
+        "sessions",
+        "session_id",
+      ),
     [],
   )!;
 
@@ -97,47 +92,28 @@ export const StoreComponent = () => {
     store,
     (store) =>
       createQueries(store)
+        .setQueryDefinition(QUERIES.timelineEvents, "events", ({ select }) => {
+          select("title");
+          select("started_at");
+          select("ended_at");
+          select("calendar_id");
+          select("tracking_id_event");
+          select("has_recurrence_rules");
+          select("recurrence_series_id");
+          select("is_all_day");
+        })
         .setQueryDefinition(
-          QUERIES.eventsWithoutSession,
-          "events",
-          ({ select, join, where }) => {
-            select("title");
-            select("started_at");
-            select("ended_at");
-            select("calendar_id");
-
-            join("sessions", (_getCell, rowId) => {
-              let id: string | undefined;
-              store.forEachRow("sessions", (sessionRowId, _forEachCell) => {
-                if (
-                  store.getCell("sessions", sessionRowId, "event_id") === rowId
-                ) {
-                  id = sessionRowId;
-                }
-              });
-              return id;
-            }).as("session");
-            where(
-              (getTableCell) =>
-                !getTableCell("session", "user_id") &&
-                !getTableCell("events", "ignored"),
-            );
-          },
-        )
-        .setQueryDefinition(
-          QUERIES.sessionsWithMaybeEvent,
+          QUERIES.timelineSessions,
           "sessions",
-          ({ select, join }) => {
+          ({ select }) => {
             select("title");
             select("created_at");
-            select("event_id");
+            select("event_json");
             select("folder_id");
-
-            join("events", "event_id").as("event");
-            select("event", "started_at").as("event_started_at");
           },
         )
         .setQueryDefinition(QUERIES.visibleHumans, "humans", ({ select }) => {
+          select("created_at");
           select("name");
           select("email");
           select("org_id");
@@ -150,7 +126,10 @@ export const StoreComponent = () => {
           QUERIES.visibleOrganizations,
           "organizations",
           ({ select }) => {
+            select("created_at");
             select("name");
+            select("pinned");
+            select("pin_order");
           },
         )
         .setQueryDefinition(
@@ -202,14 +181,33 @@ export const StoreComponent = () => {
           },
         )
         .setQueryDefinition(
-          QUERIES.enabledAppleCalendars,
+          QUERIES.enabledCalendars,
           "calendars",
           ({ select, where }) => {
             select("provider");
-            where(
-              (getCell) =>
-                getCell("enabled") === true && getCell("provider") === "apple",
-            );
+            where("enabled", true);
+          },
+        )
+        .setQueryDefinition(
+          QUERIES.userTemplates,
+          "templates",
+          ({ select, where, param }) => {
+            select("title");
+            select("description");
+            select("sections");
+            select("user_id");
+            where("user_id", (param("user_id") as string) ?? "");
+          },
+          { user_id: "" },
+        )
+        .setQueryDefinition(
+          QUERIES.visibleVocabs,
+          "memories",
+          ({ select, where }) => {
+            select("text");
+            select("type");
+            select("created_at");
+            where("type", "vocab");
           },
         ),
     [],
@@ -265,7 +263,7 @@ export const StoreComponent = () => {
         INDEXES.sessionByDateWithoutEvent,
         "sessions",
         (getCell) => {
-          if (getCell("event_id")) {
+          if (getCell("event_json")) {
             return "";
           }
 
@@ -286,10 +284,13 @@ export const StoreComponent = () => {
         (a, b) => String(a).localeCompare(String(b)),
       )
       .setIndexDefinition(
-        INDEXES.sessionsByEvent,
+        INDEXES.sessionsByEventTrackingId,
         "sessions",
-        "event_id",
-        "created_at",
+        (getCell) => {
+          const eventJson = getCell("event_json") as string | undefined;
+          if (!eventJson) return "";
+          return getSessionEvent({ event_json: eventJson })?.tracking_id || "";
+        },
       )
       .setIndexDefinition(
         INDEXES.tagSessionsBySession,
@@ -313,6 +314,16 @@ export const StoreComponent = () => {
         "enhanced_notes",
         "template_id",
         "position",
+      )
+      .setIndexDefinition(
+        INDEXES.mentionsBySource,
+        "mapping_mention",
+        "source_id",
+      )
+      .setIndexDefinition(
+        INDEXES.mentionsByTarget,
+        "mapping_mention",
+        "target_id",
       ),
   );
 
@@ -345,21 +356,23 @@ export const StoreComponent = () => {
 export const rowIdOfChange = (table: string, row: string) => `${table}:${row}`;
 
 export const QUERIES = {
-  eventsWithoutSession: "eventsWithoutSession",
-  sessionsWithMaybeEvent: "sessionsWithMaybeEvent",
+  timelineEvents: "timelineEvents",
+  timelineSessions: "timelineSessions",
   visibleOrganizations: "visibleOrganizations",
   visibleHumans: "visibleHumans",
   visibleTemplates: "visibleTemplates",
   visibleChatShortcuts: "visibleChatShortcuts",
+  visibleVocabs: "visibleVocabs",
   sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   sessionRecordingTimes: "sessionRecordingTimes",
-  enabledAppleCalendars: "enabledAppleCalendars",
-};
+  enabledCalendars: "enabledCalendars",
+  userTemplates: "userTemplates",
+} as const;
 
 export const METRICS = {
   totalHumans: "totalHumans",
   totalOrganizations: "totalOrganizations",
-};
+} as const;
 
 export const INDEXES = {
   humansByOrg: "humansByOrg",
@@ -369,15 +382,111 @@ export const INDEXES = {
   transcriptBySession: "transcriptBySession",
   eventsByDate: "eventsByDate",
   sessionByDateWithoutEvent: "sessionByDateWithoutEvent",
-  sessionsByEvent: "sessionsByEvent",
+  sessionsByEventTrackingId: "sessionsByEventTrackingId",
   tagSessionsBySession: "tagSessionsBySession",
   chatMessagesByGroup: "chatMessagesByGroup",
   sessionsByHuman: "sessionsByHuman",
   enhancedNotesBySession: "enhancedNotesBySession",
   enhancedNotesByTemplate: "enhancedNotesByTemplate",
-};
+  mentionsBySource: "mentionsBySource",
+  mentionsByTarget: "mentionsByTarget",
+} as const;
 
 export const RELATIONSHIPS = {
-  sessionToEvent: "sessionToEvent",
   enhancedNoteToSession: "enhancedNoteToSession",
+} as const;
+
+type QueryId = (typeof QUERIES)[keyof typeof QUERIES];
+
+interface _QueryResultRows {
+  timelineEvents: {
+    title: string;
+    started_at: string;
+    ended_at: string;
+    calendar_id: string;
+    tracking_id_event: string;
+    has_recurrence_rules: boolean;
+    recurrence_series_id: string;
+    is_all_day: boolean;
+  };
+  timelineSessions: {
+    title: string;
+    created_at: string;
+    event_json: string;
+    folder_id: string;
+  };
+  visibleHumans: {
+    created_at: string;
+    name: string;
+    email: string;
+    org_id: string;
+    job_title: string;
+    linkedin_username: string;
+    pinned: boolean;
+    pin_order: number;
+  };
+  visibleOrganizations: {
+    created_at: string;
+    name: string;
+    pinned: boolean;
+    pin_order: number;
+  };
+  visibleTemplates: {
+    title: string;
+    description: string;
+    sections: string;
+  };
+  visibleChatShortcuts: {
+    user_id: string;
+    title: string;
+    content: string;
+  };
+  sessionParticipantsWithDetails: {
+    session_id: string;
+    human_id: string;
+    human_name?: string;
+    human_email?: string;
+    human_job_title?: string;
+    human_linkedin_username?: string;
+    org_id?: string;
+    org_name?: string;
+  };
+  sessionRecordingTimes: {
+    session_id: string;
+    min_started_at: number;
+    max_ended_at: number;
+  };
+  enabledCalendars: {
+    provider: string;
+  };
+  userTemplates: {
+    title: string;
+    description: string;
+    sections: string;
+    user_id: string;
+  };
+  visibleVocabs: {
+    text: string;
+    type: string;
+    created_at: string;
+  };
+}
+
+export type QueryResultRowMap = { [K in QueryId]: _QueryResultRows[K] };
+
+type QueriesOrQueriesId = _UI.WithSchemas<Schemas>["QueriesOrQueriesId"];
+
+type TypedUI = Omit<
+  _UI.WithSchemas<Schemas>,
+  "useResultTable" | "useResultRow"
+> & {
+  useResultTable: <Q extends QueryId>(
+    queryId: Q,
+    queriesOrQueriesId?: QueriesOrQueriesId,
+  ) => Record<string, QueryResultRowMap[Q]>;
+  useResultRow: <Q extends QueryId>(
+    queryId: Q,
+    rowId: string,
+    queriesOrQueriesId?: QueriesOrQueriesId,
+  ) => QueryResultRowMap[Q];
 };

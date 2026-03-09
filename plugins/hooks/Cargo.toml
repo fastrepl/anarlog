@@ -17,19 +17,15 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 hypr-docs = { workspace = true }
 
 [dependencies]
-tauri-plugin-path2 = { workspace = true }
-tauri-plugin-settings = { workspace = true }
-
-tauri = { workspace = true, features = ["test"] }
-tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+hypr-hooks = { workspace = true }
 
 serde = { workspace = true }
+specta = { workspace = true }
+tauri = { workspace = true, features = ["test"] }
+tauri-plugin-settings = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-specta = { workspace = true }
-
-dirs = { workspace = true }
-futures-util = { workspace = true }
-shellexpand = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["process", "time"] }

@@ -30,7 +30,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     if proplist
         .set_str(
             libpulse_binding::proplist::properties::APPLICATION_NAME,
-            "Hyprnote Device Monitor",
+            "Char Device Monitor",
         )
         .is_err()
     {

@@ -1,159 +1,76 @@
 ---
 meta_title: "Why Your Notes Should Live as Files, Not Database Rows"
 display_title: "The Filesystem Is the Cortex"
-meta_description: "Why file-based systems matter in the AI era, and how Hyprnote fits into the future of note-taking."
+meta_description: "Why file-based systems matter in the AI era, and how Char fits into the future of note-taking."
 author: "John Jeong"
-published: true
+category: "Founders' notes"
 date: "2025-12-30"
 ---
 
-Most businesses don't win because they have more features.
+Most businesses win not because they have more features, but because they communicate a clearer philosophy—a picture of the future that some people want to live inside.
 
-They win because they communicate a clearer philosophy - a picture of the future that some people want to live inside.
+In older eras, religion acted as the gravity of communities. Today, we're still pulled by gravity, just different kinds: interests, crafts, identities, missions. People want to become good at something. They want to enjoy something deeply. They want to find tools that make their journey feel coherent.
 
-In older eras, religion acted as the gravity of communities. Today, we're still pulled by gravity - just different kinds: interests, crafts, identities, missions. People want to become good at something. They want to enjoy something deeply. They want to find tools that make their journey feel coherent.
-
-A startup's job is not just to sell software.
-
-It's to make a specific journey possible - and to make it feel inevitable.
+A startup's job is to make a specific journey possible and to make it feel inevitable.
 
 ## Notes Are Not Productivity. They're Mind Extension.
 
-Note-taking is one of the most underestimated categories in software because it looks simple.
+Note-taking is one of the most underestimated categories in software because it looks simple. But notes aren't documents or content. They're closer to memory, and memory is closer to identity. A note-taking system is an extension of your mind: a place where thoughts land, take shape, connect, and return later as insight.
 
-But notes are not "documents." They're not "content." They're closer to memory, and memory is closer to identity. A note-taking system is an extension of your mind: a place where thoughts land, take shape, connect, and return later as insight.
-
-And the mind is not one thing.
-
-It has modes. Personas. Contexts.
-
-There's the private mode - personal thinking, half-formed ideas, internal reflections.
-There's the work mode - decisions, planning, collaboration, outcomes.
-There's the publishing mode - writing for other people, making ideas legible, shipping something public.
+The mind operates in modes. There's private thinking—personal thoughts, half-formed ideas, internal reflections. There's work mode—decisions, planning, collaboration, outcomes. There's publishing mode—writing for other people, making ideas legible, shipping something public.
 
 Good note-taking tools don't force those modes into a single abstraction. They let them coexist.
 
-This is why many serious note-takers end up with a "constellation":
+This is why many serious note-takers end up with multiple tools:
 
 - Obsidian for long-term knowledge and personal/work thinking
 - Logseq for daily bullets and chronological capture
 - A dedicated folder for meeting notes, recordings, and attachments
 
-These aren't necessarily competing products. They're compatible because they speak a shared language.
-
-Markdown files on disk.
+These aren't competing products. They're compatible because they share a common substrate: Markdown files on disk.
 
 ## Files Are a Human Interface, Not a Technical Detail
 
-File-based systems are not a relic. They're a cognitive model.
+File-based systems are a cognitive model, not a relic. Humans have organized information spatially for centuries: drawers, cabinets, boxes, folders. We remember where something is. Location is recall. Structure is memory.
 
-Humans have organized information spatially for centuries: drawers, cabinets, boxes, folders. We do this because it's natural. We remember where something is. Location is recall. Structure is memory.
+This is why the terminal still feels natural. `ls`, `pwd`, `grep`—these commands mirror how people already understand information. There's a place, there's a name, there's content, there's a way to find it. Computers didn't invent this model. They adopted it.
 
-This is also why the terminal still feels so "right":
-
-ls, pwd, grep - these commands are not arbitrary. They mirror how people already understand information: there's a place, there's a name, there's content, there's a way to find it.
-
-Computers didn't invent this. Computers adopted it.
-
-So when we talk about "local-first" and "file-based," we're not arguing about implementation. We're talking about something much more important:
-
-Trust.
-
-A note-taking system is a memory prosthetic. And memory needs to feel owned. It needs to feel reliable. It needs to feel like it belongs to you, not to a platform.
-
-When notes live as files, they feel like part of you.
-When notes live as opaque blobs behind an API, they feel like someone else's product.
+When we talk about "local-first" and "file-based," we're discussing something beyond implementation: trust. A note-taking system is a memory prosthetic. Memory needs to feel owned, reliable, and genuinely yours. When notes live as files, they feel like part of you. When notes live as opaque blobs behind an API, they feel like someone else's product.
 
 ## Why AI Works So Well in Coding (and Why Writing Is Following)
 
-There's a reason coding agents feel like magic right now.
+Coding agents feel effective right now partly because models are capable, but also because code is file-based. Software lives as artifacts—foo.tsx, bar.py, main.rs, README.md—not rows in a database or JSON stuffed inside Postgres fields. Real files with real names, clear structure, readable content.
 
-It's not only because the models are smart.
+AI agents can traverse repositories, read context, understand conventions, search across files, and generate changes that fit the existing structure. The agent sees the artifact, diffs it, rewrites it, reasons about it.
 
-It's because code is file-based.
+The best coding tools work because they're not inventing a new abstraction. They ride the filesystem—the same abstraction humans have used to manage complexity for decades.
 
-Software lives as artifacts:
-foo.tsx
-bar.py
-main.rs
-README.md
+Writing is following the same pattern. People draft blog posts and essays inside coding environments. It seems odd on the surface, but writing and coding are closer than we admit. In both cases you're composing, shaping intent into an artifact, embedding values into structure, turning a vague thought into something executable—either by machines (code) or by humans (writing).
 
-Not rows in a database. Not JSON stuffed inside Postgres fields. Real files with real names, clear structure, and readable content.
-
-AI agents can traverse repositories, read context, understand conventions, search across files, and generate changes that fit the existing structure. The agent can see the artifact. It can diff it. It can rewrite it. It can reason about it.
-
-That's why the best coding tools work: they're not inventing a new abstraction. They're riding the filesystem - the same abstraction humans have used to manage complexity for decades.
-
-And now you can see the spillover into writing.
-
-People are drafting blog posts and essays inside coding environments. On the surface, it's weird - why write prose in a code tool?
-
-But it makes sense because writing and coding are closer than we admit.
-
-In both cases, you are composing.
-You are shaping intent into an artifact.
-You are embedding values into structure.
-You are turning a vague thought into something executable - either by machines (code) or by humans (writing).
-
-So the reason "agents for writing" are happening inside code tools is simple:
-
-Those tools are file-native.
-
-They treat writing as a first-class artifact, not as a database record.
+"Agents for writing" are happening inside code tools because those tools are file-native. They treat writing as a first-class artifact, not as a database record.
 
 ## The Endgame: Less Folder Worship, More Meaning
 
-I don't think the future is "more folders."
+The future probably isn't "more folders." Folders are useful as a spatial index for recall, but they're a human workaround.
 
-Folders are useful, but they're a human crutch - a spatial index for recall.
+In the AI era, titles matter less than content. Location matters less than meaning. The real organizing principle will shift toward content semantics, metadata, search, retrieval, and links between ideas. The filesystem remains the substrate. The intelligence layer sits on top.
 
-In the AI era, titles matter less than content. Location matters less than meaning. Graphs and visual maps might be scaffolding for a transitional era.
+## Where Char Fits
 
-We'll still use folders because humans like them. But the real organizing principle will shift toward:
+In the note-taking ecosystem, Obsidian communicates a clearer picture of the future than most. It's an incredible interface on top of a file-based knowledge base, and it has influenced how an entire generation thinks about notes. I've subscribed for years because of what it represents, not because of one feature.
 
-- content semantics
-- metadata
-- search
-- retrieval
-- links between ideas
+We don't want to replace Obsidian. We want to be part of the same movement: tools that respect files, respect ownership, and respect the mind.
 
-The filesystem remains the cortex - the substrate.
-The intelligence layer sits on top.
+Char is built to become the best interface for meeting notes and a connector across the full meeting workflow. Before the meeting: context, agenda, prep. During: capture, audio, real-time structure. After: summaries, decisions, action items, follow-ups. Eventually, a command center where you can direct AI instead of being replaced by it.
 
-## Where Hyprnote Fits
+Because Char is file-based and local-first, it can sit alongside your existing vault. It can read from your knowledge base and write back into it. It treats meetings as a specialized region of your brain—deeply integrated, but not controlling everything else.
 
-In the note-taking ecosystem, some players are communicating a clearer picture of the future than others. Obsidian is one of them. It's an incredible interface on top of a file-based knowledge base, and it has influenced how an entire generation thinks about notes. I've personally subscribed for years - not because of one feature, but because of what it represents.
-
-We don't want to "take over" Obsidian.
-
-We want to be part of the same movement: tools that respect files, respect ownership, and respect the mind.
-
-Hyprnote exists to become the best interface for meeting notes - and a super-connector across the full meeting workflow:
-
-- before the meeting: context, agenda, prep
-- during the meeting: capture, audio, real-time structure
-- after the meeting: summaries, decisions, action items, follow-ups
-
-And eventually, a command center where you can direct AI - not be replaced by it.
-
-Because Hyprnote is file-based and local-first, it doesn't have to live in isolation. It can sit alongside your existing vault. It can read from your knowledge base. It can write back into it. It can treat meetings as a specialized region of your brain - deeply integrated, but not controlling everything else.
-
-That's the direction we care about:
-
-Not building another walled garden.
-Building a tool that fits into the cortex.
+That's the direction that matters: building a tool that fits into the cortex, not another walled garden.
 
 ## Closing
 
-This isn't nostalgia for "old-school files."
+This isn't nostalgia for old-school files. It's a belief about the future: if AI is going to help humans think, it needs access to artifacts humans can own, inspect, move, and understand. Markdown, plain text, files.
 
-It's a belief about the future:
+The filesystem is the cortex. In the AI era, it becomes even more important, not less.
 
-If AI is going to help humans think, it needs access to artifacts humans can own, inspect, move, and understand.
-
-Markdown. Plain text. Files.
-
-The filesystem is the cortex - and in the AI era, it becomes even more important, not less.
-
-Hyprnote is our contribution to that future:
-a meeting-native interface inside a file-native world.
+Char is our contribution to that future: a meeting-native interface inside a file-native world.

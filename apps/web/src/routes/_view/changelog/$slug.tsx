@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
     const beforeVersion = changelog.beforeVersion;
     const diffUrl =
       beforeVersion != null
-        ? `https://github.com/fastrepl/hyprnote/compare/desktop_v${beforeVersion}...desktop_v${changelog.version}`
+        ? `https://github.com/fastrepl/char/compare/desktop_v${beforeVersion}...desktop_v${changelog.version}`
         : null;
 
     return {
@@ -45,10 +45,10 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
     const currentVersion = semver.parse(changelog.version);
     const isNightly = currentVersion && currentVersion.prerelease.length > 0;
 
-    const title = `Version ${changelog.version} - Hyprnote Changelog`;
-    const description = `Explore what's new in Hyprnote version ${changelog.version}${isNightly ? " (Nightly)" : ""}.`;
-    const url = `https://hyprnote.com/changelog/${changelog.slug}`;
-    const ogImageUrl = `https://hyprnote.com/og?type=changelog&version=${encodeURIComponent(changelog.version)}&v=1`;
+    const title = `Version ${changelog.version} - Char Changelog`;
+    const description = `Explore what's new in Char version ${changelog.version}${isNightly ? " (Nightly)" : ""}.`;
+    const url = `https://char.com/changelog/${changelog.slug}`;
+    const ogImageUrl = `https://char.com/og?type=changelog&version=${encodeURIComponent(changelog.version)}&v=1`;
 
     return {
       meta: [
@@ -62,8 +62,8 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:site", content: "@tryhyprnote" },
-        { name: "twitter:creator", content: "@tryhyprnote" },
+        { name: "twitter:site", content: "@getcharnotes" },
+        { name: "twitter:creator", content: "@getcharnotes" },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
         { name: "twitter:url", content: url },
@@ -83,12 +83,12 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
-        <div className="max-w-3xl mx-auto px-6 pt-16 lg:pt-24 pb-8">
-          <div className="hidden md:flex md:flex-col md:items-center gap-12">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+        <div className="mx-auto max-w-3xl px-6 pt-16 pb-8 lg:pt-24">
+          <div className="hidden gap-12 md:flex md:flex-col md:items-center">
             <div className="flex flex-col items-center gap-6">
               <img
                 src={
@@ -96,11 +96,11 @@ function Component() {
                     ? "/api/images/icons/nightly-icon.png"
                     : "/api/images/icons/stable-icon.png"
                 }
-                alt="Hyprnote"
+                alt="Char"
                 className="size-32 rounded-2xl"
               />
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-3xl sm:text-4xl font-mono font-medium text-stone-600">
+                <h1 className="font-mono text-3xl font-medium text-stone-700 sm:text-4xl">
                   {changelog.version}
                 </h1>
                 <time
@@ -119,19 +119,19 @@ function Component() {
             <DownloadLinksHero version={changelog.version} />
           </div>
 
-          <div className="md:hidden text-center">
-            <div className="flex flex-col items-center gap-3 mb-8">
+          <div className="text-center md:hidden">
+            <div className="mb-8 flex flex-col items-center gap-3">
               <img
                 src={
                   isPrerelease
                     ? "/api/images/icons/nightly-icon.png"
                     : "/api/images/icons/stable-icon.png"
                 }
-                alt="Hyprnote"
+                alt="Char"
                 className="size-16 rounded-2xl"
               />
               <div className="flex flex-col items-center gap-2">
-                <h1 className="text-3xl font-mono font-medium text-stone-600">
+                <h1 className="font-mono text-3xl font-medium text-stone-700">
                   {changelog.version}
                 </h1>
                 <time
@@ -150,7 +150,7 @@ function Component() {
             <DownloadLinksHeroMobile version={changelog.version} />
           </div>
 
-          <article className="mt-12 prose prose-stone prose-headings:font-serif prose-headings:font-semibold prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h4:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-lg prose-img:border prose-img:border-neutral-200 prose-img:my-6 max-w-none">
+          <article className="prose prose-stone prose-headings:font-serif prose-headings:font-semibold prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h4:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-a:text-stone-700 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-lg prose-img:border prose-img:border-neutral-200 prose-img:my-6 mt-12 max-w-none">
             <MDXContent
               code={changelog.mdx}
               components={defaultMDXComponents}
@@ -161,18 +161,18 @@ function Component() {
         {diffUrl && (
           <>
             <div className="border-t border-neutral-100" />
-            <div className="max-w-3xl mx-auto px-6 py-16 flex flex-col items-center text-center">
-              <h2 className="text-3xl font-serif text-stone-600 mb-2">
+            <div className="mx-auto flex max-w-3xl flex-col items-center px-6 py-16 text-center">
+              <h2 className="mb-2 font-serif text-3xl text-stone-700">
                 View the Code
               </h2>
-              <p className="text-neutral-600 mb-6">
+              <p className="mb-6 text-neutral-600">
                 Curious about what changed? See the full diff on GitHub.
               </p>
               <a
                 href={diffUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 h-12 text-base font-medium bg-linear-to-t from-neutral-800 to-neutral-700 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+                className="inline-flex h-12 items-center gap-2 rounded-full bg-linear-to-t from-neutral-800 to-neutral-700 px-6 text-base font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
               >
                 <Icon icon="mdi:github" className="text-xl" />
                 View Diff on GitHub
@@ -183,7 +183,7 @@ function Component() {
 
         <div className="border-t border-neutral-100" />
 
-        <div className="max-w-3xl mx-auto px-6 py-16">
+        <div className="mx-auto max-w-3xl px-6 py-16">
           <RelatedReleases
             currentSlug={changelog.slug}
             allChangelogs={allChangelogs}
@@ -201,7 +201,7 @@ function DownloadLinksHero({ version }: { version: string }) {
   return (
     <div className="flex items-start gap-8">
       <div className="flex flex-col items-center gap-2">
-        <h3 className="flex items-center gap-1.5 text-xs font-medium text-stone-500 uppercase tracking-wider">
+        <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wider text-stone-500 uppercase">
           <Icon icon="simple-icons:apple" className="text-sm" />
           macOS
         </h3>
@@ -211,10 +211,10 @@ function DownloadLinksHero({ version }: { version: string }) {
               key={link.url}
               href={link.url}
               className={cn([
-                "flex items-center justify-center gap-2 px-4 h-8 text-sm rounded-full transition-all",
+                "flex h-8 items-center justify-center gap-2 rounded-full px-4 text-sm transition-all",
                 "bg-linear-to-b from-white to-stone-50 text-neutral-700",
                 "border border-neutral-300",
-                "hover:shadow-xs hover:scale-[102%] active:scale-[98%]",
+                "hover:scale-[102%] hover:shadow-xs active:scale-[98%]",
               ])}
             >
               <Download className="size-3.5 shrink-0" />
@@ -225,7 +225,7 @@ function DownloadLinksHero({ version }: { version: string }) {
       </div>
 
       <div className="flex flex-col items-center gap-2">
-        <h3 className="flex items-center gap-1.5 text-xs font-medium text-stone-500 uppercase tracking-wider">
+        <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wider text-stone-500 uppercase">
           <Icon icon="simple-icons:linux" className="text-sm" />
           Linux
         </h3>
@@ -235,10 +235,10 @@ function DownloadLinksHero({ version }: { version: string }) {
               key={link.url}
               href={link.url}
               className={cn([
-                "flex items-center justify-center gap-2 px-4 h-8 text-sm rounded-full transition-all",
+                "flex h-8 items-center justify-center gap-2 rounded-full px-4 text-sm transition-all",
                 "bg-linear-to-b from-white to-stone-50 text-neutral-700",
                 "border border-neutral-300",
-                "hover:shadow-xs hover:scale-[102%] active:scale-[98%]",
+                "hover:scale-[102%] hover:shadow-xs active:scale-[98%]",
               ])}
             >
               <Download className="size-3.5 shrink-0" />
@@ -258,14 +258,14 @@ function DownloadLinksHeroMobile({ version }: { version: string }) {
   const allLinks = [...grouped.macos, ...grouped.linux];
 
   return (
-    <div className="-mx-6 px-6 overflow-x-auto scrollbar-hide">
-      <div className="flex gap-3 w-max mx-auto">
+    <div className="scrollbar-hide -mx-6 overflow-x-auto px-6">
+      <div className="mx-auto flex w-max gap-3">
         {allLinks.map((link) => (
           <a
             key={link.url}
             href={link.url}
             className={cn([
-              "flex flex-col items-center gap-2 px-6 py-4 rounded-2xl transition-all w-36",
+              "flex w-36 flex-col items-center gap-2 rounded-2xl px-6 py-4 transition-all",
               "bg-linear-to-b from-white to-stone-50 text-neutral-700",
               "border border-neutral-300",
               "hover:shadow-xs active:scale-[98%]",
@@ -273,7 +273,7 @@ function DownloadLinksHeroMobile({ version }: { version: string }) {
           >
             <Download className="size-5 shrink-0" />
             <div className="text-center">
-              <div className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+              <div className="mb-1 text-xs font-medium tracking-wider text-stone-500 uppercase">
                 {link.platform}
               </div>
               <div className="text-sm font-medium">{link.label}</div>
@@ -317,14 +317,14 @@ function RelatedReleases({
 
   return (
     <section>
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-serif text-stone-600 mb-2">
+      <div className="mb-8 text-center">
+        <h2 className="mb-2 font-serif text-3xl text-stone-700">
           Other Releases
         </h2>
-        <p className="text-neutral-600">Explore more versions of Hyprnote</p>
+        <p className="text-neutral-600">Explore more versions of Char</p>
       </div>
 
-      <div className="grid gap-4 grid-cols-5">
+      <div className="flex gap-4 overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible">
         {relatedChangelogs.map((release) => {
           const version = semver.parse(release.version);
           const isPrerelease = version && version.prerelease.length > 0;
@@ -346,7 +346,7 @@ function RelatedReleases({
             >
               <article
                 className={cn([
-                  "flex flex-col items-center gap-2 p-4 rounded-lg transition-all duration-300",
+                  "flex shrink-0 flex-col items-center gap-2 rounded-lg p-4 transition-all duration-300",
                   isCurrent ? "bg-stone-100" : "hover:bg-stone-50",
                 ])}
               >
@@ -356,7 +356,7 @@ function RelatedReleases({
                       ? "/api/images/icons/nightly-icon.png"
                       : "/api/images/icons/stable-icon.png"
                   }
-                  alt="Hyprnote"
+                  alt="Char"
                   className={cn([
                     "size-12 rounded-xl transition-all duration-300",
                     !isCurrent && "group-hover:scale-110",
@@ -366,7 +366,7 @@ function RelatedReleases({
                 <div className="flex items-center gap-1.5">
                   <h3
                     className={cn([
-                      "text-sm font-mono font-medium text-stone-600 transition-colors",
+                      "font-mono text-sm font-medium text-stone-700 transition-colors",
                       !isCurrent && "group-hover:text-stone-800",
                     ])}
                   >
@@ -375,7 +375,7 @@ function RelatedReleases({
                       : release.version}
                   </h3>
                   {nightlyNumber !== null && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 text-xs font-medium bg-stone-200 text-stone-600 rounded-full">
+                    <span className="inline-flex items-center rounded-full bg-stone-200 px-1.5 py-0.5 text-xs font-medium text-stone-700">
                       #{nightlyNumber}
                     </span>
                   )}
@@ -386,10 +386,10 @@ function RelatedReleases({
         })}
       </div>
 
-      <div className="text-center mt-8">
+      <div className="mt-8 text-center">
         <Link
           to="/changelog/"
-          className="inline-flex items-center gap-2 px-6 h-12 text-base font-medium bg-linear-to-b from-white to-stone-50 text-neutral-700 border border-neutral-300 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all"
+          className="inline-flex h-12 items-center gap-2 rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-6 text-base font-medium text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
         >
           View all releases
           <Icon icon="mdi:arrow-right" className="text-base" />

@@ -1,0 +1,49 @@
+[package]
+name = "listener-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+tauri-event = ["specta", "dep:tauri-specta"]
+
+[dependencies]
+hypr-aec = { workspace = true }
+hypr-audio = { workspace = true }
+hypr-audio-utils = { workspace = true }
+hypr-device-monitor = { workspace = true }
+hypr-host = { workspace = true }
+hypr-language = { workspace = true }
+hypr-resampler = { workspace = true }
+hypr-storage = { workspace = true }
+hypr-supervisor = { workspace = true }
+hypr-transcript = { workspace = true }
+hypr-vad-masking = { workspace = true }
+
+owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
+
+hound = { workspace = true }
+hypr-mp3 = { workspace = true }
+vorbis_rs = { workspace = true }
+
+ractor = { workspace = true, features = ["async-trait"] }
+
+bytes = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+tauri-specta = { workspace = true, optional = true, features = ["derive"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+sentry = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }

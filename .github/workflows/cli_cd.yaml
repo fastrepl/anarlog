@@ -1,0 +1,113 @@
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+      - uses: ./.github/actions/doxxer_install
+      - id: version
+        run: |
+          VERSION=$(doxxer --config doxxer.cli.toml next patch)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Computed version: $VERSION"
+
+  build:
+    needs: compute-version
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            runner: depot-macos-15
+            platform: macos
+          - target: x86_64-unknown-linux-gnu
+            runner: depot-ubuntu-24.04-8
+            platform: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            runner: depot-ubuntu-24.04-arm-8
+            platform: linux-aarch64
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libpulse-dev pkg-config
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: ${{ matrix.platform }}
+      - if: matrix.platform == 'macos'
+        run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+      - run: cargo build --release -p cli --target ${{ matrix.target }}
+      - run: |
+          BIN="target/${{ matrix.target }}/release/hypr-listener"
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            strip -x "$BIN"
+          else
+            strip "$BIN"
+          fi
+          ARCHIVE="hypr-listener-${{ needs.compute-version.outputs.version }}-${{ matrix.target }}.tar.xz"
+          tar -cJf "$ARCHIVE" -C "target/${{ matrix.target }}/release" hypr-listener
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hypr-listener-${{ matrix.target }}
+          path: ${{ env.ARCHIVE }}
+          retention-days: 3
+
+  create-tag:
+    needs: [compute-version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: cli_v${{ needs.compute-version.outputs.version }}
+          tag_prefix: ""
+
+  release:
+    needs: [compute-version, build, create-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - id: checksums
+        uses: ./.github/actions/generate_checksums
+        with:
+          files: |
+            artifacts/hypr-listener-${{ needs.compute-version.outputs.version }}-aarch64-apple-darwin.tar.xz
+            artifacts/hypr-listener-${{ needs.compute-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.xz
+            artifacts/hypr-listener-${{ needs.compute-version.outputs.version }}-aarch64-unknown-linux-gnu.tar.xz
+      - id: artifacts
+        run: |
+          TARBALLS=$(ls artifacts/*.tar.xz | tr '\n' ',')
+          CHECKSUMS=$(ls artifacts/*.sha256 | tr '\n' ',')
+          echo "list=${TARBALLS}${CHECKSUMS}" >> $GITHUB_OUTPUT
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: cli_v${{ needs.compute-version.outputs.version }}
+          name: hypr-listener v${{ needs.compute-version.outputs.version }}
+          artifacts: ${{ steps.artifacts.outputs.list }}

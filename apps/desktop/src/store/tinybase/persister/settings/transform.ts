@@ -1,7 +1,7 @@
 import type { Content } from "tinybase/with-schemas";
 
-import type { Schemas, Store } from "../../store/settings";
-import { SETTINGS_MAPPING } from "../../store/settings";
+import type { Schemas, Store } from "~/store/tinybase/store/settings";
+import { SETTINGS_MAPPING } from "~/store/tinybase/store/settings";
 
 type ProviderData = { base_url: string; api_key: string };
 type ProviderRow = { type: "llm" | "stt"; base_url: string; api_key: string };
@@ -102,7 +102,7 @@ function settingsToProviderRows(
     >;
     for (const [id, data] of Object.entries(providers)) {
       if (data) {
-        rows[id] = {
+        rows[`${providerType}:${id}`] = {
           type: providerType,
           base_url: data.base_url ?? "",
           api_key: data.api_key ?? "",
@@ -121,13 +121,18 @@ export function storeValuesToSettings(
     notification: {},
     general: {},
     language: {},
+    cactus: {},
   };
 
   for (const [key, config] of Object.entries(SETTINGS_MAPPING.values)) {
     const value = values[key];
-    if (value !== undefined) {
-      setByPath(result, config.path, fromStoreValue(key, value));
+    if (value === undefined) {
+      continue;
     }
+    if ("default" in config && value === config.default) {
+      continue;
+    }
+    setByPath(result, config.path, fromStoreValue(key, value));
   }
 
   return result;
@@ -145,7 +150,10 @@ function providerRowsToSettings(rows: Record<string, ProviderRow>): {
   for (const [rowId, row] of Object.entries(rows)) {
     const { type, base_url, api_key } = row;
     if (type === "llm" || type === "stt") {
-      result[type][rowId] = { base_url, api_key };
+      const providerId = rowId.startsWith(`${type}:`)
+        ? rowId.slice(type.length + 1)
+        : rowId;
+      result[type][providerId] = { base_url, api_key };
     }
   }
 

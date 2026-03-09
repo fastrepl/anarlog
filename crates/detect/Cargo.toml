@@ -31,7 +31,7 @@ hypr-bundle = { workspace = true }
 hypr-language = { workspace = true }
 
 plist = "1.7"
-cidre = { workspace = true }
+cidre = { workspace = true, features = ["ax"] }
 block2 = { workspace = true }
 
 objc2-foundation = { workspace = true, features = ["NSLocale", "NSArray", "NSString"] }

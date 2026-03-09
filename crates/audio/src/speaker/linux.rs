@@ -6,6 +6,7 @@ use std::thread;
 use anyhow::{Context, Result};
 use futures_util::Stream;
 use libpulse_binding as pulse;
+use pin_project::pin_project;
 use pulse::context::{Context as PaContext, FlagSet as ContextFlagSet};
 use pulse::mainloop::threaded::Mainloop;
 use pulse::sample::{Format, Spec};
@@ -28,6 +29,7 @@ struct WakerState {
     has_data: bool,
 }
 
+#[pin_project(PinnedDrop)]
 pub struct SpeakerStream {
     consumer: HeapCons<f32>,
     waker_state: Arc<Mutex<WakerState>>,
@@ -69,7 +71,7 @@ impl SpeakerInput {
                 if let Err(e) =
                     capture_loop(producer, waker_state, current_sample_rate, stop_signal)
                 {
-                    tracing::error!(error = ?e, "PulseAudio capture thread failed");
+                    tracing::error!(error.message = ?e, "pulseaudio_capture_thread_failed");
                 }
             })
         };
@@ -116,7 +118,10 @@ fn capture_loop(
     }
 
     let monitor_device = get_default_monitor_device(&mut mainloop, &context);
-    tracing::info!(monitor_device = ?monitor_device, "Connecting to monitor device");
+    tracing::info!(
+        hyprnote.audio.device = ?monitor_device,
+        "connecting_to_monitor_device"
+    );
 
     mainloop.lock();
 
@@ -143,7 +148,10 @@ fn capture_loop(
     mainloop.unlock();
 
     current_sample_rate.store(actual_rate, Ordering::Release);
-    tracing::info!(sample_rate = actual_rate, "PulseAudio capture initialized");
+    tracing::info!(
+        hyprnote.audio.sample_rate_hz = actual_rate,
+        "pulseaudio_capture_initialized"
+    );
 
     let mut buffer = vec![0u8; CHUNK_SIZE * 4];
 
@@ -174,7 +182,10 @@ fn capture_loop(
                     let pushed = producer.push_slice(&samples);
 
                     if pushed < samples.len() {
-                        tracing::warn!(dropped = samples.len() - pushed, "samples_dropped");
+                        tracing::warn!(
+                            hyprnote.audio.dropped_samples = samples.len() - pushed,
+                            "samples_dropped"
+                        );
                     }
 
                     if pushed > 0 {
@@ -310,11 +321,11 @@ impl Stream for SpeakerStream {
     type Item = Vec<f32>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        let this = self.as_mut().get_mut();
-        let popped = this.consumer.pop_slice(&mut this.read_buffer);
+        let this = self.project();
+        let popped = this.consumer.pop_slice(this.read_buffer);
 
         if popped > 0 {
             return Poll::Ready(Some(this.read_buffer[..popped].to_vec()));
@@ -330,10 +341,12 @@ impl Stream for SpeakerStream {
     }
 }
 
-impl Drop for SpeakerStream {
-    fn drop(&mut self) {
-        self.stop_signal.store(true, Ordering::Release);
-        if let Ok(mut state) = self.waker_state.lock()
+#[pin_project::pinned_drop]
+impl PinnedDrop for SpeakerStream {
+    fn drop(self: std::pin::Pin<&mut Self>) {
+        let this = self.project();
+        this.stop_signal.store(true, Ordering::Release);
+        if let Ok(mut state) = this.waker_state.lock()
             && let Some(waker) = state.waker.take()
         {
             waker.wake();

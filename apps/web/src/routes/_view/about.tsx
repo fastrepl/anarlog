@@ -36,10 +36,10 @@ export const Route = createFileRoute("/_view/about")({
   },
   head: () => ({
     meta: [
-      { title: "Team - Hyprnote Press Kit" },
+      { title: "Team - Char Press Kit" },
       {
         name: "description",
-        content: "Meet the Hyprnote team and download team photos.",
+        content: "Meet the Char team and download team photos.",
       },
     ],
   }),
@@ -98,10 +98,10 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <AboutContentSection
           selectedItem={selectedItem}
@@ -115,12 +115,12 @@ function Component() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="text-center max-w-3xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <div className="mx-auto max-w-3xl text-center">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
           About
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600">
-          Learn about Hyprnote, meet our team, and discover the story behind our
+        <p className="text-lg text-neutral-600 sm:text-xl">
+          Learn about Char, meet our team, and discover the story behind our
           privacy-first note-taking platform.
         </p>
       </div>
@@ -140,24 +140,24 @@ function AboutContentSection({
 
   return (
     <section className="px-6 pb-16 lg:pb-24">
-      <div className="max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl">
         <MockWindow
           title="About"
-          className="rounded-lg w-full max-w-none"
+          className="w-full max-w-none rounded-lg"
           prefixIcons={
             isMobile &&
             selectedItem && (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Open navigation"
               >
-                <Menu className="w-4 h-4 text-neutral-600" />
+                <Menu className="h-4 w-4 text-neutral-600" />
               </button>
             )
           }
         >
-          <div className="h-120 relative">
+          <div className="relative h-120">
             {!selectedItem ? (
               <AboutGridView setSelectedItem={setSelectedItem} />
             ) : isMobile ? (
@@ -194,7 +194,7 @@ function AboutGridView({
   setSelectedItem: (item: SelectedItem) => void;
 }) {
   return (
-    <div className="p-8 overflow-y-auto h-120">
+    <div className="h-120 overflow-y-auto p-8">
       <OurStoryGrid setSelectedItem={setSelectedItem} />
       <FoundersGrid setSelectedItem={setSelectedItem} />
       <TeamPhotosGrid setSelectedItem={setSelectedItem} />
@@ -209,24 +209,24 @@ function OurStoryGrid({
 }) {
   return (
     <div className="mb-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Our Story
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         <button
           onClick={() => setSelectedItem({ type: "story" })}
-          className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+          className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
         >
-          <div className="mb-3 w-16 h-16 flex items-center justify-center">
+          <div className="mb-3 flex h-16 w-16 items-center justify-center">
             <Image
               src="/api/images/icons/textedit.webp"
               alt="Our Story"
               width={64}
               height={64}
-              className="w-16 h-16 group-hover:scale-110 transition-transform"
+              className="h-16 w-16 transition-transform group-hover:scale-110"
             />
           </div>
-          <div className="font-medium text-stone-600">Our Story.txt</div>
+          <div className="font-medium text-stone-700">Our Story.txt</div>
         </button>
       </div>
     </div>
@@ -240,10 +240,10 @@ function FoundersGrid({
 }) {
   return (
     <div className="mb-8 border-t border-neutral-100 pt-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Founders
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {FOUNDERS.map((founder) => (
           <button
             key={founder.id}
@@ -253,18 +253,18 @@ function FoundersGrid({
                 data: founder,
               })
             }
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
-            <div className="mb-3 w-16 h-16">
+            <div className="mb-3 h-16 w-16">
               <Image
                 src={founder.avatar}
                 alt={founder.name}
                 width={64}
                 height={64}
-                className="w-16 h-16 rounded-full border-2 border-neutral-200 object-cover group-hover:scale-110 transition-transform"
+                className="h-16 w-16 rounded-full border-2 border-neutral-200 object-cover transition-transform group-hover:scale-110"
               />
             </div>
-            <div className="font-medium text-stone-600">{founder.name}</div>
+            <div className="font-medium text-stone-700">{founder.name}</div>
           </button>
         ))}
       </div>
@@ -279,26 +279,26 @@ function TeamPhotosGrid({
 }) {
   return (
     <div className="border-t border-neutral-100 pt-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Team Photos
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {TEAM_PHOTOS.map((photo) => (
           <button
             key={photo.id}
             onClick={() => setSelectedItem({ type: "photo", data: photo })}
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
-            <div className="mb-3 w-16 h-16">
+            <div className="mb-3 h-16 w-16">
               <Image
                 src={photo.url}
                 alt={photo.name}
                 width={64}
                 height={64}
-                className="w-16 h-16 rounded-lg border border-neutral-200 object-cover group-hover:scale-110 transition-transform"
+                className="h-16 w-16 rounded-lg border border-neutral-200 object-cover transition-transform group-hover:scale-110"
               />
             </div>
-            <div className="font-medium text-stone-600 text-sm truncate w-full">
+            <div className="w-full truncate text-sm font-medium text-stone-700">
               {photo.name}
             </div>
           </button>
@@ -321,7 +321,7 @@ function AboutDetailView({
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
       />
-      <ResizableHandle withHandle className="bg-neutral-200 w-px" />
+      <ResizableHandle withHandle className="w-px bg-neutral-200" />
       <AboutDetailPanel
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
@@ -354,7 +354,7 @@ function MobileSidebarDrawer({
             transition={{ duration: 0.2 }}
           />
           <motion.div
-            className="absolute left-0 top-0 bottom-0 z-50 w-72 bg-white border-r border-neutral-200 shadow-lg"
+            className="absolute top-0 bottom-0 left-0 z-50 w-72 border-r border-neutral-200 bg-white shadow-lg"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -364,16 +364,16 @@ function MobileSidebarDrawer({
               stiffness: 300,
             }}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-stone-50">
-              <span className="text-sm font-medium text-stone-600">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-stone-50 px-4 py-3">
+              <span className="text-sm font-medium text-stone-700">
                 Navigation
               </span>
               <button
                 onClick={onClose}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Close drawer"
               >
-                <X className="w-4 h-4 text-neutral-600" />
+                <X className="h-4 w-4 text-neutral-600" />
               </button>
             </div>
             <div className="h-[calc(100%-49px)] overflow-y-auto p-4">
@@ -414,7 +414,7 @@ function AboutDetailContent({
   setSelectedItem: (item: SelectedItem | null) => void;
 }) {
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {selectedItem?.type === "story" && (
         <StoryDetail onClose={() => setSelectedItem(null)} />
       )}
@@ -443,7 +443,7 @@ function AboutSidebar({
 }) {
   return (
     <ResizablePanel defaultSize={35} minSize={25} maxSize={45}>
-      <div className="p-4 h-full overflow-y-auto">
+      <div className="h-full overflow-y-auto p-4">
         <OurStorySidebar
           selectedItem={selectedItem}
           setSelectedItem={setSelectedItem}
@@ -470,29 +470,29 @@ function OurStorySidebar({
 }) {
   return (
     <div className="mb-6">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Our Story
       </div>
       <button
         onClick={() => setSelectedItem({ type: "story" })}
         className={cn([
-          "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+          "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
           selectedItem?.type === "story"
             ? "border-stone-600 bg-stone-100"
             : "border-neutral-200",
         ])}
       >
-        <div className="w-12 h-12 shrink-0 flex items-center justify-center">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center">
           <Image
             src="/api/images/icons/textedit.webp"
             alt="Our Story"
             width={48}
             height={48}
-            className="w-12 h-12"
+            className="h-12 w-12"
           />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-stone-600 truncate">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-stone-700">
             Our Story.txt
           </p>
         </div>
@@ -510,7 +510,7 @@ function FoundersSidebar({
 }) {
   return (
     <div className="mb-6">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Founders
       </div>
       <div className="flex flex-col gap-3">
@@ -524,27 +524,27 @@ function FoundersSidebar({
               })
             }
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "founder" &&
               selectedItem.data.id === founder.id
                 ? "border-stone-600 bg-stone-100"
                 : "border-neutral-200",
             ])}
           >
-            <div className="w-12 h-12 shrink-0 rounded-full overflow-hidden border-2 border-neutral-200">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-neutral-200">
               <Image
                 src={founder.avatar}
                 alt={founder.name}
                 width={48}
                 height={48}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-600 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-stone-700">
                 {founder.name}
               </p>
-              <p className="text-xs text-neutral-500 truncate">
+              <p className="truncate text-xs text-neutral-500">
                 {founder.role}
               </p>
             </div>
@@ -564,7 +564,7 @@ function TeamPhotosSidebar({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Team Photos
       </div>
       <div className="flex flex-col gap-3">
@@ -578,24 +578,24 @@ function TeamPhotosSidebar({
               })
             }
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "photo" &&
               selectedItem.data.id === photo.id
                 ? "border-stone-600 bg-stone-100"
                 : "border-neutral-200",
             ])}
           >
-            <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden border border-neutral-200">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-neutral-200">
               <Image
                 src={photo.url}
                 alt={photo.name}
                 width={48}
                 height={48}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-600 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-stone-700">
                 {photo.name}
               </p>
             </div>
@@ -615,7 +615,7 @@ function AboutDetailPanel({
 }) {
   return (
     <ResizablePanel defaultSize={65}>
-      <div className="h-full flex flex-col">
+      <div className="flex h-full flex-col">
         {selectedItem?.type === "story" && (
           <StoryDetail onClose={() => setSelectedItem(null)} />
         )}
@@ -647,41 +647,41 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">Our Story.txt</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">Our Story.txt</h2>
         <button
           onClick={onClose}
-          className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+          className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
         >
           <XIcon size={16} />
         </button>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <div className="prose prose-stone max-w-none">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4">
-            How We Landed on Hyprnote
+          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+            How We Landed on Char
           </h2>
-          <p className="text-base text-neutral-500 italic mb-8">
+          <p className="mb-8 text-base text-neutral-500 italic">
             Our story and what we believe
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-4">
-            Hyprnote didn't start as a note-app. We were actually building an AI
+          <p className="mb-4 text-base leading-relaxed text-neutral-600">
+            Char didn't start as a note-app. We were actually building an AI
             hardware toy for kids. It was fun, but for two people, hardware was
             too slow and too heavy. When we stepped back, we realized the thing
             we cared about wasn't the toy — it was helping people capture and
             understand conversations.
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-4">
+          <p className="mb-4 text-base leading-relaxed text-neutral-600">
             At the same time, I was drowning in meetings and trying every AI
             notetaker out there. They were slow, distracting, or shipped every
             word to the cloud. None of them felt like something I'd trust or
-            enjoy using. That became the real beginning of Hyprnote.
+            enjoy using. That became the real beginning of Char.
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-8">
+          <p className="mb-8 text-base leading-relaxed text-neutral-600">
             We built the first version quickly. And it showed. Too many
             features, too many ideas, no clear philosophy. Even after YC, we
             kept moving without asking the hard questions. The product worked,
@@ -690,38 +690,38 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
             focused point of view.
           </p>
 
-          <h3 className="text-2xl font-serif text-stone-600 mb-4 mt-8">
+          <h3 className="mt-8 mb-4 font-serif text-2xl text-stone-700">
             Our manifesto
           </h3>
-          <p className="text-base text-neutral-600 leading-relaxed mb-4">
+          <p className="mb-4 text-base leading-relaxed text-neutral-600">
             We believe in the power of notetaking, not notetakers. Meetings
             should be moments of presence. If you're not adding value, your time
             is better spent elsewhere — for you and for your team.
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-4">
-            Hyprnote exists to preserve what makes us human: conversations that
+          <p className="mb-4 text-base leading-relaxed text-neutral-600">
+            Char exists to preserve what makes us human: conversations that
             spark ideas and collaboration that moves work forward. We build
             tools that amplify human agency, not replace it. No ghost bots. No
             silent note lurkers. Just people, thinking together.
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-8">
+          <p className="mb-8 text-base leading-relaxed text-neutral-600">
             We stand with those who value real connection and purposeful work.
           </p>
 
-          <h3 className="text-2xl font-serif text-stone-600 mb-4 mt-8">
+          <h3 className="mt-8 mb-4 font-serif text-2xl text-stone-700">
             Where we are now
           </h3>
-          <p className="text-base text-neutral-600 leading-relaxed mb-8">
-            Hyprnote today is the result of that reset. A fast, private,
-            local-first notetaker built for people like us: meeting-heavy,
+          <p className="mb-8 text-base leading-relaxed text-neutral-600">
+            Char today is the result of that reset. A fast, private, local-first
+            notetaker built for people like us: meeting-heavy,
             privacy-conscious, and tired of complicated tools. It stays on your
             device. It respects your data. And it helps you think better, not
             attend meetings on autopilot.
           </p>
 
-          <p className="text-base text-neutral-600 leading-relaxed mb-2">
+          <p className="mb-2 text-base leading-relaxed text-neutral-600">
             This is how we got here: a messy start, a full rewrite, and a clear
             belief that great work comes from humans — not from machines
             pretending to be in the room.
@@ -729,20 +729,20 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
 
           <div className="flex flex-col gap-2">
             <div>
-              <p className="text-base text-neutral-600 font-medium italic font-serif">
-                Hyprnote
+              <p className="font-serif text-base font-medium text-neutral-600 italic">
+                Char
               </p>
               <p className="text-sm text-neutral-500">John Jeong, Yujong Lee</p>
             </div>
 
             <div>
               <Image
-                src="/api/images/hyprnote/signature-dark.svg"
-                alt="Hyprnote Signature"
+                src="/char-signature.svg"
+                alt="Char Signature"
                 width={124}
                 height={60}
                 layout="constrained"
-                className="opacity-80 object-contain"
+                className="object-contain opacity-80"
               />
             </div>
           </div>
@@ -769,46 +769,46 @@ function FounderDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{founder.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{founder.name}</h2>
         <div className="flex items-center gap-2">
           <a
             href={founder.avatar}
             download={`${founder.name.toLowerCase().replace(" ", "-")}.png`}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 h-8 flex items-center text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
           >
             Download Photo
           </a>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+            className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
           >
             <XIcon size={16} />
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
-        <div className="flex justify-center mb-6">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
+        <div className="mb-6 flex justify-center">
           <Image
             src={founder.avatar}
             alt={founder.name}
             width={200}
             height={200}
-            className="w-48 h-48 rounded-full border-4 border-neutral-200 object-cover"
+            className="h-48 w-48 rounded-full border-4 border-neutral-200 object-cover"
           />
         </div>
 
         <div>
-          <h3 className="text-2xl font-serif text-stone-600 mb-1">
+          <h3 className="mb-1 font-serif text-2xl text-stone-700">
             {founder.name}
           </h3>
-          <p className="text-sm text-neutral-500 uppercase tracking-wider mb-4">
+          <p className="mb-4 text-sm tracking-wider text-neutral-500 uppercase">
             {founder.role}
           </p>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-6">
+          <p className="mb-6 text-sm leading-relaxed text-neutral-600">
             {founder.bio}
           </p>
 
@@ -816,10 +816,10 @@ function FounderDetail({
             {founder.email && (
               <a
                 href={`mailto:${founder.email}`}
-                className="flex items-center gap-2 px-3 py-2 text-xs border border-neutral-300 text-stone-600 rounded-full hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-xs text-stone-700 transition-colors hover:bg-stone-50"
                 aria-label="Email"
               >
-                <Mail className="w-3 h-3" />
+                <Mail className="h-3 w-3" />
                 <span>Email</span>
               </a>
             )}
@@ -828,7 +828,7 @@ function FounderDetail({
                 href={founder.links.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 text-xs border border-neutral-300 text-stone-600 rounded-full hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-xs text-stone-700 transition-colors hover:bg-stone-50"
                 aria-label="Twitter"
               >
                 <Icon icon="mdi:twitter" className="text-sm" />
@@ -840,7 +840,7 @@ function FounderDetail({
                 href={founder.links.github}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 text-xs border border-neutral-300 text-stone-600 rounded-full hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-xs text-stone-700 transition-colors hover:bg-stone-50"
                 aria-label="GitHub"
               >
                 <Icon icon="mdi:github" className="text-sm" />
@@ -852,7 +852,7 @@ function FounderDetail({
                 href={founder.links.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 text-xs border border-neutral-300 text-stone-600 rounded-full hover:bg-stone-50 transition-colors"
+                className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-xs text-stone-700 transition-colors hover:bg-stone-50"
                 aria-label="LinkedIn"
               >
                 <Icon icon="mdi:linkedin" className="text-sm" />
@@ -883,36 +883,36 @@ function PhotoDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{photo.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{photo.name}</h2>
         <div className="flex items-center gap-2">
           <a
             href={photo.url}
             download={photo.name}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 h-8 flex items-center text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
           >
             Download
           </a>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+            className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
           >
             <XIcon size={16} />
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <Image
           src={photo.url}
           alt={photo.name}
-          className="w-full object-cover mb-6 rounded-lg"
+          className="mb-6 w-full rounded-lg object-cover"
         />
 
         <p className="text-sm text-neutral-600">
-          Team photo from the Hyprnote team.
+          Team photo from the Char team.
         </p>
       </div>
     </>
@@ -927,7 +927,7 @@ function AboutStatusBar({
   const totalItems = 1 + FOUNDERS.length + TEAM_PHOTOS.length;
 
   return (
-    <div className="bg-stone-50 border-t border-neutral-200 px-4 py-2">
+    <div className="border-t border-neutral-200 bg-stone-50 px-4 py-2">
       <span className="text-xs text-neutral-500">
         {selectedItem
           ? selectedItem.type === "founder"

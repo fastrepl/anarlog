@@ -1,0 +1,83 @@
+---
+title: "Char Weekly: March 1, 2026"
+date: "2026-03-01"
+---
+
+Two stable releases this week — v1.0.9 and v1.0.10 — plus a ton of architectural work underneath. The headline changes: pre-meeting notes now inform AI summaries, Azure LLM providers are supported, chat got UI and bug fix improvements, links behave properly in the editor, and there's a new CLI taking shape. Internally, the codebase went through a major restructuring — feature-based desktop layout, extracted core crates, a new plugin SDK, and a formatter migration from Prettier to oxfmt.
+
+## Pre-meeting notes in AI summaries
+
+If you write notes before a meeting starts, those notes are now passed to the AI as a separate section when generating summaries. This means the AI can distinguish between what you prepared beforehand and what actually came up during the meeting. The result is summaries that better reflect what changed, not just what was discussed.
+
+## Azure LLM support
+
+Azure OpenAI and Azure AI Foundry are now supported as LLM providers (beta). If your organization standardizes on Azure for AI services, you can now point Char directly at your Azure endpoints. This joins the existing lineup of OpenRouter, local models via Ollama and LM Studio, and direct API keys.
+
+## Chat refinements
+
+Chat received a round of UI polish and minor bug fixes this week. The experience should feel tighter overall — cleaner layout, better edge case handling. Work is still ongoing to support multiple context sources in a single conversation, which will let you query across sessions rather than just the current one.
+
+## Link handling overhaul
+
+Links in the editor got a complete rework across several PRs. Links now open on hover instead of requiring Cmd+Click — just hover and click the URL to open it. Link text edits automatically update the underlying URL, so you don't end up with stale hrefs. Pressing Enter on an empty line clears active inline formatting (bold, italic, underline). Hover tooltips are correctly positioned for links near the top of the editor, and links no longer bleed into adjacent text when you type near a link boundary.
+
+## Consolidated export
+
+Export options are now behind a single Export button that opens a modal. You pick the format — PDF, TXT, or Markdown — and choose what to include: summary, memos, or transcript. Cleaner than the previous scattered export options.
+
+## Transcript improvements
+
+Transcript segmentation was rebuilt to fix incorrect splits between speakers. The underlying transcript crate was simplified significantly — the old accumulator, view, and ID modules were replaced with a cleaner `processor` and `words` module. On the TypeScript side, the transcript package was similarly simplified with better segment-building logic.
+
+Recordings are now saved as MP3 files instead of the previous format, and playback speed is configurable directly in the transcript view.
+
+## Calendar and integrations
+
+Session creation from a calendar event now correctly populates participants from event attendees. Calendar onboarding replaced the dead-end "No calendars found" message with a proper "Request Access to Calendar" button. A new unified calendar abstraction was introduced in the codebase, along with a calendar proxy API and Google Calendar plugin, laying groundwork for richer calendar integrations.
+
+Integration connections can now be triggered directly from the desktop app. The Nango webhook handling was improved with better support for connection health tracking and refresh failure recovery.
+
+## Smarter mic detection
+
+When mic usage is detected, the notification now lists nearby calendar events so you can jump straight into the right session. This makes the common flow — start a call, get prompted to record — much faster.
+
+## Onboarding polish
+
+The onboarding flow got visual improvements with clearer step states, checkmark completion indicators, and auto-scroll navigation between steps. Button styles were refreshed across the app with improved visual depth and hover feedback.
+
+## Desktop restructuring
+
+The desktop app source was restructured from a type-based layout to a feature-based one. Instead of grouping all components together, all hooks together, etc., code is now organized by feature — session, chat, calendar, settings, search, and so on. This doesn't change anything for users, but it makes the codebase significantly easier to navigate and maintain.
+
+## New crates and architectural work
+
+Several internal crates were extracted to make the core logic reusable outside the desktop app:
+
+- **listener-core**: The audio session lifecycle and STT coordination logic was extracted from the Tauri plugin into a standalone crate, making it usable from the new CLI and future platforms.
+- **model-downloader**: Model download management was extracted from the local-stt plugin and unified across both STT and LLM plugins, with a proper download registry and progress tracking.
+- **local-model**: A unified type system for local models (both STT and LLM) across the codebase.
+- **fs-format**: Defines the on-disk transcript format for plain file storage.
+- **apple-calendar**: Extracted from the Apple Calendar plugin for reuse.
+- **plugin-sdk**: A new TypeScript SDK for building Char plugins, with event delegation from core crates.
+
+The `pyannote-cloud` crate was rewritten using progenitor (auto-generated from OpenAPI), and the `cactus-sys` build dependency was removed in favor of the upstream cactus crate.
+
+## CLI and cross-platform groundwork
+
+A new CLI app is taking shape with TUI support, theme configuration, model management commands, and a batch transcription mode. The mobile bridge got updated with proper UniFFI best practices, and an `updater-core` crate was drafted for cross-platform update support. A Chrome extension scaffold was also added.
+
+## Formatter migration
+
+The codebase migrated from Prettier to oxfmt for TypeScript/JavaScript formatting. This touched hundreds of files but is a one-time change — oxfmt is faster and the formatting rules are configured in `.oxfmtrc.json`.
+
+## Other fixes
+
+- Auth flow fixed when the user was already logged into char.com in their browser
+- "Resume listening" now appears in the overflow menu when a transcript already exists
+- AI generation is more resilient when output validation retries exhaust — gracefully yields instead of erroring
+- Detect notifications setting is now properly respected
+- Remaining "Hyprnote" references renamed to "Char" across the UI and docs
+- OpenRouter Zero Data Retention (ZDR) enforcement documented in FAQ and docs
+- ONNX runtime returned to static linking for simpler distribution
+
+Full version details on the [changelog](/changelog).

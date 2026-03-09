@@ -8,23 +8,18 @@ import {
 import { z } from "zod";
 
 import {
-  type EnhanceTemplate,
   commands as templateCommands,
   type TemplateSection,
 } from "@hypr/plugin-template";
 import { templateSectionSchema } from "@hypr/store";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
-import type { Store } from "../../../tinybase/store/main";
-import { getCustomPrompt } from "../../../tinybase/store/prompts";
-import {
-  normalizeBulletPoints,
-  trimBeforeMarker,
-} from "../shared/transform_impl";
-import {
-  type EarlyValidatorFn,
-  withEarlyValidationRetry,
-} from "../shared/validate";
+import { createEnhanceValidator } from "./enhance-validator";
+
+import type { Store } from "~/store/tinybase/store/main";
+import { getCustomPrompt } from "~/store/tinybase/store/prompts";
+import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
+import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 
 export const enhanceWorkflow: Pick<
   TaskConfig<"enhance">,
@@ -32,7 +27,6 @@ export const enhanceWorkflow: Pick<
 > = {
   executeWorkflow,
   transforms: [
-    trimBeforeMarker("#"),
     normalizeBulletPoints(),
     smoothStream({ delayInMs: 250, chunking: "line" }),
   ],
@@ -90,13 +84,22 @@ async function getUserPrompt(
   args: TaskArgsMapTransformed["enhance"],
   store: Store,
 ) {
-  const { session, participants, template, transcripts } = args;
+  const {
+    session,
+    participants,
+    template,
+    transcripts,
+    preMeetingMemo,
+    postMeetingMemo,
+  } = args;
 
   const ctx = {
     content: transcripts,
     session,
     participants,
     template,
+    pre_meeting_memo: preMeetingMemo,
+    post_meeting_memo: postMeetingMemo,
   };
 
   const customPrompt = getCustomPrompt(store, "enhance");
@@ -114,6 +117,8 @@ async function getUserPrompt(
       participants,
       template,
       transcripts,
+      preMeetingMemo,
+      postMeetingMemo,
     },
   });
 
@@ -139,13 +144,31 @@ async function generateTemplateIfNeeded(params: {
     const schema = z.object({ sections: z.array(templateSectionSchema) });
     const userPrompt = await getUserPrompt(args, store);
 
-    try {
-      const template = await generateText({
-        model,
-        temperature: 0,
-        output: Output.object({ schema }),
-        abortSignal: signal,
-        prompt: `Analyze this meeting content and suggest appropriate section headings for a comprehensive summary.
+    const result = await generateStructuredOutput({
+      model,
+      schema,
+      signal,
+      prompt: createTemplatePrompt(userPrompt, schema),
+    });
+
+    if (!result) {
+      return null;
+    }
+
+    return result.sections.map((s) => ({
+      title: s.title,
+      description: s.description ?? null,
+    }));
+  } else {
+    return args.template.sections;
+  }
+}
+
+function createTemplatePrompt(
+  userPrompt: string,
+  schema: z.ZodObject<any>,
+): string {
+  return `Analyze this meeting content and suggest appropriate section headings for a comprehensive summary.
   The sections should cover the main themes and topics discussed.
   Generate around 5-7 sections based on the content depth.
   Give me in bullet points.
@@ -160,22 +183,50 @@ async function generateTemplateIfNeeded(params: {
   ${JSON.stringify(z.toJSONSchema(schema))}
   ---
 
-  IMPORTANT: Start with '{', NO \`\`\`json. (I will directly parse it with JSON.parse())`,
+  IMPORTANT: Start with '{', NO \`\`\`json. (I will directly parse it with JSON.parse())`;
+}
+
+async function generateStructuredOutput<T extends z.ZodTypeAny>(params: {
+  model: LanguageModel;
+  schema: T;
+  signal: AbortSignal;
+  prompt: string;
+}): Promise<z.infer<T> | null> {
+  const { model, schema, signal, prompt } = params;
+
+  try {
+    const result = await generateText({
+      model,
+      temperature: 0,
+      output: Output.object({ schema }),
+      abortSignal: signal,
+      prompt,
+    });
+
+    if (!result.output) {
+      return null;
+    }
+
+    return result.output as z.infer<T>;
+  } catch (error) {
+    try {
+      const fallbackResult = await generateText({
+        model,
+        temperature: 0,
+        abortSignal: signal,
+        prompt,
       });
 
-      if (!template.output) {
+      const jsonMatch = fallbackResult.text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
         return null;
       }
 
-      return template.output.sections.map((s) => ({
-        title: s.title,
-        description: s.description ?? null,
-      }));
+      const parsed = JSON.parse(jsonMatch[0]);
+      return schema.parse(parsed);
     } catch {
       return null;
     }
-  } else {
-    return args.template.sections;
   }
 }
 
@@ -191,7 +242,7 @@ async function* generateSummary(params: {
 
   onProgress({ type: "generating" });
 
-  const validator = createValidator(args.template);
+  const validator = createEnhanceValidator(args.template);
 
   yield* withEarlyValidationRetry(
     (retrySignal, { previousFeedback }) => {
@@ -235,34 +286,9 @@ IMPORTANT: Previous attempt failed. ${previousFeedback}`;
       onRetrySuccess: () => {
         onProgress({ type: "generating" });
       },
+      onGiveUp: () => {
+        onProgress({ type: "generating" });
+      },
     },
   );
-}
-
-function createValidator(template: EnhanceTemplate | null): EarlyValidatorFn {
-  return (textSoFar: string) => {
-    const normalized = textSoFar.trim();
-
-    if (!template?.sections || template.sections.length === 0) {
-      if (!normalized.startsWith("# ")) {
-        const feedback =
-          "Output must start with a markdown h1 heading (# Title).";
-        return { valid: false, feedback };
-      }
-
-      return { valid: true };
-    }
-
-    const firstSection = template.sections[0];
-    const expectedStart = `# ${firstSection.title}`;
-    const isValid =
-      expectedStart.startsWith(normalized) ||
-      normalized.startsWith(expectedStart);
-    if (!isValid) {
-      const feedback = `Output must start with the first template section heading: "${expectedStart}"`;
-      return { valid: false, feedback };
-    }
-
-    return { valid: true };
-  };
 }

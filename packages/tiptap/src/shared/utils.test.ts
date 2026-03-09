@@ -362,6 +362,69 @@ console.log("hello");
   });
 });
 
+describe("md2json mark sanitization", () => {
+  const schema = getSchema(getExtensions());
+
+  function validateJsonContent(json: JSONContent): {
+    valid: boolean;
+    error?: string;
+  } {
+    try {
+      schema.nodeFromJSON(json);
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  test("bold wrapping code produces valid schema (no bold+code)", () => {
+    const json = md2json("**`code`**");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+    if (!validation.valid) {
+      throw new Error(`Schema validation failed: ${validation.error}`);
+    }
+  });
+
+  test("italic wrapping code produces valid schema", () => {
+    const json = md2json("*`code`*");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+  });
+
+  test("strikethrough wrapping code produces valid schema", () => {
+    const json = md2json("~~`code`~~");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+  });
+
+  test("bold+code keeps only code mark", () => {
+    const json = md2json("**`code`**");
+    const findTextNode = (node: JSONContent): JSONContent | null => {
+      if (node.type === "text") return node;
+      for (const child of node.content || []) {
+        const found = findTextNode(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    const textNode = findTextNode(json);
+    expect(textNode).toBeDefined();
+    expect(textNode!.marks).toBeDefined();
+    expect(textNode!.marks!.length).toBe(1);
+    expect(textNode!.marks![0].type).toBe("code");
+  });
+
+  test("mixed bold and code in same paragraph produces valid schema", () => {
+    const json = md2json("**bold** and **`code`** and more");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+  });
+});
+
 describe("schema validation", () => {
   const schema = getSchema(getExtensions());
 

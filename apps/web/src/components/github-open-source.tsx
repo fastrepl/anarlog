@@ -231,11 +231,11 @@ function StatBadge({
     n > 1000 ? `${(n / 1000).toFixed(1)}k` : n;
 
   return (
-    <div className="flex flex-col gap-1 text-stone-600 h-[84px] w-[84px] items-center justify-center border border-neutral-200 rounded-xs px-4 bg-neutral-100">
-      <p className="font-semibold font-serif text-sm">
+    <div className="flex h-[84px] w-[84px] flex-col items-center justify-center gap-1 rounded-xs border border-neutral-200 bg-neutral-100 px-4 text-stone-600">
+      <p className="font-serif text-sm font-semibold">
         {type === "stars" ? "Stars" : "Forks"}
       </p>
-      <p className="text-sm font-medium text-center">{renderCount(count)}</p>
+      <p className="text-center text-sm font-medium">{renderCount(count)}</p>
     </div>
   );
 }
@@ -251,11 +251,11 @@ function OpenSourceButton({
     n > 1000 ? `${(n / 1000).toFixed(1)}k` : n;
 
   return (
-    <div className="text-center flex flex-col gap-4 w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-serif text-stone-600">Open source</h2>
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
+      <h2 className="font-serif text-2xl text-stone-700">Open source</h2>
       <p className="text-neutral-600">
         {
-          "Hyprnote values privacy and community, so it's been transparent from day one."
+          "Char values privacy and community, so it's been transparent from day one."
         }
       </p>
       <a
@@ -263,10 +263,10 @@ function OpenSourceButton({
         target="_blank"
         rel="noopener noreferrer"
         className={cn([
-          "group px-6 h-12 inline-flex items-center justify-center gap-2",
-          "bg-linear-to-t from-neutral-800 to-neutral-700 text-white rounded-full",
-          "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
-          "transition-all cursor-pointer",
+          "group inline-flex h-12 items-center justify-center gap-2 px-6",
+          "rounded-full bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
+          "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+          "cursor-pointer transition-all",
         ])}
       >
         <Icon icon="mdi:github" className="text-lg" />
@@ -291,19 +291,19 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
       href={`https://github.com/${username}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="size-10 rounded-xs overflow-hidden border-2 border-neutral-200 bg-neutral-100 shrink-0 hover:scale-110 hover:border-neutral-400 transition-all cursor-pointer"
+      className="size-10 shrink-0 cursor-pointer overflow-hidden rounded-xs border-2 border-neutral-200 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400"
     >
       <img
         src={avatar}
         alt={`${username}'s avatar`}
-        className="w-full h-full object-cover"
+        className="h-full w-full object-cover"
       />
     </a>
   );
 }
 
 function GridRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex gap-1 items-center">{children}</div>;
+  return <div className="flex items-center gap-1">{children}</div>;
 }
 
 export function GitHubOpenSource() {
@@ -315,11 +315,11 @@ export function GitHubOpenSource() {
   return (
     <section>
       <div className="px-4 py-8">
-        <div className="lg:hidden max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl lg:hidden">
           <OpenSourceButton showStars={true} starCount={STARS_COUNT} />
         </div>
 
-        <div className="hidden lg:flex justify-between max-w-7xl mx-auto items-center">
+        <div className="mx-auto hidden max-w-7xl items-center justify-between lg:flex">
           <div className="flex gap-1">
             <div className="flex flex-col gap-1">
               <GridRow>

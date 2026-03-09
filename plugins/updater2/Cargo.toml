@@ -12,12 +12,12 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
 tauri-plugin-fs-db = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 tauri-plugin-updater = { workspace = true }
+tokio = { workspace = true, features = ["macros", "time"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }

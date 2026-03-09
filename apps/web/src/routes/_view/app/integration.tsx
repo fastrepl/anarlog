@@ -1,44 +1,77 @@
-import Nango from "@nangohq/frontend";
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { z } from "zod";
 
-import { nangoCreateConnectSession } from "../../../functions/nango";
+import { flowSearchSchema } from "@/functions/desktop-flow";
+import { useBilling } from "@/hooks/use-billing";
+
+import { IntegrationPageLayout } from "./-integration-ui";
+import { ConnectFlow } from "./-integrations-connect-flow";
+import { DisconnectFlow } from "./-integrations-disconnect-flow";
+import { UpgradePrompt } from "./-integrations-upgrade-prompt";
+
+const commonSearch = {
+  integration_id: z.string().default("google-calendar"),
+  connection_id: z.string().optional(),
+  action: z.enum(["connect", "disconnect"]).default("connect"),
+  return_to: z.string().optional(),
+};
+
+const validateSearch = flowSearchSchema(commonSearch);
+
+export const INTEGRATION_DISPLAY: Record<
+  string,
+  { name: string; description: string; connectingHint: string }
+> = {
+  "google-calendar": {
+    name: "Google Calendar",
+    description: "Connect your Google Calendar to sync your meetings",
+    connectingHint: "Follow the prompts to connect your Google account",
+  },
+};
+
+export function getIntegrationDisplay(integrationId: string) {
+  return (
+    INTEGRATION_DISPLAY[integrationId] ?? {
+      name: integrationId,
+      description: `Connect ${integrationId} to sync your data`,
+      connectingHint: "Follow the prompts to complete the connection",
+    }
+  );
+}
 
 export const Route = createFileRoute("/_view/app/integration")({
+  validateSearch,
   component: Component,
+  head: () => ({
+    meta: [{ name: "robots", content: "noindex, nofollow" }],
+  }),
 });
 
 function Component() {
-  const getSessionToken = useServerFn(nangoCreateConnectSession);
-  const [nango] = useState(() => new Nango());
+  const search = Route.useSearch();
+  const billing = useBilling();
 
-  const handleConnect = async () => {
-    const connect = nango.openConnectUI({
-      onEvent: (event) => {
-        if (event.type === "close") {
-          console.log("Connect UI closed");
-        } else if (event.type === "connect") {
-          console.log("Connection successful!");
-        }
-      },
-    });
+  if (search.action === "disconnect") {
+    return <DisconnectFlow />;
+  }
 
-    const { sessionToken } = await getSessionToken({
-      data: {
-        userId: "user_123",
-        userEmail: "user@example.com",
-        userName: "User Name",
-        organizationId: "org_123",
-        allowedIntegrations: ["github", "notion", "slack"],
-      },
-    });
-    connect.setSessionToken(sessionToken);
-  };
+  if (!billing.isReady) {
+    return (
+      <IntegrationPageLayout>
+        <p className="text-neutral-500">Loading...</p>
+      </IntegrationPageLayout>
+    );
+  }
 
-  return (
-    <div>
-      <button onClick={handleConnect}>Connect</button>
-    </div>
-  );
+  if (!billing.isPro) {
+    return (
+      <UpgradePrompt
+        integrationId={search.integration_id}
+        flow={search.flow}
+        scheme={search.scheme ?? "hyprnote"}
+      />
+    );
+  }
+
+  return <ConnectFlow />;
 }

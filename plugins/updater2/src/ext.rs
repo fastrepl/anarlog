@@ -5,7 +5,9 @@ use tauri_plugin_store2::Store2PluginExt;
 use tauri_plugin_updater::UpdaterExt;
 use tauri_specta::Event;
 
-use crate::events::{UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent};
+use crate::events::{
+    UpdateDownloadFailedEvent, UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
+};
 
 pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -92,7 +94,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         Ok(update.map(|u| u.version))
     }
 
+    fn has_cached_update(&self, version: &str) -> bool {
+        get_cache_path(self.manager, version)
+            .map(|p| p.exists())
+            .unwrap_or(false)
+    }
+
     pub async fn download(&self, version: &str) -> Result<(), crate::Error> {
+        if self.has_cached_update(version) {
+            let _ = UpdateReadyEvent {
+                version: version.to_string(),
+            }
+            .emit(self.manager.app_handle());
+            return Ok(());
+        }
+
         use tauri_plugin_fs_db::FsDbPluginExt;
         if let Err(e) = self.manager.fs_db().ensure_version_file() {
             tracing::warn!("failed_to_ensure_version_file: {}", e);
@@ -116,8 +132,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         }
         .emit(self.manager.app_handle());
 
-        let bytes = update.download(|_, _| {}, || {}).await?;
-        self.cache_update_bytes(version, &bytes)?;
+        let result: Result<(), crate::Error> = async {
+            let bytes = update.download(|_, _| {}, || {}).await?;
+            self.cache_update_bytes(version, &bytes)?;
+            Ok(())
+        }
+        .await;
+
+        if let Err(e) = &result {
+            tracing::error!("download_failed: {}", e);
+            let _ = UpdateDownloadFailedEvent {
+                version: version.to_string(),
+            }
+            .emit(self.manager.app_handle());
+            return Err(result.unwrap_err());
+        }
 
         let _ = UpdateReadyEvent {
             version: version.to_string(),

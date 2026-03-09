@@ -29,13 +29,13 @@ const Spinner = React.forwardRef<HTMLDivElement, SpinnerProps>(
           return (
             <div
               key={i}
-              className="absolute left-0 top-0 w-full h-full"
+              className="absolute top-0 left-0 h-full w-full"
               style={{
                 transform: `rotate(${rotation}deg)`,
               }}
             >
               <div
-                className="absolute rounded-full bg-current animate-ios-opacity-spin"
+                className="animate-ios-opacity-spin absolute rounded-full bg-current"
                 style={{
                   left: "50%",
                   top: "0",

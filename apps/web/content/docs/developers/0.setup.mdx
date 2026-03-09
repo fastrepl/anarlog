@@ -1,14 +1,14 @@
 ---
 title: "Setup"
 section: "Developers"
-description: "Learn how to setup Hyprnote for development"
+description: "Learn how to setup Char for development"
 ---
 
-Hyprnote uses [Taskfile](https://taskfile.dev) for most development tasks. See `**/Taskfile.yaml` for available commands.
+Char uses [Taskfile](https://taskfile.dev) for most development tasks. See `**/Taskfile.yaml` for available commands.
 
 ## Prerequisites
 
-Before setting up Hyprnote, ensure you have the following installed:
+Before setting up Char, ensure you have the following installed:
 
 - [Rust](https://rustup.rs) (latest stable)
 - [Node.js](https://nodejs.org) (v20 or later)
@@ -32,8 +32,10 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/fastrepl/hyprnote.git
-cd hyprnote
+
+git clone https://github.com/fastrepl/char.git
+cd char
+
 pnpm install
 ```
 
@@ -43,9 +45,9 @@ Build the UI package before running the desktop app:
 pnpm -F ui build
 ```
 
-### macOS Permissions for Development
+### macOS permissions for development
 
-When running Hyprnote in development mode, macOS requires you to grant permissions to the terminal application you're using to build and run the app (e.g., Terminal, iTerm2, VS Code, Warp). This is different from the production app, where permissions are granted directly to Hyprnote.
+When running Char in development mode, macOS requires you to grant permissions to the terminal application you're using to build and run the app (e.g., Terminal, iTerm2, VS Code, Warp). This is different from the production app, where permissions are granted directly to Char.
 
 Go to **System Settings > Privacy & Security** and grant the following permissions to your terminal application:
 
@@ -70,11 +72,11 @@ This script installs all required system dependencies including GTK, PulseAudio,
 After running the setup script, clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/fastrepl/hyprnote.git
-cd hyprnote
+git clone https://github.com/fastrepl/char.git
+cd char
 pnpm install
 ```
 
-## Next Steps
+## Next steps
 
 See [Run](/docs/developers/run) to learn how to start the development server, and [Environment Variables](/docs/developers/env) for configuration options.

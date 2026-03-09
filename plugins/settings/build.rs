@@ -1,7 +1,8 @@
 const COMMANDS: &[&str] = &[
     "global_base",
     "vault_base",
-    "change_vault_base",
+    "copy_vault",
+    "set_vault_base",
     "obsidian_vaults",
     "path",
     "load",

@@ -23,6 +23,14 @@ pub fn build_session_config(
         .ok_or_else(|| format!("{:?} does not support session init config", provider))
 }
 
+#[tracing::instrument(
+    name = "stt.session.init",
+    skip(state, selected, params),
+    fields(
+        hyprnote.subsystem = "stt",
+        hyprnote.stt.provider.name = ?selected.provider()
+    )
+)]
 pub async fn init_session(
     state: &AppState,
     selected: &SelectedProvider,
@@ -36,15 +44,17 @@ pub async fn init_session(
 
     let config = build_session_config(provider, params)?;
 
-    let resp = state
-        .client
-        .post(init_url)
-        .header(header_name, selected.api_key())
-        .header("Content-Type", "application/json")
-        .json(&config)
-        .send()
-        .await
-        .map_err(|e| format!("session init request failed: {}", e))?;
+    let resp = hypr_observability::with_current_trace_context(
+        state
+            .client
+            .post(init_url)
+            .header(header_name, selected.api_key())
+            .header("Content-Type", "application/json"),
+    )
+    .json(&config)
+    .send()
+    .await
+    .map_err(|e| format!("session init request failed: {}", e))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
@@ -58,8 +68,8 @@ pub async fn init_session(
         .map_err(|e| format!("session init parse failed: {}", e))?;
 
     tracing::debug!(
-        session_id = %init.id,
-        provider = ?provider,
+        hyprnote.stt.session.id = %init.id,
+        hyprnote.stt.provider.name = ?provider,
         "session_initialized"
     );
 

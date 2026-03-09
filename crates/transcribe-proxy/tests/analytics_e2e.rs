@@ -1,7 +1,6 @@
 mod common;
 use common::*;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,10 +20,13 @@ async fn e2e_deepgram_with_mock_analytics() {
     let mock_analytics = MockAnalytics::default();
     let events = mock_analytics.events.clone();
 
-    let mut api_keys = HashMap::new();
-    api_keys.insert(Provider::Deepgram, api_key);
-
-    let config = SttProxyConfig::new(api_keys)
+    let env = env_with_provider(Provider::Deepgram, api_key);
+    let supabase = hypr_api_env::SupabaseEnv {
+        supabase_url: String::new(),
+        supabase_anon_key: String::new(),
+        supabase_service_role_key: String::new(),
+    };
+    let config = SttProxyConfig::new(&env, &supabase)
         .with_default_provider(Provider::Deepgram)
         .with_analytics(Arc::new(mock_analytics));
 

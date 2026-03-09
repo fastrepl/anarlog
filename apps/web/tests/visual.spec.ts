@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test.describe("Page load tests", () => {
   test("homepage", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/Hyprnote/);
+    await expect(page).toHaveTitle(/Char/);
   });
 
   test("download page", async ({ page }) => {

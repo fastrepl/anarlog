@@ -1,0 +1,10 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-available-providers",
+    "allow-is-provider-enabled",
+    "allow-list-calendars",
+    "allow-list-events",
+    "allow-open-calendar",
+    "allow-create-event",
+]

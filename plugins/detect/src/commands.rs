@@ -30,7 +30,7 @@ pub(crate) async fn set_ignored_bundle_ids<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     bundle_ids: Vec<String>,
 ) -> Result<(), String> {
-    app.detect().set_ignored_bundle_ids(bundle_ids).await;
+    app.detect().set_ignored_bundle_ids(bundle_ids);
     Ok(())
 }
 
@@ -40,7 +40,17 @@ pub(crate) async fn set_respect_do_not_disturb<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     enabled: bool,
 ) -> Result<(), String> {
-    app.detect().set_respect_do_not_disturb(enabled).await;
+    app.detect().set_respect_do_not_disturb(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_mic_active_threshold<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    secs: u64,
+) -> Result<(), String> {
+    app.detect().set_mic_active_threshold(secs);
     Ok(())
 }
 

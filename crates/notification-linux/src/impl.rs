@@ -176,7 +176,9 @@ impl NotificationManager {
         window.show_all();
 
         let mut notif = NotificationInstance::new(window, key.clone());
-        notif.start_dismiss_timer(timeout_seconds);
+        if timeout_seconds > 0.0 {
+            notif.start_dismiss_timer(timeout_seconds);
+        }
         self.active_notifications.insert(key, notif);
 
         self.reposition_notifications();
@@ -337,7 +339,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
         .unwrap_or_else(|| notification.title.clone());
     let title = notification.title.clone();
     let message = notification.message.clone();
-    let timeout_seconds = notification.timeout.map(|d| d.as_secs_f64()).unwrap_or(5.0);
+    let timeout_seconds = notification.timeout.map(|d| d.as_secs_f64()).unwrap_or(0.0);
 
     glib::MainContext::default().invoke(move || {
         NOTIFICATION_MANAGER.with(|manager| {

@@ -1,6 +1,14 @@
 import Cocoa
 
 extension NotificationManager {
+  func isMacOS26() -> Bool {
+    NSClassFromString("NSGlassEffectView") != nil
+  }
+
+  func buttonOverhang() -> CGFloat {
+    isMacOS26() ? 0 : Layout.buttonOverhang
+  }
+
   func createPanel(screen: NSScreen? = nil, yPosition: CGFloat) -> NSPanel {
     let targetScreen = screen ?? getTargetScreen() ?? NSScreen.main!
     let screenRect = targetScreen.visibleFrame
@@ -21,7 +29,7 @@ extension NotificationManager {
     panel.hidesOnDeactivate = false
     panel.isOpaque = false
     panel.backgroundColor = .clear
-    panel.hasShadow = true
+    panel.hasShadow = !isMacOS26()
     panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
     panel.isMovableByWindowBackground = false
     panel.alphaValue = 0
@@ -36,13 +44,21 @@ extension NotificationManager {
       frame: NSRect(x: 0, y: 0, width: panelWidth(), height: panelHeight()))
     v.wantsLayer = true
     v.layer?.backgroundColor = NSColor.clear.cgColor
+    v.layer?.isOpaque = false
+    if isMacOS26() {
+      v.layer?.cornerRadius = Layout.cornerRadius
+      v.layer?.masksToBounds = true
+      if #available(macOS 11.0, *) {
+        v.layer?.cornerCurve = .continuous
+      }
+    }
     v.autoresizingMask = [.width, .height]
     return v
   }
 
   func createContainer(clickableView: ClickableView) -> NSView {
-    let overhang = Layout.buttonOverhang
-    let container = NSView(
+    let overhang = buttonOverhang()
+    let container = ShadowContainerView(
       frame: NSRect(
         x: overhang,
         y: 0,
@@ -53,6 +69,9 @@ extension NotificationManager {
     container.wantsLayer = true
     container.layer?.cornerRadius = Layout.cornerRadius
     container.layer?.masksToBounds = false
+    if #available(macOS 11.0, *) {
+      container.layer?.cornerCurve = .continuous
+    }
     container.autoresizingMask = [.width, .height]
     container.layer?.shadowColor = NSColor.black.cgColor
     container.layer?.shadowOpacity = 0.22
@@ -62,17 +81,25 @@ extension NotificationManager {
   }
 
   func createEffectView(container: NSView) -> (NSVisualEffectView, NotificationBackgroundView) {
+    let isMacOS26 = isMacOS26()
+
     let effectView = NSVisualEffectView(frame: container.bounds)
     effectView.material = .popover
     effectView.state = .active
-    effectView.blendingMode = .behindWindow
+    effectView.blendingMode = isMacOS26 ? .withinWindow : .behindWindow
     effectView.wantsLayer = true
     effectView.layer?.cornerRadius = Layout.cornerRadius
     effectView.layer?.masksToBounds = true
+    if isMacOS26, #available(macOS 11.0, *) {
+      effectView.layer?.cornerCurve = .continuous
+    }
     effectView.autoresizingMask = [.width, .height]
 
     let backgroundView = NotificationBackgroundView(frame: effectView.bounds)
     backgroundView.autoresizingMask = [.width, .height]
+    if isMacOS26 {
+      backgroundView.makeBackgroundOpaque()
+    }
     effectView.addSubview(backgroundView, positioned: .below, relativeTo: nil)
 
     container.addSubview(effectView)
@@ -106,7 +133,8 @@ extension NotificationManager {
     closeButton.translatesAutoresizingMaskIntoConstraints = false
     clickableView.addSubview(closeButton, positioned: .above, relativeTo: nil)
 
-    let buttonOffset = (CloseButtonConfig.size / 2) - 2
+    let buttonOffset =
+      isMacOS26() ? (CloseButtonConfig.size / 2) + 4 : (CloseButtonConfig.size / 2) - 2
     NSLayoutConstraint.activate([
       closeButton.centerYAnchor.constraint(equalTo: container.topAnchor, constant: buttonOffset),
       closeButton.centerXAnchor.constraint(

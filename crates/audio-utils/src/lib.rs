@@ -6,12 +6,10 @@ use hypr_audio_interface::AsyncSource;
 
 mod error;
 mod pcm;
-mod resampler;
 mod vorbis;
 
 pub use error::*;
 pub use pcm::*;
-pub use resampler::*;
 pub use vorbis::*;
 
 pub use rodio::Source;
@@ -35,7 +33,7 @@ pub trait AudioFormatExt: AsyncSource {
     where
         Self: Sized + Send + Unpin + 'static,
     {
-        ResamplerDynamicOld::new(self, sample_rate)
+        hypr_resampler::ResamplerDynamicOld::new(self, sample_rate)
             .chunks(chunk_size)
             .map(|chunk| {
                 let n = std::mem::size_of::<f32>() * chunk.len();
@@ -88,6 +86,42 @@ pub fn bytes_to_f32_samples(data: &[u8]) -> Vec<f32> {
         .collect()
 }
 
+pub fn deinterleave_stereo_bytes(data: &[u8]) -> (Vec<f32>, Vec<f32>) {
+    let num_frames = data.len() / 4;
+    let mut ch0 = Vec::with_capacity(num_frames);
+    let mut ch1 = Vec::with_capacity(num_frames);
+    for frame in data.chunks_exact(4) {
+        ch0.push(i16::from_le_bytes([frame[0], frame[1]]) as f32 / I16_SCALE);
+        ch1.push(i16::from_le_bytes([frame[2], frame[3]]) as f32 / I16_SCALE);
+    }
+    (ch0, ch1)
+}
+
+pub fn deinterleave(samples: &[f32], channels: usize) -> Vec<Vec<f32>> {
+    if channels <= 1 {
+        return vec![samples.to_vec()];
+    }
+    let mut output = vec![Vec::with_capacity(samples.len() / channels + 1); channels];
+    for (index, sample) in samples.iter().enumerate() {
+        output[index % channels].push(*sample);
+    }
+    output
+}
+
+pub fn interleave(channels: &[Vec<f32>]) -> Vec<f32> {
+    if channels.is_empty() {
+        return Vec::new();
+    }
+    let frames = channels.iter().map(|c| c.len()).max().unwrap_or(0);
+    let mut output = Vec::with_capacity(frames * channels.len());
+    for frame in 0..frames {
+        for ch in channels {
+            output.push(ch.get(frame).copied().unwrap_or(0.0));
+        }
+    }
+    output
+}
+
 pub fn mix_sample_f32(mic: f32, speaker: f32) -> f32 {
     (mic + speaker).clamp(-1.0, 1.0)
 }
@@ -129,6 +163,8 @@ pub fn mix_audio_pcm16le(mic: &[u8], speaker: &[u8]) -> Vec<u8> {
 
     mixed
 }
+
+pub use hypr_audio_mime::content_type_to_extension;
 
 pub fn source_from_path(
     path: impl AsRef<std::path::Path>,
@@ -175,8 +211,10 @@ pub fn resample_audio<S>(source: S, to_rate: u32) -> Result<Vec<f32>, crate::Err
 where
     S: rodio::Source,
 {
+    use audioadapter_buffers::direct::SequentialSliceOfVecs;
     use rubato::{
-        Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction,
+        Async, FixedAsync, Resampler, SincInterpolationParameters, SincInterpolationType,
+        WindowFunction,
     };
 
     let from_rate = source.sample_rate() as f64;
@@ -197,8 +235,14 @@ where
         window: WindowFunction::BlackmanHarris2,
     };
 
-    let mut resampler =
-        SincFixedIn::<f32>::new(to_rate_f64 / from_rate, 2.0, params, 1024, channels)?;
+    let mut resampler = Async::<f32>::new_sinc(
+        to_rate_f64 / from_rate,
+        2.0,
+        &params,
+        1024,
+        channels,
+        FixedAsync::Input,
+    )?;
 
     let frames_per_channel = samples.len() / channels;
     let mut input_channels: Vec<Vec<f32>> = vec![Vec::with_capacity(frames_per_channel); channels];
@@ -207,13 +251,19 @@ where
         input_channels[i % channels].push(sample);
     }
 
-    let output_channels = resampler.process(&input_channels, None)?;
+    let input_adapter = SequentialSliceOfVecs::new(&input_channels, channels, frames_per_channel)
+        .expect("input adapter");
+    let out_max = resampler.output_frames_max();
+    let mut output_vecs: Vec<Vec<f32>> = vec![vec![0.0; out_max]; channels];
+    let mut output_adapter = SequentialSliceOfVecs::new_mut(&mut output_vecs, channels, out_max)
+        .expect("output adapter");
+
+    let (_, out_frames) =
+        resampler.process_into_buffer(&input_adapter, &mut output_adapter, None)?;
 
     let mut output = Vec::new();
-    let output_frames = output_channels[0].len();
-
-    for frame in 0..output_frames {
-        for channel in output_channels.iter().take(channels) {
+    for frame in 0..out_frames {
+        for channel in output_vecs.iter().take(channels) {
             output.push(channel[frame]);
         }
     }

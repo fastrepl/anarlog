@@ -6,7 +6,7 @@ use std::path::Path;
 use hound::{SampleFormat, WavReader, WavSpec, WavWriter};
 use vorbis_rs::{VorbisBitrateManagementStrategy, VorbisDecoder, VorbisEncoderBuilder};
 
-use crate::Error;
+use crate::{Error, deinterleave};
 
 pub const DEFAULT_VORBIS_QUALITY: f32 = 0.7;
 pub const DEFAULT_VORBIS_BLOCK_SIZE: usize = 4096;
@@ -299,16 +299,4 @@ pub fn mix_down_to_mono(samples: &[f32], channels: NonZeroU8) -> Vec<f32> {
         mono.push(sum / frame.len() as f32);
     }
     mono
-}
-
-fn deinterleave(samples: &[f32], channels: usize) -> Vec<Vec<f32>> {
-    if channels <= 1 {
-        return vec![samples.to_vec()];
-    }
-
-    let mut output = vec![Vec::with_capacity(samples.len() / channels + 1); channels];
-    for (index, sample) in samples.iter().enumerate() {
-        output[index % channels].push(*sample);
-    }
-    output
 }

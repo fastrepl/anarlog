@@ -89,7 +89,18 @@ describe("General Listener Slice", () => {
           alternatives: [
             {
               transcript: "test",
-              words: [],
+              languages: [],
+              words: [
+                {
+                  word: "test",
+                  punctuated_word: "test",
+                  start: 0,
+                  end: 0.5,
+                  confidence: 0.9,
+                  speaker: null,
+                  language: null,
+                },
+              ],
               confidence: 0.9,
             },
           ],
@@ -110,10 +121,36 @@ describe("General Listener Slice", () => {
       expect(store.getState().batch[sessionId]).toEqual({
         percentage: 0.5,
         isComplete: false,
+        phase: "transcribing",
       });
+      expect(
+        store.getState().batchPreview[sessionId]?.wordsByChannel[0],
+      ).toEqual([
+        {
+          text: " test",
+          start_ms: 0,
+          end_ms: 500,
+          channel: 0,
+        },
+      ]);
 
       clearBatchSession(sessionId);
       expect(store.getState().batch[sessionId]).toBeUndefined();
+      expect(store.getState().batchPreview[sessionId]).toBeUndefined();
+    });
+
+    test("handleBatchFailed preserves batch error for UI surfaces", () => {
+      const sessionId = "session-batch-error";
+      const { handleBatchFailed, getSessionMode } = store.getState();
+
+      handleBatchFailed(sessionId, "batch start failed: connection refused");
+
+      expect(store.getState().batch[sessionId]).toEqual({
+        percentage: 0,
+        error: "batch start failed: connection refused",
+        isComplete: false,
+      });
+      expect(getSessionMode(sessionId)).toBe("inactive");
     });
   });
 

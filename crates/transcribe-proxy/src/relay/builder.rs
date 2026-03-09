@@ -6,21 +6,16 @@ use owhisper_client::Auth;
 pub use tokio_tungstenite::tungstenite::ClientRequestBuilder;
 
 use super::handler::WebSocketProxy;
-use super::types::{FirstMessageTransformer, InitialMessage, OnCloseCallback, ResponseTransformer};
+use super::types::{
+    ClientMessageFilter, FirstMessageTransformer, InitialMessage, OnCloseCallback,
+    ResponseTransformer,
+};
 use crate::config::DEFAULT_CONNECT_TIMEOUT_MS;
 use crate::provider_selector::SelectedProvider;
-use crate::query_params::QueryParams;
-use crate::upstream_url::UpstreamUrlBuilder;
 
 pub struct NoUpstream;
 pub struct WithUrl {
     url: String,
-    headers: HashMap<String, String>,
-}
-pub struct WithUrlComponents {
-    base_url: url::Url,
-    client_params: QueryParams,
-    default_params: Vec<(&'static str, &'static str)>,
     headers: HashMap<String, String>,
 }
 
@@ -34,12 +29,6 @@ impl HasHeaders for WithUrl {
     }
 }
 
-impl HasHeaders for WithUrlComponents {
-    fn headers_mut(&mut self) -> &mut HashMap<String, String> {
-        &mut self.headers
-    }
-}
-
 pub struct WebSocketProxyBuilder<S = NoUpstream> {
     state: S,
     control_message_types: HashSet<&'static str>,
@@ -48,6 +37,7 @@ pub struct WebSocketProxyBuilder<S = NoUpstream> {
     response_transformer: Option<ResponseTransformer>,
     connect_timeout: Duration,
     on_close: Option<OnCloseCallback>,
+    client_message_filter: Option<ClientMessageFilter>,
 }
 
 impl Default for WebSocketProxyBuilder<NoUpstream> {
@@ -60,6 +50,7 @@ impl Default for WebSocketProxyBuilder<NoUpstream> {
             response_transformer: None,
             connect_timeout: Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS),
             on_close: None,
+            client_message_filter: None,
         }
     }
 }
@@ -74,6 +65,7 @@ impl<S> WebSocketProxyBuilder<S> {
             response_transformer: self.response_transformer,
             connect_timeout: self.connect_timeout,
             on_close: self.on_close,
+            client_message_filter: self.client_message_filter,
         }
     }
 
@@ -85,6 +77,7 @@ impl<S> WebSocketProxyBuilder<S> {
         response_transformer: Option<ResponseTransformer>,
         connect_timeout: Duration,
         on_close: Option<OnCloseCallback>,
+        client_message_filter: Option<ClientMessageFilter>,
     ) -> WebSocketProxy {
         let control_message_types = if control_message_types.is_empty() {
             None
@@ -100,6 +93,7 @@ impl<S> WebSocketProxyBuilder<S> {
             response_transformer,
             connect_timeout,
             on_close,
+            client_message_filter,
         )
     }
 
@@ -143,6 +137,11 @@ impl<S> WebSocketProxyBuilder<S> {
             Box::pin(callback(duration))
                 as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
         }));
+        self
+    }
+
+    pub fn client_message_filter(mut self, filter: ClientMessageFilter) -> Self {
+        self.client_message_filter = Some(filter);
         self
     }
 }
@@ -208,35 +207,7 @@ impl WebSocketProxyBuilder<WithUrl> {
             self.response_transformer,
             self.connect_timeout,
             self.on_close,
-        ))
-    }
-}
-
-impl WebSocketProxyBuilder<WithUrlComponents> {
-    pub fn build(self) -> Result<WebSocketProxy, crate::ProxyError> {
-        let url = UpstreamUrlBuilder::new(self.state.base_url)
-            .default_params(&self.state.default_params)
-            .client_params(&self.state.client_params)
-            .build();
-
-        let uri = url
-            .as_str()
-            .parse()
-            .map_err(|e| crate::ProxyError::InvalidRequest(format!("{}", e)))?;
-
-        let mut request = ClientRequestBuilder::new(uri);
-        for (key, value) in self.state.headers {
-            request = request.with_header(&key, &value);
-        }
-
-        Ok(Self::build_from(
-            request,
-            self.control_message_types,
-            self.transform_first_message,
-            self.initial_message,
-            self.response_transformer,
-            self.connect_timeout,
-            self.on_close,
+            self.client_message_filter,
         ))
     }
 }
