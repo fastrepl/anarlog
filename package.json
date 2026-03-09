@@ -22,6 +22,11 @@
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "dprint fmt"
   },
+  "pnpm": {
+    "overrides": {
+      "@tiptap/extension-paragraph": "3.17.1"
+    }
+  },
   "packageManager": "pnpm@10.31.0",
   "engines": {
     "node": ">=22"

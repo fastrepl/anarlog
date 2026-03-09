@@ -35,7 +35,7 @@
     "@tiptap/extension-task-list": "3.17.1",
     "@tiptap/extension-typography": "3.17.1",
     "@tiptap/extension-underline": "3.17.1",
-    "@tiptap/markdown": "3.17.1",
+    "@tiptap/markdown": "^3.17.1",
     "@tiptap/pm": "3.17.1",
     "@tiptap/react": "3.17.1",
     "@tiptap/starter-kit": "3.17.1",
