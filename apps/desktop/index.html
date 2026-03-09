@@ -1,7 +1,6 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- <script src="https://unpkg.com/react-scan/dist/auto.global.js"></script> -->
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -17,6 +16,10 @@
     <script src="/relay-shim.js"></script>
     <script type="module">
       if (import.meta.env.DEV) {
+        import("react-scan").then(({ scan }) => {
+          scan();
+        });
+
         import("react-grab").then(() => {
           window.__REACT_GRAB__?.setToolbarState({ collapsed: true, edge: "right" });
         });
