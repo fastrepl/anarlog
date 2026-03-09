@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import type { ContactsSelection } from "@hypr/plugin-windows";
+import { Badge } from "@hypr/ui/components/ui/badge";
 import { cn } from "@hypr/utils";
 
 import { ColumnHeader, getContactBgClass, type SortOption } from "./shared";
@@ -15,6 +16,18 @@ import * as main from "~/store/tinybase/store/main";
 type ContactItem =
   | { kind: "person"; id: string }
   | { kind: "organization"; id: string };
+
+function matchesHumanSearch(
+  human: Record<string, unknown> | undefined,
+  query: string,
+) {
+  if (!query) return true;
+
+  const name = String(human?.name ?? "").toLowerCase();
+  const email = String(human?.email ?? "").toLowerCase();
+
+  return name.includes(query) || email.includes(query);
+}
 
 export function ContactsListColumn({
   selected,
@@ -31,6 +44,7 @@ export function ContactsListColumn({
   const [searchValue, setSearchValue] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const [showSearch, setShowSearch] = useState(false);
+  const normalizedSearch = searchValue.toLowerCase().trim();
 
   useHotkeys(
     "mod+f",
@@ -42,6 +56,7 @@ export function ContactsListColumn({
   const allHumans = main.UI.useTable("humans", main.STORE_ID);
   const allOrgs = main.UI.useTable("organizations", main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
 
   const alphabeticalHumanIds = main.UI.useResultSortedRowIds(
     main.QUERIES.visibleHumans,
@@ -127,9 +142,21 @@ export function ContactsListColumn({
           ? newestOrgIds
           : oldestOrgIds;
 
+  const currentUserHumanId = useMemo(() => {
+    if (typeof userId !== "string" || !userId || !allHumans[userId]) {
+      return null;
+    }
+
+    return userId;
+  }, [allHumans, userId]);
+
   const { pinnedHumanIds, unpinnedHumanIds } = useMemo(() => {
-    const pinned = sortedHumanIds.filter((id) => allHumans[id]?.pinned);
-    const unpinned = sortedHumanIds.filter((id) => !allHumans[id]?.pinned);
+    const pinned = sortedHumanIds.filter(
+      (id) => id !== currentUserHumanId && allHumans[id]?.pinned,
+    );
+    const unpinned = sortedHumanIds.filter(
+      (id) => id !== currentUserHumanId && !allHumans[id]?.pinned,
+    );
 
     const sortedPinned = [...pinned].sort((a, b) => {
       const orderA =
@@ -140,7 +167,7 @@ export function ContactsListColumn({
     });
 
     return { pinnedHumanIds: sortedPinned, unpinnedHumanIds: unpinned };
-  }, [sortedHumanIds, allHumans]);
+  }, [sortedHumanIds, allHumans, currentUserHumanId]);
 
   const { pinnedOrgIds, unpinnedOrgIds } = useMemo(() => {
     const pinned = sortedOrgIds.filter((id) => allOrgs[id]?.pinned);
@@ -156,20 +183,14 @@ export function ContactsListColumn({
   }, [sortedOrgIds, allOrgs]);
 
   const { pinnedItems, nonPinnedItems } = useMemo(() => {
-    const q = searchValue.toLowerCase().trim();
-
     const filterHuman = (id: string) => {
-      if (!q) return true;
-      const human = allHumans[id];
-      const name = (human?.name ?? "").toLowerCase();
-      const email = (human?.email ?? "").toLowerCase();
-      return name.includes(q) || email.includes(q);
+      return matchesHumanSearch(allHumans[id], normalizedSearch);
     };
 
     const filterOrg = (id: string) => {
-      if (!q) return true;
+      if (!normalizedSearch) return true;
       const name = (allOrgs[id]?.name ?? "").toLowerCase();
-      return name.includes(q);
+      return name.includes(normalizedSearch);
     };
 
     const allPinned = [
@@ -206,8 +227,19 @@ export function ContactsListColumn({
     unpinnedOrgIds,
     allOrgs,
     allHumans,
-    searchValue,
+    normalizedSearch,
   ]);
+
+  const currentUserItem = useMemo(() => {
+    if (
+      !currentUserHumanId ||
+      !matchesHumanSearch(allHumans[currentUserHumanId], normalizedSearch)
+    ) {
+      return null;
+    }
+
+    return { kind: "person" as const, id: currentUserHumanId };
+  }, [allHumans, currentUserHumanId, normalizedSearch]);
 
   const handleReorderPinned = useCallback(
     (newOrder: string[]) => {
@@ -258,6 +290,21 @@ export function ContactsListColumn({
               onCancel={() => setShowNewPerson(false)}
             />
           )}
+          {currentUserItem && (
+            <PersonItem
+              active={isActive(currentUserItem)}
+              humanId={currentUserItem.id}
+              isCurrentUser={true}
+              onClick={() =>
+                setSelected({ type: "person", id: currentUserItem.id })
+              }
+              onDelete={onDeletePerson}
+            />
+          )}
+          {currentUserItem &&
+            (pinnedItems.length > 0 || nonPinnedItems.length > 0) && (
+              <div className="mx-3 my-1 h-px bg-neutral-200" />
+            )}
           {pinnedItems.length > 0 && !searchValue.trim() && (
             <Reorder.Group
               axis="y"
@@ -348,11 +395,13 @@ export function ContactsListColumn({
 function PersonItem({
   humanId,
   active,
+  isCurrentUser = false,
   onClick,
   onDelete,
 }: {
   humanId: string;
   active: boolean;
+  isCurrentUser?: boolean;
   onClick: () => void;
   onDelete?: (id: string) => void;
 }) {
@@ -365,18 +414,22 @@ function PersonItem({
 
   const store = main.UI.useStore(main.STORE_ID);
 
-  const showContextMenu = useNativeContextMenu([
-    {
-      id: "delete-person",
-      text: "Delete Contact",
-      action: () => onDelete?.(humanId),
-    },
-  ]);
+  const showContextMenu = useNativeContextMenu(
+    isCurrentUser
+      ? []
+      : [
+          {
+            id: "delete-person",
+            text: "Delete Contact",
+            action: () => onDelete?.(humanId),
+          },
+        ],
+  );
 
   const handleTogglePin = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!store) return;
+      if (!store || isCurrentUser) return;
 
       const currentPinned = store.getCell("humans", humanId, "pinned");
       if (currentPinned) {
@@ -401,7 +454,7 @@ function PersonItem({
         });
       }
     },
-    [store, humanId],
+    [store, humanId, isCurrentUser],
   );
 
   return (
@@ -409,7 +462,7 @@ function PersonItem({
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onContextMenu={showContextMenu}
+      onContextMenu={isCurrentUser ? undefined : showContextMenu}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -432,24 +485,36 @@ function PersonItem({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 truncate font-medium">
-          {personName || personEmail || "Unnamed"}
+          <span className="truncate">
+            {personName || personEmail || "Unnamed"}
+          </span>
+          {isCurrentUser && (
+            <Badge
+              variant="secondary"
+              className="h-5 shrink-0 bg-neutral-100 px-1.5 text-[10px] font-semibold tracking-[0.04em] text-neutral-600"
+            >
+              YOU
+            </Badge>
+          )}
         </div>
         {personEmail && personName && (
           <div className="truncate text-xs text-neutral-500">{personEmail}</div>
         )}
       </div>
-      <button
-        onClick={handleTogglePin}
-        className={cn([
-          "shrink-0 rounded-xs p-1 transition-colors",
-          isPinned
-            ? "text-blue-600 hover:text-blue-700"
-            : "text-neutral-300 opacity-0 group-hover:opacity-100 hover:text-neutral-500",
-        ])}
-        aria-label={isPinned ? "Unpin contact" : "Pin contact"}
-      >
-        <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
-      </button>
+      {!isCurrentUser && (
+        <button
+          onClick={handleTogglePin}
+          className={cn([
+            "shrink-0 rounded-xs p-1 transition-colors",
+            isPinned
+              ? "text-blue-600 hover:text-blue-700"
+              : "text-neutral-300 opacity-0 group-hover:opacity-100 hover:text-neutral-500",
+          ])}
+          aria-label={isPinned ? "Unpin contact" : "Pin contact"}
+        >
+          <Pin className="size-3.5" fill={isPinned ? "currentColor" : "none"} />
+        </button>
+      )}
     </div>
   );
 }

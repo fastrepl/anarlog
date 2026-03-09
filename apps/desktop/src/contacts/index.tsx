@@ -69,6 +69,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
   );
 
   const selected = tab.state.selected;
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
 
   const setSelected = useCallback(
     (value: ContactsSelection | null) => {
@@ -92,11 +93,15 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
 
   const handleDeletePerson = useCallback(
     (id: string) => {
+      if (id === userId) {
+        return;
+      }
+
       invalidateResource("humans", id);
       deletePersonFromStore(id);
       setSelected(null);
     },
-    [invalidateResource, deletePersonFromStore, setSelected],
+    [deletePersonFromStore, invalidateResource, setSelected, userId],
   );
 
   const deleteOrganizationFromStore = main.UI.useDelRowCallback(
@@ -134,13 +139,15 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
 
   useEffect(() => {
     if (!selected) {
-      if (allHumanIds.length > 0) {
+      if (typeof userId === "string" && allHumanIds.includes(userId)) {
+        setSelected({ type: "person", id: userId });
+      } else if (allHumanIds.length > 0) {
         setSelected({ type: "person", id: allHumanIds[0] });
       } else if (allOrgIds.length > 0) {
         setSelected({ type: "organization", id: allOrgIds[0] });
       }
     }
-  }, [allHumanIds, allOrgIds, selected, setSelected]);
+  }, [allHumanIds, allOrgIds, selected, setSelected, userId]);
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">

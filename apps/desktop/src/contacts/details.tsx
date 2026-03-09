@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import React, { useCallback, useState } from "react";
 
+import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import {
@@ -45,6 +46,7 @@ export function DetailsColumn({
     main.STORE_ID,
   );
   const allSessions = main.UI.useTable("sessions", main.STORE_ID);
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
 
   const personSessions = React.useMemo(() => {
     if (!mappingIdsByHuman || mappingIdsByHuman.length === 0) {
@@ -273,8 +275,16 @@ export function DetailsColumn({
             <div>
               <div className="flex items-center border-b border-neutral-200 px-4 py-3">
                 <div className="w-28 text-sm text-neutral-500">Name</div>
-                <div className="flex-1">
+                <div className="flex flex-1 items-center gap-2">
                   <EditablePersonNameField personId={selectedHumanId} />
+                  {selectedHumanId === userId && (
+                    <Badge
+                      variant="secondary"
+                      className="h-5 shrink-0 bg-neutral-100 px-1.5 text-[10px] font-semibold tracking-[0.04em] text-neutral-600"
+                    >
+                      YOU
+                    </Badge>
+                  )}
                 </div>
               </div>
               <EditablePersonJobTitleField personId={selectedHumanId} />
@@ -376,7 +386,7 @@ function EditablePersonNameField({ personId }: { personId: string }) {
       value={(value as string) || ""}
       onChange={handleChange}
       placeholder="Name"
-      className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+      className="h-7 flex-1 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
     />
   );
 }
