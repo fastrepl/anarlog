@@ -51,16 +51,15 @@ function StartButton({ sessionId }: { sessionId: string }) {
       disabled={isDisabled}
       className={cn([
         "inline-flex items-center justify-center rounded-md text-xs font-medium",
-        "bg-white text-neutral-900 hover:bg-neutral-100",
+        "border border-neutral-200/70 bg-neutral-100/80 text-neutral-900",
+        "hover:bg-neutral-200/80",
         "gap-1.5",
         "h-7 px-2",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
     >
       <RecordingIcon />
-      <span className="whitespace-nowrap text-neutral-900 hover:text-neutral-800">
-        Resume listening
-      </span>
+      <span className="whitespace-nowrap">Resume listening</span>
     </button>
   );
 
