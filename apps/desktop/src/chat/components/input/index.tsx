@@ -126,7 +126,7 @@ function Container({
   hasContextBar?: boolean;
 }) {
   return (
-    <div className={cn(["relative", "px-2 pb-2"])}>
+    <div className={cn(["relative shrink-0", "px-2 pb-2"])}>
       <div
         className={cn([
           "flex flex-col rounded-b-xl border border-neutral-200",

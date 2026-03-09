@@ -281,7 +281,7 @@ export function ContextBar({
   }
 
   return (
-    <div className="mx-2 rounded-t-xl border-t border-r border-l border-neutral-200 bg-neutral-100">
+    <div className="mx-2 shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-neutral-100">
       <div className="flex items-start gap-1.5 px-2.5 py-2">
         <div className="min-w-0 flex-1">
           <ChipList chips={chips} onRemove={onRemoveEntity} />

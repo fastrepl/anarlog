@@ -33,7 +33,10 @@ export function ChatBody({
   }, [messages, status, error]);
 
   return (
-    <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto">
+    <div
+      ref={scrollRef}
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+    >
       <div className="flex-1" />
       {messages.length === 0 ? (
         <ChatBodyEmpty

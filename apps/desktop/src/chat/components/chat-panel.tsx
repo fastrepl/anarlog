@@ -45,7 +45,7 @@ export function ChatView() {
   return (
     <div
       className={cn([
-        "flex h-full flex-col",
+        "flex h-full min-h-0 flex-col overflow-hidden",
         chat.mode === "RightPanelOpen" &&
           "overflow-hidden rounded-xl border border-neutral-200",
       ])}
