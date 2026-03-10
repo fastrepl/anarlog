@@ -65,35 +65,30 @@ Step up to mistral-large-latest if you need heavier reasoning: complex multi-ste
 
 Set it as an environment variable so it never gets hardcoded into your source files:
 
+```bash
 export MISTRAL_API_KEY="your-key-here"
+```
 
 Test it with a curl call:
 
-> curl [https://api.mistral.ai/v1/chat/completions](https://api.mistral.ai/v1/chat/completions) \
->
->   -H "Authorization: Bearer $MISTRAL_API_KEY" \
->
->   -H "Content-Type: application/json" \
->
->   -d '{
->
->     "model": "mistral-small-latest",
->
->     "messages": [{"role": "user", "content": "Hello"}]
->
->   }'
+```bash
+curl https://api.mistral.ai/v1/chat/completions \
+  -H "Authorization: Bearer $MISTRAL_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "model": "mistral-small-latest", "messages": [{"role": "user", "content": "Hello"}] }'
+```
 
 If you get a JSON response with a choices array back, the key is working. If you get a 401, double-check that the environment variable is set correctly in your current session.
 
 For Python projects, the python-dotenv package is the standard way to load a .env file at runtime rather than setting variables manually each session:
 
-> from dotenv import load_dotenv
->
-> import os
->
-> load_dotenv()
->
-> api_key = os.getenv("MISTRAL_API_KEY")
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+api_key = os.getenv("MISTRAL_API_KEY")
+```
 
 ## Use your Mistral API key in Char for AI meeting notes that stay on your device
 
