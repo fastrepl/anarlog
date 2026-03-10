@@ -18,8 +18,6 @@ members = [
 ]
 exclude = [
   "plugins/apple-calendar",
-  "plugins/apple-contact",
-  "plugins/pdf",
   "plugins/cli2",
   "plugins/db",
   "plugins/extensions",

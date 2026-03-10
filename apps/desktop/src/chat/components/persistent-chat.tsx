@@ -1,4 +1,3 @@
-import { motion } from "motion/react";
 import { Resizable } from "re-resizable";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -33,6 +32,20 @@ export function PersistentChatPanel({
       setHasBeenOpened(true);
     }
   }, [isVisible, hasBeenOpened]);
+
+  useEffect(() => {
+    if (!isFloating) return;
+
+    const handleResize = () => {
+      setFloatingSize((prev) => ({
+        ...prev,
+        height: window.innerHeight * 0.7,
+      }));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isFloating]);
 
   useHotkeys(
     "esc",
@@ -84,17 +97,14 @@ export function PersistentChatPanel({
   }
 
   return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={isVisible ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
-      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+    <div
       className={cn([
-        "fixed z-100 overflow-hidden",
+        "fixed z-100",
+        !isVisible && "hidden!",
         isPanel && "pointer-events-none",
       ])}
-      style={{
-        transformOrigin: "bottom right",
-        ...(isFloating
+      style={
+        isFloating
           ? { right: 16, bottom: 16 }
           : isPanel && panelRect
             ? {
@@ -103,11 +113,8 @@ export function PersistentChatPanel({
                 width: panelRect.width,
                 height: panelRect.height,
               }
-            : isPanel
-              ? { visibility: "hidden" as const }
-              : { right: 16, bottom: 16 }),
-        ...(!isVisible && { pointerEvents: "none" as const }),
-      }}
+            : { display: "none" }
+      }
     >
       <Resizable
         size={isPanel ? { width: "100%", height: "100%" } : floatingSize}
@@ -135,6 +142,10 @@ export function PersistentChatPanel({
               }
             : false
         }
+        minWidth={isFloating ? 320 : undefined}
+        minHeight={isFloating ? 400 : undefined}
+        maxWidth={isFloating ? window.innerWidth - 32 : undefined}
+        maxHeight={isFloating ? window.innerHeight - 32 : undefined}
         bounds={isFloating ? "window" : undefined}
         className={cn([
           "pointer-events-auto flex flex-col",
@@ -161,6 +172,6 @@ export function PersistentChatPanel({
       >
         <ChatView />
       </Resizable>
-    </motion.div>
+    </div>
   );
 }

@@ -84,11 +84,12 @@ export const createChatModeSlice = <
     const nextMode = computeNextChatMode(currentMode, event, lastOpenMode);
     if (nextMode === currentMode) return;
 
-    const updates: Partial<T> = { chatMode: nextMode } as Partial<T>;
-    if (currentMode === "FloatingOpen" || currentMode === "RightPanelOpen") {
-      (updates as any).lastOpenChatMode = currentMode;
-    }
-    set(updates);
+    set({
+      chatMode: nextMode,
+      ...(currentMode === "FloatingOpen" || currentMode === "RightPanelOpen"
+        ? { lastOpenChatMode: currentMode }
+        : {}),
+    } as Partial<T>);
 
     if (currentMode === "FullTab" && nextMode !== "FullTab") {
       const chatTab = get().tabs.find((t) => t.type === "chat_support");

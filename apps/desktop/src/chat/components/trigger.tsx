@@ -49,7 +49,6 @@ export function ChatTrigger({
         "flex h-14 flex-row items-center justify-center gap-1 rounded-full px-4",
         "bg-white shadow-lg hover:shadow-xl",
         "border border-neutral-200",
-        "flex items-center justify-center",
         "transition-all duration-200 ease-out",
         "hover:scale-105",
         shouldHide

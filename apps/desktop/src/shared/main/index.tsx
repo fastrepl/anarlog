@@ -156,7 +156,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
     tabsScrollContainerRef,
     regularTabs.length,
   );
-  
+
   const setTabRef = useScrollActiveTabIntoView(regularTabs);
   useTabsShortcuts();
 

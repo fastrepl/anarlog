@@ -229,7 +229,12 @@ export function TimelineView() {
                   timezone={timezone}
                 />
               )}
-              <div className={cn(["sticky top-0 z-10", "bg-neutral-50 py-1 pr-1 pl-3"])}>
+              <div
+                className={cn([
+                  "sticky top-0 z-10",
+                  "bg-neutral-50 py-1 pr-1 pl-3",
+                ])}
+              >
                 <div className="text-base font-bold text-neutral-900">
                   {bucket.label}
                 </div>
