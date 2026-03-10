@@ -365,9 +365,10 @@ mod tests {
             let global_base = temp.path().to_path_buf();
             let default_base = temp.path().join("default");
 
-            let result = resolve_base(&global_base, &default_base);
-
-            assert_eq!(result, default_base);
+            with_env(VAULT_BASE_ENV_VAR, None, || {
+                let result = resolve_base(&global_base, &default_base);
+                assert_eq!(result, default_base);
+            });
         }
     }
 
