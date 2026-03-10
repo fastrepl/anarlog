@@ -9,6 +9,19 @@ use crate::events::{
     UpdateDownloadFailedEvent, UpdateDownloadingEvent, UpdateReadyEvent, UpdatedEvent,
 };
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum InstallResult {
+    RelaunchCurrent,
+    MacosBundleUpdate {
+        current_path: String,
+        staged_path: String,
+        target_path: String,
+        backup_path: String,
+        stage_dir: String,
+    },
+}
+
 pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
     _runtime: std::marker::PhantomData<fn() -> R>,
@@ -156,7 +169,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         Ok(())
     }
 
-    pub async fn install(&self, version: &str) -> Result<(), crate::Error> {
+    pub async fn install(&self, version: &str) -> Result<InstallResult, crate::Error> {
         let bytes = self.get_cached_update_bytes(version)?;
 
         let updater = self.manager.updater()?;
@@ -165,12 +178,89 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
             .await?
             .ok_or(crate::Error::UpdateNotAvailable)?;
 
+        if update.version != version {
+            return Err(crate::Error::VersionMismatch {
+                expected: version.to_string(),
+                actual: update.version,
+            });
+        }
+
         if let Ok(store) = self.manager.store2().store() {
             let _ = store.save();
         }
 
-        update.install(&bytes)?;
+        #[cfg(target_os = "macos")]
+        {
+            let stage_dir = self.create_macos_update_stage_dir(version)?;
+            let staged_update = match crate::migration::stage_macos_update(&bytes, &stage_dir) {
+                Ok(staged_update) => staged_update,
+                Err(err) => {
+                    let _ = std::fs::remove_dir_all(&stage_dir);
+                    return Err(err);
+                }
+            };
 
+            Ok(InstallResult::MacosBundleUpdate {
+                current_path: staged_update.current_app_path.display().to_string(),
+                staged_path: staged_update.staged_app_path.display().to_string(),
+                target_path: staged_update.target_app_path.display().to_string(),
+                backup_path: staged_update.current_backup_path.display().to_string(),
+                stage_dir: staged_update.stage_dir.display().to_string(),
+            })
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            update.install(&bytes)?;
+            Ok(InstallResult::RelaunchCurrent)
+        }
+    }
+
+    pub async fn postinstall(&self, result: InstallResult) -> Result<(), crate::Error> {
+        match result {
+            InstallResult::RelaunchCurrent => {
+                self.manager.app_handle().restart();
+            }
+            InstallResult::MacosBundleUpdate {
+                current_path,
+                staged_path,
+                target_path,
+                backup_path,
+                stage_dir,
+            } => {
+                #[cfg(target_os = "macos")]
+                {
+                    let handle = self.manager.app_handle().clone();
+                    let current_pid = std::process::id();
+
+                    crate::migration::schedule_macos_update_after_exit(
+                        current_pid,
+                        crate::migration::StagedMacosUpdate {
+                            current_app_path: PathBuf::from(current_path),
+                            staged_app_path: PathBuf::from(staged_path),
+                            target_app_path: PathBuf::from(target_path),
+                            current_backup_path: PathBuf::from(backup_path),
+                            stage_dir: PathBuf::from(stage_dir),
+                        },
+                    )?;
+
+                    handle.exit(0);
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = (
+                        current_path,
+                        staged_path,
+                        target_path,
+                        backup_path,
+                        stage_dir,
+                    );
+                    return Err(crate::Error::InvalidPostinstallState(
+                        "macos_bundle_update is only valid on macOS".into(),
+                    ));
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -204,4 +294,49 @@ fn get_cache_path<R: tauri::Runtime, M: tauri::Manager<R>>(
         .ok()
         .map(|p: PathBuf| p.join("updates"))?;
     Some(dir.join(format!("{}.bin", version)))
+}
+
+#[cfg(target_os = "macos")]
+impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
+    fn create_macos_update_stage_dir(&self, version: &str) -> Result<PathBuf, crate::Error> {
+        let base_dir = self
+            .manager
+            .app_handle()
+            .path()
+            .app_cache_dir()
+            .map_err(|_| crate::Error::CachePathUnavailable)?
+            .join("updates")
+            .join("staged");
+        std::fs::create_dir_all(&base_dir)?;
+
+        let version = sanitize_path_component(version);
+        let current_pid = std::process::id();
+
+        for attempt in 0..100 {
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            let stage_dir = base_dir.join(format!("{version}-{current_pid}-{nanos}-{attempt}"));
+
+            match std::fs::create_dir(&stage_dir) {
+                Ok(()) => return Ok(stage_dir),
+                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(err) => return Err(err.into()),
+            }
+        }
+
+        Err(crate::Error::CachePathUnavailable)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn sanitize_path_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => ch,
+            _ => '_',
+        })
+        .collect()
 }

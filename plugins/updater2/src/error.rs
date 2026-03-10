@@ -18,6 +18,20 @@ pub enum Error {
     UpdateNotAvailable,
     #[error("version mismatch: expected {expected}, got {actual}")]
     VersionMismatch { expected: String, actual: String },
+    #[error("failed to determine current app path")]
+    FailedToDetermineCurrentAppPath,
+    #[error("failed to determine target app path")]
+    FailedToDetermineTargetAppPath,
+    #[error("invalid update archive: {0}")]
+    InvalidUpdateArchive(String),
+    #[error("failed to schedule installed app launch at {path}: {details}")]
+    FailedToScheduleInstalledAppLaunch { path: String, details: String },
+    #[error("macOS authorization step failed: {details}")]
+    MacosAuthorizationFailed { details: String },
+    #[error("macOS target bundle already exists at {path}")]
+    MacosTargetBundleConflict { path: String },
+    #[error("invalid postinstall state: {0}")]
+    InvalidPostinstallState(String),
 }
 
 impl Serialize for Error {
