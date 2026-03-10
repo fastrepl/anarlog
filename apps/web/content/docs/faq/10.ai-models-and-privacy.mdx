@@ -53,18 +53,18 @@ Transcript data uses this structure — word-level timestamps, speaker channels,
 When you start a recording session, Char spawns three actors in parallel:
 
 1. **SourceActor** — captures audio from your microphone and system speaker
-2. **RecorderActor** — writes audio samples to local WAV files
+2. **RecorderActor** — encodes audio samples into local MP3 recordings
 3. **ListenerActor** — streams audio to your configured STT provider (cloud or local)
 
 Here is the session supervisor that orchestrates these actors:
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/session/supervisor.rs#L56-L106" />
 
-Audio is written to WAV files on your local disk. Here is the recorder handling incoming audio samples:
+Audio is encoded into MP3 files on your local disk when recording retention is enabled. Here is the recorder handling incoming audio samples:
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/recorder/mod.rs#L130-L168" />
 
-Audio files are stored at `{vault}/sessions/{session_id}/audio.wav` — they never leave your device unless you explicitly use cloud transcription.
+Audio files are stored at `{vault}/sessions/{session_id}/audio.mp3` — they never leave your device unless you explicitly use cloud transcription.
 
 ### Encryption
 

@@ -63,7 +63,7 @@ impl Actor for SessionActor {
         let span = session_span(&session_id);
 
         async {
-            let recorder_cell = if ctx.params.audio_retention == crate::AudioRetention::Disk {
+            let recorder_cell = if ctx.params.audio_retention != crate::AudioRetention::None {
                 Some(
                     spawn_recorder(myself.get_cell(), &ctx)
                         .await
@@ -314,7 +314,7 @@ async fn try_restart_source(
 }
 
 async fn try_restart_recorder(supervisor_cell: ActorCell, state: &mut SessionState) -> bool {
-    if state.ctx.params.audio_retention != crate::AudioRetention::Disk {
+    if state.ctx.params.audio_retention == crate::AudioRetention::None {
         return true;
     }
 
@@ -408,6 +408,7 @@ async fn spawn_recorder(
         RecArgs {
             app_dir: ctx.app_dir.clone(),
             session_id: ctx.params.session_id.clone(),
+            audio_retention: ctx.params.audio_retention.clone(),
         },
         supervisor_cell,
     )
