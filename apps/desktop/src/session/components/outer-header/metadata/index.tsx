@@ -235,7 +235,7 @@ export function EventDisplay({
       {event.description && (
         <>
           <div className="h-px bg-neutral-200" />
-          <div className="max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap text-neutral-700">
+          <div className="select-text-deep max-h-40 overflow-y-auto text-sm break-words whitespace-pre-wrap text-neutral-700">
             {renderDescriptionWithLinks(event.description)}
           </div>
         </>
