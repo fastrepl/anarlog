@@ -21,6 +21,8 @@ import {
 import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn } from "@hypr/utils";
 
+import { getIgnoredAppOptions } from "./notification-app-options";
+
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -72,12 +74,7 @@ export function NotificationSettingsView() {
     return allInstalledApps?.find((a) => a.id === bundleId)?.name ?? bundleId;
   };
 
-  const nameToBundleId = (name: string) => {
-    return allInstalledApps?.find((a) => a.name === name)?.id ?? name;
-  };
-
-  const isDefaultIgnored = (appName: string) => {
-    const bundleId = nameToBundleId(appName);
+  const isDefaultIgnored = (bundleId: string) => {
     return defaultIgnoredBundleIds?.includes(bundleId) ?? false;
   };
 
@@ -121,7 +118,7 @@ export function NotificationSettingsView() {
       notification_event: configs.notification_event,
       notification_detect: configs.notification_detect,
       respect_dnd: configs.respect_dnd,
-      ignored_platforms: configs.ignored_platforms.map(bundleIdToName),
+      ignored_platforms: configs.ignored_platforms,
       mic_active_threshold: configs.mic_active_threshold,
     },
     listeners: {
@@ -133,9 +130,7 @@ export function NotificationSettingsView() {
       handleSetNotificationEvent(value.notification_event);
       handleSetNotificationDetect(value.notification_detect);
       handleSetRespectDnd(value.respect_dnd);
-      handleSetIgnoredPlatforms(
-        JSON.stringify(value.ignored_platforms.map(nameToBundleId)),
-      );
+      handleSetIgnoredPlatforms(JSON.stringify(value.ignored_platforms));
       handleSetMicActiveThreshold(value.mic_active_threshold);
     },
   });
@@ -144,42 +139,33 @@ export function NotificationSettingsView() {
     configs.notification_event || configs.notification_detect;
   const ignoredPlatforms = form.getFieldValue("ignored_platforms");
 
-  const installedApps = allInstalledApps?.map((app) => app.name) ?? [];
-
-  const filteredApps = installedApps.filter((app) => {
-    const matchesSearch = app.toLowerCase().includes(inputValue.toLowerCase());
-    const notAlreadyAdded = !ignoredPlatforms.includes(app);
-    const notDefaultIgnored = !isDefaultIgnored(app);
-    return matchesSearch && notAlreadyAdded && notDefaultIgnored;
+  const dropdownOptions = getIgnoredAppOptions({
+    allInstalledApps,
+    ignoredPlatforms,
+    inputValue,
+    defaultIgnoredBundleIds,
   });
 
-  const showCustomOption =
-    inputValue.trim() &&
-    !filteredApps.some((app) => app.toLowerCase() === inputValue.toLowerCase());
-
-  const dropdownOptions = showCustomOption
-    ? [inputValue.trim(), ...filteredApps]
-    : filteredApps;
-
-  const handleAddIgnoredApp = (appName: string) => {
-    const trimmedName = appName.trim();
+  const handleAddIgnoredApp = (bundleId: string) => {
     if (
-      !trimmedName ||
-      ignoredPlatforms.includes(trimmedName) ||
-      isDefaultIgnored(trimmedName)
+      !bundleId ||
+      ignoredPlatforms.includes(bundleId) ||
+      isDefaultIgnored(bundleId)
     ) {
       return;
     }
 
-    form.setFieldValue("ignored_platforms", [...ignoredPlatforms, trimmedName]);
+    form.setFieldValue("ignored_platforms", [...ignoredPlatforms, bundleId]);
     void form.handleSubmit();
     setInputValue("");
     setShowDropdown(false);
     setSelectedIndex(0);
   };
 
-  const handleRemoveIgnoredApp = (app: string) => {
-    const updated = ignoredPlatforms.filter((a: string) => a !== app);
+  const handleRemoveIgnoredApp = (bundleId: string) => {
+    const updated = ignoredPlatforms.filter(
+      (appId: string) => appId !== bundleId,
+    );
     form.setFieldValue("ignored_platforms", updated);
     void form.handleSubmit();
   };
@@ -187,8 +173,9 @@ export function NotificationSettingsView() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && inputValue.trim()) {
       e.preventDefault();
-      if (dropdownOptions.length > 0) {
-        handleAddIgnoredApp(dropdownOptions[selectedIndex]);
+      const selectedApp = dropdownOptions[selectedIndex];
+      if (selectedApp) {
+        handleAddIgnoredApp(selectedApp.id);
       }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -206,9 +193,9 @@ export function NotificationSettingsView() {
       !inputValue &&
       ignoredPlatforms.length > 0
     ) {
-      const lastApp = ignoredPlatforms[ignoredPlatforms.length - 1];
-      if (!isDefaultIgnored(lastApp)) {
-        handleRemoveIgnoredApp(lastApp);
+      const lastBundleId = ignoredPlatforms[ignoredPlatforms.length - 1];
+      if (!isDefaultIgnored(lastBundleId)) {
+        handleRemoveIgnoredApp(lastBundleId);
       }
     }
   };
@@ -317,11 +304,11 @@ export function NotificationSettingsView() {
                     className="flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border p-2"
                     onClick={() => inputRef.current?.focus()}
                   >
-                    {ignoredPlatforms.map((app: string) => {
-                      const isDefault = isDefaultIgnored(app);
+                    {ignoredPlatforms.map((bundleId: string) => {
+                      const isDefault = isDefaultIgnored(bundleId);
                       return (
                         <Badge
-                          key={app}
+                          key={bundleId}
                           variant="secondary"
                           className={cn([
                             "flex items-center gap-1 px-2 py-0.5 text-xs",
@@ -331,7 +318,7 @@ export function NotificationSettingsView() {
                           ])}
                           title={isDefault ? "default" : undefined}
                         >
-                          {app}
+                          {bundleIdToName(bundleId)}
                           {isDefault && (
                             <span className="text-[10px] opacity-70">
                               (default)
@@ -343,7 +330,7 @@ export function NotificationSettingsView() {
                               variant="ghost"
                               size="sm"
                               className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
-                              onClick={() => handleRemoveIgnoredApp(app)}
+                              onClick={() => handleRemoveIgnoredApp(bundleId)}
                             >
                               <X className="h-2.5 w-2.5" />
                             </Button>
@@ -370,10 +357,9 @@ export function NotificationSettingsView() {
                     <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-md border shadow-md">
                       <div className="max-h-[200px] overflow-auto py-1">
                         {dropdownOptions.map((app, index) => {
-                          const isCustom = showCustomOption && index === 0;
                           return (
                             <button
-                              key={app}
+                              key={app.id}
                               type="button"
                               className={cn([
                                 "w-full px-3 py-1.5 text-left text-sm transition-colors",
@@ -381,17 +367,10 @@ export function NotificationSettingsView() {
                                 selectedIndex === index &&
                                   "bg-accent text-accent-foreground",
                               ])}
-                              onClick={() => handleAddIgnoredApp(app)}
+                              onClick={() => handleAddIgnoredApp(app.id)}
                               onMouseEnter={() => setSelectedIndex(index)}
                             >
-                              {isCustom ? (
-                                <span>
-                                  Add "
-                                  <span className="font-medium">{app}</span>"
-                                </span>
-                              ) : (
-                                app
-                              )}
+                              {app.name}
                             </button>
                           );
                         })}
