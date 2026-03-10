@@ -18886,16 +18886,19 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "serde",
  "specta",
  "specta-typescript",
  "strum 0.27.2",
+ "tar",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-fs-db",
  "tauri-plugin-store2",
  "tauri-plugin-updater",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

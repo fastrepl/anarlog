@@ -22,9 +22,12 @@ tokio = { workspace = true, features = ["macros", "time"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+flate2 = "1"
 serde = { workspace = true }
 specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
+tar = "0.4"
+tempfile = { workspace = true }
 
 thiserror = { workspace = true }
 tracing = { workspace = true }

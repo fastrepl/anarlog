@@ -23,6 +23,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
+import { HeaderListenButton } from "./header-listen-button";
 import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
 import { TabContentAI, TabItemAI } from "~/ai";
@@ -289,10 +290,10 @@ function Header({ tabs }: { tabs: Tab[] }) {
           </Reorder.Group>
         </div>
         {!scrollState.atStart && (
-          <div className="pointer-events-none absolute top-0 left-0 z-20 h-full w-8 bg-linear-to-r from-white to-transparent" />
+          <div className="pointer-events-none absolute top-0 left-0 z-20 h-full w-8 bg-linear-to-r from-stone-50 to-transparent" />
         )}
         {!scrollState.atEnd && (
-          <div className="pointer-events-none absolute top-0 right-0 z-20 h-full w-8 bg-linear-to-l from-white to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 z-20 h-full w-8 bg-linear-to-l from-stone-50 to-transparent" />
         )}
       </div>
 
@@ -315,6 +316,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
         </Button>
 
         <div className="ml-auto flex h-full items-center gap-1">
+          <HeaderListenButton compact={!(scrollState.atStart && scrollState.atEnd)} />
           <Update />
         </div>
       </div>

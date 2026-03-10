@@ -107,7 +107,14 @@ impl MenuItemHandler for TrayCheckUpdate {
                 let app = app.clone();
                 tauri::async_runtime::spawn(async move {
                     match app.updater2().install(&version).await {
-                        Ok(()) => app.restart(),
+                        Ok(result) => {
+                            if let Err(e) = app.updater2().postinstall(result).await {
+                                app.dialog()
+                                    .message(format!("Failed to apply update: {}", e))
+                                    .title("Update Failed")
+                                    .show(|_| {});
+                            }
+                        }
                         Err(e) => {
                             app.dialog()
                                 .message(format!("Failed to install update: {}", e))

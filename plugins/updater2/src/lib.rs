@@ -2,6 +2,8 @@ mod commands;
 mod error;
 mod events;
 mod ext;
+#[cfg(target_os = "macos")]
+mod migration;
 mod store;
 
 pub use error::{Error, Result};
@@ -18,6 +20,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::check::<tauri::Wry>,
             commands::download::<tauri::Wry>,
             commands::install::<tauri::Wry>,
+            commands::postinstall::<tauri::Wry>,
             commands::maybe_emit_updated::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
