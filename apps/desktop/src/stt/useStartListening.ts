@@ -42,7 +42,7 @@ export function useStartListening(
   const recordingMode =
     options?.recordingMode ?? (record_enabled ? "disk" : "memory");
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     if (!conn || !store) {
       console.error("no_stt_connection");
       return;
@@ -62,13 +62,6 @@ export function useStartListening(
     } satisfies TranscriptStorage;
 
     store.setRow("transcripts", transcriptId, transcriptRow);
-
-    void analyticsCommands.event({
-      event: "session_started",
-      has_calendar_event: !!getSessionEventById(store, sessionId),
-      stt_provider: conn.provider,
-      stt_model: conn.model,
-    });
 
     const handlePersist: HandlePersistCallback = (words, hints) => {
       if (words.length === 0) {
@@ -134,7 +127,7 @@ export function useStartListening(
       });
     };
 
-    start(
+    const started = await start(
       {
         session_id: sessionId,
         languages,
@@ -150,6 +143,18 @@ export function useStartListening(
         handlePersist,
       },
     );
+
+    if (!started) {
+      store.delRow("transcripts", transcriptId);
+      return;
+    }
+
+    void analyticsCommands.event({
+      event: "session_started",
+      has_calendar_event: !!getSessionEventById(store, sessionId),
+      stt_provider: conn.provider,
+      stt_model: conn.model,
+    });
   }, [
     conn,
     store,

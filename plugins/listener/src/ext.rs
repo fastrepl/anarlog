@@ -1,7 +1,7 @@
 use ractor::{ActorRef, call_t, registry};
 
 use hypr_listener_core::{
-    StopSessionParams,
+    StartSessionError, StopSessionParams,
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
 };
 
@@ -62,10 +62,19 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn start_session(&self, params: SessionParams) {
+    pub async fn start_session(&self, params: SessionParams) -> Result<(), crate::Error> {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            let _ = ractor::call!(actor, RootMsg::StartSession, params);
+            match ractor::call!(actor, RootMsg::StartSession, params) {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(StartSessionError::SessionAlreadyRunning)) => {
+                    Err(crate::Error::SessionAlreadyRunning)
+                }
+                Ok(Err(_)) => Err(crate::Error::StartSessionFailed),
+                Err(_) => Err(crate::Error::StartSessionFailed),
+            }
+        } else {
+            Err(crate::Error::ActorNotFound(RootActor::name().to_string()))
         }
     }
 

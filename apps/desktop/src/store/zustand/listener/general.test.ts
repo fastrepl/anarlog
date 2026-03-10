@@ -1,3 +1,4 @@
+import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { createListenerStore } from ".";
@@ -165,6 +166,31 @@ describe("General Listener Slice", () => {
     test("start action exists and is callable", () => {
       const start = store.getState().start;
       expect(typeof start).toBe("function");
+    });
+
+    test("start returns false while another session is finalizing", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "finalizing";
+          draft.live.loading = true;
+          draft.live.sessionId = "session-a";
+        }),
+      );
+
+      const result = await store.getState().start({
+        session_id: "session-b",
+        languages: [],
+        onboarding: false,
+        transcription_mode: "live",
+        recording_mode: "disk",
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+
+      expect(result).toBe(false);
+      expect(store.getState().live.sessionId).toBe("session-a");
     });
   });
 });

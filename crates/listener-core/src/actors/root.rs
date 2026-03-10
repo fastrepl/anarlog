@@ -10,10 +10,10 @@ use crate::actors::session::lifecycle::{
 use crate::actors::{
     SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
 };
-use crate::{ListenerRuntime, SessionLifecycleEvent, State, StopSessionParams};
+use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State, StopSessionParams};
 
 pub enum RootMsg {
-    StartSession(SessionParams, RpcReplyPort<bool>),
+    StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
     StopSession(StopSessionParams, RpcReplyPort<()>),
     GetState(RpcReplyPort<State>),
 }
@@ -64,8 +64,8 @@ impl Actor for RootActor {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             RootMsg::StartSession(params, reply) => {
-                let success = start_session_impl(myself.get_cell(), params, state).await;
-                let _ = reply.send(success);
+                let result = start_session_impl(myself.get_cell(), params, state).await;
+                let _ = reply.send(result);
             }
             RootMsg::StopSession(params, reply) => {
                 stop_session_impl(state, params).await;
@@ -129,14 +129,14 @@ async fn start_session_impl(
     root_cell: ActorCell,
     params: SessionParams,
     state: &mut RootState,
-) -> bool {
+) -> Result<(), StartSessionError> {
     let session_id = params.session_id.clone();
     let span = session_span(&session_id);
 
     async {
         if state.supervisor.is_some() {
             tracing::warn!("session_already_running");
-            return false;
+            return Err(StartSessionError::SessionAlreadyRunning);
         }
 
         configure_sentry_session_context(&params);
@@ -146,7 +146,7 @@ async fn start_session_impl(
             Err(e) => {
                 tracing::error!(error.message = %e, "failed_to_resolve_sessions_dir");
                 clear_sentry_session_context();
-                return false;
+                return Err(StartSessionError::FailedToResolveSessionsDir);
             }
         };
 
@@ -175,12 +175,12 @@ async fn start_session_impl(
                 state.runtime.emit_lifecycle(evt);
 
                 tracing::info!("session_started");
-                true
+                Ok(())
             }
             Err(e) => {
                 tracing::error!(error.message = ?e, "failed_to_start_session");
                 clear_sentry_session_context();
-                false
+                Err(StartSessionError::FailedToStartSession)
             }
         }
     }

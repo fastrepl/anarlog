@@ -197,7 +197,7 @@ export const startLiveSession = <T extends LiveStore>(
   get: StoreApi<T>["getState"],
   targetSessionId: string,
   params: SessionParams,
-) => {
+): Promise<boolean> => {
   const handlers = createSessionEventHandlers(set, get, targetSessionId);
 
   const program = Effect.gen(function* () {
@@ -255,7 +255,7 @@ export const startLiveSession = <T extends LiveStore>(
     });
   });
 
-  void Effect.runPromiseExit(program).then((exit) => {
+  return Effect.runPromiseExit(program).then((exit) =>
     Exit.match(exit, {
       onFailure: (cause) => {
         console.error(JSON.stringify(cause));
@@ -265,10 +265,11 @@ export const startLiveSession = <T extends LiveStore>(
         setLiveState(set, (live) => {
           markLiveStartFailed(live);
         });
+        return false;
       },
-      onSuccess: () => {},
-    });
-  });
+      onSuccess: () => true,
+    }),
+  );
 };
 
 export const stopLiveSession = <T extends GeneralState>(

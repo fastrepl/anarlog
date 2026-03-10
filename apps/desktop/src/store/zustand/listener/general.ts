@@ -25,7 +25,7 @@ export type GeneralActions = {
   start: (
     params: SessionParams,
     options?: { handlePersist?: HandlePersistCallback },
-  ) => void;
+  ) => Promise<boolean>;
   stop: () => void;
   setMuted: (value: boolean) => void;
   runBatch: (
@@ -46,12 +46,12 @@ export const createGeneralSlice = <
   get: StoreApi<T>["getState"],
 ): GeneralState & GeneralActions => ({
   ...initialGeneralState,
-  start: (params: SessionParams, options) => {
+  start: async (params: SessionParams, options) => {
     const targetSessionId = params.session_id;
 
     if (!targetSessionId) {
       console.error("[listener] 'start' requires a session_id");
-      return;
+      return false;
     }
 
     const currentMode = get().getSessionMode(targetSessionId);
@@ -59,7 +59,15 @@ export const createGeneralSlice = <
       console.warn(
         `[listener] cannot start live session while batch processing session ${targetSessionId}`,
       );
-      return;
+      return false;
+    }
+
+    const currentLive = get().live;
+    if (currentLive.loading || currentLive.status !== "inactive") {
+      console.warn(
+        "[listener] cannot start live session while another session is running",
+      );
+      return false;
     }
 
     setLiveState(set, (live) => {
@@ -75,7 +83,12 @@ export const createGeneralSlice = <
       get().setTranscriptPersist(options.handlePersist);
     }
 
-    startLiveSession(set, get, targetSessionId, params);
+    const started = await startLiveSession(set, get, targetSessionId, params);
+    if (!started && options?.handlePersist) {
+      get().setTranscriptPersist(undefined);
+    }
+
+    return started;
   },
   stop: () => {
     stopLiveSession(set, get);

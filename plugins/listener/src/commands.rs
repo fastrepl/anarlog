@@ -48,8 +48,10 @@ pub async fn start_session<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: SessionParams,
 ) -> Result<(), String> {
-    app.listener().start_session(params).await;
-    Ok(())
+    app.listener()
+        .start_session(params)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
