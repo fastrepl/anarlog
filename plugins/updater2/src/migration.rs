@@ -167,7 +167,7 @@ fi"#,
         target = shell_quote(&paths.target_app_path),
         backup = shell_quote(&paths.current_backup_path),
         stage_dir = shell_quote(&staged_update.stage_dir),
-        authorization = apple_script_quote(&authorization_script(&paths)),
+        authorization = do_shell_script_with_privileges(&authorization_script(&paths)),
     );
     let mut command = Command::new("/bin/sh");
     command
@@ -309,8 +309,12 @@ fn shell_quote(path: &Path) -> String {
     format!("'{path}'")
 }
 
-fn apple_script_quote(script: &str) -> String {
-    format!("\"{}\"", script.replace('\\', "\\\\").replace('"', "\\\""))
+fn do_shell_script_with_privileges(shell_script: &str) -> String {
+    let escaped = shell_script.replace('\\', "\\\\").replace('"', "\\\"");
+    format!(
+        "'do shell script \"{}\" with administrator privileges'",
+        escaped
+    )
 }
 
 #[cfg(test)]
@@ -484,7 +488,8 @@ mod tests {
         assert_eq!(args[0], "-c");
         assert!(args[1].contains(r#"while kill -0 "$1" 2>/dev/null; do sleep 0.1; done;"#));
         assert!(args[1].contains("apply_update() {"));
-        assert!(args[1].contains("osascript -e"));
+        assert!(args[1].contains("osascript -e 'do shell script"));
+        assert!(args[1].contains("with administrator privileges'"));
         assert!(args[1].contains("open -n '/Applications/Char.app'"));
         assert!(args[1].contains("rm -rf '/tmp/stage'"));
         assert_eq!(&args[2..], ["sh", "4242"]);
