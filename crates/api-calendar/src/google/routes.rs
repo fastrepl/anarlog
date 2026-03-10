@@ -3,7 +3,7 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use hypr_api_nango::{GoogleCalendar, NangoConnection};
 use hypr_google_calendar::{
-    EventOrderBy, GoogleCalendarClient, ListCalendarsResponse, ListEventsResponse,
+    EventOrderBy, EventType, GoogleCalendarClient, ListCalendarsResponse, ListEventsResponse,
 };
 use hypr_nango::OwnedNangoHttpClient;
 use serde::Deserialize;
@@ -116,6 +116,7 @@ pub async fn list_events(
         page_token: req.page_token,
         single_events: req.single_events,
         order_by,
+        event_types: Some(vec![EventType::Default]),
         ..Default::default()
     };
 
