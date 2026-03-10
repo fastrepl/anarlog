@@ -1,3 +1,4 @@
+import { motion } from "motion/react";
 import { Resizable } from "re-resizable";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -24,7 +25,6 @@ export function PersistentChatPanel({
     width: 400,
     height: window.innerHeight * 0.7,
   });
-  const [isResizing, setIsResizing] = useState(false);
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -83,32 +83,34 @@ export function PersistentChatPanel({
     return null;
   }
 
-  const panelStyle: React.CSSProperties | undefined =
-    isPanel && panelRect
-      ? {
-          top: panelRect.top,
-          left: panelRect.left,
-          width: panelRect.width,
-          height: panelRect.height,
-        }
-      : undefined;
-
   return (
-    <div
+    <motion.div
+      initial={{ scale: 0, opacity: 0 }}
+      animate={isVisible ? { scale: 1, opacity: 1 } : { scale: 0, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={cn([
-        "fixed z-100",
-        !isVisible && "hidden!",
+        "fixed z-100 overflow-hidden",
         isPanel && "pointer-events-none",
       ])}
-      style={
-        isFloating
+      style={{
+        transformOrigin: "bottom right",
+        ...(isFloating
           ? { right: 16, bottom: 16 }
-          : (panelStyle ?? { display: "none" })
-      }
+          : isPanel && panelRect
+            ? {
+                top: panelRect.top,
+                left: panelRect.left,
+                width: panelRect.width,
+                height: panelRect.height,
+              }
+            : isPanel
+              ? { visibility: "hidden" as const }
+              : { right: 16, bottom: 16 }),
+        ...(!isVisible && { pointerEvents: "none" as const }),
+      }}
     >
       <Resizable
-        size={isFloating ? floatingSize : { width: "100%", height: "100%" }}
-        onResizeStart={isFloating ? () => setIsResizing(true) : undefined}
+        size={isPanel ? { width: "100%", height: "100%" } : floatingSize}
         onResizeStop={
           isFloating
             ? (_, __, ___, d) => {
@@ -116,7 +118,6 @@ export function PersistentChatPanel({
                   width: prev.width + d.width,
                   height: prev.height + d.height,
                 }));
-                setIsResizing(false);
               }
             : undefined
         }
@@ -140,7 +141,6 @@ export function PersistentChatPanel({
           isFloating && [
             "overflow-hidden rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
             "border border-neutral-200",
-            !isResizing && "transition-all duration-200",
           ],
           isPanel && "h-full w-full",
         ])}
@@ -161,6 +161,6 @@ export function PersistentChatPanel({
       >
         <ChatView />
       </Resizable>
-    </div>
+    </motion.div>
   );
 }

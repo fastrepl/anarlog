@@ -1373,6 +1373,7 @@ dependencies = [
  "hound",
  "libpulse-binding",
  "pin-project",
+ "resampler",
  "ringbuf",
  "rodio",
  "serde",
