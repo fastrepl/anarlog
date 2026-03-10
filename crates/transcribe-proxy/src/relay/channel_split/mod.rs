@@ -219,7 +219,7 @@ impl ChannelSplitProxy {
                             if proxy_debug_enabled() {
                                 let rewritten_log = rewritten
                                     .as_ref()
-                                    .and_then(|_| transformed_log.as_deref())
+                                    .and(transformed_log.as_deref())
                                     .and_then(|text| {
                                         rewrite_split_response(
                                             text,
