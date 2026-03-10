@@ -89,6 +89,7 @@ export function ChatView() {
                 error={sessionProps.error}
                 onReload={sessionProps.regenerate}
                 isModelConfigured={!!model}
+                hasContext={sessionProps.contextEntities.length > 0}
                 onSendMessage={(content, parts) => {
                   handleSendMessage(
                     content,

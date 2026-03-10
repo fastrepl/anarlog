@@ -11,16 +11,18 @@ import { cn } from "@hypr/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
-  { label: "Actions", icon: ListChecksIcon },
-  { label: "Draft of all emails", icon: MailIcon },
-  { label: "Find key decisions", icon: SearchIcon },
+  { label: "Actions", icon: ListChecksIcon, prompt: "What are my action items from this meeting?" },
+  { label: "Draft follow-up", icon: MailIcon, prompt: "Draft a follow-up email to the participants" },
+  { label: "Key decisions", icon: SearchIcon, prompt: "What were the key decisions that have been made?" },
 ];
 
 export function ChatBodyEmpty({
   isModelConfigured = true,
+  hasContext = false,
   onSendMessage,
 }: {
   isModelConfigured?: boolean;
+  hasContext?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -33,8 +35,8 @@ export function ChatBodyEmpty({
   }, [openNew]);
 
   const handleSuggestionClick = useCallback(
-    (label: string) => {
-      onSendMessage?.(label, [{ type: "text", text: label }]);
+    (prompt: string) => {
+      onSendMessage?.(prompt, [{ type: "text", text: prompt }]);
     },
     [onSendMessage],
   );
@@ -77,21 +79,23 @@ export function ChatBodyEmpty({
         <p className="mb-2 text-sm text-neutral-700">
           Hey! I can help you with a lot of cool stuff :)
         </p>
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map(({ label, icon: Icon }) => (
-            <button
-              key={label}
-              onClick={() => handleSuggestionClick(label)}
-              className={cn([
-                "inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700",
-                "transition-colors hover:bg-neutral-100",
-              ])}
-            >
-              <Icon size={12} />
-              {label}
-            </button>
-          ))}
-        </div>
+        {hasContext && (
+          <div className="flex flex-wrap gap-1.5">
+            {SUGGESTIONS.map(({ label, icon: Icon, prompt }) => (
+              <button
+                key={label}
+                onClick={() => handleSuggestionClick(prompt)}
+                className={cn([
+                  "inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2 py-1 text-[11px] text-neutral-700",
+                  "transition-colors hover:bg-neutral-100",
+                ])}
+              >
+                <Icon size={12} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

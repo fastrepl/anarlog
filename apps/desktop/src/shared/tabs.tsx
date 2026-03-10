@@ -38,8 +38,8 @@ const accentColors: Record<
 > = {
   neutral: {
     selected: [
-      "bg-neutral-50",
-      "hover:bg-stone-100",
+      "bg-neutral-200/50",
+      "hover:bg-neutral-200",
       "text-black",
       "border-stone-400",
     ],

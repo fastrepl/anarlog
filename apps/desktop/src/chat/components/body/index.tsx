@@ -15,6 +15,7 @@ export function ChatBody({
   error,
   onReload,
   isModelConfigured = true,
+  hasContext = false,
   onSendMessage,
 }: {
   messages: HyprUIMessage[];
@@ -22,6 +23,7 @@ export function ChatBody({
   error?: Error;
   onReload?: () => void;
   isModelConfigured?: boolean;
+  hasContext?: boolean;
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
@@ -50,6 +52,7 @@ export function ChatBody({
           {messages.length === 0 ? (
             <ChatBodyEmpty
               isModelConfigured={isModelConfigured}
+              hasContext={hasContext}
               onSendMessage={onSendMessage}
             />
           ) : (
