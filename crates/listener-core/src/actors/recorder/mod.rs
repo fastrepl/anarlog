@@ -5,14 +5,14 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use hypr_audio_utils::mix_audio_f32;
-use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef};
+use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort};
 
 use crate::InMemoryAudioDisposition;
 
 pub enum RecMsg {
     AudioSingle(Arc<[f32]>),
     AudioDual(Arc<[f32]>, Arc<[f32]>),
-    SetStopDisposition(InMemoryAudioDisposition),
+    SetStopDispositionAndAck(InMemoryAudioDisposition, RpcReplyPort<()>),
 }
 
 pub struct RecArgs {
@@ -95,8 +95,11 @@ impl Actor for RecorderActor {
         st: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match (&mut st.sink, msg) {
-            (_, RecMsg::SetStopDisposition(disposition)) => {
+            (_, RecMsg::SetStopDispositionAndAck(disposition, reply)) => {
                 st.stop_disposition = disposition;
+                if !reply.is_closed() {
+                    let _ = reply.send(());
+                }
             }
             (RecorderSink::Memory(sink), RecMsg::AudioSingle(samples)) => {
                 sink.encoder.encode_single(&samples, &mut sink.data)?;

@@ -484,8 +484,10 @@ async fn apply_stop_session_params(state: &SessionState, params: &StopSessionPar
 
     if let Some(recorder_cell) = &state.recorder_cell {
         let recorder_ref: ActorRef<RecMsg> = recorder_cell.clone().into();
-        if let Err(error) = recorder_ref.cast(RecMsg::SetStopDisposition(disposition)) {
-            tracing::warn!(?error, "failed_to_update_recorder_stop_disposition");
+        if let Err(error) = ractor::call!(recorder_ref, |reply| {
+            RecMsg::SetStopDispositionAndAck(disposition.clone(), reply)
+        }) {
+            tracing::warn!(?error, "failed_to_apply_recorder_stop_disposition");
         }
     }
 }

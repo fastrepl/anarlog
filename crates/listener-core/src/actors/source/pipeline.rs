@@ -531,7 +531,7 @@ mod tests {
                     let _ = (mic.len(), spk.len());
                     let _ = self.0.send(ProbeEvent::RecorderDual);
                 }
-                RecMsg::SetStopDisposition(_) => {}
+                RecMsg::SetStopDispositionAndAck(_, _) => {}
             }
             Ok(())
         }
