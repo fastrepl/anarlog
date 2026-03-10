@@ -198,100 +198,9 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
 
-  build-linux:
-    needs: [compute-version, cn-draft]
-    if: ${{ inputs.channel != 'staging' && !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            arch: x86_64
-            runner: depot-ubuntu-24.04-8
-          - target: aarch64-unknown-linux-gnu
-            arch: aarch64
-            runner: depot-ubuntu-24.04-arm-8
-    runs-on: ${{ matrix.runner }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-          fetch-depth: 0
-          fetch-tags: true
-          submodules: recursive
-      - run: |
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git fetch --tags --force
-      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
-      - uses: ./.github/actions/install_desktop_deps
-        with:
-          target: linux
-      - uses: ./.github/actions/rust_install
-        with:
-          platform: linux-${{ matrix.arch }}
-      - uses: ./.github/actions/pnpm_install
-      - run: pnpm -F ui build
-      - run: |
-          TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
-          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-chrome-native-host"
-      - run: |
-          FEATURES_FLAG=""
-          if [[ "${{ inputs.channel }}" == "staging" ]]; then
-            FEATURES_FLAG="--features devtools"
-          fi
-          pnpm -F desktop tauri build --bundles appimage,deb --target ${{ matrix.target }} --config ${{ env.TAURI_CONF_PATH }} --verbose $FEATURES_FLAG
-        env:
-          CI: false
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AM_API_KEY: ${{ secrets.AM_API_KEY }}
-          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          OUTLIT_PUBLIC_KEY: ${{ secrets.OUTLIT_PUBLIC_KEY }}
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          APP_VERSION: ${{ needs.compute-version.outputs.version }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_APP_URL: "https://char.com"
-          VITE_API_URL: "https://api.char.com"
-          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
-          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
-      - run: |
-          mkdir -p target/release/
-          find target/${{ matrix.target }}/release -type f -not -path "*/\.*" -exec cp {} target/release/ \;
-        shell: bash
-        working-directory: ./apps/desktop/src-tauri
-      - if: ${{ inputs.channel != 'staging' }}
-        uses: ./.github/actions/cn_release
-        with:
-          cmd: upload
-          app: ${{ env.CN_APPLICATION }}
-          key: ${{ secrets.CN_API_KEY }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          framework: tauri
-          working-directory: ./apps/desktop
-      - if: ${{ inputs.channel == 'staging' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: hyprnote-staging-linux-${{ matrix.arch }}-appimage
-          path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
-          retention-days: 3
-      - if: ${{ inputs.channel == 'staging' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: hyprnote-staging-linux-${{ matrix.arch }}-deb
-          path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
-          retention-days: 3
-
   create-tag:
-    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
-    needs: [compute-version, build-macos, build-linux]
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' }}
+    needs: [compute-version, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -305,7 +214,7 @@ jobs:
 
   cn-publish:
     if: ${{ inputs.channel != 'staging' && inputs.publish }}
-    needs: [compute-version, build-macos, build-linux, create-tag]
+    needs: [compute-version, build-macos, create-tag]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -320,8 +229,8 @@ jobs:
           working-directory: ./apps/desktop
 
   release:
-    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' }}
-    needs: [compute-version, build-macos, build-linux, cn-publish]
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' }}
+    needs: [compute-version, build-macos, cn-publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -345,64 +254,17 @@ jobs:
           platform: dmg-x86_64
           output: hyprnote-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: appimage-x86_64
-          output: hyprnote-linux-x86_64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: debian-x86_64
-          output: hyprnote-linux-x86_64.deb
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: appimage-aarch64
-          output: hyprnote-linux-aarch64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - if: ${{ needs.build-linux.result == 'success' }}
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.compute-version.outputs.version }}
-          channel: ${{ env.RELEASE_CHANNEL }}
-          platform: debian-aarch64
-          output: hyprnote-linux-aarch64.deb
-          key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:
           files: |
             ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-aarch64.dmg' || '' }}
             ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-x86_64.dmg' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'hyprnote-linux-x86_64.AppImage' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'hyprnote-linux-x86_64.deb' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'hyprnote-linux-aarch64.AppImage' || '' }}
-            ${{ needs.build-linux.result == 'success' && 'hyprnote-linux-aarch64.deb' || '' }}
       - id: artifacts
         run: |
           ARTIFACTS=""
           if [[ "${{ needs.build-macos.result }}" == "success" ]]; then
             ARTIFACTS="hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg"
-          fi
-          if [[ "${{ needs.build-linux.result }}" == "success" ]]; then
-            if [[ -n "$ARTIFACTS" ]]; then
-              ARTIFACTS="$ARTIFACTS,hyprnote-linux-x86_64.AppImage,hyprnote-linux-x86_64.deb,hyprnote-linux-aarch64.AppImage,hyprnote-linux-aarch64.deb"
-            else
-              ARTIFACTS="hyprnote-linux-x86_64.AppImage,hyprnote-linux-x86_64.deb,hyprnote-linux-aarch64.AppImage,hyprnote-linux-aarch64.deb"
-            fi
           fi
           if [[ -z "$ARTIFACTS" ]]; then
             echo "No artifacts to release" >&2

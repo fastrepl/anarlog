@@ -1,4 +1,3 @@
-mod batch;
 mod live;
 
 use crate::providers::Provider;

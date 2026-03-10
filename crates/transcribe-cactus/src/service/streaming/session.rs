@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, Stream, StreamExt};
@@ -10,8 +10,7 @@ use hypr_ws_utils::ConnectionGuard;
 
 use super::message::{AudioExtract, IncomingMessage, process_incoming_message};
 use super::response::{
-    WsSender, build_session_metadata, build_transcript_response, format_timestamp_now, send_ws,
-    send_ws_best_effort,
+    WsSender, build_transcript_response, format_timestamp_now, send_ws, send_ws_best_effort,
 };
 
 pub(super) const SAMPLE_RATE: u32 = 16_000;
@@ -32,7 +31,22 @@ struct ChannelState {
 
 enum LoopAction {
     Continue,
-    Break,
+    StopReceivingInput,
+    Break(SessionExit),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SessionExit {
+    Clean,
+    Replaced,
+    Error,
+    TransportClosed,
+}
+
+impl SessionExit {
+    fn should_emit_terminal(self) -> bool {
+        matches!(self, Self::Clean)
+    }
 }
 
 type TaggedEvent = (
@@ -43,44 +57,29 @@ type TaggedEvent = (
 pub(super) async fn handle_websocket(
     socket: WebSocket,
     params: ListenParams,
-    model_path: PathBuf,
+    model: Arc<hypr_cactus::Model>,
+    metadata: Metadata,
     cactus_config: crate::CactusConfig,
     guard: ConnectionGuard,
 ) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
 
-    let metadata = build_session_metadata(&model_path);
     let total_channels = (params.channels as i32).max(1) as usize;
     let chunk_size_ms = 300;
-
-    let custom_vocabulary = if params.keywords.is_empty() {
-        None
-    } else {
-        Some(params.keywords.clone())
-    };
 
     let options = hypr_cactus::TranscribeOptions {
         language: hypr_cactus::constrain_to(&params.languages),
         min_chunk_size: Some((cactus_config.min_chunk_sec * SAMPLE_RATE as f32) as u32),
-        custom_vocabulary,
         ..Default::default()
     };
 
     type TaggedStream = Pin<Box<dyn Stream<Item = TaggedEvent> + Send>>;
 
-    let mut audio_txs: Vec<tokio::sync::mpsc::Sender<Vec<f32>>> =
-        Vec::with_capacity(total_channels);
+    let mut audio_txs: Option<Vec<tokio::sync::mpsc::Sender<Vec<f32>>>> =
+        Some(Vec::with_capacity(total_channels));
     let mut cancel_tokens = Vec::with_capacity(total_channels);
     let mut event_streams: futures_util::stream::SelectAll<TaggedStream> =
         futures_util::stream::SelectAll::new();
-
-    let model = match hypr_cactus::Model::builder(&model_path).build() {
-        Ok(m) => std::sync::Arc::new(m),
-        Err(e) => {
-            tracing::error!(error = %e, "failed to load model");
-            return;
-        }
-    };
 
     for ch_idx in 0..total_channels {
         let cloud_config = cactus_config.cloud.clone();
@@ -91,7 +90,7 @@ pub(super) async fn handle_websocket(
             chunk_size_ms,
             SAMPLE_RATE,
         );
-        audio_txs.push(session.audio_tx().clone());
+        audio_txs.as_mut().unwrap().push(session.audio_tx().clone());
         cancel_tokens.push(session.cancellation_token().clone());
         event_streams.push(Box::pin(session.map(move |e| (ch_idx, e))));
     }
@@ -99,50 +98,56 @@ pub(super) async fn handle_websocket(
     let mut channel_states: Vec<ChannelState> = (0..total_channels)
         .map(|_| ChannelState::default())
         .collect();
+    let mut receiving_input = true;
 
-    loop {
+    let exit = loop {
         let action = tokio::select! {
             _ = guard.cancelled() => {
                 tracing::info!("cactus_websocket_cancelled_by_new_connection");
                 for ct in &cancel_tokens {
                     ct.cancel();
                 }
-                LoopAction::Break
+                LoopAction::Break(SessionExit::Replaced)
             }
             event = event_streams.next() => {
                 handle_transcribe_event(
                     &mut ws_sender, event, &mut channel_states, total_channels, &metadata,
                 ).await
             }
-            msg = ws_receiver.next() => {
+            msg = ws_receiver.next(), if receiving_input => {
                 handle_ws_message(
-                    &mut ws_sender, msg, params.channels, &audio_txs,
+                    &mut ws_sender, msg, params.channels, audio_txs.as_deref().unwrap_or(&[]),
                     &mut channel_states, total_channels, &metadata,
                 ).await
             }
         };
-        if matches!(action, LoopAction::Break) {
-            break;
+        match action {
+            LoopAction::Continue => {}
+            LoopAction::StopReceivingInput => {
+                receiving_input = false;
+                drop(audio_txs.take());
+            }
+            LoopAction::Break(exit) => break exit,
         }
-    }
+    };
 
-    // Dropping audio senders signals workers to finish, then dropping
-    // event_streams drops the TranscriptionSessions which cancel + join workers.
     drop(audio_txs);
     drop(event_streams);
 
     let total_audio_offset = channel_states.first().map_or(0.0, |s| s.audio_offset);
 
-    send_ws_best_effort(
-        &mut ws_sender,
-        &StreamResponse::TerminalResponse {
-            request_id: metadata.request_id.clone(),
-            created: format_timestamp_now(),
-            duration: total_audio_offset,
-            channels: total_channels as u32,
-        },
-    )
-    .await;
+    if exit.should_emit_terminal() {
+        send_ws_best_effort(
+            &mut ws_sender,
+            &StreamResponse::TerminalResponse {
+                request_id: metadata.request_id.clone(),
+                created: format_timestamp_now(),
+                duration: total_audio_offset,
+                channels: total_channels as u32,
+            },
+        )
+        .await;
+    }
 
     let _ = ws_sender.close().await;
 }
@@ -155,7 +160,7 @@ async fn handle_transcribe_event(
     metadata: &Metadata,
 ) -> LoopAction {
     let Some((ch_idx, event)) = event else {
-        return LoopAction::Break;
+        return LoopAction::Break(SessionExit::Clean);
     };
 
     match event {
@@ -169,7 +174,7 @@ async fn handle_transcribe_event(
                 },
             )
             .await;
-            LoopAction::Break
+            LoopAction::Break(SessionExit::Error)
         }
         Ok(hypr_cactus::TranscribeEvent {
             result,
@@ -181,9 +186,6 @@ async fn handle_transcribe_event(
 
             state.audio_offset += chunk_duration_secs;
 
-            // Prefer cactus's own buffer duration over raw chunk accounting: it
-            // excludes silence that accumulated before speech started in this
-            // segment, giving a tighter start/duration pair.
             let seg_dur = if result.buffer_duration_ms > 0.0 {
                 result.buffer_duration_ms / 1000.0
             } else {
@@ -217,9 +219,9 @@ async fn handle_transcribe_event(
                     serde_json::Value::Number(job_id.into()),
                 );
                 tracing::info!(
-                    text = cloud_text,
-                    job_id,
-                    ch = ch_idx,
+                    hyprnote.transcript.char_count = cloud_text.chars().count() as u64,
+                    hyprnote.stt.job.id = job_id,
+                    hyprnote.audio.channel_index = ch_idx,
                     "cactus_cloud_correction"
                 );
                 if !send_ws(
@@ -240,7 +242,7 @@ async fn handle_transcribe_event(
                 )
                 .await
                 {
-                    return LoopAction::Break;
+                    return LoopAction::Break(SessionExit::TransportClosed);
                 }
                 state.pending_cloud_job_id = 0;
             }
@@ -256,7 +258,7 @@ async fn handle_transcribe_event(
                     )
                     .await
                     {
-                        return LoopAction::Break;
+                        return LoopAction::Break(SessionExit::TransportClosed);
                     }
                 }
 
@@ -272,7 +274,11 @@ async fn handle_transcribe_event(
                     Some(keys)
                 };
 
-                tracing::info!(text = confirmed_text, ch = ch_idx, "cactus_confirmed_text");
+                tracing::info!(
+                    hyprnote.transcript.char_count = confirmed_text.chars().count() as u64,
+                    hyprnote.audio.channel_index = ch_idx,
+                    "cactus_confirmed_text"
+                );
                 if !send_ws(
                     ws_sender,
                     &build_transcript_response(
@@ -291,7 +297,7 @@ async fn handle_transcribe_event(
                 )
                 .await
                 {
-                    return LoopAction::Break;
+                    return LoopAction::Break(SessionExit::TransportClosed);
                 }
                 if !send_ws(
                     ws_sender,
@@ -302,7 +308,7 @@ async fn handle_transcribe_event(
                 )
                 .await
                 {
-                    return LoopAction::Break;
+                    return LoopAction::Break(SessionExit::TransportClosed);
                 }
 
                 state.last_confirmed_sent.clear();
@@ -332,7 +338,7 @@ async fn handle_transcribe_event(
                 )
                 .await
                 {
-                    return LoopAction::Break;
+                    return LoopAction::Break(SessionExit::TransportClosed);
                 }
             }
 
@@ -366,7 +372,7 @@ async fn handle_transcribe_event(
             )
             .await
             {
-                return LoopAction::Break;
+                return LoopAction::Break(SessionExit::TransportClosed);
             }
             state.last_pending_sent.clear();
             state.last_pending_sent.push_str(pending_text);
@@ -386,43 +392,95 @@ async fn handle_ws_message(
 ) -> LoopAction {
     let Some(msg) = msg else {
         tracing::info!("websocket_stream_ended");
-        return LoopAction::Break;
+        return LoopAction::StopReceivingInput;
     };
     let msg = match msg {
         Ok(msg) => msg,
         Err(e) => {
             tracing::warn!("websocket_receive_error: {}", e);
-            return LoopAction::Break;
+            send_ws_best_effort(
+                ws_sender,
+                &StreamResponse::ErrorResponse {
+                    error_code: None,
+                    error_message: format!("websocket receive error: {e}"),
+                    provider: "cactus".to_string(),
+                },
+            )
+            .await;
+            return LoopAction::Break(SessionExit::Error);
         }
     };
 
     match process_incoming_message(&msg, channels) {
-        IncomingMessage::Audio(AudioExtract::Mono(s)) if !s.is_empty() => {
+        Ok(IncomingMessage::Audio(AudioExtract::Mono(s))) if !s.is_empty() => {
             if audio_txs[0].send(s).await.is_err() {
-                return LoopAction::Break;
+                send_ws_best_effort(
+                    ws_sender,
+                    &StreamResponse::ErrorResponse {
+                        error_code: None,
+                        error_message: "audio pipeline closed unexpectedly".to_string(),
+                        provider: "cactus".to_string(),
+                    },
+                )
+                .await;
+                return LoopAction::Break(SessionExit::Error);
             }
         }
-        IncomingMessage::Audio(AudioExtract::Dual { ch0, ch1 }) => {
+        Ok(IncomingMessage::Audio(AudioExtract::Dual { ch0, ch1 })) => {
             if audio_txs.len() >= 2 {
                 if audio_txs[0].send(ch0).await.is_err() || audio_txs[1].send(ch1).await.is_err() {
-                    return LoopAction::Break;
+                    send_ws_best_effort(
+                        ws_sender,
+                        &StreamResponse::ErrorResponse {
+                            error_code: None,
+                            error_message: "audio pipeline closed unexpectedly".to_string(),
+                            provider: "cactus".to_string(),
+                        },
+                    )
+                    .await;
+                    return LoopAction::Break(SessionExit::Error);
                 }
             } else {
                 let mixed = hypr_audio_utils::mix_audio_f32(&ch0, &ch1);
                 if !mixed.is_empty() && audio_txs[0].send(mixed).await.is_err() {
-                    return LoopAction::Break;
+                    send_ws_best_effort(
+                        ws_sender,
+                        &StreamResponse::ErrorResponse {
+                            error_code: None,
+                            error_message: "audio pipeline closed unexpectedly".to_string(),
+                            provider: "cactus".to_string(),
+                        },
+                    )
+                    .await;
+                    return LoopAction::Break(SessionExit::Error);
                 }
             }
         }
-        IncomingMessage::Audio(AudioExtract::End) => return LoopAction::Break,
-        IncomingMessage::Control(ControlMessage::KeepAlive) => {}
-        IncomingMessage::Control(ControlMessage::Finalize) => {
+        Ok(IncomingMessage::Audio(AudioExtract::End)) => {
+            return LoopAction::StopReceivingInput;
+        }
+        Ok(IncomingMessage::Control(ControlMessage::KeepAlive)) => {}
+        Ok(IncomingMessage::Control(ControlMessage::Finalize)) => {
             if handle_finalize(ws_sender, channel_states, total_channels, metadata).await {
-                return LoopAction::Break;
+                return LoopAction::Break(SessionExit::TransportClosed);
             }
         }
-        IncomingMessage::Control(ControlMessage::CloseStream) => return LoopAction::Break,
-        _ => {}
+        Ok(IncomingMessage::Control(ControlMessage::CloseStream)) => {
+            return LoopAction::StopReceivingInput;
+        }
+        Ok(_) => {}
+        Err(error) => {
+            send_ws_best_effort(
+                ws_sender,
+                &StreamResponse::ErrorResponse {
+                    error_code: None,
+                    error_message: error.to_string(),
+                    provider: "cactus".to_string(),
+                },
+            )
+            .await;
+            return LoopAction::Break(SessionExit::Error);
+        }
     }
 
     LoopAction::Continue
@@ -529,4 +587,17 @@ async fn handle_finalize(
         state.pending_text.clear();
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SessionExit;
+
+    #[test]
+    fn terminal_metadata_only_on_clean_exit() {
+        assert!(SessionExit::Clean.should_emit_terminal());
+        assert!(!SessionExit::Error.should_emit_terminal());
+        assert!(!SessionExit::Replaced.should_emit_terminal());
+        assert!(!SessionExit::TransportClosed.should_emit_terminal());
+    }
 }

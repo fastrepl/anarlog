@@ -71,7 +71,7 @@ impl SpeakerInput {
                 if let Err(e) =
                     capture_loop(producer, waker_state, current_sample_rate, stop_signal)
                 {
-                    tracing::error!(error = ?e, "PulseAudio capture thread failed");
+                    tracing::error!(error = ?e, "pulseaudio_capture_thread_failed");
                 }
             })
         };
@@ -118,7 +118,10 @@ fn capture_loop(
     }
 
     let monitor_device = get_default_monitor_device(&mut mainloop, &context);
-    tracing::info!(monitor_device = ?monitor_device, "Connecting to monitor device");
+    tracing::info!(
+        hyprnote.audio.device = ?monitor_device,
+        "connecting_to_monitor_device"
+    );
 
     mainloop.lock();
 
@@ -145,7 +148,10 @@ fn capture_loop(
     mainloop.unlock();
 
     current_sample_rate.store(actual_rate, Ordering::Release);
-    tracing::info!(sample_rate = actual_rate, "PulseAudio capture initialized");
+    tracing::info!(
+        hyprnote.audio.sample_rate_hz = actual_rate,
+        "pulseaudio_capture_initialized"
+    );
 
     let mut buffer = vec![0u8; CHUNK_SIZE * 4];
 
@@ -176,7 +182,10 @@ fn capture_loop(
                     let pushed = producer.push_slice(&samples);
 
                     if pushed < samples.len() {
-                        tracing::warn!(dropped = samples.len() - pushed, "samples_dropped");
+                        tracing::warn!(
+                            hyprnote.audio.dropped_samples = samples.len() - pushed,
+                            "samples_dropped"
+                        );
                     }
 
                     if pushed > 0 {

@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use futures_util::StreamExt;
 use owhisper_client::FinalizeHandle;
 use owhisper_interface::stream::{Extra, StreamResponse};
 use ractor::ActorRef;
 
-use super::{LISTEN_STREAM_TIMEOUT, ListenerMsg};
+use super::{FINALIZE_STREAM_TIMEOUT, LISTEN_STREAM_TIMEOUT, ListenerMsg};
 
 pub(super) async fn process_stream<S, E, H>(
     mut listen_stream: std::pin::Pin<&mut S>,
@@ -24,7 +22,7 @@ pub(super) async fn process_stream<S, E, H>(
             _ = &mut shutdown_rx => {
                 handle.finalize().await;
 
-                let finalize_timeout = tokio::time::sleep(Duration::from_secs(5));
+                let finalize_timeout = tokio::time::sleep(FINALIZE_STREAM_TIMEOUT);
                 tokio::pin!(finalize_timeout);
 
                 let expected_count = handle.expected_finalize_count();
@@ -33,7 +31,7 @@ pub(super) async fn process_stream<S, E, H>(
                 loop {
                     tokio::select! {
                         _ = &mut finalize_timeout => {
-                            tracing::warn!(timeout = true, "break_timeout");
+                            tracing::warn!(hyprnote.timeout.reached = true, "break_timeout");
                             break;
                         }
                         result = listen_stream.next() => {
@@ -63,11 +61,11 @@ pub(super) async fn process_stream<S, E, H>(
                                     }
                                 }
                                 Some(Err(e)) => {
-                                    tracing::warn!(error = ?e, "break_from_finalize");
+                                    tracing::warn!(error.message = ?e, "break_from_finalize");
                                     break;
                                 }
                                 None => {
-                                    tracing::info!(ended = true, "break_from_finalize");
+                                    tracing::info!(hyprnote.stream.ended = true, "break_from_finalize");
                                     break;
                                 }
                             }

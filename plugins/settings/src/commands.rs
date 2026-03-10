@@ -29,19 +29,31 @@ pub(crate) async fn vault_base<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<String, String> {
     app.settings()
-        .cached_vault_base()
+        .vault_base()
         .map(|p| p.to_string())
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn change_vault_base<R: tauri::Runtime>(
+pub(crate) async fn copy_vault<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     new_path: String,
 ) -> Result<(), String> {
     app.settings()
-        .change_vault_base(Utf8PathBuf::from(&new_path))
+        .copy_vault(Utf8PathBuf::from(&new_path))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_vault_base<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    new_path: String,
+) -> Result<(), String> {
+    app.settings()
+        .set_vault_base(Utf8PathBuf::from(&new_path))
         .await
         .map_err(|e| e.to_string())
 }

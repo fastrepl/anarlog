@@ -14,7 +14,7 @@ use tracing::Instrument;
 use crate::{
     ListenerRuntime, SessionErrorEvent, SessionProgressEvent,
     actors::session::session_span,
-    actors::{AudioChunk, ChannelMode},
+    actors::{AudioChunk, ChannelMode, ListenerMsg, RecMsg},
 };
 use hypr_audio::AudioInput;
 
@@ -27,9 +27,18 @@ pub enum SourceMsg {
     SetMicMute(bool),
     GetMicMute(RpcReplyPort<bool>),
     GetMicDevice(RpcReplyPort<Option<String>>),
+    SetListenerRouting(ListenerRouting),
+    SetRecorder(Option<ActorRef<RecMsg>>),
     MicChunk(AudioChunk),
     SpeakerChunk(AudioChunk),
     StreamFailed(String),
+}
+
+#[derive(Clone)]
+pub enum ListenerRouting {
+    Buffering,
+    Attached(ActorRef<ListenerMsg>),
+    Dropped,
 }
 
 pub struct SourceArgs {
@@ -37,6 +46,8 @@ pub struct SourceArgs {
     pub onboarding: bool,
     pub runtime: Arc<dyn ListenerRuntime>,
     pub session_id: String,
+    pub listener_routing: ListenerRouting,
+    pub recorder: Option<ActorRef<RecMsg>>,
 }
 
 pub struct SourceState {
@@ -49,6 +60,8 @@ pub struct SourceState {
     pub(super) stream_cancel_token: Option<CancellationToken>,
     pub(super) current_mode: ChannelMode,
     pub(super) pipeline: Pipeline,
+    pub(super) listener_routing: ListenerRouting,
+    pub(super) recorder: Option<ActorRef<RecMsg>>,
     _device_watcher: Option<DeviceChangeWatcher>,
     _silence_stream_tx: Option<std::sync::mpsc::Sender<()>>,
 }
@@ -134,6 +147,8 @@ impl Actor for SourceActor {
                 _silence_stream_tx: silence_stream_tx,
                 current_mode: ChannelMode::MicAndSpeaker,
                 pipeline,
+                listener_routing: args.listener_routing,
+                recorder: args.recorder,
             };
 
             start_source_loop(&myself, &mut st).await?;
@@ -166,13 +181,23 @@ impl Actor for SourceActor {
                     let _ = reply.send(st.mic_device.clone());
                 }
             }
+            SourceMsg::SetListenerRouting(routing) => {
+                st.listener_routing = routing;
+                st.pipeline
+                    .on_listener_routing_changed(&st.listener_routing);
+            }
+            SourceMsg::SetRecorder(recorder) => {
+                st.recorder = recorder;
+            }
             SourceMsg::MicChunk(chunk) => {
                 st.pipeline.ingest_mic(chunk);
-                st.pipeline.flush(st.current_mode);
+                st.pipeline
+                    .flush(st.current_mode, &st.listener_routing, st.recorder.as_ref());
             }
             SourceMsg::SpeakerChunk(chunk) => {
                 st.pipeline.ingest_speaker(chunk);
-                st.pipeline.flush(st.current_mode);
+                st.pipeline
+                    .flush(st.current_mode, &st.listener_routing, st.recorder.as_ref());
             }
             SourceMsg::StreamFailed(reason) => {
                 tracing::error!(%reason, "source_stream_failed_stopping");

@@ -56,7 +56,13 @@ pub async fn delete_account(
     .retry(retry_policy())
     .sleep(tokio::time::sleep)
     .await
-    .inspect_err(|e| tracing::warn!(user_id = %user_id, error = %e, "storage_cleanup_failed"));
+    .inspect_err(|e| {
+        tracing::warn!(
+            enduser.id = %user_id,
+            error = %e,
+            "storage_cleanup_failed"
+        )
+    });
 
     try_delete_loops_contact(&state, &auth.token, user_id).await;
 
@@ -66,7 +72,7 @@ pub async fn delete_account(
         .await
     {
         Ok(()) => {
-            tracing::info!(user_id = %user_id, "account_deleted");
+            tracing::info!(enduser.id = %user_id, "account_deleted");
             (
                 StatusCode::OK,
                 Json(DeleteAccountResponse {
@@ -77,7 +83,11 @@ pub async fn delete_account(
                 .into_response()
         }
         Err(e) => {
-            tracing::error!(user_id = %user_id, error = %e, "account_deletion_failed");
+            tracing::error!(
+                enduser.id = %user_id,
+                error = %e,
+                "account_deletion_failed"
+            );
             sentry::capture_message(&e.to_string(), sentry::Level::Error);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -99,11 +109,15 @@ async fn try_delete_stripe_customer(state: &AppState, user_id: &str) -> Result<(
     {
         Ok(Some(id)) => id,
         Ok(None) => {
-            tracing::info!(user_id = %user_id, "no_stripe_customer_to_delete");
+            tracing::info!(enduser.id = %user_id, "no_stripe_customer_to_delete");
             return Ok(());
         }
         Err(e) => {
-            tracing::warn!(user_id = %user_id, error = %e, "failed_to_lookup_stripe_customer");
+            tracing::warn!(
+                enduser.id = %user_id,
+                error = %e,
+                "failed_to_lookup_stripe_customer"
+            );
             return Ok(());
         }
     };
@@ -114,11 +128,20 @@ async fn try_delete_stripe_customer(state: &AppState, user_id: &str) -> Result<(
         .await
     {
         Ok(_) => {
-            tracing::info!(user_id = %user_id, customer_id = %customer_id, "stripe_customer_deleted");
+            tracing::info!(
+                enduser.id = %user_id,
+                hyprnote.billing.customer.id = %customer_id,
+                "stripe_customer_deleted"
+            );
             Ok(())
         }
         Err(e) => {
-            tracing::error!(user_id = %user_id, customer_id = %customer_id, error = %e, "stripe_customer_deletion_failed");
+            tracing::error!(
+                enduser.id = %user_id,
+                hyprnote.billing.customer.id = %customer_id,
+                error = %e,
+                "stripe_customer_deletion_failed"
+            );
             sentry::capture_message(
                 &format!("stripe customer deletion failed for {}: {}", user_id, e),
                 sentry::Level::Error,
@@ -143,11 +166,15 @@ async fn try_delete_loops_contact(state: &AppState, token: &str, user_id: &str) 
     {
         Ok(Some(email)) => email,
         Ok(None) => {
-            tracing::warn!(user_id = %user_id, "no_email_for_loops_deletion");
+            tracing::warn!(enduser.id = %user_id, "no_email_for_loops_deletion");
             return;
         }
         Err(e) => {
-            tracing::warn!(user_id = %user_id, error = %e, "failed_to_get_email_for_loops");
+            tracing::warn!(
+                enduser.id = %user_id,
+                error = %e,
+                "failed_to_get_email_for_loops"
+            );
             return;
         }
     };
@@ -156,7 +183,11 @@ async fn try_delete_loops_contact(state: &AppState, token: &str, user_id: &str) 
         .retry(retry_policy())
         .sleep(tokio::time::sleep)
         .await
-        .inspect_err(
-            |e| tracing::warn!(user_id = %user_id, error = %e, "loops_contact_deletion_failed"),
-        );
+        .inspect_err(|e| {
+            tracing::warn!(
+                enduser.id = %user_id,
+                error = %e,
+                "loops_contact_deletion_failed"
+            )
+        });
 }

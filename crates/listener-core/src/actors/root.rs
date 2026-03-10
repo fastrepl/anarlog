@@ -10,11 +10,11 @@ use crate::actors::session::lifecycle::{
 use crate::actors::{
     SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
 };
-use crate::{ListenerRuntime, SessionLifecycleEvent, State};
+use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State, StopSessionParams};
 
 pub enum RootMsg {
-    StartSession(SessionParams, RpcReplyPort<bool>),
-    StopSession(RpcReplyPort<()>),
+    StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
+    StopSession(StopSessionParams, RpcReplyPort<()>),
     GetState(RpcReplyPort<State>),
 }
 
@@ -64,11 +64,11 @@ impl Actor for RootActor {
     ) -> Result<(), ActorProcessingErr> {
         match message {
             RootMsg::StartSession(params, reply) => {
-                let success = start_session_impl(myself.get_cell(), params, state).await;
-                let _ = reply.send(success);
+                let result = start_session_impl(myself.get_cell(), params, state).await;
+                let _ = reply.send(result);
             }
-            RootMsg::StopSession(reply) => {
-                stop_session_impl(state).await;
+            RootMsg::StopSession(params, reply) => {
+                stop_session_impl(state, params).await;
                 let _ = reply.send(());
             }
             RootMsg::GetState(reply) => {
@@ -129,14 +129,14 @@ async fn start_session_impl(
     root_cell: ActorCell,
     params: SessionParams,
     state: &mut RootState,
-) -> bool {
+) -> Result<(), StartSessionError> {
     let session_id = params.session_id.clone();
     let span = session_span(&session_id);
 
     async {
         if state.supervisor.is_some() {
             tracing::warn!("session_already_running");
-            return false;
+            return Err(StartSessionError::SessionAlreadyRunning);
         }
 
         configure_sentry_session_context(&params);
@@ -144,9 +144,9 @@ async fn start_session_impl(
         let app_dir = match state.runtime.vault_base() {
             Ok(base) => base.join("sessions"),
             Err(e) => {
-                tracing::error!(error = %e, "failed_to_resolve_sessions_dir");
+                tracing::error!(error.message = %e, "failed_to_resolve_sessions_dir");
                 clear_sentry_session_context();
-                return false;
+                return Err(StartSessionError::FailedToResolveSessionsDir);
             }
         };
 
@@ -165,18 +165,22 @@ async fn start_session_impl(
                 state.session_id = Some(params.session_id.clone());
                 state.supervisor = Some(supervisor_cell);
 
-                state.runtime.emit_lifecycle(SessionLifecycleEvent::Active {
+                let evt = SessionLifecycleEvent::Active {
                     session_id: params.session_id,
+                    requested_transcription_mode: params.transcription_mode,
+                    current_transcription_mode: params.transcription_mode,
                     error: None,
-                });
+                };
+
+                state.runtime.emit_lifecycle(evt);
 
                 tracing::info!("session_started");
-                true
+                Ok(())
             }
             Err(e) => {
-                tracing::error!(error = ?e, "failed_to_start_session");
+                tracing::error!(error.message = ?e, "failed_to_start_session");
                 clear_sentry_session_context();
-                false
+                Err(StartSessionError::FailedToStartSession)
             }
         }
     }
@@ -184,7 +188,7 @@ async fn start_session_impl(
     .await
 }
 
-async fn stop_session_impl(state: &mut RootState) {
+async fn stop_session_impl(state: &mut RootState, params: StopSessionParams) {
     if let Some(supervisor) = &state.supervisor {
         state.finalizing = true;
 
@@ -201,7 +205,7 @@ async fn stop_session_impl(state: &mut RootState) {
         }
 
         let session_ref: ActorRef<SessionMsg> = supervisor.clone().into();
-        if let Err(error) = session_ref.cast(SessionMsg::Shutdown) {
+        if let Err(error) = session_ref.cast(SessionMsg::Shutdown(params)) {
             tracing::warn!(
                 ?error,
                 "failed_to_cast_session_shutdown_falling_back_to_stop"

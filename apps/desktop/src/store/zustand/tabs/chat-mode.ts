@@ -17,13 +17,18 @@ export type ChatEvent =
 
 export type ChatModeState = {
   chatMode: ChatMode;
+  lastOpenChatMode: "FloatingOpen" | "RightPanelOpen";
 };
 
 export type ChatModeActions = {
   transitionChatMode: (event: ChatEvent) => void;
 };
 
-const computeNextChatMode = (state: ChatMode, event: ChatEvent): ChatMode => {
+const computeNextChatMode = (
+  state: ChatMode,
+  event: ChatEvent,
+  lastOpenMode: "FloatingOpen" | "RightPanelOpen",
+): ChatMode => {
   switch (state) {
     case "RightPanelOpen":
       if (event.type === "CLOSE" || event.type === "TOGGLE") {
@@ -38,7 +43,7 @@ const computeNextChatMode = (state: ChatMode, event: ChatEvent): ChatMode => {
       return state;
     case "FloatingClosed":
       if (event.type === "OPEN" || event.type === "TOGGLE") {
-        return "FloatingOpen";
+        return lastOpenMode;
       }
       if (event.type === "OPEN_TAB") {
         return "FullTab";
@@ -72,12 +77,19 @@ export const createChatModeSlice = <
   get: StoreApi<T>["getState"],
 ): ChatModeState & ChatModeActions => ({
   chatMode: "FloatingClosed",
+  lastOpenChatMode: "FloatingOpen",
   transitionChatMode: (event) => {
     const currentMode = get().chatMode;
-    const nextMode = computeNextChatMode(currentMode, event);
+    const lastOpenMode = get().lastOpenChatMode;
+    const nextMode = computeNextChatMode(currentMode, event, lastOpenMode);
     if (nextMode === currentMode) return;
 
-    set({ chatMode: nextMode } as Partial<T>);
+    set({
+      chatMode: nextMode,
+      ...(currentMode === "FloatingOpen" || currentMode === "RightPanelOpen"
+        ? { lastOpenChatMode: currentMode }
+        : {}),
+    } as Partial<T>);
 
     if (currentMode === "FullTab" && nextMode !== "FullTab") {
       const chatTab = get().tabs.find((t) => t.type === "chat_support");

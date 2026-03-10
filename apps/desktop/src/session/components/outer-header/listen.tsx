@@ -12,7 +12,6 @@ import { cn } from "@hypr/utils";
 
 import {
   ActionableTooltipContent,
-  RecordingIcon,
   useHasTranscript,
   useListenButtonState,
 } from "~/session/components/shared";
@@ -51,30 +50,19 @@ function StartButton({ sessionId }: { sessionId: string }) {
       disabled={isDisabled}
       className={cn([
         "inline-flex items-center justify-center rounded-md text-xs font-medium",
-        "bg-white text-neutral-900 hover:bg-neutral-100",
+        "text-neutral-900",
+        "hover:bg-neutral-100/80",
         "gap-1.5",
         "h-7 px-2",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
     >
-      <RecordingIcon />
-      <span className="whitespace-nowrap text-neutral-900 hover:text-neutral-800">
-        Resume listening
-      </span>
+      <span className="whitespace-nowrap">Resume listening</span>
     </button>
   );
 
   if (!warningMessage) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-block">{button}</span>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          Make Char listen to your meeting
-        </TooltipContent>
-      </Tooltip>
-    );
+    return button;
   }
 
   return (
@@ -113,65 +101,55 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          ref={ref as React.Ref<HTMLButtonElement>}
-          type="button"
-          onClick={finalizing ? undefined : stop}
-          disabled={finalizing}
-          className={cn([
-            "inline-flex items-center justify-center rounded-md text-sm font-medium",
-            finalizing
-              ? ["text-neutral-500", "bg-neutral-100", "cursor-wait"]
-              : [
-                  "text-red-500 hover:text-red-600",
-                  "bg-red-50 hover:bg-red-100",
-                ],
-            "h-7 w-20",
-            "disabled:pointer-events-none disabled:opacity-50",
-          ])}
-          aria-label={finalizing ? "Finalizing" : "Stop listening"}
-        >
-          {finalizing ? (
-            <div className="flex items-center gap-1.5">
-              <span className="animate-pulse">...</span>
-            </div>
-          ) : (
-            <>
-              <div
-                className={cn([
-                  "flex items-center gap-1.5",
-                  hovered ? "hidden" : "flex",
-                ])}
-              >
-                {muted && <MicOff size={14} />}
-                <DancingSticks
-                  amplitude={Math.min(
-                    Math.hypot(amplitude.mic, amplitude.speaker),
-                    1,
-                  )}
-                  color="#ef4444"
-                  height={18}
-                  width={60}
-                />
-              </div>
-              <div
-                className={cn([
-                  "flex items-center gap-1.5",
-                  hovered ? "flex" : "hidden",
-                ])}
-              >
-                <span className="size-2 rounded-none bg-red-500" />
-                <span className="text-xs">Stop</span>
-              </div>
-            </>
-          )}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {finalizing ? "Finalizing..." : "Stop listening"}
-      </TooltipContent>
-    </Tooltip>
+    <button
+      ref={ref as React.Ref<HTMLButtonElement>}
+      type="button"
+      onClick={finalizing ? undefined : stop}
+      disabled={finalizing}
+      className={cn([
+        "inline-flex items-center justify-center rounded-md text-sm font-medium",
+        finalizing
+          ? ["text-neutral-500", "bg-neutral-100", "cursor-wait"]
+          : ["text-red-500 hover:text-red-600", "bg-red-50 hover:bg-red-100"],
+        "h-7 w-20",
+        "disabled:pointer-events-none disabled:opacity-50",
+      ])}
+      aria-label={finalizing ? "Finalizing" : "Stop listening"}
+    >
+      {finalizing ? (
+        <div className="flex items-center gap-1.5">
+          <span className="animate-pulse">...</span>
+        </div>
+      ) : (
+        <>
+          <div
+            className={cn([
+              "flex items-center gap-1.5",
+              hovered ? "hidden" : "flex",
+            ])}
+          >
+            {muted && <MicOff size={14} />}
+            <DancingSticks
+              amplitude={Math.min(
+                Math.hypot(amplitude.mic, amplitude.speaker),
+                1,
+              )}
+              color="#ef4444"
+              height={18}
+              width={60}
+            />
+          </div>
+          <div
+            className={cn([
+              "flex items-center gap-1.5",
+              hovered ? "flex" : "hidden",
+            ])}
+          >
+            <span className="size-2 rounded-none bg-red-500" />
+            <span className="text-xs">Stop</span>
+          </div>
+        </>
+      )}
+    </button>
   );
 }

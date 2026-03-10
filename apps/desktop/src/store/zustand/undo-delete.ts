@@ -16,7 +16,7 @@ type TranscriptRow = {
   created_at: string;
   session_id: string;
   started_at: number;
-  ended_at: number;
+  ended_at?: number;
   words: string;
   speaker_hints: string;
   memo_md: string;

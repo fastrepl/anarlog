@@ -19,7 +19,7 @@ pub struct ErrorResponse {
 
 pub fn error_response(status: StatusCode, code: &str, message: &str) -> Response {
     let (code, message) = if status.is_server_error() {
-        tracing::error!(error = %message, code);
+        tracing::error!(error.type = %code, error = %message);
         sentry::capture_message(message, sentry::Level::Error);
         (code.to_string(), "Internal server error".to_string())
     } else {

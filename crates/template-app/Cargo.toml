@@ -11,4 +11,10 @@ specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+hypr-template-eval = { workspace = true }
 insta = { workspace = true }
+
+[[test]]
+name = "llm_eval"
+path = "tests/llm_eval/main.rs"
+harness = false

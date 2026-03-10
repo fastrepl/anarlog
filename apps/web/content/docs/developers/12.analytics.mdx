@@ -124,38 +124,164 @@ Notes:
 | `trial_skipped` | `reason = "not_eligible"`, `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 | `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 
-## User journey tracking
+## User journey funnel
 
-The current product telemetry for the common activation journey is:
+The user lifecycle is divided into 8 stages. Each stage lists the PostHog events that measure it, how identity linking works at that point, and known gaps.
 
-| Journey step | Primary event(s) | Current coverage |
-|------|-------------------|------------------|
-| 1. Visitor downloads from website | `download_clicked` | Tracked on homepage and download page variants. |
-| 2. Installs app from DMG | none | No explicit install-complete event today. |
-| 3. Opens app | `show_main_window` | Tracked when the main window is shown. |
-| 4. Signs up/signs in | `user_signed_in` + desktop `$identify` | Tracked from desktop auth state changes. |
-| 5. Completes onboarding | `onboarding_step_viewed`, `onboarding_completed` | Step-level and completion coverage exists. |
-| 6a. Creates a note | `note_created` | Tracked for both empty and event-backed notes. |
-| 6b. Transcribes a meeting | `session_started`, `$stt_request` | UI intent (`session_started`) + server usage (`$stt_request`). |
-| 6c. Generates a summary | `note_enhanced`, `$ai_generation` | UI intent (`note_enhanced`) + server model usage (`$ai_generation`). |
+### Stage 1: Acquisition (website visits)
 
-Notes:
+Goal: measure traffic to the website.
 
-- Step 2 (install) is currently inferred from first app-open behavior (`show_main_window`), not directly measured.
-- For transcription/summarization, server telemetry (`$stt_request`, `$ai_generation`) is the stronger "actual work happened" signal.
-- Desktop event stitching relies on machine fingerprint distinct IDs plus desktop `identify(...)` during auth.
+| Event | Properties | Notes |
+|-------|------------|-------|
+| PostHog autocapture | automatic | Page clicks, form interactions. Production only. |
+| PostHog pageview | automatic | Every page load. Production only. |
+| `hero_section_viewed` | `timestamp` | Explicit signal that a visitor saw the main landing section. |
+| `reminder_requested` | `platform`, `timestamp`, `email` | Mobile app waitlist signup. |
+| `os_waitlist_joined` | `platform`, `timestamp`, `email` | Desktop waitlist signup. |
 
-### Suggested funnel definitions
+Identity: anonymous PostHog browser distinct ID. No user identity yet.
 
-Use this sequence for a practical activation funnel:
+### Stage 2: Converting visits to installs
 
-1. `download_clicked`
-2. `show_main_window`
-3. `user_signed_in`
-4. `onboarding_completed`
-5. `note_created`
-6. `$stt_request` (optionally duration threshold, e.g. `>= 300s`)
-7. `note_enhanced` (or `$ai_generation`)
+Goal: measure how many website visitors download and open the app.
+
+| Event | Properties | Where |
+|-------|------------|-------|
+| `download_clicked` | Homepage: `platform`, `timestamp`; Download page: `platform`, `spec`, `source` | Web |
+| `show_main_window` | none (auto-enriched with `app_version`, `git_hash`, `bundle_id`) | Desktop |
+
+Identity linking: `download_clicked` fires with anonymous browser ID. `show_main_window` fires with machine fingerprint. These two IDs are **not linked** at this point — there is no mechanism to pass the browser identity into the desktop app at download time. Conversion rate between these two events can only be measured at cohort level (e.g., X downloads this week, Y first app opens this week), not per-user.
+
+Gap: no explicit install-complete event. Install is inferred from first `show_main_window`.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/web/src/components/download-button.tsx#L43-L48" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/windows/src/ext.rs#L76-L86" />
+
+### Stage 3: Onboarding
+
+Goal: measure onboarding progress and completion.
+
+| Event | Properties | Notes |
+|-------|------------|-------|
+| `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `final`. |
+| `user_signed_in` | none | Fires on auth state change. Also triggers `identify(supabaseUserId, { email, account_created_date, is_signed_up, app_version, os_version, platform })`. |
+| `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
+| `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
+| `trial_flow_client_error` | `properties.error` | Desktop. Error during trial activation. |
+| `onboarding_completed` | none | Fires when user clicks "Get Started" on the final onboarding screen. |
+
+Identity linking: desktop sign-in opens `char.com/auth` **in the user's default browser**. The web auth callback calls `posthog.identify(supabaseUserId)`, which merges the anonymous browser ID with the Supabase user ID. The desktop then calls `identify(supabaseUserId)` with `$anon_distinct_id` = machine fingerprint. This links browser → Supabase user ID → machine fingerprint. Because the login opens in the same browser where the user may have previously clicked download, PostHog can retroactively merge `download_clicked` with the authenticated user — **but only if the same browser is used for both download and login**.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/auth/context.tsx#L114-L145" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/auth/context.tsx#L273-L276" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/analytics/src/ext.rs#L109-L126" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/onboarding/index.tsx#L94-L100" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/onboarding/final.tsx#L58-L65" />
+
+### Stage 4: Activation (first summary)
+
+Goal: measure whether a user gets value from the product by generating their first AI summary.
+
+| Event | Properties | Where | Signal |
+|-------|------------|-------|--------|
+| `note_created` | `has_event_id` | Desktop | User created a note (standalone or calendar-backed). |
+| `session_started` | `has_calendar_event`, `stt_provider`, `stt_model` | Desktop | User started transcription. This is intent. |
+| `$stt_request` | `$stt_provider`, `$stt_duration` | Server | Transcription actually happened. Stronger signal than `session_started`. |
+| `note_enhanced` | `is_auto`, `llm_provider`, `llm_model`, `template_id` | Desktop | Summary generated. `is_auto` distinguishes automatic vs manual trigger. |
+| `$ai_generation` | `$ai_provider`, `$ai_model`, `$ai_input_tokens`, `$ai_output_tokens`, `$ai_latency` | Server | LLM call actually happened. Stronger signal than `note_enhanced`. |
+
+Activation funnel sequence: `note_created` → `session_started` → `$stt_request` → `note_enhanced` / `$ai_generation`.
+
+For the activation milestone, `$ai_generation` (server-side) is the strongest "user got value" signal because it confirms the summary was actually produced, not just requested.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/store/tinybase/store/sessions.ts#L19-L32" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/stt/useStartListening.ts#L56-L61" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/services/enhancer/index.ts#L202-L209" />
+
+### Stage 5: Building habits (multiple meeting notes)
+
+Goal: measure whether a user moves from first use to repeated use.
+
+| Event | What to measure |
+|-------|-----------------|
+| `note_created` | Count per user over time. Look for users with 2+, 5+, 10+ notes. |
+| `session_started` / `$stt_request` | Repeated transcription sessions. |
+| `note_enhanced` / `$ai_generation` | Repeated summary generation. |
+| `file_uploaded` | `file_type` (`audio` or `transcript`). Importing recordings shows deepening usage. |
+| `message_sent` | Chat engagement with notes. |
+| `search_performed` | Searching past notes indicates accumulated value. |
+| `session_exported` | `format`. Exporting notes means the output is useful outside the app. |
+| `ai_provider_configured` | `provider`. Configuring a custom AI provider shows investment in the tool. |
+| `data_imported` | `source`. Importing data from other tools. |
+
+Habit signals: look for users who fire `note_created` or `$stt_request` on 3+ distinct days within their first 14 days.
+
+### Stage 6: Retention (coming back)
+
+Goal: measure whether users return to the app over time.
+
+| Event | What to measure |
+|-------|-----------------|
+| `show_main_window` | Fires every time the main window is shown (not just first launch). Count distinct days per user. |
+| `tab_opened` | `view`. Indicates active navigation within the app. |
+| `note_edited` | Revisiting and editing past notes. |
+| `search_performed` | Searching past content means the user has accumulated value worth returning to. |
+
+Retention measurement: count distinct days with `show_main_window` per user per week/month. A retained user has `show_main_window` on multiple distinct days across weeks.
+
+### Stage 7: Conversion (trial to pro)
+
+Goal: measure monetization.
+
+| Event | Properties | Where | Notes |
+|-------|------------|-------|-------|
+| `trial_started` | `plan`, `source` | Server | Trial begins. `trial_end_date` user property is set to UTC now + 14 days. |
+| `trial_skipped` | `reason = "not_eligible"`, `source` | Server | User was not eligible for trial. |
+| `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | Server | Trial creation failed. |
+| `upgrade_clicked` | `plan` (`"pro"`) | Desktop | User clicked upgrade button. This is intent, not completion. |
+
+User properties for segmentation: `plan` (set on trial start), `trial_end_date` (set on trial start).
+
+Gap: no explicit `subscription_started` or `payment_completed` event. Conversion from trial to paid is currently inferred from the `plan` user property or Stripe data, not a PostHog event.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/api-subscription/src/trial.rs#L69-L77" />
+
+### Stage 8: Retention (keep paying)
+
+Goal: measure ongoing engagement from paying users.
+
+No stage-specific events. Use the same product events from stages 4-6 filtered to users where `plan = "pro"`:
+
+| Signal | How to measure |
+|--------|----------------|
+| Continued usage | `$stt_request` and `$ai_generation` events per week for pro users. |
+| Feature depth | `template_id` on `note_enhanced` (using templates), `message_sent` (chat), `session_exported` (export). |
+| Settings engagement | `settings_changed`, `ai_provider_configured`. |
+| Churn risk | Absence of `show_main_window` for 7+ days. `user_signed_out` event. |
+
+Gap: no explicit `subscription_cancelled` or `payment_failed` event in PostHog. Churn detection relies on usage drop-off or Stripe webhooks outside PostHog.
+
+### Suggested PostHog funnel definition
+
+For a single end-to-end activation funnel in PostHog:
+
+1. `download_clicked` (web)
+2. `show_main_window` (desktop)
+3. `user_signed_in` (desktop)
+4. `onboarding_completed` (desktop)
+5. `note_created` (desktop)
+6. `$stt_request` (server, optionally filter `$stt_duration >= 300`)
+7. `$ai_generation` (server)
+
+Note: steps 1→2 cannot be linked at per-user level without sign-in (see Stage 2 identity notes). Steps 2→7 are linked via machine fingerprint and Supabase user ID after sign-in.
 
 ## User property catalog
 

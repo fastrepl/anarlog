@@ -150,7 +150,7 @@ function FAQSection() {
     {
       question: "Which platforms are currently supported?",
       answer:
-        "macOS 14.2+ with both Apple Silicon and Intel is currently available. Windows and Linux are planned for March 2026, and iOS/Android for April 2026.",
+        "macOS 14.2+ with both Apple Silicon and Intel is currently available. Windows is planned for March 2026, and iOS/Android for April 2026.",
     },
     {
       question: "What's special about the Mac version?",

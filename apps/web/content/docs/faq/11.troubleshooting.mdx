@@ -30,3 +30,22 @@ If issues persist, you may need to restart your Mac to refresh the keychain stat
 ### Why this happens
 
 When Char updates, sometimes the code signing identity changes, which can cause macOS to treat the new version as a different application. This triggers keychain access prompts because macOS is protecting your stored credentials from unauthorized access.
+
+## Why does Char show network activity in Activity Monitor when I'm not using it?
+
+Usually this is expected background traffic, not your meeting content being uploaded.
+
+The biggest source is Char's connectivity check. The desktop app sends a bare `HEAD` request to `https://www.google.com/generate_204` every 2 seconds so it can tell whether cloud-only features should be treated as online or offline.
+
+In release builds, Char also checks for updates in the background every 30 minutes and automatically downloads an update when one is available. If you have analytics enabled, Char may also send anonymous usage events to PostHog and Outlit. Release builds also include Sentry for crash reporting.
+
+If you are using local STT plus a local LLM like LM Studio or Ollama, your audio, transcripts, notes, and prompts still stay on your device. Local AI does **not** disable every background network request, but it does keep your meeting content local.
+
+If you want the smallest possible network footprint:
+
+1. Use a local STT model and a local LLM
+2. Disable analytics in Settings
+3. Stay signed out unless you need Pro or other cloud features
+4. Avoid cloud sync, cloud transcription, and cloud LLM providers
+
+For the complete data-flow breakdown, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).

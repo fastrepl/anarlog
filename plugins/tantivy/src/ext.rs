@@ -76,8 +76,8 @@ pub struct Tantivy<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
     pub async fn register_collection(&self, config: CollectionConfig) -> Result<(), crate::Error> {
-        let base = self.manager.app_handle().settings().global_base()?;
-        let index_path = base.join(&config.path).into_std_path_buf();
+        let vault_base = self.manager.app_handle().settings().vault_base()?;
+        let index_path = vault_base.join(&config.path).into_std_path_buf();
         let version_path = index_path.join("schema_version");
 
         std::fs::create_dir_all(&index_path)?;

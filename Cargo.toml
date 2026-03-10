@@ -13,11 +13,16 @@ members = [
   "apps/api",
   "apps/cli",
   "apps/desktop/src-tauri",
-  "apps/eval-cli",
   "crates/*",
   "plugins/*",
 ]
-exclude = ["plugins/cli2", "plugins/db", "plugins/export", "plugins/extensions", "crates/vad-ext"]
+exclude = [
+  "plugins/apple-calendar",
+  "plugins/cli2",
+  "plugins/db",
+  "plugins/extensions",
+  "crates/vad-ext",
+]
 
 [workspace.dependencies]
 hypr-aec = { path = "crates/aec", package = "aec" }
@@ -63,8 +68,8 @@ hypr-device-monitor = { path = "crates/device-monitor", package = "device-monito
 hypr-docs = { path = "crates/docs", package = "docs" }
 hypr-download-interface = { path = "crates/download-interface", package = "download-interface" }
 hypr-embedding = { path = "crates/embedding", package = "embedding" }
-hypr-eval = { path = "crates/eval", package = "eval" }
 hypr-exa = { path = "crates/exa", package = "exa" }
+hypr-export-core = { path = "crates/export-core", package = "export-core" }
 hypr-file = { path = "crates/file", package = "file" }
 hypr-frontmatter = { path = "crates/frontmatter", package = "frontmatter" }
 hypr-fs-format = { path = "crates/fs-format", package = "fs-format" }
@@ -90,6 +95,8 @@ hypr-llm-types = { path = "crates/llm-types", package = "llm-types" }
 hypr-lmstudio = { path = "crates/lmstudio", package = "lmstudio" }
 hypr-local-llm-core = { path = "crates/local-llm-core", package = "local-llm-core" }
 hypr-local-model = { path = "crates/local-model", package = "local-model" }
+hypr-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
+hypr-local-stt-server = { path = "crates/local-stt-server", package = "local-stt-server" }
 hypr-loops = { path = "crates/loops", package = "loops" }
 hypr-mac = { path = "crates/mac", package = "mac" }
 hypr-mcp = { path = "crates/mcp", package = "mcp" }
@@ -100,6 +107,7 @@ hypr-nango = { path = "crates/nango", package = "nango" }
 hypr-notification = { path = "crates/notification", package = "notification" }
 hypr-notification-interface = { path = "crates/notification-interface", package = "notification-interface" }
 hypr-notion = { path = "crates/notion", package = "notion" }
+hypr-observability = { path = "crates/observability", package = "observability" }
 hypr-onnx = { path = "crates/onnx", package = "onnx" }
 hypr-openrouter = { path = "crates/openrouter", package = "openrouter" }
 hypr-openstatus = { path = "crates/openstatus", package = "openstatus" }
@@ -165,7 +173,6 @@ tauri-plugin-updater = "2.10"
 tauri-plugin-window-state = "2.4"
 
 tauri-plugin-analytics = { path = "plugins/analytics" }
-tauri-plugin-apple-contact = { path = "plugins/apple-contact" }
 tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
 tauri-plugin-auth = { path = "plugins/auth" }
 tauri-plugin-bedrock = { path = "plugins/bedrock" }
@@ -174,6 +181,7 @@ tauri-plugin-db2 = { path = "plugins/db2" }
 tauri-plugin-deeplink2 = { path = "plugins/deeplink2" }
 tauri-plugin-detect = { path = "plugins/detect" }
 tauri-plugin-dock = { path = "plugins/dock" }
+tauri-plugin-export = { path = "plugins/export" }
 tauri-plugin-flag = { path = "plugins/flag" }
 tauri-plugin-fs-db = { path = "plugins/fs-db" }
 tauri-plugin-fs-sync = { path = "plugins/fs-sync" }
@@ -195,7 +203,6 @@ tauri-plugin-notify = { path = "plugins/notify" }
 tauri-plugin-opener2 = { path = "plugins/opener2" }
 tauri-plugin-overlay = { path = "plugins/overlay" }
 tauri-plugin-path2 = { path = "plugins/path2" }
-tauri-plugin-pdf = { path = "plugins/pdf" }
 tauri-plugin-permissions = { path = "plugins/permissions" }
 tauri-plugin-relay = { path = "plugins/relay" }
 tauri-plugin-screen = { path = "plugins/screen" }
@@ -245,6 +252,7 @@ dirs = "6.0.0"
 dotenvy = "0.15.7"
 envy = "0.4"
 governor = "0.10.4"
+http = "1"
 include_url_macro = "0.1.0"
 indoc = "2"
 isolang = "2.4"
@@ -308,7 +316,11 @@ minijinja-contrib = "2.7.0"
 
 env_logger = "0.11.8"
 log = "0.4"
+opentelemetry = "0.30"
+opentelemetry-otlp = { version = "0.30", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = "0.30"
 tracing = "0.1"
+tracing-opentelemetry = "0.31"
 tracing-subscriber = "0.3"
 tracing-test = "0.2"
 
@@ -319,7 +331,7 @@ specta = "2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = "2.0.0-rc.21"
 
-cidre = "0.14"
+cidre = "0.15"
 cpal = "0.17"
 crossterm = { version = "0.29", features = ["event-stream"] }
 dasp = { version = "0.11.0", features = ["interpolate", "interpolate-linear"] }

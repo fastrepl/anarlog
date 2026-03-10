@@ -18,12 +18,15 @@ use axum::error_handling::HandleError;
 use axum::{Router, http::StatusCode};
 use futures_util::{SinkExt, StreamExt};
 use sequential_test::sequential;
-use tokio_tungstenite::{connect_async, tungstenite::Message as WsMessage};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{Error as TungsteniteError, Message as WsMessage},
+};
 
 use hypr_cactus::CloudConfig;
 use transcribe_cactus::{CactusConfig, TranscribeService};
 
-use common::model_path;
+use common::{invalid_model_path, model_path};
 
 async fn run_single_channel_opts(
     cactus_config: CactusConfig,
@@ -163,6 +166,55 @@ fn e2e_websocket_no_handoff() {
         },
         ..Default::default()
     }));
+}
+
+#[tokio::test]
+async fn websocket_invalid_model_path_fails_before_upgrade() {
+    let app = Router::new().route_service(
+        "/v1/listen",
+        HandleError::new(
+            TranscribeService::builder()
+                .model_path(invalid_model_path())
+                .build(),
+            |err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) },
+        ),
+    );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+            .unwrap();
+    });
+
+    let result = connect_async(format!(
+        "ws://{}/v1/listen?channels=1&sample_rate=16000",
+        addr
+    ))
+    .await;
+
+    match result {
+        Err(TungsteniteError::Http(response)) => {
+            assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+            let body = response
+                .body()
+                .as_ref()
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                .unwrap_or_default();
+            assert!(
+                body.contains("failed to load model"),
+                "unexpected body: {body}"
+            );
+        }
+        other => panic!("expected HTTP upgrade failure, got {other:?}"),
+    }
+
+    let _ = shutdown_tx.send(());
 }
 
 #[ignore = "requires local cactus model files"]

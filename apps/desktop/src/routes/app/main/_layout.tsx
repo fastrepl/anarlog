@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { AITaskProvider } from "~/ai/contexts";
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
+import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
 import { NotificationProvider } from "~/contexts/notifications";
 import { ShellProvider } from "~/contexts/shell";
@@ -137,6 +138,11 @@ function Component() {
 function ToolRegistration() {
   const { search } = useSearchEngine();
   const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const storeRef = useRef(store);
+  storeRef.current = store;
+  const indexesRef = useRef(indexes);
+  indexesRef.current = indexes;
 
   const getContactSearchResults = useCallback(
     async (query: string, limit: number) => {
@@ -322,6 +328,11 @@ function ToolRegistration() {
     [store],
   );
 
+  const { getSessionId, getEnhancedNoteId } = useSessionTab();
+  const openEditTab = useCallback((requestId: string) => {
+    useTabs.getState().openNew({ type: "edit", requestId });
+  }, []);
+
   useRegisterTools(
     "chat-general",
     () =>
@@ -329,8 +340,20 @@ function ToolRegistration() {
         search,
         getContactSearchResults,
         getCalendarEventSearchResults,
+        getStore: () => storeRef.current ?? undefined,
+        getIndexes: () => indexesRef.current ?? undefined,
+        getSessionId,
+        getEnhancedNoteId,
+        openEditTab,
       }),
-    [search, getContactSearchResults, getCalendarEventSearchResults],
+    [
+      search,
+      getContactSearchResults,
+      getCalendarEventSearchResults,
+      getSessionId,
+      getEnhancedNoteId,
+      openEditTab,
+    ],
   );
 
   return null;

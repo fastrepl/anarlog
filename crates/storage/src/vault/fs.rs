@@ -3,14 +3,25 @@ use std::path::Path;
 use super::path::VAULT_PATH_KEY;
 use crate::fs::copy_dir_recursive;
 
-const VAULT_DIRECTORIES: &[&str] = &["sessions", "humans", "organizations", "chats", "prompts"];
+const VAULT_DIRECTORIES: &[&str] = &[
+    "sessions",
+    "humans",
+    "organizations",
+    "chats",
+    "prompts",
+    "search_index",
+    "plugins",
+];
 
 const VAULT_FILES: &[&str] = &[
+    "AGENTS.md",
     "settings.json",
     "events.json",
     "calendars.json",
     "templates.json",
     "chat_shortcuts.json",
+    "memories.json",
+    "store.json",
 ];
 
 pub async fn copy_vault_items(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -78,7 +89,7 @@ mod tests {
         assert!(dst.join("events.json").exists());
         assert!(dst.join("settings.json").exists());
 
-        assert!(!dst.join("store.json").exists());
+        assert!(dst.join("store.json").exists());
         assert!(!dst.join("models").exists());
     }
 

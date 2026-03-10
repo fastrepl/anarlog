@@ -86,7 +86,10 @@ impl RealtimeSttAdapter for MistralAdapter {
         };
 
         let json = serde_json::to_string(&session_update).ok()?;
-        tracing::debug!(payload = %json, "mistral_session_update_payload");
+        tracing::debug!(
+            hyprnote.payload.size_bytes = json.len() as u64,
+            "mistral_session_update_payload"
+        );
         Some(Message::Text(json.into()))
     }
 
@@ -101,7 +104,11 @@ impl RealtimeSttAdapter for MistralAdapter {
         let event: MistralEvent = match serde_json::from_str(raw) {
             Ok(e) => e,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "mistral_json_parse_failed");
+                tracing::warn!(
+                    error = ?e,
+                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    "mistral_json_parse_failed"
+                );
                 return vec![];
             }
         };
@@ -117,20 +124,26 @@ impl RealtimeSttAdapter for MistralAdapter {
                 vec![]
             }
             MistralEvent::TranscriptionLanguage { audio_language } => {
-                tracing::debug!(language = %audio_language, "mistral_transcription_language");
+                tracing::debug!(
+                    hyprnote.stt.language_code = %audio_language,
+                    "mistral_transcription_language"
+                );
                 vec![]
             }
             MistralEvent::TranscriptionTextDelta { text } => {
-                tracing::debug!(text = %text, "mistral_transcription_text_delta");
+                tracing::debug!(
+                    hyprnote.transcript.char_count = text.chars().count() as u64,
+                    "mistral_transcription_text_delta"
+                );
                 self.build_delta_response(&text)
             }
             MistralEvent::TranscriptionSegment {
                 text, start, end, ..
             } => {
                 tracing::debug!(
-                    text = %text,
-                    start = start,
-                    end = end,
+                    hyprnote.transcript.char_count = text.chars().count() as u64,
+                    hyprnote.segment.start_s = start,
+                    hyprnote.segment.end_s = end,
                     "mistral_transcription_segment"
                 );
                 Self::build_segment_response(&text, start, end)
@@ -141,8 +154,8 @@ impl RealtimeSttAdapter for MistralAdapter {
             }
             MistralEvent::Error { error } => {
                 tracing::error!(
-                    error_code = error.code,
-                    error_message = %error.message,
+                    error.code = error.code,
+                    error = %error.message,
                     "mistral_error"
                 );
                 vec![StreamResponse::ErrorResponse {
@@ -152,7 +165,10 @@ impl RealtimeSttAdapter for MistralAdapter {
                 }]
             }
             MistralEvent::Unknown => {
-                tracing::debug!(raw = raw, "mistral_unknown_event");
+                tracing::debug!(
+                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    "mistral_unknown_event"
+                );
                 vec![]
             }
         }

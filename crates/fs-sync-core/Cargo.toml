@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 hypr-audio-utils = { workspace = true }
 hypr-frontmatter = { workspace = true }
+hypr-fs-format = { workspace = true }
 hypr-tiptap = { workspace = true }
 
 serde = { workspace = true }

@@ -11,7 +11,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
             .manager
             .app_handle()
             .settings()
-            .cached_vault_base()
+            .vault_base()
             .map(|p| p.into_std_path_buf())
             .map_err(|e| crate::Error::Path(e.to_string()))?;
 
@@ -25,16 +25,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsSync<'a, R, M> {
     pub fn move_session(
         &self,
         session_id: &str,
+        from_folder_path: &str,
         target_folder_path: &str,
-    ) -> Result<(), crate::Error> {
-        self.core()?.move_session(session_id, target_folder_path)
+    ) -> Result<crate::MoveSessionResult, crate::Error> {
+        self.core()?
+            .move_session(session_id, from_folder_path, target_folder_path)
     }
 
     pub fn create_folder(&self, folder_path: &str) -> Result<(), crate::Error> {
         self.core()?.create_folder(folder_path)
     }
 
-    pub fn rename_folder(&self, old_path: &str, new_path: &str) -> Result<(), crate::Error> {
+    pub fn rename_folder(
+        &self,
+        old_path: &str,
+        new_path: &str,
+    ) -> Result<crate::RenameFolderResult, crate::Error> {
         self.core()?.rename_folder(old_path, new_path)
     }
 

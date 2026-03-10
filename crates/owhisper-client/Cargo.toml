@@ -12,6 +12,7 @@ hypr-am = { workspace = true }
 hypr-audio-utils = { workspace = true, optional = true }
 hypr-cactus-model = { workspace = true }
 hypr-language = { workspace = true }
+hypr-observability = { workspace = true }
 hypr-ws-client = { workspace = true }
 soniox = { workspace = true }
 

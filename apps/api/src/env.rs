@@ -17,6 +17,9 @@ pub struct Env {
     pub posthog_api_key: Option<String>,
 
     #[serde(flatten)]
+    pub observability: crate::observability::Env,
+
+    #[serde(flatten)]
     pub supabase: hypr_api_env::SupabaseEnv,
     #[serde(flatten)]
     pub nango: hypr_api_env::NangoEnv,

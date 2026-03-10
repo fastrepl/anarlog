@@ -16,6 +16,10 @@ use crate::error::Error;
 use super::{ArgmaxAdapter, keywords::ArgmaxKeywordStrategy, language::ArgmaxLanguageStrategy};
 
 impl BatchSttAdapter for ArgmaxAdapter {
+    fn provider_name(&self) -> &'static str {
+        "argmax"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],

@@ -31,6 +31,7 @@ import { useListener } from "~/stt/contexts";
 import { fromResult } from "~/stt/fromResult";
 import { ChannelProfile } from "~/stt/segment";
 import { useRunBatch } from "~/stt/useRunBatch";
+import { useStartListening } from "~/stt/useStartListening";
 
 type FileSelection = string | string[] | null;
 
@@ -53,6 +54,9 @@ export function OptionsMenu({
   const handleBatchStarted = useListener((state) => state.handleBatchStarted);
   const handleBatchFailed = useListener((state) => state.handleBatchFailed);
   const clearBatchSession = useListener((state) => state.clearBatchSession);
+  const startBatchRecording = useStartListening(sessionId, {
+    transcriptionMode: "batch",
+  });
 
   const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
   const { user_id } = main.UI.useValues(main.STORE_ID);
@@ -296,6 +300,29 @@ export function OptionsMenu({
     );
   }, [disabled, selectAndHandleFile]);
 
+  const handleStartBatchRecording = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
+    setOpen(false);
+
+    if (sessionTab) {
+      updateSessionTabState(sessionTab, {
+        ...sessionTab.state,
+        view: { type: "transcript" },
+      });
+    }
+
+    startBatchRecording();
+  }, [
+    disabled,
+    sessionTab,
+    setOpen,
+    startBatchRecording,
+    updateSessionTabState,
+  ]);
+
   const moreButton = (
     <button
       className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer text-white/70 transition-colors hover:text-white disabled:opacity-50"
@@ -360,6 +387,13 @@ export function OptionsMenu({
         className="w-43 rounded-xl p-1.5"
       >
         <div className="flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            className="h-9 justify-center px-3 whitespace-nowrap"
+            onClick={handleStartBatchRecording}
+          >
+            <span className="text-sm">Record only</span>
+          </Button>
           <Button
             variant="ghost"
             className="h-9 justify-center px-3 whitespace-nowrap"

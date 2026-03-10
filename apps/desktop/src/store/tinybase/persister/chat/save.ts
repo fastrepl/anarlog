@@ -1,5 +1,7 @@
 import { sep } from "@tauri-apps/api/path";
 
+import type { ChatMessageStatus } from "@hypr/store";
+
 import type { ChatGroupData, ChatJson, ChatMessageWithId } from "./types";
 
 import {
@@ -9,6 +11,19 @@ import {
   type TablesContent,
   type WriteOperation,
 } from "~/store/tinybase/persister/shared";
+
+function normalizeChatMessageStatus(status: unknown): ChatMessageStatus {
+  if (
+    status === "streaming" ||
+    status === "ready" ||
+    status === "error" ||
+    status === "aborted"
+  ) {
+    return status;
+  }
+
+  return "ready";
+}
 
 export function tablesToChatJsonList(tables: TablesContent): ChatJson[] {
   const chatGroups = iterateTableRows(tables, "chat_groups");
@@ -32,12 +47,17 @@ export function tablesToChatJsonList(tables: TablesContent): ChatJson[] {
     if (!chatGroup) continue;
 
     const existing = messagesByChatGroup.get(chatGroupId);
+    const normalizedMessage = {
+      ...(message as ChatMessageWithId),
+      status: normalizeChatMessageStatus(message.status),
+    };
+
     if (existing) {
-      existing.messages.push(message as ChatMessageWithId);
+      existing.messages.push(normalizedMessage);
     } else {
       messagesByChatGroup.set(chatGroupId, {
         chatGroup,
-        messages: [message as ChatMessageWithId],
+        messages: [normalizedMessage],
       });
     }
   }

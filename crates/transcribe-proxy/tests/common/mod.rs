@@ -1,15 +1,33 @@
 #![allow(dead_code)]
 
 pub mod fixtures;
+pub mod hyprnote;
 pub mod mock_upstream;
+pub mod proxy;
 pub mod recording;
+pub mod ws;
 
 #[allow(unused_imports)]
 pub use fixtures::load_fixture;
 #[allow(unused_imports)]
-pub use mock_upstream::{MockServerHandle, MockUpstreamConfig, start_mock_server_with_config};
+pub use hyprnote::{
+    TranscriptEvent, close_only_recording, soniox_error_recording, soniox_finalize_message,
+    soniox_finalize_recording, soniox_partial_recording, split_test_audio_frame,
+    start_split_mock_ws, stereo_listen_url, terminal_finalize_count, transcript_events,
+};
+#[allow(unused_imports)]
+pub use mock_upstream::{
+    MockServerHandle, MockUpstreamConfig, start_mock_server_group_with_config,
+    start_mock_server_with_config, start_split_mock_server_with_config,
+};
+#[allow(unused_imports)]
+pub use proxy::{
+    MockBatchUpstream, start_mock_batch_upstream, start_proxy, start_proxy_under_stt, wait_for,
+};
 #[allow(unused_imports)]
 pub use recording::{Direction, MessageKind, WsMessage, WsRecording};
+#[allow(unused_imports)]
+pub use ws::{CloseInfo, ProxyWsStream, collect_text_messages, connect_to_proxy, connect_to_url};
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};

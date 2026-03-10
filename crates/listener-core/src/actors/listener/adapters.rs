@@ -6,16 +6,13 @@ use ractor::{ActorProcessingErr, ActorRef};
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CactusAdapter, DashScopeAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
-    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter,
+    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
 };
 use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
 use super::stream::process_stream;
-use super::{
-    ChannelSender, DEVICE_FINGERPRINT_HEADER, LISTEN_CONNECT_TIMEOUT, ListenerArgs, ListenerMsg,
-    actor_error,
-};
+use super::{ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg, actor_error};
 use crate::SessionErrorEvent;
 
 pub(super) async fn spawn_rx_task(
@@ -143,6 +140,14 @@ fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
     (session_offset_secs, extra)
 }
 
+fn desktop_connect_policy() -> hypr_ws_client::client::WebSocketConnectPolicy {
+    hypr_ws_client::client::WebSocketConnectPolicy {
+        connect_timeout: Duration::from_secs(4),
+        max_attempts: 2,
+        retry_delay: Duration::from_secs(1),
+    }
+}
+
 async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
@@ -164,37 +169,27 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
         .api_base(args.base_url.clone())
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
+        .connect_policy(desktop_connect_policy())
         .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
         .build_single()
         .await;
 
     let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
 
-    let connect_result =
-        tokio::time::timeout(LISTEN_CONNECT_TIMEOUT, client.from_realtime_audio(outbound)).await;
-
-    let (listen_stream, handle) = match connect_result {
-        Err(_elapsed) => {
+    let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
+        Err(e) => {
             tracing::error!(
-                session_id = %args.session_id,
-                timeout_secs = LISTEN_CONNECT_TIMEOUT.as_secs_f32(),
-                "listen_ws_connect_timeout(single)"
+                hyprnote.session.id = %args.session_id,
+                error.message = ?e,
+                "listen_ws_connect_failed(single)"
             );
-            args.runtime.emit_error(SessionErrorEvent::ConnectionError {
-                session_id: args.session_id.clone(),
-                error: "listen_ws_connect_timeout".to_string(),
-            });
-            return Err(actor_error("listen_ws_connect_timeout"));
-        }
-        Ok(Err(e)) => {
-            tracing::error!(session_id = %args.session_id, error = ?e, "listen_ws_connect_failed(single)");
             args.runtime.emit_error(SessionErrorEvent::ConnectionError {
                 session_id: args.session_id.clone(),
                 error: format!("listen_ws_connect_failed: {:?}", e),
             });
             return Err(actor_error(format!("listen_ws_connect_failed: {:?}", e)));
         }
-        Ok(Ok(res)) => res,
+        Ok(res) => res,
     };
 
     let rx_task = tokio::spawn(async move {
@@ -234,37 +229,27 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
         .api_base(args.base_url.clone())
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
+        .connect_policy(desktop_connect_policy())
         .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
         .build_dual()
         .await;
 
     let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
 
-    let connect_result =
-        tokio::time::timeout(LISTEN_CONNECT_TIMEOUT, client.from_realtime_audio(outbound)).await;
-
-    let (listen_stream, handle) = match connect_result {
-        Err(_elapsed) => {
+    let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
+        Err(e) => {
             tracing::error!(
-                session_id = %args.session_id,
-                timeout_secs = LISTEN_CONNECT_TIMEOUT.as_secs_f32(),
-                "listen_ws_connect_timeout(dual)"
+                hyprnote.session.id = %args.session_id,
+                error.message = ?e,
+                "listen_ws_connect_failed(dual)"
             );
-            args.runtime.emit_error(SessionErrorEvent::ConnectionError {
-                session_id: args.session_id.clone(),
-                error: "listen_ws_connect_timeout".to_string(),
-            });
-            return Err(actor_error("listen_ws_connect_timeout"));
-        }
-        Ok(Err(e)) => {
-            tracing::error!(session_id = %args.session_id, error = ?e, "listen_ws_connect_failed(dual)");
             args.runtime.emit_error(SessionErrorEvent::ConnectionError {
                 session_id: args.session_id.clone(),
                 error: format!("listen_ws_connect_failed: {:?}", e),
             });
             return Err(actor_error(format!("listen_ws_connect_failed: {:?}", e)));
         }
-        Ok(Ok(res)) => res,
+        Ok(res) => res,
     };
 
     let rx_task = tokio::spawn(async move {

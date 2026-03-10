@@ -62,7 +62,7 @@ fn run_denoise_blocking(
             .map_err(|e| crate::Error::DenoiseError(e.to_string()))?;
         output.extend_from_slice(&denoised);
 
-        let percentage = ((i + 1) as f64 / total_chunks as f64) * 100.0;
+        let percentage = ((i + 1) as f64 / total_chunks as f64).clamp(0.0, 1.0);
         runtime.emit(DenoiseEvent::DenoiseProgress {
             session_id: params.session_id.clone(),
             percentage,

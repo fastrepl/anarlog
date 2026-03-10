@@ -12,6 +12,10 @@ use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
 use crate::error::Error;
 
 impl BatchSttAdapter for ElevenLabsAdapter {
+    fn provider_name(&self) -> &'static str {
+        "elevenlabs"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -87,7 +91,11 @@ impl ElevenLabsAdapter {
         }
 
         let url = Self::batch_api_url(api_base);
-        tracing::info!(path = %file_path.display(), url = %url, "uploading file to ElevenLabs");
+        tracing::info!(
+            hyprnote.file.path = %file_path.display(),
+            url.full = %url,
+            "uploading_file_to_elevenlabs"
+        );
 
         let response = client
             .post(&url)

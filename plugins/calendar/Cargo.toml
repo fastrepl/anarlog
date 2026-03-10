@@ -16,6 +16,7 @@ hypr-outlook-calendar = { workspace = true, features = ["specta"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }
+tauri-plugin-permissions = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 chrono = { workspace = true, features = ["serde"] }
@@ -31,7 +32,3 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-tauri-plugin-apple-contact = { workspace = true }
-objc2-foundation = { workspace = true, features = ["NSPredicate"] }

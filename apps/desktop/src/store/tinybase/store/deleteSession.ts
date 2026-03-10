@@ -60,7 +60,7 @@ export function captureSessionData(
           created_at: row.created_at as string,
           session_id: row.session_id as string,
           started_at: row.started_at as number,
-          ended_at: row.ended_at as number,
+          ended_at: row.ended_at as number | undefined,
           words: row.words as string,
           speaker_hints: row.speaker_hints as string,
           memo_md: (row.memo_md as string) ?? "",

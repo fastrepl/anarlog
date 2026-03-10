@@ -1,11 +1,13 @@
 pub use hypr_local_model::{AmModel, CactusSttModel, LocalModel, WhisperModel};
 
-pub static SUPPORTED_MODELS: [LocalModel; 5] = [
+pub static SUPPORTED_MODELS: [LocalModel; 7] = [
     LocalModel::Am(AmModel::ParakeetV2),
     LocalModel::Am(AmModel::ParakeetV3),
     LocalModel::Am(AmModel::WhisperLargeV3),
     LocalModel::Cactus(CactusSttModel::WhisperSmallInt8),
     LocalModel::Cactus(CactusSttModel::WhisperSmallInt8Apple),
+    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int4),
+    LocalModel::Cactus(CactusSttModel::ParakeetTdt0_6bV3Int8),
 ];
 
 #[derive(serde::Serialize, serde::Deserialize, specta::Type)]

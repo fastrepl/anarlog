@@ -19,6 +19,24 @@ pub struct ListenCallbackResponse {
     pub request_id: String,
 }
 
+fn redact_url_for_telemetry(raw: &str) -> String {
+    let Ok(mut url) = reqwest::Url::parse(raw) else {
+        return raw.to_string();
+    };
+    let redacted_pairs: Vec<_> = url
+        .query_pairs()
+        .map(|(key, _)| (key.into_owned(), "REDACTED".to_string()))
+        .collect();
+    if !redacted_pairs.is_empty() {
+        url.query_pairs_mut().clear().extend_pairs(
+            redacted_pairs
+                .iter()
+                .map(|(key, value)| (key.as_str(), value.as_str())),
+        );
+    }
+    url.to_string()
+}
+
 pub(super) async fn handle_callback(
     state: &AppState,
     auth: Option<axum::Extension<AuthContext>>,
@@ -34,6 +52,7 @@ pub(super) async fn handle_callback(
         .remove_first("provider")
         .unwrap_or_else(|| "deepgram".to_string());
     let provider = parse_async_provider(&provider_str)?;
+    let listen_params = super::build_listen_params(params);
 
     let id = uuid::Uuid::new_v4().to_string();
 
@@ -46,7 +65,11 @@ pub(super) async fn handle_callback(
         .create_signed_url("audio-files", &file_id, 3600)
         .await
         .map_err(|e| {
-            tracing::error!(error = %e, "failed to create signed URL");
+            tracing::error!(
+                hyprnote.file.id = %file_id,
+                error = %e,
+                "failed to create signed URL"
+            );
             RouteError::Internal(format!("failed to create signed URL: {e}"))
         })?;
 
@@ -54,7 +77,15 @@ pub(super) async fn handle_callback(
         audio_url.starts_with("http://127.0.0.1") || audio_url.starts_with("http://localhost");
 
     let (status, provider_request_id, raw_result, error) = if is_local {
-        handle_sync_fallback(state, &provider_str, provider, &audio_url, &file_id).await?
+        handle_sync_fallback(
+            state,
+            &provider_str,
+            provider,
+            &listen_params,
+            &audio_url,
+            &file_id,
+        )
+        .await?
     } else {
         let provider_request_id =
             handle_remote_callback(state, &provider_str, provider, &audio_url, &id).await?;
@@ -78,7 +109,11 @@ pub(super) async fn handle_callback(
     };
 
     supabase.insert_job(&job).await.map_err(|e| {
-        tracing::error!(error = %e, "failed to insert job");
+        tracing::error!(
+            hyprnote.stt.job.id = %id,
+            error = %e,
+            "failed to insert job"
+        );
         RouteError::Internal(format!("failed to record job: {e}"))
     })?;
 
@@ -89,6 +124,7 @@ async fn handle_sync_fallback(
     state: &AppState,
     provider_str: &str,
     provider: Provider,
+    listen_params: &ListenParams,
     audio_url: &str,
     file_id: &str,
 ) -> Result<
@@ -100,14 +136,16 @@ async fn handle_sync_fallback(
     ),
     RouteError,
 > {
-    tracing::info!(provider = %provider_str, "local_url_detected, using sync transcription");
+    tracing::info!(
+        hyprnote.stt.provider.name = %provider_str,
+        "local_url_detected, using sync transcription"
+    );
 
-    let download_response = state
-        .client
-        .get(audio_url)
-        .send()
-        .await
-        .map_err(|e| RouteError::Internal(format!("failed to download audio: {e}")))?;
+    let download_response =
+        hypr_observability::with_current_trace_context(state.client.get(audio_url))
+            .send()
+            .await
+            .map_err(|e| RouteError::Internal(format!("failed to download audio: {e}")))?;
 
     let download_status = download_response.status();
     let audio_bytes = download_response
@@ -116,12 +154,12 @@ async fn handle_sync_fallback(
         .map_err(|e| RouteError::Internal(format!("failed to read audio bytes: {e}")))?;
 
     if !download_status.is_success() || audio_bytes.len() < 1024 {
-        let body_preview = String::from_utf8_lossy(&audio_bytes[..audio_bytes.len().min(512)]);
+        let redacted_audio_url = redact_url_for_telemetry(audio_url);
         tracing::error!(
-            status = %download_status,
-            audio_bytes = audio_bytes.len(),
-            body_preview = %body_preview,
-            audio_url = %audio_url,
+            http.response.status_code = %download_status.as_u16(),
+            hyprnote.audio.size_bytes = audio_bytes.len(),
+            hyprnote.file.id = %file_id,
+            url.full = %redacted_audio_url,
             "signed_url_download_failed"
         );
         if !download_status.is_success() {
@@ -134,9 +172,9 @@ async fn handle_sync_fallback(
     let content_type = content_type_from_filename(file_id);
 
     tracing::info!(
-        content_type = %content_type,
-        audio_bytes = audio_bytes.len(),
-        file_id = %file_id,
+        hyprnote.file.mime_type = %content_type,
+        hyprnote.audio.size_bytes = audio_bytes.len(),
+        hyprnote.file.id = %file_id,
         "sync_fallback_audio_downloaded"
     );
 
@@ -148,7 +186,7 @@ async fn handle_sync_fallback(
 
     match super::sync::transcribe_with_provider(
         &selected,
-        ListenParams::default(),
+        listen_params.clone(),
         audio_bytes,
         content_type,
     )
@@ -160,8 +198,17 @@ async fn handle_sync_fallback(
             Ok((PipelineStatus::Done, None, Some(raw_result), None))
         }
         Err(e) => {
-            tracing::error!(error = %e, provider = %provider_str, "sync transcription failed");
-            Ok((PipelineStatus::Error, None, None, Some(e)))
+            tracing::error!(
+                error = %e,
+                hyprnote.stt.provider.name = %provider_str,
+                "sync transcription failed"
+            );
+            Ok((
+                PipelineStatus::Error,
+                None,
+                None,
+                Some(e.message().to_string()),
+            ))
         }
     }
 }
@@ -213,7 +260,11 @@ async fn handle_remote_callback(
         _ => unreachable!(),
     }
     .map_err(|e| {
-        tracing::error!(error = %e, provider = %provider_str, "submission failed");
+        tracing::error!(
+            error = %e,
+            hyprnote.stt.provider.name = %provider_str,
+            "submission failed"
+        );
         RouteError::BadGateway(format!("{provider_str} submission failed: {e}"))
     })
 }

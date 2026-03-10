@@ -8,7 +8,7 @@ import {
 
 import { events as appleCalendarEvents } from "@hypr/plugin-calendar";
 
-import { CALENDAR_SYNC_TASK_ID, syncCalendarEvents } from "./apple-calendar";
+import { CALENDAR_SYNC_TASK_ID, syncCalendarEvents } from "./calendar";
 import {
   checkEventNotifications,
   EVENT_NOTIFICATION_INTERVAL,

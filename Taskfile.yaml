@@ -132,39 +132,29 @@ tasks:
       SUPABASE_STORAGE_AUDIO_FILES_BUCKET: '{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET | default "audio-files"}}'
     cmds:
       - mkdir -p supabase/{{.SUPABASE_STORAGE_ASSETS_DIR}} supabase/{{.SUPABASE_STORAGE_MODELS_DIR}} supabase/{{.SUPABASE_STORAGE_AUDIO_FILES_DIR}}
-      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.public'
-      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.file_size_limit'
-      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.allowed_mime_types'
-      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_ASSETS_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.objects_path'
-      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.public'
-      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.file_size_limit'
-      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.allowed_mime_types'
-      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_MODELS_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.objects_path'
-      - dasel put -f supabase/config.toml -t bool -v true 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.public'
-      - dasel put -f supabase/config.toml -t string -v '5GiB' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.file_size_limit'
-      - dasel put -f supabase/config.toml -t json -v '[]' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.allowed_mime_types'
-      - dasel put -f supabase/config.toml -t string -v '{{.SUPABASE_STORAGE_AUDIO_FILES_DIR}}' 'storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.objects_path'
+      - |
+          cargo xtask toml-set supabase/config.toml \
+            storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.public true \
+            storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.file_size_limit '"5GiB"' \
+            storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.allowed_mime_types '[]' \
+            storage.buckets.{{.SUPABASE_STORAGE_ASSETS_BUCKET}}.objects_path '"{{.SUPABASE_STORAGE_ASSETS_DIR}}"' \
+            storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.public true \
+            storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.file_size_limit '"5GiB"' \
+            storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.allowed_mime_types '[]' \
+            storage.buckets.{{.SUPABASE_STORAGE_MODELS_BUCKET}}.objects_path '"{{.SUPABASE_STORAGE_MODELS_DIR}}"' \
+            storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.public true \
+            storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.file_size_limit '"5GiB"' \
+            storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.allowed_mime_types '[]' \
+            storage.buckets.{{.SUPABASE_STORAGE_AUDIO_FILES_BUCKET}}.objects_path '"{{.SUPABASE_STORAGE_AUDIO_FILES_DIR}}"'
 
   # infisical run --env=dev --projectId=87dad7b5-72a6-4791-9228-b3b86b169db1 --path="/supabase" -- task supabase-start
   supabase-start:
     cmds:
       - curl -o supabase/config.toml https://gist.githubusercontent.com/yujonglee/c0704ebe0818621a64753d663c4fcaff/raw/b82572dfcb6ffa4d20c332a8dd7650e5b82b99c3/supabase-default.toml
-      - dasel put -f supabase/config.toml -t int -v 17 'db.major_version'
-      - dasel put -f supabase/config.toml -t string -v 'http://localhost:3000' 'auth.site_url'
-      - dasel put -f supabase/config.toml -t json -v '["http://localhost:3000/callback/auth"]' 'auth.additional_redirect_urls'
-      - '[ -n "$GITHUB_CLIENT_ID" ] && [ -n "$GITHUB_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t bool -v true ''auth.external.github.enabled'' || true'
-      - '[ -n "$GITHUB_CLIENT_ID" ] && [ -n "$GITHUB_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t string -v ''{{.GITHUB_CLIENT_ID}}'' ''auth.external.github.client_id'' || true'
-      - '[ -n "$GITHUB_CLIENT_ID" ] && [ -n "$GITHUB_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t string -v ''{{.GITHUB_CLIENT_SECRET}}'' ''auth.external.github.secret'' || true'
-      - '[ -n "$GITHUB_CLIENT_ID" ] && [ -n "$GITHUB_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t string -v '''' ''auth.external.github.redirect_uri'' || true'
-      - '[ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t bool -v true ''auth.external.google.enabled'' || true'
-      - '[ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t string -v ''{{.GOOGLE_CLIENT_ID}}'' ''auth.external.google.client_id'' || true'
-      - '[ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t string -v ''{{.GOOGLE_CLIENT_SECRET}}'' ''auth.external.google.secret'' || true'
-      - '[ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && dasel put -f supabase/config.toml -t bool -v false ''auth.external.google.skip_nonce_check'' || true'
-      - dasel put -f supabase/config.toml -t bool -v true 'auth.hook.custom_access_token.enabled'
-      - dasel put -f supabase/config.toml -t string -v 'pg-functions://postgres/public/custom_access_token_hook' 'auth.hook.custom_access_token.uri'
+      - cargo xtask supabase-patch
       # - task: supabase-storage-seed-config
       # - '[ ! -f supabase/signing_keys.json ] && pnpm exec supabase gen signing-key --algorithm ES256 | jq -s ''.'' > supabase/signing_keys.json || true'
-      # - dasel put -f supabase/config.toml -t string -v './signing_keys.json' 'auth.signing_keys_path'
+      # - cargo xtask toml-set supabase/config.toml auth.signing_keys_path '"./signing_keys.json"'
       - pnpm exec dprint fmt supabase/config.toml
       - pnpm exec supabase start -x realtime,logflare
       - task: supabase-env

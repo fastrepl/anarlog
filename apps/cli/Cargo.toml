@@ -17,17 +17,23 @@ hypr-language = { workspace = true }
 hypr-listener-core = { workspace = true }
 hypr-listener2-core = { workspace = true }
 hypr-local-model = { workspace = true }
+hypr-local-stt-core = { workspace = true }
+hypr-local-stt-server = { workspace = true }
 hypr-model-downloader = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-transcript = { workspace = true }
+owhisper-interface = { workspace = true }
 
 clap = { workspace = true, features = ["derive", "env"] }
+comfy-table = "7"
 crossterm = { workspace = true }
 dirs = { workspace = true }
 image = { version = "0.25", default-features = false, features = ["png"] }
+indicatif = "0.17"
 ratatui = { workspace = true }
 ratatui-image = { version = "10.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
 tempfile = { workspace = true }
+textwrap = { version = "0.16", features = ["terminal_size"] }
 tui-textarea = { workspace = true }
 
 open = { workspace = true }

@@ -154,19 +154,27 @@ export function TabContentFolder({ tab }: { tab: Tab }) {
 }
 
 function TabContentFolderTopLevel() {
-  const { topLevel: topLevelFolderIds } = useFolderTree();
-
   return (
-    <div className="flex flex-col gap-6">
-      <Section icon={<FolderIcon className="h-4 w-4" />} title="Folders">
-        {topLevelFolderIds.length > 0 && (
-          <div className="grid grid-cols-4 gap-4">
-            {topLevelFolderIds.map((folderId) => (
-              <FolderCard key={folderId} folderId={folderId} />
-            ))}
-          </div>
-        )}
-      </Section>
+    <div className="justify-left flex h-full items-start p-8">
+      <div className="flex flex-col items-start gap-4 text-left">
+        <div className="flex items-end gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <img
+              key={i}
+              src="/assets/folder placeholder.svg"
+              alt=""
+              className="size-16 opacity-60"
+            />
+          ))}
+        </div>
+        <h1 className="text-foreground text-lg font-semibold">
+          Folders will be there soon
+        </h1>
+        <p className="text-muted-foreground max-w-xs text-sm">
+          We're working on a way for you to organize your notes <br />
+          Stay tuned!
+        </p>
+      </div>
     </div>
   );
 }
@@ -178,6 +186,7 @@ function FolderCard({ folderId }: { folderId: string }) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(name);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   const childFolderIds = byParent[folderId] || [];
 
@@ -193,6 +202,7 @@ function FolderCard({ folderId }: { folderId: string }) {
     const trimmed = editValue.trim();
     if (!trimmed || trimmed === name) {
       setEditValue(name);
+      setRenameError(null);
       setIsEditing(false);
       return;
     }
@@ -204,6 +214,9 @@ function FolderCard({ folderId }: { folderId: string }) {
     const result = await sessionOps.renameFolder(folderId, newFolderId);
     if (result.status === "error") {
       setEditValue(name);
+      setRenameError(result.error);
+    } else {
+      setRenameError(null);
     }
     setIsEditing(false);
   }, [editValue, name, folderId]);
@@ -232,6 +245,7 @@ function FolderCard({ folderId }: { folderId: string }) {
               handleRename();
             } else if (e.key === "Escape") {
               setEditValue(name);
+              setRenameError(null);
               setIsEditing(false);
             }
           }}
@@ -258,6 +272,9 @@ function FolderCard({ folderId }: { folderId: string }) {
         <span className="text-muted-foreground text-xs">
           {childCount} items
         </span>
+      )}
+      {renameError && (
+        <span className="text-center text-xs text-red-500">{renameError}</span>
       )}
     </div>
   );

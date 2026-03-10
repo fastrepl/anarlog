@@ -16,6 +16,8 @@ pub enum Error {
     LocalSttError(#[from] tauri_plugin_local_stt::Error),
     #[error("no session")]
     NoneSession,
+    #[error("session already running")]
+    SessionAlreadyRunning,
     #[error("start session failed")]
     StartSessionFailed,
     #[error("stop session failed")]

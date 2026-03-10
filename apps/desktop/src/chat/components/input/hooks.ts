@@ -107,10 +107,6 @@ export function useAutoFocusEditor({
 }
 
 export function useSlashCommandConfig(): SlashCommandConfig {
-  const chatShortcuts = main.UI.useResultTable(
-    main.QUERIES.visibleChatShortcuts,
-    main.STORE_ID,
-  );
   const sessions = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
     main.STORE_ID,
@@ -134,20 +130,6 @@ export function useSlashCommandConfig(): SlashCommandConfig {
           label: string;
           content?: string;
         }[] = [];
-        const lowerQuery = query.toLowerCase();
-
-        Object.entries(chatShortcuts).forEach(([rowId, row]) => {
-          const title = row.title as string | undefined;
-          const content = row.content as string | undefined;
-          if (title && content && title.toLowerCase().includes(lowerQuery)) {
-            results.push({
-              id: rowId,
-              type: "chat_shortcut",
-              label: title,
-              content,
-            });
-          }
-        });
 
         if (query.trim()) {
           const searchResults = await search(query);
@@ -182,7 +164,7 @@ export function useSlashCommandConfig(): SlashCommandConfig {
         return results.slice(0, 5);
       },
     }),
-    [chatShortcuts, sessions, humans, organizations, search],
+    [sessions, humans, organizations, search],
   );
 }
 

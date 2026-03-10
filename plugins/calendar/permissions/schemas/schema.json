@@ -319,6 +319,18 @@
           "markdownDescription": "Denies the create_event command without any pre-configured scope."
         },
         {
+          "description": "Enables the is_provider_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-is-provider-enabled",
+          "markdownDescription": "Enables the is_provider_enabled command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the is_provider_enabled command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-is-provider-enabled",
+          "markdownDescription": "Denies the is_provider_enabled command without any pre-configured scope."
+        },
+        {
           "description": "Enables the list_calendars command without any pre-configured scope.",
           "type": "string",
           "const": "allow-list-calendars",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the open_calendar command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`"
         }
       ]
     }

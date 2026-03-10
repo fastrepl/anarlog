@@ -39,7 +39,11 @@ pub async fn handler(
         .get_job(&pipeline_id)
         .await
         .map_err(|e| {
-            tracing::error!(error = %e, "failed to query job");
+            tracing::error!(
+                hyprnote.stt.job.id = %pipeline_id,
+                error = %e,
+                "failed_to_query_job"
+            );
             RouteError::Internal(format!("failed to query job: {e}"))
         })?
         .ok_or(RouteError::NotFound("job not found"))?;

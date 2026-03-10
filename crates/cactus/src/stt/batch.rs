@@ -68,12 +68,13 @@ impl Model {
         user_data: *mut std::ffi::c_void,
     ) -> Result<TranscriptionResult> {
         let guard = self.lock_inference();
+        let options = self.transcribe_options(options);
         let prompt = match self.kind() {
             ModelKind::Moonshine | ModelKind::Parakeet => String::new(),
-            ModelKind::Whisper => build_whisper_prompt(options),
+            ModelKind::Whisper => build_whisper_prompt(&options),
         };
         let prompt_c = CString::new(prompt)?;
-        let options_c = CString::new(serde_json::to_string(options)?)?;
+        let options_c = CString::new(serde_json::to_string(&options)?)?;
         let mut buf = vec![0u8; RESPONSE_BUF_SIZE];
 
         let (path_ptr, pcm_ptr, pcm_len) = match &input {

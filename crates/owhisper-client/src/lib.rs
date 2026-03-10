@@ -38,6 +38,7 @@ pub struct ListenClientBuilder<A: RealtimeSttAdapter = DeepgramAdapter> {
     api_key: Option<String>,
     params: Option<owhisper_interface::ListenParams>,
     extra_headers: Vec<(String, String)>,
+    connect_policy: Option<hypr_ws_client::client::WebSocketConnectPolicy>,
     _marker: PhantomData<A>,
 }
 
@@ -48,6 +49,7 @@ impl Default for ListenClientBuilder {
             api_key: None,
             params: None,
             extra_headers: Vec::new(),
+            connect_policy: None,
             _marker: PhantomData,
         }
     }
@@ -74,12 +76,21 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         self
     }
 
+    pub fn connect_policy(
+        mut self,
+        policy: hypr_ws_client::client::WebSocketConnectPolicy,
+    ) -> Self {
+        self.connect_policy = Some(policy);
+        self
+    }
+
     pub fn adapter<B: RealtimeSttAdapter>(self) -> ListenClientBuilder<B> {
         ListenClientBuilder {
             api_base: self.api_base,
             api_key: self.api_key,
             params: self.params,
             extra_headers: self.extra_headers,
+            connect_policy: self.connect_policy,
             _marker: PhantomData,
         }
     }
@@ -136,6 +147,7 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
             adapter,
             request,
             initial_message,
+            connect_policy: self.connect_policy,
         }
     }
 
@@ -158,6 +170,7 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
             adapter,
             request,
             initial_message,
+            connect_policy: self.connect_policy,
         }
     }
 }

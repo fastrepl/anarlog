@@ -1,5 +1,6 @@
 use hypr_supabase_storage::SupabaseStorage;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -66,22 +67,39 @@ impl SupabaseClient {
     }
 
     fn auth_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        builder
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
+        hypr_observability::with_current_trace_context(
+            builder
+                .header("Authorization", format!("Bearer {}", self.service_role_key))
+                .header("apikey", &self.service_role_key),
+        )
     }
 
     pub async fn insert_job(&self, job: &TranscriptionJob) -> Result<(), Error> {
+        let start = Instant::now();
         let response = self
             .auth_headers(self.client.post(self.rest_url()))
             .header("Prefer", "return=minimal")
             .json(job)
             .send()
             .await?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "insert_job",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                service.peer.name = "supabase",
+                hyprnote.supabase.operation = "insert_job",
+                http.response.status_code = status.as_u16(),
+                error.type = "supabase_api_error",
+                "supabase_request_failed"
+            );
             return Err(Error::Api(format!("failed to insert job: {status} {body}")));
         }
 
@@ -92,16 +110,31 @@ impl SupabaseClient {
         let encoded_id = urlencoding::encode(id);
         let url = format!("{}?id=eq.{encoded_id}", self.rest_url());
 
+        let start = Instant::now();
         let response = self
             .auth_headers(self.client.patch(&url))
             .header("Prefer", "return=minimal")
             .json(updates)
             .send()
             .await?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "update_job",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                service.peer.name = "supabase",
+                hyprnote.supabase.operation = "update_job",
+                http.response.status_code = status.as_u16(),
+                error.type = "supabase_api_error",
+                "supabase_request_failed"
+            );
             return Err(Error::Api(format!("failed to update job: {status} {body}")));
         }
 
@@ -112,15 +145,30 @@ impl SupabaseClient {
         let encoded_id = urlencoding::encode(id);
         let url = format!("{}?id=eq.{encoded_id}&select=*", self.rest_url());
 
+        let start = Instant::now();
         let response = self
             .auth_headers(self.client.get(&url))
             .header("Accept", "application/json")
             .send()
             .await?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "get_job",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
+            tracing::error!(
+                service.peer.name = "supabase",
+                hyprnote.supabase.operation = "get_job",
+                http.response.status_code = status.as_u16(),
+                error.type = "supabase_api_error",
+                "supabase_request_failed"
+            );
             return Err(Error::Api(format!("failed to get job: {status} {body}")));
         }
 

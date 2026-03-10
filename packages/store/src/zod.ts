@@ -49,6 +49,9 @@ export const eventParticipantSchema = z.object({
   is_current_user: z.boolean().optional(),
 });
 
+export const calendarProviderSchema = z.enum(["apple", "google", "outlook"]);
+export type CalendarProvider = z.infer<typeof calendarProviderSchema>;
+
 export const eventSchema = z.object({
   user_id: z.string(),
   created_at: z.string(),
@@ -70,14 +73,12 @@ export const eventSchema = z.object({
     z.boolean().optional(),
   ),
   is_all_day: z.preprocess((val) => val ?? undefined, z.boolean().optional()),
+  provider: calendarProviderSchema,
   participants_json: z.preprocess(
     (val) => val ?? undefined,
     z.string().optional(),
   ),
 });
-
-export const calendarProviderSchema = z.enum(["apple", "google", "outlook"]);
-export type CalendarProvider = z.infer<typeof calendarProviderSchema>;
 
 export const calendarSchema = z.object({
   user_id: z.string(),
@@ -183,6 +184,13 @@ export const chatGroupSchema = z.object({
   title: z.string(),
 });
 
+export const chatMessageStatusSchema = z.enum([
+  "streaming",
+  "ready",
+  "error",
+  "aborted",
+]);
+
 export const chatMessageSchema = z.object({
   user_id: z.string(),
   created_at: z.string(),
@@ -191,6 +199,7 @@ export const chatMessageSchema = z.object({
   content: z.string(),
   metadata: jsonObject(z.any()),
   parts: jsonObject(z.any()),
+  status: chatMessageStatusSchema.default("ready"),
 });
 
 export const chatShortcutSchema = z.object({
@@ -311,6 +320,7 @@ export type MappingMention = z.infer<typeof mappingMentionSchema>;
 export type Template = z.infer<typeof templateSchema>;
 export type TemplateSection = z.infer<typeof templateSectionSchema>;
 export type ChatGroup = z.infer<typeof chatGroupSchema>;
+export type ChatMessageStatus = z.infer<typeof chatMessageStatusSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ChatShortcut = z.infer<typeof chatShortcutSchema>;
 export type Memory = z.infer<typeof memorySchema>;

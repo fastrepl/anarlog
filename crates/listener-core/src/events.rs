@@ -1,6 +1,6 @@
 use owhisper_interface::stream::StreamResponse;
 
-use crate::DegradedError;
+use crate::{DegradedError, TranscriptionMode};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -15,7 +15,10 @@ pub enum SessionLifecycleEvent {
     #[serde(rename = "active")]
     Active {
         session_id: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(rename = "requestedTranscriptionMode")]
+        requested_transcription_mode: TranscriptionMode,
+        #[serde(rename = "currentTranscriptionMode")]
+        current_transcription_mode: TranscriptionMode,
         error: Option<DegradedError>,
     },
     #[serde(rename = "finalizing")]

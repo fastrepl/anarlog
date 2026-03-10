@@ -48,11 +48,6 @@ function Component() {
     if (isOpeningRightPanel && bodyPanelRef.current) {
       const currentSize = bodyPanelRef.current.getSize();
       bodyPanelRef.current.resize(currentSize);
-
-      const wasFloating = previousModeRef.current === "FloatingOpen";
-      if (wasFloating || window.innerWidth < 1100) {
-        commands.resizeWindowForChat();
-      }
     }
 
     previousModeRef.current = chat.mode;
@@ -72,7 +67,7 @@ function Component() {
 
   return (
     <div
-      className="flex h-full gap-1 overflow-hidden p-1"
+      className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
       data-testid="main-app-shell"
     >
       {leftsidebar.expanded && !isOnboarding && <LeftSidebar />}

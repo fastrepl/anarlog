@@ -31,9 +31,11 @@ impl SupabaseStorage {
     }
 
     fn auth_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        builder
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
+        hypr_observability::with_current_trace_context(
+            builder
+                .header("Authorization", format!("Bearer {}", self.service_role_key))
+                .header("apikey", &self.service_role_key),
+        )
     }
 
     pub async fn create_signed_url(

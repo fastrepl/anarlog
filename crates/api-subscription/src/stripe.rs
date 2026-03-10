@@ -1,6 +1,7 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::Instant;
 use stripe::StripeRequest;
 use stripe_billing::subscription::{
     CreateSubscription, CreateSubscriptionItems, CreateSubscriptionTrialSettings,
@@ -51,12 +52,19 @@ pub(crate) async fn get_or_create_customer(
     let idempotency_key: stripe::IdempotencyKey = format!("create-customer-{}", user_id)
         .try_into()
         .map_err(|e: stripe::IdempotentKeyError| SubscriptionError::Internal(e.to_string()))?;
+    let start = Instant::now();
     let customer = create_customer
         .customize()
         .request_strategy(stripe::RequestStrategy::Idempotent(idempotency_key))
         .send(stripe)
         .await
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
+    tracing::info!(
+        service.peer.name = "stripe",
+        hyprnote.stripe.operation = "create_customer",
+        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        "stripe_request_finished"
+    );
 
     #[derive(Serialize)]
     struct UpdateData {
@@ -115,12 +123,19 @@ pub(crate) async fn create_trial_subscription(
         .try_into()
         .map_err(|e: stripe::IdempotentKeyError| SubscriptionError::Internal(e.to_string()))?;
 
+    let start = Instant::now();
     create_sub
         .customize()
         .request_strategy(stripe::RequestStrategy::Idempotent(idempotency_key))
         .send(stripe)
         .await
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
+    tracing::info!(
+        service.peer.name = "stripe",
+        hyprnote.stripe.operation = "create_trial_subscription",
+        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        "stripe_request_finished"
+    );
 
     Ok(())
 }

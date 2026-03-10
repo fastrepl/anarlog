@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
+import { ListenActionButton } from "../listen-action";
 import { OptionsMenu } from "./options-menu";
 import { ActionableTooltipContent, FloatingButton } from "./shared";
 
@@ -12,8 +13,11 @@ import {
   RecordingIcon,
   useListenButtonState,
 } from "~/session/components/shared";
+import {
+  type RemoteMeeting,
+  useRemoteMeeting,
+} from "~/session/hooks/useRemoteMeeting";
 import { useEventCountdown } from "~/sidebar/useEventCountdown";
-import { useSessionEvent } from "~/store/tinybase/hooks";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
@@ -28,6 +32,7 @@ export function ListenButton({
     loading: state.live.loading,
     stop: state.stop,
   }));
+  const remote = useRemoteMeeting(tab.id);
 
   if (loading) {
     return (
@@ -37,57 +42,15 @@ export function ListenButton({
     );
   }
 
-  if (shouldRender) {
-    return <BeforeMeeingButton tab={tab} />;
+  if (!shouldRender) {
+    return null;
   }
-
-  return null;
-}
-
-function BeforeMeeingButton({
-  tab,
-}: {
-  tab: Extract<Tab, { type: "sessions" }>;
-}) {
-  const remote = useRemoteMeeting(tab.id);
-
-  const { isDisabled, warningMessage } = useListenButtonState(tab.id);
-  const startListening = useStartListening(tab.id);
-
-  const handleJoin = useCallback(() => {
-    if (remote?.url) {
-      void openerCommands.openUrl(remote.url, null);
-    }
-  }, [remote?.url]);
 
   if (remote) {
-    return (
-      <SplitMeetingButtons
-        remote={remote}
-        disabled={isDisabled}
-        warningMessage={warningMessage}
-        onJoin={handleJoin}
-        onStartListening={startListening}
-        sessionId={tab.id}
-      />
-    );
+    return <SplitMeetingButtons remote={remote} tab={tab} />;
   }
 
-  return (
-    <ListenSplitButton
-      content={
-        <>
-          <span className="flex items-center gap-2 pl-3">
-            <RecordingIcon /> Start listening
-          </span>
-        </>
-      }
-      disabled={isDisabled}
-      warningMessage={warningMessage}
-      onPrimaryClick={startListening}
-      sessionId={tab.id}
-    />
-  );
+  return <ListenActionButton sessionId={tab.id} />;
 }
 
 const SIDEBAR_WIDTH = 280;
@@ -96,21 +59,15 @@ const EDITOR_WIDTH_THRESHOLD = 590;
 
 function SplitMeetingButtons({
   remote,
-  disabled,
-  warningMessage,
-  onJoin,
-  onStartListening,
-  sessionId,
+  tab,
 }: {
   remote: RemoteMeeting;
-  disabled: boolean;
-  warningMessage: string;
-  onJoin: () => void;
-  onStartListening: () => void;
-  sessionId: string;
+  tab: Extract<Tab, { type: "sessions" }>;
 }) {
+  const { isDisabled, warningMessage } = useListenButtonState(tab.id);
+  const startListening = useStartListening(tab.id);
   const openNew = useTabs((state) => state.openNew);
-  const countdown = useEventCountdown(sessionId);
+  const countdown = useEventCountdown(tab.id);
   const { leftsidebar } = useShell();
   const [isNarrow, setIsNarrow] = useState(false);
 
@@ -128,10 +85,16 @@ function SplitMeetingButtons({
     return () => window.removeEventListener("resize", calculateIsNarrow);
   }, [leftsidebar.expanded]);
 
+  const handleJoin = useCallback(() => {
+    if (remote.url) {
+      void openerCommands.openUrl(remote.url, null);
+    }
+  }, [remote.url]);
+
   const handleConfigure = useCallback(() => {
-    onStartListening();
+    startListening();
     openNew({ type: "ai", state: { tab: "transcription" } });
-  }, [onStartListening, openNew]);
+  }, [startListening, openNew]);
 
   const getMeetingIcon = () => {
     switch (remote.type) {
@@ -165,7 +128,7 @@ function SplitMeetingButtons({
     <div className="relative flex items-center gap-2">
       {!isNarrow && (
         <FloatingButton
-          onClick={onJoin}
+          onClick={handleJoin}
           className="h-10 justify-center gap-2 border-neutral-200 bg-white px-3 text-neutral-800 shadow-[0_4px_14px_rgba(0,0,0,0.1)] hover:bg-neutral-100 lg:px-4"
         >
           <span>Join</span>
@@ -174,14 +137,14 @@ function SplitMeetingButtons({
         </FloatingButton>
       )}
       <OptionsMenu
-        sessionId={sessionId}
-        disabled={disabled}
+        sessionId={tab.id}
+        disabled={isDisabled}
         warningMessage={warningMessage}
         onConfigure={handleConfigure}
       >
         <FloatingButton
-          onClick={onStartListening}
-          disabled={disabled}
+          onClick={startListening}
+          disabled={isDisabled}
           className="justify-center gap-2 border-stone-600 bg-stone-800 pr-8 pl-3 text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] hover:bg-stone-700 lg:pr-10 lg:pl-4"
           tooltip={
             warningMessage
@@ -212,112 +175,4 @@ function SplitMeetingButtons({
       )}
     </div>
   );
-}
-
-function ListenSplitButton({
-  content,
-  disabled,
-  warningMessage,
-  onPrimaryClick,
-  sessionId,
-}: {
-  content: React.ReactNode;
-  disabled: boolean;
-  warningMessage: string;
-  onPrimaryClick: () => void;
-  sessionId: string;
-}) {
-  const openNew = useTabs((state) => state.openNew);
-  const countdown = useEventCountdown(sessionId);
-
-  const handleAction = useCallback(() => {
-    onPrimaryClick();
-    openNew({ type: "ai", state: { tab: "transcription" } });
-  }, [onPrimaryClick, openNew]);
-
-  return (
-    <div className="relative">
-      <OptionsMenu
-        sessionId={sessionId}
-        disabled={disabled}
-        warningMessage={warningMessage}
-        onConfigure={handleAction}
-      >
-        <FloatingButton
-          onClick={onPrimaryClick}
-          disabled={disabled}
-          className="justify-center gap-2 border-stone-600 bg-stone-800 pr-8 pl-3 text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] hover:bg-stone-700 lg:pr-10 lg:pl-4"
-          tooltip={
-            warningMessage
-              ? {
-                  side: "top",
-                  content: (
-                    <ActionableTooltipContent
-                      message={warningMessage}
-                      action={{
-                        label: "Configure",
-                        handleClick: handleAction,
-                      }}
-                    />
-                  ),
-                }
-              : undefined
-          }
-        >
-          {content}
-        </FloatingButton>
-      </OptionsMenu>
-      {countdown && (
-        <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 text-xs whitespace-nowrap text-neutral-500">
-          {countdown}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type RemoteMeeting = {
-  type: "zoom" | "google-meet" | "webex" | "teams";
-  url: string;
-};
-
-function detectMeetingType(
-  url: string,
-): "zoom" | "google-meet" | "webex" | "teams" | null {
-  try {
-    const parsed = new URL(url);
-    const hostname = parsed.hostname.toLowerCase();
-
-    if (hostname.includes("zoom.us")) {
-      return "zoom";
-    }
-    if (hostname.includes("meet.google.com")) {
-      return "google-meet";
-    }
-    if (hostname.includes("webex.com")) {
-      return "webex";
-    }
-    if (hostname.includes("teams.microsoft.com")) {
-      return "teams";
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function useRemoteMeeting(sessionId: string): RemoteMeeting | null {
-  const event = useSessionEvent(sessionId);
-  const meetingLink = event?.meeting_link ?? null;
-
-  if (!meetingLink) {
-    return null;
-  }
-
-  const type = detectMeetingType(meetingLink);
-  if (!type) {
-    return null;
-  }
-
-  return { type, url: meetingLink };
 }

@@ -21,6 +21,11 @@ use crate::trial::{Interval, StartTrialQuery, StartTrialResponse, TrialOutcome};
     ),
     tag = "subscription",
 )]
+#[tracing::instrument(
+    name = "subscription.start_trial",
+    skip(state, query, auth, device_fingerprint),
+    fields(hyprnote.subsystem = "subscription")
+)]
 pub async fn start_trial(
     State(state): State<AppState>,
     Query(query): Query<StartTrialQuery>,

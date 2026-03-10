@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo } from "react";
 import { googleListCalendars } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 
+import { useSync } from "../context";
+
 import { useAuth } from "~/auth";
 import {
   type CalendarGroup,
@@ -38,6 +40,8 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
+  const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
+    useSync();
 
   const {
     data: incomingCalendars,
@@ -110,18 +114,21 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
       store?.setPartialRow("calendars", calendar.id, { enabled });
+      scheduleDebouncedSync();
     },
-    [store],
+    [store, scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(async () => {
+    cancelDebouncedSync();
     await refetch();
-  }, [refetch]);
+    scheduleSync();
+  }, [refetch, scheduleSync, cancelDebouncedSync]);
 
   return {
     groups,
     handleToggle,
     handleRefresh,
-    isLoading: isFetching,
+    isLoading: isFetching || status === "syncing",
   };
 }

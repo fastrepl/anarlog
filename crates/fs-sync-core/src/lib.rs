@@ -14,7 +14,7 @@ pub mod session_content;
 pub mod types;
 
 pub use error::{Error, Result};
-pub use path::is_uuid;
+pub use path::{build_session_dir, is_uuid, normalize_folder_path};
 pub use session::find_session_dir;
 pub use types::*;
 
@@ -50,25 +50,32 @@ impl FsSyncCore {
         Ok(result)
     }
 
-    pub fn move_session(&self, session_id: &str, target_folder_path: &str) -> Result<()> {
-        let source = find_session_dir(&self.sessions_dir, session_id);
+    pub fn move_session(
+        &self,
+        session_id: &str,
+        from_folder_path: &str,
+        target_folder_path: &str,
+    ) -> Result<MoveSessionResult> {
+        let from_folder_path = normalize_folder_path(from_folder_path)?;
+        let target_folder_path = normalize_folder_path(target_folder_path)?;
 
+        if from_folder_path == target_folder_path {
+            return Err(Error::Path("session_move_noop".into()));
+        }
+
+        let source = build_session_dir(&self.sessions_dir, &from_folder_path, session_id)?;
         if !source.exists() {
-            return Ok(());
+            return Err(Error::Path("session_source_missing".into()));
         }
 
-        let target_folder = if target_folder_path.is_empty() {
-            self.sessions_dir.clone()
-        } else {
-            self.sessions_dir.join(target_folder_path)
-        };
-        let target = target_folder.join(session_id);
-
-        if source == target {
-            return Ok(());
+        let target = build_session_dir(&self.sessions_dir, &target_folder_path, session_id)?;
+        if target.exists() {
+            return Err(Error::Path("session_target_exists".into()));
         }
 
-        std::fs::create_dir_all(&target_folder)?;
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::fs::rename(&source, &target)?;
 
         tracing::info!(
@@ -78,7 +85,10 @@ impl FsSyncCore {
             target
         );
 
-        Ok(())
+        Ok(MoveSessionResult {
+            session_id: session_id.to_string(),
+            folder_id: target_folder_path,
+        })
     }
 
     pub fn create_folder(&self, folder_path: &str) -> Result<()> {
@@ -93,19 +103,26 @@ impl FsSyncCore {
         Ok(())
     }
 
-    pub fn rename_folder(&self, old_path: &str, new_path: &str) -> Result<()> {
-        let source = self.sessions_dir.join(old_path);
-        let target = self.sessions_dir.join(new_path);
+    pub fn rename_folder(&self, old_path: &str, new_path: &str) -> Result<RenameFolderResult> {
+        let old_path = normalize_folder_path(old_path)?;
+        let new_path = normalize_folder_path(new_path)?;
+
+        if old_path.is_empty() || new_path.is_empty() {
+            return Err(Error::Path("folder_rename_root_not_allowed".into()));
+        }
+        if old_path == new_path {
+            return Err(Error::Path("folder_rename_noop".into()));
+        }
+
+        let source = self.sessions_dir.join(&old_path);
+        let target = self.sessions_dir.join(&new_path);
 
         if !source.exists() {
-            return Err(Error::Path(format!("Folder does not exist: {:?}", source)));
+            return Err(Error::Path("folder_source_missing".into()));
         }
 
         if target.exists() {
-            return Err(Error::Path(format!(
-                "Target folder already exists: {:?}",
-                target
-            )));
+            return Err(Error::Path("folder_target_exists".into()));
         }
 
         if let Some(parent) = target.parent() {
@@ -114,7 +131,12 @@ impl FsSyncCore {
 
         std::fs::rename(&source, &target)?;
         tracing::info!("Renamed folder from {:?} to {:?}", source, target);
-        Ok(())
+
+        let mut updates = Vec::new();
+        folder::collect_session_updates(&self.sessions_dir, &new_path, &mut updates);
+        updates.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+
+        Ok(RenameFolderResult { updates })
     }
 
     pub fn delete_folder(&self, folder_path: &str) -> Result<()> {
@@ -390,12 +412,90 @@ mod tests {
             .unwrap();
 
         let core = FsSyncCore::new(temp.path().to_path_buf());
-        core.move_session(UUID_1, "work").unwrap();
+        let result = core.move_session(UUID_1, "", "work").unwrap();
 
         temp.child("sessions")
             .child("work")
             .child(UUID_1)
             .assert(predicates::path::exists());
+        assert_eq!(
+            result,
+            MoveSessionResult {
+                session_id: UUID_1.into(),
+                folder_id: "work".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn move_session_to_root() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions")
+            .child("work")
+            .child(UUID_1)
+            .create_dir_all()
+            .unwrap();
+        temp.child("sessions")
+            .child("work")
+            .child(UUID_1)
+            .child("_meta.json")
+            .write_str("{}")
+            .unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        let result = core.move_session(UUID_1, "work", "").unwrap();
+
+        temp.child("sessions")
+            .child(UUID_1)
+            .assert(predicates::path::exists());
+        assert_eq!(
+            result,
+            MoveSessionResult {
+                session_id: UUID_1.into(),
+                folder_id: "".into(),
+            }
+        );
+    }
+
+    #[test]
+    fn move_session_missing_source_errors() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions").create_dir_all().unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        let result = core.move_session(UUID_1, "", "work");
+
+        assert!(matches!(result, Err(Error::Path(message)) if message == "session_source_missing"));
+    }
+
+    #[test]
+    fn move_session_existing_target_errors() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions")
+            .child(UUID_1)
+            .create_dir_all()
+            .unwrap();
+        temp.child("sessions")
+            .child(UUID_1)
+            .child("_meta.json")
+            .write_str("{}")
+            .unwrap();
+        temp.child("sessions")
+            .child("work")
+            .child(UUID_1)
+            .create_dir_all()
+            .unwrap();
+        temp.child("sessions")
+            .child("work")
+            .child(UUID_1)
+            .child("_meta.json")
+            .write_str("{}")
+            .unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        let result = core.move_session(UUID_1, "", "work");
+
+        assert!(matches!(result, Err(Error::Path(message)) if message == "session_target_exists"));
     }
 
     #[test]
@@ -414,6 +514,54 @@ mod tests {
         let result = core.rename_folder("old", "new");
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn rename_folder_returns_updated_sessions() {
+        let temp = TempDir::new().unwrap();
+        temp.child("sessions")
+            .child("old")
+            .child(UUID_1)
+            .create_dir_all()
+            .unwrap();
+        temp.child("sessions")
+            .child("old")
+            .child(UUID_1)
+            .child("_meta.json")
+            .write_str("{}")
+            .unwrap();
+        temp.child("sessions")
+            .child("old")
+            .child("nested")
+            .child(UUID_2)
+            .create_dir_all()
+            .unwrap();
+        temp.child("sessions")
+            .child("old")
+            .child("nested")
+            .child(UUID_2)
+            .child("_meta.json")
+            .write_str("{}")
+            .unwrap();
+
+        let core = FsSyncCore::new(temp.path().to_path_buf());
+        let result = core.rename_folder("old", "new").unwrap();
+
+        assert_eq!(
+            result,
+            RenameFolderResult {
+                updates: vec![
+                    FolderSessionUpdate {
+                        session_id: UUID_1.into(),
+                        folder_id: "new".into(),
+                    },
+                    FolderSessionUpdate {
+                        session_id: UUID_2.into(),
+                        folder_id: "new/nested".into(),
+                    },
+                ],
+            }
+        );
     }
 
     #[test]

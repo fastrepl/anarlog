@@ -9,7 +9,7 @@ fn audio_wav_bytes() -> Vec<u8> {
 
 use transcribe_cactus::TranscribeService;
 
-use common::model_path;
+use common::{invalid_model_path, model_path};
 
 #[ignore = "requires local cactus model files"]
 #[test]
@@ -85,4 +85,104 @@ fn e2e_batch() {
 
         let _ = shutdown_tx.send(());
     });
+}
+
+#[tokio::test]
+async fn invalid_model_path_returns_http_500_json_error() {
+    let app = Router::new().route_service(
+        "/v1/listen",
+        HandleError::new(
+            TranscribeService::builder()
+                .model_path(invalid_model_path())
+                .build(),
+            |err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) },
+        ),
+    );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+            .unwrap();
+    });
+
+    let response = reqwest::Client::new()
+        .post(format!(
+            "http://{}/v1/listen?channels=1&sample_rate=16000&language=en",
+            addr
+        ))
+        .header("content-type", "audio/wav")
+        .body(audio_wav_bytes())
+        .send()
+        .await
+        .expect("request failed");
+
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body: serde_json::Value = response.json().await.expect("response is not JSON");
+    assert_eq!(body["error"], "transcription_failed");
+    assert!(
+        body["detail"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("failed to initialize model"),
+        "unexpected detail: {body:?}"
+    );
+
+    let _ = shutdown_tx.send(());
+}
+
+#[tokio::test]
+async fn invalid_model_path_returns_sse_error_event() {
+    let app = Router::new().route_service(
+        "/v1/listen",
+        HandleError::new(
+            TranscribeService::builder()
+                .model_path(invalid_model_path())
+                .build(),
+            |err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) },
+        ),
+    );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+            .unwrap();
+    });
+
+    let response = reqwest::Client::new()
+        .post(format!(
+            "http://{}/v1/listen?channels=1&sample_rate=16000&language=en",
+            addr
+        ))
+        .header("content-type", "audio/wav")
+        .header("accept", "text/event-stream")
+        .body(audio_wav_bytes())
+        .send()
+        .await
+        .expect("request failed");
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response.text().await.expect("failed to read SSE body");
+    assert!(body.contains("event: batch"), "unexpected SSE body: {body}");
+    assert!(
+        body.contains(r#""error":"transcription_failed""#),
+        "unexpected SSE body: {body}"
+    );
+    assert!(
+        body.contains("failed to initialize model"),
+        "unexpected SSE body: {body}"
+    );
+
+    let _ = shutdown_tx.send(());
 }

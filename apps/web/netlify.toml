@@ -7,6 +7,7 @@ ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF apps/web packages/api-
 
 [build.environment]
 VITE_APP_URL = "https://char.com"
+NODE_OPTIONS = "--max-old-space-size=4096"
 NODE_VERSION = "22"
 
 [images]

@@ -287,7 +287,7 @@ function LetterSection() {
 
                 <div>
                   <Image
-                    src="/api/images/hyprnote/signature-dark.svg"
+                    src="/char-signature.svg"
                     alt="Char Signature"
                     width={124}
                     height={60}

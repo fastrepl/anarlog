@@ -46,9 +46,9 @@ pub async fn delete_connection(
 
     if !owns {
         tracing::warn!(
-            user_id = %auth.claims.sub,
-            connection_id = %body.connection_id,
-            integration_id = %body.integration_id,
+            enduser.id = %auth.claims.sub,
+            hyprnote.connection.id = %body.connection_id,
+            hyprnote.integration.id = %body.integration_id,
             "disconnect denied: connection not owned by user"
         );
         return Err(crate::error::NangoError::Forbidden(
@@ -64,10 +64,10 @@ pub async fn delete_connection(
         Ok(()) => {}
         Err(hypr_nango::Error::Api(404, response_body)) => {
             tracing::warn!(
-                user_id = %auth.claims.sub,
-                connection_id = %body.connection_id,
-                integration_id = %body.integration_id,
-                response_body,
+                enduser.id = %auth.claims.sub,
+                hyprnote.connection.id = %body.connection_id,
+                hyprnote.integration.id = %body.integration_id,
+                hyprnote.http.response.body = %response_body,
                 "nango connection already deleted, cleaning local row"
             );
         }

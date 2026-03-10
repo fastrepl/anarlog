@@ -126,9 +126,13 @@ export function storeValuesToSettings(
 
   for (const [key, config] of Object.entries(SETTINGS_MAPPING.values)) {
     const value = values[key];
-    if (value !== undefined) {
-      setByPath(result, config.path, fromStoreValue(key, value));
+    if (value === undefined) {
+      continue;
     }
+    if ("default" in config && value === config.default) {
+      continue;
+    }
+    setByPath(result, config.path, fromStoreValue(key, value));
   }
 
   return result;

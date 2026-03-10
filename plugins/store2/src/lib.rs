@@ -38,11 +38,11 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 fn migrate<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<(), Error> {
     let old_path = app.path().app_data_dir()?.join(FILENAME);
+    let new_path = store_path(app)?;
     if !old_path.exists() {
         return Ok(());
     }
 
-    let new_path = store_path(app)?;
     if new_path.exists() {
         return Ok(());
     }

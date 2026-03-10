@@ -1,3 +1,4 @@
+import { buildEditSummaryTool } from "./edit-summary";
 import { buildSearchCalendarEventsTool } from "./search-calendar-events";
 import { buildSearchContactsTool } from "./search-contacts";
 import { buildSearchSessionsTool } from "./search-sessions";
@@ -19,6 +20,7 @@ export const buildChatTools = (deps: ToolDependencies) => ({
   search_sessions: buildSearchSessionsTool(deps),
   search_contacts: buildSearchContactsTool(deps),
   search_calendar_events: buildSearchCalendarEventsTool(deps),
+  edit_summary: buildEditSummaryTool(deps),
 });
 
 type LocalTools = {

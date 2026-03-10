@@ -23,9 +23,6 @@ export function useSessionPersister(store: Store) {
 
       initSessionOps({
         store: store as Store,
-        reloadSessions: async () => {
-          await persister.load();
-        },
       });
 
       return persister;

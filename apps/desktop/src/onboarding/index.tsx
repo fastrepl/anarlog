@@ -123,7 +123,7 @@ export function TabContentOnboarding({
   return (
     <StandardTabWrapper>
       <div className="relative flex h-full flex-col">
-        <div className="sticky top-0 z-10 flex items-center justify-between bg-white px-6 pt-4 pb-3">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-4 pb-3">
           <h1 className="font-serif text-2xl font-semibold text-neutral-900">
             Welcome to Char
           </h1>

@@ -32,13 +32,52 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.parse.outputs.version }}"
+      - id: existing-release
+        continue-on-error: true
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show ${{ env.CN_APPLICATION }} ${{ needs.parse.outputs.version }}
+            --channel ${{ needs.parse.outputs.channel }}
+          key: ${{ secrets.CN_API_KEY }}
+      - id: publish-decision
+        env:
+          ASSETS: ${{ steps.existing-release.outputs.raw }}
+        run: |
+          if [[ "${{ steps.existing-release.outcome }}" != "success" ]]; then
+            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          EXPECTED_PLATFORMS=(
+            "dmg-aarch64"
+            "dmg-x86_64"
+          )
+
+          MISSING_PLATFORMS=()
+          for platform in "${EXPECTED_PLATFORMS[@]}"; do
+            if ! echo "$ASSETS" | jq -e --arg platform "$platform" '.assets[] | select(.publicPlatform == $platform)' > /dev/null; then
+              MISSING_PLATFORMS+=("$platform")
+            fi
+          done
+
+          if [[ "${#MISSING_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+            echo "missing_platforms=${MISSING_PLATFORMS[*]}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "publish_needed=false" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/cn_release
+        if: ${{ steps.publish-decision.outputs.publish_needed == 'true' }}
         with:
           cmd: publish
           app: ${{ env.CN_APPLICATION }}
           key: ${{ secrets.CN_API_KEY }}
           channel: ${{ needs.parse.outputs.channel }}
-          version: ${{ needs.parse.outputs.version }}
+          framework: tauri
+          working-directory: ./apps/desktop
 
   gh-release:
     needs: [parse, cn-publish]
@@ -48,7 +87,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: download-macos-aarch64
-        continue-on-error: true
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -58,7 +96,6 @@ jobs:
           output: char-macos-aarch64.dmg
           key: ${{ secrets.CN_API_KEY }}
       - id: download-macos-x86_64
-        continue-on-error: true
         uses: ./.github/actions/cn_download
         with:
           app: ${{ env.CN_APPLICATION }}
@@ -67,97 +104,18 @@ jobs:
           platform: dmg-x86_64
           output: char-macos-x86_64.dmg
           key: ${{ secrets.CN_API_KEY }}
-      - id: download-linux-appimage
-        continue-on-error: true
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.parse.outputs.version }}
-          channel: ${{ needs.parse.outputs.channel }}
-          platform: appimage-x86_64
-          output: char-linux-x86_64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - id: download-linux-deb
-        continue-on-error: true
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.parse.outputs.version }}
-          channel: ${{ needs.parse.outputs.channel }}
-          platform: debian-x86_64
-          output: char-linux-x86_64.deb
-          key: ${{ secrets.CN_API_KEY }}
-      - id: download-linux-appimage-aarch64
-        continue-on-error: true
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.parse.outputs.version }}
-          channel: ${{ needs.parse.outputs.channel }}
-          platform: appimage-aarch64
-          output: char-linux-aarch64.AppImage
-          key: ${{ secrets.CN_API_KEY }}
-      - id: download-linux-deb-aarch64
-        continue-on-error: true
-        uses: ./.github/actions/cn_download
-        with:
-          app: ${{ env.CN_APPLICATION }}
-          version: ${{ needs.parse.outputs.version }}
-          channel: ${{ needs.parse.outputs.channel }}
-          platform: debian-aarch64
-          output: char-linux-aarch64.deb
-          key: ${{ secrets.CN_API_KEY }}
-      - id: check-downloads
-        run: |
-          MACOS_OK="false"
-          LINUX_OK="false"
-          if [[ "${{ steps.download-macos-aarch64.outputs.success }}" == "true" && "${{ steps.download-macos-x86_64.outputs.success }}" == "true" ]]; then
-            MACOS_OK="true"
-          fi
-          if [[ "${{ steps.download-linux-appimage.outputs.success }}" == "true" && "${{ steps.download-linux-deb.outputs.success }}" == "true" && "${{ steps.download-linux-appimage-aarch64.outputs.success }}" == "true" && "${{ steps.download-linux-deb-aarch64.outputs.success }}" == "true" ]]; then
-            LINUX_OK="true"
-          fi
-          if [[ "$MACOS_OK" == "false" && "$LINUX_OK" == "false" ]]; then
-            echo "No artifacts found for version ${{ needs.parse.outputs.version }}"
-            exit 1
-          fi
-          echo "macos=$MACOS_OK" >> $GITHUB_OUTPUT
-          echo "linux=$LINUX_OK" >> $GITHUB_OUTPUT
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:
           files: |
-            ${{ steps.check-downloads.outputs.macos == 'true' && 'char-macos-aarch64.dmg' || '' }}
-            ${{ steps.check-downloads.outputs.macos == 'true' && 'char-macos-x86_64.dmg' || '' }}
-            ${{ steps.check-downloads.outputs.linux == 'true' && 'char-linux-x86_64.AppImage' || '' }}
-            ${{ steps.check-downloads.outputs.linux == 'true' && 'char-linux-x86_64.deb' || '' }}
-            ${{ steps.check-downloads.outputs.linux == 'true' && 'char-linux-aarch64.AppImage' || '' }}
-            ${{ steps.check-downloads.outputs.linux == 'true' && 'char-linux-aarch64.deb' || '' }}
-      - id: artifacts
-        run: |
-          ARTIFACTS=""
-          if [[ "${{ steps.check-downloads.outputs.macos }}" == "true" ]]; then
-            ARTIFACTS="char-macos-aarch64.dmg,char-macos-x86_64.dmg"
-          fi
-          if [[ "${{ steps.check-downloads.outputs.linux }}" == "true" ]]; then
-            if [[ -n "$ARTIFACTS" ]]; then
-              ARTIFACTS="$ARTIFACTS,char-linux-x86_64.AppImage,char-linux-x86_64.deb,char-linux-aarch64.AppImage,char-linux-aarch64.deb"
-            else
-              ARTIFACTS="char-linux-x86_64.AppImage,char-linux-x86_64.deb,char-linux-aarch64.AppImage,char-linux-aarch64.deb"
-            fi
-          fi
-          if [[ -z "$ARTIFACTS" ]]; then
-            echo "No artifacts to release" >&2
-            exit 1
-          fi
-          if [[ -n "${{ steps.checksums.outputs.checksum_files }}" ]]; then
-            ARTIFACTS="$ARTIFACTS,${{ steps.checksums.outputs.checksum_files }}"
-          fi
-          echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
+            char-macos-aarch64.dmg
+            char-macos-x86_64.dmg
       - uses: ncipollo/release-action@v1
         with:
           tag: desktop_v${{ needs.parse.outputs.version }}
           name: desktop_v${{ needs.parse.outputs.version }}
           body: "https://char.com/changelog/${{ needs.parse.outputs.version }}"
-          artifacts: ${{ steps.artifacts.outputs.list }}
+          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,${{ steps.checksums.outputs.checksum_files }}
+          allowUpdates: true
           makeLatest: true
+          replacesArtifacts: true

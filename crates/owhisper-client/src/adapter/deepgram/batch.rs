@@ -12,6 +12,10 @@ use super::{
 };
 
 impl BatchSttAdapter for DeepgramAdapter {
+    fn provider_name(&self) -> &'static str {
+        "deepgram"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],

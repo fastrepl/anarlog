@@ -42,29 +42,29 @@ The `store.json` keys are defined by this enum — nothing else is persisted thr
 
 Each session gets its own subdirectory. Here is how Char loads session content from disk — this shows exactly what files exist per session:
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/fs-sync/src/session_content.rs#L10-L110" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/session_content.rs#L10-L110" />
 
 Transcript data uses this structure — word-level timestamps, speaker channels, and optional speaker hints:
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/fs-sync/src/types.rs#L83-L119" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/types.rs#L83-L119" />
 
 ### Audio recording
 
 When you start a recording session, Char spawns three actors in parallel:
 
 1. **SourceActor** — captures audio from your microphone and system speaker
-2. **RecorderActor** — writes audio samples to local WAV files
+2. **RecorderActor** — encodes audio samples into local MP3 recordings
 3. **ListenerActor** — streams audio to your configured STT provider (cloud or local)
 
 Here is the session supervisor that orchestrates these actors:
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/session/supervisor.rs#L56-L106" />
 
-Audio is written to WAV files on your local disk. Here is the recorder handling incoming audio samples:
+Audio is encoded into MP3 files on your local disk when recording retention is enabled. Here is the recorder handling incoming audio samples:
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/recorder/mod.rs#L130-L168" />
 
-Audio files are stored at `{vault}/sessions/{session_id}/audio.wav` — they never leave your device unless you explicitly use cloud transcription.
+Audio files are stored at `{vault}/sessions/{session_id}/audio.mp3` — they never leave your device unless you explicitly use cloud transcription.
 
 ### Encryption
 
@@ -245,13 +245,17 @@ These are the supported local models:
 
 ### App updates
 
-Char checks for updates using the Tauri updater system.
+Char checks for updates automatically in release builds and downloads them in the background when one is available.
 
 **What is sent:**
 - Your current app version and platform
 
 **Where it goes:**
 - [CrabNebula](https://crabnebula.dev) — release hosting and update distribution
+
+**How often:**
+- An update check runs roughly every 30 minutes while the app is open
+- If an update is found, the app downloads it and installs it on the next restart
 
 ### Authentication (when signed in)
 
@@ -274,7 +278,7 @@ When you sign in for Pro or cloud features, Char authenticates via Supabase.
 - Send your meeting content in analytics — analytics only includes event names and app metadata
 - Lock your data in a proprietary database — everything is plain Markdown and JSON files you can open, move, and use with other tools
 
-**To use Char completely offline:** Use a local STT model for transcription and a local LLM (LM Studio or Ollama) for AI features. The only background network requests are the connectivity check and update checks.
+**To keep meeting content fully local:** Use a local STT model for transcription and a local LLM (LM Studio or Ollama) for AI features. Your audio, transcripts, notes, and prompts stay on your device. Background network traffic can still come from the connectivity check, update checks/downloads, analytics if enabled, and crash reporting in release builds.
 
 **To maximize privacy:**
 1. Use a local STT model for transcription — see [Local Models](/docs/developers/local-models)

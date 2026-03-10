@@ -6,9 +6,9 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { OnboardingButton } from "./shared";
 
 import { useAppleCalendarSelection } from "~/calendar/components/apple/calendar-selection";
-import { SyncProvider } from "~/calendar/components/apple/context";
 import { ApplePermissions } from "~/calendar/components/apple/permission";
 import { CalendarSelection } from "~/calendar/components/calendar-selection";
+import { SyncProvider } from "~/calendar/components/context";
 import { usePermission } from "~/shared/hooks/usePermissions";
 
 function AppleCalendarList() {

@@ -53,7 +53,11 @@ impl Drop for TranscriptionSession {
         if let Some(handle) = self.handle.take() {
             std::thread::spawn(move || {
                 if let Err(panic) = handle.join() {
-                    tracing::error!(?panic, "cactus_transcribe_worker_panicked");
+                    tracing::error!(
+                        panic.message = %panic_message(&panic),
+                        ?panic,
+                        "cactus_transcribe_worker_panicked"
+                    );
                 }
             });
         }
@@ -73,16 +77,31 @@ pub fn transcribe_stream(
     let worker_token = cancellation_token.clone();
 
     let handle = std::thread::spawn(move || {
-        run_transcribe_worker(
-            model,
-            options,
-            cloud,
-            chunk_size_ms,
-            sample_rate,
-            audio_rx,
-            event_tx,
-            worker_token,
-        );
+        let panic_tx = event_tx.clone();
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_transcribe_worker(
+                model,
+                options,
+                cloud,
+                chunk_size_ms,
+                sample_rate,
+                audio_rx,
+                event_tx,
+                worker_token,
+            );
+        }));
+
+        if let Err(panic) = result {
+            let panic_message = panic_message(&panic);
+            tracing::error!(
+                panic.message = %panic_message,
+                ?panic,
+                "cactus_transcribe_worker_panicked"
+            );
+            let _ = panic_tx.blocking_send(Err(crate::Error::Inference(format!(
+                "cactus transcribe worker panicked: {panic_message}"
+            ))));
+        }
     });
 
     let inner = ReceiverStream::new(event_rx);
@@ -184,5 +203,32 @@ fn run_transcribe_worker(
                 let _ = event_tx.blocking_send(Err(e));
             }
         }
+    }
+}
+
+fn panic_message(panic: &(dyn std::any::Any + Send)) -> String {
+    if let Some(message) = panic.downcast_ref::<String>() {
+        return message.clone();
+    }
+    if let Some(message) = panic.downcast_ref::<&'static str>() {
+        return (*message).to_string();
+    }
+    "unknown panic payload".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::panic_message;
+
+    #[test]
+    fn panic_message_extracts_string_payload() {
+        let panic: Box<dyn std::any::Any + Send> = Box::new(String::from("boom"));
+        assert_eq!(panic_message(&*panic), "boom");
+    }
+
+    #[test]
+    fn panic_message_extracts_str_payload() {
+        let panic: Box<dyn std::any::Any + Send> = Box::new("boom");
+        assert_eq!(panic_message(&*panic), "boom");
     }
 }

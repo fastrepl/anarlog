@@ -13,6 +13,15 @@ pub fn available_providers() -> Vec<CalendarProviderType> {
 
 #[tauri::command]
 #[specta::specta]
+pub async fn is_provider_enabled<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    provider: CalendarProviderType,
+) -> Result<bool, Error> {
+    app.calendar().is_provider_enabled(provider).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_calendars<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     provider: CalendarProviderType,

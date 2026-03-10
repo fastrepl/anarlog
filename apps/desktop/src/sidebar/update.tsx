@@ -1,6 +1,5 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { message } from "@tauri-apps/plugin-dialog";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { useCallback, useEffect, useState } from "react";
 
 import { commands, events } from "@hypr/plugin-updater2";
@@ -14,11 +13,18 @@ export function Update() {
     if (!version) {
       return;
     }
-    const result = await commands.install(version);
-    if (result.status === "ok") {
-      await relaunch();
-    } else {
-      await message(`Failed to install update: ${result.error}`, {
+    const installResult = await commands.install(version);
+    if (installResult.status !== "ok") {
+      await message(`Failed to install update: ${installResult.error}`, {
+        title: "Update Failed",
+        kind: "error",
+      });
+      return;
+    }
+
+    const postInstallResult = await commands.postinstall(installResult.data);
+    if (postInstallResult.status !== "ok") {
+      await message(`Failed to apply update: ${postInstallResult.error}`, {
         title: "Update Failed",
         kind: "error",
       });

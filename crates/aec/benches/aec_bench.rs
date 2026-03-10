@@ -1,9 +1,9 @@
-use std::{hint::black_box, path::PathBuf};
+use std::{hint::black_box, path::PathBuf, time::Duration};
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use hound::WavReader;
 
-use aec::AEC;
+use aec::{AEC, BLOCK_SIZE};
 
 fn load_test_data() -> (Vec<f32>, Vec<f32>) {
     let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -26,71 +26,79 @@ fn load_test_data() -> (Vec<f32>, Vec<f32>) {
     (mic_samples, lpb_samples)
 }
 
-fn bench_aec_initialization(c: &mut Criterion) {
-    c.bench_function("aec_initialization", |b| {
-        b.iter(|| black_box(AEC::new().unwrap()))
-    });
+fn env_usize(name: &str, default: usize) -> usize {
+    std::env::var(name)
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|&value| value > 0)
+        .unwrap_or(default)
 }
 
-fn bench_aec_process(c: &mut Criterion) {
-    let (mic_samples, lpb_samples) = load_test_data();
-    let mut aec = AEC::new().unwrap();
+fn build_long_stream_data(
+    mic_base: &[f32],
+    lpb_base: &[f32],
+    target_samples: usize,
+) -> (Vec<f32>, Vec<f32>) {
+    let repeats = target_samples.div_ceil(mic_base.len());
 
-    c.bench_function("aec_process_full", |b| {
-        b.iter(|| {
-            black_box(
-                aec.process(black_box(&mic_samples), black_box(&lpb_samples))
-                    .unwrap(),
-            )
-        })
-    });
-}
-
-fn bench_aec_process_chunks(c: &mut Criterion) {
-    let (mic_samples, lpb_samples) = load_test_data();
-    let mut aec = AEC::new().unwrap();
-
-    let chunk_sizes = [1024, 4096, 16384];
-
-    for &chunk_size in &chunk_sizes {
-        let mic_chunk = &mic_samples[..chunk_size.min(mic_samples.len())];
-        let lpb_chunk = &lpb_samples[..chunk_size.min(lpb_samples.len())];
-
-        c.bench_function(&format!("aec_process_chunk_{}", chunk_size), |b| {
-            b.iter(|| {
-                black_box(
-                    aec.process(black_box(mic_chunk), black_box(lpb_chunk))
-                        .unwrap(),
-                )
-            })
-        });
+    let mut mic = Vec::with_capacity(mic_base.len() * repeats);
+    let mut lpb = Vec::with_capacity(lpb_base.len() * repeats);
+    for _ in 0..repeats {
+        mic.extend_from_slice(mic_base);
+        lpb.extend_from_slice(lpb_base);
     }
+    mic.truncate(target_samples);
+    lpb.truncate(target_samples);
+
+    (mic, lpb)
 }
 
-fn bench_aec_throughput(c: &mut Criterion) {
-    let (mic_samples, lpb_samples) = load_test_data();
-    let mut aec = AEC::new().unwrap();
+fn bench_aec_streaming_long(c: &mut Criterion) {
+    let sample_rate = env_usize("AEC_BENCH_SAMPLE_RATE", 16_000);
+    let seconds = env_usize("AEC_BENCH_SECONDS", 60);
+    let chunk_size = env_usize("AEC_BENCH_CHUNK_SIZE", BLOCK_SIZE * 4);
 
-    let mut group = c.benchmark_group("aec_throughput");
-    group.throughput(criterion::Throughput::Elements(mic_samples.len() as u64));
+    let target_samples = sample_rate * seconds;
+    let (mic_base, lpb_base) = load_test_data();
+    let (mic_samples, lpb_samples) = build_long_stream_data(&mic_base, &lpb_base, target_samples);
 
-    group.bench_function("samples_per_second", |b| {
-        b.iter(|| {
-            black_box(
-                aec.process(black_box(&mic_samples), black_box(&lpb_samples))
-                    .unwrap(),
-            )
-        })
-    });
+    let mut group = c.benchmark_group("aec_streaming");
+    group.throughput(Throughput::Elements(target_samples as u64));
+    group.bench_function(
+        format!("long_stream_{}s_chunk_{}", seconds, chunk_size),
+        |b| {
+            let mut aec = AEC::new().unwrap();
+            b.iter(|| {
+                aec.reset();
 
+                let mut offset = 0usize;
+                while offset < mic_samples.len() {
+                    let end = (offset + chunk_size).min(mic_samples.len());
+                    black_box(
+                        aec.process_streaming(
+                            black_box(&mic_samples[offset..end]),
+                            black_box(&lpb_samples[offset..end]),
+                        )
+                        .unwrap(),
+                    );
+                    offset = end;
+                }
+            });
+        },
+    );
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    bench_aec_initialization,
-    bench_aec_process,
-    bench_aec_process_chunks,
-    bench_aec_throughput
-);
+fn criterion_config() -> Criterion {
+    Criterion::default()
+        .sample_size(10)
+        .warm_up_time(Duration::from_secs(3))
+        .measurement_time(Duration::from_secs(30))
+}
+
+criterion_group! {
+    name = benches;
+    config = criterion_config();
+    targets = bench_aec_streaming_long
+}
 criterion_main!(benches);

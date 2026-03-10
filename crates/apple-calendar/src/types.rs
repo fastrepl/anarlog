@@ -210,19 +210,6 @@ common_derives! {
 }
 
 common_derives! {
-    pub enum ParticipantScheduleStatus {
-        None,
-        Pending,
-        Sent,
-        Delivered,
-        RecipientNotRecognized,
-        NoPrivileges,
-        DeliveryFailed,
-        CannotDeliver,
-    }
-}
-
-common_derives! {
     pub struct ParticipantContact {
         pub identifier: String,
         pub given_name: Option<String>,
@@ -245,7 +232,7 @@ common_derives! {
         pub role: ParticipantRole,
         pub status: ParticipantStatus,
         pub participant_type: ParticipantType,
-        pub schedule_status: Option<ParticipantScheduleStatus>,
+
         pub url: Option<String>,
         pub contact: Option<ParticipantContact>,
     }

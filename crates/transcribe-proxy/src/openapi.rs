@@ -5,6 +5,13 @@ use utoipa::OpenApi;
 #[schema(format = "binary")]
 struct BatchAudioBody(#[allow(dead_code)] Vec<u8>);
 
+#[derive(utoipa::ToSchema)]
+#[allow(dead_code)]
+enum BatchListenSuccessResponse {
+    Sync(owhisper_interface::batch::Response),
+    Callback(crate::routes::batch::async_callback::ListenCallbackResponse),
+}
+
 #[utoipa::path(
     post,
     path = "/stt/listen",
@@ -21,7 +28,7 @@ struct BatchAudioBody(#[allow(dead_code)] Vec<u8>);
         )
     ),
     responses(
-        (status = 200, description = "Transcription result (sync) or ListenCallbackResponse (callback)", body = owhisper_interface::batch::Response, content_type = "application/json"),
+        (status = 200, description = "Transcription result (sync) or ListenCallbackResponse (callback)", body = BatchListenSuccessResponse, content_type = "application/json"),
         (status = 400, description = "Bad request (empty body, invalid provider, etc.)"),
         (status = 401, description = "Unauthorized"),
         (status = 502, description = "All upstream providers failed"),

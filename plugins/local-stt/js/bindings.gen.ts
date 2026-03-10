@@ -121,7 +121,7 @@ downloadProgressPayload: "plugin:local-stt:download-progress-payload"
 
 export type AmModel = "am-parakeet-v2" | "am-parakeet-v3" | "am-whisper-large-v3"
 export type CactusLlmModel = "cactus-gemma3-270m" | "cactus-lfm2-350m" | "cactus-qwen3-0.6b" | "cactus-lfm2-700m" | "cactus-gemma3-1b" | "cactus-lfm2.5-1.2b-instruct" | "cactus-qwen3-1.7b" | "cactus-lfm2-vl-450m-apple" | "cactus-lfm2.5-vl-1.6b-apple"
-export type CactusSttModel = "cactus-whisper-small-int4" | "cactus-whisper-small-int8" | "cactus-whisper-small-int8-apple" | "cactus-whisper-medium-int4" | "cactus-whisper-medium-int4-apple" | "cactus-whisper-medium-int8" | "cactus-whisper-medium-int8-apple" | "cactus-parakeet-ctc-0.6b-int4" | "cactus-parakeet-ctc-0.6b-int8"
+export type CactusSttModel = "cactus-whisper-small-int4" | "cactus-whisper-small-int8" | "cactus-whisper-small-int8-apple" | "cactus-whisper-medium-int4" | "cactus-whisper-medium-int4-apple" | "cactus-whisper-medium-int8" | "cactus-whisper-medium-int8-apple" | "cactus-parakeet-ctc-0.6b-int4" | "cactus-parakeet-ctc-0.6b-int4-apple" | "cactus-parakeet-ctc-0.6b-int8" | "cactus-parakeet-ctc-0.6b-int8-apple" | "cactus-parakeet-tdt-0.6b-v3-int4" | "cactus-parakeet-tdt-0.6b-v3-int8"
 export type DownloadProgressPayload = { model: LocalModel; progress: number }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
 export type LocalModel = CactusSttModel | WhisperModel | AmModel | GgufLlmModel | CactusLlmModel

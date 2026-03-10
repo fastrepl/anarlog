@@ -10,15 +10,12 @@ use owhisper_interface::ListenParams;
 use crate::config::SttProxyConfig;
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::{QueryParams, QueryValue};
-use crate::relay::{ChannelSplitProxy, ClientMessageFilter, WebSocketProxy};
+use crate::relay::{ClientMessageFilter, StreamingProxy, StreamingProxyPlan, StreamingTransport};
 use crate::routes::AppState;
-use crate::routes::model_resolution::resolve_model;
+use crate::routes::model_resolution::resolve_model_live;
 
-use super::AnalyticsContext;
-use super::common::{
-    ProxyBuildError, build_on_close_callback, finalize_proxy_builder, parse_param,
-};
 use super::session::init_session;
+use super::{AnalyticsContext, ProxyBuildError, build_on_close_callback, parse_param};
 
 fn build_listen_params(params: &QueryParams) -> ListenParams {
     ListenParams {
@@ -91,6 +88,19 @@ fn build_response_transformer(
             Provider::Mistral => mistral_adapter.parse_response(raw),
         };
 
+        if provider == Provider::Soniox && proxy_debug_enabled() {
+            let normalized = serde_json::to_string(&responses)
+                .unwrap_or_else(|error| format!("serialize_error:{error}"));
+            tracing::info!(
+                hyprnote.stt.provider.name = ?provider,
+                hyprnote.payload.size_bytes = raw.len(),
+                hyprnote.normalized.response_count = responses.len(),
+                raw = %raw,
+                normalized = %normalized,
+                "proxy_normalized_upstream_text"
+            );
+        }
+
         if responses.is_empty() {
             return None;
         }
@@ -103,6 +113,12 @@ fn build_response_transformer(
     }
 }
 
+fn proxy_debug_enabled() -> bool {
+    std::env::var("LISTENER_DEBUG")
+        .map(|value| !value.is_empty() && value != "0" && value != "false")
+        .unwrap_or(false)
+}
+
 fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
     Arc::new(move |text: String| {
         let msg = match serde_json::from_str::<owhisper_interface::ControlMessage>(&text) {
@@ -113,165 +129,57 @@ fn build_client_message_filter(provider: Provider) -> ClientMessageFilter {
     })
 }
 
-pub enum StreamingProxy {
-    Single(WebSocketProxy),
-    ChannelSplit(ChannelSplitProxy),
+fn build_proxy_plan(
+    provider: Provider,
+    selected: &SelectedProvider,
+    channels: u8,
+    config: &SttProxyConfig,
+    analytics_ctx: AnalyticsContext,
+) -> Result<StreamingProxyPlan, crate::ProxyError> {
+    let mut plan = StreamingProxyPlan::new(StreamingTransport::for_channels(
+        channels,
+        provider.supports_native_multichannel(),
+    )?)
+    .connect_timeout(config.connect_timeout)
+    .control_message_types(provider.control_message_types())
+    .response_transformer(build_response_transformer(provider))
+    .client_message_filter(build_client_message_filter(provider))
+    .apply_auth(selected);
+
+    if let Some(on_close) = build_on_close_callback(config, provider, &analytics_ctx) {
+        plan = plan.on_close(on_close);
+    }
+
+    Ok(plan)
 }
 
 fn build_proxy_with_adapter(
-    selected: &SelectedProvider,
     client_params: &QueryParams,
-    config: &SttProxyConfig,
     api_base: &str,
-    analytics_ctx: AnalyticsContext,
+    mut plan: StreamingProxyPlan,
+    provider: Provider,
+    api_key: &str,
 ) -> Result<StreamingProxy, crate::ProxyError> {
-    let provider = selected.provider();
     let mut listen_params = build_listen_params(client_params);
     let channels: u8 = parse_param(client_params, "channels", 1);
-    if channels > 2 {
-        return Err(crate::ProxyError::InvalidRequest(
-            "channels must be 1 or 2".to_string(),
-        ));
-    }
-
-    resolve_model(provider, &mut listen_params);
-
-    if channels > 1 && !provider.supports_native_multichannel() {
-        return build_channel_split_proxy(
-            selected,
-            config,
-            api_base,
-            &listen_params,
-            analytics_ctx,
-        );
-    }
+    resolve_model_live(provider, &mut listen_params);
+    let upstream_channels = plan.upstream_request_channels(channels);
 
     let upstream_url =
-        build_upstream_url_with_adapter(provider, api_base, &listen_params, channels);
+        build_upstream_url_with_adapter(provider, api_base, &listen_params, upstream_channels);
 
     let initial_message = build_initial_message_with_adapter(
         provider,
-        Some(selected.api_key()),
+        Some(api_key),
         &listen_params,
-        channels,
+        upstream_channels,
     );
 
-    let filter = build_client_message_filter(provider);
-    let mut builder = WebSocketProxy::builder()
-        .upstream_url(upstream_url.as_str())
-        .connect_timeout(config.connect_timeout)
-        .control_message_types(provider.control_message_types())
-        .response_transformer(build_response_transformer(provider))
-        .client_message_filter(filter)
-        .apply_auth(selected);
-
     if let Some(msg) = initial_message {
-        builder = builder.initial_message(msg);
+        plan = plan.initial_message(msg);
     }
 
-    let proxy = finalize_proxy_builder!(builder, provider, config, analytics_ctx)?;
-    Ok(StreamingProxy::Single(proxy))
-}
-
-fn build_channel_split_proxy(
-    selected: &SelectedProvider,
-    config: &SttProxyConfig,
-    api_base: &str,
-    listen_params: &ListenParams,
-    analytics_ctx: AnalyticsContext,
-) -> Result<StreamingProxy, crate::ProxyError> {
-    let provider = selected.provider();
-    let upstream_url = build_upstream_url_with_adapter(provider, api_base, listen_params, 1);
-
-    let initial_message =
-        build_initial_message_with_adapter(provider, Some(selected.api_key()), listen_params, 1);
-
-    let uri: axum::http::Uri =
-        upstream_url
-            .as_str()
-            .parse()
-            .map_err(|e: axum::http::uri::InvalidUri| {
-                crate::ProxyError::InvalidRequest(e.to_string())
-            })?;
-
-    let mut request = tokio_tungstenite::tungstenite::ClientRequestBuilder::new(uri);
-    if let Some((name, value)) = provider.build_auth_header(selected.api_key()) {
-        request = request.with_header(name, value);
-    }
-
-    let initial_msg: Option<crate::relay::InitialMessage> = initial_message.map(Arc::new);
-    let response_transformer: Option<crate::relay::ResponseTransformer> =
-        Some(Arc::new(build_response_transformer(provider)));
-    let on_close = build_on_close_callback(config, provider, &analytics_ctx);
-
-    let filter = build_client_message_filter(provider);
-    Ok(StreamingProxy::ChannelSplit(
-        ChannelSplitProxy::new(
-            request,
-            initial_msg,
-            response_transformer,
-            config.connect_timeout,
-            on_close,
-        )
-        .with_client_message_filter(filter),
-    ))
-}
-
-fn build_session_channel_split_proxy(
-    selected: &SelectedProvider,
-    config: &SttProxyConfig,
-    url_mic: &str,
-    url_spk: &str,
-    analytics_ctx: AnalyticsContext,
-) -> Result<StreamingProxy, crate::ProxyError> {
-    let provider = selected.provider();
-
-    let mic_uri: axum::http::Uri = url_mic.parse().map_err(|e: axum::http::uri::InvalidUri| {
-        crate::ProxyError::InvalidRequest(e.to_string())
-    })?;
-    let spk_uri: axum::http::Uri = url_spk.parse().map_err(|e: axum::http::uri::InvalidUri| {
-        crate::ProxyError::InvalidRequest(e.to_string())
-    })?;
-
-    let mic_request = tokio_tungstenite::tungstenite::ClientRequestBuilder::new(mic_uri);
-    let spk_request = tokio_tungstenite::tungstenite::ClientRequestBuilder::new(spk_uri);
-
-    let response_transformer: Option<crate::relay::ResponseTransformer> =
-        Some(Arc::new(build_response_transformer(provider)));
-    let on_close = build_on_close_callback(config, provider, &analytics_ctx);
-
-    let filter = build_client_message_filter(provider);
-    Ok(StreamingProxy::ChannelSplit(
-        ChannelSplitProxy::with_split_requests(
-            mic_request,
-            spk_request,
-            None,
-            response_transformer,
-            config.connect_timeout,
-            on_close,
-        )
-        .with_client_message_filter(filter),
-    ))
-}
-
-fn build_proxy_with_url_and_transformer(
-    selected: &SelectedProvider,
-    upstream_url: &str,
-    config: &SttProxyConfig,
-    analytics_ctx: AnalyticsContext,
-) -> Result<StreamingProxy, crate::ProxyError> {
-    let provider = selected.provider();
-    let filter = build_client_message_filter(provider);
-    let builder = WebSocketProxy::builder()
-        .upstream_url(upstream_url)
-        .connect_timeout(config.connect_timeout)
-        .control_message_types(provider.control_message_types())
-        .response_transformer(build_response_transformer(provider))
-        .client_message_filter(filter)
-        .apply_auth(selected);
-
-    let proxy = finalize_proxy_builder!(builder, provider, config, analytics_ctx)?;
-    Ok(StreamingProxy::Single(proxy))
+    plan.build_from_upstream_url(upstream_url.as_str())
 }
 
 pub async fn build_proxy(
@@ -281,6 +189,8 @@ pub async fn build_proxy(
     analytics_ctx: AnalyticsContext,
 ) -> Result<StreamingProxy, ProxyBuildError> {
     let provider = selected.provider();
+    let channels: u8 = parse_param(params, "channels", 1);
+    let plan = build_proxy_plan(provider, selected, channels, &state.config, analytics_ctx)?;
     let api_base = selected
         .upstream_url()
         .unwrap_or(provider.default_api_base());
@@ -289,48 +199,51 @@ pub async fn build_proxy(
         Auth::SessionInit { header_name } => {
             if selected.upstream_url().is_some() {
                 Ok(build_proxy_with_adapter(
-                    selected,
                     params,
-                    &state.config,
                     api_base,
-                    analytics_ctx,
+                    plan,
+                    provider,
+                    selected.api_key(),
                 )?)
             } else {
-                let channels: u8 = parse_param(params, "channels", 1);
-                if channels > 1 && !provider.supports_native_multichannel() {
-                    let mut mono_params = params.clone();
-                    mono_params.insert("channels".to_string(), QueryValue::Single("1".to_string()));
-                    let (url_mic, url_spk) = tokio::try_join!(
-                        init_session(state, selected, header_name, &mono_params),
-                        init_session(state, selected, header_name, &mono_params),
-                    )
-                    .map_err(ProxyBuildError::SessionInitFailed)?;
-                    Ok(build_session_channel_split_proxy(
-                        selected,
-                        &state.config,
-                        &url_mic,
-                        &url_spk,
-                        analytics_ctx,
-                    )?)
-                } else {
-                    let url = init_session(state, selected, header_name, params)
-                        .await
+                let mut session_params = params.clone();
+                session_params.insert(
+                    "channels".to_string(),
+                    QueryValue::Single(plan.upstream_request_channels(channels).to_string()),
+                );
+
+                let upstream_urls = match plan.upstream_count() {
+                    1 => vec![
+                        init_session(state, selected, header_name, &session_params)
+                            .await
+                            .map_err(ProxyBuildError::SessionInitFailed)?,
+                    ],
+                    2 => {
+                        let (url_mic, url_spk) = tokio::try_join!(
+                            init_session(state, selected, header_name, &session_params),
+                            init_session(state, selected, header_name, &session_params),
+                        )
                         .map_err(ProxyBuildError::SessionInitFailed)?;
-                    Ok(build_proxy_with_url_and_transformer(
-                        selected,
-                        &url,
-                        &state.config,
-                        analytics_ctx,
-                    )?)
-                }
+                        vec![url_mic, url_spk]
+                    }
+                    count => {
+                        return Err(ProxyBuildError::ProxyError(
+                            crate::ProxyError::InvalidRequest(format!(
+                                "unsupported upstream count: {count}"
+                            )),
+                        ));
+                    }
+                };
+
+                Ok(plan.build_from_upstream_urls(upstream_urls)?)
             }
         }
         _ => Ok(build_proxy_with_adapter(
-            selected,
             params,
-            &state.config,
             api_base,
-            analytics_ctx,
+            plan,
+            provider,
+            selected.api_key(),
         )?),
     }
 }
@@ -564,7 +477,7 @@ mod tests {
             ..Default::default()
         };
 
-        resolve_model(Provider::Soniox, &mut params);
+        resolve_model_live(Provider::Soniox, &mut params);
         assert_eq!(params.model, None);
     }
 
@@ -577,7 +490,7 @@ mod tests {
             ..Default::default()
         };
 
-        resolve_model(Provider::Deepgram, &mut params);
+        resolve_model_live(Provider::Deepgram, &mut params);
         assert!(params.model.is_some());
         assert_ne!(params.model.as_deref(), Some("cloud"));
     }
@@ -591,7 +504,7 @@ mod tests {
             ..Default::default()
         };
 
-        resolve_model(Provider::Deepgram, &mut params);
+        resolve_model_live(Provider::Deepgram, &mut params);
         assert_eq!(params.model, Some("nova-3".to_string()));
     }
 
@@ -604,7 +517,7 @@ mod tests {
             ..Default::default()
         };
 
-        resolve_model(Provider::Deepgram, &mut params);
+        resolve_model_live(Provider::Deepgram, &mut params);
         assert!(params.model.is_some());
     }
 }

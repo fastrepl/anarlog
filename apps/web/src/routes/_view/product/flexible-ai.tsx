@@ -89,7 +89,7 @@ function AISetupSection() {
         <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
           <Icon icon="mdi:cloud" className="mb-4 text-3xl text-stone-600" />
           <h3 className="mb-1 font-serif text-xl text-stone-600">
-            Char Cloud ($8/month)
+            Char Cloud ($25/month)
           </h3>
           <p className="text-neutral-600">
             Managed service that works out of the box. No setup, no API keys, no

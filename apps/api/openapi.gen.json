@@ -552,7 +552,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BatchResponse"
+                  "$ref": "#/components/schemas/BatchListenSuccessResponse"
                 }
               }
             }
@@ -977,6 +977,32 @@
             }
           }
         }
+      },
+      "BatchListenSuccessResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "Sync"
+            ],
+            "properties": {
+              "Sync": {
+                "$ref": "#/components/schemas/BatchResponse"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "Callback"
+            ],
+            "properties": {
+              "Callback": {
+                "$ref": "#/components/schemas/ListenCallbackResponse"
+              }
+            }
+          }
+        ]
       },
       "BatchResponse": {
         "type": "object",

@@ -1,12 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import { RefreshCwIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
 
-import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import { useSync } from "./context";
+import { useSync } from "../context";
 import { SyncIndicator } from "./status";
 
 import {
@@ -14,7 +12,6 @@ import {
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
-import { findCalendarByTrackingId } from "~/calendar/utils";
 import * as main from "~/store/tinybase/store/main";
 
 export function AppleCalendarSelection({
@@ -56,56 +53,15 @@ export function AppleCalendarSelection({
 }
 
 export function useAppleCalendarSelection() {
-  const { scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
+  const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
     useSync();
 
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
-
-  const {
-    data: incomingCalendars,
-    refetch,
-    isFetching,
-  } = useQuery({
-    queryKey: ["appleCalendars"],
-    queryFn: async () => {
-      const [result] = await Promise.all([
-        calendarCommands.listCalendars("apple"),
-        new Promise((resolve) => setTimeout(resolve, 150)),
-      ]);
-
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-  });
 
   useEffect(() => {
-    if (!incomingCalendars || !store || !user_id) return;
-
-    store.transaction(() => {
-      for (const cal of incomingCalendars) {
-        const existingRowId = findCalendarByTrackingId(store, cal.id);
-        const rowId = existingRowId ?? crypto.randomUUID();
-        const existing = existingRowId
-          ? store.getRow("calendars", existingRowId)
-          : null;
-
-        store.setRow("calendars", rowId, {
-          user_id,
-          created_at: existing?.created_at || new Date().toISOString(),
-          tracking_id_calendar: cal.id,
-          name: cal.title,
-          enabled: existing?.enabled ?? false,
-          provider: "apple",
-          source: cal.source ?? "Apple Calendar",
-          color: cal.color ?? "#888",
-        });
-      }
-    });
-  }, [incomingCalendars, store, user_id]);
+    scheduleSync();
+  }, [scheduleSync]);
 
   const groups = useMemo((): CalendarGroup[] => {
     const appleCalendars = Object.entries(calendars).filter(
@@ -138,16 +94,15 @@ export function useAppleCalendarSelection() {
     [store, scheduleDebouncedSync],
   );
 
-  const handleRefresh = useCallback(async () => {
+  const handleRefresh = useCallback(() => {
     cancelDebouncedSync();
-    await refetch();
     scheduleSync();
-  }, [refetch, scheduleSync, cancelDebouncedSync]);
+  }, [scheduleSync, cancelDebouncedSync]);
 
   return {
     groups,
     handleToggle,
     handleRefresh,
-    isLoading: isFetching,
+    isLoading: status === "syncing",
   };
 }

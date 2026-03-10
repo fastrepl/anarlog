@@ -32,16 +32,20 @@ impl SonioxAdapter {
             ))
         })?;
 
-        tracing::info!(path = %file_path.display(), "uploading file to Soniox");
+        tracing::info!(hyprnote.file.path = %file_path.display(), "uploading_file_to_soniox");
         let file_id = soniox::upload_file(&client, &file_name, file_bytes, api_key)
             .await
             .map_err(soniox_err)?;
 
-        tracing::info!(file_id = %file_id, "file uploaded, creating transcription");
+        tracing::info!(hyprnote.file.id = %file_id, "soniox_file_uploaded");
         let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;
 
         if let Err(e) = soniox::delete_file(&client, &file_id, api_key).await {
-            tracing::warn!(file_id = %file_id, error = %e, "failed to delete file from Soniox");
+            tracing::warn!(
+                hyprnote.file.id = %file_id,
+                error = %e,
+                "failed_to_delete_soniox_file"
+            );
         }
 
         result
@@ -77,12 +81,18 @@ impl SonioxAdapter {
         let transcription_id = soniox::create_transcription(client, &body, api_key)
             .await
             .map_err(soniox_err)?;
-        tracing::info!(transcription_id = %transcription_id, "transcription created, polling for completion");
+        tracing::info!(
+            hyprnote.stt.job.id = %transcription_id,
+            "soniox_transcription_created"
+        );
 
         soniox::wait_for_completion(client, &transcription_id, api_key)
             .await
             .map_err(soniox_err)?;
-        tracing::info!(transcription_id = %transcription_id, "transcription completed, fetching transcript");
+        tracing::info!(
+            hyprnote.stt.job.id = %transcription_id,
+            "soniox_transcription_completed"
+        );
 
         let transcript = soniox::fetch_transcript(client, &transcription_id, api_key)
             .await
@@ -126,10 +136,14 @@ impl SonioxAdapter {
 }
 
 fn soniox_err(e: soniox::Error) -> Error {
-    Error::AudioProcessing(e.message)
+    Error::provider_failure(e.message, e.is_retryable)
 }
 
 impl BatchSttAdapter for SonioxAdapter {
+    fn provider_name(&self) -> &'static str {
+        "soniox"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],

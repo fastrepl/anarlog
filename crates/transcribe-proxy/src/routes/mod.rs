@@ -17,7 +17,7 @@ use axum::{
 use owhisper_client::Provider;
 
 use crate::config::SttProxyConfig;
-use crate::hyprnote_routing::{HyprnoteRouter, should_use_hyprnote_routing};
+use crate::hyprnote_routing::{HyprnoteRouter, RoutingMode, should_use_hyprnote_routing};
 use crate::provider_selector::{ProviderSelector, SelectedProvider};
 use crate::query_params::QueryParams;
 use crate::supabase::SupabaseClient;
@@ -73,22 +73,17 @@ impl AppState {
                 Err(_) => {
                     return Err((
                         StatusCode::BAD_REQUEST,
-                        format!("Invalid provider: {}. Supported providers: deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai", s)
+                        format!("Invalid provider: {}. Supported providers: hyprnote, deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, mistral, dashscope", s)
                     ).into_response());
                 }
             },
-            None => {
-                return Err((
-                    StatusCode::BAD_REQUEST,
-                    "provider parameter is required. Use provider=hyprnote for hyprnote routing or provider=<provider_name> for a specific provider"
-                ).into_response());
-            }
+            None => None,
         };
 
         self.selector.select(requested).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                requested_provider = ?requested,
+                hyprnote.stt.requested_provider = ?requested,
                 "provider_selection_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
@@ -114,23 +109,27 @@ impl AppState {
         let routed_provider = router.select_provider(&languages, &available_providers);
 
         tracing::debug!(
-            languages = ?languages,
-            available_providers = ?available_providers,
-            routed_provider = ?routed_provider,
+            hyprnote.stt.language_codes = ?languages,
+            hyprnote.stt.available_providers = ?available_providers,
+            hyprnote.stt.provider.name = ?routed_provider,
             "hyprnote_routing"
         );
 
         self.selector.select(routed_provider).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                languages = ?languages,
+                hyprnote.stt.language_codes = ?languages,
                 "hyprnote_routing_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
         })
     }
 
-    pub fn resolve_hyprnote_provider_chain(&self, params: &QueryParams) -> Vec<SelectedProvider> {
+    pub fn resolve_hyprnote_provider_chain_for_mode(
+        &self,
+        mode: RoutingMode,
+        params: &QueryParams,
+    ) -> Vec<SelectedProvider> {
         let Some(router) = self.router.as_ref() else {
             return vec![];
         };
@@ -139,7 +138,7 @@ impl AppState {
         let available_providers = self.selector.available_providers();
 
         router
-            .select_provider_chain(&languages, &available_providers)
+            .select_provider_chain_with_mode(mode, &languages, &available_providers)
             .into_iter()
             .filter_map(|p| self.selector.select(Some(p)).ok())
             .collect()
@@ -193,4 +192,33 @@ pub fn callback_router(config: SttProxyConfig) -> Router {
     Router::new()
         .route("/callback/{provider}/{id}", post(callback::handler))
         .with_state(state)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::env::Env;
+
+    fn test_state() -> AppState {
+        let mut env = Env::default();
+        env.stt.deepgram_api_key = Some("deepgram-key".to_string());
+
+        let supabase = hypr_api_env::SupabaseEnv {
+            supabase_url: String::new(),
+            supabase_anon_key: String::new(),
+            supabase_service_role_key: String::new(),
+        };
+
+        make_state(SttProxyConfig::new(&env, &supabase))
+    }
+
+    #[test]
+    fn resolve_provider_defaults_when_query_param_is_missing() {
+        let state = test_state();
+        let mut params = QueryParams::default();
+
+        let selected = state.resolve_provider(&mut params).unwrap();
+
+        assert_eq!(selected.provider(), Provider::Deepgram);
+    }
 }

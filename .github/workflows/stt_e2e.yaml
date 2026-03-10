@@ -75,7 +75,7 @@ jobs:
             echo "provider=${{ needs.detect-changes.outputs.provider }}" >> $GITHUB_OUTPUT
           fi
 
-  proxy-live:
+  batch:
     needs: setup
     if: needs.setup.outputs.provider != ''
     runs-on: depot-ubuntu-24.04-8
@@ -85,52 +85,69 @@ jobs:
         with:
           platform: linux
       - uses: ./.github/actions/infisical_install
-      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- cargo test -p transcribe-proxy proxy_e2e::${{ needs.setup.outputs.provider }}::live -- --ignored --nocapture
-        env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
-          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+      - run: |
+          infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- bash -lc '
+            set -euo pipefail
 
-  proxy-batch:
-    needs: setup
-    if: needs.setup.outputs.provider != ''
-    runs-on: depot-ubuntu-24.04-8
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/rust_install
-        with:
-          platform: linux
-      - uses: ./.github/actions/infisical_install
-      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- cargo test -p transcribe-proxy proxy_e2e::${{ needs.setup.outputs.provider }}_batch::batch -- --ignored --nocapture
-        env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
-          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+            provider="${PROVIDER}"
+            input="${INPUT}"
 
-  adapter-live:
-    needs: setup
-    if: needs.setup.outputs.provider != ''
-    runs-on: depot-ubuntu-24.04-8
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/rust_install
-        with:
-          platform: linux
-      - uses: ./.github/actions/infisical_install
-      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- cargo test -p owhisper-client adapter::${{ needs.setup.outputs.provider }}::live -- --ignored --nocapture --test-threads=1
-        env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
-          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+            case "$provider" in
+              deepgram)
+                : "${DEEPGRAM_API_KEY:?DEEPGRAM_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.deepgram.com/v1"
+                export CHAR_API_KEY="${DEEPGRAM_API_KEY}"
+                ;;
+              assemblyai)
+                : "${ASSEMBLYAI_API_KEY:?ASSEMBLYAI_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.assemblyai.com/v2"
+                export CHAR_API_KEY="${ASSEMBLYAI_API_KEY}"
+                ;;
+              soniox)
+                : "${SONIOX_API_KEY:?SONIOX_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.soniox.com"
+                export CHAR_API_KEY="${SONIOX_API_KEY}"
+                ;;
+              gladia)
+                : "${GLADIA_API_KEY:?GLADIA_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.gladia.io/v2"
+                export CHAR_API_KEY="${GLADIA_API_KEY}"
+                ;;
+              fireworks)
+                : "${FIREWORKS_API_KEY:?FIREWORKS_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.fireworks.ai"
+                export CHAR_API_KEY="${FIREWORKS_API_KEY}"
+                ;;
+              openai)
+                : "${OPENAI_API_KEY:?OPENAI_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.openai.com/v1"
+                export CHAR_API_KEY="${OPENAI_API_KEY}"
+                ;;
+              elevenlabs)
+                : "${ELEVENLABS_API_KEY:?ELEVENLABS_API_KEY is required}"
+                export CHAR_BASE_URL="https://api.elevenlabs.io"
+                export CHAR_API_KEY="${ELEVENLABS_API_KEY}"
+                ;;
+              *)
+                echo "Unknown provider: $provider"
+                exit 1
+                ;;
+            esac
 
-  adapter-batch:
-    needs: setup
-    if: needs.setup.outputs.provider != ''
-    runs-on: depot-ubuntu-24.04-8
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/rust_install
-        with:
-          platform: linux
-      - uses: ./.github/actions/infisical_install
-      - run: infisical run --token="$INFISICAL_TOKEN" --env=dev --projectId="$INFISICAL_PROJECT_ID" --path="/stt" -- cargo test -p owhisper-client adapter::${{ needs.setup.outputs.provider }}::batch -- --ignored --nocapture
+            echo "Provider: $provider"
+            echo "Base URL: $CHAR_BASE_URL"
+            echo "Input: $input"
+
+            transcript="$(cargo run -p cli -- batch --input "$input" --provider "$provider" --quiet)"
+            echo "$transcript"
+
+            if [ -z "$(echo "$transcript" | tr -d "[:space:]")" ]; then
+              echo "Empty transcript"
+              exit 1
+            fi
+          '
         env:
+          PROVIDER: ${{ needs.setup.outputs.provider }}
+          INPUT: crates/data/src/english_1/audio.wav
           INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}

@@ -106,7 +106,11 @@ impl std::str::FromStr for StreamResult {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(serde_json::from_str(s).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, raw = s, "cactus_stream_result_parse_failed");
+            tracing::warn!(
+                error = %e,
+                hyprnote.payload.size_bytes = s.len() as u64,
+                "cactus_stream_result_parse_failed"
+            );
             Self {
                 confirmed: s.to_string(),
                 ..Default::default()
@@ -118,7 +122,8 @@ impl std::str::FromStr for StreamResult {
 impl<'a> Transcriber<'a> {
     pub fn new(model: &'a Model, options: &TranscribeOptions, cloud: CloudConfig) -> Result<Self> {
         let guard = model.lock_inference();
-        let options_c = serialize_stream_options(options, &cloud)?;
+        let options = model.transcribe_options(options);
+        let options_c = serialize_stream_options(&options, &cloud)?;
 
         let raw = unsafe {
             cactus_sys::cactus_stream_transcribe_start(guard.raw_handle(), options_c.as_ptr())

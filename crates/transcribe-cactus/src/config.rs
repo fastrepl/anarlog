@@ -8,7 +8,7 @@ impl Default for CactusConfig {
     fn default() -> Self {
         Self {
             cloud: hypr_cactus::CloudConfig::default(),
-            min_chunk_sec: 2.5,
+            min_chunk_sec: 2.0,
         }
     }
 }

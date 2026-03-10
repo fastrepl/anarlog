@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::task::Poll;
 
 use anyhow::Result;
@@ -26,7 +26,7 @@ pub struct SpeakerStream {
     _device: ca::hardware::StartedDevice<ca::AggregateDevice>,
     _ctx: Box<Ctx>,
     _tap: ca::TapGuard,
-    current_sample_rate: Arc<AtomicU32>,
+    current_sample_rate: u32,
     sample_rate_probe_counter: u32,
     buffer_rate: u32,
 }
@@ -142,7 +142,7 @@ impl SpeakerInput {
 
         let waker = Arc::new(AtomicWaker::new());
         let wake_pending = Arc::new(AtomicBool::new(false));
-        let current_sample_rate = Arc::new(AtomicU32::new(asbd.sample_rate as u32));
+        let current_sample_rate = asbd.sample_rate as u32;
         let dropped_samples = Arc::new(AtomicUsize::new(0));
 
         tracing::info!(init = asbd.sample_rate, "sample_rate");
@@ -253,16 +253,15 @@ impl Stream for SpeakerStream {
                 .is_multiple_of(SAMPLE_RATE_PROBE_INTERVAL)
             {
                 let after = this._tap.asbd().unwrap().sample_rate as u32;
-                let before = this.current_sample_rate.load(Ordering::Acquire);
-                if before != after {
-                    this.current_sample_rate.store(after, Ordering::Release);
+                if this.current_sample_rate != after {
+                    this.current_sample_rate = after;
                 }
             }
         }
 
         let res = this.reader.poll_next_sample(cx);
         if res.did_pop_chunk {
-            this.buffer_rate = this.current_sample_rate.load(Ordering::Acquire);
+            this.buffer_rate = this.current_sample_rate;
         }
 
         res.poll

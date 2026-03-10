@@ -7,8 +7,16 @@ export function useCreateChatMessage() {
 
   return main.UI.useSetRowCallback(
     "chat_messages",
-    (p: Omit<ChatMessage, "user_id" | "created_at"> & { id: string }) => p.id,
-    (p: Omit<ChatMessage, "user_id" | "created_at"> & { id: string }) =>
+    (
+      p: Omit<ChatMessage, "user_id" | "created_at" | "status"> & {
+        id: string;
+      },
+    ) => p.id,
+    (
+      p: Omit<ChatMessage, "user_id" | "created_at" | "status"> & {
+        id: string;
+      },
+    ) =>
       ({
         user_id,
         chat_group_id: p.chat_group_id,
@@ -17,6 +25,7 @@ export function useCreateChatMessage() {
         role: p.role,
         metadata: JSON.stringify(p.metadata),
         parts: JSON.stringify(p.parts),
+        status: "ready",
       }) satisfies ChatMessageStorage,
     [user_id],
     main.STORE_ID,

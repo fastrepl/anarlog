@@ -176,6 +176,8 @@ impl LocalModel {
                 CactusSttModel::ParakeetCtc0_6bInt4Apple => "cactus-parakeet-ctc-0.6b-int4-apple",
                 CactusSttModel::ParakeetCtc0_6bInt8 => "cactus-parakeet-ctc-0.6b-int8",
                 CactusSttModel::ParakeetCtc0_6bInt8Apple => "cactus-parakeet-ctc-0.6b-int8-apple",
+                CactusSttModel::ParakeetTdt0_6bV3Int4 => "cactus-parakeet-tdt-0.6b-v3-int4",
+                CactusSttModel::ParakeetTdt0_6bV3Int8 => "cactus-parakeet-tdt-0.6b-v3-int8",
             },
             LocalModel::GgufLlm(GgufLlmModel::Llama3p2_3bQ4) => "llm-llama3-2-3b-q4",
             LocalModel::GgufLlm(GgufLlmModel::HyprLLM) => "llm-hypr-llm",
@@ -234,7 +236,9 @@ impl LocalModel {
         match self {
             LocalModel::Whisper(_) | LocalModel::Am(_) => is_apple_silicon,
             LocalModel::Cactus(model) => {
-                if model.is_apple() {
+                if model.is_cross_platform() {
+                    true
+                } else if model.is_apple() {
                     is_apple_silicon
                 } else {
                     !is_apple_silicon

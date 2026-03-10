@@ -4,11 +4,10 @@ import { z } from "zod";
 
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
-import { DeleteAccountSection } from "./-account-delete";
+import { AccountAccessSection } from "./-account-access";
 import { IntegrationsSettingsCard } from "./-account-integrations";
 import { ProfileInfoSection } from "./-account-profile-info";
 import { AccountSettingsCard } from "./-account-settings";
-import { SignOutSection } from "./-account-sign-out";
 
 const validateSearch = z
   .object({
@@ -43,16 +42,48 @@ function Component() {
           </h1>
         </div>
 
-        <div className="mx-auto mt-8 flex max-w-4xl flex-col gap-6 px-4 pb-20">
-          <ProfileInfoSection email={user?.email} />
+        <div className="mx-auto mt-8 flex max-w-4xl flex-col gap-10 px-4 pb-20">
+          <section className="space-y-4">
+            <div className="space-y-2 px-1">
+              <p className="text-xs font-medium tracking-[0.18em] text-neutral-400 uppercase">
+                Account
+              </p>
+              <div>
+                <h2 className="font-serif text-2xl font-medium text-stone-950">
+                  Profile, billing, and connected services
+                </h2>
+                <p className="text-sm text-neutral-600">
+                  Update the essentials without burying routine settings behind
+                  destructive actions.
+                </p>
+              </div>
+            </div>
 
-          <AccountSettingsCard />
+            <div className="space-y-6">
+              <ProfileInfoSection email={user?.email} />
+              <AccountSettingsCard />
+              <IntegrationsSettingsCard />
+            </div>
+          </section>
 
-          <IntegrationsSettingsCard />
+          <section className="space-y-4">
+            <div className="space-y-2 px-1">
+              <p className="text-xs font-medium tracking-[0.18em] text-neutral-400 uppercase">
+                Access
+              </p>
+              <div>
+                <h2 className="font-serif text-2xl font-medium text-stone-950">
+                  Session controls
+                </h2>
+                <p className="text-sm text-neutral-600">
+                  Sign out quickly, while keeping account deletion tucked behind
+                  an extra deliberate step.
+                </p>
+              </div>
+            </div>
 
-          <DeleteAccountSection />
-
-          <SignOutSection />
+            <AccountAccessSection />
+          </section>
         </div>
       </div>
     </div>

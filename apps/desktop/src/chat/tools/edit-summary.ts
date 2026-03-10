@@ -3,12 +3,13 @@ import { z } from "zod";
 
 import { json2md, md2json, parseJsonContent } from "@hypr/tiptap/shared";
 
+import type { ToolDependencies } from "./types";
+
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
-type Indexes = NonNullable<ReturnType<typeof main.UI.useIndexes>>;
 
 type SummaryCandidate = {
   enhancedNoteId: string;
@@ -44,13 +45,16 @@ function listSummaryCandidates(
   });
 }
 
-export const buildEditSummaryTool = (deps: {
-  getStore: () => Store | undefined;
-  getIndexes: () => Indexes | undefined;
-  getSessionId: () => string | undefined;
-  getEnhancedNoteId: () => string | undefined;
-  openEditTab: (requestId: string) => void;
-}) =>
+export const buildEditSummaryTool = (
+  deps: Pick<
+    ToolDependencies,
+    | "getStore"
+    | "getIndexes"
+    | "getSessionId"
+    | "getEnhancedNoteId"
+    | "openEditTab"
+  >,
+) =>
   tool({
     description:
       "Propose an edit to a session summary. This opens a review tab where the user can approve or decline the changes.",

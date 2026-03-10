@@ -65,9 +65,9 @@ pub async fn handler(
     };
 
     tracing::info!(
-        provider = ?selected.provider(),
-        content_type = %content_type,
-        body_size_bytes = %body.len(),
+        hyprnote.stt.provider.name = ?selected.provider(),
+        hyprnote.file.mime_type = %content_type,
+        hyprnote.payload.size_bytes = %body.len(),
         "batch_transcription_request_received"
     );
 
@@ -76,14 +76,14 @@ pub async fn handler(
         Err(e) => {
             tracing::error!(
                 error = %e,
-                provider = ?selected.provider(),
+                hyprnote.stt.provider.name = ?selected.provider(),
                 "batch_transcription_failed"
             );
             (
                 StatusCode::BAD_GATEWAY,
                 Json(serde_json::json!({
                     "error": "transcription_failed",
-                    "detail": e
+                    "detail": e.message()
                 })),
             )
                 .into_response()
@@ -91,7 +91,7 @@ pub async fn handler(
     }
 }
 
-fn build_listen_params(params: &QueryParams) -> ListenParams {
+pub(super) fn build_listen_params(params: &QueryParams) -> ListenParams {
     ListenParams {
         model: params.get_first("model").map(|s| s.to_string()),
         languages: params.get_languages(),

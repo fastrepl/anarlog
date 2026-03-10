@@ -4,7 +4,7 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{Alternatives, Channel, Response as BatchResponse, Results, Word};
 use reqwest::multipart::{Form, Part};
 
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
+use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 
 use super::OpenAIAdapter;
@@ -22,6 +22,10 @@ fn supports_word_timestamps(model: &str) -> bool {
 }
 
 impl BatchSttAdapter for OpenAIAdapter {
+    fn provider_name(&self) -> &'static str {
+        "openai"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -116,15 +120,19 @@ async fn do_transcribe_file(
         form = form.text("language", lang.iso639().code().to_string());
     }
 
-    let base = if api_base.is_empty() {
+    let mut url: url::Url = if api_base.is_empty() {
         DEFAULT_API_BASE
+            .parse()
+            .expect("invalid_default_openai_api_base")
     } else {
-        api_base.trim_end_matches('/')
+        api_base.parse().map_err(|e: url::ParseError| {
+            Error::AudioProcessing(format!("invalid api_base: {e}"))
+        })?
     };
-    let url = format!("{}/audio/transcriptions", base);
+    append_path_if_missing(&mut url, "audio/transcriptions");
 
     let response = client
-        .post(&url)
+        .post(url.to_string())
         .header("Authorization", format!("Bearer {}", api_key))
         .multipart(form)
         .send()

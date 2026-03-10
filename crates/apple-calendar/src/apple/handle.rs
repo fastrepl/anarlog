@@ -1,4 +1,5 @@
 use std::panic::AssertUnwindSafe;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use backon::{BlockingRetryable, ConstantBuilder};
@@ -23,6 +24,22 @@ fn retry_backoff() -> ConstantBuilder {
         .with_max_times(3)
 }
 
+struct SendSyncStore(Retained<EKEventStore>);
+
+// SAFETY: EKEventStore is known to be safe to use across threads.
+// See: https://stackoverflow.com/a/21372672 and also: https://developer.apple.com/documentation/eventkit/ekeventstore/enumerateevents(matching:using:)
+// We enforce a single shared instance via OnceLock to prevent concurrent creation.
+unsafe impl Send for SendSyncStore {}
+unsafe impl Sync for SendSyncStore {}
+
+static EVENT_STORE: OnceLock<SendSyncStore> = OnceLock::new();
+
+pub(crate) fn shared_event_store() -> &'static EKEventStore {
+    &EVENT_STORE
+        .get_or_init(|| SendSyncStore(unsafe { EKEventStore::new() }))
+        .0
+}
+
 pub struct Handle {
     contact_fetcher: Option<Box<dyn ContactFetcher>>,
 }
@@ -38,12 +55,6 @@ impl Handle {
         Self {
             contact_fetcher: Some(contact_fetcher),
         }
-    }
-}
-
-impl Handle {
-    fn create_event_store() -> Retained<EKEventStore> {
-        unsafe { EKEventStore::new() }
     }
 }
 
@@ -112,8 +123,8 @@ impl Handle {
         }
 
         let fetch = || {
-            let event_store = Self::create_event_store();
-            let calendars = Self::get_calendars_with_exception_handling(&event_store)?;
+            let event_store = shared_event_store();
+            let calendars = Self::get_calendars_with_exception_handling(event_store)?;
             let list = calendars
                 .iter()
                 .map(|calendar| transform_calendar(&calendar))
@@ -136,8 +147,8 @@ impl Handle {
         let contact_fetcher = self.contact_fetcher.as_deref();
 
         let fetch = || {
-            let event_store = Self::create_event_store();
-            let events_array = Self::fetch_events(&event_store, &filter)?;
+            let event_store = shared_event_store();
+            let events_array = Self::fetch_events(event_store, &filter)?;
 
             let events: Result<Vec<_>, _> = events_array
                 .iter()
@@ -170,9 +181,9 @@ impl Handle {
         }
 
         let create = || {
-            let event_store = Self::create_event_store();
+            let event_store = shared_event_store();
 
-            let calendar = Self::get_calendars_with_exception_handling(&event_store)?
+            let calendar = Self::get_calendars_with_exception_handling(event_store)?
                 .into_iter()
                 .find(|c| {
                     let id = unsafe { c.calendarIdentifier() }.to_string();
@@ -180,7 +191,7 @@ impl Handle {
                 })
                 .ok_or(Error::CalendarNotFound)?;
 
-            let event = unsafe { EKEvent::eventWithEventStore(&event_store) };
+            let event = unsafe { EKEvent::eventWithEventStore(event_store) };
 
             unsafe {
                 event.setTitle(Some(&NSString::from_str(&input.title)));
@@ -212,7 +223,7 @@ impl Handle {
                 }
             }
 
-            let event_store = AssertUnwindSafe(&event_store);
+            let event_store = AssertUnwindSafe(event_store);
             let event = AssertUnwindSafe(&event);
 
             let result = objc2::exception::catch(|| unsafe {

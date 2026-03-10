@@ -114,15 +114,19 @@ describe("settingsPersister roundtrip", () => {
     store.setValues(values);
     const result = storeToSettings(store);
 
-    expect(result).toEqual({ ...original, cactus: {} });
+    const expected = { ...original, cactus: {} };
+    // storeToSettings omits values that equal schema defaults
+    delete (expected as any).notification.event;
+    delete (expected as any).language.ai_language;
+    expect(result).toEqual(expected);
   });
 
   test("store -> settings -> store preserves all data", () => {
-    const store = createMergeableStore()
+    const store1 = createMergeableStore()
       .setTablesSchema(SCHEMA.table)
       .setValuesSchema(SCHEMA.value);
 
-    const originalTables = {
+    store1.setTables({
       ai_providers: {
         "llm:openai": {
           type: "llm",
@@ -140,9 +144,8 @@ describe("settingsPersister roundtrip", () => {
           api_key: "dg-789",
         },
       },
-    };
-
-    const originalValues = {
+    });
+    store1.setValues({
       current_llm_provider: "openai",
       current_llm_model: "gpt-4",
       current_stt_provider: "deepgram",
@@ -156,16 +159,20 @@ describe("settingsPersister roundtrip", () => {
       telemetry_consent: false,
       ai_language: "en",
       spoken_languages: '["en","ko"]',
-    };
+      mic_active_threshold: 15,
+    });
 
-    store.setTables(originalTables);
-    store.setValues(originalValues);
-
-    const settings = storeToSettings(store);
+    const settings = storeToSettings(store1);
     const [tables, values] = settingsToContent(settings);
 
-    expect(tables).toEqual(originalTables);
-    expect(values).toEqual(originalValues);
+    const store2 = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store2.setTables(tables);
+    store2.setValues(values);
+
+    expect(store2.getTables()).toEqual(store1.getTables());
+    expect(store2.getValues()).toEqual(store1.getValues());
   });
 
   test("handles empty data", () => {
@@ -220,9 +227,10 @@ describe("settingsPersister roundtrip", () => {
 
   test("handles partial data - only notification settings", () => {
     const original = {
+      // different values from defaults
       notification: {
-        event: true,
-        respect_dnd: false,
+        event: false,
+        respect_dnd: true,
       },
     };
 
@@ -372,6 +380,42 @@ describe("settingsPersister roundtrip", () => {
       ai_language: "ja",
       spoken_languages: ["ja", "en", "ko"],
     });
+  });
+
+  test("storeToSettings omits values that equal schema defaults", () => {
+    const [tables, values] = settingsToContent({});
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+    const result = storeToSettings(store);
+
+    expect(result.general).toEqual({});
+    expect(result.notification).toEqual({});
+    expect(result.language).toEqual({});
+  });
+
+  test("storeToSettings keeps non-default values and omits default ones", () => {
+    const [tables, values] = settingsToContent({
+      general: {
+        autostart: true,
+        save_recordings: true,
+      },
+      notification: {
+        event: false,
+        respect_dnd: false,
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+    const result = storeToSettings(store);
+
+    expect(result.general).toEqual({ autostart: true });
+    expect(result.notification).toEqual({ event: false });
   });
 
   test("language section takes precedence over general section", () => {

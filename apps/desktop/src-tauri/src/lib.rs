@@ -41,7 +41,9 @@ pub async fn main() {
             ));
 
             sentry::configure_scope(|scope| {
-                scope.set_tag("service", "hyprnote-desktop");
+                scope.set_tag("service.namespace", "hyprnote");
+                scope.set_tag("service.name", "desktop");
+                scope.set_tag("enduser.pseudo.id", hypr_host::fingerprint());
                 scope.set_user(Some(sentry::User {
                     id: Some(hypr_host::fingerprint()),
                     ..Default::default()
@@ -82,7 +84,6 @@ pub async fn main() {
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
-        .plugin(tauri_plugin_apple_contact::init())
         .plugin(tauri_plugin_auth::init())
         .plugin(tauri_plugin_db2::init())
         .plugin(tauri_plugin_tracing::init())
@@ -98,7 +99,7 @@ pub async fn main() {
         .plugin(tauri_plugin_fs2::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_path2::init())
-        .plugin(tauri_plugin_pdf::init())
+        .plugin(tauri_plugin_export::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_mcp::init())
         .plugin(tauri_plugin_misc::init())
@@ -195,7 +196,7 @@ pub async fn main() {
 
             {
                 use tauri_plugin_settings::SettingsPluginExt;
-                if let Ok(base) = app_handle.settings().global_base()
+                if let Ok(base) = app_handle.settings().vault_base()
                     && let Err(e) = agents::write_agents_file(base.as_std_path())
                 {
                     tracing::error!("failed to write AGENTS.md: {}", e);
@@ -241,7 +242,6 @@ pub async fn main() {
                 let _ = permissions.reset(Permission::SystemAudio).await;
                 let _ = permissions.reset(Permission::Accessibility).await;
                 let _ = permissions.reset(Permission::Calendar).await;
-                let _ = permissions.reset(Permission::Contacts).await;
             });
         }
     }

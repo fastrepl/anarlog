@@ -20,14 +20,14 @@ export function DownloadButton() {
       case "windows":
         return {
           icon: "mdi:microsoft-windows",
-          label: "Download for Windows",
-          href: "/download/windows",
+          label: "Download Char",
+          href: "/download/",
         };
       case "linux":
         return {
-          icon: "mdi:linux",
-          label: "Download for Linux",
-          href: "/download/linux",
+          icon: "mdi:apple",
+          label: "Download Char",
+          href: "/download/",
         };
       default:
         return {

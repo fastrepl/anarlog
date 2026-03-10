@@ -2,7 +2,8 @@
 meta_title: "What Makes a Reliable AI-powered Note Taker?"
 display_title: "The Reliable AI Note-Taker Checklist"
 meta_description: "How to choose an AI notetaker? Use this guide to assess the 5 dependency risks in any AI note-taker before you commit to a platform."
-author: "John Jeong"
+author:
+  - "John Jeong"
 coverImage: "/api/images/blog/what-makes-reliable-ai-note-taker/cover.png"
 featured: true
 category: "Comparisons"
@@ -45,7 +46,7 @@ OpenAI had outages in March 2023 and June 2024. Every dependent tool went offlin
 
 Vendor dependencies also mean inheriting their business decisions. Pricing changes. Service deprecations. Geographic restrictions. You're subject to their roadmap, not yours.
 
-<CtaCard/>
+&nbsp;
 
 ### 3. Platform dependency
 
@@ -89,18 +90,18 @@ Each requirement is an architectural dependency. Each dependency is a trade-off.
 
 We're designing Char around dependency thinking.
 
-The tool works without anything external. No internet. No cloud services. No platform permissions. No usage limits. No data leaving your device. Users can add capabilities they want—cloud AI, integrations, exports—as optional layers, not requirements.
+The tool works without anything external if you want it to. No internet. No cloud services. No platform permissions. No usage limits. But you can add capabilities as optional layers, such as, cloud AI, integrations, and exports, when they suit your workflow. You decide what the tool depends on, not us.
 
-**Local processing by default.** Char runs everything on-device. Transcription uses Whisper models locally. Summarization uses our custom HyperLLM model optimized for on-device performance. Nothing leaves your machine for core functionality. Use Char in airplane mode, restricted networks, secure facilities, anywhere.
+**Your choice of AI stack.** Char works fully offline out of the box, but you're not locked into local-only. Use the managed cloud service for the easiest setup, bring your own API keys (OpenAI, Anthropic, Mistral, and others), or run local models via Ollama or LM Studio. Switch anytime. No lock-in.
 
-**Deployment flexibility.** Char is open-source, so you're not locked into our infrastructure. Run it on your device for edge deployment. Self-host on your own servers for complete control. Deploy to your private cloud if you need to scale. The architecture supports all three: on-device, on-premises, or private cloud.
+**Deployment flexibility.** Char is open-source, so you're not tied to our infrastructure. Run it on your device, self-host on your own servers, or deploy to your private cloud. The architecture supports all three.
 
-**Direct audio capture.** Our platform captures system audio and microphone input directly at the OS level. No bots. No platform permissions. No dependency on Zoom or Teams policies. The tool records what's coming through your speakers and mic. This works for all meeting platforms and in-person conversations.
+**Direct audio capture.** Char captures system audio and microphone input directly at the OS level. No bots. No platform permissions. No dependency on Zoom or Teams policies. Works for all meeting platforms and in-person conversations.
 
-**Forever free, unlimited.** Core functionality is free forever. Unlimited transcription and summarization. No per-meeting charges. No per-minute charges. No artificial caps. You can connect your own language models and speech-to-text providers and use it as much as you need.
+**Forever free, unlimited.** Local transcription, BYOK, and all core features are free forever. No per-meeting charges. No per-minute charges. No artificial caps.
 
-**Compliance by architecture.** Data stays local by default. HIPAA requirements? Patient data stays on your device. Attorney-client privilege? Conversations stay on your machine. GDPR data residency? You control where data lives. SOC 2 requirements? Self-host and manage your own security. The architecture gives you the foundation to meet your compliance needs.
+**Compliance by architecture.** When data stays on your device, you control the compliance surface. HIPAA requirements? Patient data stays on your machine. Attorney-client privilege? Conversations never leave your device. GDPR data residency? You decide where data lives. SOC 2? Self-host and manage your own security.
 
-Try Char yourself. [Download Char for macOS](/download).
+[Download Char for macOS](/download).
 
-<CtaCard/>
+&nbsp;

@@ -13,7 +13,6 @@ export const Route = createFileRoute("/_view/pricing")({
 interface PricingPlan {
   name: string;
   price: { monthly: number; yearly: number } | null;
-  originalPrice?: { monthly: number; yearly: number };
   description: string;
   popular?: boolean;
   features: Array<{
@@ -60,10 +59,6 @@ const pricingPlans: PricingPlan[] = [
   {
     name: "Pro",
     price: {
-      monthly: 8,
-      yearly: 59,
-    },
-    originalPrice: {
       monthly: 25,
       yearly: 250,
     },
@@ -104,7 +99,6 @@ function Component() {
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
       <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
-        <TeamPricingBanner />
         <HeroSection />
         <SlashSeparator />
         <PricingCardsSection />
@@ -114,25 +108,6 @@ function Component() {
         <CTASection />
       </div>
     </main>
-  );
-}
-
-function TeamPricingBanner() {
-  return (
-    <div
-      className={cn([
-        "flex items-center justify-center gap-2 text-center",
-        "border-b border-stone-100 bg-stone-50/70",
-        "px-4 py-3",
-        "font-serif text-sm text-stone-700",
-      ])}
-    >
-      <span>
-        <strong>Early Bird Discount:</strong> Get 68% off as we launch our new
-        version and help with migration —{" "}
-        <strong>offer extended while we finalize the new timeline</strong>
-      </span>
-    </div>
   );
 }
 
@@ -192,21 +167,10 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                 <span className="font-serif text-4xl text-stone-700">
                   ${plan.price.monthly}
                 </span>
-                {plan.originalPrice && (
-                  <span className="text-xl text-neutral-400 line-through">
-                    ${plan.originalPrice.monthly}
-                  </span>
-                )}
                 <span className="text-neutral-600">/month</span>
               </div>
               <div className="text-sm text-neutral-600">
-                or ${plan.price.yearly}/year{" "}
-                {plan.originalPrice && (
-                  <span className="text-neutral-400 line-through">
-                    ${plan.originalPrice.yearly}
-                  </span>
-                )}{" "}
-                <span className="font-medium text-green-700">(save 76%)</span>
+                or ${plan.price.yearly}/year
               </div>
             </div>
           ) : (

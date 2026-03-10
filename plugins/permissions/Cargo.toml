@@ -19,6 +19,7 @@ hypr-audio = { workspace = true }
 
 tauri = { workspace = true, features = ["specta", "test"] }
 tauri-plugin-shell = { workspace = true }
+tauri-plugin-sidecar2 = { workspace = true }
 
 specta = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }

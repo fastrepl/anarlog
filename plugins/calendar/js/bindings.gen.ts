@@ -9,6 +9,14 @@ export const commands = {
 async availableProviders() : Promise<CalendarProviderType[]> {
     return await TAURI_INVOKE("plugin:calendar|available_providers");
 },
+async isProviderEnabled(provider: CalendarProviderType) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|is_provider_enabled", { provider }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async listCalendars(provider: CalendarProviderType) : Promise<Result<CalendarListItem[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_calendars", { provider }) };

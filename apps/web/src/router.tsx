@@ -48,13 +48,10 @@ export function getRouter() {
         ? `hyprnote-web@${env.VITE_APP_VERSION}`
         : undefined,
       sendDefaultPii: true,
-      integrations: [
-        Sentry.tanstackRouterBrowserTracingIntegration(router),
-        Sentry.replayIntegration(),
-      ],
-      tracesSampleRate: 1.0,
+      integrations: [Sentry.replayIntegration()],
       replaysSessionSampleRate: 0.1,
       replaysOnErrorSampleRate: 1.0,
+      tracePropagationTargets: [],
     });
   }
 

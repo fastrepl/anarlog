@@ -18,7 +18,7 @@ impl hypr_storage::StorageRuntime for TauriRuntime {
     fn vault_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
         self.app
             .settings()
-            .cached_vault_base()
+            .vault_base()
             .map(|p| p.into_std_path_buf())
             .map_err(|_| hypr_storage::Error::DataDirUnavailable)
     }

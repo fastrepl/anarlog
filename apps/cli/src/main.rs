@@ -8,11 +8,13 @@ mod theme;
 
 use clap::{Parser, Subcommand};
 
+use crate::commands::OutputFormat;
+use crate::commands::batch::Provider as BatchProvider;
 use crate::commands::model::ModelCommands;
 use crate::error::{CliError, CliResult};
 
 #[derive(Parser)]
-#[command(name = "char", about = "char")]
+#[command(name = "char", about = "Live transcription TUI and utilities", version)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -55,11 +57,22 @@ enum Commands {
     Listen,
     Auth,
     Desktop,
+    #[command(about = "Transcribe an audio file (batch mode)")]
     Batch {
-        #[arg(long)]
-        file: String,
-        #[arg(long)]
-        provider: String,
+        #[arg(long, value_name = "PATH", visible_alias = "file")]
+        input: std::path::PathBuf,
+        #[arg(long, value_enum)]
+        provider: BatchProvider,
+        #[arg(long, short = 'k', value_name = "KEYWORD")]
+        keyword: Vec<String>,
+        #[arg(long, value_name = "PATH")]
+        output: Option<std::path::PathBuf>,
+        #[arg(long, value_enum, default_value = "pretty")]
+        format: OutputFormat,
+        #[arg(long, hide = true, conflicts_with = "format")]
+        json: bool,
+        #[arg(long, short = 'q')]
+        quiet: bool,
     },
     Model {
         #[command(subcommand)]
@@ -90,38 +103,41 @@ async fn run(cli: Cli) -> CliResult<()> {
     match command {
         Some(Commands::Auth) => commands::auth::run(),
         Some(Commands::Desktop) => commands::desktop::run().map(|_| ()),
-        Some(Commands::Listen) => {
-            let base_url = required_base_url(base_url)?;
-
-            commands::listen::run(commands::listen::Args {
-                base_url,
-                api_key,
-                model,
-                language,
-                record,
-            })
-            .await
-            .map(|_| ())
-        }
-        Some(Commands::Batch { file, provider }) => {
-            let base_url = required_base_url(base_url)?;
-
-            let provider = provider.parse().map_err(|_| {
-                CliError::invalid_argument(
-                    "--provider",
-                    provider.clone(),
-                    "expected one of: deepgram, soniox, assemblyai, am, cactus",
-                )
-            })?;
+        Some(Commands::Listen) => commands::listen::run(commands::listen::Args {
+            base_url,
+            api_key,
+            model,
+            language,
+            record,
+        })
+        .await
+        .map(|_| ()),
+        Some(Commands::Batch {
+            input,
+            provider,
+            keyword,
+            output,
+            json,
+            format,
+            quiet,
+        }) => {
+            let base_url = if matches!(provider, BatchProvider::Cactus) {
+                base_url
+            } else {
+                Some(required_base_url(base_url)?)
+            };
 
             commands::batch::run(commands::batch::Args {
-                file,
+                input,
                 provider,
                 base_url,
                 api_key,
                 model: if model.is_empty() { None } else { Some(model) },
                 language,
-                keywords: vec![],
+                keywords: keyword,
+                output,
+                format: if json { OutputFormat::Json } else { format },
+                quiet,
             })
             .await
         }
@@ -131,19 +147,15 @@ async fn run(cli: Cli) -> CliResult<()> {
         })
         .await
         {
-            commands::entry::EntryAction::Listen => {
-                let base_url = required_base_url(base_url)?;
-
-                commands::listen::run(commands::listen::Args {
-                    base_url,
-                    api_key,
-                    model,
-                    language,
-                    record,
-                })
-                .await
-                .map(|_| ())
-            }
+            commands::entry::EntryAction::Listen => commands::listen::run(commands::listen::Args {
+                base_url,
+                api_key,
+                model,
+                language,
+                record,
+            })
+            .await
+            .map(|_| ()),
             commands::entry::EntryAction::Quit => Ok(()),
         },
     }

@@ -2,6 +2,7 @@ import { sep } from "@tauri-apps/api/path";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { commands as fs2Commands } from "@hypr/plugin-fs2";
+import type { ChatMessageStatus } from "@hypr/store";
 
 import type { ChatJson, LoadedChatData } from "./types";
 
@@ -18,6 +19,30 @@ export type { LoadedChatData } from "./types";
 
 const LABEL = "ChatPersister";
 
+function normalizeChatMessageStatus(status: unknown): ChatMessageStatus {
+  if (
+    status === "streaming" ||
+    status === "ready" ||
+    status === "error" ||
+    status === "aborted"
+  ) {
+    return status;
+  }
+
+  return "ready";
+}
+
+function normalizeLoadedChatMessage(
+  message: Record<string, unknown>,
+): Record<string, unknown> {
+  const status = normalizeChatMessageStatus(message.status);
+
+  return {
+    ...message,
+    status: status === "streaming" ? "aborted" : status,
+  };
+}
+
 export function chatJsonToData(json: ChatJson): LoadedChatData {
   const result: LoadedChatData = {
     chat_groups: {},
@@ -29,7 +54,9 @@ export function chatJsonToData(json: ChatJson): LoadedChatData {
 
   for (const message of json.messages) {
     const { id: messageId, ...messageData } = message;
-    result.chat_messages[messageId] = messageData;
+    result.chat_messages[messageId] = normalizeLoadedChatMessage(
+      messageData,
+    ) as LoadedChatData["chat_messages"][string];
   }
 
   return result;

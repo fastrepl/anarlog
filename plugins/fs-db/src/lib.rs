@@ -24,7 +24,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(|app, _api| {
             use tauri_plugin_settings::SettingsPluginExt;
 
-            let base_dir = match app.settings().fresh_vault_base() {
+            let base_dir = match app.settings().resolve_startup_vault_base() {
                 Ok(dir) => dir,
                 Err(_) => {
                     return Ok(());

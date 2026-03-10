@@ -44,6 +44,8 @@ export const env = createEnv({
     VITE_SUPABASE_ANON_KEY: requiredInProd(z.string().min(1)),
     VITE_POSTHOG_API_KEY: requiredInProd(z.string().min(1)),
     VITE_POSTHOG_HOST: z.string().default("https://us.i.posthog.com"),
+    VITE_OTEL_EXPORTER_OTLP_ENDPOINT: z.url().optional(),
+    VITE_OTEL_SAMPLE_RATE: z.coerce.number().int().positive().default(10),
     VITE_SENTRY_DSN: z.string().min(1).optional(),
     VITE_APP_VERSION: z.string().min(1).optional(),
     VITE_OUTLIT_PUBLIC_KEY: requiredInProd(z.string().min(1)),

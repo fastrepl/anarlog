@@ -223,30 +223,6 @@ function DownloadLinksHero({ version }: { version: string }) {
           ))}
         </div>
       </div>
-
-      <div className="flex flex-col items-center gap-2">
-        <h3 className="flex items-center gap-1.5 text-xs font-medium tracking-wider text-stone-500 uppercase">
-          <Icon icon="simple-icons:linux" className="text-sm" />
-          Linux
-        </h3>
-        <div className="flex flex-col gap-1.5">
-          {grouped.linux.map((link) => (
-            <a
-              key={link.url}
-              href={link.url}
-              className={cn([
-                "flex h-8 items-center justify-center gap-2 rounded-full px-4 text-sm transition-all",
-                "bg-linear-to-b from-white to-stone-50 text-neutral-700",
-                "border border-neutral-300",
-                "hover:scale-[102%] hover:shadow-xs active:scale-[98%]",
-              ])}
-            >
-              <Download className="size-3.5 shrink-0" />
-              <span>{link.label}</span>
-            </a>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
@@ -255,7 +231,7 @@ function DownloadLinksHeroMobile({ version }: { version: string }) {
   const links = getDownloadLinks(version);
   const grouped = groupDownloadLinks(links);
 
-  const allLinks = [...grouped.macos, ...grouped.linux];
+  const allLinks = grouped.macos;
 
   return (
     <div className="scrollbar-hide -mx-6 overflow-x-auto px-6">

@@ -349,16 +349,6 @@
         "role": {
           "$ref": "#/definitions/ParticipantRole"
         },
-        "schedule_status": {
-          "anyOf": [
-            {
-              "$ref": "#/definitions/ParticipantScheduleStatus"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
         "status": {
           "$ref": "#/definitions/ParticipantStatus"
         },
@@ -444,19 +434,6 @@
         "Optional",
         "Chair",
         "NonParticipant"
-      ]
-    },
-    "ParticipantScheduleStatus": {
-      "type": "string",
-      "enum": [
-        "None",
-        "Pending",
-        "Sent",
-        "Delivered",
-        "RecipientNotRecognized",
-        "NoPrivileges",
-        "DeliveryFailed",
-        "CannotDeliver"
       ]
     },
     "ParticipantStatus": {

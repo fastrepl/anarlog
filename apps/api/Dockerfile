@@ -16,24 +16,22 @@ RUN cargo chef prepare --recipe-path recipe.json
 FROM rust:${RUST_VERSION}-bookworm AS build
 ARG APP_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN cargo install cargo-chef sccache --locked
-ENV RUSTC_WRAPPER=sccache \
-    SCCACHE_DIR=/sccache \
-    APP_VERSION=${APP_VERSION}
+RUN cargo install cargo-chef --locked
+ENV APP_VERSION=${APP_VERSION}
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
     cargo chef cook --release --recipe-path recipe.json -p api
 COPY Cargo.toml Cargo.lock ./
 RUN sed -i '/^members = \[/,/^\]/c\members = ["apps/api", "crates/*"]' Cargo.toml
-COPY .git .git
 COPY crates crates
 COPY apps/api apps/api
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=$SCCACHE_DIR,sharing=locked \
+    cargo clean -p chatwoot -p progenitor-utils
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     cargo build --release -p api
 
 FROM debian:bookworm-slim AS runtime

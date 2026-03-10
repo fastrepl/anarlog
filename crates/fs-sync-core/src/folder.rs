@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::path::{get_parent_folder_path, is_uuid};
-use crate::types::{FolderInfo, ListFoldersResult};
+use crate::types::{FolderInfo, FolderSessionUpdate, ListFoldersResult};
 
 pub fn scan_directory_recursive(
     sessions_dir: &Path,
@@ -60,6 +60,53 @@ pub fn scan_directory_recursive(
     }
 }
 
+pub fn collect_session_updates(
+    sessions_dir: &Path,
+    current_path: &str,
+    result: &mut Vec<FolderSessionUpdate>,
+) {
+    let full_path = if current_path.is_empty() {
+        sessions_dir.to_path_buf()
+    } else {
+        sessions_dir.join(current_path)
+    };
+
+    let entries = match std::fs::read_dir(&full_path) {
+        Ok(entries) => entries,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let name = match path.file_name().and_then(|n| n.to_str()) {
+            Some(name) => name.to_string(),
+            None => continue,
+        };
+
+        let entry_path = if current_path.is_empty() {
+            name.clone()
+        } else {
+            format!("{}/{}", current_path, name)
+        };
+
+        if is_uuid(&name) && path.join("_meta.json").exists() {
+            result.push(FolderSessionUpdate {
+                session_id: name,
+                folder_id: get_parent_folder_path(&entry_path).unwrap_or_default(),
+            });
+            continue;
+        }
+
+        if !is_uuid(&name) {
+            collect_session_updates(sessions_dir, &entry_path, result);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -104,5 +151,37 @@ mod tests {
 
         assert!(result.folders.contains_key("work"));
         assert_eq!(result.folders["work"].name, "work");
+    }
+
+    #[test]
+    fn collect_session_updates_tracks_nested_sessions() {
+        let env = TestEnv::new()
+            .folder("work")
+            .session(UUID_1)
+            .done_folder()
+            .done()
+            .folder("work/project")
+            .session(UUID_2)
+            .done_folder()
+            .done()
+            .build();
+
+        let mut updates = Vec::new();
+        collect_session_updates(env.path(), "work", &mut updates);
+        updates.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+
+        assert_eq!(
+            updates,
+            vec![
+                FolderSessionUpdate {
+                    session_id: UUID_1.into(),
+                    folder_id: "work".into(),
+                },
+                FolderSessionUpdate {
+                    session_id: UUID_2.into(),
+                    folder_id: "work/project".into(),
+                }
+            ]
+        );
     }
 }

@@ -31,13 +31,14 @@ function buildTranscript(
   transcriptData: SessionContentData["transcript"],
   store: ReturnType<typeof main.UI.useStore>,
 ): Transcript | null {
-  if (!transcriptData || transcriptData.transcripts.length === 0) {
+  const transcripts = transcriptData?.transcripts ?? [];
+  if (transcripts.length === 0) {
     return null;
   }
 
-  const indexedWords = transcriptData.transcripts
+  const indexedWords = transcripts
     .flatMap((transcript) =>
-      transcript.words.map((word) => ({
+      (transcript.words ?? []).map((word) => ({
         id: word.id ?? null,
         text: word.text,
         start_ms: word.start_ms,
@@ -65,23 +66,22 @@ function buildTranscript(
     }
   });
 
-  const storageHints: SpeakerHintStorage[] = transcriptData.transcripts.flatMap(
-    (transcript) =>
-      (transcript.speaker_hints ?? []).flatMap((hint) => {
-        if (!hint.word_id) {
-          return [];
-        }
-        return [
-          {
-            word_id: hint.word_id,
-            type: hint.type,
-            value:
-              typeof hint.value === "string"
-                ? JSON.parse(hint.value)
-                : (hint.value ?? {}),
-          },
-        ];
-      }),
+  const storageHints: SpeakerHintStorage[] = transcripts.flatMap((transcript) =>
+    (transcript.speaker_hints ?? []).flatMap((hint) => {
+      if (!hint.word_id) {
+        return [];
+      }
+      return [
+        {
+          word_id: hint.word_id,
+          type: hint.type,
+          value:
+            typeof hint.value === "string"
+              ? JSON.parse(hint.value)
+              : (hint.value ?? {}),
+        },
+      ];
+    }),
   );
 
   const runtimeHints = convertStorageHintsToRuntime(
@@ -93,10 +93,10 @@ function buildTranscript(
   const ctx = store ? defaultRenderLabelContext(store) : undefined;
   const manager = SpeakerLabelManager.fromSegments(segments, ctx);
 
-  const startedAtCandidates = transcriptData.transcripts
+  const startedAtCandidates = transcripts
     .map((t) => t.started_at)
     .filter((v): v is number => typeof v === "number");
-  const endedAtCandidates = transcriptData.transcripts
+  const endedAtCandidates = transcripts
     .map((t) => t.ended_at)
     .filter((v): v is number => typeof v === "number");
 

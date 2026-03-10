@@ -18,6 +18,7 @@ import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
+import { getSessionTabVisualState } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
@@ -56,11 +57,11 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const stop = useListener((state) => state.stop);
   const isEnhancing = useIsSessionEnhancing(tab.id);
-  const isActive = sessionMode === "active" || sessionMode === "finalizing";
-  const isFinalizing = sessionMode === "finalizing";
-  const isBatching = sessionMode === "running_batch";
-  const showSpinner =
-    !tab.active && (isFinalizing || isEnhancing || isBatching);
+  const { isActive, accent, showSpinner } = getSessionTabVisualState(
+    sessionMode,
+    isEnhancing,
+    tab.active,
+  );
 
   const showCloseConfirmation =
     pendingCloseConfirmationTab?.type === "sessions" &&
@@ -86,7 +87,7 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
         title={title || "Untitled"}
         selected={tab.active}
         active={isActive}
-        accent={isActive ? "red" : "neutral"}
+        accent={accent}
         finalizing={showSpinner}
         pinned={tab.pinned}
         tabIndex={tabIndex}

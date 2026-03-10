@@ -93,14 +93,15 @@ jobs:
             --exclude audio-device \
             --exclude transcribe-whisper-local \
             --exclude device-monitor \
+            --exclude cli \
             --exclude cactus-sys \
             --exclude cactus \
             --exclude transcribe-cactus \
             --exclude llm-cactus \
             --exclude local-llm-core \
+            --exclude local-stt-server \
             --exclude tauri-plugin-analytics\
             --exclude tauri-plugin-apple-calendar \
-            --exclude tauri-plugin-apple-contact \
             --exclude tauri-plugin-audio-priority \
             --exclude tauri-plugin-auth \
             --exclude tauri-plugin-bedrock \

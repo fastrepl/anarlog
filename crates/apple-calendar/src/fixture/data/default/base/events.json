@@ -30,7 +30,7 @@
       "role": "Chair",
       "status": "Accepted",
       "participant_type": "Person",
-      "schedule_status": null,
+
       "url": null,
       "contact": null
     },
@@ -42,7 +42,7 @@
         "role": "Required",
         "status": "Accepted",
         "participant_type": "Person",
-        "schedule_status": null,
+
         "url": null,
         "contact": null
       }

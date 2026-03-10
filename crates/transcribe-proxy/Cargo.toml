@@ -9,6 +9,7 @@ hypr-api-auth = { workspace = true }
 hypr-api-env = { workspace = true }
 hypr-audio-mime = { workspace = true }
 hypr-language = { workspace = true }
+hypr-observability = { workspace = true }
 hypr-supabase-storage = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true, features = ["openapi"] }

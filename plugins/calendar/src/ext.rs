@@ -6,6 +6,7 @@ use hypr_calendar_interface::{
 use hypr_google_calendar::{CalendarListEntry as GoogleCalendar, Event as GoogleEvent};
 use hypr_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
 use tauri_plugin_auth::AuthPluginExt;
+use tauri_plugin_permissions::PermissionsPluginExt;
 
 use crate::error::Error;
 use crate::fetch;
@@ -27,35 +28,6 @@ pub fn available_providers() -> Vec<CalendarProviderType> {
     let providers = vec![CalendarProviderType::Google, CalendarProviderType::Outlook];
 
     providers
-}
-
-#[cfg(target_os = "macos")]
-mod contact_bridge {
-    use hypr_apple_calendar::ContactFetcher;
-    use hypr_apple_calendar::types::ParticipantContact;
-
-    pub struct AppleContactFetcher;
-
-    impl ContactFetcher for AppleContactFetcher {
-        fn fetch_contact_with_predicate(
-            &self,
-            predicate: &objc2_foundation::NSPredicate,
-        ) -> Option<ParticipantContact> {
-            let contact = tauri_plugin_apple_contact::fetch_contact_with_predicate(predicate)?;
-            Some(ParticipantContact {
-                identifier: contact.identifier,
-                given_name: contact.given_name,
-                family_name: contact.family_name,
-                middle_name: contact.middle_name,
-                organization_name: contact.organization_name,
-                job_title: contact.job_title,
-                email_addresses: contact.email_addresses,
-                phone_numbers: contact.phone_numbers,
-                url_addresses: contact.url_addresses,
-                image_available: contact.image_available,
-            })
-        }
-    }
 }
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
@@ -123,6 +95,40 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
                 operation: "create_event",
                 provider,
             }),
+        }
+    }
+
+    pub async fn is_provider_enabled(&self, provider: CalendarProviderType) -> Result<bool, Error> {
+        match provider {
+            CalendarProviderType::Apple => {
+                let status = self
+                    .manager
+                    .permissions()
+                    .check(tauri_plugin_permissions::Permission::Calendar)
+                    .await
+                    .map_err(|e| Error::Api(e.to_string()))?;
+
+                Ok(matches!(
+                    status,
+                    tauri_plugin_permissions::PermissionStatus::Authorized
+                ))
+            }
+            CalendarProviderType::Google => {
+                let token = match self.get_access_token() {
+                    Ok(token) => token,
+                    Err(_) => return Ok(false),
+                };
+                let config = self.manager.state::<crate::PluginConfig>();
+                fetch::has_nango_connection(&config.api_base_url, &token, "google-calendar").await
+            }
+            CalendarProviderType::Outlook => {
+                let token = match self.get_access_token() {
+                    Ok(token) => token,
+                    Err(_) => return Ok(false),
+                };
+                let config = self.manager.state::<crate::PluginConfig>();
+                fetch::has_nango_connection(&config.api_base_url, &token, "outlook-calendar").await
+            }
         }
     }
 
@@ -200,9 +206,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
         &self,
         filter: EventFilter,
     ) -> Result<Vec<hypr_apple_calendar::types::AppleEvent>, Error> {
-        let handle = hypr_apple_calendar::Handle::with_contact_fetcher(Box::new(
-            contact_bridge::AppleContactFetcher,
-        ));
+        let handle = hypr_apple_calendar::Handle::new();
         let filter = hypr_apple_calendar::types::EventFilter {
             from: filter.from,
             to: filter.to,

@@ -48,6 +48,10 @@ pub fn ensure_vault_dir(path: &Path) -> Result<(), crate::Error> {
     Ok(())
 }
 
+pub fn resolve_base(global_base: &Path, default_base: &Path) -> PathBuf {
+    resolve_custom(global_base, default_base).unwrap_or_else(|| default_base.to_path_buf())
+}
+
 pub fn resolve_custom(global_base: &Path, default_base: &Path) -> Option<PathBuf> {
     if let Ok(path) = std::env::var(VAULT_BASE_ENV_VAR) {
         let path = expand_path(&path, Some(default_base));
@@ -56,18 +60,40 @@ pub fn resolve_custom(global_base: &Path, default_base: &Path) -> Option<PathBuf
         }
     }
 
-    let vault_config_path = compute_vault_config_path(global_base);
-    if let Ok(content) = std::fs::read_to_string(&vault_config_path)
-        && let Ok(settings) = serde_json::from_str::<serde_json::Value>(&content)
-        && let Some(custom_base) = settings.get(VAULT_PATH_KEY).and_then(|v| v.as_str())
-    {
-        let custom_path = expand_path(custom_base, Some(default_base));
+    if let Some(custom_base) = load_vault_path(global_base) {
+        let custom_path = expand_path(&custom_base, Some(default_base));
         if ensure_vault_dir(&custom_path).is_ok() {
             return Some(custom_path);
         }
     }
 
     None
+}
+
+pub fn persist_vault_path(
+    global_base: &Path,
+    default_base: &Path,
+    new_path: &Path,
+) -> Result<(), crate::Error> {
+    ensure_vault_dir(new_path)?;
+
+    let mut config = load_config(global_base).unwrap_or_else(|| serde_json::json!({}));
+    if !config.is_object() {
+        config = serde_json::json!({});
+    }
+
+    if new_path == default_base {
+        clear_vault_path(&mut config);
+    } else {
+        set_vault_path(&mut config, new_path);
+    }
+
+    crate::fs::atomic_write(
+        &compute_vault_config_path(global_base),
+        &serde_json::to_string_pretty(&config)?,
+    )?;
+
+    Ok(())
 }
 
 pub fn validate_vault_base_change(old_path: &Path, new_path: &Path) -> Result<(), crate::Error> {
@@ -86,6 +112,37 @@ pub fn validate_vault_base_change(old_path: &Path, new_path: &Path) -> Result<()
     }
 
     Ok(())
+}
+
+pub fn set_vault_path(config: &mut serde_json::Value, path: &Path) {
+    if !config.is_object() {
+        *config = serde_json::json!({});
+    }
+
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert(
+            VAULT_PATH_KEY.to_string(),
+            serde_json::Value::String(path.to_string_lossy().to_string()),
+        );
+    }
+}
+
+pub fn clear_vault_path(config: &mut serde_json::Value) {
+    if let Some(obj) = config.as_object_mut() {
+        obj.remove(VAULT_PATH_KEY);
+    }
+}
+
+fn load_vault_path(global_base: &Path) -> Option<String> {
+    load_config(global_base)?
+        .get(VAULT_PATH_KEY)
+        .and_then(|v| v.as_str())
+        .map(ToOwned::to_owned)
+}
+
+fn load_config(global_base: &Path) -> Option<serde_json::Value> {
+    let content = std::fs::read_to_string(compute_vault_config_path(global_base)).ok()?;
+    serde_json::from_str::<serde_json::Value>(&content).ok()
 }
 
 #[cfg(test)]
@@ -296,6 +353,80 @@ mod tests {
                 assert_eq!(result, Some(custom_path.clone()));
                 assert!(custom_path.exists());
             });
+        }
+    }
+
+    mod resolve_base_tests {
+        use super::*;
+
+        #[test]
+        fn falls_back_to_default_base() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().to_path_buf();
+            let default_base = temp.path().join("default");
+
+            with_env(VAULT_BASE_ENV_VAR, None, || {
+                let result = resolve_base(&global_base, &default_base);
+                assert_eq!(result, default_base);
+            });
+        }
+    }
+
+    mod persist_vault_path_tests {
+        use super::*;
+
+        #[test]
+        fn writes_custom_path_to_primary_config() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().to_path_buf();
+            let default_base = temp.path().join("default");
+            let custom_path = temp.path().join("vault");
+
+            persist_vault_path(&global_base, &default_base, &custom_path).unwrap();
+
+            let config = fs::read_to_string(compute_vault_config_path(&global_base)).unwrap();
+            let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
+            assert_eq!(
+                config.get(VAULT_PATH_KEY).and_then(|v| v.as_str()),
+                Some(custom_path.to_string_lossy().as_ref())
+            );
+        }
+
+        #[test]
+        fn clears_override_when_using_default_base() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().to_path_buf();
+            let default_base = temp.path().join("default");
+
+            fs::write(
+                compute_vault_config_path(&global_base),
+                serde_json::json!({
+                    "theme": "dark",
+                    VAULT_PATH_KEY: temp.path().join("old").to_string_lossy(),
+                })
+                .to_string(),
+            )
+            .unwrap();
+
+            persist_vault_path(&global_base, &default_base, &default_base).unwrap();
+
+            let config = fs::read_to_string(compute_vault_config_path(&global_base)).unwrap();
+            let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
+            assert_eq!(config.get("theme").and_then(|v| v.as_str()), Some("dark"));
+            assert!(config.get(VAULT_PATH_KEY).is_none());
+        }
+
+        #[test]
+        fn rejects_relative_new_path() {
+            let temp = tempdir().unwrap();
+            let global_base = temp.path().to_path_buf();
+            let default_base = temp.path().join("default");
+            let new_path = PathBuf::from("relative/path");
+
+            let result = persist_vault_path(&global_base, &default_base, &new_path);
+
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("absolute"));
         }
     }
 

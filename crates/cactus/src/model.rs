@@ -4,6 +4,7 @@ use std::ptr::NonNull;
 use std::sync::{Mutex, MutexGuard};
 
 use crate::error::{Error, Result};
+use crate::stt::{TranscribeOptions, merge_transcribe_options};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ModelKind {
@@ -17,6 +18,7 @@ pub struct Model {
     handle: NonNull<std::ffi::c_void>,
     inference_lock: Mutex<()>,
     kind: ModelKind,
+    default_transcribe_options: TranscribeOptions,
 }
 
 unsafe impl Send for Model {}
@@ -38,11 +40,22 @@ impl InferenceGuard<'_> {
 pub struct ModelBuilder {
     model_path: PathBuf,
     kind: ModelKind,
+    default_transcribe_options: TranscribeOptions,
 }
 
 impl ModelBuilder {
     pub fn kind(mut self, kind: ModelKind) -> Self {
         self.kind = kind;
+        self
+    }
+
+    pub fn custom_vocabulary(mut self, custom_vocabulary: Vec<String>) -> Self {
+        self.default_transcribe_options.custom_vocabulary = Some(custom_vocabulary);
+        self
+    }
+
+    pub fn vocabulary_boost(mut self, vocabulary_boost: f32) -> Self {
+        self.default_transcribe_options.vocabulary_boost = Some(vocabulary_boost);
         self
     }
 
@@ -56,6 +69,7 @@ impl ModelBuilder {
             handle,
             inference_lock: Mutex::new(()),
             kind: self.kind,
+            default_transcribe_options: self.default_transcribe_options,
         })
     }
 }
@@ -65,6 +79,7 @@ impl Model {
         ModelBuilder {
             model_path: model_path.as_ref().to_path_buf(),
             kind: ModelKind::default(),
+            default_transcribe_options: TranscribeOptions::default(),
         }
     }
 
@@ -74,6 +89,10 @@ impl Model {
 
     pub fn kind(&self) -> ModelKind {
         self.kind
+    }
+
+    pub(crate) fn transcribe_options(&self, options: &TranscribeOptions) -> TranscribeOptions {
+        merge_transcribe_options(options, &self.default_transcribe_options)
     }
 
     pub fn stop(&self) {

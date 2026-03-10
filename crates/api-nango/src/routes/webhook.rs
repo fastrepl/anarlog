@@ -93,15 +93,18 @@ pub async fn nango_webhook(
             )
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "failed to persist nango refresh failure state");
+                tracing::error!(
+                    error = %e,
+                    "failed_to_persist_nango_refresh_failure_state"
+                );
                 NangoError::Internal(e.to_string())
             })?;
 
         tracing::warn!(
-            connection_id = %payload.connection_id,
-            integration_id = %payload.provider_config_key,
-            error_type,
-            error_description,
+            hyprnote.connection.id = %payload.connection_id,
+            hyprnote.integration.id = %payload.provider_config_key,
+            error.type = error_type,
+            error = error_description,
             "nango token refresh failed"
         );
     }
@@ -109,8 +112,8 @@ pub async fn nango_webhook(
     if payload.success && payload.operation != AuthOperation::Deletion {
         let Some(end_user_id) = payload.end_user_id() else {
             tracing::warn!(
-                connection_id = %payload.connection_id,
-                integration_id = %payload.provider_config_key,
+                hyprnote.connection.id = %payload.connection_id,
+                hyprnote.integration.id = %payload.provider_config_key,
                 "nango auth webhook missing end user id, skipping persistence"
             );
             return Ok(Json(WebhookResponse {
@@ -128,15 +131,15 @@ pub async fn nango_webhook(
             )
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "failed to upsert nango connection");
+                tracing::error!(error = %e, "failed_to_upsert_nango_connection");
                 NangoError::Internal(e.to_string())
             })?;
 
         tracing::info!(
-            end_user_id,
-            integration_id = %payload.provider_config_key,
-            connection_id = %payload.connection_id,
-            operation = ?payload.operation,
+            enduser.id = end_user_id,
+            hyprnote.integration.id = %payload.provider_config_key,
+            hyprnote.connection.id = %payload.connection_id,
+            hyprnote.auth.operation = ?payload.operation,
             "nango connection upserted"
         );
     }
@@ -147,13 +150,13 @@ pub async fn nango_webhook(
             .delete_connection_by_connection(&payload.provider_config_key, &payload.connection_id)
             .await
             .map_err(|e| {
-                tracing::error!(error = %e, "failed to delete nango connection");
+                tracing::error!(error = %e, "failed_to_delete_nango_connection");
                 NangoError::Internal(e.to_string())
             })?;
 
         tracing::info!(
-            integration_id = %payload.provider_config_key,
-            connection_id = %payload.connection_id,
+            hyprnote.integration.id = %payload.provider_config_key,
+            hyprnote.connection.id = %payload.connection_id,
             "nango connection deleted locally from webhook"
         );
     }

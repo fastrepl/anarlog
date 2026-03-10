@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-available-providers`
+- `allow-is-provider-enabled`
 - `allow-list-calendars`
 - `allow-list-events`
 - `allow-open-calendar`
@@ -67,6 +68,32 @@ Enables the create_event command without any pre-configured scope.
 <td>
 
 Denies the create_event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-is-provider-enabled`
+
+</td>
+<td>
+
+Enables the is_provider_enabled command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-is-provider-enabled`
+
+</td>
+<td>
+
+Denies the is_provider_enabled command without any pre-configured scope.
 
 </td>
 </tr>

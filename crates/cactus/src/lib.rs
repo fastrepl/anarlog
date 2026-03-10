@@ -1,6 +1,7 @@
 mod error;
 mod ffi_utils;
 mod llm;
+pub mod log;
 mod model;
 mod stt;
 mod vad;

@@ -22,6 +22,12 @@ export type BatchChannel = {
     alternatives: Array<BatchAlternatives>;
 };
 
+export type BatchListenSuccessResponse = {
+    Sync: BatchResponse;
+} | {
+    Callback: ListenCallbackResponse;
+};
+
 export type BatchResponse = {
     metadata: {
         [key: string]: unknown;
@@ -1193,7 +1199,7 @@ export type SttListenBatchResponses = {
     /**
      * Transcription result (sync) or ListenCallbackResponse (callback)
      */
-    200: BatchResponse;
+    200: BatchListenSuccessResponse;
 };
 
 export type SttListenBatchResponse = SttListenBatchResponses[keyof SttListenBatchResponses];

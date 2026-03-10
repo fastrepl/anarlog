@@ -1,0 +1,12 @@
+[package]
+name = "observability"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+http = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+reqwest = { workspace = true }
+tracing = { workspace = true }
+tracing-opentelemetry = { workspace = true }

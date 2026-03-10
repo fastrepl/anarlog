@@ -5,7 +5,7 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import { useSync } from "./context";
+import { useSync } from "../context";
 
 export function SyncIndicator() {
   const { status } = useSync();

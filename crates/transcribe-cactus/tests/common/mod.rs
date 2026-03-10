@@ -12,3 +12,14 @@ pub fn model_path() -> PathBuf {
     assert!(path.exists(), "model not found: {}", path.display());
     path
 }
+
+pub fn invalid_model_path() -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "transcribe-cactus-missing-model-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ))
+}

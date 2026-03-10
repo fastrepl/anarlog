@@ -12,15 +12,23 @@ pub async fn status_change(
     let bot_id = &event.data.bot_id;
     let code = &event.data.status.code;
 
-    tracing::info!(bot_id = %bot_id, status = ?code, "bot_status_change");
+    tracing::info!(
+        hyprnote.bot.id = %bot_id,
+        hyprnote.bot.status_code = ?code,
+        "bot_status_change"
+    );
 
     match code {
         BotStatusCode::CallEnded => {
-            tracing::info!(bot_id = %bot_id, "bot_call_ended");
+            tracing::info!(hyprnote.bot.id = %bot_id, "bot_call_ended");
         }
         BotStatusCode::Fatal => {
             let message = event.data.status.message.as_deref().unwrap_or("unknown");
-            tracing::error!(bot_id = %bot_id, message = %message, "bot_fatal");
+            tracing::error!(
+                hyprnote.bot.id = %bot_id,
+                error = %message,
+                "bot_fatal"
+            );
             sentry::capture_message(
                 &format!("Recall bot {bot_id} fatal: {message}"),
                 sentry::Level::Error,
@@ -45,10 +53,10 @@ pub async fn transcript(Json(payload): Json<TranscriptWebhook>) -> Result<()> {
         .join(" ");
 
     tracing::info!(
-        bot_id = %payload.bot_id,
-        speaker = %payload.transcript.speaker,
-        is_final = payload.transcript.is_final,
-        text = %text,
+        hyprnote.bot.id = %payload.bot_id,
+        hyprnote.transcript.speaker = %payload.transcript.speaker,
+        hyprnote.transcript.is_final = payload.transcript.is_final,
+        hyprnote.transcript.char_count = text.chars().count() as u64,
         "transcript_received"
     );
 

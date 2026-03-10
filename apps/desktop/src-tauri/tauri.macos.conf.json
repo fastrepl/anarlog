@@ -1,0 +1,7 @@
+{
+  "bundle": {
+    "externalBin": [
+      "binaries/check-permissions"
+    ]
+  }
+}

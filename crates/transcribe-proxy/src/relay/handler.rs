@@ -64,20 +64,43 @@ impl WebSocketProxy {
     async fn connect_upstream(
         &self,
     ) -> Result<WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>, crate::ProxyError> {
-        let req = self
+        let mut req = self
             .upstream_request
             .clone()
             .into_client_request()
             .map_err(|e| crate::ProxyError::InvalidRequest(e.to_string()))?;
+        hypr_observability::inject_current_trace_context(req.headers_mut());
 
-        tracing::info!("connecting_to_upstream");
+        let connect_start = Instant::now();
+        tracing::info!("upstream_connect_started");
 
         let upstream_result = tokio::time::timeout(self.connect_timeout, connect_async(req)).await;
 
         match upstream_result {
-            Ok(Ok((stream, _))) => Ok(stream),
-            Ok(Err(e)) => Err(crate::ProxyError::ConnectionFailed(e.to_string())),
-            Err(_) => Err(crate::ProxyError::ConnectionTimeout),
+            Ok(Ok((stream, _))) => {
+                tracing::info!(
+                    hyprnote.duration_ms = connect_start.elapsed().as_millis() as u64,
+                    "upstream_connect_succeeded"
+                );
+                Ok(stream)
+            }
+            Ok(Err(e)) => {
+                tracing::error!(
+                    error.type = "upstream_connect_failed",
+                    error = %e,
+                    hyprnote.duration_ms = connect_start.elapsed().as_millis() as u64,
+                    "upstream_connect_failed"
+                );
+                Err(crate::ProxyError::ConnectionFailed(e.to_string()))
+            }
+            Err(_) => {
+                tracing::error!(
+                    error.type = "upstream_connect_timeout",
+                    hyprnote.timeout_ms = self.connect_timeout.as_millis() as u64,
+                    "upstream_connect_timeout"
+                );
+                Err(crate::ProxyError::ConnectionTimeout)
+            }
         }
     }
 
@@ -162,7 +185,7 @@ impl WebSocketProxy {
         }
 
         tracing::info!(
-            duration_secs = %duration.as_secs_f64(),
+            hyprnote.duration_ms = duration.as_millis() as u64,
             "websocket_proxy_connection_closed"
         );
     }
@@ -183,9 +206,9 @@ impl WebSocketProxy {
 
         if let Err(reason) = pending.enqueue(queued, is_control) {
             tracing::warn!(
-                reason = %reason,
-                payload_size_bytes = %size,
-                is_control = %is_control,
+                error = %reason,
+                hyprnote.payload.size_bytes = %size,
+                hyprnote.ws.is_control_message = %is_control,
                 "pending_queue_enqueue_failed"
             );
             let _ = shutdown_tx.send((DEFAULT_CLOSE_CODE, reason.to_string()));
@@ -198,8 +221,8 @@ impl WebSocketProxy {
                 FlushError::InvalidUtf8 => "invalid_utf8_in_message",
             };
             tracing::error!(
-                error = %reason,
-                error_kind = ?e,
+                error.type = %reason,
+                error = ?e,
                 "pending_flush_failed"
             );
             let _ = shutdown_tx.send((DEFAULT_CLOSE_CODE, reason.to_string()));
@@ -255,6 +278,7 @@ impl WebSocketProxy {
                         Ok(m) => m,
                         Err(e) => {
                             tracing::error!(
+                                error.type = "ws_client_receive_error",
                                 error = %e,
                                 "client_receive_error: {}",
                                 e
@@ -317,6 +341,11 @@ impl WebSocketProxy {
                         }
                         Message::Close(frame) => {
                             let (code, reason) = convert::extract_axum_close(frame, "client_closed");
+                            tracing::info!(
+                                hyprnote.ws.close.code = code,
+                                hyprnote.ws.close.reason = %reason,
+                                "ws_client_close_received"
+                            );
                             let _ = shutdown_tx.send((code, reason));
                             break;
                         }
@@ -357,6 +386,7 @@ impl WebSocketProxy {
                         Ok(m) => m,
                         Err(e) => {
                             tracing::error!(
+                                error.type = "ws_upstream_receive_error",
                                 error = %e,
                                 "upstream_receive_error: {}",
                                 e
@@ -373,9 +403,9 @@ impl WebSocketProxy {
 
                             if let Some(upstream_err) = Provider::detect_any_error(text_bytes) {
                                 tracing::warn!(
-                                    error_code = upstream_err.http_code,
-                                    provider_code = ?upstream_err.provider_code,
-                                    error_message = %upstream_err.message,
+                                    http.response.status_code = upstream_err.http_code,
+                                    hyprnote.stt.provider.error_code = ?upstream_err.provider_code,
+                                    error = %upstream_err.message,
                                     "upstream_error_detected"
                                 );
 
@@ -424,6 +454,11 @@ impl WebSocketProxy {
                             let (code, reason) = pending_error.take().unwrap_or_else(|| {
                                 convert::extract_tungstenite_close(frame, "upstream_closed")
                             });
+                            tracing::info!(
+                                hyprnote.ws.close.code = code,
+                                hyprnote.ws.close.reason = %reason,
+                                "ws_upstream_close_received"
+                            );
                             let _ = shutdown_tx.send((code, reason));
                             break;
                         }

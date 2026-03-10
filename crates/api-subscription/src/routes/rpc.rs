@@ -52,7 +52,7 @@ pub async fn can_start_trial(
             reason: Some(CanStartTrialReason::NotEligible),
         }),
         Err(e) => {
-            tracing::error!(error = %e, "can_start_trial RPC failed");
+            tracing::error!(error = %e, "can_start_trial_rpc_failed");
             Json(CanStartTrialResponse {
                 can_start_trial: false,
                 reason: Some(CanStartTrialReason::Error),

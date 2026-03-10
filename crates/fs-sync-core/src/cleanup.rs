@@ -37,9 +37,13 @@ pub fn cleanup_files_in_dir(
             path.file_name().unwrap().to_str().unwrap()
         );
         if let Err(e) = std::fs::remove_file(&path) {
-            tracing::warn!(path = %relative_path, error = %e, "failed_to_remove_orphan_file");
+            tracing::warn!(
+                hyprnote.file.path = %relative_path,
+                error = %e,
+                "failed_to_remove_orphan_file"
+            );
         } else {
-            tracing::debug!(path = %relative_path, "orphan_file_removed");
+            tracing::debug!(hyprnote.file.path = %relative_path, "orphan_file_removed");
             removed += 1;
         }
     }
@@ -91,9 +95,13 @@ pub fn cleanup_dirs_recursive(
         if !valid_ids.contains(name) {
             let relative_path = to_relative_path(path, base_dir);
             if let Err(e) = std::fs::remove_dir_all(path) {
-                tracing::warn!(path = %relative_path, error = %e, "failed to remove orphan directory");
+                tracing::warn!(
+                    hyprnote.file.path = %relative_path,
+                    error = %e,
+                    "failed_to_remove_orphan_directory"
+                );
             } else {
-                tracing::info!(path = %relative_path, "orphan directory removed");
+                tracing::info!(hyprnote.file.path = %relative_path, "orphan_directory_removed");
                 removed += 1;
             }
         }
@@ -149,7 +157,7 @@ fn cleanup_files_in_entity_dir(
         }
 
         if !valid_ids.contains(stem) && std::fs::remove_file(&path).is_ok() {
-            tracing::debug!(path = %path.display(), "orphan file removed");
+            tracing::debug!(hyprnote.file.path = %path.display(), "orphan_file_removed");
             removed += 1;
         }
     }

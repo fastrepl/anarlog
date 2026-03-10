@@ -52,7 +52,7 @@ impl AnalyticsReporter for AnalyticsClient {
 
             let distinct_id = event.fingerprint.unwrap_or_else(|| {
                 tracing::warn!(
-                    generation_id = %event.generation_id,
+                    gen_ai.response.id = %event.generation_id,
                     "device_fingerprint missing, falling back to generation_id for distinct_id"
                 );
                 event.generation_id.clone()

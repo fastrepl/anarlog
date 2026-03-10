@@ -93,6 +93,18 @@ impl Service<Request<Body>> for TranscribeService {
             };
 
             if is_ws {
+                let model = match crate::service::build_model(&model_path, &params.keywords) {
+                    Ok(model) => std::sync::Arc::new(model),
+                    Err(error) => {
+                        tracing::error!(error = %error, "failed_to_load_model");
+                        return Ok((
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            format!("failed to load model: {error}"),
+                        )
+                            .into_response());
+                    }
+                };
+                let metadata = crate::service::build_metadata(&model_path);
                 let (mut parts, _body) = req.into_parts();
                 let ws_upgrade = match WebSocketUpgrade::from_request_parts(&mut parts, &()).await {
                     Ok(ws) => ws,
@@ -105,8 +117,15 @@ impl Service<Request<Body>> for TranscribeService {
 
                 Ok(ws_upgrade
                     .on_upgrade(move |socket| async move {
-                        session::handle_websocket(socket, params, model_path, cactus_config, guard)
-                            .await;
+                        session::handle_websocket(
+                            socket,
+                            params,
+                            model,
+                            metadata,
+                            cactus_config,
+                            guard,
+                        )
+                        .await;
                     })
                     .into_response())
             } else {

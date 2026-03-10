@@ -22,9 +22,17 @@ async download(version: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async install(version: string) : Promise<Result<null, string>> {
+async install(version: string) : Promise<Result<InstallResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|install", { version }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async postinstall(result: InstallResult) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|postinstall", { result }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -39,10 +47,12 @@ async maybeEmitUpdated() : Promise<void> {
 
 
 export const events = __makeEvents__<{
+updateDownloadFailedEvent: UpdateDownloadFailedEvent,
 updateDownloadingEvent: UpdateDownloadingEvent,
 updateReadyEvent: UpdateReadyEvent,
 updatedEvent: UpdatedEvent
 }>({
+updateDownloadFailedEvent: "plugin:updater2:update-download-failed-event",
 updateDownloadingEvent: "plugin:updater2:update-downloading-event",
 updateReadyEvent: "plugin:updater2:update-ready-event",
 updatedEvent: "plugin:updater2:updated-event"
@@ -54,6 +64,8 @@ updatedEvent: "plugin:updater2:updated-event"
 
 /** user-defined types **/
 
+export type InstallResult = { kind: "relaunch_current" } | { kind: "macos_bundle_update"; current_path: string; staged_path: string; target_path: string; backup_path: string; stage_dir: string }
+export type UpdateDownloadFailedEvent = { version: string }
 export type UpdateDownloadingEvent = { version: string }
 export type UpdateReadyEvent = { version: string }
 export type UpdatedEvent = { previous: string | null; current: string }

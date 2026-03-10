@@ -62,6 +62,11 @@ export type TimelineBucket = {
   items: TimelineItem[];
 };
 
+export type TimelineIndicatorPlacement =
+  | { type: "inside"; index: number; progress: number }
+  | { type: "before"; index: number }
+  | { type: "after" };
+
 export function getBucketInfo(
   date: Date,
   timezone?: string,
@@ -185,13 +190,65 @@ export function calculateIndicatorIndex(
   return index;
 }
 
-export function getItemTimestamp(item: TimelineItem): Date | null {
+export function getItemTimeRange(item: TimelineItem): {
+  start: Date | null;
+  end: Date | null;
+} {
   if (item.type === "event") {
-    return safeParseDate(item.data.started_at);
+    return {
+      start: safeParseDate(item.data.started_at),
+      end: safeParseDate(item.data.ended_at),
+    };
   }
-  return safeParseDate(
-    getSessionEvent(item.data)?.started_at ?? item.data.created_at,
-  );
+
+  const sessionEvent = getSessionEvent(item.data);
+  return {
+    start: safeParseDate(sessionEvent?.started_at ?? item.data.created_at),
+    end: safeParseDate(sessionEvent?.ended_at),
+  };
+}
+
+export function calculateTodayIndicatorPlacement(
+  entries: Array<{ item: TimelineItem; timestamp: Date | null }>,
+  current: Date,
+): TimelineIndicatorPlacement {
+  const currentMs = current.getTime();
+
+  const insideIndex = entries.findIndex(({ item }) => {
+    const { start, end } = getItemTimeRange(item);
+    if (!start || !end) {
+      return false;
+    }
+
+    const startMs = start.getTime();
+    const endMs = end.getTime();
+
+    return startMs <= currentMs && currentMs <= endMs && endMs > startMs;
+  });
+
+  if (insideIndex !== -1) {
+    const { start, end } = getItemTimeRange(entries[insideIndex].item);
+    const startMs = start!.getTime();
+    const endMs = end!.getTime();
+    const progress = (currentMs - startMs) / (endMs - startMs);
+
+    return {
+      type: "inside",
+      index: insideIndex,
+      progress: Math.min(Math.max(progress, 0), 1),
+    };
+  }
+
+  const indicatorIndex = calculateIndicatorIndex(entries, current);
+  if (indicatorIndex === entries.length) {
+    return { type: "after" };
+  }
+
+  return { type: "before", index: indicatorIndex };
+}
+
+export function getItemTimestamp(item: TimelineItem): Date | null {
+  return getItemTimeRange(item).start;
 }
 
 function getEventTrackingId(row: TimelineEventRow): string {

@@ -9,6 +9,8 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { isWordBoundary } from "../search-replace";
+
 export interface SearchOptions {
   caseSensitive: boolean;
   wholeWord: boolean;
@@ -55,11 +57,6 @@ function prepareQuery(query: string, caseSensitive: boolean): string {
 function prepareText(text: string, caseSensitive: boolean): string {
   const normalized = text.normalize("NFC");
   return caseSensitive ? normalized : normalized.toLowerCase();
-}
-
-function isWordBoundary(text: string, index: number): boolean {
-  if (index < 0 || index >= text.length) return true;
-  return !/\w/.test(text[index]);
 }
 
 function findOccurrences(

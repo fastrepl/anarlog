@@ -20,6 +20,7 @@ const config = defineConfig(() => ({
       },
       prerender: {
         enabled: true,
+        concurrency: 3,
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
         filter: ({ path }) => {

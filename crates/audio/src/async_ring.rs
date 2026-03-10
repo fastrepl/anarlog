@@ -82,9 +82,9 @@ where
 
         self.dropped_log_pending = self.dropped_log_pending.saturating_add(dropped);
         let now = Instant::now();
-        let should_log = self.dropped_log_last.map_or(true, |last| {
-            now.duration_since(last) >= Self::DROPPED_LOG_INTERVAL
-        });
+        let should_log = self
+            .dropped_log_last
+            .is_none_or(|last| now.duration_since(last) >= Self::DROPPED_LOG_INTERVAL);
         if should_log {
             let dropped = std::mem::replace(&mut self.dropped_log_pending, 0);
             self.dropped_log_last = Some(now);

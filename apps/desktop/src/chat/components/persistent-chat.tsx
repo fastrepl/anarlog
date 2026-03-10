@@ -24,7 +24,6 @@ export function PersistentChatPanel({
     width: 400,
     height: window.innerHeight * 0.7,
   });
-  const [isResizing, setIsResizing] = useState(false);
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -33,6 +32,20 @@ export function PersistentChatPanel({
       setHasBeenOpened(true);
     }
   }, [isVisible, hasBeenOpened]);
+
+  useEffect(() => {
+    if (!isFloating) return;
+
+    const handleResize = () => {
+      setFloatingSize((prev) => ({
+        ...prev,
+        height: window.innerHeight * 0.7,
+      }));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isFloating]);
 
   useHotkeys(
     "esc",
@@ -83,16 +96,6 @@ export function PersistentChatPanel({
     return null;
   }
 
-  const panelStyle: React.CSSProperties | undefined =
-    isPanel && panelRect
-      ? {
-          top: panelRect.top,
-          left: panelRect.left,
-          width: panelRect.width,
-          height: panelRect.height,
-        }
-      : undefined;
-
   return (
     <div
       className={cn([
@@ -103,12 +106,18 @@ export function PersistentChatPanel({
       style={
         isFloating
           ? { right: 16, bottom: 16 }
-          : (panelStyle ?? { display: "none" })
+          : isPanel && panelRect
+            ? {
+                top: panelRect.top,
+                left: panelRect.left,
+                width: panelRect.width,
+                height: panelRect.height,
+              }
+            : { display: "none" }
       }
     >
       <Resizable
-        size={isFloating ? floatingSize : { width: "100%", height: "100%" }}
-        onResizeStart={isFloating ? () => setIsResizing(true) : undefined}
+        size={isPanel ? { width: "100%", height: "100%" } : floatingSize}
         onResizeStop={
           isFloating
             ? (_, __, ___, d) => {
@@ -116,7 +125,6 @@ export function PersistentChatPanel({
                   width: prev.width + d.width,
                   height: prev.height + d.height,
                 }));
-                setIsResizing(false);
               }
             : undefined
         }
@@ -134,15 +142,16 @@ export function PersistentChatPanel({
               }
             : false
         }
-        minWidth={isFloating ? 400 : undefined}
+        minWidth={isFloating ? 320 : undefined}
         minHeight={isFloating ? 400 : undefined}
+        maxWidth={isFloating ? window.innerWidth - 32 : undefined}
+        maxHeight={isFloating ? window.innerHeight - 32 : undefined}
         bounds={isFloating ? "window" : undefined}
         className={cn([
           "pointer-events-auto flex flex-col",
           isFloating && [
-            "rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
+            "overflow-hidden rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
             "border border-neutral-200",
-            !isResizing && "transition-all duration-200",
           ],
           isPanel && "h-full w-full",
         ])}

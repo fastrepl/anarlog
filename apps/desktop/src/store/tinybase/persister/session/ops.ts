@@ -4,7 +4,6 @@ import type { Store } from "~/store/tinybase/store/main";
 
 export interface SessionOpsConfig {
   store: Store;
-  reloadSessions: () => Promise<void>;
 }
 
 let config: SessionOpsConfig | null = null;
@@ -24,17 +23,28 @@ export async function moveSessionToFolder(
   sessionId: string,
   targetFolderId: string,
 ): Promise<{ status: "ok" } | { status: "error"; error: string }> {
-  const { store, reloadSessions } = getConfig();
+  const { store } = getConfig();
+  const currentFolderId =
+    (store.getCell("sessions", sessionId, "folder_id") as string | undefined) ??
+    "";
 
-  store.setCell("sessions", sessionId, "folder_id", targetFolderId);
-
-  const result = await fsSyncCommands.moveSession(sessionId, targetFolderId);
+  const result = await fsSyncCommands.moveSession(
+    sessionId,
+    currentFolderId,
+    targetFolderId,
+  );
 
   if (result.status === "error") {
     console.error("[SessionOps] moveSession failed:", result.error);
-    await reloadSessions();
     return { status: "error", error: result.error };
   }
+
+  store.setCell(
+    "sessions",
+    result.data.sessionId,
+    "folder_id",
+    result.data.folderId,
+  );
 
   return { status: "ok" };
 }
@@ -53,19 +63,8 @@ export async function renameFolder(
   }
 
   store.transaction(() => {
-    const sessionIds = store.getRowIds("sessions");
-    for (const id of sessionIds) {
-      const folderId = store.getCell("sessions", id, "folder_id");
-      if (folderId === oldPath) {
-        store.setCell("sessions", id, "folder_id", newPath);
-      } else if (folderId?.startsWith(oldPath + "/")) {
-        store.setCell(
-          "sessions",
-          id,
-          "folder_id",
-          folderId.replace(oldPath, newPath),
-        );
-      }
+    for (const update of result.data.updates) {
+      store.setCell("sessions", update.sessionId, "folder_id", update.folderId);
     }
   });
 

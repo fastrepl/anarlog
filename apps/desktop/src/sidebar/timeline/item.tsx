@@ -113,7 +113,7 @@ function ItemBase({
         "w-full cursor-pointer rounded-lg px-3 py-2 text-left",
         multiSelected && "bg-neutral-200",
         !multiSelected && selected && "bg-neutral-200",
-        !multiSelected && !selected && "hover:bg-neutral-100",
+        !multiSelected && !selected && "hover:bg-neutral-200/50",
         ignored && "opacity-40",
       ])}
     >
@@ -133,7 +133,9 @@ function ItemBase({
             {title || <span className="text-neutral-400">Untitled</span>}
           </div>
           {displayTime && (
-            <div className="text-xs text-neutral-500">{displayTime}</div>
+            <div className="font-mono text-xs text-neutral-500">
+              {displayTime}
+            </div>
           )}
         </div>
         {calendarId && <CalendarIndicator calendarId={calendarId} />}
@@ -446,7 +448,7 @@ function formatDisplayTime(
   }
 
   const date = timezone ? new TZDate(parsed, timezone) : parsed;
-  const time = format(date, "h:mm a");
+  const time = format(date, "h:mm a").toUpperCase();
 
   if (precision === "time") {
     return time;

@@ -1,9 +1,7 @@
 import { sep } from "@tauri-apps/api/path";
 
-import type {
-  TranscriptJson,
-  TranscriptWithData,
-} from "~/store/tinybase/persister/session/types";
+import type { TranscriptJson, TranscriptWithData } from "@hypr/plugin-fs-sync";
+
 import {
   buildSessionPath,
   iterateTableRows,

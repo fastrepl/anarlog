@@ -23,6 +23,8 @@ impl SupabaseAuth {
         auth_header
             .strip_prefix("Bearer ")
             .or_else(|| auth_header.strip_prefix("bearer "))
+            .or_else(|| auth_header.strip_prefix("Token "))
+            .or_else(|| auth_header.strip_prefix("token "))
     }
 
     pub async fn verify_token(&self, token: &str) -> Result<crate::Claims, crate::Error> {
@@ -63,5 +65,39 @@ impl SupabaseAuth {
         }
 
         Ok(claims)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SupabaseAuth;
+
+    #[test]
+    fn extract_token_accepts_bearer_prefix() {
+        assert_eq!(
+            SupabaseAuth::extract_token("Bearer test-token"),
+            Some("test-token")
+        );
+        assert_eq!(
+            SupabaseAuth::extract_token("bearer test-token"),
+            Some("test-token")
+        );
+    }
+
+    #[test]
+    fn extract_token_accepts_token_prefix_for_backward_compat() {
+        assert_eq!(
+            SupabaseAuth::extract_token("Token test-token"),
+            Some("test-token")
+        );
+        assert_eq!(
+            SupabaseAuth::extract_token("token test-token"),
+            Some("test-token")
+        );
+    }
+
+    #[test]
+    fn extract_token_rejects_unknown_prefix() {
+        assert_eq!(SupabaseAuth::extract_token("Basic test-token"), None);
     }
 }

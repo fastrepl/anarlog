@@ -7,6 +7,7 @@ edition = "2024"
 default = []
 fixture = []
 specta = ["dep:specta"]
+examples = []
 
 [dependencies]
 json-patch = "4.1"
@@ -25,6 +26,9 @@ uuid = { workspace = true }
 
 tracing = { workspace = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = { workspace = true }
 objc2 = { workspace = true, features = ["exception"] }
@@ -32,3 +36,7 @@ objc2-contacts = { workspace = true, features = ["CNContactStore", "CNContact", 
 objc2-core-graphics = { workspace = true }
 objc2-event-kit = { workspace = true, features = ["EKEventStore", "EKCalendarItem", "EKCalendar", "EKParticipant", "EKObject", "EKEvent", "EKSource", "EKTypes", "EKRecurrenceRule", "EKRecurrenceEnd", "EKAlarm", "EKStructuredLocation", "EKRecurrenceDayOfWeek", "objc2-core-graphics"] }
 objc2-foundation = { workspace = true, features = ["NSDate", "NSEnumerator", "NSPredicate", "NSError", "NSNotification"] }
+
+[[example]]
+name = "repro_empty_calendars"
+required-features = ["examples"]

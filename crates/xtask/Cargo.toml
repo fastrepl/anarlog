@@ -7,4 +7,5 @@ publish = false
 [dependencies]
 anyhow = "1"
 tempfile = "3"
+toml = "0.8"
 xshell = "0.2"

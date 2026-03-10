@@ -17,6 +17,7 @@ import {
 import type { HyprUIMessage } from "~/chat/types";
 import { ElicitationProvider } from "~/contexts/elicitation";
 import { StandardTabWrapper } from "~/shared/main";
+import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -44,6 +45,7 @@ function SupportChatTabView({
   const { session } = useAuth();
 
   const stableSessionId = useStableSessionId(groupId);
+  const { user_id } = main.UI.useValues(main.STORE_ID);
   const feedbackModel = useFeedbackLanguageModel();
   const {
     tools: mcpTools,
@@ -86,27 +88,29 @@ function SupportChatTabView({
 
   return (
     <div className={cn(["flex h-full flex-col", "bg-sky-50/40"])}>
-      <ChatSession
-        key={`${stableSessionId}-${mcpToolCount}`}
-        sessionId={stableSessionId}
-        chatGroupId={groupId}
-        modelOverride={feedbackModel}
-        extraTools={mcpTools}
-        systemPromptOverride={systemPrompt}
-      >
-        {(sessionProps) => (
-          <SupportChatTabInner
-            tab={tab}
-            sessionProps={sessionProps}
-            feedbackModel={feedbackModel}
-            handleSendMessage={handleSendMessage}
-            updateChatSupportTabState={updateChatSupportTabState}
-            supportContextEntities={supportContextEntities}
-            pendingElicitation={pendingElicitation}
-            respondToElicitation={respondToElicitation}
-          />
-        )}
-      </ChatSession>
+      {user_id && (
+        <ChatSession
+          key={`${stableSessionId}-${mcpToolCount}`}
+          sessionId={stableSessionId}
+          chatGroupId={groupId}
+          modelOverride={feedbackModel}
+          extraTools={mcpTools}
+          systemPromptOverride={systemPrompt}
+        >
+          {(sessionProps) => (
+            <SupportChatTabInner
+              tab={tab}
+              sessionProps={sessionProps}
+              feedbackModel={feedbackModel}
+              handleSendMessage={handleSendMessage}
+              updateChatSupportTabState={updateChatSupportTabState}
+              supportContextEntities={supportContextEntities}
+              pendingElicitation={pendingElicitation}
+              respondToElicitation={respondToElicitation}
+            />
+          )}
+        </ChatSession>
+      )}
     </div>
   );
 }

@@ -46,7 +46,7 @@ Contents:
   - `transcript.json` — transcription data (words, timestamps, speakers)
   - `*.md` — AI-generated enhanced notes (summaries, action items)
   - `attachments/` — file attachments
-  - Audio `.wav` files — recorded audio
+  - Audio `.mp3` files — recorded audio
 - `humans/` — contact and participant data (Markdown with frontmatter)
 - `organizations/` — organization data (Markdown with frontmatter)
 - `chats/` — chat conversation data
@@ -115,7 +115,7 @@ Session metadata (`_meta.json`), transcripts (`transcript.json`), and settings (
 
 Transcript files store word-level timestamps and speaker information:
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/fs-sync/src/types.rs#L83-L119" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/types.rs#L83-L119" />
 
 ## Session directory structure
 
@@ -145,7 +145,7 @@ sessions/
 
 Here is how Char loads session content from disk — this shows exactly what files are read per session:
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/fs-sync/src/session_content.rs#L10-L110" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/fs-sync-core/src/session_content.rs#L10-L110" />
 
 ## The persister layer
 

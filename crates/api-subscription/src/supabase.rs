@@ -1,6 +1,7 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::time::Instant;
 
 use crate::error::{Result, SubscriptionError};
 
@@ -30,6 +31,10 @@ impl SupabaseClient {
         }
     }
 
+    fn with_trace_context(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        hypr_observability::with_current_trace_context(builder)
+    }
+
     pub async fn rpc<T: for<'de> Deserialize<'de>>(
         &self,
         function_name: &str,
@@ -38,16 +43,27 @@ impl SupabaseClient {
     ) -> Result<T> {
         let url = format!("{}/rest/v1/rpc/{}", self.base_url, function_name);
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .header("apikey", &self.anon_key)
-            .header("Content-Type", "application/json")
-            .json(&body.unwrap_or(Value::Object(Default::default())))
+            .with_trace_context(
+                self.http_client
+                    .post(&url)
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .header("apikey", &self.anon_key)
+                    .header("Content-Type", "application/json")
+                    .json(&body.unwrap_or(Value::Object(Default::default()))),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "rpc",
+            hyprnote.supabase.function = %function_name,
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -84,14 +100,25 @@ impl SupabaseClient {
             url.push_str(&format!("&{}={}", url_encode(key), url_encode(value)));
         }
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .header("apikey", &self.anon_key)
+            .with_trace_context(
+                self.http_client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .header("apikey", &self.anon_key),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "select",
+            hyprnote.supabase.table = %table,
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -129,16 +156,27 @@ impl SupabaseClient {
             }
         }
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .patch(&url)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .header("apikey", &self.anon_key)
-            .header("Content-Type", "application/json")
-            .json(data)
+            .with_trace_context(
+                self.http_client
+                    .patch(&url)
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .header("apikey", &self.anon_key)
+                    .header("Content-Type", "application/json")
+                    .json(data),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "update",
+            hyprnote.supabase.table = %table,
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -162,14 +200,24 @@ impl SupabaseClient {
             url_encode(user_id)
         );
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
+            .with_trace_context(
+                self.http_client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", self.service_role_key))
+                    .header("apikey", &self.service_role_key),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "admin_get_stripe_customer_id",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -200,22 +248,35 @@ impl SupabaseClient {
         // List objects in the user's folder
         let list_url = format!("{}/storage/v1/object/list/{}", self.base_url, bucket);
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .post(&list_url)
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
-            .json(&serde_json::json!({
-                "prefix": format!("{}/", user_id),
-                "limit": 1000
-            }))
+            .with_trace_context(
+                self.http_client
+                    .post(&list_url)
+                    .header("Authorization", format!("Bearer {}", self.service_role_key))
+                    .header("apikey", &self.service_role_key)
+                    .json(&serde_json::json!({
+                        "prefix": format!("{}/", user_id),
+                        "limit": 1000
+                    })),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "admin_delete_storage_objects.list",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             // Not critical — storage may be empty
-            tracing::warn!(user_id = %user_id, "failed to list storage objects, skipping cleanup");
+            tracing::warn!(
+                enduser.id = %user_id,
+                "failed to list storage objects, skipping cleanup"
+            );
             return Ok(());
         }
 
@@ -237,15 +298,25 @@ impl SupabaseClient {
             .map(|o| format!("{}/{}", user_id, o.name))
             .collect();
 
-        let _response = self
-            .http_client
-            .delete(&delete_url)
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
-            .json(&serde_json::json!({ "prefixes": prefixes }))
+        let start = Instant::now();
+        let response = self
+            .with_trace_context(
+                self.http_client
+                    .delete(&delete_url)
+                    .header("Authorization", format!("Bearer {}", self.service_role_key))
+                    .header("apikey", &self.service_role_key)
+                    .json(&serde_json::json!({ "prefixes": prefixes })),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "admin_delete_storage_objects.delete",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         Ok(())
     }
@@ -257,14 +328,24 @@ impl SupabaseClient {
             url_encode(user_id)
         );
 
+        let start = Instant::now();
         let response = self
-            .http_client
-            .delete(&url)
-            .header("Authorization", format!("Bearer {}", self.service_role_key))
-            .header("apikey", &self.service_role_key)
+            .with_trace_context(
+                self.http_client
+                    .delete(&url)
+                    .header("Authorization", format!("Bearer {}", self.service_role_key))
+                    .header("apikey", &self.service_role_key),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
+        tracing::info!(
+            service.peer.name = "supabase",
+            hyprnote.supabase.operation = "admin_delete_user",
+            http.response.status_code = response.status().as_u16(),
+            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            "supabase_request_finished"
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -285,10 +366,12 @@ impl SupabaseClient {
         let url = format!("{}/auth/v1/user", self.base_url);
 
         let response = self
-            .http_client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", auth_token))
-            .header("apikey", &self.anon_key)
+            .with_trace_context(
+                self.http_client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .header("apikey", &self.anon_key),
+            )
             .send()
             .await
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;

@@ -5,15 +5,17 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ractor::{ActorRef, registry};
+use ractor::ActorRef;
 
 use crate::{
     ListenerRuntime, SessionDataEvent,
-    actors::{AudioChunk, ChannelMode, ListenerActor, ListenerMsg, RecMsg, RecorderActor},
+    actors::{AudioChunk, ChannelMode, ListenerMsg, RecMsg},
 };
 use hypr_aec::AEC;
 use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
+
+use super::ListenerRouting;
 
 const AUDIO_AMPLITUDE_THROTTLE: Duration = Duration::from_millis(100);
 const MAX_BUFFER_CHUNKS: usize = 150;
@@ -40,7 +42,7 @@ impl Pipeline {
                 None
             } else {
                 AEC::new()
-                    .map_err(|e| tracing::warn!(error = ?e, "aec_init_failed"))
+                    .map_err(|e| tracing::warn!(error.message = ?e, "aec_init_failed"))
                     .ok()
             },
             joiner: Joiner::new(),
@@ -70,18 +72,46 @@ impl Pipeline {
         self.joiner.push_spk(chunk.data);
     }
 
-    pub(super) fn flush(&mut self, mode: ChannelMode) {
+    pub(super) fn flush(
+        &mut self,
+        mode: ChannelMode,
+        listener_routing: &ListenerRouting,
+        recorder: Option<&ActorRef<RecMsg>>,
+    ) {
         while let Some((mic, spk)) = self.joiner.pop_pair(mode) {
-            self.dispatch(mic, spk, mode);
+            self.dispatch(mic, spk, mode, listener_routing, recorder);
         }
     }
 
-    fn dispatch(&mut self, mic: Vec<f32>, spk: Vec<f32>, mode: ChannelMode) {
+    pub(super) fn on_listener_routing_changed(&mut self, listener_routing: &ListenerRouting) {
+        match listener_routing {
+            ListenerRouting::Buffering => {}
+            ListenerRouting::Attached(actor) => {
+                if !self.audio_buffer.is_empty() && self.backlog_quota < 1.0 {
+                    self.backlog_quota = 1.0;
+                }
+                self.flush_buffer_to_listener(actor);
+            }
+            ListenerRouting::Dropped => {
+                self.audio_buffer.clear();
+                self.backlog_quota = 0.0;
+            }
+        }
+    }
+
+    fn dispatch(
+        &mut self,
+        mic: Vec<f32>,
+        spk: Vec<f32>,
+        mode: ChannelMode,
+        listener_routing: &ListenerRouting,
+        recorder: Option<&ActorRef<RecMsg>>,
+    ) {
         let mut processed_mic = if let Some(aec) = &mut self.aec {
             match aec.process_streaming(&mic, &spk) {
                 Ok(processed) => processed,
                 Err(e) => {
-                    tracing::warn!(error = ?e, "aec_failed");
+                    tracing::warn!(error.message = ?e, "aec_failed");
                     mic
                 }
             }
@@ -96,8 +126,7 @@ impl Pipeline {
         self.amplitude.observe_mic(&processed_mic);
         self.amplitude.observe_spk(&processed_spk);
 
-        if let Some(cell) = registry::where_is(RecorderActor::name()) {
-            let actor: ActorRef<RecMsg> = cell.into();
+        if let Some(actor) = recorder {
             let result = match mode {
                 ChannelMode::MicOnly => actor.cast(RecMsg::AudioSingle(Arc::clone(&processed_mic))),
                 ChannelMode::SpeakerOnly => {
@@ -109,28 +138,27 @@ impl Pipeline {
                 )),
             };
             if let Err(e) = result {
-                tracing::error!(error = ?e, "failed_to_send_audio_to_recorder");
+                tracing::error!(error.message = ?e, "failed_to_send_audio_to_recorder");
             }
         }
 
-        let Some(cell) = registry::where_is(ListenerActor::name()) else {
-            self.audio_buffer.push(processed_mic, processed_spk, mode);
-            tracing::debug!(
-                actor = ListenerActor::name(),
-                buffered = self.audio_buffer.len(),
-                "listener_unavailable_buffering"
-            );
-            return;
-        };
-
-        let actor: ActorRef<ListenerMsg> = cell.into();
-
-        self.flush_buffer_to_listener(&actor, mode);
-
-        self.send_to_listener(&actor, &processed_mic, &processed_spk, mode);
+        match listener_routing {
+            ListenerRouting::Buffering => {
+                self.audio_buffer.push(processed_mic, processed_spk, mode);
+                tracing::debug!(
+                    buffered = self.audio_buffer.len(),
+                    "listener_unavailable_buffering"
+                );
+            }
+            ListenerRouting::Attached(actor) => {
+                self.flush_buffer_to_listener(actor);
+                self.send_to_listener(actor, &processed_mic, &processed_spk, mode);
+            }
+            ListenerRouting::Dropped => {}
+        }
     }
 
-    fn flush_buffer_to_listener(&mut self, actor: &ActorRef<ListenerMsg>, mode: ChannelMode) {
+    fn flush_buffer_to_listener(&mut self, actor: &ActorRef<ListenerMsg>) {
         if !self.audio_buffer.is_empty() {
             self.backlog_quota =
                 (self.backlog_quota + Self::BACKLOG_QUOTA_INCREMENT).min(Self::MAX_BACKLOG_QUOTA);
@@ -140,10 +168,8 @@ impl Pipeline {
                     break;
                 };
 
-                if buffered_mode == mode {
-                    self.send_to_listener(actor, &mic, &spk, mode);
-                    self.backlog_quota -= 1.0;
-                }
+                self.send_to_listener(actor, &mic, &spk, buffered_mode);
+                self.backlog_quota -= 1.0;
             }
         }
     }
@@ -172,7 +198,7 @@ impl Pipeline {
         };
 
         if result.is_err() {
-            tracing::warn!(actor = ListenerActor::name(), "cast_failed");
+            tracing::warn!("listener_cast_failed");
         }
     }
 }
@@ -221,6 +247,7 @@ impl AudioBuffer {
 
     fn clear(&mut self) {
         self.buffer.clear();
+        self.overflowing = false;
     }
 }
 
@@ -391,5 +418,225 @@ impl Joiner {
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::Arc;
+
+    use ractor::{Actor, ActorProcessingErr, ActorRef};
+
+    use super::*;
+    use crate::{
+        ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
+        SessionProgressEvent,
+    };
+
+    struct TestRuntime;
+
+    impl hypr_storage::StorageRuntime for TestRuntime {
+        fn global_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+
+        fn vault_base(&self) -> Result<PathBuf, hypr_storage::Error> {
+            Ok(std::env::temp_dir())
+        }
+    }
+
+    impl ListenerRuntime for TestRuntime {
+        fn emit_lifecycle(&self, _event: SessionLifecycleEvent) {}
+
+        fn emit_progress(&self, _event: SessionProgressEvent) {}
+
+        fn emit_error(&self, _event: SessionErrorEvent) {}
+
+        fn emit_data(&self, _event: SessionDataEvent) {}
+    }
+
+    enum ProbeEvent {
+        ListenerSingle,
+        ListenerDual,
+        RecorderSingle,
+        RecorderDual,
+    }
+
+    struct ListenerProbe(tokio::sync::mpsc::UnboundedSender<ProbeEvent>);
+
+    #[ractor::async_trait]
+    impl Actor for ListenerProbe {
+        type Msg = ListenerMsg;
+        type State = ();
+        type Arguments = ();
+
+        async fn pre_start(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            _args: Self::Arguments,
+        ) -> Result<Self::State, ActorProcessingErr> {
+            Ok(())
+        }
+
+        async fn handle(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            message: Self::Msg,
+            _state: &mut Self::State,
+        ) -> Result<(), ActorProcessingErr> {
+            match message {
+                ListenerMsg::AudioSingle(bytes) => {
+                    let _ = bytes.len();
+                    let _ = self.0.send(ProbeEvent::ListenerSingle);
+                }
+                ListenerMsg::AudioDual(mic, spk) => {
+                    let _ = (mic.len(), spk.len());
+                    let _ = self.0.send(ProbeEvent::ListenerDual);
+                }
+                _ => {}
+            }
+            Ok(())
+        }
+    }
+
+    struct RecorderProbe(tokio::sync::mpsc::UnboundedSender<ProbeEvent>);
+
+    #[ractor::async_trait]
+    impl Actor for RecorderProbe {
+        type Msg = RecMsg;
+        type State = ();
+        type Arguments = ();
+
+        async fn pre_start(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            _args: Self::Arguments,
+        ) -> Result<Self::State, ActorProcessingErr> {
+            Ok(())
+        }
+
+        async fn handle(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            message: Self::Msg,
+            _state: &mut Self::State,
+        ) -> Result<(), ActorProcessingErr> {
+            match message {
+                RecMsg::AudioSingle(samples) => {
+                    let _ = samples.len();
+                    let _ = self.0.send(ProbeEvent::RecorderSingle);
+                }
+                RecMsg::AudioDual(mic, spk) => {
+                    let _ = (mic.len(), spk.len());
+                    let _ = self.0.send(ProbeEvent::RecorderDual);
+                }
+                RecMsg::SetStopDispositionAndAck(_, _) => {}
+            }
+            Ok(())
+        }
+    }
+
+    fn test_pipeline() -> Pipeline {
+        Pipeline::new(Arc::new(TestRuntime), "session".to_string())
+    }
+
+    fn stereo_chunk() -> AudioChunk {
+        AudioChunk {
+            data: vec![0.25, -0.25, 0.5, -0.5],
+        }
+    }
+
+    #[tokio::test]
+    async fn buffers_until_listener_attaches_then_flushes() {
+        let mut pipeline = test_pipeline();
+
+        pipeline.ingest_mic(stereo_chunk());
+        pipeline.ingest_speaker(stereo_chunk());
+        pipeline.flush(
+            ChannelMode::MicAndSpeaker,
+            &ListenerRouting::Buffering,
+            None,
+        );
+
+        assert_eq!(pipeline.audio_buffer.len(), 1);
+
+        let (probe_tx, mut probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (listener_ref, handle) = Actor::spawn(None, ListenerProbe(probe_tx), ())
+            .await
+            .unwrap();
+
+        pipeline.on_listener_routing_changed(&ListenerRouting::Attached(listener_ref));
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(1), probe_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(event, ProbeEvent::ListenerDual));
+        assert!(pipeline.audio_buffer.is_empty());
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn dropped_listener_clears_backlog_and_stops_future_buffering() {
+        let mut pipeline = test_pipeline();
+
+        pipeline.ingest_mic(stereo_chunk());
+        pipeline.ingest_speaker(stereo_chunk());
+        pipeline.flush(
+            ChannelMode::MicAndSpeaker,
+            &ListenerRouting::Buffering,
+            None,
+        );
+        assert_eq!(pipeline.audio_buffer.len(), 1);
+
+        pipeline.on_listener_routing_changed(&ListenerRouting::Dropped);
+        assert!(pipeline.audio_buffer.is_empty());
+
+        let (probe_tx, mut probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (listener_ref, handle) = Actor::spawn(None, ListenerProbe(probe_tx), ())
+            .await
+            .unwrap();
+
+        pipeline.on_listener_routing_changed(&ListenerRouting::Attached(listener_ref));
+
+        pipeline.ingest_mic(stereo_chunk());
+        pipeline.ingest_speaker(stereo_chunk());
+        pipeline.flush(ChannelMode::MicAndSpeaker, &ListenerRouting::Dropped, None);
+
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_millis(200), probe_rx.recv())
+                .await
+                .is_err()
+        );
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn recorder_receives_audio_from_explicit_sink() {
+        let mut pipeline = test_pipeline();
+
+        let (probe_tx, mut probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (recorder_ref, handle) = Actor::spawn(None, RecorderProbe(probe_tx), ())
+            .await
+            .unwrap();
+
+        pipeline.ingest_mic(stereo_chunk());
+        pipeline.ingest_speaker(stereo_chunk());
+        pipeline.flush(
+            ChannelMode::MicAndSpeaker,
+            &ListenerRouting::Dropped,
+            Some(&recorder_ref),
+        );
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(1), probe_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(event, ProbeEvent::RecorderDual));
+
+        handle.abort();
     }
 }

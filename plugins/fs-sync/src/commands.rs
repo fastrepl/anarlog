@@ -11,7 +11,10 @@ use crate::FsSyncPluginExt;
 use crate::frontmatter::ParsedDocument;
 use crate::session::find_session_dir;
 use crate::session_content::load_session_content as load_session_content_from_fs;
-use crate::types::{CleanupTarget, ListFoldersResult, ScanResult, SessionContentData};
+use crate::types::{
+    CleanupTarget, ListFoldersResult, MoveSessionResult, RenameFolderResult, ScanResult,
+    SessionContentData,
+};
 
 macro_rules! spawn_blocking {
     ($body:expr) => {
@@ -25,10 +28,7 @@ fn resolve_session_dir<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     session_id: &str,
 ) -> Result<PathBuf, String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     Ok(find_session_dir(
         &base.join("sessions").into_std_path_buf(),
         session_id,
@@ -47,10 +47,7 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     items: Vec<(Value, String)>,
 ) -> Result<(), String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
 
     let relative_paths: Vec<String> = items
         .iter()
@@ -83,10 +80,7 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     items: Vec<(ParsedDocument, String)>,
 ) -> Result<(), String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
 
     let relative_paths: Vec<String> = items
         .iter()
@@ -145,10 +139,11 @@ pub(crate) async fn list_folders<R: tauri::Runtime>(
 pub(crate) async fn move_session<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,
+    from_folder_path: String,
     target_folder_path: String,
-) -> Result<(), String> {
+) -> Result<MoveSessionResult, String> {
     app.fs_sync()
-        .move_session(&session_id, &target_folder_path)
+        .move_session(&session_id, &from_folder_path, &target_folder_path)
         .map_err(|e| e.to_string())
 }
 
@@ -169,7 +164,7 @@ pub(crate) async fn rename_folder<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     old_path: String,
     new_path: String,
-) -> Result<(), String> {
+) -> Result<RenameFolderResult, String> {
     app.fs_sync()
         .rename_folder(&old_path, &new_path)
         .map_err(|e| e.to_string())
@@ -281,10 +276,7 @@ pub(crate) async fn scan_and_read<R: tauri::Runtime>(
     recursive: bool,
     path_filter: Option<String>,
 ) -> Result<ScanResult, String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     spawn_blocking!({
         Ok(crate::scan::scan_and_read(
             &PathBuf::from(&scan_dir),
@@ -302,10 +294,7 @@ pub(crate) async fn chat_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     chat_group_id: String,
 ) -> Result<String, String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     Ok(base.join("chats").join(&chat_group_id).to_string())
 }
 
@@ -315,10 +304,7 @@ pub(crate) async fn entity_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     dir_name: String,
 ) -> Result<String, String> {
-    let base = app
-        .settings()
-        .cached_vault_base()
-        .map_err(|e| e.to_string())?;
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
     Ok(base.join(&dir_name).to_string())
 }
 

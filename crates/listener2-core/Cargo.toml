@@ -20,6 +20,7 @@ owhisper-client = { workspace = true, features = ["argmax"] }
 owhisper-interface = { workspace = true }
 
 serde = { workspace = true }
+serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
 strum = { workspace = true, features = ["derive"] }
 tauri-specta = { workspace = true, optional = true, features = ["derive"] }

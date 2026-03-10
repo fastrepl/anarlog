@@ -98,7 +98,10 @@ impl MicInput {
         };
 
         let config = device.default_input_config().unwrap();
-        tracing::info!(sample_rate = ?config.sample_rate());
+        tracing::info!(
+            hyprnote.audio.sample_rate_hz = ?config.sample_rate(),
+            "mic_input_initialized"
+        );
 
         Ok(Self {
             _host: host,
@@ -165,7 +168,7 @@ impl MicInput {
                         }
                     },
                     move |err| {
-                        tracing::error!("an error occurred on stream: {}", err);
+                        tracing::error!(error = %err, "mic_stream_error");
                         alive_for_err.store(false, Ordering::Release);
                         waker_for_err.wake();
                     },

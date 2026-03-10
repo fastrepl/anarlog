@@ -29,7 +29,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notify<'a, R, M> {
             .manager
             .app_handle()
             .settings()
-            .cached_vault_base()?
+            .vault_base()?
             .into_std_path_buf();
         let app_handle = self.manager.app_handle().clone();
         let base_for_closure = base.clone();

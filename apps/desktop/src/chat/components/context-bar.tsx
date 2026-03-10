@@ -71,17 +71,15 @@ function ContextChip({
   const openNew = useTabs((state) => state.openNew);
   const isClickable = chip.entityKind === "session" && chip.entityId;
 
-  const handleClick = () => {
-    if (isClickable) {
-      openNew({ type: "sessions", id: chip.entityId! });
-    }
-  };
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          onClick={handleClick}
+          onClick={() => {
+            if (isClickable) {
+              openNew({ type: "sessions", id: chip.entityId! });
+            }
+          }}
           className={cn([
             "group max-w-48 min-w-0 rounded-md px-1.5 py-0.5 text-xs",
             pending
@@ -113,6 +111,58 @@ function ContextChip({
         {chip.tooltip}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function ChipList({
+  chips,
+  onRemove,
+}: {
+  chips: Array<{ chip: ContextChipProps; pending: boolean }>;
+  onRemove?: (key: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const { hasOverflow, hiddenCount } = useOverflow(ref, [chips]);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [chips.length]);
+
+  const showToggle = hasOverflow || expanded;
+
+  return (
+    <div className="flex items-start gap-1.5">
+      <div
+        ref={ref}
+        className={cn([
+          "flex min-w-0 flex-1 flex-wrap items-center gap-1.5",
+          !expanded && "max-h-[22px] overflow-hidden",
+        ])}
+      >
+        {chips.map(({ chip, pending }) => (
+          <ContextChip
+            key={chip.key}
+            chip={chip}
+            onRemove={onRemove}
+            pending={pending}
+          />
+        ))}
+      </div>
+
+      {showToggle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-neutral-500/10 px-1 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-neutral-500/20 hover:text-neutral-600"
+        >
+          {!expanded && hiddenCount > 0 && <span>+{hiddenCount}</span>}
+          <ChevronDownIcon
+            className={cn(["size-3.5", expanded && "rotate-180"])}
+          />
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -183,6 +233,26 @@ function SessionPicker({
   );
 }
 
+function AddSessionButton({ onAdd }: { onAdd: (sessionId: string) => void }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex shrink-0 items-center justify-center rounded-md bg-neutral-500/10 p-0.5 text-neutral-400 transition-colors hover:bg-neutral-500/20 hover:text-neutral-600"
+        >
+          <PlusIcon className="size-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-64 p-3">
+        <SessionPicker onSelect={onAdd} onClose={() => setOpen(false)} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function ContextBar({
   entities,
   onRemoveEntity,
@@ -206,96 +276,30 @@ export function ContextBar({
     [entities],
   );
 
-  const chipsRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const { hasOverflow, hiddenCount } = useOverflow(chipsRef, [chips]);
-
-  useEffect(() => {
-    setExpanded(false);
-  }, [chips.length]);
-
   if (chips.length === 0 && !onAddEntity) {
     return null;
   }
 
   return (
-    <div className="mx-2 rounded-t-xl border-t border-r border-l border-neutral-200 bg-neutral-100">
-      <div className="flex flex-col gap-1 px-2.5 py-2">
-        <div className="flex items-start gap-1.5">
-          <div
-            ref={chipsRef}
-            className={cn([
-              "flex min-w-0 flex-1 flex-wrap items-center gap-1.5",
-              !expanded && "max-h-[22px] overflow-hidden",
-            ])}
-          >
-            {chips.map(({ chip, pending }) => (
-              <ContextChip
-                key={chip.key}
-                chip={chip}
-                onRemove={onRemoveEntity}
-                pending={pending}
-              />
-            ))}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1.5">
-            {(hasOverflow || expanded) && (
-              <button
-                type="button"
-                onClick={() => setExpanded((v) => !v)}
-                className="inline-flex items-center gap-0.5 rounded-md bg-neutral-500/10 px-1 py-0.5 text-xs text-neutral-400 transition-colors hover:bg-neutral-500/20 hover:text-neutral-600"
-              >
-                {!expanded && hiddenCount > 0 && <span>+{hiddenCount}</span>}
-                <ChevronDownIcon
-                  className={cn(["size-3.5", expanded && "rotate-180"])}
-                />
-              </button>
-            )}
-            {onAddEntity && (
-              <AddSessionButton
-                onAdd={(sessionId) => {
-                  onAddEntity({
-                    kind: "session",
-                    key: `session:manual:${sessionId}`,
-                    source: "manual",
-                    sessionId,
-                  });
-                }}
-                open={pickerOpen}
-                onOpenChange={setPickerOpen}
-              />
-            )}
-          </div>
+    <div className="mx-2 shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-white">
+      <div className="flex items-start gap-1.5 px-2.5 py-2">
+        <div className="min-w-0 flex-1">
+          <ChipList chips={chips} onRemove={onRemoveEntity} />
         </div>
+
+        {onAddEntity && (
+          <AddSessionButton
+            onAdd={(sessionId) => {
+              onAddEntity({
+                kind: "session",
+                key: `session:manual:${sessionId}`,
+                source: "manual",
+                sessionId,
+              });
+            }}
+          />
+        )}
       </div>
     </div>
-  );
-}
-
-function AddSessionButton({
-  onAdd,
-  open,
-  onOpenChange,
-}: {
-  onAdd: (sessionId: string) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  return (
-    <Popover open={open} onOpenChange={onOpenChange}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center justify-center rounded-md bg-neutral-500/10 p-0.5 text-neutral-400 transition-colors hover:bg-neutral-500/20 hover:text-neutral-600"
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-64 p-3">
-        <SessionPicker onSelect={onAdd} onClose={() => onOpenChange(false)} />
-      </PopoverContent>
-    </Popover>
   );
 }

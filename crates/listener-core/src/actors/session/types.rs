@@ -2,12 +2,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
-use crate::ListenerRuntime;
+use crate::{ListenerRuntime, RecordingMode, TranscriptionMode};
 
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
 
 pub fn session_span(session_id: &str) -> tracing::Span {
-    tracing::info_span!("session", session_id = %session_id)
+    tracing::info_span!("session", hyprnote.session.id = %session_id)
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -16,7 +16,8 @@ pub struct SessionParams {
     pub session_id: String,
     pub languages: Vec<hypr_language::Language>,
     pub onboarding: bool,
-    pub record_enabled: bool,
+    pub transcription_mode: TranscriptionMode,
+    pub recording_mode: RecordingMode,
     pub model: String,
     pub base_url: String,
     pub api_key: String,

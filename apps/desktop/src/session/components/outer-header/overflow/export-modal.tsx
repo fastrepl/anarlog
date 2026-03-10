@@ -4,13 +4,13 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import {
+  commands as exportCommands,
+  type ExportMetadata,
+  type TranscriptItem,
+} from "@hypr/plugin-export";
 import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import {
-  commands as pdfCommands,
-  type PdfMetadata,
-  type TranscriptItem,
-} from "@hypr/plugin-pdf";
 import { json2md } from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
 
@@ -400,9 +400,9 @@ export function ExportModal({
   const buildPdfContent = (): {
     enhancedMd: string;
     transcript: { items: TranscriptItem[] } | null;
-    metadata: PdfMetadata | null;
+    metadata: ExportMetadata | null;
   } => {
-    const metadata: PdfMetadata = {
+    const metadata: ExportMetadata = {
       title: sessionTitle || "Untitled",
       createdAt: sessionCreatedAt ? formatDate(sessionCreatedAt) : "",
       participants: participantNames,
@@ -439,7 +439,7 @@ export function ExportModal({
 
       if (format === "pdf") {
         const exportContent = buildPdfContent();
-        const result = await pdfCommands.export(path, exportContent);
+        const result = await exportCommands.export(path, exportContent);
         if (result.status === "error") {
           throw new Error(result.error);
         }

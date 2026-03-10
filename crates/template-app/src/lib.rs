@@ -2,6 +2,7 @@ mod chat;
 mod enhance;
 mod title;
 mod tool;
+mod transcript_patch;
 mod types;
 mod validate;
 
@@ -9,6 +10,7 @@ pub use chat::*;
 pub use enhance::*;
 pub use title::*;
 pub use tool::*;
+pub use transcript_patch::*;
 pub use types::*;
 pub use validate::*;
 
@@ -30,6 +32,8 @@ common_derives! {
         ChatSystem(ChatSystem),
         ContextBlock(ContextBlock),
         ToolSearchSessions(ToolSearchSessions),
+        TranscriptPatchSystem(TranscriptPatchSystem),
+        TranscriptPatchUser(Box<TranscriptPatchUser>),
     }
 }
 
@@ -52,6 +56,8 @@ pub fn render(t: Template) -> Result<String, Error> {
         Template::ChatSystem(t) => askama::Template::render(&t),
         Template::ContextBlock(t) => askama::Template::render(&t),
         Template::ToolSearchSessions(t) => askama::Template::render(&t),
+        Template::TranscriptPatchSystem(t) => askama::Template::render(&t),
+        Template::TranscriptPatchUser(t) => askama::Template::render(&*t),
     }?;
 
     Ok(value)

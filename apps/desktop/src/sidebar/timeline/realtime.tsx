@@ -1,14 +1,49 @@
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useMemo, useState } from "react";
 
-import { safeParseDate } from "@hypr/utils";
+import { TZDate, format, safeParseDate } from "@hypr/utils";
 
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
 
 import { getSessionEvent } from "~/session/utils";
 
-export const CurrentTimeIndicator = forwardRef<HTMLDivElement>((_, ref) => (
-  <div ref={ref} className="py-0.5" aria-hidden />
-));
+export const CurrentTimeIndicator = forwardRef<
+  HTMLDivElement,
+  { timezone?: string; variant?: "seam" | "inside"; progress?: number }
+>(function CurrentTimeIndicator(
+  { timezone, variant = "seam", progress = 0.5 },
+  ref,
+) {
+  const currentTimeMs = useCurrentTimeMs();
+  const insideOffset = `${(1 - progress) * 100}%`;
+  const label = useMemo(() => {
+    const now = timezone
+      ? new TZDate(new Date(currentTimeMs), timezone)
+      : new Date(currentTimeMs);
+    return format(now, "h:mm a").toUpperCase();
+  }, [currentTimeMs, timezone]);
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      className={
+        variant === "inside"
+          ? "group absolute inset-x-0 z-20 h-px"
+          : "group relative z-20 h-px"
+      }
+      style={variant === "inside" ? { top: insideOffset } : undefined}
+    >
+      <div className="absolute top-0 right-3 left-3 -translate-y-1/2">
+        <div className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-red-400/90 mix-blend-multiply" />
+        <div className="relative flex h-5 items-center justify-center">
+          <div className="rounded-full bg-red-500 px-2 py-0.5 font-mono text-[11px] font-semibold text-white opacity-0 shadow-xs transition-opacity group-hover:opacity-100">
+            {label}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export function useCurrentTimeMs() {
   const [now, setNow] = useState(() => new Date().getTime());

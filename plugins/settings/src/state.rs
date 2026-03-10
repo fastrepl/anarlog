@@ -1,29 +1,29 @@
 use std::path::PathBuf;
 use tokio::sync::RwLock;
 
-pub struct State {
-    vault_base: PathBuf,
-    lock: RwLock<()>,
+pub struct StartupSnapshot {
+    startup_vault_base: PathBuf,
+    io_lock: RwLock<()>,
 }
 
-impl State {
-    pub fn new(vault_base: PathBuf) -> Self {
+impl StartupSnapshot {
+    pub fn new(startup_vault_base: PathBuf) -> Self {
         Self {
-            vault_base,
-            lock: RwLock::new(()),
+            startup_vault_base,
+            io_lock: RwLock::new(()),
         }
     }
 
-    fn path(&self) -> PathBuf {
-        hypr_storage::vault::compute_settings_path(&self.vault_base)
+    fn settings_path(&self) -> PathBuf {
+        hypr_storage::vault::compute_settings_path(&self.startup_vault_base)
     }
 
-    pub fn vault_base(&self) -> &PathBuf {
-        &self.vault_base
+    pub fn startup_vault_base(&self) -> &PathBuf {
+        &self.startup_vault_base
     }
 
     async fn read_or_default(&self) -> crate::Result<serde_json::Value> {
-        match tokio::fs::read_to_string(self.path()).await {
+        match tokio::fs::read_to_string(self.settings_path()).await {
             Ok(content) => Ok(serde_json::from_str(&content)?),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::json!({})),
             Err(e) => Err(e.into()),
@@ -31,23 +31,23 @@ impl State {
     }
 
     pub async fn load(&self) -> crate::Result<serde_json::Value> {
-        let _guard = self.lock.read().await;
+        let _guard = self.io_lock.read().await;
         self.read_or_default().await
     }
 
     pub async fn save(&self, settings: serde_json::Value) -> crate::Result<()> {
-        let _guard = self.lock.write().await;
+        let _guard = self.io_lock.write().await;
 
         let existing = self.read_or_default().await?;
         let merged = merge_settings(existing, settings);
         let content = serde_json::to_string_pretty(&merged)?;
 
-        hypr_storage::fs::atomic_write_async(&self.path(), &content).await?;
+        hypr_storage::fs::atomic_write_async(&self.settings_path(), &content).await?;
         Ok(())
     }
 
     pub fn reset(&self) -> crate::Result<()> {
-        hypr_storage::fs::atomic_write(&self.path(), "{}")?;
+        hypr_storage::fs::atomic_write(&self.settings_path(), "{}")?;
         Ok(())
     }
 }

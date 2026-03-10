@@ -13,6 +13,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { ProfileSection } from "./profile";
+import { SidebarSearchInput } from "./search-input";
 import { TimelineView } from "./timeline";
 import { ToastArea } from "./toast";
 
@@ -48,7 +49,6 @@ export function LeftSidebar() {
           "h-9 w-full py-1",
           isLinux ? "justify-between pl-3" : "justify-end pl-20",
           "shrink-0",
-          "rounded-xl bg-neutral-50",
         ])}
       >
         {isLinux && <TrafficLights />}
@@ -80,16 +80,23 @@ export function LeftSidebar() {
         </div>
       </header>
 
+      <SidebarSearchInput />
+
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
           {leftsidebar.showDevtool ? (
             <Suspense fallback={null}>
               <DevtoolView />
             </Suspense>
-          ) : showSearchResults ? (
-            <SearchResults />
           ) : (
-            <TimelineView />
+            <>
+              <div className={showSearchResults ? "h-full" : "hidden"}>
+                <SearchResults />
+              </div>
+              <div className={showSearchResults ? "hidden" : "h-full"}>
+                <TimelineView />
+              </div>
+            </>
           )}
           {!leftsidebar.showDevtool && (
             <ToastArea isProfileExpanded={isProfileExpanded} />

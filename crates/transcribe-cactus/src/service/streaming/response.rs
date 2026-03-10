@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::path::Path;
 
 use axum::extract::ws::{Message, WebSocket};
@@ -30,6 +31,7 @@ pub(super) async fn send_ws_best_effort(sender: &mut WsSender, value: &StreamRes
     let _ = sender.send(Message::Text(payload.into())).await;
 }
 
+#[cfg(test)]
 pub(super) fn build_session_metadata(model_path: &Path) -> Metadata {
     crate::service::build_metadata(model_path)
 }

@@ -14,9 +14,10 @@ import {
 } from "./realtime";
 import {
   buildTimelineBuckets,
-  calculateIndicatorIndex,
+  calculateTodayIndicatorPlacement,
   getItemTimestamp,
   type TimelineBucket,
+  type TimelineIndicatorPlacement,
   type TimelineItem,
   type TimelinePrecision,
 } from "./utils";
@@ -212,7 +213,7 @@ export function TimelineView() {
         onContextMenu={showContextMenu}
         className={cn([
           "scrollbar-hide flex h-full flex-col overflow-y-auto",
-          "rounded-xl bg-neutral-50",
+          "rounded-xl",
         ])}
       >
         {buckets.map((bucket, index) => {
@@ -223,7 +224,10 @@ export function TimelineView() {
           return (
             <div key={bucket.label}>
               {shouldRenderIndicatorBefore && (
-                <CurrentTimeIndicator ref={setCurrentTimeIndicatorRef} />
+                <CurrentTimeIndicator
+                  ref={setCurrentTimeIndicatorRef}
+                  timezone={timezone}
+                />
               )}
               <div
                 className={cn([
@@ -268,7 +272,10 @@ export function TimelineView() {
         })}
         {!hasToday &&
           (indicatorIndex === -1 || indicatorIndex === buckets.length) && (
-            <CurrentTimeIndicator ref={setCurrentTimeIndicatorRef} />
+            <CurrentTimeIndicator
+              ref={setCurrentTimeIndicatorRef}
+              timezone={timezone}
+            />
           )}
       </div>
 
@@ -326,10 +333,10 @@ function TodayBucket({
     [items],
   );
 
-  const indicatorIndex = useMemo(
+  const indicatorPlacement = useMemo<TimelineIndicatorPlacement>(
     // currentTimeMs in deps triggers updates as time passes,
     // but we use fresh Date() so indicator positions correctly when entries change immediately (new note).
-    () => calculateIndicatorIndex(entries, new Date()),
+    () => calculateTodayIndicatorPlacement(entries, new Date()),
     [entries, currentTimeMs],
   );
 
@@ -337,7 +344,7 @@ function TodayBucket({
     if (entries.length === 0) {
       return (
         <>
-          <CurrentTimeIndicator ref={registerIndicator} />
+          <CurrentTimeIndicator ref={registerIndicator} timezone={timezone} />
           <div className="px-3 py-4 text-center text-sm text-neutral-400">
             No items today
           </div>
@@ -348,11 +355,15 @@ function TodayBucket({
     const nodes: ReactNode[] = [];
 
     entries.forEach((entry, index) => {
-      if (index === indicatorIndex) {
+      if (
+        indicatorPlacement.type === "before" &&
+        index === indicatorPlacement.index
+      ) {
         nodes.push(
           <CurrentTimeIndicator
             ref={registerIndicator}
             key="current-time-indicator"
+            timezone={timezone}
           />,
         );
       }
@@ -361,7 +372,7 @@ function TodayBucket({
       const selected =
         entry.item.type === "session" && entry.item.id === selectedSessionId;
 
-      nodes.push(
+      const itemNode = (
         <TimelineItemComponent
           key={itemKey}
           item={entry.item}
@@ -370,15 +381,37 @@ function TodayBucket({
           timezone={timezone}
           multiSelected={selectedIds.includes(itemKey)}
           flatItemKeys={flatItemKeys}
-        />,
+        />
       );
+
+      if (
+        indicatorPlacement.type === "inside" &&
+        index === indicatorPlacement.index
+      ) {
+        nodes.push(
+          <div key={`${itemKey}-wrapper`} className="relative">
+            <CurrentTimeIndicator
+              ref={registerIndicator}
+              key="current-time-indicator-inside"
+              timezone={timezone}
+              variant="inside"
+              progress={indicatorPlacement.progress}
+            />
+            {itemNode}
+          </div>,
+        );
+        return;
+      }
+
+      nodes.push(itemNode);
     });
 
-    if (indicatorIndex === entries.length) {
+    if (indicatorPlacement.type === "after") {
       nodes.push(
         <CurrentTimeIndicator
           ref={registerIndicator}
           key="current-time-indicator-end"
+          timezone={timezone}
         />,
       );
     }
@@ -386,7 +419,7 @@ function TodayBucket({
     return <>{nodes}</>;
   }, [
     entries,
-    indicatorIndex,
+    indicatorPlacement,
     precision,
     registerIndicator,
     selectedSessionId,

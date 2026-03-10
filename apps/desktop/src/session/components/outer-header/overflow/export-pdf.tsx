@@ -4,12 +4,12 @@ import { FileTextIcon, Loader2Icon } from "lucide-react";
 import { useMemo } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
 import {
-  commands as pdfCommands,
-  type PdfMetadata,
+  commands as exportCommands,
+  type ExportMetadata,
   type TranscriptItem,
-} from "@hypr/plugin-pdf";
+} from "@hypr/plugin-export";
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { json2md } from "@hypr/tiptap/shared";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
@@ -226,9 +226,9 @@ export function ExportPDF({
     return (): {
       enhancedMd: string;
       transcript: { items: TranscriptItem[] } | null;
-      metadata: PdfMetadata | null;
+      metadata: ExportMetadata | null;
     } => {
-      const metadata: PdfMetadata = {
+      const metadata: ExportMetadata = {
         title: sessionTitle || "Untitled",
         createdAt: sessionCreatedAt ? formatDate(sessionCreatedAt) : "",
         participants: participantNames,
@@ -321,7 +321,7 @@ export function ExportPDF({
       const path = await join(downloadsPath, filename);
 
       const exportContent = getExportContent();
-      const result = await pdfCommands.export(path, exportContent);
+      const result = await exportCommands.export(path, exportContent);
 
       if (result.status === "error") {
         throw new Error(result.error);

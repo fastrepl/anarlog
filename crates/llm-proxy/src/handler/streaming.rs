@@ -18,28 +18,35 @@ pub(super) async fn handle_stream_response(
     let status = response.status();
     let http_status = status.as_u16();
     let latency_ms = start_time.elapsed().as_millis();
+    let span = tracing::Span::current();
     let analytics = state.config.analytics.clone();
     let api_key = state.config.api_key.clone();
     let client = state.client.clone();
     let provider = state.config.provider.clone();
 
+    span.record("http.response.status_code", http_status as i64);
+    if status.is_client_error() || status.is_server_error() {
+        hypr_observability::mark_span_as_error(&span, &http_status.to_string());
+    }
+
     tracing::info!(
-        http_status = %http_status,
-        streaming = true,
-        latency_ms = %latency_ms,
+        http.response.status_code = %http_status,
+        hyprnote.gen_ai.request.streaming = true,
+        hyprnote.duration_ms = %latency_ms,
         "llm_completion_stream_started"
     );
 
     sentry::configure_scope(|scope| {
-        scope.set_tag("upstream.status", http_status.to_string());
+        scope.set_tag("http.response.status_code", http_status.to_string());
 
         let mut ctx = BTreeMap::new();
-        ctx.insert("http_status".into(), http_status.into());
-        ctx.insert("latency_ms".into(), (latency_ms as u64).into());
-        scope.set_context("llm_response", sentry::protocol::Context::Other(ctx));
+        ctx.insert("http.response.status_code".into(), http_status.into());
+        ctx.insert("hyprnote.duration_ms".into(), (latency_ms as u64).into());
+        scope.set_context("gen_ai.response", sentry::protocol::Context::Other(ctx));
     });
 
     let upstream = response.bytes_stream();
+    let stream_span = span.clone();
 
     let output_stream = stream! {
         let mut accumulator = crate::provider::StreamAccumulator::new();
@@ -61,8 +68,14 @@ pub(super) async fn handle_stream_response(
             }
         }
 
-        if let Some(analytics) = analytics
-            && let Some(generation_id) = accumulator.generation_id {
+        if let Some(generation_id) = accumulator.generation_id {
+                stream_span.record("gen_ai.response.id", generation_id.as_str());
+                if let Some(model) = accumulator.model.as_deref() {
+                    stream_span.record("gen_ai.response.model", model);
+                }
+                stream_span.record("gen_ai.usage.input_tokens", accumulator.input_tokens as i64);
+                stream_span.record("gen_ai.usage.output_tokens", accumulator.output_tokens as i64);
+            if let Some(analytics) = analytics {
                 let event = GenerationEvent {
                     fingerprint: analytics_ctx.fingerprint,
                     user_id: analytics_ctx.user_id,
@@ -78,6 +91,7 @@ pub(super) async fn handle_stream_response(
                 };
                 report_with_cost(&*analytics, &*provider, &client, &api_key, event).await;
             }
+        }
     };
 
     let body = Body::from_stream(output_stream);

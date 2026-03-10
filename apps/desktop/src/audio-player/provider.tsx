@@ -262,7 +262,7 @@ export function AudioPlayerProvider({
     [wavesurfer],
   );
 
-  const audioExistsValue = audioExists.data ?? false;
+  const audioExistsValue = Boolean(url) || (audioExists.data ?? false);
 
   const value = useMemo<AudioPlayerContextValue>(
     () => ({

@@ -9,7 +9,7 @@ use crate::Listener2PluginExt;
 pub async fn run_batch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: core::BatchParams,
-) -> Result<(), String> {
+) -> Result<core::BatchRunOutput, String> {
     app.listener2()
         .run_batch(params)
         .await

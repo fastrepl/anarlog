@@ -133,6 +133,10 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
 }
 
 pub trait BatchSttAdapter: Clone + Default + Send + Sync + 'static {
+    fn provider_name(&self) -> &'static str {
+        "unknown"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -470,6 +474,16 @@ impl AdapterKind {
     }
 
     pub fn recommended_model_live(
+        &self,
+        languages: &[hypr_language::Language],
+    ) -> Option<&'static str> {
+        match self {
+            Self::Deepgram => DeepgramAdapter::recommended_model_live(languages),
+            _ => None,
+        }
+    }
+
+    pub fn recommended_model_batch(
         &self,
         languages: &[hypr_language::Language],
     ) -> Option<&'static str> {

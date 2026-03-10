@@ -145,7 +145,11 @@ fn setup_mic_stream(
     let mut mic_input = match AudioInput::from_mic(ctx.mic_device.clone()) {
         Ok(input) => input,
         Err(err) => {
-            tracing::error!(error = ?err, device = ?ctx.mic_device, "mic_open_failed");
+            tracing::error!(
+                error.message = ?err,
+                hyprnote.audio.device = ?ctx.mic_device,
+                "mic_open_failed"
+            );
             ctx.report_failure("mic_open_failed");
             return Err(());
         }
@@ -158,7 +162,11 @@ fn setup_mic_stream(
     {
         Ok(stream) => Ok(stream),
         Err(err) => {
-            tracing::error!(error = ?err, device = ?ctx.mic_device, "mic_stream_setup_failed");
+            tracing::error!(
+                error.message = ?err,
+                hyprnote.audio.device = ?ctx.mic_device,
+                "mic_stream_setup_failed"
+            );
             ctx.report_failure("mic_stream_setup_failed");
             Err(())
         }
@@ -176,7 +184,7 @@ fn setup_speaker_stream(
     {
         Ok(stream) => Ok(stream),
         Err(err) => {
-            tracing::error!(error = ?err, "speaker_stream_setup_failed");
+            tracing::error!(error.message = ?err, "speaker_stream_setup_failed");
             ctx.report_failure("speaker_stream_setup_failed");
             Err(())
         }
@@ -207,13 +215,17 @@ fn handle_mic_item(
             StreamResult::Continue
         }
         Some(Err(err)) => {
-            tracing::error!(error = ?err, device = ?ctx.mic_device, "mic_resample_failed");
+            tracing::error!(
+                error.message = ?err,
+                hyprnote.audio.device = ?ctx.mic_device,
+                "mic_resample_failed"
+            );
             ctx.report_failure("mic_resample_failed");
             StreamResult::Stop
         }
         None => {
             if !ctx.is_cancelled() {
-                tracing::error!(device = ?ctx.mic_device, "mic_stream_ended");
+                tracing::error!(hyprnote.audio.device = ?ctx.mic_device, "mic_stream_ended");
                 ctx.report_failure("mic_stream_ended");
             }
             StreamResult::Stop
@@ -240,7 +252,7 @@ fn handle_speaker_item(
             StreamResult::Continue
         }
         Some(Err(err)) => {
-            tracing::error!(error = ?err, "speaker_resample_failed");
+            tracing::error!(error.message = ?err, "speaker_resample_failed");
             ctx.report_failure("speaker_resample_failed");
             StreamResult::Stop
         }

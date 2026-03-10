@@ -181,14 +181,11 @@ export const StoreComponent = () => {
           },
         )
         .setQueryDefinition(
-          QUERIES.enabledAppleCalendars,
+          QUERIES.enabledCalendars,
           "calendars",
           ({ select, where }) => {
             select("provider");
-            where(
-              (getCell) =>
-                getCell("enabled") === true && getCell("provider") === "apple",
-            );
+            where("enabled", true);
           },
         )
         .setQueryDefinition(
@@ -368,7 +365,7 @@ export const QUERIES = {
   visibleVocabs: "visibleVocabs",
   sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   sessionRecordingTimes: "sessionRecordingTimes",
-  enabledAppleCalendars: "enabledAppleCalendars",
+  enabledCalendars: "enabledCalendars",
   userTemplates: "userTemplates",
 } as const;
 
@@ -459,7 +456,7 @@ interface _QueryResultRows {
     min_started_at: number;
     max_ended_at: number;
   };
-  enabledAppleCalendars: {
+  enabledCalendars: {
     provider: string;
   };
   userTemplates: {

@@ -23,6 +23,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
+import { HeaderListenButton } from "./header-listen-button";
 import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
 import { TabContentAI, TabItemAI } from "~/ai";
@@ -41,7 +42,6 @@ import { TabContentOnboarding, TabItemOnboarding } from "~/onboarding";
 import { TabContentPlugin, TabItemPlugin } from "~/plugins";
 import { loadPlugins } from "~/plugins/loader";
 import { TabContentSearch, TabItemSearch } from "~/search/advanced";
-import { Search } from "~/search/components/search";
 import { TabContentNote, TabItemNote } from "~/session";
 import { useCaretPosition } from "~/session/components/caret-position-context";
 import { TabContentSettings, TabItemSettings } from "~/settings";
@@ -151,8 +151,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
       action: handleNewNoteAndListen,
     },
   ]);
-  const [isSearchManuallyExpanded, setIsSearchManuallyExpanded] =
-    useState(false);
+
   const scrollState = useScrollState(
     tabsScrollContainerRef,
     regularTabs.length,
@@ -291,10 +290,10 @@ function Header({ tabs }: { tabs: Tab[] }) {
           </Reorder.Group>
         </div>
         {!scrollState.atStart && (
-          <div className="pointer-events-none absolute top-0 left-0 z-20 h-full w-8 bg-linear-to-r from-white to-transparent" />
+          <div className="pointer-events-none absolute top-0 left-0 z-20 h-full w-8 bg-linear-to-r from-stone-50 to-transparent" />
         )}
         {!scrollState.atEnd && (
-          <div className="pointer-events-none absolute top-0 right-0 z-20 h-full w-8 bg-linear-to-l from-white to-transparent" />
+          <div className="pointer-events-none absolute top-0 right-0 z-20 h-full w-8 bg-linear-to-l from-stone-50 to-transparent" />
         )}
       </div>
 
@@ -302,27 +301,23 @@ function Header({ tabs }: { tabs: Tab[] }) {
         data-tauri-drag-region
         className="flex h-full flex-1 items-center justify-between"
       >
-        {!isSearchManuallyExpanded && (
-          <Button
-            onClick={isOnboarding ? undefined : handleNewEmptyTab}
-            onContextMenu={isOnboarding ? undefined : showNewTabMenu}
-            disabled={isOnboarding}
-            variant="ghost"
-            size="icon"
-            className={cn([
-              "text-neutral-600",
-              isOnboarding && "cursor-not-allowed opacity-40",
-            ])}
-          >
-            <PlusIcon size={16} />
-          </Button>
-        )}
+        <Button
+          onClick={isOnboarding ? undefined : handleNewEmptyTab}
+          onContextMenu={isOnboarding ? undefined : showNewTabMenu}
+          disabled={isOnboarding}
+          variant="ghost"
+          size="icon"
+          className={cn([
+            "text-neutral-600",
+            isOnboarding && "cursor-not-allowed opacity-40",
+          ])}
+        >
+          <PlusIcon size={16} />
+        </Button>
 
         <div className="ml-auto flex h-full items-center gap-1">
+          <HeaderListenButton />
           <Update />
-          {!isOnboarding && (
-            <Search onManualExpandChange={setIsSearchManuallyExpanded} />
-          )}
         </div>
       </div>
     </div>
@@ -699,7 +694,7 @@ export function StandardTabWrapper({
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200">
+      <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         {children}
         {floatingButton}
         <StandardTabChatButton showTimeline={showTimeline} />

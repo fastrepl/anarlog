@@ -28,7 +28,9 @@ type EnhancerEvent =
 type EnhancerDeps = {
   mainStore: MainStore;
   indexes: { getSliceRowIds: (indexId: string, sliceId: string) => string[] };
-  aiTaskStore: { getState: () => Pick<TasksActions, "generate" | "getState"> };
+  aiTaskStore: {
+    getState: () => Pick<TasksActions, "generate" | "getState" | "reset">;
+  };
   getModel: () => LanguageModel | null;
   getLLMConn: () => { providerId?: string; modelId?: string } | null;
   getSelectedTemplateId: () => string | undefined;
@@ -166,6 +168,16 @@ export class EnhancerService {
     if (timer) {
       clearTimeout(timer);
       this.pendingRetries.delete(sessionId);
+    }
+  }
+
+  // Reset enhance task states so auto-enhance can re-run after transcript redo.
+  // Without this, tasks with status "success" from a prior run would be skipped.
+  resetEnhanceTasks(sessionId: string) {
+    const enhancedNoteIds = this.getEnhancedNoteIds(sessionId);
+    const { aiTaskStore } = this.deps;
+    for (const noteId of enhancedNoteIds) {
+      aiTaskStore.getState().reset(createTaskId(noteId, "enhance"));
     }
   }
 

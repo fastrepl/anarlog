@@ -146,6 +146,10 @@ impl App {
                 self.batch_running = true;
                 self.status = "Transcribing dropped audio...".into();
             }
+            BatchEvent::BatchCompleted { .. } => {
+                self.batch_running = false;
+                self.status = "Dropped audio transcription completed".into();
+            }
             BatchEvent::BatchResponseStreamed {
                 response,
                 percentage,

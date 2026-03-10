@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   buildTimelineBuckets,
+  calculateTodayIndicatorPlacement,
   getBucketInfo,
   type TimelineEventsTable,
   type TimelineSessionsTable,
@@ -34,6 +35,58 @@ describe("timeline utils", () => {
   test("getBucketInfo groups distant future months", () => {
     const info = getBucketInfo(new Date("2024-03-20T12:00:00.000Z"));
     expect(info).toMatchObject({ label: "in 2 months", precision: "date" });
+  });
+
+  test("calculateTodayIndicatorPlacement places indicator inside an active timed session", () => {
+    const placement = calculateTodayIndicatorPlacement(
+      [
+        {
+          item: {
+            type: "session",
+            id: "session-1",
+            data: {
+              title: "test",
+              created_at: "2024-01-15T11:30:00.000Z",
+              event_json: JSON.stringify({
+                started_at: "2024-01-15T11:30:00.000Z",
+                ended_at: "2024-01-15T12:30:00.000Z",
+              }),
+            },
+          },
+          timestamp: new Date("2024-01-15T11:30:00.000Z"),
+        },
+      ],
+      new Date("2024-01-15T12:00:00.000Z"),
+    );
+
+    expect(placement).toMatchObject({
+      type: "inside",
+      index: 0,
+      progress: 0.5,
+    });
+  });
+
+  test("calculateTodayIndicatorPlacement falls back to seam placement for future-only items", () => {
+    const placement = calculateTodayIndicatorPlacement(
+      [
+        {
+          item: {
+            type: "event",
+            id: "event-1",
+            data: {
+              title: "Future Event",
+              started_at: "2024-01-15T13:00:00.000Z",
+              ended_at: "2024-01-15T14:00:00.000Z",
+              has_recurrence_rules: false,
+            },
+          },
+          timestamp: new Date("2024-01-15T13:00:00.000Z"),
+        },
+      ],
+      new Date("2024-01-15T12:00:00.000Z"),
+    );
+
+    expect(placement).toEqual({ type: "after" });
   });
 
   test("buildTimelineBuckets excludes Today bucket when empty", () => {

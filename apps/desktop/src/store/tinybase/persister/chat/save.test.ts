@@ -33,6 +33,7 @@ describe("buildChatSaveOps", () => {
             content: "Hello",
             metadata: "{}",
             parts: "[]",
+            status: "ready",
           },
         },
       };
@@ -60,6 +61,7 @@ describe("buildChatSaveOps", () => {
               content: "Hello",
               metadata: "{}",
               parts: "[]",
+              status: "ready",
             },
           ],
         },

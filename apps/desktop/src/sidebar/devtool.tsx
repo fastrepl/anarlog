@@ -54,13 +54,19 @@ function DevtoolCard({
 function NavigationCard() {
   const openNew = useTabs((s) => s.openNew);
 
-  const handleShowMain = useCallback(() => {
-    void windowsCommands.windowShow({ type: "main" });
+  const showMainWindow = useCallback(async () => {
+    await windowsCommands.windowShow({ type: "main" });
   }, []);
 
-  const handleShowOnboarding = useCallback(() => {
+  const handleShowEmptyTab = useCallback(async () => {
+    await showMainWindow();
+    openNew({ type: "empty" });
+  }, [openNew, showMainWindow]);
+
+  const handleShowOnboarding = useCallback(async () => {
+    await showMainWindow();
     openNew({ type: "onboarding" });
-  }, [openNew]);
+  }, [openNew, showMainWindow]);
 
   const handleShowControl = useCallback(() => {
     void windowsCommands.windowShow({ type: "control" });
@@ -81,7 +87,7 @@ function NavigationCard() {
       <div className="flex flex-col gap-1.5">
         <button
           type="button"
-          onClick={handleShowOnboarding}
+          onClick={() => void handleShowOnboarding()}
           className={cn([
             "w-full rounded-md px-2.5 py-1.5",
             "text-left text-xs font-medium",
@@ -90,11 +96,11 @@ function NavigationCard() {
             "hover:border-neutral-300 hover:bg-neutral-50",
           ])}
         >
-          Onboarding
+          Onboarding Tab
         </button>
         <button
           type="button"
-          onClick={handleShowMain}
+          onClick={() => void handleShowEmptyTab()}
           className={cn([
             "w-full rounded-md px-2.5 py-1.5",
             "text-left text-xs font-medium",
@@ -103,7 +109,7 @@ function NavigationCard() {
             "hover:border-neutral-300 hover:bg-neutral-50",
           ])}
         >
-          Main
+          Empty Tab
         </button>
         <button
           type="button"

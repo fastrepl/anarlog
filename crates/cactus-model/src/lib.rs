@@ -44,6 +44,12 @@ pub enum CactusSttModel {
     #[serde(rename = "cactus-parakeet-ctc-0.6b-int8-apple")]
     #[strum(serialize = "cactus-parakeet-ctc-0.6b-int8-apple")]
     ParakeetCtc0_6bInt8Apple,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int4")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int4")]
+    ParakeetTdt0_6bV3Int4,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int8")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int8")]
+    ParakeetTdt0_6bV3Int8,
 }
 
 impl CactusSttModel {
@@ -60,6 +66,8 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4Apple,
             CactusSttModel::ParakeetCtc0_6bInt8,
             CactusSttModel::ParakeetCtc0_6bInt8Apple,
+            CactusSttModel::ParakeetTdt0_6bV3Int4,
+            CactusSttModel::ParakeetTdt0_6bV3Int8,
         ]
     }
 
@@ -71,6 +79,13 @@ impl CactusSttModel {
                 | CactusSttModel::WhisperMediumInt8Apple
                 | CactusSttModel::ParakeetCtc0_6bInt4Apple
                 | CactusSttModel::ParakeetCtc0_6bInt8Apple
+        )
+    }
+
+    pub fn is_cross_platform(&self) -> bool {
+        matches!(
+            self,
+            CactusSttModel::ParakeetTdt0_6bV3Int4 | CactusSttModel::ParakeetTdt0_6bV3Int8
         )
     }
 
@@ -87,6 +102,8 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4Apple => "cactus-parakeet-ctc-0.6b-int4-apple",
             CactusSttModel::ParakeetCtc0_6bInt8 => "cactus-parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "cactus-parakeet-ctc-0.6b-int8-apple",
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => "cactus-parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => "cactus-parakeet-tdt-0.6b-v3-int8",
         }
     }
 
@@ -103,6 +120,8 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4Apple => "parakeet-ctc-0.6b-int4-apple",
             CactusSttModel::ParakeetCtc0_6bInt8 => "parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "parakeet-ctc-0.6b-int8-apple",
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => "parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => "parakeet-tdt-0.6b-v3-int8",
         }
     }
 
@@ -136,6 +155,12 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(
                 "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8-apple.zip",
             ),
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
+            ),
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
+            ),
             _ => None,
         }
     }
@@ -150,6 +175,8 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(3331802527),
             CactusSttModel::ParakeetCtc0_6bInt8 => Some(1392473619),
             CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(3465847421),
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(4186460235),
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(1102737485),
             _ => None,
         }
     }
@@ -178,6 +205,8 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4Apple => "Parakeet CTC 0.6B (INT4, Apple NPU)",
             CactusSttModel::ParakeetCtc0_6bInt8 => "Parakeet CTC 0.6B (INT8)",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "Parakeet CTC 0.6B (INT8, Apple NPU)",
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => "Parakeet TDT 0.6B v3 (INT4)",
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => "Parakeet TDT 0.6B v3 (INT8)",
         }
     }
 
@@ -186,7 +215,9 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt4
             | CactusSttModel::ParakeetCtc0_6bInt4Apple
             | CactusSttModel::ParakeetCtc0_6bInt8
-            | CactusSttModel::ParakeetCtc0_6bInt8Apple => {
+            | CactusSttModel::ParakeetCtc0_6bInt8Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int4
+            | CactusSttModel::ParakeetTdt0_6bV3Int8 => {
                 vec!["en".parse().unwrap()]
             }
             _ => hypr_language::whisper_multilingual(),

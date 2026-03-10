@@ -89,12 +89,8 @@ if (env.VITE_SENTRY_DSN) {
       ? `hyprnote-desktop@${env.VITE_APP_VERSION}`
       : undefined,
     environment: import.meta.env.MODE,
-    tracePropagationTargets: [env.VITE_API_URL],
-    integrations: [
-      Sentry.tanstackRouterBrowserTracingIntegration(router),
-      Sentry.replayIntegration(),
-    ],
-    tracesSampleRate: 1.0,
+    tracePropagationTargets: [],
+    integrations: [Sentry.replayIntegration()],
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
   });

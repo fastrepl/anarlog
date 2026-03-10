@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+pub use hypr_fs_format::{
+    TranscriptJson, TranscriptSpeakerHint, TranscriptWithData, TranscriptWord,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -13,6 +16,26 @@ pub struct FolderInfo {
 pub struct ListFoldersResult {
     pub folders: HashMap<String, FolderInfo>,
     pub session_folder_map: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct FolderSessionUpdate {
+    pub session_id: String,
+    pub folder_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveSessionResult {
+    pub session_id: String,
+    pub folder_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct RenameFolderResult {
+    pub updates: Vec<FolderSessionUpdate>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -112,48 +135,6 @@ impl<'de> Deserialize<'de> for SessionMetaData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct TranscriptWord {
-    pub id: Option<String>,
-    pub text: String,
-    pub start_ms: i64,
-    pub end_ms: i64,
-    pub channel: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct TranscriptSpeakerHint {
-    #[serde(default)]
-    pub id: Option<String>,
-    pub word_id: String,
-    #[serde(rename = "type")]
-    pub hint_type: String,
-    #[serde(default)]
-    pub value: serde_json::Value,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct TranscriptEntry {
-    pub id: String,
-    #[serde(default)]
-    pub user_id: Option<String>,
-    #[serde(default)]
-    pub created_at: Option<String>,
-    pub session_id: String,
-    #[serde(default)]
-    pub started_at: Option<i64>,
-    #[serde(default)]
-    pub ended_at: Option<i64>,
-    pub words: Vec<TranscriptWord>,
-    #[serde(default)]
-    pub speaker_hints: Vec<TranscriptSpeakerHint>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct TranscriptData {
-    pub transcripts: Vec<TranscriptEntry>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionNoteData {
     pub id: String,
@@ -172,6 +153,6 @@ pub struct SessionContentData {
     pub meta: Option<SessionMetaData>,
     pub raw_memo_tiptap_json: Option<serde_json::Value>,
     pub raw_memo_markdown: Option<String>,
-    pub transcript: Option<TranscriptData>,
+    pub transcript: Option<TranscriptJson>,
     pub notes: Vec<SessionNoteData>,
 }

@@ -2,8 +2,10 @@
 meta_title: "Best Open Source Meeting Transcription Software in 2026"
 display_title: "Open Source Alternatives to Otter AI and Fireflies"
 meta_description: "Review of the best open source meeting transcription tools you can fork, self-host, and customize. Compare features, pricing, and deployment options."
-author: "Harshika"
+author:
+  - "Harshika"
 coverImage: "/api/images/blog/open-source-meeting-transcription-software/cover.png"
+featured: false
 category: "Comparisons"
 date: "2025-10-23"
 ---
@@ -14,7 +16,8 @@ We'll compare Char, Meetily, and Amical—the only three open-source meeting tra
 
 ## What are the best open-source meeting transcription software?
 
-| Feature                | Char                            | Meetily                   | Amical                       |
+
+| Feature                | Char                                | Meetily                   | Amical                       |
 | ---------------------- | ----------------------------------- | ------------------------- | ---------------------------- |
 | **Best For**           | Control over data and AI stack      | Pure transcription needs  | Hands-free typing everywhere |
 | **Transcription**      | Real-time via Whisper               | Real-time via Whisper.cpp | Real-time via Whisper        |
@@ -26,6 +29,7 @@ We'll compare Char, Meetily, and Amical—the only three open-source meeting tra
 | **Individual Use**     | Free forever                        | Free (MIT license)        | Free (MIT license)           |
 | **Organization Plans** | Pro ($8), Enterprise (custom)       | Custom (2-100 users)      | None currently               |
 | **GitHub Stars**       | 6.4k+                               | 7.8k+                     | 96                           |
+
 
 ## Top open-source meeting transcription software: detailed reviews
 
@@ -39,39 +43,39 @@ While you're writing, Char listens to both your microphone and system audio. Onc
 
 **Available as:** Native Mac app (desktop application, Windows coming soon)
 
-<Image src="/api/images/blog/open-source-meeting-transcription-software/hyprnote.webp" alt="Char"/>
+![Char](/api/images/blog/open-source-meeting-transcription-software/hyprnote.webp)
 
-#### Top features
+#### **Top Features**
 
-- **On-device transcription with Whisper models:** Choose from Tiny, Base, or V3 Large Turbo models that run entirely on your device. No cloud processing required for transcription.
-- **Custom HyperLLM-V1 for meeting summaries:** Open source, 1.1GB model specifically trained for meeting summarization. Runs locally and outperforms generic cloud models.
-- **Bot-free meeting capture:** Records system audio and microphone directly without joining as a participant. Works with any platform—Zoom, Teams, Meet, or in-person meetings.
-- **Open source transparency (GPL-3.0):** Full code available on GitHub for security audits and customization. Verify exactly how your data is processed.
-- **Manual notes + AI transcription:** Combines what you type during meetings with full transcript for context-aware summaries. Your judgment guides the AI.
-- **Self-hosting capability:** Enterprise deployments can run entirely on-premises with complete infrastructure control for compliance requirements.
-- **Bring your own AI provider:** Connect OpenAI, Gemini, Claude, or local models via Ollama. Not locked into a single vendor's API.
-- **Offline capable:** Transcribe and summarize meetings with zero internet connectivity. Models run locally on your Mac.
-- **Export without lock-in:** Save transcripts and summaries as Markdown, PDF, or Rich Text. Your data in open formats you control.
-- **Source-level verification:** Hover over AI summaries to see exact transcript quotes. Trace every claim back to what was actually said.
+- Multiple deployment options: keep everything on your device, deploy on your own servers, or use the managed cloud service
+- Real-time transcription with no bots or calendar permissions required
+- Works with Zoom, Teams, Google Meet, and in-person meetings without any setup
+- Your choice of AI: managed cloud, bring your own API keys (OpenAI, Anthropic, Mistral, and others), or run local models via Ollama or LM Studio
+- AI chat to query your transcripts and search across your entire meeting history
+- Custom templates for different meeting types
+- Import existing recordings or transcripts
+- 45+ language support including English, Spanish, French, German, Japanese, and more
+- Floating panel and keyboard shortcuts for quick recording controls
+- Smart consent management for enterprises with options from simple pop-ups to verbal consent recognition
 
-#### Pros
+**Pros**
 
-- Only tool that combines your typed notes with transcripts
-- HyperLLM-V1 built specifically for summarization, not generic AI
-- Cleanest interface, no security warnings, simplest setup
-- Offers autonomy controls to adjust how much AI modifies your notes vs sticking to what you wrote
-- Purpose-built for meeting transcription, not adapted from dictation
+- Your choice of AI stack: managed cloud, bring your own keys, or run local models
+- Free forever for local transcription, BYOK, and all core features
+- Can work completely offline, suitable for air-gapped environments
+- Open source codebase allows for inspection, customization, and community contributions
+- Plain markdown files work with Obsidian, Notion, VS Code, or any text editor
 
-#### Cons
+**Cons**
 
-- macOS only (requires Sonoma 14.2+, Windows coming soon)
+- macOS only currently (Windows and Linux versions coming soon)
 - No mobile app currently available
 
 #### Pricing
 
-Free forever for local transcription, BYOK, and all core features. Managed cloud service is $8/month for the easiest setup. Enterprise offers on-premises deployment.
+Free forever for local transcription, BYOK, and all core features. Managed cloud service is $25/month for the easiest setup. Enterprise offers on-premises deployment.
 
-<CtaCard/>
+&nbsp;
 
 ### 2. Meetily
 
@@ -79,7 +83,7 @@ Free forever for local transcription, BYOK, and all core features. Managed cloud
 
 **Available as:** Native apps for Windows, macOS, and Linux
 
-<Image src="/api/images/blog/open-source-meeting-transcription-software/meetily.webp" alt="Meetily"/>
+![Meetily](/api/images/blog/open-source-meeting-transcription-software/meetily.webp)
 
 #### Top features
 
@@ -117,7 +121,7 @@ Free for individuals under MIT license. Organizational (2-100 users) and enterpr
 
 **Available as:** Mac app (desktop application, Windows support in progress)
 
-<Image src="/api/images/blog/open-source-meeting-transcription-software/amical.webp" alt="Amical"/>
+![Amical](/api/images/blog/open-source-meeting-transcription-software/amical.webp)
 
 #### Top features
 
@@ -166,7 +170,7 @@ Ready to try it? [Download Char for macOS](/download) or [check out the source c
 
 ### 1. Are open-source transcription tools really free?
 
-Yes, all three are open source. Char and Amical are free for all users. Char is free forever for local transcription and BYOK. The managed cloud service is $8/month, and Enterprise tier has custom pricing.
+Yes, all three are open source. Char and Amical are free for all users. Char is free forever for local transcription and BYOK. The managed cloud service is $25/month, and Enterprise tier has custom pricing.
 
 Meetily is free for individual users under the MIT license. Organizations (2-100 users) and enterprises (100+ users) can request custom plans, but pricing isn't publicly listed.
 
@@ -188,4 +192,4 @@ Because processing happens locally by default, these tools simplify compliance s
 
 Organizations needing formal compliance documentation can use Char or Meetily's enterprise plans, which include dedicated support.
 
-<CtaCard/>
+&nbsp;

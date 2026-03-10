@@ -21,12 +21,14 @@ async fn submit(
         .append_pair("smart_format", "true")
         .append_pair("utterances", "true");
 
-    let response = client
-        .post(url)
-        .header("Authorization", format!("Token {api_key}"))
-        .json(&serde_json::json!({ "url": audio_url }))
-        .send()
-        .await?;
+    let response = hypr_observability::with_current_trace_context(
+        client
+            .post(url)
+            .header("Authorization", format!("Token {api_key}"))
+            .json(&serde_json::json!({ "url": audio_url })),
+    )
+    .send()
+    .await?;
 
     if !response.status().is_success() {
         return Err(Error::UnexpectedStatus {

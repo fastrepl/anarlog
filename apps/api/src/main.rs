@@ -1,5 +1,6 @@
 mod auth;
 mod env;
+mod observability;
 mod openapi;
 mod rate_limit;
 
@@ -7,16 +8,18 @@ use std::net::SocketAddr;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::SystemTime;
 
-use axum::{Router, body::Body, extract::MatchedPath, http::Request, middleware};
+use axum::{Router, body::Body, extract::MatchedPath, http::HeaderMap, http::Request, middleware};
 use sentry::integrations::tower::{NewSentryLayer, SentryHttpLayer};
+use sentry::protocol::{Context, Value};
 use tower::ServiceBuilder;
 use tower_http::{
     classify::ServerErrorsFailureClass,
     cors::{self, CorsLayer},
+    request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer},
     trace::TraceLayer,
 };
-use tracing_subscriber::prelude::*;
 
 use auth::AuthState;
 use env::env;
@@ -24,6 +27,52 @@ use env::env;
 use crate::env::Env;
 
 pub const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
+pub const REQUEST_ID_HEADER: &str = "x-request-id";
+
+fn forwarded_header_value(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+fn request_scheme(request: &Request<Body>) -> String {
+    forwarded_header_value(request.headers(), "x-forwarded-proto")
+        .or_else(|| request.uri().scheme_str().map(ToString::to_string))
+        .unwrap_or_else(|| "http".to_string())
+}
+
+fn request_server_endpoint(request: &Request<Body>, scheme: &str) -> (Option<String>, Option<u16>) {
+    let authority = forwarded_header_value(request.headers(), "x-forwarded-host")
+        .or_else(|| {
+            request
+                .headers()
+                .get("host")
+                .and_then(|value| value.to_str().ok())
+                .map(ToString::to_string)
+        })
+        .or_else(|| request.uri().host().map(ToString::to_string));
+    let Some(authority) = authority else {
+        return (None, None);
+    };
+    let authority = authority.trim();
+    if authority.is_empty() {
+        return (None, None);
+    }
+    let Ok(url) = reqwest::Url::parse(&format!("{scheme}://{authority}")) else {
+        return (Some(authority.to_string()), None);
+    };
+    let host = url.host_str().map(ToString::to_string);
+    let port = url.port_or_known_default();
+    (host, port)
+}
+
+fn request_client_address(request: &Request<Body>) -> Option<String> {
+    forwarded_header_value(request.headers(), "x-forwarded-for")
+}
 
 async fn app() -> Router {
     let env = env();
@@ -168,10 +217,15 @@ async fn app() -> Router {
             CorsLayer::new()
                 .allow_origin(cors::Any)
                 .allow_methods(cors::Any)
-                .allow_headers(cors::Any),
+                .allow_headers(cors::Any)
+                .expose_headers([axum::http::header::HeaderName::from_static(
+                    REQUEST_ID_HEADER,
+                )]),
         )
         .layer(
             ServiceBuilder::new()
+                .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
+                .layer(PropagateRequestIdLayer::x_request_id())
                 .layer(NewSentryLayer::<Request<Body>>::new_from_top())
                 .layer(SentryHttpLayer::new().enable_transaction())
                 .layer(
@@ -189,35 +243,80 @@ async fn app() -> Router {
                                 .get::<MatchedPath>()
                                 .map(MatchedPath::as_str)
                                 .unwrap_or(path);
-                            let (service, span_op) = match path {
+                            let scheme = request_scheme(request);
+                            let (server_address, server_port) =
+                                request_server_endpoint(request, &scheme);
+                            let client_address = request_client_address(request);
+                            let span_op = match path {
                                 p if p.starts_with("/llm")
                                     || p.starts_with("/chat/completions") =>
                                 {
-                                    ("llm", "http.server.llm")
+                                    "http.server.llm"
                                 }
                                 p if p.starts_with("/stt") || p.starts_with("/listen") => {
-                                    ("stt", "http.server.stt")
+                                    "http.server.stt"
                                 }
-                                _ => ("unknown", "http.server"),
+                                _ => "http.server",
                             };
 
-                            tracing::info_span!(
+                            let span = tracing::info_span!(
                                 "http_request",
-                                method = %method,
+                                http.request.method = %method,
                                 http.route = %matched_path,
-                                service = %service,
+                                url.path = %path,
+                                url.scheme = %scheme,
+                                http.response.status_code = tracing::field::Empty,
+                                server.address = tracing::field::Empty,
+                                server.port = tracing::field::Empty,
+                                client.address = tracing::field::Empty,
+                                hyprnote.subsystem = "edge",
+                                enduser.id = tracing::field::Empty,
+                                enduser.pseudo.id = tracing::field::Empty,
+                                hyprnote.stt.provider.name = tracing::field::Empty,
+                                hyprnote.stt.routing_strategy = tracing::field::Empty,
+                                hyprnote.stt.model = tracing::field::Empty,
+                                hyprnote.stt.language_codes = tracing::field::Empty,
+                                hyprnote.audio.sample_rate_hz = tracing::field::Empty,
+                                hyprnote.audio.channel_count = tracing::field::Empty,
+                                gen_ai.provider.name = tracing::field::Empty,
+                                hyprnote.gen_ai.request.streaming = tracing::field::Empty,
+                                hyprnote.gen_ai.request.message_count = tracing::field::Empty,
+                                hyprnote.request.id = tracing::field::Empty,
+                                error.type = tracing::field::Empty,
+                                otel.status_code = tracing::field::Empty,
+                                otel.kind = "server",
                                 otel.name = %format!("{} {}", method, matched_path),
                                 span.op = %span_op,
-                            )
+                            );
+                            if let Some(server_address) = server_address.as_deref() {
+                                span.record("server.address", server_address);
+                            }
+                            if let Some(server_port) = server_port {
+                                span.record("server.port", server_port as i64);
+                            }
+                            if let Some(client_address) = client_address.as_deref() {
+                                span.record("client.address", client_address);
+                            }
+                            hypr_observability::set_remote_parent(&span, request.headers());
+                            span
                         })
-                        .on_request(|request: &Request<Body>, _span: &tracing::Span| {
+                        .on_request(|request: &Request<Body>, span: &tracing::Span| {
                             // Skip logging for health checks
                             if request.uri().path() == "/health" {
                                 return;
                             }
+                            if let Some(request_id) = request
+                                .headers()
+                                .get(REQUEST_ID_HEADER)
+                                .and_then(|v| v.to_str().ok())
+                            {
+                                span.record("hyprnote.request.id", request_id);
+                            }
+                            configure_sentry_trace_scope(span, env, SystemTime::now());
                             tracing::info!(
-                                method = %request.method(),
-                                path = %request.uri().path(),
+                                parent: span,
+                                http.request.method = %request.method(),
+                                url.path = %request.uri().path(),
                                 "http_request_started"
                             );
                         })
@@ -228,10 +327,20 @@ async fn app() -> Router {
                                 if span.is_disabled() {
                                     return;
                                 }
+                                span.record(
+                                    "http.response.status_code",
+                                    response.status().as_u16() as i64,
+                                );
+                                if response.status().is_server_error() {
+                                    hypr_observability::mark_span_as_error(
+                                        span,
+                                        &response.status().as_u16().to_string(),
+                                    );
+                                }
                                 tracing::info!(
                                     parent: span,
-                                    http_status = %response.status().as_u16(),
-                                    latency_ms = %latency.as_millis(),
+                                    http.response.status_code = %response.status().as_u16(),
+                                    hyprnote.duration_ms = %latency.as_millis(),
                                     "http_request_finished"
                                 );
                             },
@@ -243,10 +352,20 @@ async fn app() -> Router {
                                 if span.is_disabled() {
                                     return;
                                 }
+                                let error_type = match &failure_class {
+                                    ServerErrorsFailureClass::StatusCode(status) => {
+                                        status.as_u16().to_string()
+                                    }
+                                    ServerErrorsFailureClass::Error(_) => {
+                                        "http_server_failure".to_string()
+                                    }
+                                };
+                                hypr_observability::mark_span_as_error(span, error_type.as_str());
                                 tracing::error!(
                                     parent: span,
-                                    failure_class = ?failure_class,
-                                    latency_ms = %latency.as_millis(),
+                                    error.type = %error_type,
+                                    error = %failure_class,
+                                    hyprnote.duration_ms = %latency.as_millis(),
                                     "http_request_failed"
                                 );
                             },
@@ -300,17 +419,11 @@ fn main() -> std::io::Result<()> {
     });
 
     sentry::configure_scope(|scope| {
-        scope.set_tag("service", "hyprnote-api");
+        scope.set_tag("service.namespace", "hyprnote");
+        scope.set_tag("service.name", "api");
     });
 
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .with(sentry::integrations::tracing::layer())
-        .init();
+    let observability = observability::init("api", &env.observability);
 
     hypr_transcribe_proxy::ApiKeys::from(&env.stt.stt).log_configured_providers();
 
@@ -331,6 +444,7 @@ fn main() -> std::io::Result<()> {
     if let Some(client) = sentry::Hub::current().client() {
         client.close(Some(Duration::from_secs(2)));
     }
+    observability.shutdown();
 
     Ok(())
 }
@@ -347,5 +461,65 @@ async fn openapi_json() -> axum::Json<utoipa::openapi::OpenApi> {
 }
 
 async fn version() -> &'static str {
-    option_env!("VERGEN_GIT_SHA").unwrap_or("unknown")
+    option_env!("APP_VERSION").unwrap_or("unknown")
+}
+
+fn configure_sentry_trace_scope(span: &tracing::Span, env: &Env, request_started_at: SystemTime) {
+    let Some(trace_identifiers) = hypr_observability::span_identifiers(span) else {
+        return;
+    };
+
+    let trace_url = build_honeycomb_trace_url(env, &trace_identifiers, request_started_at);
+    sentry::configure_scope(|scope| {
+        scope.set_tag(
+            "hyprnote.honeycomb.trace_id",
+            trace_identifiers.trace_id.as_str(),
+        );
+        scope.set_tag(
+            "hyprnote.honeycomb.span_id",
+            trace_identifiers.span_id.as_str(),
+        );
+        if let Some(trace_url) = trace_url.as_deref() {
+            scope.set_tag("hyprnote.honeycomb.trace_url", trace_url);
+        }
+
+        let mut context = std::collections::BTreeMap::new();
+        context.insert("trace_id".into(), Value::String(trace_identifiers.trace_id));
+        context.insert("span_id".into(), Value::String(trace_identifiers.span_id));
+        if let Some(trace_url) = trace_url {
+            context.insert("trace_url".into(), Value::String(trace_url));
+        }
+        scope.set_context("hyprnote.honeycomb", Context::Other(context));
+    });
+}
+
+fn build_honeycomb_trace_url(
+    env: &Env,
+    trace_identifiers: &hypr_observability::TraceIdentifiers,
+    request_started_at: SystemTime,
+) -> Option<String> {
+    let team = env.observability.honeycomb_ui_team.as_deref()?;
+    let environment = env.observability.honeycomb_ui_environment.as_deref()?;
+    let base_url = env
+        .observability
+        .honeycomb_ui_base_url
+        .as_deref()
+        .unwrap_or("https://ui.honeycomb.io")
+        .trim_end_matches('/');
+    let trace_start_ts = request_started_at
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .ok()?
+        .as_secs()
+        .to_string();
+
+    let mut url = url::Url::parse(&format!(
+        "{base_url}/{team}/environments/{environment}/trace"
+    ))
+    .ok()?;
+    url.query_pairs_mut()
+        .append_pair("trace_id", trace_identifiers.trace_id.as_str())
+        .append_pair("span", trace_identifiers.span_id.as_str())
+        .append_pair("trace_start_ts", trace_start_ts.as_str());
+
+    Some(url.into())
 }

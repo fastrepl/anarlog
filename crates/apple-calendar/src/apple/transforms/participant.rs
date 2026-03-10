@@ -19,7 +19,6 @@ pub fn transform_participant(
     let role = transform_participant_role(unsafe { participant.participantRole() });
     let status = transform_participant_status(unsafe { participant.participantStatus() });
     let participant_type = transform_participant_type(unsafe { participant.participantType() });
-    let schedule_status = contacts::safe_participant_schedule_status(participant);
 
     let url = unsafe {
         let url_obj: Option<Retained<NSURL>> = msg_send![participant, URL];
@@ -40,7 +39,6 @@ pub fn transform_participant(
         role,
         status,
         participant_type,
-        schedule_status,
         url,
         contact,
     }

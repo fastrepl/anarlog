@@ -59,11 +59,11 @@ pub async fn create_session(
             }
             Err(hypr_nango::Error::Api(404, response_body)) => {
                 tracing::warn!(
-                    user_id = %user_id,
-                    integration_id = %body.integration_id,
-                    connection_id = %existing.connection_id,
-                    connection_status = %existing.status,
-                    response_body,
+                    enduser.id = %user_id,
+                    hyprnote.integration.id = %body.integration_id,
+                    hyprnote.connection.id = %existing.connection_id,
+                    hyprnote.connection.status = %existing.status,
+                    hyprnote.http.response.body = %response_body,
                     "reconnect session failed with not found, cleaning stale local row"
                 );
                 state

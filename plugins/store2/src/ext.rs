@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use tauri_plugin_settings::SettingsPluginExt;
-
 static SCOPE_LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -17,9 +15,19 @@ fn get_scope_lock(scope: &str) -> Arc<Mutex<()>> {
 
 pub const FILENAME: &str = "store.json";
 
+fn resolve_store_dir<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<PathBuf, crate::Error> {
+    let bundle_id: &str = app.config().identifier.as_ref();
+    let global_base = hypr_storage::global::compute_default_base(bundle_id)
+        .ok_or(hypr_storage::Error::DataDirUnavailable)?;
+    std::fs::create_dir_all(&global_base)?;
+
+    Ok(hypr_storage::vault::resolve_custom(&global_base, &global_base).unwrap_or(global_base))
+}
+
 pub fn store_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, crate::Error> {
-    let store_dir = app.settings().global_base()?;
-    Ok(store_dir.join(FILENAME).into_std_path_buf())
+    Ok(resolve_store_dir(app)?.join(FILENAME))
 }
 
 pub struct Store2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {

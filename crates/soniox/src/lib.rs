@@ -111,16 +111,18 @@ pub async fn create_transcription(
     body: &impl Serialize,
     api_key: &str,
 ) -> Result<String, Error> {
-    let response = client
-        .post(format!("{API_HOST}/v1/transcriptions"))
-        .header("Authorization", format!("Bearer {api_key}"))
-        .json(body)
-        .send()
-        .await
-        .map_err(|e| Error {
-            message: format!("request failed: {e}"),
-            is_retryable: true,
-        })?;
+    let response = hypr_observability::with_current_trace_context(
+        client
+            .post(format!("{API_HOST}/v1/transcriptions"))
+            .header("Authorization", format!("Bearer {api_key}"))
+            .json(body),
+    )
+    .send()
+    .await
+    .map_err(|e| Error {
+        message: format!("request failed: {e}"),
+        is_retryable: true,
+    })?;
 
     let status = response.status().as_u16();
     if !response.status().is_success() {
@@ -151,17 +153,19 @@ pub async fn fetch_transcript(
     transcription_id: &str,
     api_key: &str,
 ) -> Result<TranscriptResponse, Error> {
-    let response = client
-        .get(format!(
-            "{API_HOST}/v1/transcriptions/{transcription_id}/transcript"
-        ))
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send()
-        .await
-        .map_err(|e| Error {
-            message: format!("fetch transcript failed: {e}"),
-            is_retryable: true,
-        })?;
+    let response = hypr_observability::with_current_trace_context(
+        client
+            .get(format!(
+                "{API_HOST}/v1/transcriptions/{transcription_id}/transcript"
+            ))
+            .header("Authorization", format!("Bearer {api_key}")),
+    )
+    .send()
+    .await
+    .map_err(|e| Error {
+        message: format!("fetch transcript failed: {e}"),
+        is_retryable: true,
+    })?;
 
     let status = response.status().as_u16();
     if !response.status().is_success() {
@@ -183,17 +187,19 @@ pub async fn fetch_transcript_raw(
     transcription_id: &str,
     api_key: &str,
 ) -> Result<serde_json::Value, Error> {
-    let response = client
-        .get(format!(
-            "{API_HOST}/v1/transcriptions/{transcription_id}/transcript"
-        ))
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send()
-        .await
-        .map_err(|e| Error {
-            message: format!("fetch transcript failed: {e}"),
-            is_retryable: true,
-        })?;
+    let response = hypr_observability::with_current_trace_context(
+        client
+            .get(format!(
+                "{API_HOST}/v1/transcriptions/{transcription_id}/transcript"
+            ))
+            .header("Authorization", format!("Bearer {api_key}")),
+    )
+    .send()
+    .await
+    .map_err(|e| Error {
+        message: format!("fetch transcript failed: {e}"),
+        is_retryable: true,
+    })?;
 
     let status = response.status().as_u16();
     if !response.status().is_success() {

@@ -18,6 +18,7 @@ import {
 
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import * as main from "~/store/tinybase/store/main";
+import { useListener } from "~/stt/contexts";
 
 function useFolders() {
   const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
@@ -46,7 +47,10 @@ export function SearchableFolderDropdown({
   trigger: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const folders = useFolders();
+  const currentFolderId = useSessionFolderId(sessionId);
+  const moveDisabledReason = useMoveDisabledReason(sessionId);
 
   const handleSelectFolder = useMoveSessionToFolder(sessionId);
 
@@ -58,6 +62,10 @@ export function SearchableFolderDropdown({
           <SearchableFolderContent
             folders={folders}
             onSelectFolder={handleSelectFolder}
+            currentFolderId={currentFolderId}
+            disabledReason={moveDisabledReason}
+            error={error}
+            setError={setError}
             setOpen={setOpen}
           />
         ) : (
@@ -77,7 +85,10 @@ export function SearchableFolderSubmenuContent({
   sessionId: string;
   setOpen?: (open: boolean) => void;
 }) {
+  const [error, setError] = useState<string | null>(null);
   const folders = useFolders();
+  const currentFolderId = useSessionFolderId(sessionId);
+  const moveDisabledReason = useMoveDisabledReason(sessionId);
 
   const handleSelectFolder = useMoveSessionToFolder(sessionId);
 
@@ -87,6 +98,10 @@ export function SearchableFolderSubmenuContent({
         <SearchableFolderContent
           folders={folders}
           onSelectFolder={handleSelectFolder}
+          currentFolderId={currentFolderId}
+          disabledReason={moveDisabledReason}
+          error={error}
+          setError={setError}
           setOpen={setOpen}
         />
       ) : (
@@ -101,15 +116,36 @@ export function SearchableFolderSubmenuContent({
 function SearchableFolderContent({
   folders,
   onSelectFolder,
+  currentFolderId,
+  disabledReason,
+  error,
+  setError,
   setOpen,
 }: {
   folders: Record<string, { name: string }>;
-  onSelectFolder: (folderId: string) => Promise<void>;
+  onSelectFolder: (
+    folderId: string,
+  ) => Promise<{ status: "ok" } | { status: "error"; error: string }>;
+  currentFolderId: string;
+  disabledReason: string;
+  error: string | null;
+  setError: (error: string | null) => void;
   setOpen?: (open: boolean) => void;
 }) {
   const handleSelect = async (folderId: string) => {
-    await onSelectFolder(folderId);
-    setOpen?.(false);
+    if (disabledReason) {
+      setError(disabledReason);
+      return;
+    }
+
+    const result = await onSelectFolder(folderId);
+    if (result.status === "ok") {
+      setError(null);
+      setOpen?.(false);
+      return;
+    }
+
+    setError(result.error);
   };
 
   return (
@@ -122,6 +158,7 @@ function SearchableFolderContent({
             <CommandItem
               key={folderId}
               value={folder.name}
+              disabled={!!disabledReason || folderId === currentFolderId}
               onSelect={() => handleSelect(folderId)}
             >
               <FolderIcon />
@@ -129,6 +166,11 @@ function SearchableFolderContent({
             </CommandItem>
           ))}
         </CommandGroup>
+        {(disabledReason || error) && (
+          <div className="px-2 py-2 text-xs text-red-500">
+            {error ?? disabledReason}
+          </div>
+        )}
       </CommandList>
     </Command>
   );
@@ -137,14 +179,26 @@ function SearchableFolderContent({
 function useMoveSessionToFolder(sessionId: string) {
   return useCallback(
     async (targetFolderId: string) => {
-      const result = await sessionOps.moveSessionToFolder(
-        sessionId,
-        targetFolderId,
-      );
-      if (result.status === "error") {
-        console.error("[MoveSession] Failed:", result.error);
-      }
+      return sessionOps.moveSessionToFolder(sessionId, targetFolderId);
     },
     [sessionId],
   );
+}
+
+function useSessionFolderId(sessionId: string) {
+  return (
+    (main.UI.useCell("sessions", sessionId, "folder_id", main.STORE_ID) as
+      | string
+      | undefined) ?? ""
+  );
+}
+
+function useMoveDisabledReason(sessionId: string) {
+  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+
+  if (sessionMode === "active" || sessionMode === "finalizing") {
+    return "Stop listening before moving this note.";
+  }
+
+  return "";
 }
