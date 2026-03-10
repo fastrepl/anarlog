@@ -13,6 +13,7 @@ import {
   type SessionLifecycleEvent,
   type SessionParams,
   type SessionProgressEvent,
+  type StopSessionParams,
   type StreamResponse,
 } from "@hypr/plugin-listener";
 import { commands as settingsCommands } from "@hypr/plugin-settings";
@@ -69,7 +70,8 @@ const listenToAllSessionEvents = (
 const startSessionEffect = (params: SessionParams) =>
   fromResult(listenerCommands.startSession(params));
 
-const stopSessionEffect = () => fromResult(listenerCommands.stopSession());
+const stopSessionEffect = (params?: StopSessionParams) =>
+  fromResult(listenerCommands.stopSession(params ?? null));
 
 const clearLiveInterval = (intervalId?: NodeJS.Timeout) => {
   if (intervalId) {

@@ -1,145 +1,270 @@
-use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Write};
+use std::fs::File;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use hypr_audio_utils::{
-    decode_vorbis_to_mono_wav_file, decode_vorbis_to_wav_file, ogg_has_identical_channels,
+    decode_vorbis_to_mono_wav_file, decode_vorbis_to_wav_file, mix_audio_f32,
+    ogg_has_identical_channels,
 };
 use ractor::ActorProcessingErr;
 
-use super::{RecorderEncoder, into_actor_err};
+use super::into_actor_err;
 
 const FINAL_AUDIO_FILE: &str = "audio.mp3";
-const LEGACY_WAV_FILE: &str = "audio.wav";
-const LEGACY_OGG_FILE: &str = "audio.ogg";
+const WAV_FILE: &str = "audio.wav";
+const OGG_FILE: &str = "audio.ogg";
 const FLUSH_INTERVAL: std::time::Duration = std::time::Duration::from_millis(1000);
 
 pub(super) struct DiskSink {
-    pub(super) final_path: PathBuf,
-    pub(super) writer: BufWriter<File>,
-    pub(super) encoder: RecorderEncoder,
-    pub(super) encoded: Vec<u8>,
-    pub(super) last_flush: Instant,
-}
-
-struct PreparedDiskState {
+    writer: Option<hound::WavWriter<BufWriter<File>>>,
+    writer_mic: Option<hound::WavWriter<BufWriter<File>>>,
+    writer_spk: Option<hound::WavWriter<BufWriter<File>>>,
+    wav_path: PathBuf,
+    last_flush: Instant,
     is_stereo: bool,
-    final_path: PathBuf,
 }
 
 pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProcessingErr> {
-    let prepared = prepare_disk_state(session_dir)?;
-    let file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&prepared.final_path)?;
-    let writer = BufWriter::new(file);
-    let encoder = if prepared.is_stereo {
-        RecorderEncoder::Stereo(hypr_mp3::StereoStreamEncoder::new(
-            super::super::SAMPLE_RATE,
-        )?)
+    let wav_path = session_dir.join(WAV_FILE);
+    let ogg_path = session_dir.join(OGG_FILE);
+    let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+    let is_stereo = prepare_existing_audio_state(&encoded_path, &ogg_path, &wav_path)?;
+
+    let stereo_spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: super::super::SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mono_spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: super::super::SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+
+    let writer = if wav_path.exists() {
+        hound::WavWriter::append(&wav_path)?
+    } else if is_stereo {
+        hound::WavWriter::create(&wav_path, stereo_spec)?
     } else {
-        RecorderEncoder::Mono(hypr_mp3::MonoStreamEncoder::new(super::super::SAMPLE_RATE)?)
+        hound::WavWriter::create(&wav_path, mono_spec)?
+    };
+
+    let (writer_mic, writer_spk) = if is_debug_mode() {
+        let mic_path = session_dir.join("audio_mic.wav");
+        let spk_path = session_dir.join("audio_spk.wav");
+
+        let mic_writer = if mic_path.exists() {
+            hound::WavWriter::append(&mic_path)?
+        } else {
+            hound::WavWriter::create(&mic_path, mono_spec)?
+        };
+
+        let spk_writer = if spk_path.exists() {
+            hound::WavWriter::append(&spk_path)?
+        } else {
+            hound::WavWriter::create(&spk_path, mono_spec)?
+        };
+
+        (Some(mic_writer), Some(spk_writer))
+    } else {
+        (None, None)
     };
 
     Ok(DiskSink {
-        final_path: prepared.final_path,
-        writer,
-        encoder,
-        encoded: Vec::new(),
+        writer: Some(writer),
+        writer_mic,
+        writer_spk,
+        wav_path,
         last_flush: Instant::now(),
+        is_stereo,
     })
 }
 
-pub(super) fn write_pending_disk_bytes(sink: &mut DiskSink) -> Result<(), ActorProcessingErr> {
-    if sink.encoded.is_empty() {
-        return Ok(());
+pub(super) fn write_single(sink: &mut DiskSink, samples: &[f32]) -> Result<(), ActorProcessingErr> {
+    if let Some(writer) = sink.writer.as_mut() {
+        if sink.is_stereo {
+            write_mono_as_stereo(writer, samples)?;
+        } else {
+            write_mono_samples(writer, samples)?;
+        }
     }
 
-    sink.writer.write_all(&sink.encoded)?;
-    sink.encoded.clear();
+    flush_if_due(sink)?;
     Ok(())
 }
 
-pub(super) fn flush_disk_if_due(sink: &mut DiskSink) -> Result<(), ActorProcessingErr> {
+pub(super) fn write_dual(
+    sink: &mut DiskSink,
+    mic: &[f32],
+    spk: &[f32],
+) -> Result<(), ActorProcessingErr> {
+    if let Some(writer) = sink.writer.as_mut() {
+        if sink.is_stereo {
+            write_interleaved_stereo(writer, mic, spk)?;
+        } else {
+            let mixed = mix_audio_f32(mic, spk);
+            write_mono_samples(writer, &mixed)?;
+        }
+    }
+
+    if let Some(writer_mic) = sink.writer_mic.as_mut() {
+        write_mono_samples(writer_mic, mic)?;
+    }
+
+    if let Some(writer_spk) = sink.writer_spk.as_mut() {
+        write_mono_samples(writer_spk, spk)?;
+    }
+
+    flush_if_due(sink)?;
+    Ok(())
+}
+
+pub(super) fn finalize_disk_sink(sink: &mut DiskSink) -> Result<(), ActorProcessingErr> {
+    finalize_writer(&mut sink.writer, Some(&sink.wav_path))?;
+    finalize_writer(&mut sink.writer_mic, None)?;
+    finalize_writer(&mut sink.writer_spk, None)?;
+
+    if sink.wav_path.exists() {
+        let encoded_path = sink.wav_path.with_extension("mp3");
+        match hypr_mp3::encode_wav(&sink.wav_path, &encoded_path) {
+            Ok(()) => {
+                sync_file(&encoded_path);
+                sync_dir(&encoded_path);
+                std::fs::remove_file(&sink.wav_path)?;
+                sync_dir(&sink.wav_path);
+            }
+            Err(error) => {
+                tracing::error!("Encoding to mp3 failed, keeping WAV: {}", error);
+                sync_file(&sink.wav_path);
+                sync_dir(&sink.wav_path);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn prepare_existing_audio_state(
+    encoded_path: &Path,
+    ogg_path: &Path,
+    wav_path: &Path,
+) -> Result<bool, ActorProcessingErr> {
+    if encoded_path.exists() && !wav_path.exists() {
+        hypr_mp3::decode_to_wav(encoded_path, wav_path).map_err(into_actor_err)?;
+        std::fs::remove_file(encoded_path)?;
+    }
+
+    if ogg_path.exists() {
+        let has_identical = ogg_has_identical_channels(ogg_path).map_err(into_actor_err)?;
+        if has_identical {
+            decode_vorbis_to_mono_wav_file(ogg_path, wav_path).map_err(into_actor_err)?;
+        } else {
+            decode_vorbis_to_wav_file(ogg_path, wav_path).map_err(into_actor_err)?;
+        }
+        std::fs::remove_file(ogg_path)?;
+        return Ok(!has_identical);
+    }
+
+    if wav_path.exists() {
+        let reader = hound::WavReader::open(wav_path)?;
+        return Ok(reader.spec().channels == 2);
+    }
+
+    Ok(true)
+}
+
+fn is_debug_mode() -> bool {
+    cfg!(debug_assertions)
+        || std::env::var("LISTENER_DEBUG")
+            .map(|value| !value.is_empty() && value != "0" && value != "false")
+            .unwrap_or(false)
+}
+
+fn flush_if_due(sink: &mut DiskSink) -> Result<(), hound::Error> {
     if sink.last_flush.elapsed() < FLUSH_INTERVAL {
         return Ok(());
     }
 
-    flush_disk_sink(sink, true)
+    flush_all(sink)
 }
 
-pub(super) fn flush_disk_sink(sink: &mut DiskSink, sync: bool) -> Result<(), ActorProcessingErr> {
-    sink.writer.flush()?;
-    if sync {
-        sync_file(&sink.final_path);
+fn flush_all(sink: &mut DiskSink) -> Result<(), hound::Error> {
+    if let Some(writer) = sink.writer.as_mut() {
+        writer.flush()?;
+    }
+    if let Some(writer_mic) = sink.writer_mic.as_mut() {
+        writer_mic.flush()?;
+    }
+    if let Some(writer_spk) = sink.writer_spk.as_mut() {
+        writer_spk.flush()?;
     }
     sink.last_flush = Instant::now();
     Ok(())
 }
 
-fn prepare_disk_state(session_dir: &Path) -> Result<PreparedDiskState, ActorProcessingErr> {
-    let final_path = session_dir.join(FINAL_AUDIO_FILE);
-    let legacy_wav_path = session_dir.join(LEGACY_WAV_FILE);
-    let legacy_ogg_path = session_dir.join(LEGACY_OGG_FILE);
-
-    let mut is_stereo = true;
-
-    if final_path.exists() {
-        is_stereo = infer_audio_channels(&final_path)? == 2;
-    } else if legacy_ogg_path.exists() {
-        is_stereo = !ogg_has_identical_channels(&legacy_ogg_path).map_err(into_actor_err)?;
-        migrate_legacy_ogg_to_mp3(&legacy_ogg_path, &final_path, is_stereo)?;
-        std::fs::remove_file(&legacy_ogg_path)?;
-    } else if legacy_wav_path.exists() {
-        is_stereo = infer_wav_channels(&legacy_wav_path)? == 2;
-        hypr_mp3::encode_wav(&legacy_wav_path, &final_path).map_err(into_actor_err)?;
-        std::fs::remove_file(&legacy_wav_path)?;
+fn write_mono_samples(
+    writer: &mut hound::WavWriter<BufWriter<File>>,
+    samples: &[f32],
+) -> Result<(), hound::Error> {
+    for sample in samples {
+        writer.write_sample(*sample)?;
     }
-
-    Ok(PreparedDiskState {
-        is_stereo,
-        final_path,
-    })
+    Ok(())
 }
 
-fn migrate_legacy_ogg_to_mp3(
-    ogg_path: &Path,
-    final_path: &Path,
-    is_stereo: bool,
-) -> Result<(), ActorProcessingErr> {
-    let temp_wav_path = ogg_path.with_extension("migration.wav");
-    if temp_wav_path.exists() {
-        std::fs::remove_file(&temp_wav_path)?;
+fn write_mono_as_stereo(
+    writer: &mut hound::WavWriter<BufWriter<File>>,
+    samples: &[f32],
+) -> Result<(), hound::Error> {
+    for sample in samples {
+        writer.write_sample(*sample)?;
+        writer.write_sample(*sample)?;
     }
-
-    if is_stereo {
-        decode_vorbis_to_wav_file(ogg_path, &temp_wav_path).map_err(into_actor_err)?;
-    } else {
-        decode_vorbis_to_mono_wav_file(ogg_path, &temp_wav_path).map_err(into_actor_err)?;
-    }
-
-    let result = hypr_mp3::encode_wav(&temp_wav_path, final_path).map_err(into_actor_err);
-    let _ = std::fs::remove_file(&temp_wav_path);
-    result
+    Ok(())
 }
 
-fn infer_audio_channels(path: &Path) -> Result<u16, ActorProcessingErr> {
-    use hypr_audio_utils::Source;
-
-    let source = hypr_audio_utils::source_from_path(path).map_err(into_actor_err)?;
-    Ok(source.channels())
+fn write_interleaved_stereo(
+    writer: &mut hound::WavWriter<BufWriter<File>>,
+    mic: &[f32],
+    spk: &[f32],
+) -> Result<(), hound::Error> {
+    let frames = mic.len().max(spk.len());
+    for i in 0..frames {
+        writer.write_sample(mic.get(i).copied().unwrap_or(0.0))?;
+        writer.write_sample(spk.get(i).copied().unwrap_or(0.0))?;
+    }
+    Ok(())
 }
 
-fn infer_wav_channels(path: &Path) -> Result<u16, ActorProcessingErr> {
-    let reader = hound::WavReader::open(path)?;
-    Ok(reader.spec().channels)
+fn finalize_writer(
+    writer: &mut Option<hound::WavWriter<BufWriter<File>>>,
+    path: Option<&Path>,
+) -> Result<(), hound::Error> {
+    if let Some(mut writer) = writer.take() {
+        writer.flush()?;
+        writer.finalize()?;
+
+        if let Some(path) = path {
+            sync_file(path);
+        }
+    }
+    Ok(())
 }
 
 fn sync_file(path: &Path) {
     if let Ok(file) = File::open(path) {
         let _ = file.sync_all();
+    }
+}
+
+fn sync_dir(path: &Path) {
+    if let Some(parent) = path.parent()
+        && let Ok(dir) = File::open(parent)
+    {
+        let _ = dir.sync_all();
     }
 }
 
@@ -150,7 +275,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prepare_disk_state_keeps_existing_mp3() {
+    fn create_disk_sink_decodes_existing_mp3_to_wav() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
         std::fs::create_dir_all(&session_dir).unwrap();
@@ -160,52 +285,22 @@ mod tests {
         )
         .unwrap();
 
-        let prepared = prepare_disk_state(&session_dir).unwrap();
+        let _sink = create_disk_sink(&session_dir).unwrap();
 
-        assert!(prepared.final_path.exists());
-        assert!(!prepared.is_stereo);
+        assert!(session_dir.join(WAV_FILE).exists());
+        assert!(!session_dir.join(FINAL_AUDIO_FILE).exists());
     }
 
     #[test]
-    fn prepare_disk_state_converts_legacy_wav() {
+    fn create_disk_sink_keeps_legacy_wav_for_append() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
         std::fs::create_dir_all(&session_dir).unwrap();
-        std::fs::copy(
-            hypr_data::english_1::AUDIO_PATH,
-            session_dir.join(LEGACY_WAV_FILE),
-        )
-        .unwrap();
+        std::fs::copy(hypr_data::english_1::AUDIO_PATH, session_dir.join(WAV_FILE)).unwrap();
 
-        let prepared = prepare_disk_state(&session_dir).unwrap();
+        let _sink = create_disk_sink(&session_dir).unwrap();
 
-        assert!(prepared.final_path.exists());
-        assert!(!session_dir.join(LEGACY_WAV_FILE).exists());
-    }
-
-    #[test]
-    fn write_pending_disk_bytes_appends_encoded_audio() {
-        let dir = tempdir().unwrap();
-        let path = dir.path().join("audio.mp3");
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .unwrap();
-
-        let mut sink = DiskSink {
-            final_path: path.clone(),
-            writer: BufWriter::new(file),
-            encoder: RecorderEncoder::Stereo(
-                hypr_mp3::StereoStreamEncoder::new(super::super::super::SAMPLE_RATE).unwrap(),
-            ),
-            encoded: vec![1, 2, 3, 4],
-            last_flush: Instant::now(),
-        };
-
-        write_pending_disk_bytes(&mut sink).unwrap();
-        flush_disk_sink(&mut sink, true).unwrap();
-
-        assert_eq!(std::fs::read(path).unwrap(), vec![1, 2, 3, 4]);
+        assert!(session_dir.join(WAV_FILE).exists());
+        assert!(!session_dir.join(FINAL_AUDIO_FILE).exists());
     }
 }

@@ -7,9 +7,12 @@ use std::sync::Arc;
 use hypr_audio_utils::mix_audio_f32;
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef};
 
+use crate::RecoverableAudioDisposition;
+
 pub enum RecMsg {
     AudioSingle(Arc<[f32]>),
     AudioDual(Arc<[f32]>, Arc<[f32]>),
+    SetStopDisposition(RecoverableAudioDisposition),
 }
 
 pub struct RecArgs {
@@ -20,6 +23,7 @@ pub struct RecArgs {
 
 pub struct RecState {
     sink: RecorderSink,
+    stop_disposition: RecoverableAudioDisposition,
 }
 
 enum RecorderSink {
@@ -65,7 +69,9 @@ impl Actor for RecorderActor {
         std::fs::create_dir_all(&session_dir)?;
 
         let sink = match args.audio_retention {
-            crate::AudioRetention::Memory => RecorderSink::Memory(memory::create_memory_sink()?),
+            crate::AudioRetention::Memory => {
+                RecorderSink::Memory(memory::create_memory_sink(&session_dir)?)
+            }
             crate::AudioRetention::Disk => {
                 RecorderSink::Disk(disk::create_disk_sink(&session_dir)?)
             }
@@ -76,7 +82,10 @@ impl Actor for RecorderActor {
             }
         };
 
-        Ok(RecState { sink })
+        Ok(RecState {
+            sink,
+            stop_disposition: RecoverableAudioDisposition::Discard,
+        })
     }
 
     async fn handle(
@@ -86,6 +95,9 @@ impl Actor for RecorderActor {
         st: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match (&mut st.sink, msg) {
+            (_, RecMsg::SetStopDisposition(disposition)) => {
+                st.stop_disposition = disposition;
+            }
             (RecorderSink::Memory(sink), RecMsg::AudioSingle(samples)) => {
                 sink.encoder.encode_single(&samples, &mut sink.data)?;
             }
@@ -93,14 +105,10 @@ impl Actor for RecorderActor {
                 sink.encoder.encode_dual(&mic, &spk, &mut sink.data)?;
             }
             (RecorderSink::Disk(sink), RecMsg::AudioSingle(samples)) => {
-                sink.encoder.encode_single(&samples, &mut sink.encoded)?;
-                disk::write_pending_disk_bytes(sink)?;
-                disk::flush_disk_if_due(sink)?;
+                disk::write_single(sink, &samples)?;
             }
             (RecorderSink::Disk(sink), RecMsg::AudioDual(mic, spk)) => {
-                sink.encoder.encode_dual(&mic, &spk, &mut sink.encoded)?;
-                disk::write_pending_disk_bytes(sink)?;
-                disk::flush_disk_if_due(sink)?;
+                disk::write_dual(sink, &mic, &spk)?;
             }
         }
 
@@ -115,11 +123,12 @@ impl Actor for RecorderActor {
         match &mut st.sink {
             RecorderSink::Memory(sink) => {
                 sink.encoder.flush(&mut sink.data)?;
+                if st.stop_disposition == RecoverableAudioDisposition::Persist {
+                    memory::persist_memory_sink(sink)?;
+                }
             }
             RecorderSink::Disk(sink) => {
-                sink.encoder.flush(&mut sink.encoded)?;
-                disk::write_pending_disk_bytes(sink)?;
-                disk::flush_disk_sink(sink, true)?;
+                disk::finalize_disk_sink(sink)?;
             }
         }
 

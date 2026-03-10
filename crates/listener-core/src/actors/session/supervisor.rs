@@ -8,7 +8,7 @@ use crate::actors::{
     ChannelMode, ListenerActor, ListenerArgs, RecArgs, RecMsg, RecorderActor, SourceActor,
     SourceArgs, SourceMsg,
 };
-use crate::{DegradedError, SessionLifecycleEvent};
+use crate::{DegradedError, RecoverableAudioDisposition, SessionLifecycleEvent, StopSessionParams};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ChildKind {
@@ -45,7 +45,7 @@ pub struct SessionActor;
 
 #[derive(Debug)]
 pub enum SessionMsg {
-    Shutdown,
+    Shutdown(StopSessionParams),
 }
 
 #[ractor::async_trait]
@@ -156,8 +156,9 @@ impl Actor for SessionActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            SessionMsg::Shutdown => {
+            SessionMsg::Shutdown(params) => {
                 state.shutting_down = true;
+                apply_stop_session_params(state, &params).await;
                 shutdown_children(state, "session_stop").await;
                 myself.stop(None);
             }
@@ -468,6 +469,24 @@ async fn shutdown_children(state: &mut SessionState, reason: &str) {
     }
     if let Some(cell) = state.recorder_cell.take() {
         stop_child(&cell, reason, "recorder").await;
+    }
+}
+
+async fn apply_stop_session_params(state: &SessionState, params: &StopSessionParams) {
+    if state.ctx.params.audio_retention != crate::AudioRetention::Memory {
+        return;
+    }
+
+    let disposition = params
+        .recoverable_audio
+        .clone()
+        .unwrap_or(RecoverableAudioDisposition::Discard);
+
+    if let Some(recorder_cell) = &state.recorder_cell {
+        let recorder_ref: ActorRef<RecMsg> = recorder_cell.clone().into();
+        if let Err(error) = recorder_ref.cast(RecMsg::SetStopDisposition(disposition)) {
+            tracing::warn!(?error, "failed_to_update_recorder_stop_disposition");
+        }
     }
 }
 

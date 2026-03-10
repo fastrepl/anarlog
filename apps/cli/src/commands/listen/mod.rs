@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use hypr_listener_core::AudioRetention;
 use hypr_listener_core::actors::{RootActor, RootArgs, RootMsg, SessionParams};
+use hypr_listener_core::{AudioRetention, StopSessionParams};
 use hypr_listener2_core::{BatchParams, BatchProvider};
 use ractor::Actor;
 use tokio::sync::mpsc;
@@ -192,7 +192,7 @@ pub async fn run(args: Args) -> CliResult<()> {
 
     print_exit_summary(&session_label, elapsed, word_count);
 
-    let _ = ractor::call!(root_ref, RootMsg::StopSession);
+    let _ = ractor::call!(root_ref, RootMsg::StopSession, StopSessionParams::default());
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     Ok(())

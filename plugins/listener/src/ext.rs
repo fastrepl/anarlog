@@ -1,6 +1,9 @@
 use ractor::{ActorRef, call_t, registry};
 
-use hypr_listener_core::actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg};
+use hypr_listener_core::{
+    StopSessionParams,
+    actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
+};
 
 pub struct Listener<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     #[allow(unused)]
@@ -67,10 +70,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn stop_session(&self) {
+    pub async fn stop_session(&self, params: StopSessionParams) {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            let _ = ractor::call!(actor, RootMsg::StopSession);
+            let _ = ractor::call!(actor, RootMsg::StopSession, params);
         }
     }
 }

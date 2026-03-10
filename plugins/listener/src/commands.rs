@@ -2,7 +2,7 @@ use owhisper_client::AdapterKind;
 use std::str::FromStr;
 
 use crate::ListenerPluginExt;
-use hypr_listener_core::actors::SessionParams;
+use hypr_listener_core::{StopSessionParams, actors::SessionParams};
 
 #[tauri::command]
 #[specta::specta]
@@ -54,8 +54,13 @@ pub async fn start_session<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_session<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    app.listener().stop_session().await;
+pub async fn stop_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: Option<StopSessionParams>,
+) -> Result<(), String> {
+    app.listener()
+        .stop_session(params.unwrap_or_default())
+        .await;
     Ok(())
 }
 
