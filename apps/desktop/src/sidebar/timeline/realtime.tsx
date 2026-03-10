@@ -14,6 +14,7 @@ export const CurrentTimeIndicator = forwardRef<
   ref,
 ) {
   const currentTimeMs = useCurrentTimeMs();
+  const insideOffset = `${(1 - progress) * 100}%`;
   const label = useMemo(() => {
     const now = timezone
       ? new TZDate(new Date(currentTimeMs), timezone)
@@ -30,7 +31,7 @@ export const CurrentTimeIndicator = forwardRef<
           ? "group absolute inset-x-0 z-20 h-px"
           : "group relative z-20 h-px"
       }
-      style={variant === "inside" ? { top: `${progress * 100}%` } : undefined}
+      style={variant === "inside" ? { top: insideOffset } : undefined}
     >
       <div className="absolute top-0 right-3 left-3 -translate-y-1/2">
         <div className="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-red-400/90 mix-blend-multiply" />
