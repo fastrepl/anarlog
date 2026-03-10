@@ -7,7 +7,7 @@ mod fetch;
 
 pub use error::Error;
 pub use events::*;
-pub use ext::{CalendarExt, CalendarPluginExt};
+pub use ext::{CalendarExt, CalendarPluginExt, ProviderConnectionIds};
 
 pub(crate) struct PluginConfig {
     pub api_base_url: String,
@@ -21,6 +21,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::available_providers,
             commands::is_provider_enabled::<tauri::Wry>,
+            commands::list_connection_ids::<tauri::Wry>,
             commands::list_calendars::<tauri::Wry>,
             commands::list_events::<tauri::Wry>,
             commands::open_calendar::<tauri::Wry>,

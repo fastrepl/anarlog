@@ -17,17 +17,25 @@ async isProviderEnabled(provider: CalendarProviderType) : Promise<Result<boolean
     else return { status: "error", error: e  as any };
 }
 },
-async listCalendars(provider: CalendarProviderType) : Promise<Result<CalendarListItem[], string>> {
+async listConnectionIds() : Promise<Result<ProviderConnectionIds[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_calendars", { provider }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_connection_ids") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async listEvents(provider: CalendarProviderType, filter: EventFilter) : Promise<Result<CalendarEvent[], string>> {
+async listCalendars(provider: CalendarProviderType, connectionId: string) : Promise<Result<CalendarListItem[], string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_events", { provider, filter }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_calendars", { provider, connectionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listEvents(provider: CalendarProviderType, connectionId: string, filter: EventFilter) : Promise<Result<CalendarEvent[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:calendar|list_events", { provider, connectionId, filter }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -149,6 +157,7 @@ email: string | null;
  */
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
+export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
 
 /** tauri-specta globals **/
 

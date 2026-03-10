@@ -2,7 +2,7 @@ import type { Queries } from "tinybase/with-schemas";
 
 import type { CalendarProviderType } from "@hypr/plugin-calendar";
 
-import { createCtx, getActiveProviders, syncCalendars } from "./ctx";
+import { createCtx, getProviderConnections, syncCalendars } from "./ctx";
 import {
   CalendarFetchError,
   fetchExistingEvents,
@@ -31,23 +31,28 @@ export async function syncCalendarEvents(
 }
 
 async function run(store: Store, queries: Queries<Schemas>) {
-  const providers = await getActiveProviders();
-  await syncCalendars(store, providers);
-  for (const provider of providers) {
-    try {
-      await runForProvider(store, queries, provider);
-    } catch (error) {
-      console.error(`[calendar-sync] Error syncing ${provider}: ${error}`);
+  const providerConnections = await getProviderConnections();
+  await syncCalendars(store, providerConnections);
+  for (const { provider, connection_ids } of providerConnections) {
+    for (const connectionId of connection_ids) {
+      try {
+        await runForConnection(store, queries, provider, connectionId);
+      } catch (error) {
+        console.error(
+          `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
+        );
+      }
     }
   }
 }
 
-async function runForProvider(
+async function runForConnection(
   store: Store,
   queries: Queries<Schemas>,
   provider: CalendarProviderType,
+  connectionId: string,
 ) {
-  const ctx = createCtx(store, queries, provider);
+  const ctx = createCtx(store, queries, provider, connectionId);
   if (!ctx) {
     return;
   }

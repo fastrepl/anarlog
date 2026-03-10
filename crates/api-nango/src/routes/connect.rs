@@ -9,6 +9,22 @@ use crate::state::AppState;
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreateSessionRequest {
     pub integration_id: String,
+    #[serde(default = "default_session_mode")]
+    pub mode: SessionMode,
+    #[serde(default)]
+    pub connection_id: Option<String>,
+}
+
+fn default_session_mode() -> SessionMode {
+    SessionMode::Auto
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionMode {
+    Auto,
+    Connect,
+    Reconnect,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -38,41 +54,85 @@ pub async fn create_session(
 ) -> Result<Json<SessionResponse>> {
     let user_id = auth.claims.sub;
 
-    if let Some(existing) = state
-        .supabase
-        .lookup_connection(&auth.token, &user_id, &body.integration_id)
-        .await?
-    {
-        let reconnect_req = hypr_nango::ReconnectSessionRequest {
-            connection_id: existing.connection_id.clone(),
-            integration_id: body.integration_id.clone(),
-        };
+    match body.mode {
+        SessionMode::Connect => {
+            // Always create a new connection
+        }
+        SessionMode::Reconnect => {
+            let connection_id = body.connection_id.as_deref().ok_or_else(|| {
+                crate::error::NangoError::BadRequest(
+                    "connection_id is required for reconnect mode".to_string(),
+                )
+            })?;
 
-        match state.nango.reconnect_session(reconnect_req).await {
-            Ok(session) => {
-                return Ok(Json(SessionResponse {
-                    token: session.token,
-                    expires_at: session.expires_at,
-                    mode: "reconnect".to_string(),
-                    connection_id: Some(existing.connection_id),
-                }));
+            let owns = state
+                .supabase
+                .verify_connection_ownership(
+                    &auth.token,
+                    &user_id,
+                    connection_id,
+                    &body.integration_id,
+                )
+                .await?;
+
+            if !owns {
+                return Err(crate::error::NangoError::Forbidden(
+                    "connection not found or not owned by user".to_string(),
+                ));
             }
-            Err(hypr_nango::Error::Api(404, response_body)) => {
-                tracing::warn!(
-                    enduser.id = %user_id,
-                    hyprnote.integration.id = %body.integration_id,
-                    hyprnote.connection.id = %existing.connection_id,
-                    hyprnote.connection.status = %existing.status,
-                    hyprnote.http.response.body = %response_body,
-                    "reconnect session failed with not found, cleaning stale local row"
-                );
-                state
-                    .supabase
-                    .delete_connection(&user_id, &body.integration_id)
-                    .await?;
-            }
-            Err(err) => {
-                return Err(err.into());
+
+            let reconnect_req = hypr_nango::ReconnectSessionRequest {
+                connection_id: connection_id.to_string(),
+                integration_id: body.integration_id.clone(),
+            };
+
+            let session = state.nango.reconnect_session(reconnect_req).await?;
+
+            return Ok(Json(SessionResponse {
+                token: session.token,
+                expires_at: session.expires_at,
+                mode: "reconnect".to_string(),
+                connection_id: Some(connection_id.to_string()),
+            }));
+        }
+        SessionMode::Auto => {
+            if let Some(existing) = state
+                .supabase
+                .lookup_connection(&auth.token, &user_id, &body.integration_id)
+                .await?
+            {
+                let reconnect_req = hypr_nango::ReconnectSessionRequest {
+                    connection_id: existing.connection_id.clone(),
+                    integration_id: body.integration_id.clone(),
+                };
+
+                match state.nango.reconnect_session(reconnect_req).await {
+                    Ok(session) => {
+                        return Ok(Json(SessionResponse {
+                            token: session.token,
+                            expires_at: session.expires_at,
+                            mode: "reconnect".to_string(),
+                            connection_id: Some(existing.connection_id),
+                        }));
+                    }
+                    Err(hypr_nango::Error::Api(404, response_body)) => {
+                        tracing::warn!(
+                            enduser.id = %user_id,
+                            hyprnote.integration.id = %body.integration_id,
+                            hyprnote.connection.id = %existing.connection_id,
+                            hyprnote.connection.status = %existing.status,
+                            hyprnote.http.response.body = %response_body,
+                            "reconnect session failed with not found, cleaning stale local row"
+                        );
+                        state
+                            .supabase
+                            .delete_connection(&user_id, &body.integration_id)
+                            .await?;
+                    }
+                    Err(err) => {
+                        return Err(err.into());
+                    }
+                }
             }
         }
     }

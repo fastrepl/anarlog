@@ -18,10 +18,14 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: Record<string, unknown>;
 };
 
-export const googleListCalendars = <ThrowOnError extends boolean = false>(options?: Options<GoogleListCalendarsData, ThrowOnError>) => (options?.client ?? client).post<GoogleListCalendarsResponses, GoogleListCalendarsErrors, ThrowOnError>({
+export const googleListCalendars = <ThrowOnError extends boolean = false>(options: Options<GoogleListCalendarsData, ThrowOnError>) => (options.client ?? client).post<GoogleListCalendarsResponses, GoogleListCalendarsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/calendar/google/list-calendars',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 export const googleListEvents = <ThrowOnError extends boolean = false>(options: Options<GoogleListEventsData, ThrowOnError>) => (options.client ?? client).post<GoogleListEventsResponses, GoogleListEventsErrors, ThrowOnError>({
@@ -34,10 +38,14 @@ export const googleListEvents = <ThrowOnError extends boolean = false>(options: 
     }
 });
 
-export const outlookListCalendars = <ThrowOnError extends boolean = false>(options?: Options<OutlookListCalendarsData, ThrowOnError>) => (options?.client ?? client).post<OutlookListCalendarsResponses, OutlookListCalendarsErrors, ThrowOnError>({
+export const outlookListCalendars = <ThrowOnError extends boolean = false>(options: Options<OutlookListCalendarsData, ThrowOnError>) => (options.client ?? client).post<OutlookListCalendarsResponses, OutlookListCalendarsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/calendar/outlook/list-calendars',
-    ...options
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 export const outlookListEvents = <ThrowOnError extends boolean = false>(options: Options<OutlookListEventsData, ThrowOnError>) => (options.client ?? client).post<OutlookListEventsResponses, OutlookListEventsErrors, ThrowOnError>({

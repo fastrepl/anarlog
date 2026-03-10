@@ -196,7 +196,9 @@ export type CreateEventRequest = {
 };
 
 export type CreateSessionRequest = {
+    connection_id?: string | null;
     integration_id: string;
+    mode?: SessionMode;
 };
 
 export type CustomLocation = {
@@ -328,8 +330,13 @@ export type Gadget = {
 
 export type GadgetDisplay = 'chip' | 'icon' | 'unknown';
 
+export type GoogleListCalendarsRequest = {
+    connection_id: string;
+};
+
 export type GoogleListEventsRequest = {
     calendar_id: string;
+    connection_id: string;
     max_results?: number | null;
     order_by?: string | null;
     page_token?: string | null;
@@ -438,8 +445,13 @@ export type OutlookGeoCoordinates = {
     longitude?: number | null;
 };
 
+export type OutlookListCalendarsRequest = {
+    connection_id: string;
+};
+
 export type OutlookListEventsRequest = {
     calendar_id: string;
+    connection_id: string;
     max_results?: number | null;
     order_by?: string | null;
     time_max?: string | null;
@@ -513,6 +525,8 @@ export type SendMessageRequest = {
 };
 
 export type Sensitivity = 'normal' | 'personal' | 'private' | 'confidential' | 'unknown';
+
+export type SessionMode = 'auto' | 'connect' | 'reconnect';
 
 export type SessionResponse = {
     connection_id?: string | null;
@@ -813,7 +827,7 @@ export type OutlookListEventsResponse = {
 };
 
 export type GoogleListCalendarsData = {
-    body?: never;
+    body: GoogleListCalendarsRequest;
     path?: never;
     query?: never;
     url: '/calendar/google/list-calendars';
@@ -867,7 +881,7 @@ export type GoogleListEventsResponses = {
 export type GoogleListEventsResponse2 = GoogleListEventsResponses[keyof GoogleListEventsResponses];
 
 export type OutlookListCalendarsData = {
-    body?: never;
+    body: OutlookListCalendarsRequest;
     path?: never;
     query?: never;
     url: '/calendar/outlook/list-calendars';

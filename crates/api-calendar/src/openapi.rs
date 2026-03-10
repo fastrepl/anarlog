@@ -9,7 +9,9 @@ use utoipa::OpenApi;
         crate::outlook::routes::list_events,
     ),
     components(schemas(
+        crate::google::routes::GoogleListCalendarsRequest,
         crate::google::routes::GoogleListEventsRequest,
+        crate::outlook::routes::OutlookListCalendarsRequest,
         crate::outlook::routes::OutlookListEventsRequest,
     )),
     tags(

@@ -102,6 +102,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
     return (
       <ConnectedContent
         config={config}
+        connectionId={connection.connection_id}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
       />
@@ -173,15 +174,17 @@ function ReconnectRequiredContent({
 
 function ConnectedContent({
   config,
+  connectionId,
   onConnect,
   onDisconnect,
 }: {
   config: CalendarProvider;
+  connectionId: string;
   onConnect: () => void;
   onDisconnect: () => void;
 }) {
   const { groups, handleToggle, handleRefresh, isLoading } =
-    useOAuthCalendarSelection(config);
+    useOAuthCalendarSelection(config, connectionId);
 
   return (
     <div className="flex flex-col gap-2 pb-2">

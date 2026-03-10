@@ -11,6 +11,12 @@ use tauri_plugin_permissions::PermissionsPluginExt;
 use crate::error::Error;
 use crate::fetch;
 
+#[derive(serde::Serialize, serde::Deserialize, specta::Type, Clone, Debug)]
+pub struct ProviderConnectionIds {
+    pub provider: CalendarProviderType,
+    pub connection_ids: Vec<String>,
+}
+
 pub struct CalendarExt<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
     _runtime: std::marker::PhantomData<fn() -> R>,
@@ -34,6 +40,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
     pub async fn list_calendars(
         &self,
         provider: CalendarProviderType,
+        connection_id: String,
     ) -> Result<Vec<CalendarListItem>, Error> {
         match provider {
             CalendarProviderType::Apple => {
@@ -41,11 +48,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
                 Ok(crate::convert::convert_apple_calendars(calendars))
             }
             CalendarProviderType::Google => {
-                let calendars = self.list_google_calendars().await?;
+                let calendars = self.list_google_calendars(&connection_id).await?;
                 Ok(crate::convert::convert_google_calendars(calendars))
             }
             CalendarProviderType::Outlook => {
-                let calendars = self.list_outlook_calendars().await?;
+                let calendars = self.list_outlook_calendars(&connection_id).await?;
                 Ok(crate::convert::convert_outlook_calendars(calendars))
             }
         }
@@ -54,6 +61,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
     pub async fn list_events(
         &self,
         provider: CalendarProviderType,
+        connection_id: String,
         filter: EventFilter,
     ) -> Result<Vec<CalendarEvent>, Error> {
         match provider {
@@ -63,12 +71,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
             }
             CalendarProviderType::Google => {
                 let calendar_id = filter.calendar_tracking_id.clone();
-                let events = self.list_google_events(filter).await?;
+                let events = self.list_google_events(&connection_id, filter).await?;
                 Ok(crate::convert::convert_google_events(events, &calendar_id))
             }
             CalendarProviderType::Outlook => {
                 let calendar_id = filter.calendar_tracking_id.clone();
-                let events = self.list_outlook_events(filter).await?;
+                let events = self.list_outlook_events(&connection_id, filter).await?;
                 Ok(crate::convert::convert_outlook_events(events, &calendar_id))
             }
         }
@@ -98,38 +106,57 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
         }
     }
 
-    pub async fn is_provider_enabled(&self, provider: CalendarProviderType) -> Result<bool, Error> {
-        match provider {
-            CalendarProviderType::Apple => {
-                let status = self
-                    .manager
-                    .permissions()
-                    .check(tauri_plugin_permissions::Permission::Calendar)
-                    .await
-                    .map_err(|e| Error::Api(e.to_string()))?;
+    pub async fn list_connection_ids(&self) -> Result<Vec<ProviderConnectionIds>, Error> {
+        let mut result = Vec::new();
 
-                Ok(matches!(
-                    status,
-                    tauri_plugin_permissions::PermissionStatus::Authorized
-                ))
-            }
-            CalendarProviderType::Google => {
-                let token = match self.get_access_token() {
-                    Ok(token) => token,
-                    Err(_) => return Ok(false),
-                };
-                let config = self.manager.state::<crate::PluginConfig>();
-                fetch::has_nango_connection(&config.api_base_url, &token, "google-calendar").await
-            }
-            CalendarProviderType::Outlook => {
-                let token = match self.get_access_token() {
-                    Ok(token) => token,
-                    Err(_) => return Ok(false),
-                };
-                let config = self.manager.state::<crate::PluginConfig>();
-                fetch::has_nango_connection(&config.api_base_url, &token, "outlook-calendar").await
+        #[cfg(target_os = "macos")]
+        {
+            let status = self
+                .manager
+                .permissions()
+                .check(tauri_plugin_permissions::Permission::Calendar)
+                .await
+                .map_err(|e| Error::Api(e.to_string()))?;
+
+            if matches!(
+                status,
+                tauri_plugin_permissions::PermissionStatus::Authorized
+            ) {
+                result.push(ProviderConnectionIds {
+                    provider: CalendarProviderType::Apple,
+                    connection_ids: vec!["apple".to_string()],
+                });
             }
         }
+
+        let token = match self.get_access_token() {
+            Ok(token) => token,
+            Err(_) => return Ok(result),
+        };
+
+        let config = self.manager.state::<crate::PluginConfig>();
+        let all = fetch::list_all_connection_ids(&config.api_base_url, &token).await?;
+
+        for (integration_id, connection_ids) in all {
+            let provider = match integration_id.as_str() {
+                "google-calendar" => CalendarProviderType::Google,
+                "outlook-calendar" => CalendarProviderType::Outlook,
+                _ => continue,
+            };
+            result.push(ProviderConnectionIds {
+                provider,
+                connection_ids,
+            });
+        }
+
+        Ok(result)
+    }
+
+    pub async fn is_provider_enabled(&self, provider: CalendarProviderType) -> Result<bool, Error> {
+        let all = self.list_connection_ids().await?;
+        Ok(all
+            .iter()
+            .any(|p| p.provider == provider && !p.connection_ids.is_empty()))
     }
 
     fn get_access_token(&self) -> Result<String, Error> {
@@ -144,28 +171,42 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> CalendarExt<'a, R, M> {
         }
     }
 
-    async fn list_google_calendars(&self) -> Result<Vec<GoogleCalendar>, Error> {
+    async fn list_google_calendars(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<GoogleCalendar>, Error> {
         let token = self.get_access_token()?;
         let config = self.manager.state::<crate::PluginConfig>();
-        fetch::list_google_calendars(&config.api_base_url, &token).await
+        fetch::list_google_calendars(&config.api_base_url, &token, connection_id).await
     }
 
-    async fn list_google_events(&self, filter: EventFilter) -> Result<Vec<GoogleEvent>, Error> {
+    async fn list_google_events(
+        &self,
+        connection_id: &str,
+        filter: EventFilter,
+    ) -> Result<Vec<GoogleEvent>, Error> {
         let token = self.get_access_token()?;
         let config = self.manager.state::<crate::PluginConfig>();
-        fetch::list_google_events(&config.api_base_url, &token, filter).await
+        fetch::list_google_events(&config.api_base_url, &token, connection_id, filter).await
     }
 
-    async fn list_outlook_calendars(&self) -> Result<Vec<OutlookCalendar>, Error> {
+    async fn list_outlook_calendars(
+        &self,
+        connection_id: &str,
+    ) -> Result<Vec<OutlookCalendar>, Error> {
         let token = self.get_access_token()?;
         let config = self.manager.state::<crate::PluginConfig>();
-        fetch::list_outlook_calendars(&config.api_base_url, &token).await
+        fetch::list_outlook_calendars(&config.api_base_url, &token, connection_id).await
     }
 
-    async fn list_outlook_events(&self, filter: EventFilter) -> Result<Vec<OutlookEvent>, Error> {
+    async fn list_outlook_events(
+        &self,
+        connection_id: &str,
+        filter: EventFilter,
+    ) -> Result<Vec<OutlookEvent>, Error> {
         let token = self.get_access_token()?;
         let config = self.manager.state::<crate::PluginConfig>();
-        fetch::list_outlook_events(&config.api_base_url, &token, filter).await
+        fetch::list_outlook_events(&config.api_base_url, &token, connection_id, filter).await
     }
 
     #[cfg(target_os = "macos")]

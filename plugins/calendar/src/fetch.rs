@@ -4,11 +4,10 @@ use hypr_outlook_calendar::{Calendar as OutlookCalendar, Event as OutlookEvent};
 
 use crate::error::Error;
 
-pub async fn has_nango_connection(
+pub async fn list_all_connection_ids(
     api_base_url: &str,
     access_token: &str,
-    integration_id: &str,
-) -> Result<bool, Error> {
+) -> Result<Vec<(String, Vec<String>)>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
     let response = client
@@ -17,9 +16,14 @@ pub async fn has_nango_connection(
         .map_err(|e| Error::Api(e.to_string()))?;
 
     let connections = response.into_inner().connections;
-    Ok(connections
-        .iter()
-        .any(|c| c.integration_id == integration_id))
+    let mut map = std::collections::HashMap::<String, Vec<String>>::new();
+    for c in &connections {
+        map.entry(c.integration_id.clone())
+            .or_default()
+            .push(c.connection_id.clone());
+    }
+
+    Ok(map.into_iter().collect())
 }
 
 fn make_client(api_base_url: &str, access_token: &str) -> Result<hypr_api_client::Client, Error> {
@@ -35,11 +39,16 @@ fn make_client(api_base_url: &str, access_token: &str) -> Result<hypr_api_client
 pub async fn list_google_calendars(
     api_base_url: &str,
     access_token: &str,
+    connection_id: &str,
 ) -> Result<Vec<GoogleCalendar>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
+    let body = hypr_api_client::types::GoogleListCalendarsRequest {
+        connection_id: connection_id.to_string(),
+    };
+
     let response = client
-        .google_list_calendars()
+        .google_list_calendars(&body)
         .await
         .map_err(|e| Error::Api(e.to_string()))?;
 
@@ -49,11 +58,13 @@ pub async fn list_google_calendars(
 pub async fn list_google_events(
     api_base_url: &str,
     access_token: &str,
+    connection_id: &str,
     filter: EventFilter,
 ) -> Result<Vec<GoogleEvent>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
     let body = hypr_api_client::types::GoogleListEventsRequest {
+        connection_id: connection_id.to_string(),
         calendar_id: filter.calendar_tracking_id,
         time_min: Some(filter.from.to_rfc3339()),
         time_max: Some(filter.to.to_rfc3339()),
@@ -74,11 +85,16 @@ pub async fn list_google_events(
 pub async fn list_outlook_calendars(
     api_base_url: &str,
     access_token: &str,
+    connection_id: &str,
 ) -> Result<Vec<OutlookCalendar>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
+    let body = hypr_api_client::types::OutlookListCalendarsRequest {
+        connection_id: connection_id.to_string(),
+    };
+
     let response = client
-        .outlook_list_calendars()
+        .outlook_list_calendars(&body)
         .await
         .map_err(|e| Error::Api(e.to_string()))?;
 
@@ -88,11 +104,13 @@ pub async fn list_outlook_calendars(
 pub async fn list_outlook_events(
     api_base_url: &str,
     access_token: &str,
+    connection_id: &str,
     filter: EventFilter,
 ) -> Result<Vec<OutlookEvent>, Error> {
     let client = make_client(api_base_url, access_token)?;
 
     let body = hypr_api_client::types::OutlookListEventsRequest {
+        connection_id: connection_id.to_string(),
         calendar_id: filter.calendar_tracking_id,
         time_min: Some(filter.from.to_rfc3339()),
         time_max: Some(filter.to.to_rfc3339()),

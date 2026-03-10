@@ -1,7 +1,11 @@
 import type { Queries } from "tinybase/with-schemas";
 
 import { commands as calendarCommands } from "@hypr/plugin-calendar";
-import type { CalendarProviderType } from "@hypr/plugin-calendar";
+import type {
+  CalendarListItem,
+  CalendarProviderType,
+  ProviderConnectionIds,
+} from "@hypr/plugin-calendar";
 
 import { findCalendarByTrackingId } from "~/calendar/utils";
 import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
@@ -11,6 +15,7 @@ import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
 export interface Ctx {
   store: Store;
   provider: CalendarProviderType;
+  connectionId: string;
   userId: string;
   from: Date;
   to: Date;
@@ -24,6 +29,7 @@ export function createCtx(
   store: Store,
   queries: Queries<Schemas>,
   provider: CalendarProviderType,
+  connectionId: string,
 ): Ctx | null {
   const resultTable = queries.getResultTable(QUERIES.enabledCalendars);
 
@@ -60,6 +66,7 @@ export function createCtx(
   return {
     store,
     provider,
+    connectionId,
     userId: String(userId),
     from,
     to,
@@ -70,34 +77,33 @@ export function createCtx(
 
 // ---
 
-export async function getActiveProviders(): Promise<CalendarProviderType[]> {
-  const available = await calendarCommands.availableProviders();
-  const active: CalendarProviderType[] = [];
-
-  for (const provider of available) {
-    const result = await calendarCommands.isProviderEnabled(provider);
-    if (result.status === "ok" && result.data) {
-      active.push(provider);
-    }
-  }
-
-  return active;
+export async function getProviderConnections(): Promise<
+  ProviderConnectionIds[]
+> {
+  const result = await calendarCommands.listConnectionIds();
+  if (result.status === "error") return [];
+  return result.data;
 }
-
-// ---
 
 export async function syncCalendars(
   store: Store,
-  providers: CalendarProviderType[],
+  providerConnections: ProviderConnectionIds[],
 ): Promise<void> {
   const userId = store.getValue("user_id");
   if (!userId) return;
 
-  for (const provider of providers) {
-    const result = await calendarCommands.listCalendars(provider);
-    if (result.status === "error") continue;
+  for (const { provider, connection_ids } of providerConnections) {
+    const incomingCalendars: CalendarListItem[] = [];
 
-    const incomingCalendars = result.data;
+    for (const connectionId of connection_ids) {
+      const result = await calendarCommands.listCalendars(
+        provider,
+        connectionId,
+      );
+      if (result.status === "error") continue;
+      incomingCalendars.push(...result.data);
+    }
+
     const incomingIds = new Set(incomingCalendars.map((cal) => cal.id));
 
     store.transaction(() => {

@@ -6,6 +6,7 @@ Default permissions for the plugin
 
 - `allow-available-providers`
 - `allow-is-provider-enabled`
+- `allow-list-connection-ids`
 - `allow-list-calendars`
 - `allow-list-events`
 - `allow-open-calendar`
@@ -120,6 +121,32 @@ Enables the list_calendars command without any pre-configured scope.
 <td>
 
 Denies the list_calendars command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:allow-list-connection-ids`
+
+</td>
+<td>
+
+Enables the list_connection_ids command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`calendar:deny-list-connection-ids`
+
+</td>
+<td>
+
+Denies the list_connection_ids command without any pre-configured scope.
 
 </td>
 </tr>

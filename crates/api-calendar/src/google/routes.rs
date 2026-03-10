@@ -1,29 +1,22 @@
-use axum::Json;
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
-use hypr_api_nango::{GoogleCalendar, NangoConnection};
+use axum::{Extension, Json};
+use hypr_api_auth::AuthContext;
+use hypr_api_nango::{GoogleCalendar, NangoConnectionState, NangoIntegrationId};
 use hypr_google_calendar::{
     EventOrderBy, EventType, GoogleCalendarClient, ListCalendarsResponse, ListEventsResponse,
 };
-use hypr_nango::OwnedNangoHttpClient;
 use serde::Deserialize;
 use utoipa::ToSchema;
 
 use crate::error::{CalendarError, Result};
 
-pub(crate) struct GoogleClient(GoogleCalendarClient<OwnedNangoHttpClient>);
-
-impl<S: Send + Sync> FromRequestParts<S> for GoogleClient {
-    type Rejection = CalendarError;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self> {
-        let conn = NangoConnection::<GoogleCalendar>::from_request_parts(parts, state).await?;
-        Ok(GoogleClient(GoogleCalendarClient::new(conn.into_http())))
-    }
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct GoogleListCalendarsRequest {
+    pub connection_id: String,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct GoogleListEventsRequest {
+    pub connection_id: String,
     pub calendar_id: String,
     #[serde(default)]
     pub time_min: Option<String>,
@@ -43,6 +36,7 @@ pub struct GoogleListEventsRequest {
     post,
     path = "/google/list-calendars",
     operation_id = "google_list_calendars",
+    request_body = GoogleListCalendarsRequest,
     responses(
         (status = 200, description = "Google calendars fetched", body = ListCalendarsResponse),
         (status = 401, description = "Unauthorized"),
@@ -50,9 +44,23 @@ pub struct GoogleListEventsRequest {
     ),
     tag = "calendar",
 )]
-pub async fn list_calendars(client: GoogleClient) -> Result<Json<ListCalendarsResponse>> {
+pub async fn list_calendars(
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
+    Json(req): Json<GoogleListCalendarsRequest>,
+) -> Result<Json<ListCalendarsResponse>> {
+    let http = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            GoogleCalendar::ID,
+            &req.connection_id,
+        )
+        .await?;
+
+    let client = GoogleCalendarClient::new(http);
+
     let response = client
-        .0
         .list_calendars()
         .await
         .map_err(|e| CalendarError::Internal(e.to_string()))?;
@@ -73,9 +81,21 @@ pub async fn list_calendars(client: GoogleClient) -> Result<Json<ListCalendarsRe
     tag = "calendar",
 )]
 pub async fn list_events(
-    client: GoogleClient,
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
     Json(req): Json<GoogleListEventsRequest>,
 ) -> Result<Json<ListEventsResponse>> {
+    let http = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            GoogleCalendar::ID,
+            &req.connection_id,
+        )
+        .await?;
+
+    let client = GoogleCalendarClient::new(http);
+
     let time_min = req
         .time_min
         .as_deref()
@@ -121,7 +141,6 @@ pub async fn list_events(
     };
 
     let response = client
-        .0
         .list_events(google_req)
         .await
         .map_err(|e| CalendarError::Internal(e.to_string()))?;

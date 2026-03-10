@@ -15,6 +15,16 @@
           "calendar"
         ],
         "operationId": "google_list_calendars",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListCalendarsRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Google calendars fetched",
@@ -87,6 +97,16 @@
           "calendar"
         ],
         "operationId": "outlook_list_calendars",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutlookListCalendarsRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "Outlook calendars fetched",
@@ -1758,8 +1778,17 @@
           "integration_id"
         ],
         "properties": {
+          "connection_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "integration_id": {
             "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SessionMode"
           }
         }
       },
@@ -2279,13 +2308,28 @@
           "unknown"
         ]
       },
+      "GoogleListCalendarsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        }
+      },
       "GoogleListEventsRequest": {
         "type": "object",
         "required": [
+          "connection_id",
           "calendar_id"
         ],
         "properties": {
           "calendar_id": {
+            "type": "string"
+          },
+          "connection_id": {
             "type": "string"
           },
           "max_results": {
@@ -2793,13 +2837,28 @@
           }
         }
       },
+      "OutlookListCalendarsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        }
+      },
       "OutlookListEventsRequest": {
         "type": "object",
         "required": [
+          "connection_id",
           "calendar_id"
         ],
         "properties": {
           "calendar_id": {
+            "type": "string"
+          },
+          "connection_id": {
             "type": "string"
           },
           "max_results": {
@@ -3145,6 +3204,14 @@
           "private",
           "confidential",
           "unknown"
+        ]
+      },
+      "SessionMode": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "connect",
+          "reconnect"
         ]
       },
       "SessionResponse": {

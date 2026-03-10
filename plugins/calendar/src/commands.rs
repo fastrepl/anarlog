@@ -4,6 +4,7 @@ use hypr_calendar_interface::{
 
 use crate::CalendarPluginExt;
 use crate::error::Error;
+use crate::ext::ProviderConnectionIds;
 
 #[tauri::command]
 #[specta::specta]
@@ -22,11 +23,20 @@ pub async fn is_provider_enabled<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn list_connection_ids<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<ProviderConnectionIds>, Error> {
+    app.calendar().list_connection_ids().await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn list_calendars<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     provider: CalendarProviderType,
+    connection_id: String,
 ) -> Result<Vec<CalendarListItem>, Error> {
-    app.calendar().list_calendars(provider).await
+    app.calendar().list_calendars(provider, connection_id).await
 }
 
 #[tauri::command]
@@ -34,9 +44,12 @@ pub async fn list_calendars<R: tauri::Runtime>(
 pub async fn list_events<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     provider: CalendarProviderType,
+    connection_id: String,
     filter: EventFilter,
 ) -> Result<Vec<CalendarEvent>, Error> {
-    app.calendar().list_events(provider, filter).await
+    app.calendar()
+        .list_events(provider, connection_id, filter)
+        .await
 }
 
 #[tauri::command]

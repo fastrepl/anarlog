@@ -35,7 +35,10 @@ export function OAuthCalendarSelection({
   );
 }
 
-export function useOAuthCalendarSelection(config: CalendarProvider) {
+export function useOAuthCalendarSelection(
+  config: CalendarProvider,
+  connectionId: string,
+) {
   const auth = useAuth();
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
@@ -48,16 +51,19 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ["oauthCalendars", config.id],
+    queryKey: ["oauthCalendars", config.id, connectionId],
     queryFn: async () => {
       const headers = auth?.getHeaders();
       if (!headers) return [];
       const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { data, error } = await googleListCalendars({ client });
+      const { data, error } = await googleListCalendars({
+        client,
+        body: { connection_id: connectionId },
+      });
       if (error) throw new Error("Failed to fetch calendars");
       return data?.items ?? [];
     },
-    enabled: !!auth?.session,
+    enabled: !!auth?.session && !!connectionId,
   });
 
   useEffect(() => {

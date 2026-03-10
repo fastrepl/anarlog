@@ -11,7 +11,7 @@ use axum::{
 use crate::config::NangoConfig;
 use crate::state::AppState;
 
-pub use connect::{CreateSessionRequest, SessionResponse};
+pub use connect::{CreateSessionRequest, SessionMode, SessionResponse};
 pub use disconnect::{DeleteConnectionRequest, DeleteConnectionResponse};
 pub use status::{ConnectionItem, ListConnectionsResponse};
 pub use webhook::WebhookResponse;

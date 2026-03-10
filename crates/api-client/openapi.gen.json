@@ -530,8 +530,15 @@
       },
       "CreateSessionRequest": {
         "properties": {
+          "connection_id": {
+            "nullable": true,
+            "type": "string"
+          },
           "integration_id": {
             "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/SessionMode"
           }
         },
         "required": [
@@ -954,9 +961,23 @@
         ],
         "type": "string"
       },
+      "GoogleListCalendarsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
       "GoogleListEventsRequest": {
         "properties": {
           "calendar_id": {
+            "type": "string"
+          },
+          "connection_id": {
             "type": "string"
           },
           "max_results": {
@@ -987,6 +1008,7 @@
           }
         },
         "required": [
+          "connection_id",
           "calendar_id"
         ],
         "type": "object"
@@ -1238,9 +1260,23 @@
         },
         "type": "object"
       },
+      "OutlookListCalendarsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
       "OutlookListEventsRequest": {
         "properties": {
           "calendar_id": {
+            "type": "string"
+          },
+          "connection_id": {
             "type": "string"
           },
           "max_results": {
@@ -1263,6 +1299,7 @@
           }
         },
         "required": [
+          "connection_id",
           "calendar_id"
         ],
         "type": "object"
@@ -1491,6 +1528,14 @@
           "private",
           "confidential",
           "unknown"
+        ],
+        "type": "string"
+      },
+      "SessionMode": {
+        "enum": [
+          "auto",
+          "connect",
+          "reconnect"
         ],
         "type": "string"
       },
@@ -2205,6 +2250,16 @@
     "/calendar/google/list-calendars": {
       "post": {
         "operationId": "google_list_calendars",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListCalendarsRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -2277,6 +2332,16 @@
     "/calendar/outlook/list-calendars": {
       "post": {
         "operationId": "outlook_list_calendars",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OutlookListCalendarsRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {

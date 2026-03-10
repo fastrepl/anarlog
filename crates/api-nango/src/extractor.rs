@@ -38,6 +38,72 @@ impl NangoConnectionState {
         Self::new(nango, &config.supabase_url, &config.supabase_anon_key)
     }
 
+    pub async fn build_http_client(
+        &self,
+        auth_token: &str,
+        user_id: &str,
+        integration_id: &str,
+        connection_id: &str,
+    ) -> Result<OwnedNangoHttpClient, NangoConnectionError> {
+        let encoded_user_id = urlencoding::encode(user_id);
+        let encoded_connection_id = urlencoding::encode(connection_id);
+        let encoded_integration_id = urlencoding::encode(integration_id);
+        let url = format!(
+            "{}/rest/v1/nango_connections?select=connection_id,status&user_id=eq.{}&connection_id=eq.{}&integration_id=eq.{}",
+            self.supabase_url, encoded_user_id, encoded_connection_id, encoded_integration_id,
+        );
+
+        let response = self
+            .http_client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", auth_token))
+            .header("apikey", &self.supabase_anon_key)
+            .send()
+            .await
+            .map_err(|e| NangoConnectionError::Database(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(NangoConnectionError::Database(format!(
+                "query failed: {} - {}",
+                status, body
+            )));
+        }
+
+        #[derive(serde::Deserialize)]
+        struct Row {
+            #[serde(default)]
+            status: String,
+        }
+
+        let rows: Vec<Row> = response
+            .json()
+            .await
+            .map_err(|e| NangoConnectionError::Database(e.to_string()))?;
+
+        match rows.into_iter().next() {
+            Some(row) if row.status == "reconnect_required" => {
+                return Err(NangoConnectionError::ReconnectRequired(
+                    integration_id.to_string(),
+                ));
+            }
+            Some(_) => {}
+            None => {
+                return Err(NangoConnectionError::NotConnected(
+                    integration_id.to_string(),
+                ));
+            }
+        }
+
+        let proxy = OwnedNangoProxy::new(
+            &self.nango,
+            integration_id.to_string(),
+            connection_id.to_string(),
+        );
+        Ok(OwnedNangoHttpClient::new(proxy))
+    }
+
     async fn get_connection_id(
         &self,
         auth_token: &str,

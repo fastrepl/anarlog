@@ -29,11 +29,15 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
 
   const results = await Promise.all(
     trackingIds.map(async (trackingId) => {
-      const result = await calendarCommands.listEvents(ctx.provider, {
-        calendar_tracking_id: trackingId,
-        from: ctx.from.toISOString(),
-        to: ctx.to.toISOString(),
-      });
+      const result = await calendarCommands.listEvents(
+        ctx.provider,
+        ctx.connectionId,
+        {
+          calendar_tracking_id: trackingId,
+          from: ctx.from.toISOString(),
+          to: ctx.to.toISOString(),
+        },
+      );
 
       if (result.status === "error") {
         throw new CalendarFetchError(trackingId, result.error);

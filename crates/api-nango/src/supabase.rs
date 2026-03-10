@@ -174,7 +174,7 @@ impl SupabaseClient {
         let service_role_key = self.service_role_key()?;
 
         let url = format!(
-            "{}/rest/v1/nango_connections?on_conflict=user_id,integration_id",
+            "{}/rest/v1/nango_connections?on_conflict=integration_id,connection_id",
             self.supabase_url,
         );
 

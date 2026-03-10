@@ -550,6 +550,7 @@ dependencies = [
 name = "api-calendar"
 version = "0.1.0"
 dependencies = [
+ "api-auth",
  "api-error",
  "api-nango",
  "axum 0.8.8",

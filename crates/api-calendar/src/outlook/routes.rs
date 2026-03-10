@@ -1,27 +1,20 @@
-use axum::Json;
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
-use hypr_api_nango::{NangoConnection, OutlookCalendar};
-use hypr_nango::OwnedNangoHttpClient;
+use axum::{Extension, Json};
+use hypr_api_auth::AuthContext;
+use hypr_api_nango::{NangoConnectionState, NangoIntegrationId, OutlookCalendar};
 use hypr_outlook_calendar::{ListCalendarsResponse, ListEventsResponse, OutlookCalendarClient};
 use serde::Deserialize;
 use utoipa::ToSchema;
 
 use crate::error::{CalendarError, Result};
 
-pub(crate) struct OutlookClient(OutlookCalendarClient<OwnedNangoHttpClient>);
-
-impl<S: Send + Sync> FromRequestParts<S> for OutlookClient {
-    type Rejection = CalendarError;
-
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self> {
-        let conn = NangoConnection::<OutlookCalendar>::from_request_parts(parts, state).await?;
-        Ok(OutlookClient(OutlookCalendarClient::new(conn.into_http())))
-    }
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct OutlookListCalendarsRequest {
+    pub connection_id: String,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct OutlookListEventsRequest {
+    pub connection_id: String,
     pub calendar_id: String,
     #[serde(default)]
     pub time_min: Option<String>,
@@ -37,6 +30,7 @@ pub struct OutlookListEventsRequest {
     post,
     path = "/outlook/list-calendars",
     operation_id = "outlook_list_calendars",
+    request_body = OutlookListCalendarsRequest,
     responses(
         (status = 200, description = "Outlook calendars fetched", body = ListCalendarsResponse),
         (status = 401, description = "Unauthorized"),
@@ -44,9 +38,23 @@ pub struct OutlookListEventsRequest {
     ),
     tag = "calendar",
 )]
-pub async fn list_calendars(client: OutlookClient) -> Result<Json<ListCalendarsResponse>> {
+pub async fn list_calendars(
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
+    Json(req): Json<OutlookListCalendarsRequest>,
+) -> Result<Json<ListCalendarsResponse>> {
+    let http = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            OutlookCalendar::ID,
+            &req.connection_id,
+        )
+        .await?;
+
+    let client = OutlookCalendarClient::new(http);
+
     let response = client
-        .0
         .list_calendars()
         .await
         .map_err(|e| CalendarError::Internal(e.to_string()))?;
@@ -67,9 +75,21 @@ pub async fn list_calendars(client: OutlookClient) -> Result<Json<ListCalendarsR
     tag = "calendar",
 )]
 pub async fn list_events(
-    client: OutlookClient,
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
     Json(req): Json<OutlookListEventsRequest>,
 ) -> Result<Json<ListEventsResponse>> {
+    let http = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            OutlookCalendar::ID,
+            &req.connection_id,
+        )
+        .await?;
+
+    let client = OutlookCalendarClient::new(http);
+
     let start_date_time = req
         .time_min
         .as_deref()
@@ -106,7 +126,6 @@ pub async fn list_events(
     };
 
     let response = client
-        .0
         .list_events(outlook_req)
         .await
         .map_err(|e| CalendarError::Internal(e.to_string()))?;

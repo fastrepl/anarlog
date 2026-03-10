@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the list_calendars command without any pre-configured scope."
         },
         {
+          "description": "Enables the list_connection_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-connection-ids",
+          "markdownDescription": "Enables the list_connection_ids command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_connection_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-connection-ids",
+          "markdownDescription": "Denies the list_connection_ids command without any pre-configured scope."
+        },
+        {
           "description": "Enables the list_events command without any pre-configured scope.",
           "type": "string",
           "const": "allow-list-events",
@@ -367,10 +379,10 @@
           "markdownDescription": "Denies the open_calendar command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-available-providers`\n- `allow-is-provider-enabled`\n- `allow-list-connection-ids`\n- `allow-list-calendars`\n- `allow-list-events`\n- `allow-open-calendar`\n- `allow-create-event`"
         }
       ]
     }

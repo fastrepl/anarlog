@@ -76,7 +76,7 @@ pub async fn delete_connection(
 
     state
         .supabase
-        .delete_connection(&auth.claims.sub, &body.integration_id)
+        .delete_connection_by_connection(&body.integration_id, &body.connection_id)
         .await?;
 
     Ok(Json(DeleteConnectionResponse {

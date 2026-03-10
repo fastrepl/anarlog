@@ -57,6 +57,7 @@ function createMockCtx(
   return {
     store: createMockStore(storeData),
     provider: "apple" as const,
+    connectionId: "apple",
     userId: "user-1",
     from: new Date("2024-01-01"),
     to: new Date("2024-02-01"),
