@@ -7,12 +7,12 @@ use std::sync::Arc;
 use hypr_audio_utils::mix_audio_f32;
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef};
 
-use crate::RecoverableAudioDisposition;
+use crate::InMemoryAudioDisposition;
 
 pub enum RecMsg {
     AudioSingle(Arc<[f32]>),
     AudioDual(Arc<[f32]>, Arc<[f32]>),
-    SetStopDisposition(RecoverableAudioDisposition),
+    SetStopDisposition(InMemoryAudioDisposition),
 }
 
 pub struct RecArgs {
@@ -23,7 +23,7 @@ pub struct RecArgs {
 
 pub struct RecState {
     sink: RecorderSink,
-    stop_disposition: RecoverableAudioDisposition,
+    stop_disposition: InMemoryAudioDisposition,
 }
 
 enum RecorderSink {
@@ -84,7 +84,7 @@ impl Actor for RecorderActor {
 
         Ok(RecState {
             sink,
-            stop_disposition: RecoverableAudioDisposition::Discard,
+            stop_disposition: InMemoryAudioDisposition::Discard,
         })
     }
 
@@ -123,7 +123,7 @@ impl Actor for RecorderActor {
         match &mut st.sink {
             RecorderSink::Memory(sink) => {
                 sink.encoder.flush(&mut sink.data)?;
-                if st.stop_disposition == RecoverableAudioDisposition::Persist {
+                if st.stop_disposition == InMemoryAudioDisposition::Persist {
                     memory::persist_memory_sink(sink)?;
                 }
             }

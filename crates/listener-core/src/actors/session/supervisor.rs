@@ -8,7 +8,7 @@ use crate::actors::{
     ChannelMode, ListenerActor, ListenerArgs, RecArgs, RecMsg, RecorderActor, SourceActor,
     SourceArgs, SourceMsg,
 };
-use crate::{DegradedError, RecoverableAudioDisposition, SessionLifecycleEvent, StopSessionParams};
+use crate::{DegradedError, InMemoryAudioDisposition, SessionLifecycleEvent, StopSessionParams};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ChildKind {
@@ -478,9 +478,9 @@ async fn apply_stop_session_params(state: &SessionState, params: &StopSessionPar
     }
 
     let disposition = params
-        .recoverable_audio
+        .in_memory_audio
         .clone()
-        .unwrap_or(RecoverableAudioDisposition::Discard);
+        .unwrap_or(InMemoryAudioDisposition::Discard);
 
     if let Some(recorder_cell) = &state.recorder_cell {
         let recorder_ref: ActorRef<RecMsg> = recorder_cell.clone().into();

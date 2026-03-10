@@ -25,6 +25,41 @@ pub(super) struct DiskSink {
     is_stereo: bool,
 }
 
+pub(super) fn has_existing_audio(session_dir: &Path) -> bool {
+    let wav_path = session_dir.join(WAV_FILE);
+    let ogg_path = session_dir.join(OGG_FILE);
+    let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+
+    encoded_path.exists() || wav_path.exists() || ogg_path.exists()
+}
+
+pub(super) fn infer_existing_audio_channels(
+    session_dir: &Path,
+) -> Result<Option<u16>, ActorProcessingErr> {
+    use hypr_audio_utils::Source;
+
+    let wav_path = session_dir.join(WAV_FILE);
+    let ogg_path = session_dir.join(OGG_FILE);
+    let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
+
+    if ogg_path.exists() {
+        let has_identical = ogg_has_identical_channels(&ogg_path).map_err(into_actor_err)?;
+        return Ok(Some(if has_identical { 1 } else { 2 }));
+    }
+
+    if wav_path.exists() {
+        let reader = hound::WavReader::open(&wav_path)?;
+        return Ok(Some(reader.spec().channels));
+    }
+
+    if encoded_path.exists() {
+        let source = hypr_audio_utils::source_from_path(&encoded_path).map_err(into_actor_err)?;
+        return Ok(Some(source.channels()));
+    }
+
+    Ok(None)
+}
+
 pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProcessingErr> {
     let wav_path = session_dir.join(WAV_FILE);
     let ogg_path = session_dir.join(OGG_FILE);
@@ -147,6 +182,31 @@ pub(super) fn finalize_disk_sink(sink: &mut DiskSink) -> Result<(), ActorProcess
     Ok(())
 }
 
+pub(super) fn persist_encoded_audio(
+    session_dir: &Path,
+    encoded_audio: &[u8],
+) -> Result<(), ActorProcessingErr> {
+    if encoded_audio.is_empty() {
+        return Ok(());
+    }
+
+    let temp_mp3_path = session_dir.join("audio.in-memory.mp3");
+    let temp_wav_path = session_dir.join("audio.in-memory.wav");
+
+    std::fs::write(&temp_mp3_path, encoded_audio)?;
+
+    let result = (|| -> Result<(), ActorProcessingErr> {
+        let mut sink = create_disk_sink(session_dir)?;
+        append_encoded_audio_to_sink(&mut sink, &temp_mp3_path, &temp_wav_path)?;
+        finalize_disk_sink(&mut sink)
+    })();
+
+    let _ = std::fs::remove_file(&temp_mp3_path);
+    let _ = std::fs::remove_file(&temp_wav_path);
+
+    result
+}
+
 fn prepare_existing_audio_state(
     encoded_path: &Path,
     ogg_path: &Path,
@@ -174,6 +234,49 @@ fn prepare_existing_audio_state(
     }
 
     Ok(true)
+}
+
+fn append_encoded_audio_to_sink(
+    sink: &mut DiskSink,
+    mp3_path: &Path,
+    wav_path: &Path,
+) -> Result<(), ActorProcessingErr> {
+    hypr_mp3::decode_to_wav(mp3_path, wav_path).map_err(into_actor_err)?;
+
+    let mut reader = hound::WavReader::open(wav_path)?;
+    let channels = reader.spec().channels;
+
+    match channels {
+        1 => {
+            let mut samples = Vec::new();
+            for sample in reader.samples::<f32>() {
+                samples.push(sample?);
+            }
+            write_single(sink, &samples)?;
+        }
+        2 => {
+            let mut left = Vec::new();
+            let mut right = Vec::new();
+
+            for (index, sample) in reader.samples::<f32>().enumerate() {
+                let sample = sample?;
+                if index % 2 == 0 {
+                    left.push(sample);
+                } else {
+                    right.push(sample);
+                }
+            }
+
+            write_dual(sink, &left, &right)?;
+        }
+        count => {
+            return Err(into_actor_err(hypr_mp3::Error::UnsupportedChannelCount(
+                count,
+            )));
+        }
+    }
+
+    Ok(())
 }
 
 fn is_debug_mode() -> bool {

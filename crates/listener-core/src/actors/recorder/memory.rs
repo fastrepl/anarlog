@@ -1,10 +1,9 @@
-use std::fs::OpenOptions;
-use std::io::Write;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use ractor::ActorProcessingErr;
 
-use super::RecorderEncoder;
+use super::{RecorderEncoder, disk};
 
 pub(super) struct MemorySink {
     pub(super) final_path: PathBuf,
@@ -14,11 +13,7 @@ pub(super) struct MemorySink {
 
 pub(super) fn create_memory_sink(session_dir: &Path) -> Result<MemorySink, ActorProcessingErr> {
     let final_path = session_dir.join("audio.mp3");
-    let channels = if final_path.exists() {
-        infer_audio_channels(&final_path)?
-    } else {
-        2
-    };
+    let channels = disk::infer_existing_audio_channels(session_dir)?.unwrap_or(2);
 
     let encoder = if channels == 1 {
         RecorderEncoder::Mono(hypr_mp3::MonoStreamEncoder::new(super::super::SAMPLE_RATE)?)
@@ -40,18 +35,23 @@ pub(super) fn persist_memory_sink(sink: &MemorySink) -> Result<(), ActorProcessi
         return Ok(());
     }
 
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&sink.final_path)?;
-    file.write_all(&sink.data)?;
-    file.sync_all()?;
-    Ok(())
-}
+    let session_dir = sink
+        .final_path
+        .parent()
+        .ok_or_else(|| std::io::Error::other("memory sink final path missing parent"))?;
 
-fn infer_audio_channels(path: &Path) -> Result<u16, ActorProcessingErr> {
-    use hypr_audio_utils::Source;
+    if !disk::has_existing_audio(session_dir) {
+        std::fs::write(&sink.final_path, &sink.data)?;
 
-    let source = hypr_audio_utils::source_from_path(path).map_err(super::into_actor_err)?;
-    Ok(source.channels())
+        if let Ok(file) = File::open(&sink.final_path) {
+            let _ = file.sync_all();
+        }
+        if let Ok(dir) = File::open(session_dir) {
+            let _ = dir.sync_all();
+        }
+
+        return Ok(());
+    }
+
+    disk::persist_encoded_audio(session_dir, &sink.data)
 }
