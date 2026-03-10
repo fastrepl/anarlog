@@ -122,18 +122,6 @@ describe("syncEvents", () => {
     expect(result.toUpdate).toHaveLength(0);
   });
 
-  test("deletes events from disabled calendars", () => {
-    const ctx = createMockCtx({ calendarIds: new Set(["cal-2"]) });
-    const result = syncEvents(
-      ctx,
-      syncInput({
-        existing: [createExistingEvent()],
-      }),
-    );
-
-    expect(result.toDelete).toContain("event-1");
-  });
-
   test("updates existing events with matching tracking id", () => {
     const ctx = createMockCtx();
     const result = syncEvents(
@@ -340,42 +328,6 @@ describe("syncEvents", () => {
 
       expect(result.toAdd).toHaveLength(1);
       expect(result.toAdd[0].participants).toEqual(participants);
-    });
-  });
-
-  describe("disabled calendar cleanup", () => {
-    test("deletes events regardless of non-empty sessions when calendar disabled", () => {
-      const ctx = createMockCtx({
-        calendarIds: new Set(["cal-2"]),
-      });
-
-      const result = syncEvents(
-        ctx,
-        syncInput({
-          existing: [
-            createExistingEvent({ id: "event-1", calendar_id: "cal-1" }),
-          ],
-        }),
-      );
-
-      expect(result.toDelete).toContain("event-1");
-    });
-
-    test("deletes events from disabled calendar without sessions", () => {
-      const ctx = createMockCtx({
-        calendarIds: new Set(["cal-2"]),
-      });
-
-      const result = syncEvents(
-        ctx,
-        syncInput({
-          existing: [
-            createExistingEvent({ id: "event-1", calendar_id: "cal-1" }),
-          ],
-        }),
-      );
-
-      expect(result.toDelete).toContain("event-1");
     });
   });
 });

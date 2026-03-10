@@ -17,11 +17,6 @@ export function syncEvents(
   const handledTrackingIds = new Set<string>();
 
   for (const storeEvent of existing) {
-    if (!ctx.calendarIds.has(storeEvent.calendar_id!)) {
-      out.toDelete.push(storeEvent.id);
-      continue;
-    }
-
     const trackingId = storeEvent.tracking_id_event;
     const matchingIncomingEvent = trackingId
       ? incomingByTrackingId.get(trackingId)

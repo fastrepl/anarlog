@@ -25,7 +25,7 @@ export function fetchExistingEvents(ctx: Ctx): ExistingEvent[] {
       return;
     }
 
-    if (event.provider && event.provider !== ctx.provider) {
+    if (!ctx.calendarIds.has(calendarId)) {
       return;
     }
 

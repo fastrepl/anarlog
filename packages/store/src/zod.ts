@@ -89,6 +89,7 @@ export const calendarSchema = z.object({
   provider: calendarProviderSchema,
   source: z.preprocess((val) => val ?? undefined, z.string().optional()),
   color: z.preprocess((val) => val ?? undefined, z.string().optional()),
+  connection_id: z.preprocess((val) => val ?? undefined, z.string().optional()),
 });
 
 export const organizationSchema = z.object({

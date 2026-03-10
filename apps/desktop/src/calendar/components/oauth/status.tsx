@@ -31,10 +31,10 @@ export function ReconnectRequiredIndicator() {
 }
 
 export function ConnectionTroubleShootingLink({
-  onConnect,
+  onReconnect,
   onDisconnect,
 }: {
-  onConnect: () => void;
+  onReconnect: () => void;
   onDisconnect: () => void;
 }) {
   const [showActions, setShowActions] = useState(false);
@@ -52,7 +52,7 @@ export function ConnectionTroubleShootingLink({
       ) : (
         <div>
           <ConnectedIndicator />{" "}
-          <ActionLink onClick={onConnect}>Reconnect</ActionLink> or{" "}
+          <ActionLink onClick={onReconnect}>Reconnect</ActionLink> or{" "}
           <ActionLink
             onClick={onDisconnect}
             className="text-red-500 hover:text-red-700"

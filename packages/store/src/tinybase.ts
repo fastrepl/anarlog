@@ -69,6 +69,7 @@ export const tableSchemaForTinybase = {
     provider: { type: "string" },
     source: { type: "string" },
     color: { type: "string" },
+    connection_id: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof calendarSchema>,
   events: {
     user_id: { type: "string" },

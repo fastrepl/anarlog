@@ -38,7 +38,10 @@ export function createCtx(
 
   for (const calendarId of Object.keys(resultTable)) {
     const calendar = store.getRow("calendars", calendarId);
-    if (calendar?.provider !== provider) {
+    if (
+      calendar?.provider !== provider ||
+      calendar?.connection_id !== connectionId
+    ) {
       continue;
     }
 
@@ -93,7 +96,10 @@ export async function syncCalendars(
   if (!userId) return;
 
   for (const { provider, connection_ids } of providerConnections) {
-    const incomingCalendars: CalendarListItem[] = [];
+    const perConnection: {
+      connectionId: string;
+      calendars: CalendarListItem[];
+    }[] = [];
 
     for (const connectionId of connection_ids) {
       const result = await calendarCommands.listCalendars(
@@ -101,39 +107,56 @@ export async function syncCalendars(
         connectionId,
       );
       if (result.status === "error") continue;
-      incomingCalendars.push(...result.data);
+      perConnection.push({ connectionId, calendars: result.data });
     }
 
-    const incomingIds = new Set(incomingCalendars.map((cal) => cal.id));
+    const incomingIds = new Set(
+      perConnection.flatMap(({ calendars }) => calendars.map((cal) => cal.id)),
+    );
 
     store.transaction(() => {
+      const removedCalendarIds = new Set<string>();
+
       for (const rowId of store.getRowIds("calendars")) {
         const row = store.getRow("calendars", rowId);
         if (
           row.provider === provider &&
           !incomingIds.has(row.tracking_id_calendar as string)
         ) {
+          removedCalendarIds.add(rowId);
           store.delRow("calendars", rowId);
         }
       }
 
-      for (const cal of incomingCalendars) {
-        const existingRowId = findCalendarByTrackingId(store, cal.id);
-        const rowId = existingRowId ?? crypto.randomUUID();
-        const existing = existingRowId
-          ? store.getRow("calendars", existingRowId)
-          : null;
+      if (removedCalendarIds.size > 0) {
+        for (const eventId of store.getRowIds("events")) {
+          const event = store.getRow("events", eventId);
+          if (event.calendar_id && removedCalendarIds.has(event.calendar_id)) {
+            store.delRow("events", eventId);
+          }
+        }
+      }
 
-        store.setRow("calendars", rowId, {
-          user_id: String(userId),
-          created_at: existing?.created_at || new Date().toISOString(),
-          tracking_id_calendar: cal.id,
-          name: cal.title,
-          enabled: existing?.enabled ?? false,
-          provider,
-          source: cal.source ?? provider,
-          color: cal.color ?? "#888",
-        });
+      for (const { connectionId, calendars } of perConnection) {
+        for (const cal of calendars) {
+          const existingRowId = findCalendarByTrackingId(store, cal.id);
+          const rowId = existingRowId ?? crypto.randomUUID();
+          const existing = existingRowId
+            ? store.getRow("calendars", existingRowId)
+            : null;
+
+          store.setRow("calendars", rowId, {
+            user_id: String(userId),
+            created_at: existing?.created_at || new Date().toISOString(),
+            tracking_id_calendar: cal.id,
+            name: cal.title,
+            enabled: existing?.enabled ?? false,
+            provider,
+            source: cal.source ?? provider,
+            color: cal.color ?? "#888",
+            connection_id: connectionId,
+          });
+        }
       }
     });
   }

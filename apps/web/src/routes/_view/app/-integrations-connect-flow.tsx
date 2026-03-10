@@ -43,7 +43,11 @@ export function ConnectFlow() {
 
       const { data, error } = await createSession({
         client: apiClient,
-        body: { integration_id: search.integration_id },
+        body: {
+          integration_id: search.integration_id,
+          mode: search.action as "connect" | "reconnect",
+          connection_id: search.connection_id,
+        },
       });
       if (error || !data) {
         inFlightRef.current = false;

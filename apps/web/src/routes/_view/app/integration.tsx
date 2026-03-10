@@ -12,7 +12,7 @@ import { UpgradePrompt } from "./-integrations-upgrade-prompt";
 const commonSearch = {
   integration_id: z.string().default("google-calendar"),
   connection_id: z.string().optional(),
-  action: z.enum(["connect", "disconnect"]).default("connect"),
+  action: z.enum(["connect", "reconnect", "disconnect"]).default("connect"),
   return_to: z.string().optional(),
 };
 

@@ -1,6 +1,7 @@
-import { RefreshCwIcon } from "lucide-react";
-import { useCallback } from "react";
+import { PlusIcon, RefreshCwIcon } from "lucide-react";
+import { useCallback, useMemo } from "react";
 
+import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -29,29 +30,17 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
   const { isPro, upgradeToPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPro);
-  const connection = connections?.find(
-    (c) => c.integration_id === config.nangoIntegrationId,
-  );
-  const connectionNeedsReconnect = connection?.status === "reconnect_required";
-
-  const handleConnect = useCallback(
+  const providerConnections = useMemo(
     () =>
-      openIntegrationUrl(
-        config.nangoIntegrationId,
-        connection?.connection_id,
-        "connect",
-      ),
-    [config.nangoIntegrationId, connection?.connection_id],
+      connections?.filter(
+        (c) => c.integration_id === config.nangoIntegrationId,
+      ) ?? [],
+    [connections, config.nangoIntegrationId],
   );
 
-  const handleDisconnect = useCallback(
-    () =>
-      openIntegrationUrl(
-        config.nangoIntegrationId,
-        connection?.connection_id,
-        "disconnect",
-      ),
-    [config.nangoIntegrationId, connection?.connection_id],
+  const handleAddAccount = useCallback(
+    () => openIntegrationUrl(config.nangoIntegrationId, undefined, "connect"),
+    [config.nangoIntegrationId],
   );
 
   if (!auth.session) {
@@ -87,25 +76,45 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
     );
   }
 
-  if (connection) {
-    if (connectionNeedsReconnect) {
-      return (
-        <ReconnectRequiredContent
-          config={config}
-          onConnect={handleConnect}
-          onDisconnect={handleDisconnect}
-          errorDescription={connection.last_error_description ?? null}
-        />
-      );
-    }
+  if (providerConnections.length > 0) {
+    const reconnectRequired = providerConnections.filter(
+      (c) => c.status === "reconnect_required",
+    );
 
     return (
-      <ConnectedContent
-        config={config}
-        connectionId={connection.connection_id}
-        onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
-      />
+      <div className="flex flex-col gap-3 pb-2">
+        {reconnectRequired.map((connection) => (
+          <ReconnectRequiredContent
+            key={connection.connection_id}
+            config={config}
+            onReconnect={() =>
+              openIntegrationUrl(
+                config.nangoIntegrationId,
+                connection.connection_id,
+                "reconnect",
+              )
+            }
+            onDisconnect={() =>
+              openIntegrationUrl(
+                config.nangoIntegrationId,
+                connection.connection_id,
+                "disconnect",
+              )
+            }
+            errorDescription={connection.last_error_description ?? null}
+          />
+        ))}
+
+        <ConnectedContent config={config} connections={providerConnections} />
+
+        <button
+          onClick={handleAddAccount}
+          className="flex cursor-pointer items-center gap-1 text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
+        >
+          <PlusIcon className="size-3" />
+          Add another account
+        </button>
+      </div>
     );
   }
 
@@ -122,7 +131,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   return (
     <div className="pt-1 pb-2">
       <button
-        onClick={handleConnect}
+        onClick={handleAddAccount}
         className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
       >
         Connect {config.displayName} Calendar
@@ -133,12 +142,12 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
 
 function ReconnectRequiredContent({
   config,
-  onConnect,
+  onReconnect,
   onDisconnect,
   errorDescription,
 }: {
   config: CalendarProvider;
-  onConnect: () => void;
+  onReconnect: () => void;
   onDisconnect: () => void;
   errorDescription: string | null;
 }) {
@@ -155,7 +164,7 @@ function ReconnectRequiredContent({
 
       <div className="flex items-center gap-2">
         <button
-          onClick={onConnect}
+          onClick={onReconnect}
           className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
         >
           Reconnect
@@ -174,25 +183,38 @@ function ReconnectRequiredContent({
 
 function ConnectedContent({
   config,
-  connectionId,
-  onConnect,
-  onDisconnect,
+  connections,
 }: {
   config: CalendarProvider;
-  connectionId: string;
-  onConnect: () => void;
-  onDisconnect: () => void;
+  connections: ConnectionItem[];
 }) {
   const { groups, handleToggle, handleRefresh, isLoading } =
-    useOAuthCalendarSelection(config, connectionId);
+    useOAuthCalendarSelection(config);
 
   return (
-    <div className="flex flex-col gap-2 pb-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <ConnectionTroubleShootingLink
-          onConnect={onConnect}
-          onDisconnect={onDisconnect}
-        />
+        <div className="flex items-center gap-2 text-xs text-neutral-600">
+          {connections.map((connection) => (
+            <ConnectionTroubleShootingLink
+              key={connection.connection_id}
+              onReconnect={() =>
+                openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "reconnect",
+                )
+              }
+              onDisconnect={() =>
+                openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "disconnect",
+                )
+              }
+            />
+          ))}
+        </div>
 
         <Button
           variant="ghost"
@@ -219,7 +241,7 @@ function ConnectedContent({
 async function openIntegrationUrl(
   nangoIntegrationId: string | undefined,
   connectionId: string | undefined,
-  action: "connect" | "disconnect",
+  action: "connect" | "reconnect" | "disconnect",
 ) {
   if (!nangoIntegrationId) return;
   const params: Record<string, string> = {
@@ -227,7 +249,7 @@ async function openIntegrationUrl(
     integration_id: nangoIntegrationId,
     return_to: "calendar",
   };
-  if (action === "disconnect" && connectionId) {
+  if (connectionId) {
     params.connection_id = connectionId;
   }
   const url = await buildWebAppUrl("/app/integration", params);
