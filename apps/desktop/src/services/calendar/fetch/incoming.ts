@@ -86,6 +86,7 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
   }
 
   for (const attendee of calendarEvent.attendees) {
+    if (attendee.role === "nonparticipant") continue;
     eventParticipants.push({
       name: attendee.name ?? undefined,
       email: attendee.email ?? undefined,
