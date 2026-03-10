@@ -52,6 +52,14 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   const participants: IncomingParticipants = new Map();
 
   for (const calendarEvent of calendarEvents) {
+    if (
+      calendarEvent.attendees.find(
+        (attendee) =>
+          attendee.is_current_user && attendee.status === "declined",
+      )
+    ) {
+      continue;
+    }
     const { event, eventParticipants } =
       await normalizeCalendarEvent(calendarEvent);
     events.push(event);
