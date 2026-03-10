@@ -48,7 +48,7 @@
     "@tanstack/router-plugin": "^1.159.5",
     "@tiptap/extension-image": "^3.19.0",
     "@tiptap/html": "^3.19.0",
-    "@tiptap/markdown": "3.17.1",
+    "@tiptap/markdown": "^3.19.0",
     "@tiptap/react": "^3.19.0",
     "@unpic/react": "^1.0.2",
     "@uppy/core": "^5.2.0",
