@@ -125,9 +125,10 @@ impl SplitCoordinator {
         }
 
         if self.should_release_pending_finalize(channel)
-            && let Some(generation) = self.flush_pending(&mut actions, FinalizeMode::Terminal) {
-                self.mark_terminal_finalize_sent(generation);
-            }
+            && let Some(generation) = self.flush_pending(&mut actions, FinalizeMode::Terminal)
+        {
+            self.mark_terminal_finalize_sent(generation);
+        }
 
         if self.channels.iter().all(|channel| channel.closed) {
             actions.push(CoordinatorAction::CloseDownstream {
