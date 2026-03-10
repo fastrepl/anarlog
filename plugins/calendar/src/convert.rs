@@ -322,7 +322,9 @@ fn convert_google_attendee(attendee: &GoogleAttendee) -> EventAttendee {
         email: attendee.email.clone(),
         is_current_user: attendee.is_self.unwrap_or(false),
         status: convert_google_attendee_status(&attendee.response_status),
-        role: if is_organizer {
+        role: if attendee.resource.unwrap_or(false) {
+            AttendeeRole::NonParticipant
+        } else if is_organizer {
             AttendeeRole::Chair
         } else if is_optional {
             AttendeeRole::Optional
