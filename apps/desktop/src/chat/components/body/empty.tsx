@@ -11,9 +11,21 @@ import { cn } from "@hypr/utils";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
-  { label: "Actions", icon: ListChecksIcon, prompt: "What are my action items from this meeting?" },
-  { label: "Draft follow-up", icon: MailIcon, prompt: "Draft a follow-up email to the participants" },
-  { label: "Key decisions", icon: SearchIcon, prompt: "What were the key decisions that have been made?" },
+  {
+    label: "Actions",
+    icon: ListChecksIcon,
+    prompt: "What are my action items from this meeting?",
+  },
+  {
+    label: "Draft follow-up",
+    icon: MailIcon,
+    prompt: "Draft a follow-up email to the participants",
+  },
+  {
+    label: "Key decisions",
+    icon: SearchIcon,
+    prompt: "What were the key decisions that have been made?",
+  },
 ];
 
 export function ChatBodyEmpty({
