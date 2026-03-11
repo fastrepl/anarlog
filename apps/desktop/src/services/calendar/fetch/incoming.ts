@@ -71,7 +71,9 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   return { events, participants };
 }
 
-async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
+export async function normalizeCalendarEvent(
+  calendarEvent: CalendarEvent,
+): Promise<{
   event: IncomingEvent;
   eventParticipants: EventParticipant[];
 }> {
@@ -82,10 +84,10 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
       calendarEvent.location,
     ));
 
-  const eventParticipants: EventParticipant[] = [];
+  const rawParticipants: EventParticipant[] = [];
 
   if (calendarEvent.organizer) {
-    eventParticipants.push({
+    rawParticipants.push({
       name: calendarEvent.organizer.name ?? undefined,
       email: calendarEvent.organizer.email ?? undefined,
       is_organizer: true,
@@ -95,13 +97,15 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
 
   for (const attendee of calendarEvent.attendees) {
     if (attendee.role === "nonparticipant") continue;
-    eventParticipants.push({
+    rawParticipants.push({
       name: attendee.name ?? undefined,
       email: attendee.email ?? undefined,
       is_organizer: false,
       is_current_user: attendee.is_current_user,
     });
   }
+
+  const eventParticipants = dedupeEventParticipants(rawParticipants);
 
   return {
     event: {
@@ -119,6 +123,82 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
     },
     eventParticipants,
   };
+}
+
+function dedupeEventParticipants(
+  participants: EventParticipant[],
+): EventParticipant[] {
+  const deduped: EventParticipant[] = [];
+  const keyedIndexes = new Map<string, number>();
+
+  for (const participant of participants) {
+    const key = getParticipantKey(participant);
+    if (!key) {
+      deduped.push(participant);
+      continue;
+    }
+
+    const existingIndex = keyedIndexes.get(key);
+    if (existingIndex === undefined) {
+      keyedIndexes.set(key, deduped.length);
+      deduped.push(participant);
+      continue;
+    }
+
+    deduped[existingIndex] = mergeParticipants(
+      deduped[existingIndex],
+      participant,
+    );
+  }
+
+  return deduped;
+}
+
+function getParticipantKey(participant: EventParticipant): string | null {
+  const email = participant.email?.trim().toLowerCase();
+  if (email) {
+    return `email:${email}`;
+  }
+
+  if (participant.is_current_user) {
+    return "current-user";
+  }
+
+  return null;
+}
+
+function mergeParticipants(
+  existing: EventParticipant,
+  incoming: EventParticipant,
+): EventParticipant {
+  return {
+    name: pickPreferredText(existing.name, incoming.name),
+    email: pickPreferredText(existing.email, incoming.email),
+    is_organizer:
+      existing.is_organizer || incoming.is_organizer ? true : undefined,
+    is_current_user:
+      existing.is_current_user || incoming.is_current_user ? true : undefined,
+  };
+}
+
+function pickPreferredText(
+  existing?: string,
+  incoming?: string,
+): string | undefined {
+  const existingText = existing?.trim();
+  const incomingText = incoming?.trim();
+
+  if (!existingText) {
+    return incomingText || undefined;
+  }
+
+  if (!incomingText) {
+    return existingText;
+  }
+
+  return incomingText.length > existingText.length
+    ? incomingText
+    : existingText;
 }
 
 async function extractMeetingLink(
