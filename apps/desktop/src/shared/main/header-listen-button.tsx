@@ -90,11 +90,12 @@ function HeaderListenButtonInner() {
       onClick={handleClick}
       disabled={isDisabled}
       className={cn([
-        "inline-flex items-center justify-center rounded-full text-xs font-medium",
-        "bg-stone-800 text-white",
+        "inline-flex items-center justify-center rounded-full text-sm font-medium text-white",
+        "gap-2",
+        "h-8 px-4",
+        "border-2 border-stone-600 bg-stone-800",
+        "transition-all duration-200 ease-out",
         "hover:bg-stone-700",
-        "gap-1.5",
-        "h-7 px-3",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
     >
