@@ -2,7 +2,7 @@ import type { Ctx } from "../../ctx";
 import type { EventsSyncInput, EventsSyncOutput } from "./types";
 
 export function syncEvents(
-  ctx: Ctx,
+  _ctx: Ctx,
   { incoming, existing, incomingParticipants }: EventsSyncInput,
 ): EventsSyncOutput {
   const out: EventsSyncOutput = {
