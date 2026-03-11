@@ -28,6 +28,7 @@ import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
@@ -295,6 +296,9 @@ function StatusBanner({
 }) {
   const { leftsidebar, chat } = useShell();
   const [chatPanelWidth, setChatPanelWidth] = useState(0);
+  const hasUndoDeleteToast = useUndoDelete(
+    (state) => Object.keys(state.pendingDeletions).length > 0,
+  );
 
   const isChatPanelOpen = chat.mode === "RightPanelOpen";
 
@@ -349,7 +353,11 @@ function StatusBanner({
             "fixed z-50 -translate-x-1/2",
             "text-center text-xs whitespace-nowrap",
             skipReason ? "text-red-400" : "text-stone-300",
-            showTimeline ? "bottom-[76px]" : "bottom-6",
+            hasUndoDeleteToast
+              ? "bottom-1"
+              : showTimeline
+                ? "bottom-[76px]"
+                : "bottom-6",
           ])}
         >
           {skipReason || "Ask for consent when using Char"}
