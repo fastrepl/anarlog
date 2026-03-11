@@ -100,6 +100,8 @@ interface CollectionInfo {
   items: ContentItem[];
 }
 
+const DRAFT_ARTICLES_QUERY_KEY = ["draftArticles"];
+
 interface Tab {
   id: string;
   type: "collection" | "file";
@@ -256,6 +258,19 @@ export const Route = createFileRoute("/admin/collections/")({
   component: CollectionsPage,
 });
 
+async function fetchDraftArticles() {
+  const response = await fetch("/api/admin/content/list-drafts", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch drafts");
+  }
+
+  const data = await response.json();
+  return data.drafts as DraftArticle[];
+}
+
 function getFileExtension(filename: string): string {
   const parts = filename.split(".");
   return parts.length > 1 ? parts.pop()?.toLowerCase() || "" : "";
@@ -265,15 +280,8 @@ function CollectionsPage() {
   const queryClient = useQueryClient();
 
   const { data: draftArticles = [] } = useQuery({
-    queryKey: ["draftArticles"],
-    queryFn: async () => {
-      const response = await fetch("/api/admin/content/list-drafts");
-      if (!response.ok) {
-        throw new Error("Failed to fetch drafts");
-      }
-      const data = await response.json();
-      return data.drafts as DraftArticle[];
-    },
+    queryKey: DRAFT_ARTICLES_QUERY_KEY,
+    queryFn: fetchDraftArticles,
     staleTime: 30000,
   });
 
@@ -297,7 +305,10 @@ function CollectionsPage() {
     }
     draftSyncTimerRef.current = setTimeout(() => {
       draftSyncTimerRef.current = null;
-      queryClient.invalidateQueries({ queryKey: ["draftArticles"] });
+      void queryClient.refetchQueries({
+        queryKey: DRAFT_ARTICLES_QUERY_KEY,
+        type: "active",
+      });
     }, 5000);
   }, [queryClient]);
 
@@ -321,14 +332,21 @@ function CollectionsPage() {
     onSuccess: (data, variables) => {
       setEditingItem(null);
       if (data.branch && variables.type === "file") {
-        const slug = variables.name.replace(/\.mdx$/, "");
+        const path = data.path || `${variables.folder}/${variables.name}`;
+        const name = path.split("/").pop() || variables.name;
+        const slug = name.replace(/\.mdx$/, "");
         queryClient.setQueryData(
-          ["draftArticles"],
+          DRAFT_ARTICLES_QUERY_KEY,
           (old: DraftArticle[] = []) => [
-            ...old,
+            ...old.filter(
+              (draft) =>
+                draft.branch !== data.branch &&
+                draft.path !== path &&
+                draft.slug !== slug,
+            ),
             {
-              name: variables.name,
-              path: `${variables.folder}/${variables.name}`,
+              name,
+              path,
               slug,
               branch: data.branch,
             },
@@ -336,7 +354,9 @@ function CollectionsPage() {
         );
         scheduleDraftSync();
       } else {
-        queryClient.invalidateQueries({ queryKey: ["draftArticles"] });
+        void queryClient.invalidateQueries({
+          queryKey: DRAFT_ARTICLES_QUERY_KEY,
+        });
       }
     },
   });
@@ -384,7 +404,9 @@ function CollectionsPage() {
         }
         return filtered;
       });
-      queryClient.invalidateQueries({ queryKey: ["draftArticles"] });
+      void queryClient.invalidateQueries({
+        queryKey: DRAFT_ARTICLES_QUERY_KEY,
+      });
     },
   });
 
