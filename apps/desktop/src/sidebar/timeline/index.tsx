@@ -1,5 +1,11 @@
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { CalendarDaysIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -17,10 +23,13 @@ import {
   calculateTodayIndicatorPlacement,
   filterTimelineTablesUpToTomorrow,
   getItemTimestamp,
+  hasTimelineItemsAfterTomorrow,
   type TimelineBucket,
+  type TimelineEventsTable,
   type TimelineIndicatorPlacement,
   type TimelineItem,
   type TimelinePrecision,
+  type TimelineSessionsTable,
 } from "./utils";
 
 import { useConfigValue } from "~/shared/config";
@@ -36,11 +45,18 @@ import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 export function TimelineView() {
-  const allBuckets = useTimelineData();
   const timezone = useConfigValue("timezone") || undefined;
+  const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
+  const allBuckets = useTimelineData({
+    timelineEventsTable,
+    timelineSessionsTable,
+    timezone,
+  });
   const [showIgnored, setShowIgnored] = useState(false);
+  const [isScrolledToTop, setIsScrolledToTop] = useState(true);
 
   const { isIgnored } = useIgnoredEvents();
+  const openNew = useTabs((state) => state.openNew);
 
   const buckets = useMemo(() => {
     if (showIgnored) {
@@ -60,6 +76,45 @@ export function TimelineView() {
       }))
       .filter((bucket) => bucket.items.length > 0);
   }, [allBuckets, showIgnored, isIgnored, timezone]);
+
+  const visibleTimelineEventsTable = useMemo(() => {
+    if (showIgnored || !timelineEventsTable) {
+      return timelineEventsTable;
+    }
+
+    return Object.fromEntries(
+      Object.entries(timelineEventsTable).filter(
+        ([, item]) =>
+          !isIgnored(item.tracking_id_event, item.recurrence_series_id),
+      ),
+    );
+  }, [timelineEventsTable, showIgnored, isIgnored]);
+
+  const showOpenCalendarButton = useMemo(
+    () =>
+      isScrolledToTop &&
+      hasTimelineItemsAfterTomorrow({
+        timelineEventsTable: visibleTimelineEventsTable,
+        timelineSessionsTable,
+        timezone,
+      }),
+    [
+      isScrolledToTop,
+      visibleTimelineEventsTable,
+      timelineSessionsTable,
+      timezone,
+    ],
+  );
+
+  const hasMoreFutureItems = useMemo(
+    () =>
+      hasTimelineItemsAfterTomorrow({
+        timelineEventsTable: visibleTimelineEventsTable,
+        timelineSessionsTable,
+        timezone,
+      }),
+    [visibleTimelineEventsTable, timelineSessionsTable, timezone],
+  );
 
   const hasToday = useMemo(
     () => buckets.some((bucket) => bucket.label === "Today"),
@@ -99,6 +154,26 @@ export function TimelineView() {
     anchorNode: todayAnchorNode,
   } = useAnchor();
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const updateScrollPosition = () => {
+      setIsScrolledToTop(container.scrollTop <= 12);
+    };
+
+    updateScrollPosition();
+    container.addEventListener("scroll", updateScrollPosition, {
+      passive: true,
+    });
+
+    return () => {
+      container.removeEventListener("scroll", updateScrollPosition);
+    };
+  }, [containerRef]);
+
   const todayBucketLength = useMemo(() => {
     const b = buckets.find((bucket) => bucket.label === "Today");
     return b?.items.length ?? 0;
@@ -132,6 +207,10 @@ export function TimelineView() {
   const toggleShowIgnored = useCallback(() => {
     setShowIgnored((prev) => !prev);
   }, []);
+
+  const handleOpenCalendar = useCallback(() => {
+    openNew({ type: "calendar" });
+  }, [openNew]);
 
   const handleDeleteSelected = useCallback(() => {
     if (!store || !indexes) {
@@ -217,6 +296,7 @@ export function TimelineView() {
           "rounded-xl",
         ])}
       >
+        {hasMoreFutureItems && <div aria-hidden className="h-10 shrink-0" />}
         {buckets.map((bucket, index) => {
           const isToday = bucket.label === "Today";
           const shouldRenderIndicatorBefore =
@@ -280,25 +360,57 @@ export function TimelineView() {
           )}
       </div>
 
-      {!isTodayVisible && (
+      {(showOpenCalendarButton || (!isTodayVisible && isScrolledPastToday)) && (
+        <div className="absolute top-2 left-1/2 z-20 flex -translate-x-1/2 transform flex-col items-center gap-2">
+          {showOpenCalendarButton && (
+            <Button
+              onClick={handleOpenCalendar}
+              size="sm"
+              className={cn([
+                "rounded-full bg-white hover:bg-neutral-50",
+                "border border-neutral-200 text-neutral-700",
+                "flex items-center gap-1",
+                "shadow-xs",
+              ])}
+              variant="outline"
+            >
+              <CalendarDaysIcon size={12} />
+              <span className="text-xs">Open calendar</span>
+            </Button>
+          )}
+          {!isTodayVisible && isScrolledPastToday && (
+            <Button
+              onClick={scrollToToday}
+              size="sm"
+              className={cn([
+                "rounded-full bg-white hover:bg-neutral-50",
+                "border border-neutral-200 text-neutral-700",
+                "flex items-center gap-1",
+                "shadow-xs",
+              ])}
+              variant="outline"
+            >
+              <ChevronUpIcon size={12} />
+              <span className="text-xs">Go back to now</span>
+            </Button>
+          )}
+        </div>
+      )}
+
+      {!isTodayVisible && !isScrolledPastToday && (
         <Button
           onClick={scrollToToday}
           size="sm"
           className={cn([
-            "absolute left-1/2 -translate-x-1/2 transform",
+            "absolute bottom-2 left-1/2 -translate-x-1/2 transform",
             "rounded-full bg-white hover:bg-neutral-50",
             "border border-neutral-200 text-neutral-700",
             "z-20 flex items-center gap-1",
             "shadow-xs",
-            isScrolledPastToday ? "top-2" : "bottom-2",
           ])}
           variant="outline"
         >
-          {!isScrolledPastToday ? (
-            <ChevronDownIcon size={12} />
-          ) : (
-            <ChevronUpIcon size={12} />
-          )}
+          <ChevronDownIcon size={12} />
           <span className="text-xs">Go back to now</span>
         </Button>
       )}
@@ -432,8 +544,10 @@ function TodayBucket({
   return renderedEntries;
 }
 
-function useTimelineData(): TimelineBucket[] {
-  const timezone = useConfigValue("timezone");
+function useTimelineTables(): {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+} {
   const timelineEventsTable = main.UI.useResultTable(
     main.QUERIES.timelineEvents,
     main.STORE_ID,
@@ -442,12 +556,25 @@ function useTimelineData(): TimelineBucket[] {
     main.QUERIES.timelineSessions,
     main.STORE_ID,
   );
+
+  return { timelineEventsTable, timelineSessionsTable };
+}
+
+function useTimelineData({
+  timelineEventsTable,
+  timelineSessionsTable,
+  timezone,
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  timezone?: string;
+}): TimelineBucket[] {
   const filteredTables = useMemo(
     () =>
       filterTimelineTablesUpToTomorrow({
         timelineEventsTable,
         timelineSessionsTable,
-        timezone: timezone || undefined,
+        timezone,
       }),
     [timelineEventsTable, timelineSessionsTable, timezone],
   );
@@ -461,7 +588,7 @@ function useTimelineData(): TimelineBucket[] {
       buildTimelineBuckets({
         timelineEventsTable: filteredTables.timelineEventsTable,
         timelineSessionsTable: filteredTables.timelineSessionsTable,
-        timezone: timezone || undefined,
+        timezone,
       }),
     [filteredTables, currentTimeMs, timezone],
   );

@@ -264,6 +264,14 @@ function isAtOrBeforeTomorrow(date: Date | null, timezone?: string): boolean {
   return date.getTime() < getTomorrowUpperBound(timezone);
 }
 
+function isAfterTomorrow(date: Date | null, timezone?: string): boolean {
+  if (!date) {
+    return false;
+  }
+
+  return date.getTime() >= getTomorrowUpperBound(timezone);
+}
+
 export function filterTimelineTablesUpToTomorrow({
   timelineEventsTable,
   timelineSessionsTable,
@@ -298,6 +306,42 @@ export function filterTimelineTablesUpToTomorrow({
         )
       : timelineSessionsTable,
   };
+}
+
+export function hasTimelineItemsAfterTomorrow({
+  timelineEventsTable,
+  timelineSessionsTable,
+  timezone,
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  timezone?: string;
+}): boolean {
+  if (
+    timelineSessionsTable &&
+    Object.values(timelineSessionsTable).some((row) =>
+      isAfterTomorrow(
+        safeParseDate(getSessionEvent(row)?.started_at ?? row.created_at),
+        timezone,
+      ),
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    timelineEventsTable &&
+    Object.values(timelineEventsTable).some((row) =>
+      isAfterTomorrow(
+        safeParseDate(row.started_at) ?? safeParseDate(row.ended_at),
+        timezone,
+      ),
+    )
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function getEventTrackingId(row: TimelineEventRow): string {
