@@ -182,6 +182,8 @@ function createParticipantsFromEvent(
     }
   });
 
+  const linkedHumanIds = new Set<string>();
+
   for (const participant of participants) {
     if (!participant.email) continue;
 
@@ -203,6 +205,11 @@ function createParticipantsFromEvent(
       humansByEmail.set(emailLower, humanId);
     }
 
+    if (linkedHumanIds.has(humanId)) {
+      continue;
+    }
+
+    linkedHumanIds.add(humanId);
     store.setRow("mapping_session_participant", id(), {
       user_id: DEFAULT_USER_ID,
       session_id: sessionId,

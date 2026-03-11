@@ -98,24 +98,50 @@ function computeSessionParticipantChanges(
   const existingMappings = getExistingMappings(store, sessionId);
 
   const toAdd: ParticipantMappingToAdd[] = [];
-  const toDelete: string[] = [];
+  const toDelete = new Set<string>();
 
   for (const humanId of eventHumanIds) {
-    const existing = existingMappings.get(humanId);
-    if (!existing) {
+    const existing = existingMappings.get(humanId) ?? [];
+    if (existing.length === 0) {
       toAdd.push({ sessionId, humanId });
-    } else if (existing.source === "excluded") {
       continue;
     }
-  }
 
-  for (const [humanId, mapping] of existingMappings) {
-    if (mapping.source === "auto" && !eventHumanIds.has(humanId)) {
-      toDelete.push(mapping.id);
+    const hasExcluded = existing.some(
+      (mapping) => mapping.source === "excluded",
+    );
+    const autoMappings = existing.filter(
+      (mapping) => mapping.source === "auto",
+    );
+    const hasNonAutoMapping = existing.some(
+      (mapping) => mapping.source && mapping.source !== "auto",
+    );
+
+    if (hasExcluded || hasNonAutoMapping) {
+      for (const mapping of autoMappings) {
+        toDelete.add(mapping.id);
+      }
+      continue;
+    }
+
+    for (const mapping of autoMappings.slice(1)) {
+      toDelete.add(mapping.id);
     }
   }
 
-  return { toDelete, toAdd };
+  for (const [humanId, mappings] of existingMappings) {
+    if (eventHumanIds.has(humanId)) {
+      continue;
+    }
+
+    for (const mapping of mappings) {
+      if (mapping.source === "auto") {
+        toDelete.add(mapping.id);
+      }
+    }
+  }
+
+  return { toDelete: Array.from(toDelete), toAdd };
 }
 
 type MappingInfo = {
@@ -127,18 +153,20 @@ type MappingInfo = {
 function getExistingMappings(
   store: Store,
   sessionId: string,
-): Map<string, MappingInfo> {
-  const mappings = new Map<string, MappingInfo>();
+): Map<string, MappingInfo[]> {
+  const mappings = new Map<string, MappingInfo[]>();
 
   store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
     const mapping = store.getRow("mapping_session_participant", mappingId);
     if (mapping?.session_id === sessionId && mapping.human_id) {
       const humanId = mapping.human_id;
-      mappings.set(humanId, {
+      const entries = mappings.get(humanId) ?? [];
+      entries.push({
         id: mappingId,
         humanId,
         source: mapping.source,
       });
+      mappings.set(humanId, entries);
     }
   });
 
