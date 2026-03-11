@@ -216,6 +216,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         }
     }
 
+    #[allow(unreachable_code)]
     pub async fn postinstall(&self, result: InstallResult) -> Result<(), crate::Error> {
         match result {
             InstallResult::RelaunchCurrent => {
@@ -255,12 +256,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
                         backup_path,
                         stage_dir,
                     );
-                    Err(crate::Error::InvalidPostinstallState(
+                    return Err(crate::Error::InvalidPostinstallState(
                         "macos_bundle_update is only valid on macOS".into(),
-                    ))
+                    ));
                 }
             }
         }
+        Ok(())
     }
 }
 
