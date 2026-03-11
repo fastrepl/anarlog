@@ -149,7 +149,8 @@ const Placeholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
     return (
       <p className="text-[#e5e5e5]">
-        Take notes or press <kbd>/</kbd> for commands.
+        Take notes to guide Char's meeting notes. Press <kbd>/</kbd> for
+        commands.
       </p>
     );
   }

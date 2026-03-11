@@ -68,7 +68,7 @@ export function ParticipantInput({ sessionId }: { sessionId: string }) {
           ref={inputRef}
           type="text"
           className="min-w-[120px] flex-1 bg-transparent text-sm outline-hidden placeholder:text-neutral-400"
-          placeholder="Add participants..."
+          placeholder="Who was in this meeting?"
           value={inputValue}
           onChange={(e) => handleInputChange(e.target.value)}
           onKeyDown={handleKeyDown}
