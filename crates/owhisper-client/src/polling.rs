@@ -34,7 +34,7 @@ impl PollingConfig {
 pub enum PollingResult<T> {
     Complete(T),
     Continue,
-    Failed(String),
+    Failed { message: String, retryable: bool },
 }
 
 pub async fn poll_until<T, Fut, F>(poll_fn: F, config: PollingConfig) -> Result<T, Error>
@@ -48,11 +48,11 @@ where
             PollingResult::Continue => {
                 tokio::time::sleep(config.interval).await;
             }
-            PollingResult::Failed(error) => {
-                return Err(Error::AudioProcessing(error));
+            PollingResult::Failed { message, retryable } => {
+                return Err(Error::provider_failure(message, retryable));
             }
         }
     }
 
-    Err(Error::AudioProcessing(config.timeout_error))
+    Err(Error::provider_failure(config.timeout_error, true))
 }

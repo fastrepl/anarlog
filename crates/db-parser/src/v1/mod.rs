@@ -139,7 +139,8 @@ fn merge_transcript_data(
 ) -> Vec<Transcript> {
     let mut words_by_transcript: HashMap<String, Vec<WordWithTranscript>> = HashMap::new();
 
-    let speaker_hints: HashMap<String, String> = hints_table
+    // Build word_id -> speaker label mapping for resolving word.speaker
+    let speaker_hints_for_labels: HashMap<String, String> = hints_table
         .iter()
         .filter_map(|h| {
             let label = resolve_speaker_hint(h)?;
@@ -147,26 +148,52 @@ fn merge_transcript_data(
         })
         .collect();
 
-    for w in words_table {
+    for w in &words_table {
         words_by_transcript
             .entry(w.transcript_id.clone())
             .or_default()
-            .push(w);
+            .push(w.clone());
+    }
+
+    // Build word_id -> transcript_id mapping
+    let word_to_transcript: HashMap<String, String> = words_table
+        .iter()
+        .map(|w| (w.word.id.clone(), w.transcript_id.clone()))
+        .collect();
+
+    // Group hints by transcript_id (via word_id -> transcript_id)
+    let mut hints_by_transcript: HashMap<String, Vec<SpeakerHint>> = HashMap::new();
+    for hint in &hints_table {
+        if let Some(transcript_id) = word_to_transcript.get(&hint.word_id) {
+            hints_by_transcript
+                .entry(transcript_id.clone())
+                .or_default()
+                .push(SpeakerHint {
+                    word_id: hint.word_id.clone(),
+                    hint_type: hint.hint_type.clone(),
+                    value: hint.value.clone(),
+                });
+        }
     }
 
     raw.into_iter()
         .filter_map(|t| {
-            let mut words = if let Some(inline_words) = &t.inline_words {
+            let transcript_id = t.id.clone();
+
+            let (mut words, inline_hints) = if let Some(inline_words) = &t.inline_words {
                 let mut words = parse_inline_words(inline_words, t.started_at);
-                if let Some(inline_hints) = &t.inline_hints {
-                    let inline_speaker_hints = parse_inline_hints_to_map(inline_hints);
+                let inline_hints = if let Some(inline_hints_str) = &t.inline_hints {
+                    let inline_speaker_hints = parse_inline_hints_to_map(inline_hints_str);
                     for word in &mut words {
                         if let Some(hint_speaker) = inline_speaker_hints.get(&word.id) {
                             word.speaker = Some(hint_speaker.clone());
                         }
                     }
-                }
-                words
+                    parse_inline_hints_raw(inline_hints_str)
+                } else {
+                    vec![]
+                };
+                (words, inline_hints)
             } else {
                 let mut raw_words = words_by_transcript.remove(&t.id).unwrap_or_default();
                 raw_words.sort_by(|a, b| {
@@ -176,10 +203,10 @@ fn merge_transcript_data(
                         .unwrap_or(std::cmp::Ordering::Equal)
                 });
 
-                raw_words
+                let words = raw_words
                     .into_iter()
                     .map(|w| {
-                        let speaker = speaker_hints
+                        let speaker = speaker_hints_for_labels
                             .get(&w.word.id)
                             .cloned()
                             .or(w.word.speaker)
@@ -194,7 +221,8 @@ fn merge_transcript_data(
                             speaker: Some(speaker),
                         }
                     })
-                    .collect()
+                    .collect();
+                (words, vec![])
             };
 
             if words.is_empty() {
@@ -214,6 +242,12 @@ fn merge_transcript_data(
                 .cloned()
                 .unwrap_or_default();
 
+            // Combine hints from table and inline hints
+            let mut speaker_hints = hints_by_transcript
+                .remove(&transcript_id)
+                .unwrap_or_default();
+            speaker_hints.extend(inline_hints);
+
             Some(Transcript {
                 id: t.id,
                 user_id: t.user_id,
@@ -225,6 +259,7 @@ fn merge_transcript_data(
                 start_ms,
                 end_ms,
                 words,
+                speaker_hints,
             })
         })
         .collect()

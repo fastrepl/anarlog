@@ -1,6 +1,9 @@
 use ractor::{ActorRef, call_t, registry};
 
-use crate::actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg};
+use hypr_listener_core::{
+    StartSessionError, StopSessionParams,
+    actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
+};
 
 pub struct Listener<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     #[allow(unused)]
@@ -28,15 +31,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn get_state(&self) -> crate::fsm::State {
+    pub async fn get_state(&self) -> hypr_listener_core::State {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
             match call_t!(actor, RootMsg::GetState, 100) {
                 Ok(fsm_state) => fsm_state,
-                Err(_) => crate::fsm::State::Inactive,
+                Err(_) => hypr_listener_core::State::Inactive,
             }
         } else {
-            crate::fsm::State::Inactive
+            hypr_listener_core::State::Inactive
         }
     }
 
@@ -59,18 +62,27 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn start_session(&self, params: SessionParams) {
+    pub async fn start_session(&self, params: SessionParams) -> Result<(), crate::Error> {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            let _ = ractor::call!(actor, RootMsg::StartSession, params);
+            match ractor::call!(actor, RootMsg::StartSession, params) {
+                Ok(Ok(())) => Ok(()),
+                Ok(Err(StartSessionError::SessionAlreadyRunning)) => {
+                    Err(crate::Error::SessionAlreadyRunning)
+                }
+                Ok(Err(_)) => Err(crate::Error::StartSessionFailed),
+                Err(_) => Err(crate::Error::StartSessionFailed),
+            }
+        } else {
+            Err(crate::Error::ActorNotFound(RootActor::name().to_string()))
         }
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn stop_session(&self) {
+    pub async fn stop_session(&self, params: StopSessionParams) {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            let _ = ractor::call!(actor, RootMsg::StopSession);
+            let _ = ractor::call!(actor, RootMsg::StopSession, params);
         }
     }
 }

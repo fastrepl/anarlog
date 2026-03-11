@@ -34,12 +34,11 @@ Disallow: /product/
 Disallow: /solution/
 Disallow: /integrations/
 Disallow: /press-kit
-Disallow: /shortcuts/
-Disallow: /templates/
+
 Disallow: /vs/
 
 # AI-specific content reference
 # AI crawlers can find detailed content at /llms.txt
 
 # Sitemap location
-Sitemap: https://hyprnote.com/sitemap.xml
+Sitemap: https://char.com/sitemap.xml

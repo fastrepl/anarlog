@@ -10,6 +10,11 @@ import { jobsMdxComponents } from "@/components/mdx-jobs";
 import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/jobs/$slug")({
+  beforeLoad: () => {
+    if (!import.meta.env.DEV) {
+      throw notFound();
+    }
+  },
   component: JobPage,
   loader: async ({ params }) => {
     const job = allJobs.find((j) => j.slug === params.slug);
@@ -40,14 +45,14 @@ export const Route = createFileRoute("/_view/jobs/$slug")({
 
     return {
       meta: [
-        { title: `${job.title} - Hyprnote` },
+        { title: `${job.title} - Char` },
         { name: "description", content: job.description },
-        { property: "og:title", content: `${job.title} - Hyprnote` },
+        { property: "og:title", content: `${job.title} - Char` },
         { property: "og:description", content: job.description },
         { property: "og:image", content: ogImageUrl },
         { property: "og:type", content: "website" },
         { name: "twitter:card", content: "summary_large_image" },
-        { name: "twitter:title", content: `${job.title} - Hyprnote` },
+        { name: "twitter:title", content: `${job.title} - Char` },
         { name: "twitter:description", content: job.description },
         { name: "twitter:image", content: ogImageUrl },
       ],
@@ -60,10 +65,10 @@ function JobPage() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection job={job} />
         <JobDetailsSection job={job} />
         <SlashSeparator />
@@ -76,7 +81,7 @@ function JobPage() {
 function getApplyUrl(job: (typeof allJobs)[0]) {
   return (
     job.applyUrl ||
-    `mailto:founders@hyprnote.com?subject=Application for ${job.title}`
+    `mailto:founders@char.com?subject=Application for ${job.title}`
   );
 }
 
@@ -89,7 +94,7 @@ function HeroSection({ job }: { job: (typeof allJobs)[0] }) {
         layout="fullWidth"
         priority={false}
         objectFit="cover"
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 h-full w-full"
       />
       <div
         className="absolute inset-0"
@@ -102,17 +107,17 @@ function HeroSection({ job }: { job: (typeof allJobs)[0] }) {
       />
       <div className="absolute inset-0 bg-linear-to-b from-white/60 via-white/70 to-white" />
       <div className="relative px-6 py-24 lg:py-40">
-        <div className="text-center max-w-3xl mx-auto">
+        <div className="mx-auto max-w-3xl text-center">
           <AnimatedTitle
             text={job.title.toLowerCase()}
-            className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-800 mb-4"
+            className="mb-4 font-serif text-4xl tracking-tight text-stone-800 sm:text-5xl"
           />
-          <p className="flex items-center justify-center gap-3 font-mono text-sm text-neutral-600 mb-8">
+          <p className="mb-8 flex items-center justify-center gap-3 font-mono text-sm text-neutral-600">
             full-time, remote
           </p>
           <a
             href={getApplyUrl(job)}
-            className="px-6 h-10 inline-flex items-center justify-center text-sm bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+            className="inline-flex h-10 items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
           >
             Apply now
           </a>
@@ -125,31 +130,31 @@ function HeroSection({ job }: { job: (typeof allJobs)[0] }) {
 function JobDetailsSection({ job }: { job: (typeof allJobs)[0] }) {
   return (
     <div className="px-4 pb-16 lg:pb-24">
-      <div className="max-w-3xl mx-auto">
+      <div className="mx-auto max-w-3xl">
         <MDXContent
           code={job.mdx}
           components={{
             a: MDXLink,
             h2: ({ children }) => (
-              <h2 className="text-lg font-serif tracking-widest uppercase text-neutral-400 mb-6 mt-12 first:mt-0">
+              <h2 className="mt-12 mb-6 font-serif text-lg tracking-widest text-neutral-400 uppercase first:mt-0">
                 {stripLinks(children)}
               </h2>
             ),
             h3: ({ children }) => (
-              <h3 className="text-base font-semibold text-neutral-700 mt-6 mb-2">
+              <h3 className="mt-6 mb-2 text-base font-semibold text-neutral-700">
                 {children}
               </h3>
             ),
             p: ({ children }) => (
-              <p className="text-neutral-600 mb-4">{children}</p>
+              <p className="mb-4 text-neutral-600">{children}</p>
             ),
             ul: ({ children }) => (
-              <ul className="list-disc pl-5 space-y-2 text-neutral-600 mb-4 [&_ul]:mt-2 [&_ul]:mb-0">
+              <ul className="mb-4 list-disc space-y-2 pl-5 text-neutral-600 [&_ul]:mt-2 [&_ul]:mb-0">
                 {children}
               </ul>
             ),
             ol: ({ children }) => (
-              <ol className="list-decimal pl-5 space-y-2 text-neutral-600 mb-4 [&_ol]:mt-2 [&_ol]:mb-0">
+              <ol className="mb-4 list-decimal space-y-2 pl-5 text-neutral-600 [&_ol]:mt-2 [&_ol]:mb-0">
                 {children}
               </ol>
             ),
@@ -177,25 +182,25 @@ function stripLinks(children: ReactNode): ReactNode {
 
 function CTASection({ job }: { job: (typeof allJobs)[0] }) {
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 laptop:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="laptop:px-0 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">Interested?</h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <h2 className="font-serif text-2xl sm:text-3xl">Interested?</h2>
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           We'd love to hear from you.
         </p>
         <div className="pt-6">
           <a
             href={getApplyUrl(job)}
-            className="px-6 h-12 flex items-center justify-center text-base sm:text-lg bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-12 items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 text-base text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] sm:text-lg"
           >
             Apply now
           </a>

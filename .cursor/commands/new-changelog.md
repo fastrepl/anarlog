@@ -1,0 +1,1 @@
+Considering `.github/workflows/desktop_cd.yaml`, figure out next version with `doxxer --config doxxer.desktop.toml`, and create new MDX file in `apps/web/content/changelog`.

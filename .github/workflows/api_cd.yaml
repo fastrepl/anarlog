@@ -21,13 +21,13 @@ jobs:
 
   deploy:
     needs: compute-version
-    runs-on: depot-ubuntu-24.04-8
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency: api-fly-deploy
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only -e APP_VERSION=${{ needs.compute-version.outputs.version }}
+      - run: flyctl deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --build-arg APP_VERSION=${{ needs.compute-version.outputs.version }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 

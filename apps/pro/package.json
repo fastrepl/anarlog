@@ -10,16 +10,16 @@
     "@cacheable/memory": "^1.0.1",
     "@hono/mcp": "^0.1.5",
     "@hono/node-server": "^1.19.9",
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@t3-oss/env-core": "^0.13.10",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.2.4",
     "exa-js": "^1.10.2",
-    "hono": "^4.11.4",
+    "hono": "^4.11.9",
     "hono-rate-limiter": "^0.4.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^20.19.30",
+    "@types/node": "^20.19.33",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }

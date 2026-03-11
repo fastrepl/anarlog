@@ -1,17 +1,20 @@
 ---
 title: "Bug Reports & Debugging"
 section: "Developers"
-description: "How to report bugs and find log files for troubleshooting Hyprnote"
+description: "How to report bugs and find log files for troubleshooting Char"
 ---
 
-## Reporting Bugs
+## Reporting bugs
 
-If you encounter any issues with Hyprnote, we'd love to hear about them! You can report bugs through:
+If you encounter any issues with Char, we'd love to hear about them! You can report bugs through:
 
-- **GitHub Issues**: [github.com/hyprnote/hyprnote/issues](https://github.com/hyprnote/hyprnote/issues)
+- **In-app support chat**: Click your profile icon in the sidebar and select **Report Bug** or **Suggest Feature**. This opens a support chat that automatically collects device information and submits issues on your behalf.
+- **GitHub Issues**: [github.com/fastrepl/char/issues](https://github.com/fastrepl/char/issues)
 - **Discord**: Join our community for quick support and discussion
 
-When reporting a bug, please include:
+The in-app support chat is the recommended way to report bugs because it automatically attaches your platform, OS version, and app version to the report.
+
+When reporting a bug manually, please include:
 
 - Your operating system and version
 - Steps to reproduce the issue
@@ -19,9 +22,9 @@ When reporting a bug, please include:
 - Any error messages you see
 - Relevant logs (see below for log locations)
 
-## Finding Log Files
+## Finding log files
 
-Hyprnote stores logs in platform-specific directories following XDG Base Directory conventions. These logs contain detailed information about application events and can help diagnose issues.
+Char stores logs in platform-specific directories following XDG Base Directory conventions. These logs contain detailed information about application events and can help diagnose issues.
 
 ### macOS
 
@@ -49,9 +52,9 @@ or
 ~/.config/hyprnote/logs/
 ```
 
-## Application Data Locations
+## Application data locations
 
-If you need to inspect or back up your application data, here's where Hyprnote stores various files:
+If you need to inspect or back up your application data, here's where Char stores various files:
 
 ### macOS
 
@@ -77,9 +80,9 @@ C:\Users\[username]\AppData\Local\hyprnote\
 ~/.local/share/hyprnote/
 ```
 
-## Debugging Tips
+## Debugging tips
 
-### Frontend Issues
+### Frontend issues
 
 If you're experiencing UI-related problems:
 
@@ -87,7 +90,7 @@ If you're experiencing UI-related problems:
 2. Check the Console tab for JavaScript errors
 3. Check the Network tab for failed requests
 
-### Backend Issues
+### Backend issues
 
 For deeper investigation of backend problems:
 
@@ -95,26 +98,26 @@ For deeper investigation of backend problems:
 2. Look for error messages or stack traces
 3. Note the timestamps of when issues occurred
 
-### Performance Issues
+### Performance issues
 
-If Hyprnote is running slowly:
+If Char is running slowly:
 
 1. Check log files for any repeated errors
 2. Monitor system resources (CPU, memory, disk usage)
 3. Check if large models are being loaded
 4. Review session recordings for unusually large files
 
-## Common Issues
+## Common issues
 
-### Cannot Find Logs
+### Cannot find logs
 
 If the logs directory doesn't exist, it may mean:
 
-- Hyprnote hasn't been launched yet
+- Char hasn't been launched yet
 - Permissions prevent directory creation
 - The app is using a different data directory
 
-### Clearing Old Data
+### Clearing old data
 
 To free up space, you can safely delete:
 
@@ -127,13 +130,13 @@ Do **not** delete:
 - `config.json` (contains your settings)
 - Model files (unless you want to re-download them)
 
-## Getting Help
+## Getting help
 
 Still stuck? We're here to help:
 
+- Use the **in-app support chat** (profile icon → Report Bug)
 - Join our [Discord community](https://discord.gg/hyprnote)
-- Create a [GitHub issue](https://github.com/hyprnote/hyprnote/issues)
-- Email us at support@hyprnote.com
+- Create a [GitHub issue](https://github.com/fastrepl/char/issues)
 
 When reaching out, please include:
 

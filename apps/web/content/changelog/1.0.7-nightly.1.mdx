@@ -1,0 +1,49 @@
+---
+date: "2026-02-14"
+---
+
+## Notification
+
+- Old `MicStarted` event and experimental `MicProlongedUsage` event are merged
+- Now accept threshold configuration, which decides how long the mic must be active before triggering
+
+## AI
+
+- Add `Mistral` as a new transcription provider
+- Auto-trigger summary generation after transcript upload or batch completion
+
+## Search
+
+- Full-text search now powered by `Tantivy`, faster indexing and more accurate results
+
+## Chat (experimental)
+
+- Bring back chat as an experimental feature with major improvements
+- Richer session context passed to chat for more relevant responses
+- Search tool results now include full session context
+
+## Transcription
+
+- Live transcription failure is now "non-fatal", recorder keeps running, entering degraded mode instead of crashing the session
+- Show degraded transcription status in the transcript view
+
+## Calendar
+
+- Improve calendar event sync reliability across timeline and notifications
+- Show event descriptions in session metadata chips
+
+## Notes & Timeline
+
+- Multi-select sessions in timeline with bulk delete and undo toast
+- Auto-focus title input when no title is set
+- Remove live session tab pinning
+
+## Other fixes and improvements
+
+- Fix desktop auth refresh edge case tied to window visibility events
+- Replace onboarding window with new onboarding within the main window
+- Preserve preferred audio input device priority across device reconnects
+- Improve audio import experience and error handling for AAC-in-MP4 files
+- Fix fullscreen-to-hidden transition causing black screen on macOS
+- Fix PDF export escaping for special characters in markdown
+- Fix pro model configuration when starting trial from settings

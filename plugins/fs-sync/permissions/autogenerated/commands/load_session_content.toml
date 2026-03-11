@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-load-session-content"
+description = "Enables the load_session_content command without any pre-configured scope."
+commands.allow = ["load_session_content"]
+
+[[permission]]
+identifier = "deny-load-session-content"
+description = "Denies the load_session_content command without any pre-configured scope."
+commands.deny = ["load_session_content"]

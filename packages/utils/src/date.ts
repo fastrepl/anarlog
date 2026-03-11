@@ -9,6 +9,7 @@ import { format as dateFnsFormat, isValid } from "date-fns";
 
 // Re-export ALL date-fns functions so users can import any date-fns function from @hypr/utils
 export * from "date-fns";
+export { TZDate } from "@date-fns/tz";
 
 export function safeParseDate(value: unknown): Date | null {
   if (value === null || value === undefined) {

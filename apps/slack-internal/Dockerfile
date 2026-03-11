@@ -12,7 +12,6 @@ COPY apps/slack-internal/package.json apps/slack-internal/package.json
 COPY packages/agent-core/package.json packages/agent-core/package.json
 COPY packages/agent-support/package.json packages/agent-support/package.json
 COPY packages/agent-designer/package.json packages/agent-designer/package.json
-COPY packages/agent-analytic/package.json packages/agent-analytic/package.json
 RUN pnpm fetch --filter @hypr/slack-internal...
 
 FROM deps AS build
@@ -20,7 +19,6 @@ COPY apps/slack-internal apps/slack-internal
 COPY packages/agent-core packages/agent-core
 COPY packages/agent-support packages/agent-support
 COPY packages/agent-designer packages/agent-designer
-COPY packages/agent-analytic packages/agent-analytic
 RUN pnpm install --filter @hypr/slack-internal... --frozen-lockfile
 RUN pnpm deploy --filter @hypr/slack-internal --prod --legacy /runtime
 

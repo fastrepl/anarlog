@@ -60,22 +60,31 @@ extension NotificationManager {
     container.addArrangedSubview(iconContainer)
     container.addArrangedSubview(textStack)
 
-    let hasExpandableContent =
-      (notification.payload.participants != nil && !notification.payload.participants!.isEmpty)
-      || notification.payload.eventDetails != nil
-
-    if hasExpandableContent {
-      let detailsButton = DetailsButton()
-      detailsButton.title = "Details"
-      detailsButton.notification = notification
-      detailsButton.setContentHuggingPriority(.required, for: .horizontal)
-      container.addArrangedSubview(detailsButton)
+    if notification.payload.hasOptions {
+      let optionsButton = OptionsButton()
+      optionsButton.title = "Options"
+      optionsButton.options = notification.payload.options ?? []
+      optionsButton.notification = notification
+      optionsButton.setContentHuggingPriority(.required, for: .horizontal)
+      container.addArrangedSubview(optionsButton)
     } else {
-      let actionButton = ActionButton()
-      actionButton.title = notification.payload.actionLabel ?? "Take Notes"
-      actionButton.notification = notification
-      actionButton.setContentHuggingPriority(.required, for: .horizontal)
-      container.addArrangedSubview(actionButton)
+      let hasExpandableContent =
+        (notification.payload.participants != nil && !notification.payload.participants!.isEmpty)
+        || notification.payload.eventDetails != nil
+
+      if hasExpandableContent {
+        let detailsButton = DetailsButton()
+        detailsButton.title = "Details"
+        detailsButton.notification = notification
+        detailsButton.setContentHuggingPriority(.required, for: .horizontal)
+        container.addArrangedSubview(detailsButton)
+      } else {
+        let actionButton = ActionButton()
+        actionButton.title = notification.payload.actionLabel ?? "Take Notes"
+        actionButton.notification = notification
+        actionButton.setContentHuggingPriority(.required, for: .horizontal)
+        container.addArrangedSubview(actionButton)
+      }
     }
 
     return container

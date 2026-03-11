@@ -13,3 +13,5 @@ pub const DIARIZATION_JSON: &str = include_str!("./diarization.json");
 
 pub const DIARIZATION_PATH: &str =
     concat!(env!("CARGO_MANIFEST_DIR"), "/src/korean_1/diarization.json");
+
+pub const SONIOX_JSON: &str = include_str!("./soniox.json");

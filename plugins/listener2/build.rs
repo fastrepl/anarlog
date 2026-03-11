@@ -1,5 +1,6 @@
 const COMMANDS: &[&str] = &[
     "run_batch",
+    "run_denoise",
     "parse_subtitle",
     "export_to_vtt",
     "is_supported_languages_batch",

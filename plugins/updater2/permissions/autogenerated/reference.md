@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-check`
 - `allow-download`
 - `allow-install`
+- `allow-postinstall`
 - `allow-maybe-emit-updated`
 
 ## Permission Table
@@ -118,6 +119,32 @@ Enables the maybe_emit_updated command without any pre-configured scope.
 <td>
 
 Denies the maybe_emit_updated command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`updater2:allow-postinstall`
+
+</td>
+<td>
+
+Enables the postinstall command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`updater2:deny-postinstall`
+
+</td>
+<td>
+
+Denies the postinstall command without any pre-configured scope.
 
 </td>
 </tr>

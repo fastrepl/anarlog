@@ -55,7 +55,7 @@ export function VideoModal({ playbackId, isOpen, onClose }: VideoModalProps) {
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-6xl aspect-video"
+        className="relative aspect-video w-full max-w-6xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -76,9 +76,9 @@ export function VideoModal({ playbackId, isOpen, onClose }: VideoModalProps) {
           autoPlay
           loop
           accentColor="#78716c"
-          className="w-full h-full rounded-lg"
+          className="h-full w-full rounded-lg"
           metadata={{
-            videoTitle: "Hyprnote Feature Demo",
+            videoTitle: "Char Feature Demo",
           }}
         />
       </div>

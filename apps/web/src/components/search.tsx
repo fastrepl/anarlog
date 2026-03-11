@@ -24,7 +24,7 @@ function SearchKbd({ children }: { children: React.ReactNode }) {
   return (
     <kbd
       className={cn([
-        "pointer-events-none inline-flex h-5 w-fit min-w-5 select-none items-center justify-center gap-1 rounded px-1 font-mono text-xs font-medium",
+        "pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded px-1 font-mono text-xs font-medium select-none",
         "border border-neutral-300",
         "bg-linear-to-b from-white to-neutral-100",
         "text-neutral-400",
@@ -111,7 +111,7 @@ function MobileSearchBar({ className }: { className?: string }) {
       <div
         className={cn(["flex items-center gap-3 px-3 py-2", "bg-transparent"])}
       >
-        <SearchIcon size={16} className="text-neutral-500 shrink-0" />
+        <SearchIcon size={16} className="shrink-0 text-neutral-500" />
         <input
           ref={inputRef}
           type="text"
@@ -124,8 +124,8 @@ function MobileSearchBar({ className }: { className?: string }) {
           placeholder="Search docs..."
           className={cn([
             "flex-1 text-sm text-neutral-900",
-            "bg-transparent border-none",
-            "focus:outline-hidden placeholder:text-neutral-500",
+            "border-none bg-transparent",
+            "placeholder:text-neutral-500 focus:outline-hidden",
           ])}
         />
       </div>
@@ -148,19 +148,19 @@ function MobileSearchBar({ className }: { className?: string }) {
                 <button
                   key={`${result.url}-${index}`}
                   onClick={() => handleSelect(result.url)}
-                  className="w-full flex items-start gap-3 px-3 py-3 text-left hover:bg-neutral-50 transition-colors border-b border-neutral-100 last:border-b-0"
+                  className="flex w-full items-start gap-3 border-b border-neutral-100 px-3 py-3 text-left transition-colors last:border-b-0 hover:bg-neutral-50"
                 >
                   <FileText
                     size={16}
-                    className="mt-0.5 text-neutral-400 shrink-0"
+                    className="mt-0.5 shrink-0 text-neutral-400"
                   />
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <span className="font-medium text-neutral-900 text-sm">
+                  <div className="flex min-w-0 flex-col gap-1">
+                    <span className="text-sm font-medium text-neutral-900">
                       {result.meta?.title || result.url}
                     </span>
                     {result.excerpt && (
                       <span
-                        className="text-xs text-neutral-500 line-clamp-2"
+                        className="line-clamp-2 text-xs text-neutral-500"
                         dangerouslySetInnerHTML={{
                           __html: result.excerpt,
                         }}
@@ -256,10 +256,10 @@ export function SearchTrigger({
         type="button"
         onClick={() => setOpen(true)}
         className={cn([
-          "group w-full flex items-center gap-2 px-3 py-2",
+          "group flex w-full items-center gap-2 px-3 py-2",
           "text-sm text-neutral-500",
           "bg-neutral-50 hover:bg-neutral-100",
-          "border border-neutral-200 rounded-md",
+          "rounded-md border border-neutral-200",
           "transition-colors",
           className,
         ])}
@@ -281,7 +281,7 @@ export function SearchTrigger({
         type="button"
         onClick={() => setOpen(true)}
         className={cn([
-          "group cursor-pointer flex items-center gap-1.5",
+          "group flex cursor-pointer items-center gap-1.5",
           "text-neutral-400 hover:text-neutral-600",
           "transition-colors",
           className,
@@ -298,10 +298,10 @@ export function SearchTrigger({
       type="button"
       onClick={() => setOpen(true)}
       className={cn([
-        "flex items-center gap-2 px-3 h-8",
+        "flex h-8 items-center gap-2 px-3",
         "text-sm text-neutral-500",
         "bg-neutral-50 hover:bg-neutral-100",
-        "border border-neutral-200 rounded-full",
+        "rounded-full border border-neutral-200",
         "transition-colors",
         className,
       ])}
@@ -432,9 +432,9 @@ function SearchCommandPalette({
       className="fixed inset-x-0 top-17.25 bottom-0 z-9999 backdrop-blur-xs"
       onClick={() => onOpenChange(false)}
     >
-      <div className="absolute left-1/2 top-[10%] -translate-x-1/2 w-full max-w-xl px-4">
+      <div className="absolute top-[10%] left-1/2 w-full max-w-xl -translate-x-1/2 px-4">
         <div
-          className="bg-white rounded-lg border border-neutral-200 shadow-2xl"
+          className="rounded-lg border border-neutral-200 bg-white shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           <Command
@@ -460,26 +460,26 @@ function SearchCommandPalette({
               {!isLoading && results.length > 0 && (
                 <CommandGroup
                   heading="Documentation"
-                  className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-2 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:text-neutral-500 **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-wider"
+                  className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-2 **:[[cmdk-group-heading]]:text-xs **:[[cmdk-group-heading]]:font-semibold **:[[cmdk-group-heading]]:tracking-wider **:[[cmdk-group-heading]]:text-neutral-500 **:[[cmdk-group-heading]]:uppercase"
                 >
                   {results.map((result, index) => (
                     <CommandItem
                       key={`${result.url}-${index}`}
                       value={result.url}
                       onSelect={() => handleSelect(result.url)}
-                      className="flex items-start gap-3 px-2 py-3 cursor-pointer rounded-md hover:bg-neutral-100 data-[selected=true]:bg-neutral-100"
+                      className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-3 hover:bg-neutral-100 data-[selected=true]:bg-neutral-100"
                     >
                       <FileText
                         size={16}
-                        className="mt-0.5 text-neutral-400 shrink-0"
+                        className="mt-0.5 shrink-0 text-neutral-400"
                       />
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="font-medium text-neutral-900 truncate">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate font-medium text-neutral-900">
                           {result.meta?.title || result.url}
                         </span>
                         {result.excerpt && (
                           <span
-                            className="text-xs text-neutral-500 line-clamp-2"
+                            className="line-clamp-2 text-xs text-neutral-500"
                             dangerouslySetInnerHTML={{
                               __html: result.excerpt,
                             }}

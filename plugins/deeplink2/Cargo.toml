@@ -12,9 +12,10 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 hypr-docs = { workspace = true }
+open = { workspace = true }
 serde_yaml = { workspace = true }
 
 [dependencies]
@@ -22,7 +23,13 @@ tauri = { workspace = true, features = ["test"] }
 tauri-plugin-deep-link = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+askama = { workspace = true }
+axum = { workspace = true }
+tokio = { workspace = true, features = ["net", "rt", "sync", "time"] }
+
 serde = { workspace = true }
+serde_json = { workspace = true }
+serde_qs = { workspace = true }
 specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 

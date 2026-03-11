@@ -10,7 +10,7 @@
     serde::Deserialize,
     specta::Type,
 )]
-// We cannot change name of enum variants because it will break existing users
+
 pub enum WhisperModel {
     #[serde(rename = "QuantizedTiny")]
     QuantizedTiny,
@@ -79,6 +79,15 @@ impl WhisperModel {
         }
     }
 
+    pub fn description(&self) -> String {
+        let mb = self.model_size_bytes() / (1024 * 1024);
+        if mb >= 1024 {
+            format!("{:.1} GB", mb as f64 / 1024.0)
+        } else {
+            format!("{} MB", mb)
+        }
+    }
+
     pub fn model_size_bytes(&self) -> u64 {
         match self {
             WhisperModel::QuantizedTiny => 43537433,
@@ -100,6 +109,18 @@ impl WhisperModel {
             WhisperModel::QuantizedSmall => 3764849512,
             WhisperModel::QuantizedSmallEn => 3958576310,
             WhisperModel::QuantizedLargeTurbo => 3055274469,
+        }
+    }
+
+    pub fn supported_languages(&self) -> Vec<hypr_language::Language> {
+        match self {
+            WhisperModel::QuantizedTinyEn
+            | WhisperModel::QuantizedBaseEn
+            | WhisperModel::QuantizedSmallEn => vec![hypr_language::ISO639::En.into()],
+            WhisperModel::QuantizedTiny
+            | WhisperModel::QuantizedBase
+            | WhisperModel::QuantizedSmall
+            | WhisperModel::QuantizedLargeTurbo => hypr_language::whisper_multilingual(),
         }
     }
 }

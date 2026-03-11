@@ -2,9 +2,10 @@ use crate::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, Error, Tr
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
+use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{
-    DEVICE_STATE_ACTIVE, Endpoints, IAudioEndpointVolume, IMMDevice, IMMDeviceEnumerator,
-    MMDeviceEnumerator, eAll, eCapture, eConsole, eRender,
+    DEVICE_STATE_ACTIVE, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eAll, eCapture,
+    eConsole, eRender,
 };
 use windows::Win32::System::Com::{
     CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize, STGM_READ,
@@ -78,9 +79,11 @@ struct ComGuard;
 impl ComGuard {
     fn new() -> Result<Self, Error> {
         unsafe {
-            CoInitializeEx(None, COINIT_MULTITHREADED).map_err(|e| {
-                Error::AudioSystemError(format!("COM initialization failed: {}", e))
-            })?;
+            CoInitializeEx(None, COINIT_MULTITHREADED)
+                .ok()
+                .map_err(|e| {
+                    Error::AudioSystemError(format!("COM initialization failed: {}", e))
+                })?;
         }
         Ok(Self)
     }
@@ -127,8 +130,8 @@ fn get_device_name(device: &IMMDevice) -> Result<String, Error> {
             return Err(Error::EnumerationFailed("Device name is null".into()));
         }
 
-        let len = (0..).take_while(|&i| *name.add(i) != 0).count();
-        let slice = std::slice::from_raw_parts(name, len);
+        let len = (0..).take_while(|&i| *name.0.add(i) != 0).count();
+        let slice = std::slice::from_raw_parts(name.0, len);
         let os_string = OsString::from_wide(slice);
 
         os_string
@@ -355,6 +358,7 @@ impl AudioDeviceBackend for WindowsBackend {
             for role in 0..3u32 {
                 policy_config
                     .SetDefaultEndpoint(PCWSTR(device_id_wide.as_ptr()), role)
+                    .ok()
                     .map_err(|e| {
                         Error::SetDefaultFailed(format!("Failed to set default endpoint: {}", e))
                     })?;
@@ -498,7 +502,7 @@ impl AudioDeviceBackend for WindowsBackend {
                 })?;
 
             volume_control
-                .SetMute(muted.into(), std::ptr::null())
+                .SetMute(muted, std::ptr::null())
                 .map_err(|e| Error::AudioSystemError(format!("Failed to set mute state: {}", e)))?;
 
             Ok(())

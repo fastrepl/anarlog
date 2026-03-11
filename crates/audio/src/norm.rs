@@ -3,6 +3,7 @@ use std::task::{Context, Poll};
 
 use ebur128::{EbuR128, Mode};
 use futures_util::Stream;
+use pin_project::pin_project;
 
 const CHANNELS: u32 = 1;
 const TARGET_LUFS: f64 = -23.0;
@@ -10,6 +11,7 @@ const TRUE_PEAK_LIMIT: f64 = -1.0;
 const LIMITER_LOOKAHEAD_MS: usize = 10;
 const ANALYZE_CHUNK_SIZE: usize = 512;
 
+#[pin_project]
 pub struct NormalizedSource<S: hypr_audio_interface::AsyncSource> {
     source: S,
     gain_linear: f32,
@@ -80,7 +82,7 @@ impl<S: hypr_audio_interface::AsyncSource> NormalizeExt<S> for S {
     }
 }
 
-impl<S: hypr_audio_interface::AsyncSource + Unpin> Stream for NormalizedSource<S> {
+impl<S: hypr_audio_interface::AsyncSource> Stream for NormalizedSource<S> {
     type Item = f32;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -115,7 +117,7 @@ impl<S: hypr_audio_interface::AsyncSource + Unpin> Stream for NormalizedSource<S
     }
 }
 
-impl<S: hypr_audio_interface::AsyncSource + Unpin> hypr_audio_interface::AsyncSource
+impl<S: hypr_audio_interface::AsyncSource> hypr_audio_interface::AsyncSource
     for NormalizedSource<S>
 {
     fn sample_rate(&self) -> u32 {
@@ -123,7 +125,7 @@ impl<S: hypr_audio_interface::AsyncSource + Unpin> hypr_audio_interface::AsyncSo
     }
 
     fn as_stream(&mut self) -> impl Stream<Item = f32> + '_ {
-        Box::pin(self)
+        self
     }
 }
 

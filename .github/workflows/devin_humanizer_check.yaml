@@ -1,0 +1,102 @@
+name: devin_humanizer_check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/web/content/articles/**"
+
+jobs:
+  run:
+    if: startsWith(github.head_ref, 'blog/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: |
+            You are reviewing a blog post PR for AI writing patterns using two skills:
+            1. **humanizer** from https://github.com/blader/humanizer (24 AI writing patterns from Wikipedia's "Signs of AI writing")
+            2. **stop-slop** from https://github.com/hardikpandya/stop-slop (phrases, structures, and rhythm patterns to eliminate)
+
+            ## Context
+            Repository: fastrepl/char
+            PR number: {{ pr_number }}
+
+            ## Setup
+            1. Clone both skills:
+               ```
+               mkdir -p ~/.claude/skills
+               git clone https://github.com/blader/humanizer.git ~/.claude/skills/humanizer
+               git clone https://github.com/hardikpandya/stop-slop.git ~/.claude/skills/stop-slop
+               ```
+            2. Check out the PR branch and find changed article files:
+               ```
+               git fetch origin pull/{{ pr_number }}/head:pr-branch
+               git checkout pr-branch
+               git diff --name-only origin/main...HEAD -- 'apps/web/content/articles/*.mdx'
+               ```
+
+            ## Your Task
+            For each changed `.mdx` file in `apps/web/content/articles/`:
+
+            ### Pass 1: Humanizer check
+            Run the humanizer check:
+            ```
+            claude --permission-mode bypassPermissions -p "Using the humanizer skill at ~/.claude/skills/humanizer/SKILL.md, review the following blog post for AI writing patterns. Identify all 24 patterns from the skill. For each issue found, provide the line number, the original text, which pattern it matches, and a suggested rewrite. Score the text on: naturalness, specificity, voice, rhythm, conciseness (each 1-10). Here is the blog post content:
+
+            $(cat <file_path>)"
+            ```
+
+            ### Pass 2: Stop-slop check
+            Run the stop-slop check using all three reference files:
+            ```
+            claude --permission-mode bypassPermissions -p "Using the stop-slop skill at ~/.claude/skills/stop-slop/SKILL.md and its reference files (references/phrases.md, references/structures.md, references/examples.md), review the following blog post. Check for: banned phrases (throat-clearing openers, emphasis crutches, business jargon, filler adverbs, meta-commentary, performative emphasis, telling instead of showing), structural cliches (binary contrasts, dramatic fragmentation, rhetorical setups, formulaic constructions), and rhythm patterns (three-item lists, immediate question-answers, metronomic endings, em-dash reveals). For each issue, provide the line number, original text, category, and suggested fix. Score on: directness, rhythm, trust, authenticity, density (each 1-10). Here is the blog post content:
+
+            $(cat <file_path>)"
+            ```
+
+            ## Output
+            Post a single comment on PR #{{ pr_number }} combining results from both passes. Use this format:
+
+            ```
+            ## Blog Post Review: Humanizer + Stop-Slop
+
+            ### Humanizer Check (24 AI writing patterns)
+            **Score: X/50** (PASS or NEEDS REVISION if below 35)
+
+            | Dimension | Score |
+            |-----------|-------|
+            | Naturalness | X/10 |
+            | Specificity | X/10 |
+            | Voice | X/10 |
+            | Rhythm | X/10 |
+            | Conciseness | X/10 |
+
+            [Issues grouped by severity: high/medium/low]
+
+            ---
+
+            ### Stop-Slop Check (phrases, structures, rhythm)
+            **Score: X/50** (PASS or NEEDS REVISION if below 35)
+
+            | Dimension | Score |
+            |-----------|-------|
+            | Directness | X/10 |
+            | Rhythm | X/10 |
+            | Trust | X/10 |
+            | Authenticity | X/10 |
+            | Density | X/10 |
+
+            [Issues grouped by category]
+            ```
+
+            Use the `<!-- humanizer-check-bot -->` marker in the comment so it can be updated on subsequent runs.
+            If a previous comment with that marker exists, update it instead of creating a new one.
+          vars: '{"pr_number": "${{ github.event.pull_request.number }}"}'
+          title: ${{ github.run_id }}-humanizer-check
+          tags: '["humanizer_check"]'

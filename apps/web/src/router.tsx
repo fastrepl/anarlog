@@ -8,6 +8,17 @@ import { env } from "./env";
 import { PostHogProvider } from "./providers/posthog";
 import { routeTree } from "./routeTree.gen";
 
+function MaybeOutlitProvider({ children }: { children: React.ReactNode }) {
+  if (env.VITE_OUTLIT_PUBLIC_KEY) {
+    return (
+      <OutlitProvider publicKey={env.VITE_OUTLIT_PUBLIC_KEY} trackPageviews>
+        {children}
+      </OutlitProvider>
+    );
+  }
+  return <>{children}</>;
+}
+
 export function getRouter() {
   const queryClient = new QueryClient();
 
@@ -20,14 +31,11 @@ export function getRouter() {
     Wrap: (props: { children: React.ReactNode }) => {
       return (
         <PostHogProvider>
-          <OutlitProvider
-            publicKey="pk_HnJUrK_kn5n9rGv5e8V5CtzyT3--j1lz"
-            trackPageviews
-          >
+          <MaybeOutlitProvider>
             <QueryClientProvider client={queryClient}>
               {props.children}
             </QueryClientProvider>
-          </OutlitProvider>
+          </MaybeOutlitProvider>
         </PostHogProvider>
       );
     },
@@ -40,13 +48,10 @@ export function getRouter() {
         ? `hyprnote-web@${env.VITE_APP_VERSION}`
         : undefined,
       sendDefaultPii: true,
-      integrations: [
-        Sentry.tanstackRouterBrowserTracingIntegration(router),
-        Sentry.replayIntegration(),
-      ],
-      tracesSampleRate: 1.0,
+      integrations: [Sentry.replayIntegration()],
       replaysSessionSampleRate: 0.1,
       replaysOnErrorSampleRate: 1.0,
+      tracePropagationTargets: [],
     });
   }
 

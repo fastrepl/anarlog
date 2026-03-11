@@ -4,6 +4,7 @@ class NotificationInstance {
   let payload: NotificationPayload
   let panel: NSPanel
   let clickableView: ClickableView
+  let creationIndex: Int
   private var timeoutSeconds: Double = 0
 
   var key: String { payload.key }
@@ -24,10 +25,13 @@ class NotificationInstance {
     }
   }
 
-  init(payload: NotificationPayload, panel: NSPanel, clickableView: ClickableView) {
+  init(
+    payload: NotificationPayload, panel: NSPanel, clickableView: ClickableView, creationIndex: Int
+  ) {
     self.payload = payload
     self.panel = panel
     self.clickableView = clickableView
+    self.creationIndex = creationIndex
 
     if let startTime = payload.startTime, startTime > 0 {
       self.meetingStartTime = Date(timeIntervalSince1970: TimeInterval(startTime))

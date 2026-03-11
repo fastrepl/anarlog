@@ -3,24 +3,21 @@ meta_title: "Building an Editorial Workflow with GitHub Draft PRs and Slack"
 display_title: "Building an Editorial Workflow with GitHub and Slack"
 meta_description: "Why we built a complete editorial workflow using draft PRs, auto-save, and Slack notifications instead of using existing CMS products—and why we're open sourcing it."
 author: "John Jeong"
-published: true
 category: "Engineering"
 date: "2026-01-26"
 ---
 
 We recently rebuilt our entire editorial workflow from scratch.
 
-Not a tweak. A complete rebuild.
-
 And the question we kept getting was: "Why didn't you just use Payload? Or Sanity? Or any of the existing CMS products?"
 
-The answer goes deeper than "we wanted more control." It connects to something we've been thinking about since we started Hyprnote: the belief that content should live as files, not database rows.
+The answer goes deeper than "we wanted more control." It connects to something we've been thinking about since we started Char: the belief that content should live as files, not database rows.
 
 This is Part 7 of our publishing series, and it's probably the most philosophical one. We'll explain the "why" first, then break down exactly what we built.
 
-## The Filesystem Is the Cortex
+## The filesystem is the cortex
 
-We wrote about this in [The Filesystem Is the Cortex](/blog/filesystem-is-coretex), but the core thesis is simple:
+We wrote about this in [The Filesystem Is the Coretex](/blog/filesystem-is-coretex), but the core thesis is simple:
 
 **Files are a human interface, not a technical detail.**
 
@@ -28,7 +25,7 @@ Humans have organized information spatially for centuries. Drawers. Cabinets. Fo
 
 When notes—or blog posts—live as files, they feel like part of you. When they live as opaque blobs behind an API, they feel like someone else's product.
 
-This isn't nostalgia for "old-school files." It's a belief about the future:
+This is a belief about the future:
 
 > If AI is going to help humans think, it needs access to artifacts humans can own, inspect, move, and understand.
 
@@ -36,56 +33,49 @@ Markdown. Plain text. Files.
 
 The filesystem is the cortex—and in the AI era, it becomes even more important, not less.
 
-## Why Not Payload, Sanity, or Other CMS Products?
+## Why not Payload, Sanity, or other CMS products?
 
-We evaluated them all. Payload is excellent. Sanity is powerful. But every CMS we looked at had the same fundamental issue:
-
-**They want your content to live in their system.**
+We evaluated them all. Payload is excellent. Sanity is powerful. But every CMS we looked at had the same fundamental issue: they want your content to live in their system.
 
 Even the "open source" ones. Even the "self-hosted" ones. Your content becomes structured JSON in a database, mediated through schemas, accessed via APIs.
 
-That's fine for some use cases. But for us, it violated the core principle:
+That's fine for some use cases. For us, it violated the core principle:
 
 > Content should be files. Files in a repo. Diffable. Portable. Ownable forever.
 
 We already wrote about this in [Why Our CMS Is GitHub](/blog/why-our-cms-is-github). GitHub gives us everything a CMS promises—versioning, collaboration, review workflows, rollback—without the lock-in.
 
-But there was one gap: **editorial workflows for non-engineers.**
+But there was one gap: editorial workflows for non-engineers.
 
-## The Gap We Needed to Fill
+## The gap we needed to fill
 
 Our stack was simple: MDX files in GitHub. Engineers write in IDEs. PRs are drafts, merges are publish.
 
-But we hit friction:
+But we hit real friction:
 
-1. **Accidental publishes** — No review gate. Click merge, it's live.
-2. **Lost work** — Writers forgot to save. Changes disappeared.
-3. **No visibility** — What's pending? What's been reviewed? Nobody knew.
-4. **Context switching** — Reviewers had to check GitHub constantly.
-5. **No unified actions** — Approve in GitHub, notify in Slack, merge somewhere else.
+- **Accidental publishes** — No review gate. Click merge, it's live.
+- **Lost work** — Writers forgot to save. Changes disappeared.
+- **No visibility** — What's pending? What's been reviewed? Nobody knew.
+- **Context switching** — Reviewers had to check GitHub constantly.
+- **No unified actions** — Approve in GitHub, notify in Slack, merge somewhere else.
 
-We needed an editorial workflow. But we didn't want to abandon our file-first principles.
+We needed an editorial workflow without abandoning our file-first principles.
 
 So we built one.
 
-## What We Built
+## What we built
 
 The system has three layers:
 
-### 1. Draft PRs by Default
+### 1. Draft PRs by default
 
 Every change—new post, edit, unpublish—creates a **draft pull request**.
 
-Draft PRs are GitHub's best-kept secret. They:
-
-- Don't notify reviewers
-- Don't show up in review queues
-- Signal "I'm still working on this"
-- Can be converted to "ready for review" with one API call
+Draft PRs are GitHub's best-kept secret. They don't notify reviewers. They don't show up in review queues. They signal "I'm still working on this." And they can be converted to "ready for review" with one API call.
 
 When a writer creates a new post, it lives on a draft PR. They can edit, save, walk away, come back. The PR stays invisible until they're ready.
 
-### 2. Auto-Save with Visible Countdown
+### 2. Auto-save with visible countdown
 
 Writers shouldn't lose work. But they also shouldn't be interrupted.
 
@@ -95,19 +85,13 @@ We added a 60-second auto-save countdown:
 [ Save (52s) ]
 ```
 
-When the countdown reaches zero:
-- Content auto-saves to the draft PR branch
-- No tab opens. No notification. Silent.
-- The countdown resets if more changes are made
+When the countdown reaches zero, content auto-saves to the draft PR branch with no tab open and no notification. The countdown resets if more changes are made.
 
-Manual save (button or Cmd+S):
-- Saves immediately
-- Countdown disappears
-- Still no tab opens—saving is silent
+Manual save (button or Cmd+S) saves immediately, the countdown disappears, and still no tab opens. Saving is silent.
 
 The PR URL only opens when submitting for review. This keeps writers focused on writing, not on managing PRs.
 
-### 3. Slack as the Review Interface
+### 3. Slack as the review interface
 
 Reviewers live in Slack. So Slack became our review interface.
 
@@ -143,7 +127,7 @@ For unpublishing, we send a yellow warning message:
 
 Destructive actions deserve visual distinction.
 
-## The Technical Stack
+## The technical stack
 
 Everything is built on primitives that already exist:
 
@@ -161,7 +145,7 @@ No database. No CMS backend. No proprietary schemas.
 
 Just GitHub, Slack, and a few hundred lines of glue code.
 
-## Button States: Small Details Matter
+## Button states: small details matter
 
 Getting button states right is crucial for clarity:
 
@@ -175,30 +159,21 @@ Getting button states right is crucial for clarity:
 
 Writers don't need a "Publish" button. They need to know if something is published. Make state visible; make actions secondary.
 
-## Why This Matters for Open Source
+## Why this matters for open source
 
-Here's where it gets interesting.
+We're an open source company. Char is open source. And we believe this editorial workflow should be open source too.
 
-We're an open source company. Hyprnote is open source. And we believe this editorial workflow should be open source too.
+Not just "source available". Actually usable by other teams.
 
-Not just "source available." Actually usable by other teams.
+The vision: bring your own repository and S3 bucket. Get a complete editorial workflow with draft PRs, auto-save, Slack notifications, and one-click merge. Zero vendor lock-in. Zero data migration. Forever portable.
 
-The vision:
-
-> **Bring your own repository. Bring your own S3. Get a complete editorial workflow.**
-
-Imagine a world where:
-
-- Your content lives in your GitHub repo (not ours)
-- Your images live in your S3 bucket (not ours)
-- You get draft PRs, auto-save, Slack notifications, one-click merge
-- Zero vendor lock-in. Zero data migration. Forever portable.
+Imagine content living in your GitHub repo instead of ours. Images in your S3 bucket instead of ours. You get the entire workflow without being locked into our system.
 
 This is the opposite of what CMS products offer. They want you to put content in their system. We want to give you tools that work with the systems you already have.
 
 We're not there yet. But the architecture is designed for it. The code is written to be extractable. And we're committed to open sourcing it when it's ready.
 
-## What We Learned
+## What we learned
 
 ### 1. Draft PRs are criminally underused
 
@@ -220,17 +195,15 @@ Writers don't need a "Publish" button. They need to know if something is publish
 
 Every design decision was easier because we started with files. No schema migrations. No content lake. No API rate limits. Just files.
 
-## The Philosophy Behind It
+## The philosophy behind it
 
-We built this because we believe:
+We built this because we believe content should be owned, not rented. Your words should live in your repo, not in a SaaS database.
 
-1. **Content should be owned, not rented.** Your words should live in your repo, not in a SaaS database.
+Tools should compose, not capture. GitHub, Slack, and Netlify already exist. We connected them instead of replacing them.
 
-2. **Tools should compose, not capture.** GitHub + Slack + Netlify already exist. We connected them instead of replacing them.
+Simplicity survives. Markdown files will outlive every CMS platform launched this decade.
 
-3. **Simplicity survives.** Markdown files will outlive every CMS platform launched this decade.
-
-4. **Open source means open data.** If the software is open, the content should be portable.
+Open source means open data. If the software is open, the content should be portable.
 
 This editorial workflow is one piece of that vision. It's how we publish our blog, our docs, our changelog. And eventually, it's something we want to share with every team that believes content should be files.
 
@@ -240,8 +213,8 @@ This editorial workflow is one piece of that vision. It's how we publish our blo
 
 1. [Why We Write Our Blog in an IDE](/blog/using-ide-for-writing)
 2. [Why Our CMS Is GitHub](/blog/why-our-cms-is-github)
-3. [Choosing a CMS in 2025](/blog/choosing-a-cms)
+3. [Choosing a CMS in 2026](/blog/choosing-a-cms)
 4. [Don't Use a CMS Until You Absolutely Need One](/blog/dont-use-a-cms)
 5. [Docs Edition: What to Use for Developer Documentation](/blog/developer-documentation-tools)
-6. [How We Built Hyprnote's Publishing Stack](/blog/hyprnote-publishing-stack)
+6. [How We Built Char's Publishing Stack](/blog/hyprnote-publishing-stack)
 7. [Building an Editorial Workflow with GitHub and Slack](/blog/building-editorial-workflow-github-slack) (You are here)

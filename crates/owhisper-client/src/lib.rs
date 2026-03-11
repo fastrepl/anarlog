@@ -15,16 +15,18 @@ pub use providers::{Auth, Provider, is_meta_model};
 
 use std::marker::PhantomData;
 
+#[cfg(feature = "argmax")]
+pub use adapter::StreamingBatchConfig;
 pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{
-    AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter, LanguageQuality,
-    LanguageSupport, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, append_provider_param,
+    AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter, CactusAdapter, CallbackResult,
+    CallbackSttAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter,
+    GladiaAdapter, HyprnoteAdapter, LanguageQuality, LanguageSupport, MistralAdapter,
+    OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, append_provider_param,
     documented_language_codes_batch, documented_language_codes_live, is_hyprnote_proxy,
     is_local_host, normalize_languages,
 };
-#[cfg(feature = "argmax")]
-pub use adapter::{StreamingBatchConfig, StreamingBatchEvent, StreamingBatchStream};
+pub use adapter::{StreamingBatchEvent, StreamingBatchStream};
 
 pub use batch::{BatchClient, BatchClientBuilder};
 pub use error::Error;
@@ -36,6 +38,7 @@ pub struct ListenClientBuilder<A: RealtimeSttAdapter = DeepgramAdapter> {
     api_key: Option<String>,
     params: Option<owhisper_interface::ListenParams>,
     extra_headers: Vec<(String, String)>,
+    connect_policy: Option<hypr_ws_client::client::WebSocketConnectPolicy>,
     _marker: PhantomData<A>,
 }
 
@@ -46,6 +49,7 @@ impl Default for ListenClientBuilder {
             api_key: None,
             params: None,
             extra_headers: Vec::new(),
+            connect_policy: None,
             _marker: PhantomData,
         }
     }
@@ -72,12 +76,21 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
         self
     }
 
+    pub fn connect_policy(
+        mut self,
+        policy: hypr_ws_client::client::WebSocketConnectPolicy,
+    ) -> Self {
+        self.connect_policy = Some(policy);
+        self
+    }
+
     pub fn adapter<B: RealtimeSttAdapter>(self) -> ListenClientBuilder<B> {
         ListenClientBuilder {
             api_base: self.api_base,
             api_key: self.api_key,
             params: self.params,
             extra_headers: self.extra_headers,
+            connect_policy: self.connect_policy,
             _marker: PhantomData,
         }
     }
@@ -134,6 +147,7 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
             adapter,
             request,
             initial_message,
+            connect_policy: self.connect_policy,
         }
     }
 
@@ -156,6 +170,7 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
             adapter,
             request,
             initial_message,
+            connect_policy: self.connect_policy,
         }
     }
 }

@@ -5,10 +5,23 @@ use std::time::Duration;
 use owhisper_client::Provider;
 
 use crate::analytics::SttAnalyticsReporter;
+use crate::env::{ApiKeys, Env};
 use crate::hyprnote_routing::{HyprnoteRouter, HyprnoteRoutingConfig};
 use crate::provider_selector::ProviderSelector;
 
 pub const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 7 * 1000;
+
+#[derive(Clone)]
+pub struct SupabaseConfig {
+    pub url: Option<String>,
+    pub service_role_key: Option<String>,
+}
+
+#[derive(Clone)]
+pub struct CallbackConfig {
+    pub api_base_url: Option<String>,
+    pub secret: Option<String>,
+}
 
 #[derive(Clone)]
 pub struct SttProxyConfig {
@@ -18,17 +31,27 @@ pub struct SttProxyConfig {
     pub analytics: Option<Arc<dyn SttAnalyticsReporter>>,
     pub upstream_urls: HashMap<Provider, String>,
     pub hyprnote_routing: Option<HyprnoteRoutingConfig>,
+    pub supabase: SupabaseConfig,
+    pub callback: CallbackConfig,
 }
 
 impl SttProxyConfig {
-    pub fn new(api_keys: HashMap<Provider, String>) -> Self {
+    pub fn new(env: &Env, supabase: &hypr_api_env::SupabaseEnv) -> Self {
         Self {
-            api_keys,
+            api_keys: ApiKeys::from(&env.stt).0,
             default_provider: Provider::Deepgram,
             connect_timeout: Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS),
             analytics: None,
             upstream_urls: HashMap::new(),
             hyprnote_routing: None,
+            supabase: SupabaseConfig {
+                url: Some(supabase.supabase_url.clone()),
+                service_role_key: Some(supabase.supabase_service_role_key.clone()),
+            },
+            callback: CallbackConfig {
+                api_base_url: Some(env.callback.api_base_url.clone()),
+                secret: env.callback.callback_secret.clone(),
+            },
         }
     }
 

@@ -1,6 +1,7 @@
 import { type Tab, useTabs } from ".";
-import { id } from "../../../utils";
 import { computeHistoryFlags, type TabHistory } from "./navigation";
+
+import { id } from "~/shared/utils";
 
 type SessionTab = Extract<Tab, { type: "sessions" }>;
 type ContactsTab = Extract<Tab, { type: "contacts" }>;
@@ -36,8 +37,7 @@ export const createContactsTab = (
   pinned: overrides.pinned ?? false,
   slotId: id(),
   state: {
-    selectedOrganization: null,
-    selectedPerson: null,
+    selected: null,
     ...overrides.state,
   },
 });
@@ -53,6 +53,7 @@ type TabsStateSlice = Pick<
   | "onClose"
   | "onEmpty"
   | "closedTabs"
+  | "chatMode"
 >;
 
 const createDefaultTabsState = (): TabsStateSlice => ({
@@ -64,6 +65,7 @@ const createDefaultTabsState = (): TabsStateSlice => ({
   onClose: null,
   onEmpty: null,
   closedTabs: [],
+  chatMode: "FloatingClosed",
 });
 
 export const seedTabsStore = (

@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Hyprnote
+Name=Char
 GenericName=AI Meeting Notes
 Comment=The AI notepad for private meetings
 Exec=hyprnote %U

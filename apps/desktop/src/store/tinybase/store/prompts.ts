@@ -38,7 +38,14 @@ export const TASK_CONFIGS = [
     type: "enhance" as const,
     label: "Enhance Notes",
     description: "Generates structured meeting summaries from transcripts",
-    variables: ["content", "session", "participants", "template", "segments"],
+    variables: [
+      "content",
+      "session",
+      "participants",
+      "template",
+      "pre_meeting_memo",
+      "post_meeting_memo",
+    ],
   },
   {
     type: "title" as const,

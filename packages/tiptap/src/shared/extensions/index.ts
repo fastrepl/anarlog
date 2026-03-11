@@ -11,11 +11,14 @@ import {
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Mark } from "@tiptap/pm/model";
+import { Plugin, PluginKey, Transaction } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
+import tldList from "tlds";
 
 import { AIHighlight } from "../ai-highlight";
 import { StreamingAnimation } from "../animation";
+import { ClearMarksOnEnter } from "../clear-marks-on-enter";
 import { ClipboardTextSerializer } from "../clipboard";
 import CustomListKeymap from "../custom-list-keymap";
 import { Hashtag } from "../hashtag";
@@ -37,6 +40,7 @@ export type FileHandlerConfig = {
 
 export type ExtensionOptions = {
   imageExtension?: any;
+  onLinkOpen?: (url: string) => void;
 };
 
 const AttachmentImage = Image.extend({
@@ -79,6 +83,22 @@ const AttachmentImage = Image.extend({
   },
 });
 
+const VALID_TLDS = new Set(tldList.map((t: string) => t.toLowerCase()));
+
+function isValidUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:")
+      return false;
+    const parts = parsed.hostname.split(".");
+    if (parts.length < 2) return false;
+    const tld = parts[parts.length - 1].toLowerCase();
+    return VALID_TLDS.has(tld);
+  } catch {
+    return false;
+  }
+}
+
 export const getExtensions = (
   placeholderComponent?: PlaceholderFunction,
   fileHandlerConfig?: FileHandlerConfig,
@@ -110,33 +130,86 @@ export const getExtensions = (
   }),
   Hashtag,
   Link.extend({
+    inclusive() {
+      return false;
+    },
     addProseMirrorPlugins() {
+      const parentPlugins = this.parent?.() || [];
       return [
+        ...parentPlugins,
         new Plugin({
-          key: new PluginKey("linkCmdClick"),
-          props: {
-            handleClick(view, pos, event) {
-              if (!(event.metaKey || event.ctrlKey)) {
-                return false;
+          key: new PluginKey("linkBoundaryGuard"),
+          appendTransaction(transactions, _oldState, newState) {
+            if (!transactions.some((tr) => tr.docChanged)) return null;
+            const linkType = newState.schema.marks.link;
+            if (!linkType) return null;
+            let tr: Transaction | null = null;
+            let prevLink: {
+              startPos: number;
+              endPos: number;
+              mark: Mark;
+            } | null = null;
+            newState.doc.descendants((node, pos) => {
+              if (!node.isText || !node.text) {
+                prevLink = null;
+                return;
               }
-
-              const { state } = view;
-              const $pos = state.doc.resolve(pos);
-              const marks = $pos.marks();
-              const linkMark = marks.find((mark) => mark.type.name === "link");
-
-              if (linkMark && linkMark.attrs.href) {
-                event.preventDefault();
-                window.open(
-                  linkMark.attrs.href,
-                  "_blank",
-                  "noopener,noreferrer",
-                );
-                return true;
+              const linkMark = node.marks.find((m) => m.type === linkType);
+              if (linkMark) {
+                const textLooksLikeUrl =
+                  node.text.startsWith("https://") ||
+                  node.text.startsWith("http://");
+                if (textLooksLikeUrl && !isValidUrl(node.text)) {
+                  if (!tr) tr = newState.tr;
+                  tr.removeMark(pos, pos + node.text.length, linkType);
+                  prevLink = null;
+                } else if (node.text === linkMark.attrs.href) {
+                  prevLink = {
+                    startPos: pos,
+                    endPos: pos + node.text.length,
+                    mark: linkMark,
+                  };
+                } else if (textLooksLikeUrl) {
+                  const updatedMark = linkType.create({
+                    ...linkMark.attrs,
+                    href: node.text,
+                  });
+                  if (!tr) tr = newState.tr;
+                  tr.removeMark(pos, pos + node.text.length, linkType);
+                  tr.addMark(pos, pos + node.text.length, updatedMark);
+                  prevLink = {
+                    startPos: pos,
+                    endPos: pos + node.text.length,
+                    mark: updatedMark,
+                  };
+                } else {
+                  prevLink = null;
+                }
+              } else if (prevLink && pos === prevLink.endPos && node.text) {
+                if (!/^\s/.test(node.text[0])) {
+                  const wsIdx = node.text.search(/\s/);
+                  const extendLen = wsIdx >= 0 ? wsIdx : node.text.length;
+                  const newHref =
+                    prevLink.mark.attrs.href + node.text.slice(0, extendLen);
+                  if (isValidUrl(newHref)) {
+                    if (!tr) tr = newState.tr;
+                    tr.removeMark(prevLink.startPos, prevLink.endPos, linkType);
+                    tr.addMark(
+                      prevLink.startPos,
+                      pos + extendLen,
+                      linkType.create({
+                        ...prevLink.mark.attrs,
+                        href: newHref,
+                      }),
+                    );
+                  }
+                }
+                prevLink = null;
+              } else {
+                prevLink = null;
               }
-
-              return false;
-            },
+            });
+            return tr;
           },
         }),
       ];
@@ -175,8 +248,7 @@ export const getExtensions = (
         return false;
       }
     },
-    shouldAutoLink: (url) =>
-      url.startsWith("https://") || url.startsWith("http://"),
+    shouldAutoLink: (url) => isValidUrl(url),
   }),
   TaskList,
   TaskItem.configure({ nested: true }),
@@ -190,6 +262,7 @@ export const getExtensions = (
   Highlight,
   AIHighlight,
   CustomListKeymap,
+  ClearMarksOnEnter,
   StreamingAnimation,
   ClipboardTextSerializer,
   SearchAndReplace.configure({

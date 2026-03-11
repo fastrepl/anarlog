@@ -6,18 +6,18 @@ import type {
 } from "tinybase/persisters/with-schemas";
 import type { MergeableStore, OptionalSchemas } from "tinybase/with-schemas";
 
-import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import {
   commands as fsSyncCommands,
   type JsonValue,
 } from "@hypr/plugin-fs-sync";
+import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import { events as notifyEvents } from "@hypr/plugin-notify";
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 import { asTablesChanges, extractChangedTables } from "@hypr/tinybase-utils";
 
-import { StoreOrMergeableStore } from "../../store/shared";
-import { isFileNotFoundError } from "../shared/fs";
-import type { ChangedTables } from "../shared/types";
+import { isFileNotFoundError } from "~/store/tinybase/persister/shared/fs";
+import type { ChangedTables } from "~/store/tinybase/persister/shared/types";
+import { StoreOrMergeableStore } from "~/store/tinybase/store/shared";
 
 export type ListenMode = "notify" | "poll" | "both";
 
@@ -30,6 +30,8 @@ type TablesSchemaOf<S extends OptionalSchemas> = S extends [infer T, unknown]
   ? T
   : never;
 
+export type JsonFieldMapping = Record<string, string>;
+
 export function createJsonFilePersister<
   Schemas extends OptionalSchemas,
   TName extends keyof TablesSchemaOf<Schemas> & string,
@@ -41,6 +43,7 @@ export function createJsonFilePersister<
     label: string;
     listenMode?: ListenMode;
     pollIntervalMs?: number;
+    jsonFields?: JsonFieldMapping;
   },
 ) {
   const {
@@ -49,13 +52,21 @@ export function createJsonFilePersister<
     label,
     listenMode = "poll",
     pollIntervalMs = 3000,
+    jsonFields,
   } = options;
 
   return createCustomPersister(
     store,
-    async () => loadContent(filename, tableName, label),
+    async () => loadContent(filename, tableName, label, jsonFields),
     async (_, changes) =>
-      saveContent<Schemas, TName>(store, changes, tableName, filename, label),
+      saveContent<Schemas, TName>(
+        store,
+        changes,
+        tableName,
+        filename,
+        label,
+        jsonFields,
+      ),
     (listener) =>
       addListener(
         listener,
@@ -64,6 +75,7 @@ export function createJsonFilePersister<
         label,
         listenMode,
         pollIntervalMs,
+        jsonFields,
       ),
     delListener,
     (error) => console.error(`[${label}]:`, error),
@@ -71,9 +83,17 @@ export function createJsonFilePersister<
   );
 }
 
-async function loadContent(filename: string, tableName: string, label: string) {
-  const data = await loadTableData(filename, label);
+async function loadContent(
+  filename: string,
+  tableName: string,
+  label: string,
+  jsonFields?: JsonFieldMapping,
+) {
+  let data = await loadTableData(filename, label);
   if (!data) return undefined;
+  if (jsonFields) {
+    data = transformForLoad(data, jsonFields);
+  }
   // Return 3-tuple to use applyChanges() semantics (TinyBase checks content[2] === 1)
   return asTablesChanges({ [tableName]: data }) as any;
 }
@@ -91,6 +111,7 @@ async function saveContent<
   tableName: TName,
   filename: string,
   label: string,
+  jsonFields?: JsonFieldMapping,
 ) {
   if (changes) {
     const changedTables = extractChangedTables<Schemas>(changes);
@@ -105,9 +126,17 @@ async function saveContent<
       throw new Error(baseResult.error);
     }
     const base = baseResult.data;
-    const data = (store.getTable(tableName) ?? {}) as JsonValue;
+    let data = (store.getTable(tableName) ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >;
+    if (jsonFields) {
+      data = transformForSave(data, jsonFields);
+    }
     const path = [base, filename].join(sep());
-    const result = await fsSyncCommands.writeJsonBatch([[data, path]]);
+    const result = await fsSyncCommands.writeJsonBatch([
+      [data as JsonValue, path],
+    ]);
     if (result.status === "error") {
       throw new Error(result.error);
     }
@@ -123,12 +152,16 @@ function addListener(
   label: string,
   listenMode: ListenMode,
   pollIntervalMs: number,
+  jsonFields?: JsonFieldMapping,
 ): ListenerHandle {
   const handle: ListenerHandle = { unlisten: null, interval: null };
 
   const onFileChange = async () => {
-    const data = await loadTableData(filename, label);
+    let data = await loadTableData(filename, label);
     if (data) {
+      if (jsonFields) {
+        data = transformForLoad(data, jsonFields);
+      }
       // Pass as changes (second param) with 3-tuple format for applyChanges() semantics
       listener(undefined, asTablesChanges({ [tableName]: data }) as any);
     }
@@ -157,6 +190,52 @@ function addListener(
 function delListener(handle: ListenerHandle) {
   handle.unlisten?.();
   if (handle.interval) clearInterval(handle.interval);
+}
+
+type TableData = Record<string, Record<string, unknown>>;
+
+function transformForSave(
+  data: TableData,
+  jsonFields: JsonFieldMapping,
+): TableData {
+  const result: TableData = {};
+  for (const [rowId, row] of Object.entries(data)) {
+    const newRow: Record<string, unknown> = { ...row };
+    for (const [storageName, persistedName] of Object.entries(jsonFields)) {
+      if (storageName in newRow) {
+        const value = newRow[storageName];
+        delete newRow[storageName];
+        if (typeof value === "string" && value) {
+          try {
+            newRow[persistedName] = JSON.parse(value);
+          } catch {}
+        }
+      }
+    }
+    result[rowId] = newRow;
+  }
+  return result;
+}
+
+function transformForLoad(
+  data: TableData,
+  jsonFields: JsonFieldMapping,
+): TableData {
+  const result: TableData = {};
+  for (const [rowId, row] of Object.entries(data)) {
+    const newRow: Record<string, unknown> = { ...row };
+    for (const [storageName, persistedName] of Object.entries(jsonFields)) {
+      if (persistedName in newRow) {
+        const value = newRow[persistedName];
+        delete newRow[persistedName];
+        if (value !== undefined && value !== null) {
+          newRow[storageName] = JSON.stringify(value);
+        }
+      }
+    }
+    result[rowId] = newRow;
+  }
+  return result;
 }
 
 async function loadTableData(

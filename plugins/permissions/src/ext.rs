@@ -19,7 +19,6 @@ macro_rules! check {
     }};
 }
 
-
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum Permission {
@@ -48,6 +47,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     pub async fn check(&self, permission: Permission) -> Result<PermissionStatus, crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            if matches!(permission, Permission::SystemAudio) {
+                return self.check_system_audio().await;
+            }
+
+            if let Some(status) = self.check_sidecar(permission).await {
+                return Ok(status);
+            }
+
+            tracing::warn!(
+                ?permission,
+                "sidecar unavailable, falling back to in-process check"
+            );
+        }
+
         match permission {
             Permission::Calendar => self.check_calendar().await,
             Permission::Contacts => self.check_contacts().await,
@@ -55,6 +70,70 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
             Permission::SystemAudio => self.check_system_audio().await,
             Permission::Accessibility => self.check_accessibility().await,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    async fn check_sidecar(&self, permission: Permission) -> Option<PermissionStatus> {
+        use tauri_plugin_sidecar2::Sidecar2PluginExt;
+
+        let arg = match permission {
+            Permission::Calendar => "calendar",
+            Permission::Contacts => "contacts",
+            Permission::Microphone => "microphone",
+            Permission::Accessibility => "accessibility",
+            Permission::SystemAudio => unreachable!(),
+        };
+
+        let cmd = self
+            .manager
+            .sidecar2()
+            .sidecar("check-permissions")
+            .ok()?
+            .args([arg]);
+
+        let output = cmd.output().await.ok()?;
+
+        if !output.status.success() {
+            tracing::warn!(
+                status = ?output.status,
+                stderr = %String::from_utf8_lossy(&output.stderr),
+                "check-permissions binary failed"
+            );
+            return None;
+        }
+
+        let value = String::from_utf8(output.stdout).ok()?;
+        let value = value.trim();
+
+        let status = match permission {
+            Permission::Calendar => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "fullAccess" => PermissionStatus::Authorized,
+                // "restricted" | "denied" | "writeOnly" | _
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Contacts => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                // "restricted" | "denied" | _
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Microphone => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                // "restricted" | "denied" | _
+                _ => PermissionStatus::Denied,
+            },
+            Permission::Accessibility => match value {
+                "trusted" => PermissionStatus::Authorized,
+                // "untrusted" | _
+                _ => PermissionStatus::Denied,
+            },
+            Permission::SystemAudio => unreachable!(),
+        };
+
+        tracing::debug!(permission = arg, %value, ?status, "check via sidecar");
+        Some(status)
     }
 
     pub async fn request(&self, permission: Permission) -> Result<(), crate::Error> {
@@ -117,7 +196,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
-                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+                .arg(
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+                )
                 .spawn()?
                 .wait()?;
         }
@@ -129,7 +210,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
-                .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+                .arg(
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+                )
                 .spawn()?
                 .wait()?;
         }
@@ -139,10 +222,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_calendar(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!(
-            "calendar",
-            unsafe { EKEventStore::authorizationStatusForEntityType(EKEntityType::Event) }
-        );
+        return check!("calendar", unsafe {
+            EKEventStore::authorizationStatusForEntityType(EKEntityType::Event)
+        });
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -152,10 +234,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_contacts(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!(
-            "contacts",
-            unsafe { CNContactStore::authorizationStatusForEntityType(CNEntityType::Contacts) }
-        );
+        return check!("contacts", unsafe {
+            CNContactStore::authorizationStatusForEntityType(CNEntityType::Contacts)
+        });
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -202,7 +283,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     async fn check_accessibility(&self) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
-        return check!("accessibility", macos_accessibility_client::accessibility::application_is_trusted());
+        return check!(
+            "accessibility",
+            macos_accessibility_client::accessibility::application_is_trusted()
+        );
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -379,4 +463,3 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> PermissionsPluginExt<R> for T {
         }
     }
 }
-

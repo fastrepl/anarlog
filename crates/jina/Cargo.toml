@@ -1,0 +1,16 @@
+[package]
+name = "jina"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+reqwest = { workspace = true, features = ["json"] }
+schemars = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive", "serde_json"] }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }

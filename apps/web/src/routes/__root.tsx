@@ -14,9 +14,9 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const TITLE = "Hyprnote - AI notepad for private meetings";
+const TITLE = "Char - AI notepad for private meetings";
 const DESCRIPTION =
-  "Hyprnote is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
+  "Char is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
 const KEYWORDS =
   "AI notepad, privacy-first AI, on-device AI, local AI, edge AI, meeting notes, personal knowledge base, AI notetaking, AI notetaker, Argmax, Deepgram, secure transcription, notepad app, notetaking app";
 
@@ -31,12 +31,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
       { name: "keywords", content: KEYWORDS },
-      { name: "ai-sitemap", content: "https://hyprnote.com/llms.txt" },
+      { name: "ai-sitemap", content: "https://char.com/llms.txt" },
       { name: "ai-content", content: "public" },
       { property: "og:type", content: "website" },
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESCRIPTION },
-      { property: "og:url", content: "https://hyprnote.com" },
+      { property: "og:url", content: "https://char.com" },
       {
         property: "og:image",
         content: "/api/images/hyprnote/og-image.jpg",
@@ -44,11 +44,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@tryhyprnote" },
-      { name: "twitter:creator", content: "@tryhyprnote" },
+      { name: "twitter:site", content: "@getcharnotes" },
+      { name: "twitter:creator", content: "@getcharnotes" },
       { name: "twitter:title", content: TITLE },
       { name: "twitter:description", content: DESCRIPTION },
-      { name: "twitter:url", content: "https://hyprnote.com" },
+      { name: "twitter:url", content: "https://char.com" },
       {
         name: "twitter:image",
         content: "/api/images/hyprnote/og-image.jpg",

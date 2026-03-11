@@ -54,6 +54,7 @@ pub(super) fn session_to_transcript(session: &hypr_db_user::Session) -> Transcri
         start_ms,
         end_ms,
         words,
+        speaker_hints: vec![],
     }
 }
 

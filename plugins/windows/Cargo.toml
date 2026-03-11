@@ -35,7 +35,6 @@ tauri-plugin-os = { workspace = true }
 tauri-plugin-sfx = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 
-once_cell = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-render-support"
+description = "Enables the render_support command without any pre-configured scope."
+commands.allow = ["render_support"]
+
+[[permission]]
+identifier = "deny-render-support"
+description = "Denies the render_support command without any pre-configured scope."
+commands.deny = ["render_support"]

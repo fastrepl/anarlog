@@ -1,0 +1,32 @@
+[package]
+name = "vad"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+earshot = ["dep:earshot"]
+silero-onnx = ["dep:hypr-onnx"]
+silero-cactus = ["dep:hypr-cactus"]
+
+[dependencies]
+earshot = { workspace = true, optional = true }
+hypr-cactus = { workspace = true, optional = true }
+hypr-onnx = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+criterion = { workspace = true }
+hypr-data = { workspace = true }
+hypr-onnx = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[[bench]]
+name = "vad"
+harness = false
+required-features = ["earshot", "silero-onnx", "silero-cactus"]
+
+[[test]]
+name = "compare"
+required-features = ["earshot", "silero-onnx", "silero-cactus"]

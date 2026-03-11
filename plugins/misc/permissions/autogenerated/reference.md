@@ -6,6 +6,7 @@ Default permissions for the plugin
 
 - `allow-get-git-hash`
 - `allow-get-fingerprint`
+- `allow-get-device-info`
 - `allow-opinionated-md-to-html`
 - `allow-parse-meeting-link`
 
@@ -170,6 +171,32 @@ Enables the delete_session_folder command without any pre-configured scope.
 <td>
 
 Denies the delete_session_folder command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:allow-get-device-info`
+
+</td>
+<td>
+
+Enables the get_device_info command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:deny-get-device-info`
+
+</td>
+<td>
+
+Denies the get_device_info command without any pre-configured scope.
 
 </td>
 </tr>

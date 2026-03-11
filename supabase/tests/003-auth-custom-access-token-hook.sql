@@ -1,5 +1,5 @@
 begin;
-select plan(6);
+select plan(11);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -32,6 +32,12 @@ select results_eq(
   $$select has_table_privilege('supabase_auth_admin', 'stripe.active_entitlements', 'SELECT')$$,
   array[true],
   'supabase_auth_admin has SELECT privilege on stripe.active_entitlements'
+);
+
+select results_eq(
+  $$select has_table_privilege('supabase_auth_admin', 'stripe.subscriptions', 'SELECT')$$,
+  array[true],
+  'supabase_auth_admin has SELECT privilege on stripe.subscriptions'
 );
 
 select results_eq(
@@ -91,6 +97,92 @@ select results_eq(
   $$,
   array['["some_other_feature"]'::jsonb],
   'custom_access_token_hook sets entitlements=["some_other_feature"] for user with other entitlement'
+);
+
+select tests.create_supabase_user('trialing', 'trialing@example.com');
+
+update public.profiles
+set stripe_customer_id = 'cus_trialing'
+where id = tests.get_supabase_uid('trialing');
+
+insert into stripe.customers (id)
+values ('cus_trialing')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status, trial_end, created)
+values ('sub_trialing', 'cus_trialing', 'trialing', '1738627200', 1000)
+on conflict (id) do nothing;
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('trialing')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'subscription_status'
+  )::text
+  $$,
+  array['"trialing"'],
+  'custom_access_token_hook sets subscription_status for trialing user'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('trialing')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'trial_end'
+  )::text
+  $$,
+  array['1738627200'],
+  'custom_access_token_hook sets trial_end for trialing user'
+);
+
+select tests.create_supabase_user('active', 'active@example.com');
+
+update public.profiles
+set stripe_customer_id = 'cus_active'
+where id = tests.get_supabase_uid('active');
+
+insert into stripe.customers (id)
+values ('cus_active')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status, created)
+values ('sub_active', 'cus_active', 'active', 2000)
+on conflict (id) do nothing;
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('active')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'subscription_status'
+  )::text
+  $$,
+  array['"active"'],
+  'custom_access_token_hook sets subscription_status for active user'
+);
+
+select is(
+  (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('free')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'subscription_status'
+  ),
+  null,
+  'custom_access_token_hook does not set subscription_status for user without subscription'
 );
 
 select * from finish();

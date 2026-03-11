@@ -2,19 +2,21 @@ import { useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import { useCalendarPersister } from "../persister/calendar";
-import { useChatPersister } from "../persister/chat";
-import { useChatShortcutPersister } from "../persister/chat-shortcuts";
-import { useEventsPersister } from "../persister/events";
-import { useHumanPersister } from "../persister/human";
-import { useOrganizationPersister } from "../persister/organization";
-import { usePromptPersister } from "../persister/prompts";
-import { useSessionPersister } from "../persister/session";
-import { useTemplatePersister } from "../persister/templates";
-import { useValuesPersister } from "../persister/values";
 import { useInitializeStore } from "./initialize";
 import { type Store } from "./main";
 import { registerSaveHandler } from "./save";
+
+import { useCalendarPersister } from "~/store/tinybase/persister/calendar";
+import { useChatPersister } from "~/store/tinybase/persister/chat";
+import { useChatShortcutPersister } from "~/store/tinybase/persister/chat-shortcuts";
+import { useEventsPersister } from "~/store/tinybase/persister/events";
+import { useHumanPersister } from "~/store/tinybase/persister/human";
+import { useMemoryPersister } from "~/store/tinybase/persister/memory";
+import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
+import { usePromptPersister } from "~/store/tinybase/persister/prompts";
+import { useSessionPersister } from "~/store/tinybase/persister/session";
+import { useTemplatePersister } from "~/store/tinybase/persister/templates";
+import { useValuesPersister } from "~/store/tinybase/persister/values";
 
 export function useMainPersisters(store: Store) {
   const valuesPersister = useValuesPersister(store);
@@ -27,6 +29,7 @@ export function useMainPersisters(store: Store) {
   const promptPersister = usePromptPersister(store);
   const templatePersister = useTemplatePersister(store);
   const calendarPersister = useCalendarPersister(store);
+  const memoryPersister = useMemoryPersister(store);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -44,6 +47,7 @@ export function useMainPersisters(store: Store) {
       { id: "prompt", persister: promptPersister },
       { id: "template", persister: templatePersister },
       { id: "calendar", persister: calendarPersister },
+      { id: "memory", persister: memoryPersister },
     ];
 
     const unsubscribes = persisters
@@ -68,9 +72,14 @@ export function useMainPersisters(store: Store) {
     promptPersister,
     templatePersister,
     calendarPersister,
+    memoryPersister,
   ]);
 
-  useInitializeStore(store);
+  useInitializeStore(store, {
+    session: sessionPersister,
+    human: humanPersister,
+    values: valuesPersister,
+  });
 
   return {
     valuesPersister,
@@ -83,5 +92,6 @@ export function useMainPersisters(store: Store) {
     promptPersister,
     templatePersister,
     calendarPersister,
+    memoryPersister,
   };
 }

@@ -1,17 +1,17 @@
 ---
 title: "Apple Calendar"
 section: "Calendar"
-description: "Connect your Apple Calendar to see upcoming meetings in Hyprnote."
+description: "Connect your Apple Calendar to see upcoming meetings in Char."
 ---
 
 ## Need help or want to report an issue?
 
-If you're experiencing issues with Apple Calendar integration or have suggestions for improvement, please [report it on GitHub](https://github.com/fastrepl/hyprnote/issues/new?labels=calendar%3Aapple).
+If you're experiencing issues with Apple Calendar integration or have suggestions for improvement, please [report it on GitHub](https://github.com/fastrepl/char/issues/new?labels=calendar%3Aapple).
 
 
-## How often does Hyprnote sync with Apple Calendar?
+## How often does Char sync with Apple Calendar?
 
-Hyprnote syncs with Apple Calendar **every 60 seconds** automatically. Additionally, sync is triggered immediately when:
+Char syncs with Apple Calendar **every 60 seconds** automatically. Additionally, sync is triggered immediately when:
 
 - You enable or disable a calendar
 - Changes are detected in your Apple Calendar app (via system notifications)
@@ -19,8 +19,8 @@ Hyprnote syncs with Apple Calendar **every 60 seconds** automatically. Additiona
 
 When you toggle calendars on or off, changes are debounced for 5 seconds to avoid excessive syncing.
 
-## What date range of events does Hyprnote sync?
+## What date range of events does Char sync?
 
-Hyprnote syncs events from **7 days ago** to **30 days in the future**. This ensures you have recent past events for context and upcoming events for planning.
+Char syncs events from **7 days ago** to **30 days in the future**. This ensures you have recent past events for context and upcoming events for planning.
 
 Events outside this range remain in your database but won't be actively synced unless they fall back into this window.

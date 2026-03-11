@@ -61,10 +61,10 @@ function Component() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
-        <div className="animate-pulse flex flex-col gap-4">
-          <div className="h-8 bg-neutral-200 rounded w-1/3" />
-          <div className="h-64 bg-neutral-100 rounded mt-8" />
+      <div className="mx-auto max-w-4xl px-4 py-16">
+        <div className="flex animate-pulse flex-col gap-4">
+          <div className="h-8 w-1/3 rounded bg-neutral-200" />
+          <div className="mt-8 h-64 rounded bg-neutral-100" />
         </div>
       </div>
     );
@@ -72,14 +72,14 @@ function Component() {
 
   if (error || !data?.report) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
+      <div className="mx-auto max-w-4xl px-4 py-16">
         <h1 className="text-2xl font-bold text-red-600">Error</h1>
-        <p className="text-neutral-600 mt-2">
+        <p className="mt-2 text-neutral-600">
           {(error as Error)?.message || "Report not found"}
         </p>
         <Link
           to="/k6-reports/"
-          className="text-blue-600 hover:underline mt-4 inline-block"
+          className="mt-4 inline-block text-blue-600 hover:underline"
         >
           ← Back to reports
         </Link>
@@ -90,15 +90,15 @@ function Component() {
   const report = data.report;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
-      <Link to="/k6-reports/" className="text-blue-600 hover:underline text-sm">
+    <div className="mx-auto max-w-4xl px-4 py-16">
+      <Link to="/k6-reports/" className="text-sm text-blue-600 hover:underline">
         ← Back to reports
       </Link>
 
       <div className="mt-4 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Load Test Report</h1>
-          <p className="text-neutral-500 mt-1">
+          <p className="mt-1 text-neutral-500">
             {new Date(report.timestamp).toLocaleString()}
           </p>
         </div>
@@ -132,7 +132,7 @@ function Component() {
       <Section title="Client Metrics" className="mt-8">
         <div className="grid grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium text-neutral-700 mb-2">Connections</h4>
+            <h4 className="mb-2 font-medium text-neutral-700">Connections</h4>
             <dl className="flex flex-col gap-1 text-sm">
               <Row label="Total" value={report.client.connections.total} />
               <Row
@@ -147,7 +147,7 @@ function Component() {
             </dl>
           </div>
           <div>
-            <h4 className="font-medium text-neutral-700 mb-2">Transcripts</h4>
+            <h4 className="mb-2 font-medium text-neutral-700">Transcripts</h4>
             <dl className="flex flex-col gap-1 text-sm">
               <Row
                 label="Received"
@@ -165,7 +165,7 @@ function Component() {
           </div>
         </div>
         <div className="mt-4">
-          <h4 className="font-medium text-neutral-700 mb-2">
+          <h4 className="mb-2 font-medium text-neutral-700">
             Connection Duration
           </h4>
           <dl className="flex flex-col gap-1 text-sm">
@@ -185,7 +185,7 @@ function Component() {
         <Section title="Server Metrics (Fly.io)" className="mt-6">
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <h4 className="font-medium text-neutral-700 mb-2">Resources</h4>
+              <h4 className="mb-2 font-medium text-neutral-700">Resources</h4>
               <dl className="flex flex-col gap-1 text-sm">
                 {report.server.cpu_usage && (
                   <Row
@@ -209,7 +209,7 @@ function Component() {
               </dl>
             </div>
             <div>
-              <h4 className="font-medium text-neutral-700 mb-2">Network</h4>
+              <h4 className="mb-2 font-medium text-neutral-700">Network</h4>
               <dl className="flex flex-col gap-1 text-sm">
                 {report.server.net_recv_bytes && (
                   <Row
@@ -264,7 +264,7 @@ function Section({
         className,
       ].join(" ")}
     >
-      <h3 className="text-lg font-semibold mb-4">{title}</h3>
+      <h3 className="mb-4 text-lg font-semibold">{title}</h3>
       {children}
     </section>
   );
@@ -280,7 +280,7 @@ function MetricCard({
   status?: "good" | "bad";
 }) {
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-4">
+    <div className="rounded-lg border border-neutral-200 bg-white p-4">
       <div className="text-sm text-neutral-500">{label}</div>
       <div
         className={[

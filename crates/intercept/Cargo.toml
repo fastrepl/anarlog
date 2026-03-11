@@ -3,8 +3,20 @@ name = "intercept"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+examples = []
+
+[[example]]
+name = "test_force_quit"
+required-features = ["examples"]
+
 [target.'cfg(target_os = "macos")'.build-dependencies]
 swift-rs = { workspace = true, features = ["build"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 swift-rs = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }

@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const tupleStructSchema = z.tuple([z.string(), z.number()]);
+export type TupleStruct = z.infer<typeof tupleStructSchema>;

@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const newtypeWrapperSchema = z.string();
+export type NewtypeWrapper = z.infer<typeof newtypeWrapperSchema>;

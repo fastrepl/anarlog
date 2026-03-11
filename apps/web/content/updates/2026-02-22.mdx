@@ -1,0 +1,62 @@
+---
+title: "Char Weekly: February 22, 2026"
+date: "2026-02-22"
+---
+
+Big week. v1.0.9 stable is out with local speech-to-text via our Cactus engine, keyboard-first navigation across settings, task-aware model routing on the server side, and a proper find-and-replace in the transcript view. A lot of internal plumbing was reworked too — the transcript accumulator was rebuilt, PostHog was migrated to the official client, and Restate was removed entirely.
+
+## Cactus: local speech-to-text in beta
+
+The headline feature this week is Cactus, our local inference engine for speech-to-text. Cactus runs Whisper small directly on your Mac — no network requests, no API keys, no data leaving your device. It's English-only for now and still in beta, but it works.
+
+The settings UI shows available Cactus models alongside cloud providers, with disabled models listed so you can see what's coming. Language-aware provider selection means Char automatically picks the best STT backend per language, falling back to cloud providers for non-English languages. Local provider status indicators show whether your engine is running, and model selection is disabled when it's not.
+
+Under the hood, this required significant work on the Cactus bindings — we enforced Sync invariants, guarded callback aliasing, and added proper locking in Drop for soundness. The cactus-model crate was expanded with model metadata and the build system was cleaned up for better upstream portability. We also added end-to-end local STT tests and a CI workflow to keep them passing.
+
+## Keyboard-first settings navigation
+
+Settings now supports full keyboard navigation. You can tab through every settings panel, use arrow keys to move between options, and press Enter to toggle or select. This applies across general settings, AI configuration, and lab toggles. It's the kind of thing that should have always been there — now it is.
+
+## Task-aware model routing
+
+The LLM proxy now supports a `x-char-task` header that tells the server what the request is for — chat, enhance, title generation, etc. The server uses this to route requests to the most appropriate model for each task type. This means better results without users needing to manually pick different models for different operations. The API client was updated to pass this header from every call site in the desktop app.
+
+## Find and replace in transcripts
+
+Transcript search got a major upgrade. You can now replace text, toggle match case, and filter by whole word — all with keyboard shortcuts. Search auto-scrolls to the active result and stays in sync between the transcript and editor views. If you're cleaning up transcripts after a meeting, this makes the workflow significantly faster.
+
+## AI improvements
+
+Your selected default template in settings is now automatically applied to all new AI-generated summaries. No more picking the same template every time. We also added fuzzy matching for template headers to work around models with poor instruction following — if the model outputs a slightly different heading, Char still matches it to the right section.
+
+AI-generated summaries now produce section headings in the correct language for non-English users. The model selectors filter out deprecated and non-chat models, giving you a cleaner list. Gemini 2.0 and 2.5 models (Flash, Pro) were incorrectly hidden and are now visible again. Local provider status for Ollama and LM Studio shows visual indicators so you know if your local setup is actually running.
+
+A new Memory tab in AI settings lets you define custom vocabulary — useful if you have domain-specific terms that models consistently get wrong.
+
+## Calendar and contacts
+
+Calendar got visual polish — cleaner header spacing, improved typography, and better weekend styling. Calendar onboarding shows a proper loading state while fetching calendars. Participant email resolution for Apple Calendar events was improved with a better fallback chain. Long event descriptions no longer overflow in metadata chips and popovers.
+
+Contact avatars now show colored initials when no profile photo is set, making the contact list easier to scan at a glance.
+
+## Notes and editor
+
+`Cmd+Click` on links in the note editor now opens them in your default browser. \"Reveal in Finder\" was added to the session overflow menu for quick file access. The contacts permission request was removed from onboarding — it was unnecessary friction.
+
+## Onboarding refresh
+
+The onboarding flow was streamlined with clearer trial status after sign-in. The account step was split into distinct before-login, after-login, and trial components, making each step focused on one thing. The overall flow better guides users through getting started without unnecessary permission requests.
+
+## Infrastructure
+
+We migrated to the official posthog-rs 0.4 client, replacing our custom PostHog and feature flag crates. The telemetry opt-out toggle now properly disables usage analytics via PostHog's enable/disable side effect.
+
+All Restate-related code was removed — the app, crates, CI workflows, and data directories. This simplifies the codebase and removes infrastructure we were no longer using.
+
+The transcript crate got a full rebuild. A new `TranscriptAccumulator` handles word-level merging, channel splitting, and view generation. The replay example was expanded with cloud correction support and Cactus metrics. The `audio-mime` crate was extracted to deduplicate content type handling across transcribe-cactus and transcribe-proxy.
+
+## What's next
+
+Cactus is English-only today. More languages and larger models are coming. We're also expanding the transcript accumulator to handle more edge cases in live transcription. If you're on the nightly channel, you'll see these improvements landing daily.
+
+As always, grab the latest from our [changelog](/changelog) or let the app auto-update.

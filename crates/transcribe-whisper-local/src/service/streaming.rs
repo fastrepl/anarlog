@@ -17,7 +17,7 @@ use axum::{
 use futures_util::{SinkExt, StreamExt};
 use tower::Service;
 
-use hypr_vad_ext::VadExt;
+use hypr_vad_chunking::VadExt;
 use hypr_ws_utils::{ConnectionGuard, ConnectionManager};
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse, Word};
@@ -306,7 +306,7 @@ fn process_vad_stream<S, E>(
     source_name: &str,
 ) -> impl futures_util::Stream<Item = hypr_whisper_local::SimpleAudioChunk>
 where
-    S: futures_util::Stream<Item = Result<hypr_vad_ext::AudioChunk, E>>,
+    S: futures_util::Stream<Item = Result<hypr_vad_chunking::AudioChunk, E>>,
     E: std::fmt::Display,
 {
     let source_name = source_name.to_string();

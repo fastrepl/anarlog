@@ -14,11 +14,14 @@ const COMMANDS: &[&str] = &[
     "audio_import",
     "audio_path",
     "session_dir",
+    "load_session_content",
     "delete_session_folder",
     "scan_and_read",
     "chat_dir",
     "entity_dir",
     "attachment_save",
+    "attachment_list",
+    "attachment_remove",
 ];
 
 fn main() {

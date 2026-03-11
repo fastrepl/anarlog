@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 askama = { workspace = true }
+askama_parser = { workspace = true }
+chrono = { workspace = true }
+isolang = { workspace = true }
 
 [dev-dependencies]
 insta = { workspace = true }

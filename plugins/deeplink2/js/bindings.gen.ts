@@ -6,7 +6,22 @@
 
 
 export const commands = {
-
+async startCallbackServer(scheme: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:deeplink2|start_callback_server", { scheme }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopCallbackServer() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:deeplink2|stop_callback_server") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+}
 }
 
 /** user-defined events **/
@@ -26,8 +41,9 @@ deepLinkEvent: "plugin:deeplink2:deep-link-event"
 
 export type AuthCallbackSearch = { access_token: string; refresh_token: string }
 export type BillingRefreshSearch = Record<string, never>
-export type DeepLink = { to: "/auth/callback"; search: AuthCallbackSearch } | { to: "/billing/refresh"; search: BillingRefreshSearch }
+export type DeepLink = { to: "/auth/callback"; search: AuthCallbackSearch } | { to: "/billing/refresh"; search: BillingRefreshSearch } | { to: "/integration/callback"; search: IntegrationCallbackSearch }
 export type DeepLinkEvent = DeepLink
+export type IntegrationCallbackSearch = { integration_id: string; status: string; return_to: string | null }
 
 /** tauri-specta globals **/
 

@@ -1,5 +1,4 @@
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 pub(crate) enum SoundControl {
     Stop,
@@ -10,8 +9,8 @@ struct SoundHandle {
     control_tx: std::sync::mpsc::Sender<SoundControl>,
 }
 
-static PLAYING_SOUNDS: Lazy<Mutex<std::collections::HashMap<AppSounds, SoundHandle>>> =
-    Lazy::new(|| Mutex::new(std::collections::HashMap::new()));
+static PLAYING_SOUNDS: LazyLock<Mutex<std::collections::HashMap<AppSounds, SoundHandle>>> =
+    LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type, Clone, PartialEq, Eq, Hash)]
 pub enum AppSounds {

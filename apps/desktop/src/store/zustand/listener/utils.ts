@@ -1,4 +1,4 @@
-import type { RuntimeSpeakerHint, WordLike } from "../../../utils/segment";
+import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 export function fixSpacingForWords(
   words: string[],

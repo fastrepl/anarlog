@@ -1,0 +1,8 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const withTupleSchema = z.object({
+  pair: jsonObject(z.tuple([z.string(), z.number()])),
+});
+export type WithTuple = z.infer<typeof withTupleSchema>;

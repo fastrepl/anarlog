@@ -9,16 +9,15 @@ description = ""
 
 [features]
 default = []
-coreml = ["hypr-transcribe-whisper-local/coreml", "hypr-transcribe-moonshine/coreml"]
-directml = ["hypr-transcribe-whisper-local/directml", "hypr-transcribe-moonshine/directml"]
-cuda = ["hypr-transcribe-whisper-local/cuda", "hypr-transcribe-moonshine/cuda"]
-hipblas = ["hypr-transcribe-whisper-local/hipblas"]
-openblas = ["hypr-transcribe-whisper-local/openblas"]
-metal = ["hypr-transcribe-whisper-local/metal"]
-vulkan = ["hypr-transcribe-whisper-local/vulkan"]
-openmp = ["hypr-transcribe-whisper-local/openmp"]
-load-dynamic = ["hypr-transcribe-whisper-local/load-dynamic"]
-
+whisper-cpp = ["dep:hypr-transcribe-whisper-local", "dep:hypr-whisper-local"]
+coreml = ["whisper-cpp", "hypr-transcribe-whisper-local/coreml"]
+directml = ["whisper-cpp", "hypr-transcribe-whisper-local/directml"]
+cuda = ["whisper-cpp", "hypr-transcribe-whisper-local/cuda"]
+hipblas = ["whisper-cpp", "hypr-transcribe-whisper-local/hipblas"]
+openblas = ["whisper-cpp", "hypr-transcribe-whisper-local/openblas"]
+metal = ["whisper-cpp", "hypr-transcribe-whisper-local/metal"]
+vulkan = ["whisper-cpp", "hypr-transcribe-whisper-local/vulkan"]
+openmp = ["whisper-cpp", "hypr-transcribe-whisper-local/openmp"]
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
@@ -38,13 +37,15 @@ tower = { workspace = true }
 [dependencies]
 hypr-am = { workspace = true }
 hypr-audio-utils = { workspace = true }
+hypr-cactus-model = { workspace = true }
 hypr-download-interface = { workspace = true }
 hypr-file = { workspace = true }
 hypr-host = { workspace = true }
 hypr-language = { workspace = true, features = ["whisper"] }
-hypr-transcribe-moonshine = { workspace = true }
-hypr-transcribe-whisper-local = { workspace = true }
-hypr-whisper-local = { workspace = true }
+hypr-local-model = { workspace = true }
+hypr-model-downloader = { workspace = true }
+hypr-transcribe-whisper-local = { workspace = true, optional = true }
+hypr-whisper-local = { workspace = true, optional = true }
 hypr-whisper-local-model = { workspace = true }
 
 owhisper-client = { workspace = true }
@@ -77,8 +78,11 @@ tokio = { workspace = true, features = ["rt", "macros"] }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
 
-ractor = { workspace = true }
-ractor-supervisor = { workspace = true }
+hypr-supervisor = { workspace = true }
+ractor = { workspace = true, features = ["async-trait"] }
 
 port-killer = "0.1.0"
 port_check = "0.3.0"
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+hypr-transcribe-cactus = { workspace = true }

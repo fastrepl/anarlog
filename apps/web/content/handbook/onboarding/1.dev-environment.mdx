@@ -1,0 +1,62 @@
+---
+title: "Dev Environment"
+section: "Onboarding"
+summary: "Local Supabase, environment variables, and login setup for development"
+---
+
+## Overview
+
+Follow the [developer setup guide](/docs/developers/setup) for full prerequisites and installation steps. This page covers the parts that trip people up most often.
+
+## Local Supabase
+
+We use a **local Supabase instance** (powered by Docker) during development. You do not need production Supabase keys — everything is generated locally.
+
+```bash
+task supabase-start
+```
+
+This will:
+
+1. Start a local Supabase server in Docker
+2. Generate `.env.supabase` at the repo root with all necessary keys (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, etc.)
+3. Run pending migrations
+
+See [Environment Variables](/docs/developers/env) for the full list of generated variables.
+
+## GitHub login (OAuth)
+
+To enable the GitHub login flow locally, use [Infisical](https://infisical.com/docs/cli/commands/login) to inject the dev-only OAuth credentials:
+
+```bash
+infisical run --env=dev --projectId=87dad7b5-72a6-4791-9228-b3b86b169db1 --path="/supabase" -- task supabase-start
+```
+
+This sets `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` for a dev-only GitHub OAuth app, so GitHub login works against your local Supabase.
+
+Without these credentials, `task supabase-start` still works — you just won't be able to test GitHub OAuth login.
+
+See the [Login docs](/docs/developers/login) for more details on authentication setup.
+
+## Running the app
+
+```bash
+pnpm -F ui build && pnpm -F desktop tauri dev
+```
+
+See [Run](/docs/developers/run) for all available dev commands (desktop, web, API, etc.).
+
+## Common issues
+
+**"I can't log in / I don't have the Supabase keys"** — You don't need production keys. Run `task supabase-start` to spin up a local Supabase instance that generates all the keys automatically.
+
+**"GitHub login doesn't work"** — You need the dev-only OAuth credentials from Infisical. See the [GitHub Login](#github-login-oauth) section above.
+
+**"Cursor can't connect to the network when indexing"** — Ensure you have a stable internet connection and restart Cursor. If the issue persists, you can still work by browsing the code directly.
+
+## Further reading
+
+- [Developer Setup](/docs/developers/setup) — Full installation guide
+- [Environment Variables](/docs/developers/env) — All env var details
+- [Login / Auth](/docs/developers/login) — OAuth and auth configuration
+- [Run](/docs/developers/run) — Dev server commands

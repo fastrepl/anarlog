@@ -1,7 +1,7 @@
 ---
 title: "Run"
 section: "Developers"
-description: "Learn how to run Hyprnote for development"
+description: "Learn how to run Char for development"
 ---
 
 # Development
@@ -28,11 +28,13 @@ pnpm -F ui build && pnpm -F desktop tauri dev
 pnpm -F web dev
 ```
 
-## API (apps/api)
+## API server (apps/api)
 
 ```bash
-pnpm -F api dev
+cargo run -p api
 ```
+
+The API server (formerly `apps/ai`) handles LLM proxying (via OpenRouter), STT proxying, calendar integration, subscriptions, and the in-app support chat MCP server. See [Environment Variables](/docs/developers/env) for required configuration.
 
 # Supabase
 
@@ -57,3 +59,11 @@ task stripe
 ```
 
 - `task stripe` will modify `apps/api/.env` based on the output of `stripe listen`.
+
+## Stripe webhook service (apps/stripe)
+
+```bash
+pnpm -F stripe dev
+```
+
+This runs the dedicated Stripe webhook handler on Bun (default port 8788). It processes Stripe webhook events for subscription and entitlement management. See [Environment Variables](/docs/developers/env) for required configuration.

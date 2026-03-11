@@ -12,6 +12,8 @@ pub enum Error {
     IoError(#[from] std::io::Error),
     #[error(transparent)]
     SettingsError(#[from] tauri_plugin_settings::Error),
+    #[error(transparent)]
+    StorageError(#[from] hypr_storage::Error),
 }
 
 impl Serialize for Error {

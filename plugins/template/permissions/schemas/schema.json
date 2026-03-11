@@ -319,10 +319,22 @@
           "markdownDescription": "Denies the render_custom command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`",
+          "description": "Enables the render_support command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-render-support",
+          "markdownDescription": "Enables the render_support command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the render_support command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-render-support",
+          "markdownDescription": "Denies the render_support command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`"
         }
       ]
     }

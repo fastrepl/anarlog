@@ -1,17 +1,34 @@
 #![allow(dead_code)]
 
 pub mod fixtures;
+pub mod hyprnote;
 pub mod mock_upstream;
+pub mod proxy;
 pub mod recording;
+pub mod ws;
 
 #[allow(unused_imports)]
 pub use fixtures::load_fixture;
 #[allow(unused_imports)]
-pub use mock_upstream::{MockServerHandle, MockUpstreamConfig, start_mock_server_with_config};
+pub use hyprnote::{
+    TranscriptEvent, close_only_recording, soniox_error_recording, soniox_finalize_message,
+    soniox_finalize_recording, soniox_partial_recording, split_test_audio_frame,
+    start_split_mock_ws, stereo_listen_url, terminal_finalize_count, transcript_events,
+};
+#[allow(unused_imports)]
+pub use mock_upstream::{
+    MockServerHandle, MockUpstreamConfig, start_mock_server_group_with_config,
+    start_mock_server_with_config, start_split_mock_server_with_config,
+};
+#[allow(unused_imports)]
+pub use proxy::{
+    MockBatchUpstream, start_mock_batch_upstream, start_proxy, start_proxy_under_stt, wait_for,
+};
 #[allow(unused_imports)]
 pub use recording::{Direction, MessageKind, WsMessage, WsRecording};
+#[allow(unused_imports)]
+pub use ws::{CloseInfo, ProxyWsStream, collect_text_messages, connect_to_proxy, connect_to_url};
 
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -21,6 +38,14 @@ use owhisper_client::Provider;
 use transcribe_proxy::{
     HyprnoteRoutingConfig, SttAnalyticsReporter, SttEvent, SttProxyConfig, router,
 };
+
+fn test_supabase_env() -> hypr_api_env::SupabaseEnv {
+    hypr_api_env::SupabaseEnv {
+        supabase_url: String::new(),
+        supabase_anon_key: String::new(),
+        supabase_service_role_key: String::new(),
+    }
+}
 
 #[derive(Default, Clone)]
 pub struct MockAnalytics {
@@ -53,24 +78,35 @@ pub async fn start_server(config: SttProxyConfig) -> SocketAddr {
 }
 
 pub async fn start_server_with_provider(provider: Provider, api_key: String) -> SocketAddr {
-    let mut api_keys = HashMap::new();
-    api_keys.insert(provider, api_key.clone());
-
-    let config = SttProxyConfig::new(api_keys)
+    let env = env_with_provider(provider, api_key);
+    let config = SttProxyConfig::new(&env, &test_supabase_env())
         .with_default_provider(provider)
         .with_hyprnote_routing(HyprnoteRoutingConfig::default());
     start_server(config).await
 }
 
 pub async fn start_server_with_upstream_url(provider: Provider, upstream_url: &str) -> SocketAddr {
-    let mut api_keys = HashMap::new();
-    api_keys.insert(provider, "mock-api-key".to_string());
-
-    let config = SttProxyConfig::new(api_keys)
+    let env = env_with_provider(provider, "mock-api-key".to_string());
+    let config = SttProxyConfig::new(&env, &test_supabase_env())
         .with_default_provider(provider)
         .with_upstream_url(provider, upstream_url);
-
     start_server(config).await
+}
+
+pub fn env_with_provider(provider: Provider, api_key: String) -> transcribe_proxy::Env {
+    let mut env = transcribe_proxy::Env::default();
+    match provider {
+        Provider::Deepgram => env.stt.deepgram_api_key = Some(api_key),
+        Provider::AssemblyAI => env.stt.assemblyai_api_key = Some(api_key),
+        Provider::Soniox => env.stt.soniox_api_key = Some(api_key),
+        Provider::Fireworks => env.stt.fireworks_api_key = Some(api_key),
+        Provider::OpenAI => env.stt.openai_api_key = Some(api_key),
+        Provider::Gladia => env.stt.gladia_api_key = Some(api_key),
+        Provider::ElevenLabs => env.stt.elevenlabs_api_key = Some(api_key),
+        Provider::DashScope => env.stt.dashscope_api_key = Some(api_key),
+        Provider::Mistral => env.stt.mistral_api_key = Some(api_key),
+    }
+    env
 }
 
 pub fn test_audio_stream() -> impl futures_util::Stream<

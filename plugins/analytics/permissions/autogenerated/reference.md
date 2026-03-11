@@ -8,6 +8,7 @@ Default permissions for the plugin
 - `allow-set-properties`
 - `allow-set-disabled`
 - `allow-is-disabled`
+- `allow-identify`
 
 ## Permission Table
 
@@ -40,6 +41,32 @@ Enables the event command without any pre-configured scope.
 <td>
 
 Denies the event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:allow-identify`
+
+</td>
+<td>
+
+Enables the identify command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:deny-identify`
+
+</td>
+<td>
+
+Denies the identify command without any pre-configured scope.
 
 </td>
 </tr>

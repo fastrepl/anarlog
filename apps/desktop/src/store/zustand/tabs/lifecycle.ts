@@ -10,9 +10,9 @@ export type LifecycleState = {
 };
 
 export type LifecycleActions = {
-  registerOnClose: (handler: (tab: Tab) => void) => void;
-  registerOnEmpty: (handler: () => void) => void;
-  registerCanClose: (handler: (tab: Tab) => boolean) => void;
+  registerOnClose: (handler: ((tab: Tab) => void) | null) => void;
+  registerOnEmpty: (handler: (() => void) | null) => void;
+  registerCanClose: (handler: ((tab: Tab) => boolean) | null) => void;
   setPendingCloseConfirmationTab: (tab: Tab | null) => void;
 };
 

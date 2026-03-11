@@ -21,6 +21,14 @@ async renderCustom(templateContent: string, ctx: Partial<{ [key in string]: Json
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async renderSupport(tpl: SupportTemplate) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|render_support", { tpl }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -34,21 +42,31 @@ async renderCustom(templateContent: string, ctx: Partial<{ [key in string]: Json
 
 /** user-defined types **/
 
-export type ChatContext = { title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; transcript: Transcript | null }
-export type ChatSystem = { language: string | null; context: ChatContext | null }
+export type AccountInfo = { userId: string; email: string | null; fullName: string | null; avatarUrl: string | null; stripeCustomerId: string | null }
+export type BugReport = { description: string; platform: string; arch: string; osVersion: string; appVersion: string; source: string }
+export type ChatSystem = { language: string | null }
+export type ContextBlock = { contexts: SessionContext[] }
+export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
 export type EnhanceSystem = { language: string | null }
 export type EnhanceTemplate = { title: string; description: string | null; sections: TemplateSection[] }
-export type EnhanceUser = { session: Session; participants: Participant[]; template: EnhanceTemplate | null; transcripts: Transcript[] }
+export type EnhanceUser = { session: Session; participants: Participant[]; template: EnhanceTemplate | null; transcripts: Transcript[]; preMeetingMemo: string; postMeetingMemo: string }
 export type Event = { name: string }
+export type FeatureRequest = { description: string; platform: string; arch: string; osVersion: string; appVersion: string; source: string }
 export type Grammar = { task: "enhance"; sections: string[] | null } | { task: "title" } | { task: "tags" } | { task: "email-to-name" }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
+export type LogAnalysis = { summarySection: string; tail: string }
 export type Participant = { name: string; jobTitle: string | null }
 export type Segment = { text: string; speaker: string }
 export type Session = { title: string | null; startedAt: string | null; endedAt: string | null; event: Event | null }
-export type Template = { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem }
+export type SessionContext = { title: string | null; date: string | null; rawContent: string | null; enhancedContent: string | null; transcript: Transcript | null; participants: Participant[]; event: Event | null }
+export type SupportContext = { account: AccountInfo | null; device: DeviceInfo }
+export type SupportTemplate = { supportContext: SupportContext } | { bugReport: BugReport } | { featureRequest: FeatureRequest } | { logAnalysis: LogAnalysis }
+export type Template = { enhanceSystem: EnhanceSystem } | { enhanceUser: EnhanceUser } | { titleSystem: TitleSystem } | { titleUser: TitleUser } | { chatSystem: ChatSystem } | { contextBlock: ContextBlock } | { toolSearchSessions: ToolSearchSessions }
 export type TemplateSection = { title: string; description: string | null }
 export type TitleSystem = { language: string | null }
 export type TitleUser = { enhancedNote: string }
+export type ToolSearchSessionItem = { id: string; title: string | null; excerpt: string | null; score: number; createdAt: number | null; sessionContext: SessionContext | null }
+export type ToolSearchSessions = { query: string; results: ToolSearchSessionItem[] }
 export type Transcript = { segments: Segment[]; startedAt: number | null; endedAt: number | null }
 
 /** tauri-specta globals **/

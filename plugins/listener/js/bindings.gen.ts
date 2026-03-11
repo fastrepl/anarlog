@@ -46,15 +46,15 @@ async startSession(params: SessionParams) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async stopSession() : Promise<Result<null, string>> {
+async stopSession(params: StopSessionParams | null) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:listener|stop_session") };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:listener|stop_session", { params }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async getState() : Promise<Result<string, string>> {
+async getState() : Promise<Result<State, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:listener|get_state") };
 } catch (e) {
@@ -109,11 +109,16 @@ sessionProgressEvent: "plugin:listener:session-progress-event"
 
 /** user-defined types **/
 
+export type DegradedError = { type: "authentication_failed"; provider: string } | { type: "upstream_unavailable"; message: string } | { type: "connection_timeout" } | { type: "stream_error"; message: string }
+export type InMemoryRecordingDisposition = "discard" | "persist"
+export type RecordingMode = "memory" | "disk"
 export type SessionDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "stream_response"; session_id: string; response: StreamResponse }
 export type SessionErrorEvent = { type: "audio_error"; session_id: string; error: string; device: string | null; is_fatal: boolean } | { type: "connection_error"; session_id: string; error: string }
-export type SessionLifecycleEvent = { type: "inactive"; session_id: string; error: string | null } | { type: "active"; session_id: string } | { type: "finalizing"; session_id: string }
-export type SessionParams = { session_id: string; languages: string[]; onboarding: boolean; record_enabled: boolean; model: string; base_url: string; api_key: string; keywords: string[] }
+export type SessionLifecycleEvent = { type: "inactive"; session_id: string; error: string | null } | { type: "active"; session_id: string; requestedTranscriptionMode: TranscriptionMode; currentTranscriptionMode: TranscriptionMode; error: DegradedError | null } | { type: "finalizing"; session_id: string }
+export type SessionParams = { session_id: string; languages: string[]; onboarding: boolean; transcription_mode: TranscriptionMode; recording_mode: RecordingMode; model: string; base_url: string; api_key: string; keywords: string[] }
 export type SessionProgressEvent = { type: "audio_initializing"; session_id: string } | { type: "audio_ready"; session_id: string; device: string | null } | { type: "connecting"; session_id: string } | { type: "connected"; session_id: string; adapter: string }
+export type State = "active" | "inactive" | "finalizing"
+export type StopSessionParams = { inMemoryRecording: InMemoryRecordingDisposition | null }
 export type StreamAlternatives = { transcript: string; words: StreamWord[]; confidence: number; languages?: string[] }
 export type StreamChannel = { alternatives: StreamAlternatives[] }
 export type StreamExtra = { started_unix_millis: number }
@@ -121,6 +126,7 @@ export type StreamMetadata = { request_id: string; model_info: StreamModelInfo; 
 export type StreamModelInfo = { name: string; version: string; arch: string }
 export type StreamResponse = { type: "Results"; start: number; duration: number; is_final: boolean; speech_final: boolean; from_finalize: boolean; channel: StreamChannel; metadata: StreamMetadata; channel_index: number[] } | { type: "Metadata"; request_id: string; created: string; duration: number; channels: number } | { type: "SpeechStarted"; channel: number[]; timestamp: number } | { type: "UtteranceEnd"; channel: number[]; last_word_end: number } | { type: "Error"; error_code: number | null; error_message: string; provider: string }
 export type StreamWord = { word: string; start: number; end: number; confidence: number; speaker: number | null; punctuated_word: string | null; language: string | null }
+export type TranscriptionMode = "live" | "batch"
 
 /** tauri-specta globals **/
 

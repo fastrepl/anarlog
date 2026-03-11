@@ -13,8 +13,6 @@ openblas = ["hypr-whisper-local/openblas"]
 metal = ["hypr-whisper-local/metal"]
 vulkan = ["hypr-whisper-local/vulkan"]
 openmp = ["hypr-whisper-local/openmp"]
-load-dynamic = ["hypr-pyannote-local/load-dynamic"]
-
 [dev-dependencies]
 dirs = { workspace = true }
 futures-util = { workspace = true }
@@ -24,7 +22,7 @@ owhisper-client = { workspace = true }
 [dependencies]
 hypr-audio-utils = { workspace = true }
 hypr-pyannote-local = { workspace = true }
-hypr-vad-ext = { workspace = true }
+hypr-vad-chunking = { workspace = true }
 hypr-whisper = { workspace = true }
 hypr-whisper-local = { workspace = true }
 hypr-ws-utils = { workspace = true }

@@ -165,6 +165,7 @@ fn cache_document_to_transcript(doc: &CacheDocument, segments: &[TranscriptSegme
         start_ms,
         end_ms,
         words,
+        speaker_hints: vec![],
     }
 }
 

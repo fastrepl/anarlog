@@ -11,17 +11,10 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-assert_fs = "1"
-hypr-data = { workspace = true }
-predicates = "3"
 specta-typescript = { workspace = true }
-tempfile = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-hypr-audio-utils = { workspace = true }
-hypr-frontmatter = { workspace = true }
-hypr-tiptap = { workspace = true }
+hypr-fs-sync-core = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-notify = { workspace = true }
@@ -31,15 +24,10 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
 specta = { workspace = true, features = ["serde_json"] }
 
-glob = "0.3"
 rayon = { workspace = true }
-rodio = { workspace = true, features = ["symphonia-all"] }
 
-chrono = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }
