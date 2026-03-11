@@ -129,7 +129,8 @@ export class EnhancerService {
   private tryAutoEnhance(sessionId: string, attempt: number) {
     const eligibility = this.checkEligibility(sessionId);
     if (!eligibility.eligible) {
-      if (attempt < 20) {
+      const hasTranscripts = this.getTranscriptIds(sessionId).length > 0;
+      if (attempt < 20 && (hasTranscripts || attempt < 2)) {
         const timer = setTimeout(() => {
           this.pendingRetries.delete(sessionId);
           this.tryAutoEnhance(sessionId, attempt + 1);
