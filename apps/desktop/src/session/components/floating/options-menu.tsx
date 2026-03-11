@@ -11,9 +11,9 @@ import { commands as listener2Commands } from "@hypr/plugin-listener2";
 import type { TranscriptStorage } from "@hypr/store";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  PopoverAnchor,
   Popover,
   PopoverContent,
-  PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
 import {
   Tooltip,
@@ -323,6 +323,19 @@ export function OptionsMenu({
     updateSessionTabState,
   ]);
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (disabled) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(true);
+    },
+    [disabled],
+  );
+
   const moreButton = (
     <button
       className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer text-white/70 transition-colors hover:text-white disabled:opacity-50"
@@ -374,12 +387,15 @@ export function OptionsMenu({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <div className="relative flex items-center">
+      <PopoverAnchor asChild>
+        <div
+          className="relative flex items-center"
+          onContextMenu={handleContextMenu}
+        >
           {children}
           {moreButton}
         </div>
-      </PopoverTrigger>
+      </PopoverAnchor>
       <PopoverContent
         side="top"
         align="center"
