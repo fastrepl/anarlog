@@ -152,7 +152,7 @@ export async function syncCalendars(
             name: cal.title,
             enabled: existing?.enabled ?? false,
             provider,
-            source: cal.source ?? provider,
+            source: cal.source ?? undefined,
             color: cal.color ?? "#888",
             connection_id: connectionId,
           });

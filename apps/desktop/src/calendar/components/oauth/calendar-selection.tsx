@@ -34,27 +34,37 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
   const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
     useSync();
 
-  const groups = useMemo((): CalendarGroup[] => {
+  const { groups, connectionSourceMap } = useMemo(() => {
     const providerCalendars = Object.entries(calendars).filter(
       ([_, cal]) => cal.provider === config.id,
     );
 
     const grouped = new Map<string, CalendarItem[]>();
+    const sourceMap = new Map<string, string>();
+
     for (const [id, cal] of providerCalendars) {
-      const source = cal.source || config.id;
+      const source = cal.source || config.displayName;
       if (!grouped.has(source)) grouped.set(source, []);
       grouped.get(source)!.push({
         id,
-        title: cal.name || "Untitled",
+        title: cal.name ?? "Untitled",
         color: cal.color ?? "#4285f4",
         enabled: cal.enabled ?? false,
       });
+
+      // HACK: derive connection_id → source mapping from calendar entries
+      if (cal.source && cal.connection_id) {
+        sourceMap.set(cal.connection_id as string, cal.source as string);
+      }
     }
 
-    return Array.from(grouped.entries()).map(([sourceName, calendars]) => ({
-      sourceName,
-      calendars,
-    }));
+    return {
+      groups: Array.from(grouped.entries()).map(([sourceName, calendars]) => ({
+        sourceName,
+        calendars,
+      })),
+      connectionSourceMap: sourceMap,
+    };
   }, [calendars, config.id]);
 
   const handleToggle = useCallback(
@@ -72,6 +82,7 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
 
   return {
     groups,
+    connectionSourceMap,
     handleToggle,
     handleRefresh,
     isLoading: status === "syncing",

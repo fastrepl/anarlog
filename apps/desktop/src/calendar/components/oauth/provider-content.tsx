@@ -16,6 +16,7 @@ import {
   useOAuthCalendarSelection,
 } from "./calendar-selection";
 import {
+  type ConnectionAction,
   ConnectionTroubleShootingLink,
   ReconnectRequiredIndicator,
 } from "./status";
@@ -188,33 +189,34 @@ function ConnectedContent({
   config: CalendarProvider;
   connections: ConnectionItem[];
 }) {
-  const { groups, handleToggle, handleRefresh, isLoading } =
+  const { groups, connectionSourceMap, handleToggle, handleRefresh, isLoading } =
     useOAuthCalendarSelection(config);
+
+  const connectionActions = useMemo(
+    (): ConnectionAction[] =>
+      connections.map((c) => ({
+        connectionId: c.connection_id,
+        label: connectionSourceMap.get(c.connection_id) ?? c.connection_id,
+        onReconnect: () =>
+          openIntegrationUrl(
+            config.nangoIntegrationId,
+            c.connection_id,
+            "reconnect",
+          ),
+        onDisconnect: () =>
+          openIntegrationUrl(
+            config.nangoIntegrationId,
+            c.connection_id,
+            "disconnect",
+          ),
+      })),
+    [connections, config.nangoIntegrationId, connectionSourceMap],
+  );
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-neutral-600">
-          {connections.map((connection) => (
-            <ConnectionTroubleShootingLink
-              key={connection.connection_id}
-              onReconnect={() =>
-                openIntegrationUrl(
-                  config.nangoIntegrationId,
-                  connection.connection_id,
-                  "reconnect",
-                )
-              }
-              onDisconnect={() =>
-                openIntegrationUrl(
-                  config.nangoIntegrationId,
-                  connection.connection_id,
-                  "disconnect",
-                )
-              }
-            />
-          ))}
-        </div>
+        <ConnectionTroubleShootingLink connections={connectionActions} />
 
         <Button
           variant="ghost"
