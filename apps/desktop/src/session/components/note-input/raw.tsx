@@ -148,9 +148,14 @@ const Placeholder: PlaceholderFunction = ({ node, pos }) => {
   "use no memo";
   if (node.type.name === "paragraph" && pos === 0) {
     return (
-      <p className="text-[#e5e5e5]">
-        Take notes to guide Char's meeting notes. Press <kbd>/</kbd> for
-        commands.
+      <p>
+        <span className="text-neutral-400">
+          <span className="font-semibold">Take notes to guide Char</span>'s
+          meeting notes.
+        </span>{" "}
+        <span className="text-neutral-300">
+          Press <kbd>/</kbd> for commands.
+        </span>
       </p>
     );
   }
