@@ -37,11 +37,13 @@ export function ChatHeader({
       data-tauri-drag-region={chat.mode === "RightPanelOpen"}
       className="flex h-9 items-center justify-between border-b border-neutral-200 px-1"
     >
-      <div className="flex items-center">
-        <ChatGroups
-          currentChatGroupId={currentChatGroupId}
-          onSelectChat={onSelectChat}
-        />
+      <div className="flex min-w-0 flex-1 items-center">
+        <div className="min-w-0 flex-1">
+          <ChatGroups
+            currentChatGroupId={currentChatGroupId}
+            onSelectChat={onSelectChat}
+          />
+        </div>
         <ChatActionButton
           icon={<Plus size={16} />}
           onClick={onNewChat}
@@ -49,7 +51,7 @@ export function ChatHeader({
         />
       </div>
 
-      <div className="flex items-center">
+      <div className="flex shrink-0 items-center">
         <ChatActionButton
           icon={
             chat.mode === "RightPanelOpen" ? (
@@ -116,15 +118,15 @@ function ChatGroups({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="group flex h-auto items-center gap-2 px-2 py-1.5"
+          className="group flex h-auto max-w-full min-w-0 justify-start gap-2 px-2 py-1.5"
         >
-          <MessageCircle className="h-3.5 w-3.5 text-neutral-400 transition-colors group-hover:text-neutral-600" />
-          <h3 className="truncate text-xs font-medium text-neutral-700">
+          <MessageCircle className="h-3.5 w-3.5 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" />
+          <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
             {currentChatTitle || "Ask Char anything"}
           </h3>
           <ChevronDown
             className={cn([
-              "h-3.5 w-3.5 text-neutral-400 transition-transform duration-200",
+              "h-3.5 w-3.5 shrink-0 text-neutral-400 transition-transform duration-200",
               isDropdownOpen && "rotate-180",
             ])}
           />
