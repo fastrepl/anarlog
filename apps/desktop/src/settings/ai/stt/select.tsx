@@ -220,7 +220,7 @@ export function SelectProviderAndModel() {
                   >
                     <SelectTrigger
                       className={cn([
-                        "bg-white shadow-none focus:ring-0",
+                        "bg-white text-left shadow-none focus:ring-0",
                         "[&>span]:flex [&>span]:w-full [&>span]:items-center [&>span]:justify-between [&>span]:gap-2",
                         isConfigured && "[&>svg:last-child]:hidden",
                       ])}
