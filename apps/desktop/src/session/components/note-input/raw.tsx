@@ -146,7 +146,11 @@ export const RawEditor = forwardRef<
 
 const Placeholder: PlaceholderFunction = ({ node, pos }) => {
   "use no memo";
-  if (node.type.name === "paragraph" && pos === 0) {
+  if (node.type.name !== "paragraph") {
+    return "";
+  }
+
+  if (pos === 0) {
     return (
       <p>
         <span className="text-neutral-400">
@@ -160,5 +164,9 @@ const Placeholder: PlaceholderFunction = ({ node, pos }) => {
     );
   }
 
-  return "";
+  return (
+    <p className="text-neutral-300">
+      Press <kbd>/</kbd> for commands.
+    </p>
+  );
 };
