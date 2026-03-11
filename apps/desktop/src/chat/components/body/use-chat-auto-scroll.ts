@@ -40,9 +40,7 @@ export function useChatAutoScroll(status: ChatStatus) {
       return;
     }
 
-    if (pendingUserScrollIntentRef.current) {
-      shouldAutoScrollRef.current = false;
-    }
+    shouldAutoScrollRef.current = false;
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
