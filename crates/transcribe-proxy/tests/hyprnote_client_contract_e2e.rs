@@ -253,7 +253,7 @@ async fn streaming_hyprnote_client_surfaces_abnormal_close_without_response() {
     );
     assert_terminal_error_contains(
         &result,
-        &["RemoteClosed", "remote closed websocket"],
+        &["ResetWithoutClosingHandshake", "Protocol"],
         "abnormal closes without responses should surface as client stream errors",
     );
 }
