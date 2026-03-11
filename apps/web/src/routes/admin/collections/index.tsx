@@ -61,7 +61,10 @@ import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
 
-import BlogEditor, { useBlogEditor } from "@/components/admin/blog-editor";
+import BlogEditor, {
+  type TiptapEditor,
+  useBlogEditor,
+} from "@/components/admin/blog-editor";
 import { MediaSelectorModal } from "@/components/admin/media-selector-modal";
 import { defaultMDXComponents } from "@/components/mdx";
 import { fetchGitHubCredentials } from "@/functions/admin";
@@ -155,6 +158,18 @@ interface EditorData {
   metadata: ArticleMetadata;
   hasUnsavedChanges?: boolean;
   autoSaveCountdown?: number | null;
+}
+
+type FileEditorHandle = {
+  getData: () => EditorData | null;
+};
+
+function getEditorMarkdown(editor: TiptapEditor | null, fallback = "") {
+  if (!editor?.isInitialized) {
+    return fallback;
+  }
+
+  return editor.markdown?.serialize(editor.getJSON()) ?? fallback;
 }
 
 function getFileContent(path: string): FileContent | undefined {
@@ -1252,8 +1267,13 @@ function ContentPanel({
 }) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editorData, setEditorData] = useState<EditorData | null>(null);
-  const fileEditorRef = useRef<{ save: () => void } | null>(null);
+  const fileEditorRef = useRef<FileEditorHandle | null>(null);
   const queryClient = useQueryClient();
+
+  const getCurrentEditorData = useCallback(
+    () => fileEditorRef.current?.getData() ?? editorData,
+    [editorData],
+  );
 
   const saveArticle = useCallback(
     async (params: {
@@ -1305,17 +1325,19 @@ function ContentPanel({
 
   const handleSave = useCallback(
     (options?: { isAutoSave?: boolean }) => {
-      if (currentTab?.type === "file" && editorData) {
+      const currentEditorData = getCurrentEditorData();
+
+      if (currentTab?.type === "file" && currentEditorData) {
         saveContent({
           path: currentTab.path,
-          content: editorData.content,
-          metadata: editorData.metadata,
+          content: currentEditorData.content,
+          metadata: currentEditorData.metadata,
           branch: currentTab.branch,
           isAutoSave: options?.isAutoSave,
         });
       }
     },
-    [currentTab, editorData, saveContent],
+    [currentTab, getCurrentEditorData, saveContent],
   );
 
   const { data: pendingPRData } = useQuery({
@@ -1417,14 +1439,17 @@ function ContentPanel({
   });
 
   const handlePublish = useCallback(() => {
-    if (!currentTab || !editorData) return;
+    const currentEditorData = getCurrentEditorData();
+
+    if (!currentTab || !currentEditorData) return;
+
     publish({
       path: currentTab.path,
-      content: editorData.content,
-      metadata: editorData.metadata,
+      content: currentEditorData.content,
+      metadata: currentEditorData.metadata,
       branch: currentTab.branch,
     });
-  }, [currentTab, editorData, publish]);
+  }, [currentTab, getCurrentEditorData, publish]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -2579,7 +2604,7 @@ interface BranchFileResponse {
 }
 
 const FileEditor = React.forwardRef<
-  { save: () => void },
+  FileEditorHandle,
   {
     filePath: string;
     branch?: string;
@@ -2817,11 +2842,12 @@ const FileEditor = React.forwardRef<
             attrs: { src: publicUrl },
           })
           .run();
+        setContent(getEditorMarkdown(editor, content));
         setHasUnsavedChanges(true);
       }
       setIsMediaSelectorOpen(false);
     },
-    [editor],
+    [content, editor],
   );
 
   const getMetadata = useCallback(
@@ -2845,6 +2871,23 @@ const FileEditor = React.forwardRef<
       featured,
       category,
     ],
+  );
+
+  const getCurrentData = useCallback((): EditorData | null => {
+    return {
+      content: getEditorMarkdown(editor, content),
+      metadata: getMetadata(),
+      hasUnsavedChanges,
+      autoSaveCountdown,
+    };
+  }, [autoSaveCountdown, content, editor, getMetadata, hasUnsavedChanges]);
+
+  React.useImperativeHandle(
+    _ref,
+    () => ({
+      getData: getCurrentData,
+    }),
+    [getCurrentData],
   );
 
   useEffect(() => {
