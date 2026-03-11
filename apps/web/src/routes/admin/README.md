@@ -74,14 +74,14 @@ All API endpoints require admin authentication (bypassed in development mode).
 ### Media APIs
 
 - `GET /api/admin/media/list` - List files in a directory
-- `POST /api/admin/media/upload` - Upload files (base64 content)
+- `POST /api/admin/media/upload` - Generate signed uploads for media files
 - `POST /api/admin/media/delete` - Delete files (batch)
 - `POST /api/admin/media/move` - Move/rename files
 - `POST /api/admin/media/create-folder` - Create folders
 
 ### Blog APIs
 
-- `POST /api/admin/blog/upload-image` - Upload images for blog posts to Supabase Storage
+- `POST /api/admin/blog/upload-image` - Generate signed uploads for blog images
 
 ### Import APIs
 

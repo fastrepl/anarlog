@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
 import { getSupabaseServerClient } from "@/functions/supabase";
-import { uploadMediaFile } from "@/functions/supabase-media";
+import { createSignedMediaUpload } from "@/functions/supabase-media";
 
 export const Route = createFileRoute("/api/admin/media/upload")({
   server: {
@@ -19,7 +19,12 @@ export const Route = createFileRoute("/api/admin/media/upload")({
           }
         }
 
-        let body: { filename: string; content: string; folder?: string };
+        let body: {
+          filename?: string;
+          folder?: string;
+          path?: string;
+          upsert?: boolean;
+        };
         try {
           body = await request.json();
         } catch {
@@ -29,12 +34,12 @@ export const Route = createFileRoute("/api/admin/media/upload")({
           });
         }
 
-        const { filename, content, folder } = body;
+        const { filename, folder, path, upsert } = body;
 
-        if (!filename || !content) {
+        if (!filename && !path) {
           return new Response(
             JSON.stringify({
-              error: "Missing required fields: filename, content",
+              error: "Missing required field: filename or path",
             }),
             {
               status: 400,
@@ -44,12 +49,12 @@ export const Route = createFileRoute("/api/admin/media/upload")({
         }
 
         const supabase = getSupabaseServerClient();
-        const result = await uploadMediaFile(
-          supabase,
+        const result = await createSignedMediaUpload(supabase, {
           filename,
-          content,
-          folder || "",
-        );
+          folder,
+          path,
+          upsert,
+        });
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
@@ -60,9 +65,10 @@ export const Route = createFileRoute("/api/admin/media/upload")({
 
         return new Response(
           JSON.stringify({
-            success: true,
             path: result.path,
             publicUrl: result.publicUrl,
+            token: result.token,
+            signedUrl: result.signedUrl,
           }),
           {
             status: 200,

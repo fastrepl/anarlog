@@ -8,8 +8,7 @@ import { getExtensions, json2md } from "@hypr/tiptap/shared";
 import { fetchAdminUser } from "@/functions/admin";
 import { getSupabaseServerClient } from "@/functions/supabase";
 import { uploadMediaFile } from "@/functions/supabase-media";
-
-import { getExtensionFromMimeType } from "../content/save";
+import { getExtensionFromMimeType } from "@/lib/media";
 
 interface ImportRequest {
   url: string;

@@ -6,8 +6,7 @@ import {
   publishArticle,
   updateContentFileOnBranch,
 } from "@/functions/github-content";
-import { getSupabaseServerClient } from "@/functions/supabase";
-import { uploadMediaFile } from "@/functions/supabase-media";
+import { extractBase64Images } from "@/lib/media";
 
 interface ArticleMetadata {
   meta_title?: string;
@@ -65,62 +64,14 @@ export const Route = createFileRoute("/api/admin/content/publish")({
         }
 
         if (content !== undefined && metadata) {
-          let processedContent = content;
-
-          const base64ImageRegex =
-            /!\[[^\]]*\]\((data:image\/([^;]+);base64,([^)]+))\)/g;
-          const base64Images: Array<{
-            fullMatch: string;
-            mimeType: string;
-            base64Data: string;
-          }> = [];
-          let match;
-          while ((match = base64ImageRegex.exec(content)) !== null) {
-            base64Images.push({
-              fullMatch: match[0],
-              mimeType: match[2],
-              base64Data: match[3],
-            });
-          }
-
-          if (base64Images.length > 0) {
-            const supabase = getSupabaseServerClient();
-            const slug =
-              path
-                .split("/")
-                .pop()
-                ?.replace(/\.mdx$/, "") || "";
-            const folder = `articles/${slug}`;
-            const extensionMap: Record<string, string> = {
-              jpeg: "jpg",
-              jpg: "jpg",
-              png: "png",
-              gif: "gif",
-              webp: "webp",
-              svg: "svg",
-              "svg+xml": "svg",
-              avif: "avif",
-            };
-
-            for (let i = 0; i < base64Images.length; i++) {
-              const image = base64Images[i];
-              const extension = extensionMap[image.mimeType] || "png";
-              const filename = `image-${i + 1}.${extension}`;
-
-              const uploadResult = await uploadMediaFile(
-                supabase,
-                filename,
-                image.base64Data,
-                folder,
-              );
-
-              if (uploadResult.success && uploadResult.publicUrl) {
-                processedContent = processedContent.replace(
-                  image.fullMatch,
-                  `![](${uploadResult.publicUrl})`,
-                );
-              }
-            }
+          if (extractBase64Images(content).length > 0) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Inline base64 images must be uploaded before publishing",
+              }),
+              { status: 400, headers: { "Content-Type": "application/json" } },
+            );
           }
 
           const frontmatterObj: Record<string, unknown> = {};
@@ -139,7 +90,7 @@ export const Route = createFileRoute("/api/admin/content/publish")({
           if (metadata.category) frontmatterObj.category = metadata.category;
 
           const frontmatter = `---\n${yaml.dump(frontmatterObj, { quotingType: '"', forceQuotes: true, lineWidth: -1 })}---`;
-          const fullContent = `${frontmatter}\n\n${processedContent}`;
+          const fullContent = `${frontmatter}\n\n${content}`;
 
           const saveResult = await updateContentFileOnBranch(
             path,

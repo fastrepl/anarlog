@@ -65,6 +65,10 @@ import BlogEditor, { useBlogEditor } from "@/components/admin/blog-editor";
 import { MediaSelectorModal } from "@/components/admin/media-selector-modal";
 import { defaultMDXComponents } from "@/components/mdx";
 import { fetchGitHubCredentials } from "@/functions/admin";
+import {
+  uploadBlogImageFile,
+  uploadInlineMarkdownImages,
+} from "@/functions/media-upload";
 import { AUTHORS } from "@/lib/team";
 
 interface ContentItem {
@@ -1249,32 +1253,53 @@ function ContentPanel({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editorData, setEditorData] = useState<EditorData | null>(null);
   const fileEditorRef = useRef<{ save: () => void } | null>(null);
+  const queryClient = useQueryClient();
 
-  const { mutate: saveContent, isPending: isSaving } = useMutation({
-    mutationFn: async (params: {
+  const saveArticle = useCallback(
+    async (params: {
       path: string;
       content: string;
       metadata: ArticleMetadata;
       branch?: string;
       isAutoSave?: boolean;
     }) => {
+      const processedContent = await uploadInlineMarkdownImages({
+        content: params.content,
+        path: params.path,
+      });
+
       const response = await fetch("/api/admin/content/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
+        body: JSON.stringify({
+          ...params,
+          content: processedContent,
+        }),
       });
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || "Failed to save");
       }
+
       return response.json();
     },
+    [],
+  );
+
+  const { mutate: saveContent, isPending: isSaving } = useMutation({
+    mutationFn: saveArticle,
     onSuccess: (data, variables) => {
       if (data.branchName) {
         queryClient.invalidateQueries({
           queryKey: ["pendingPR", variables.path],
         });
       }
+    },
+    onError: (error) => {
+      sonnerToast.error("Save failed", {
+        description: error.message,
+      });
     },
   });
 
@@ -1315,8 +1340,6 @@ function ContentPanel({
     staleTime: 60000,
   });
 
-  const queryClient = useQueryClient();
-
   const { mutate: publish, isPending: isPublishing } = useMutation({
     mutationFn: async (params: {
       path: string;
@@ -1324,21 +1347,7 @@ function ContentPanel({
       metadata: ArticleMetadata;
       branch?: string;
     }) => {
-      const saveResponse = await fetch("/api/admin/content/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: params.path,
-          content: params.content,
-          metadata: params.metadata,
-          branch: params.branch,
-        }),
-      });
-      if (!saveResponse.ok) {
-        const error = await saveResponse.json();
-        throw new Error(error.error || "Failed to save");
-      }
-      const saveResult = await saveResponse.json();
+      const saveResult = await saveArticle(params);
 
       if (saveResult.prUrl) {
         return { prUrl: saveResult.prUrl as string };
@@ -2726,35 +2735,8 @@ const FileEditor = React.forwardRef<
 
   const handleImageUpload = useCallback(
     async (file: File): Promise<{ url: string; attachmentId: string }> => {
-      const reader = new FileReader();
-      return new Promise((resolve, reject) => {
-        reader.onload = async () => {
-          try {
-            const base64 = (reader.result as string).split(",")[1];
-            const response = await fetch("/api/admin/blog/upload-image", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                filename: file.name,
-                content: base64,
-              }),
-            });
-
-            if (!response.ok) {
-              throw new Error("Upload failed");
-            }
-
-            const data = await response.json();
-            resolve({ url: data.url, attachmentId: "" });
-          } catch (error) {
-            reject(error);
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
+      const result = await uploadBlogImageFile({ file });
+      return { url: result.publicUrl, attachmentId: "" };
     },
     [],
   );

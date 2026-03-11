@@ -8,6 +8,8 @@ import {
 
 import { sonnerToast as toast } from "@hypr/ui/components/ui/toast";
 
+import { uploadMediaLibraryFile } from "@/functions/media-upload";
+
 type FileStatus = "pending" | "uploading" | "done" | "error";
 
 interface FileProgress {
@@ -89,24 +91,6 @@ export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
     throw new Error(data.error || "Failed to fetch media");
   }
   return data.items;
-}
-
-async function uploadFile(params: {
-  filename: string;
-  content: string;
-  folder: string;
-}) {
-  const response = await fetch("/api/admin/media/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || "Upload failed");
-  }
-  return response.json();
 }
 
 async function deleteFiles(paths: string[]) {
@@ -197,19 +181,8 @@ export function useMediaApi({
           fileProgress[i].status = "uploading";
           updateToast();
 
-          const reader = new FileReader();
-          const content = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => {
-              const base64 = (reader.result as string).split(",")[1];
-              resolve(base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-
-          await uploadFile({
-            filename: file.name,
-            content,
+          await uploadMediaLibraryFile({
+            file,
             folder: currentFolderPath,
           });
 
@@ -247,20 +220,10 @@ export function useMediaApi({
 
   const replaceMutation = useMutation({
     mutationFn: async (params: { file: File; path: string }) => {
-      const reader = new FileReader();
-      const content = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(params.file);
-      });
-
-      await uploadFile({
-        filename: params.file.name,
-        content,
-        folder: params.path.split("/").slice(0, -1).join("/"),
+      await uploadMediaLibraryFile({
+        file: params.file,
+        path: params.path,
+        upsert: true,
       });
     },
     onSuccess: () => {

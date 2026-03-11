@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
+import { uploadMediaLibraryFile } from "@/functions/media-upload";
+
 interface MediaItem {
   name: string;
   path: string;
@@ -27,24 +29,6 @@ async function fetchMediaItems(path: string): Promise<MediaItem[]> {
     throw new Error(data.error || "Failed to fetch media");
   }
   return data.items;
-}
-
-async function uploadFile(params: {
-  filename: string;
-  content: string;
-  folder: string;
-}) {
-  const response = await fetch("/api/admin/media/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || "Upload failed");
-  }
-  return response.json();
 }
 
 function getRelativePath(fullPath: string): string {
@@ -123,19 +107,8 @@ export function MediaSelectorModal({
   const uploadMutation = useMutation({
     mutationFn: async (files: FileList) => {
       for (const file of Array.from(files)) {
-        const reader = new FileReader();
-        const content = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => {
-            const base64 = (reader.result as string).split(",")[1];
-            resolve(base64);
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-
-        await uploadFile({
-          filename: file.name,
-          content,
+        await uploadMediaLibraryFile({
+          file,
           folder: selectedPath,
         });
       }
