@@ -189,8 +189,13 @@ function ConnectedContent({
   config: CalendarProvider;
   connections: ConnectionItem[];
 }) {
-  const { groups, connectionSourceMap, handleToggle, handleRefresh, isLoading } =
-    useOAuthCalendarSelection(config);
+  const {
+    groups,
+    connectionSourceMap,
+    handleToggle,
+    handleRefresh,
+    isLoading,
+  } = useOAuthCalendarSelection(config);
 
   const connectionActions = useMemo(
     (): ConnectionAction[] =>
