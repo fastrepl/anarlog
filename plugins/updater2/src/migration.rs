@@ -33,7 +33,10 @@ impl MacInstallPaths {
         backup_dir: &Path,
         extracted_bundle: ExtractedBundle,
     ) -> Result<Self, crate::Error> {
-        let target_app_path = install_target_path(&current_app_path, &extracted_bundle.name)?;
+        let target_app_path = install_target_path(
+            &current_app_path,
+            target_bundle_name(&current_app_path, &extracted_bundle.name),
+        )?;
         let current_backup_path = backup_dir.join(
             current_app_path
                 .file_name()
@@ -93,12 +96,21 @@ fn stage_macos_update_for_current_app(
 
 fn install_target_path(
     current_app_path: &Path,
-    extracted_bundle_name: &str,
+    target_bundle_name: &str,
 ) -> Result<PathBuf, crate::Error> {
     let parent = current_app_path
         .parent()
         .ok_or(crate::Error::FailedToDetermineTargetAppPath)?;
-    Ok(parent.join(extracted_bundle_name))
+    Ok(parent.join(target_bundle_name))
+}
+
+fn target_bundle_name<'a>(current_app_path: &'a Path, extracted_bundle_name: &'a str) -> &'a str {
+    match current_app_path.file_name().and_then(|name| name.to_str()) {
+        Some("Hyprnote.app") => "Char.app",
+        Some("Hyprnote Nightly.app") => "Char Nightly.app",
+        Some("Hyprnote Staging.app") => "Char Staging.app",
+        _ => extracted_bundle_name,
+    }
 }
 
 pub(crate) fn schedule_macos_update_after_exit(
@@ -378,17 +390,43 @@ mod tests {
     }
 
     #[test]
-    fn install_target_uses_extracted_bundle_name_for_stable_and_nightly() {
+    fn install_target_uses_migration_target_name_for_known_bundle_renames() {
         let cases = [
-            ("/Applications/Hyprnote.app", "Char.app"),
-            ("/Applications/Hyprnote Nightly.app", "Char Nightly.app"),
+            ("/Applications/Hyprnote.app", "Hyprnote.app", "Char.app"),
+            (
+                "/Applications/Hyprnote Nightly.app",
+                "Hyprnote Nightly.app",
+                "Char Nightly.app",
+            ),
+            (
+                "/Applications/Hyprnote Staging.app",
+                "Hyprnote Staging.app",
+                "Char Staging.app",
+            ),
         ];
 
-        for (current, extracted_name) in cases {
-            let target = install_target_path(Path::new(current), extracted_name).unwrap();
+        for (current, extracted_name, expected_target_name) in cases {
+            let target = install_target_path(
+                Path::new(current),
+                target_bundle_name(Path::new(current), extracted_name),
+            )
+            .unwrap();
 
-            assert_eq!(target, PathBuf::from("/Applications").join(extracted_name));
+            assert_eq!(
+                target,
+                PathBuf::from("/Applications").join(expected_target_name)
+            );
         }
+    }
+
+    #[test]
+    fn install_target_falls_back_to_extracted_bundle_name_for_non_migration_cases() {
+        let current = Path::new("/Applications/Char Nightly.app");
+
+        let target =
+            install_target_path(current, target_bundle_name(current, "Char Nightly.app")).unwrap();
+
+        assert_eq!(target, PathBuf::from("/Applications/Char Nightly.app"));
     }
 
     #[test]
@@ -420,6 +458,35 @@ mod tests {
         );
         assert_eq!(staged_update.stage_dir, stage_dir);
         assert!(staged_update.staged_app_path.exists());
+    }
+
+    #[test]
+    fn staging_update_renames_nightly_even_when_archive_bundle_name_is_legacy() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let current_app = temp_dir.path().join("Applications/Hyprnote Nightly.app");
+        let stage_dir = temp_dir.path().join("stage");
+        fs::create_dir_all(current_app.join("Contents/MacOS")).unwrap();
+
+        let staged_update = stage_macos_update_for_current_app(
+            &gzip_tar(&[("Hyprnote Nightly.app/Contents/Info.plist", b"plist")]),
+            current_app.clone(),
+            &stage_dir,
+        )
+        .unwrap();
+
+        assert_eq!(staged_update.current_app_path, current_app);
+        assert_eq!(
+            staged_update.staged_app_path,
+            stage_dir.join("staged/Hyprnote Nightly.app")
+        );
+        assert_eq!(
+            staged_update.target_app_path,
+            temp_dir.path().join("Applications/Char Nightly.app")
+        );
+        assert_eq!(
+            staged_update.current_backup_path,
+            stage_dir.join("backup/Hyprnote Nightly.app")
+        );
     }
 
     #[test]
