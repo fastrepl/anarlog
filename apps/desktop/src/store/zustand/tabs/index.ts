@@ -60,6 +60,9 @@ type Actions = BasicActions &
 type Store = State & Actions;
 
 type TabsStoreSingleton = ReturnType<typeof createTabsStore>;
+type TabsHotData = {
+  [TABS_STORE_KEY]?: TabsStoreSingleton;
+};
 
 const TABS_STORE_KEY = "__hypr_tabs_store__" as const;
 
@@ -104,9 +107,7 @@ const getTabsStore = (): TabsStoreSingleton => {
     return createTabsStore();
   }
 
-  const hotData = (import.meta.hot.data ?? {}) as {
-    [TABS_STORE_KEY]?: TabsStoreSingleton;
-  };
+  const hotData = import.meta.hot.data as TabsHotData;
 
   if (!hotData[TABS_STORE_KEY]) {
     hotData[TABS_STORE_KEY] = createTabsStore();

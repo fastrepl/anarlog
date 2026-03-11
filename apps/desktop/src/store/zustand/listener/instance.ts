@@ -1,6 +1,9 @@
 import { createListenerStore } from "./index";
 
 type ListenerStoreSingleton = ReturnType<typeof createListenerStore>;
+type ListenerHotData = {
+  [LISTENER_STORE_KEY]?: ListenerStoreSingleton;
+};
 
 const LISTENER_STORE_KEY = "__hypr_listener_store__" as const;
 
@@ -9,9 +12,7 @@ const getListenerStore = (): ListenerStoreSingleton => {
     return createListenerStore();
   }
 
-  const hotData = (import.meta.hot.data ?? {}) as {
-    [LISTENER_STORE_KEY]?: ListenerStoreSingleton;
-  };
+  const hotData = import.meta.hot.data as ListenerHotData;
 
   if (!hotData[LISTENER_STORE_KEY]) {
     hotData[LISTENER_STORE_KEY] = createListenerStore();
