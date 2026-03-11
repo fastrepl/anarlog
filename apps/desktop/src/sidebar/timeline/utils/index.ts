@@ -251,6 +251,55 @@ export function getItemTimestamp(item: TimelineItem): Date | null {
   return getItemTimeRange(item).start;
 }
 
+function getTomorrowUpperBound(timezone?: string): number {
+  const dayAfterTomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+  return startOfDay(toTZ(dayAfterTomorrow, timezone)).getTime();
+}
+
+function isAtOrBeforeTomorrow(date: Date | null, timezone?: string): boolean {
+  if (!date) {
+    return true;
+  }
+
+  return date.getTime() < getTomorrowUpperBound(timezone);
+}
+
+export function filterTimelineTablesUpToTomorrow({
+  timelineEventsTable,
+  timelineSessionsTable,
+  timezone,
+}: {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+  timezone?: string;
+}): {
+  timelineEventsTable: TimelineEventsTable;
+  timelineSessionsTable: TimelineSessionsTable;
+} {
+  return {
+    timelineEventsTable: timelineEventsTable
+      ? Object.fromEntries(
+          Object.entries(timelineEventsTable).filter(([, row]) =>
+            isAtOrBeforeTomorrow(
+              safeParseDate(row.started_at) ?? safeParseDate(row.ended_at),
+              timezone,
+            ),
+          ),
+        )
+      : timelineEventsTable,
+    timelineSessionsTable: timelineSessionsTable
+      ? Object.fromEntries(
+          Object.entries(timelineSessionsTable).filter(([, row]) =>
+            isAtOrBeforeTomorrow(
+              safeParseDate(getSessionEvent(row)?.started_at ?? row.created_at),
+              timezone,
+            ),
+          ),
+        )
+      : timelineSessionsTable,
+  };
+}
+
 function getEventTrackingId(row: TimelineEventRow): string {
   return row.tracking_id_event ?? "";
 }

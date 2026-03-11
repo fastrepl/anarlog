@@ -15,6 +15,7 @@ import {
 import {
   buildTimelineBuckets,
   calculateTodayIndicatorPlacement,
+  filterTimelineTablesUpToTomorrow,
   getItemTimestamp,
   type TimelineBucket,
   type TimelineIndicatorPlacement,
@@ -432,6 +433,7 @@ function TodayBucket({
 }
 
 function useTimelineData(): TimelineBucket[] {
+  const timezone = useConfigValue("timezone");
   const timelineEventsTable = main.UI.useResultTable(
     main.QUERIES.timelineEvents,
     main.STORE_ID,
@@ -440,19 +442,27 @@ function useTimelineData(): TimelineBucket[] {
     main.QUERIES.timelineSessions,
     main.STORE_ID,
   );
-  const currentTimeMs = useSmartCurrentTime(
-    timelineEventsTable,
-    timelineSessionsTable,
-  );
-  const timezone = useConfigValue("timezone");
-
-  return useMemo(
+  const filteredTables = useMemo(
     () =>
-      buildTimelineBuckets({
+      filterTimelineTablesUpToTomorrow({
         timelineEventsTable,
         timelineSessionsTable,
         timezone: timezone || undefined,
       }),
-    [timelineEventsTable, timelineSessionsTable, currentTimeMs, timezone],
+    [timelineEventsTable, timelineSessionsTable, timezone],
+  );
+  const currentTimeMs = useSmartCurrentTime(
+    filteredTables.timelineEventsTable,
+    filteredTables.timelineSessionsTable,
+  );
+
+  return useMemo(
+    () =>
+      buildTimelineBuckets({
+        timelineEventsTable: filteredTables.timelineEventsTable,
+        timelineSessionsTable: filteredTables.timelineSessionsTable,
+        timezone: timezone || undefined,
+      }),
+    [filteredTables, currentTimeMs, timezone],
   );
 }
