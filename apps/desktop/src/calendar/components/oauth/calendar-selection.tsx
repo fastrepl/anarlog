@@ -42,8 +42,16 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     const grouped = new Map<string, CalendarItem[]>();
     const sourceMap = new Map<string, string>();
 
+    // If there's only one non-null source (i.e. one connection),
+    // merge null-source calendars (Google-provided calendars) into the same group
+    const nonNullSources = new Set(
+      providerCalendars.map(([_, cal]) => cal.source).filter(Boolean),
+    );
+    const singleSource =
+      nonNullSources.size === 1 ? ([...nonNullSources][0] as string) : null;
+
     for (const [id, cal] of providerCalendars) {
-      const source = cal.source || config.displayName;
+      const source = cal.source || singleSource || config.displayName;
       if (!grouped.has(source)) grouped.set(source, []);
       grouped.get(source)!.push({
         id,
