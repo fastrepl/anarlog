@@ -313,7 +313,7 @@ export function TabItemBase({
         <PopoverContent
           side="bottom"
           align="start"
-          className="w-[240px] rounded-xl p-3"
+          className="z-[60] w-[240px] rounded-xl p-3"
           sideOffset={2}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >

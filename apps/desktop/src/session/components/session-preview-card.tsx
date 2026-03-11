@@ -20,6 +20,7 @@ import {
   useEnhancedNotes,
 } from "~/session/hooks/useEnhancedNotes";
 import * as main from "~/store/tinybase/store/main";
+import { useTabs } from "~/store/zustand/tabs";
 
 const MAX_PREVIEW_LENGTH = 200;
 const FOLLOW_RANGE = 16;
@@ -224,6 +225,9 @@ export function SessionPreviewCard({
     dateDisplay,
     participantMappingIds,
   } = useSessionPreviewData(sessionId);
+  const hasPendingCloseConfirmation = useTabs(
+    (state) => state.pendingCloseConfirmationTab !== null,
+  );
 
   const followAxis = side === "right" ? "y" : "x";
   const { triggerRef, handleMouseMove, handleMouseLeave, style } =
@@ -246,7 +250,7 @@ export function SessionPreviewCard({
     setOpenDelay(isWarmedUp() ? OPEN_DELAY_WARM : OPEN_DELAY_COLD);
   }, []);
 
-  if (!enabled) {
+  if (!enabled || hasPendingCloseConfirmation) {
     return <>{children}</>;
   }
 
