@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, PlusIcon } from "lucide-react";
 
+import type { ConnectionItem } from "@hypr/api-client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,8 +21,8 @@ export function IntegrationsSettingsCard() {
   const { isPro } = useBilling();
   const { data: connections, isLoading } = useConnections(isPro);
 
-  const getConnectionStatus = (integrationId: string) => {
-    return connections?.find((c) => c.integration_id === integrationId);
+  const getProviderConnections = (integrationId: string) => {
+    return connections?.filter((c) => c.integration_id === integrationId) ?? [];
   };
 
   return (
@@ -34,95 +35,139 @@ export function IntegrationsSettingsCard() {
       </div>
 
       {INTEGRATIONS.map((integration) => {
-        const connection = getConnectionStatus(integration.id);
-        const isConnected = !!connection;
+        const providerConnections = getProviderConnections(integration.id);
 
         return (
           <div
             key={integration.id}
-            className="flex items-center justify-between border-t border-neutral-100 p-4"
+            className="border-t border-neutral-100 p-4"
           >
-            <div className="flex items-center gap-3">
-              <div className="text-sm font-medium">{integration.name}</div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-sm font-medium">{integration.name}</div>
+              </div>
+
+              {!isPro ? (
+                <Link
+                  to="/app/checkout/"
+                  search={{ period: "monthly" }}
+                  className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                >
+                  Upgrade to Pro
+                </Link>
+              ) : isLoading ? (
+                <button
+                  disabled
+                  className="flex h-8 items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-500 shadow-xs"
+                >
+                  Loading...
+                </button>
+              ) : (
+                <button
+                  onClick={() =>
+                    navigate({
+                      to: "/app/integration/",
+                      search: {
+                        flow: "web",
+                        integration_id: integration.id,
+                        action: "connect",
+                      },
+                    })
+                  }
+                  className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                >
+                  <PlusIcon size={14} />
+                  {providerConnections.length > 0 ? "Add account" : "Connect"}
+                </button>
+              )}
             </div>
 
-            {!isPro ? (
-              <Link
-                to="/app/checkout/"
-                search={{ period: "monthly" }}
-                className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-              >
-                Upgrade to Pro
-              </Link>
-            ) : isLoading ? (
-              <button
-                disabled
-                className="flex h-8 items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-500 shadow-xs"
-              >
-                Loading...
-              </button>
-            ) : isConnected && connection ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex h-8 cursor-pointer items-center gap-1 rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]">
-                    Connected
-                    <ChevronDown size={14} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      navigate({
-                        to: "/app/integration/",
-                        search: {
-                          flow: "web",
-                          integration_id: integration.id,
-                          action: "connect",
-                          connection_id: connection.connection_id,
-                        },
-                      })
-                    }
-                  >
-                    Reconnect
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      navigate({
-                        to: "/app/integration/",
-                        search: {
-                          flow: "web",
-                          action: "disconnect",
-                          integration_id: integration.id,
-                          connection_id: connection.connection_id,
-                        },
-                      })
-                    }
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    Disconnect
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <button
-                onClick={() =>
-                  navigate({
-                    to: "/app/integration/",
-                    search: {
-                      flow: "web",
-                      integration_id: integration.id,
-                      action: "connect",
-                    },
-                  })
-                }
-                className="flex h-8 cursor-pointer items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-              >
-                Connect
-              </button>
+            {providerConnections.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {providerConnections.map((connection) => (
+                  <ConnectionRow
+                    key={connection.connection_id}
+                    connection={connection}
+                    integrationId={integration.id}
+                  />
+                ))}
+              </div>
             )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function ConnectionRow({
+  connection,
+  integrationId,
+}: {
+  connection: ConnectionItem;
+  integrationId: string;
+}) {
+  const navigate = useNavigate();
+  const isReconnectRequired = connection.status === "reconnect_required";
+
+  return (
+    <div className="flex items-center justify-between rounded-md border border-neutral-100 px-3 py-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={[
+            "size-2 rounded-full",
+            isReconnectRequired ? "bg-amber-500" : "bg-green-500",
+          ].join(" ")}
+        />
+        <span className="text-xs text-neutral-700">
+          {connection.connection_id}
+        </span>
+        {isReconnectRequired && (
+          <span className="text-xs text-amber-600">Reconnect required</span>
+        )}
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-7 cursor-pointer items-center gap-1 rounded-full border border-neutral-200 bg-linear-to-b from-white to-stone-50 px-3 text-xs text-neutral-600 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]">
+            {isReconnectRequired ? "Reconnect" : "Manage"}
+            <ChevronDown size={12} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem
+            onClick={() =>
+              navigate({
+                to: "/app/integration/",
+                search: {
+                  flow: "web",
+                  integration_id: integrationId,
+                  action: "connect",
+                  connection_id: connection.connection_id,
+                },
+              })
+            }
+          >
+            Reconnect
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              navigate({
+                to: "/app/integration/",
+                search: {
+                  flow: "web",
+                  action: "disconnect",
+                  integration_id: integrationId,
+                  connection_id: connection.connection_id,
+                },
+              })
+            }
+            className="text-red-600 focus:text-red-600"
+          >
+            Disconnect
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
