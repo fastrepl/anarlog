@@ -25,7 +25,10 @@ type Tables = Record<string, Record<string, Record<string, any>>>;
 
 function createTables(data?: {
   transcripts?: Record<string, { session_id: string; words: string }>;
-  enhanced_notes?: Record<string, { session_id: string; template_id?: string }>;
+  enhanced_notes?: Record<
+    string,
+    { session_id: string; template_id?: string; content?: string }
+  >;
   sessions?: Record<string, { title: string }>;
 }): Tables {
   return {
@@ -49,6 +52,10 @@ function createMockStore(tables: Tables) {
       if (!tables[table]) tables[table] = {};
       tables[table][rowId] = row;
     }),
+    delRow: vi.fn((table: string, rowId: string) => {
+      delete tables[table]?.[rowId];
+    }),
+    transaction: vi.fn((callback: () => void) => callback()),
     setPartialRow: vi.fn(),
   } as any;
 }
@@ -353,6 +360,34 @@ describe("EnhancerService", () => {
         sessionId: "session-1",
         reason: expect.any(String),
       });
+    });
+
+    it("flushes ineligible transcript rows and empty default summaries", () => {
+      const tables = createTables({
+        transcripts: {
+          "t-1": {
+            session_id: "session-1",
+            words: JSON.stringify([{ text: "hi" }, { text: "there" }]),
+          },
+        },
+        enhanced_notes: {
+          "note-1": {
+            session_id: "session-1",
+            content: "",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+      });
+      const service = new EnhancerService(deps);
+
+      (service as any).tryAutoEnhance("session-1", 20);
+
+      expect(store.delRow).toHaveBeenCalledWith("transcripts", "t-1");
+      expect(store.delRow).toHaveBeenCalledWith("enhanced_notes", "note-1");
     });
 
     it("clears activeAutoEnhance on skipped after max retries", () => {

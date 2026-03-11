@@ -139,6 +139,7 @@ export class EnhancerService {
       }
 
       this.activeAutoEnhance.delete(sessionId);
+      this.flushIneligibleSession(sessionId);
       this.emit({
         type: "auto-enhance-skipped",
         sessionId,
@@ -229,6 +230,41 @@ export class EnhancerService {
       INDEXES.enhancedNotesBySession,
       sessionId,
     );
+  }
+
+  flushIneligibleSession(sessionId: string) {
+    const eligibility = this.checkEligibility(sessionId);
+    if (eligibility.eligible) {
+      return;
+    }
+
+    const store = this.deps.mainStore;
+    const transcriptIds = this.getTranscriptIds(sessionId);
+    const emptyDefaultSummaryIds = this.getEnhancedNoteIds(sessionId).filter(
+      (id) => {
+        const templateId = store.getCell("enhanced_notes", id, "template_id");
+        const content = store.getCell("enhanced_notes", id, "content");
+
+        return (
+          (typeof templateId !== "string" || !templateId) &&
+          (typeof content !== "string" || !content.trim())
+        );
+      },
+    );
+
+    if (!transcriptIds.length && !emptyDefaultSummaryIds.length) {
+      return;
+    }
+
+    store.transaction(() => {
+      transcriptIds.forEach((id) => {
+        store.delRow("transcripts", id);
+      });
+
+      emptyDefaultSummaryIds.forEach((id) => {
+        store.delRow("enhanced_notes", id);
+      });
+    });
   }
 
   ensureNote(sessionId: string, templateId?: string): string {

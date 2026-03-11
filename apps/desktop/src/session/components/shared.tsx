@@ -6,11 +6,13 @@ import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useNetwork } from "~/contexts/network";
+import { countTranscriptWords } from "~/services/enhancer/eligibility";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
+import { MIN_WORDS_FOR_MEANINGFUL_TRANSCRIPT } from "~/stt/thresholds";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
 export { computeCurrentNoteTab } from "./compute-note-tab";
@@ -21,8 +23,18 @@ export function useHasTranscript(sessionId: string): boolean {
     sessionId,
     main.STORE_ID,
   );
+  const store = main.UI.useStore(main.STORE_ID);
 
-  return !!transcriptIds && transcriptIds.length > 0;
+  return useMemo(() => {
+    if (!store || !transcriptIds?.length) {
+      return false;
+    }
+
+    return (
+      countTranscriptWords(transcriptIds, store) >=
+      MIN_WORDS_FOR_MEANINGFUL_TRANSCRIPT
+    );
+  }, [store, transcriptIds]);
 }
 
 export function useCurrentNoteTab(
@@ -39,22 +51,23 @@ export function useCurrentNoteTab(
     sessionMode === "active" ||
     sessionMode === "finalizing" ||
     isListenerStarting;
+  const hasTranscript = useHasTranscript(tab.id);
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     tab.id,
     main.STORE_ID,
   );
-  const firstEnhancedNoteId = enhancedNoteIds?.[0];
 
   return useMemo(
     () =>
       computeCurrentNoteTab(
         tab.state.view ?? null,
         isListenerActive,
-        firstEnhancedNoteId,
+        hasTranscript,
+        enhancedNoteIds ?? [],
       ),
-    [tab.state.view, isListenerActive, firstEnhancedNoteId],
+    [tab.state.view, isListenerActive, hasTranscript, enhancedNoteIds],
   );
 }
 

@@ -9,6 +9,7 @@ import {
   type TablesContent,
   type WriteOperation,
 } from "~/store/tinybase/persister/shared";
+import { MIN_WORDS_FOR_MEANINGFUL_TRANSCRIPT } from "~/stt/thresholds";
 
 type BuildContext = {
   tables: TablesContent;
@@ -24,12 +25,13 @@ export function buildTranscriptSaveOps(
   const ctx: BuildContext = { tables, dataDir, changedSessionIds };
 
   const transcriptsBySession = groupTranscriptsBySession(ctx);
-  const sessionsToProcess = filterByChangedSessions(
+  const sessionIdsToProcess = getSessionIdsToProcess(
+    tables,
     transcriptsBySession,
     changedSessionIds,
   );
 
-  return buildOperations(ctx, sessionsToProcess);
+  return buildOperations(ctx, transcriptsBySession, sessionIdsToProcess);
 }
 
 function groupTranscriptsBySession(
@@ -63,34 +65,65 @@ function groupTranscriptsBySession(
   return grouped;
 }
 
-function filterByChangedSessions(
+function getSessionIdsToProcess(
+  tables: TablesContent,
   transcriptsBySession: Map<string, TranscriptWithData[]>,
   changedSessionIds?: Set<string>,
-): Array<[string, TranscriptWithData[]]> {
-  const entries = [...transcriptsBySession];
-  if (!changedSessionIds) return entries;
-  return entries.filter(([id]) => changedSessionIds.has(id));
+): string[] {
+  if (changedSessionIds) {
+    return [...changedSessionIds];
+  }
+
+  return [
+    ...new Set([
+      ...Object.keys(tables.sessions ?? {}),
+      ...transcriptsBySession.keys(),
+    ]),
+  ];
 }
 
 function buildOperations(
   ctx: BuildContext,
-  sessions: Array<[string, TranscriptWithData[]]>,
+  transcriptsBySession: Map<string, TranscriptWithData[]>,
+  sessionIds: string[],
 ): WriteOperation[] {
   const { tables, dataDir } = ctx;
+  const operations: WriteOperation[] = [];
+  const deletePaths: string[] = [];
 
-  return sessions.map(([sessionId, transcripts]) => {
+  sessionIds.forEach((sessionId) => {
+    const transcripts = transcriptsBySession.get(sessionId) ?? [];
     const session = tables.sessions?.[sessionId];
     const sessionDir = buildSessionPath(
       dataDir,
       sessionId,
       session?.folder_id ?? "",
     );
+    const path = [sessionDir, SESSION_TRANSCRIPT_FILE].join(sep());
+    const wordCount = transcripts.reduce(
+      (total, transcript) => total + (transcript.words?.length ?? 0),
+      0,
+    );
+
+    if (wordCount < MIN_WORDS_FOR_MEANINGFUL_TRANSCRIPT) {
+      deletePaths.push(path);
+      return;
+    }
 
     const content: TranscriptJson = { transcripts };
-    return {
+    operations.push({
       type: "write-json" as const,
-      path: [sessionDir, SESSION_TRANSCRIPT_FILE].join(sep()),
+      path,
       content,
-    };
+    });
   });
+
+  if (deletePaths.length > 0) {
+    operations.push({
+      type: "delete",
+      paths: deletePaths,
+    });
+  }
+
+  return operations;
 }
