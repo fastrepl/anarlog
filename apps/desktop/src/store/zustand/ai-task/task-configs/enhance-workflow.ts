@@ -171,6 +171,9 @@ function createTemplatePrompt(
   return `Analyze this meeting content and suggest appropriate section headings for a comprehensive summary.
   The sections should cover the main themes and topics discussed.
   Generate around 5-7 sections based on the content depth.
+  Avoid generic catch-all headings like "Overview", "Meeting Overview", "Introduction", "Summary", or "Participants".
+  Prefer concrete, topic-specific section titles tied to the actual discussion.
+  Do not create a standalone participants section unless the meeting materially focused on stakeholder roles, ownership, or org structure.
   Give me in bullet points.
 
   Content:
