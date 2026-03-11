@@ -44,11 +44,20 @@ export function useNewNote({
   return handler;
 }
 
-export function useNewNoteAndListen() {
+export function useNewNoteAndListen({
+  behavior = "new",
+}: {
+  behavior?: "new" | "current";
+} = {}) {
   const { persistedStore, internalStore } = useRouteContext({
     from: "__root__",
   });
-  const openNew = useTabs((state) => state.openNew);
+  const { openNew, openCurrent } = useTabs(
+    useShallow((state) => ({
+      openNew: state.openNew,
+      openCurrent: state.openCurrent,
+    })),
+  );
 
   const handler = useCallback(() => {
     const user_id = internalStore?.getValue("user_id");
@@ -65,12 +74,13 @@ export function useNewNoteAndListen() {
       has_event_id: false,
     });
 
-    openNew({
+    const ff = behavior === "new" ? openNew : openCurrent;
+    ff({
       type: "sessions",
       id: sessionId,
       state: { view: null, autoStart: true },
     });
-  }, [persistedStore, internalStore, openNew]);
+  }, [persistedStore, internalStore, openNew, openCurrent, behavior]);
 
   return handler;
 }

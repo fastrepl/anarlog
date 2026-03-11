@@ -5,7 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { useNewNote } from "../useNewNote";
+import { useNewNoteAndListen } from "../useNewNote";
 import { OpenNoteDialog } from "./open-note-dialog";
 
 import { StandardTabWrapper } from "~/shared/main";
@@ -53,7 +53,7 @@ export function TabContentEmpty({
 }
 
 function EmptyView() {
-  const newNote = useNewNote({ behavior: "current" });
+  const newNote = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
 

@@ -24,7 +24,7 @@ import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
 import { HeaderListenButton } from "./header-listen-button";
-import { useNewNote, useNewNoteAndListen } from "./useNewNote";
+import { useNewNoteAndListen } from "./useNewNote";
 
 import { TabContentAI, TabItemAI } from "~/ai";
 import { TabContentCalendar, TabItemCalendar } from "~/calendar";
@@ -140,16 +140,10 @@ function Header({ tabs }: { tabs: Tab[] }) {
 
   const tabsScrollContainerRef = useRef<HTMLDivElement>(null);
   const handleNewEmptyTab = useNewEmptyTab();
-  const handleNewNote = useNewNote({ behavior: "new" });
   const handleNewNoteAndListen = useNewNoteAndListen();
   const showNewTabMenu = useNativeContextMenu([
     { id: "empty-tab", text: "Open Empty Tab", action: handleNewEmptyTab },
-    { id: "new-note", text: "Create New Note", action: handleNewNote },
-    {
-      id: "new-note-listen",
-      text: "Create and Start Listening",
-      action: handleNewNoteAndListen,
-    },
+    { id: "new-note", text: "Create New Note", action: handleNewNoteAndListen },
   ]);
 
   const scrollState = useScrollState(
@@ -830,18 +824,17 @@ function useTabsShortcuts() {
   const isListening = liveStatus === "active" || liveStatus === "finalizing";
   const { chat } = useShell();
 
-  const newNote = useNewNote({ behavior: "new" });
-  const newNoteCurrent = useNewNote({ behavior: "current" });
   const newNoteAndListen = useNewNoteAndListen();
+  const newNoteAndListenCurrent = useNewNoteAndListen({ behavior: "current" });
   const newEmptyTab = useNewEmptyTab();
 
   useHotkeys(
     "mod+n",
     () => {
       if (currentTab?.type === "empty") {
-        newNoteCurrent();
+        newNoteAndListenCurrent();
       } else {
-        newNote();
+        newNoteAndListen();
       }
     },
     {
@@ -849,7 +842,7 @@ function useTabsShortcuts() {
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [currentTab, newNote, newNoteCurrent],
+    [currentTab, newNoteAndListen, newNoteAndListenCurrent],
   );
 
   useHotkeys(
@@ -1008,17 +1001,6 @@ function useTabsShortcuts() {
       enableOnContentEditable: true,
     },
     [openNew],
-  );
-
-  useHotkeys(
-    "mod+shift+n",
-    () => newNoteAndListen(),
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [newNoteAndListen],
   );
 
   return {};
