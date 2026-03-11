@@ -255,13 +255,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
                         backup_path,
                         stage_dir,
                     );
-                    return Err(crate::Error::InvalidPostinstallState(
+                    Err(crate::Error::InvalidPostinstallState(
                         "macos_bundle_update is only valid on macOS".into(),
-                    ));
+                    ))
                 }
             }
         }
-        Ok(())
     }
 }
 

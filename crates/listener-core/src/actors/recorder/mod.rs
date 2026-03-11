@@ -28,7 +28,7 @@ pub struct RecState {
 
 enum RecorderSink {
     Memory(memory::MemorySink),
-    Disk(disk::DiskSink),
+    Disk(Box<disk::DiskSink>),
 }
 
 enum RecorderEncoder {
@@ -72,7 +72,9 @@ impl Actor for RecorderActor {
             RecordingMode::Memory => {
                 RecorderSink::Memory(memory::create_memory_sink(&session_dir)?)
             }
-            RecordingMode::Disk => RecorderSink::Disk(disk::create_disk_sink(&session_dir)?),
+            RecordingMode::Disk => {
+                RecorderSink::Disk(Box::new(disk::create_disk_sink(&session_dir)?))
+            }
         };
 
         Ok(RecState {
