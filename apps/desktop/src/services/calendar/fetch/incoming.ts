@@ -1,3 +1,4 @@
+import { commands as authCommands } from "@hypr/plugin-auth";
 import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import type { CalendarEvent } from "@hypr/plugin-calendar";
 import { commands as miscCommands } from "@hypr/plugin-misc";
@@ -26,6 +27,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   participants: IncomingParticipants;
 }> {
   const trackingIds = Array.from(ctx.calendarTrackingIdToId.keys());
+  const currentUser = await getCurrentUserInfo();
 
   const results = await Promise.all(
     trackingIds.map(async (trackingId) => {
@@ -60,8 +62,10 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
     ) {
       continue;
     }
-    const { event, eventParticipants } =
-      await normalizeCalendarEvent(calendarEvent);
+    const { event, eventParticipants } = await normalizeCalendarEvent(
+      calendarEvent,
+      currentUser,
+    );
     events.push(event);
     if (eventParticipants.length > 0) {
       participants.set(event.tracking_id_event, eventParticipants);
@@ -73,6 +77,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
 
 export async function normalizeCalendarEvent(
   calendarEvent: CalendarEvent,
+  currentUser?: CurrentUserInfo | null,
 ): Promise<{
   event: IncomingEvent;
   eventParticipants: EventParticipant[];
@@ -85,13 +90,18 @@ export async function normalizeCalendarEvent(
     ));
 
   const rawParticipants: EventParticipant[] = [];
+  const currentUserEmail = currentUser?.email?.trim().toLowerCase();
 
   if (calendarEvent.organizer) {
     rawParticipants.push({
       name: calendarEvent.organizer.name ?? undefined,
       email: calendarEvent.organizer.email ?? undefined,
       is_organizer: true,
-      is_current_user: calendarEvent.organizer.is_current_user,
+      is_current_user: isCurrentUserParticipant(
+        calendarEvent.organizer.email,
+        currentUserEmail,
+        calendarEvent.organizer.is_current_user,
+      ),
     });
   }
 
@@ -101,7 +111,20 @@ export async function normalizeCalendarEvent(
       name: attendee.name ?? undefined,
       email: attendee.email ?? undefined,
       is_organizer: false,
-      is_current_user: attendee.is_current_user,
+      is_current_user: isCurrentUserParticipant(
+        attendee.email,
+        currentUserEmail,
+        attendee.is_current_user,
+      ),
+    });
+  }
+
+  if (shouldInjectCurrentUser(rawParticipants, currentUser)) {
+    rawParticipants.unshift({
+      name: currentUser.name,
+      email: currentUser.email,
+      is_organizer: false,
+      is_current_user: true,
     });
   }
 
@@ -152,6 +175,61 @@ function dedupeEventParticipants(
   }
 
   return deduped;
+}
+
+type CurrentUserInfo = {
+  email: string;
+  name?: string;
+};
+
+async function getCurrentUserInfo(): Promise<CurrentUserInfo | null> {
+  const result = await authCommands.getAccountInfo();
+  if (result.status !== "ok") {
+    return null;
+  }
+
+  const email = result.data?.email?.trim();
+  if (!email) {
+    return null;
+  }
+
+  const name = result.data?.fullName?.trim();
+  return {
+    email,
+    name: name || undefined,
+  };
+}
+
+function isCurrentUserParticipant(
+  email: string | null | undefined,
+  currentUserEmail: string | undefined,
+  providerFlag: boolean,
+): boolean {
+  if (providerFlag) {
+    return true;
+  }
+
+  if (!currentUserEmail) {
+    return false;
+  }
+
+  return email?.trim().toLowerCase() === currentUserEmail;
+}
+
+function shouldInjectCurrentUser(
+  participants: EventParticipant[],
+  currentUser?: CurrentUserInfo | null,
+): currentUser is CurrentUserInfo {
+  const currentUserEmail = currentUser?.email?.trim().toLowerCase();
+  if (!currentUserEmail) {
+    return false;
+  }
+
+  return !participants.some(
+    (participant) =>
+      participant.is_current_user ||
+      participant.email?.trim().toLowerCase() === currentUserEmail,
+  );
 }
 
 function getParticipantKey(participant: EventParticipant): string | null {
