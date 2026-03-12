@@ -4,7 +4,6 @@ import {
   MonitorIcon,
   SettingsIcon,
   SmartphoneIcon,
-  UserIcon,
 } from "lucide-react";
 import { useCallback, useRef } from "react";
 
@@ -15,12 +14,7 @@ import {
 } from "@hypr/ui/components/ui/scroll-fade";
 import { cn } from "@hypr/utils";
 
-import {
-  SettingsAccount,
-  SettingsApp,
-  SettingsNotifications,
-  SettingsSystem,
-} from "./general";
+import { SettingsApp, SettingsNotifications, SettingsSystem } from "./general";
 import { SettingsLab } from "./lab";
 
 import { StandardTabWrapper } from "~/shared/main";
@@ -69,9 +63,8 @@ export function TabContentSettings({
 const SECTIONS: {
   id: SettingsTab;
   label: string;
-  icon: typeof UserIcon;
+  icon: typeof SmartphoneIcon;
 }[] = [
-  { id: "account", label: "Account", icon: UserIcon },
   { id: "app", label: "App", icon: SmartphoneIcon },
   { id: "notifications", label: "Notifications", icon: BellIcon },
   { id: "system", label: "System", icon: MonitorIcon },
@@ -82,7 +75,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
-  const activeTab = tab.state.tab ?? "account";
+  const activeTab =
+    tab.state.tab === "account" ? "app" : (tab.state.tab ?? "app");
   const ref = useRef<HTMLDivElement>(null);
   const { atStart, atEnd } = useScrollFade(ref, "vertical", [activeTab]);
 
@@ -95,8 +89,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
 
   const renderContent = () => {
     switch (activeTab) {
-      case "account":
-        return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
       case "notifications":

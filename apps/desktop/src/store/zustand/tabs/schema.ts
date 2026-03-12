@@ -198,7 +198,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
         state: tab.state,
       };
     case "settings":
-      return { ...base, type: "settings", state: { tab: "account" } };
+      return { ...base, type: "settings", state: { tab: "app" } };
     case "ai":
       return {
         ...base,
