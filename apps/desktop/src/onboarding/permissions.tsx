@@ -1,4 +1,10 @@
-import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react";
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  MicIcon,
+  type LucideIcon,
+  Volume2Icon,
+} from "lucide-react";
 
 import { type PermissionStatus } from "@hypr/plugin-permissions";
 import { cn } from "@hypr/utils";
@@ -8,6 +14,7 @@ import { usePermission } from "~/shared/hooks/usePermissions";
 function PermissionBlock({
   enabledLabel,
   enableLabel,
+  Icon,
   permissionName,
   status,
   isPending,
@@ -15,6 +22,7 @@ function PermissionBlock({
 }: {
   enabledLabel: string;
   enableLabel: string;
+  Icon: LucideIcon;
   permissionName: string;
   status: PermissionStatus | undefined;
   isPending: boolean;
@@ -42,8 +50,8 @@ function PermissionBlock({
       className={cn([
         "group flex min-w-0 flex-1 basis-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all",
         isAuthorized
-          ? "border border-neutral-200 hover:border-neutral-300 hover:bg-stone-50 active:scale-[0.98]"
-          : "border border-red-200 bg-red-50 hover:bg-red-100/60 active:scale-[0.98]",
+          ? "border border-neutral-200 bg-white hover:border-neutral-300 hover:bg-stone-50 active:scale-[0.98]"
+          : "border border-neutral-200 bg-white/90 hover:border-neutral-300 hover:bg-stone-50 active:scale-[0.98]",
         isPending && "cursor-not-allowed opacity-50",
       ])}
       aria-label={
@@ -56,36 +64,41 @@ function PermissionBlock({
         className={cn([
           "flex size-6 shrink-0 items-center justify-center rounded-md",
           isAuthorized
-            ? "bg-stone-100 text-stone-600"
-            : "bg-linear-to-t from-red-600 to-red-500 text-white",
+            ? "bg-green-50 text-green-600"
+            : "bg-stone-100 text-stone-700",
         ])}
       >
         {isAuthorized ? (
           <CheckIcon className="size-3.5" />
         ) : (
-          <AlertCircleIcon className="size-3.5" />
+          <Icon className="size-3.5" />
         )}
       </div>
       <div className="min-w-0 flex-1">
         <span
           className={cn([
             "text-sm font-medium",
-            isAuthorized ? "text-neutral-900" : "text-red-600",
+            isAuthorized ? "text-neutral-900" : "text-stone-900",
           ])}
         >
           {title}
         </span>
-        <p className="hidden truncate text-xs text-neutral-500 @[480px]:block">
+        <p
+          className={cn([
+            "hidden truncate text-xs @[480px]:block",
+            isAuthorized ? "text-neutral-500" : "text-neutral-500",
+          ])}
+        >
           {body}
         </p>
       </div>
       <div
         className={cn([
-          "hidden shrink-0 items-center gap-1 text-xs font-medium @[480px]:inline-flex",
-          isAuthorized ? "text-neutral-500" : "text-red-600",
+          "inline-flex shrink-0 items-center gap-1 text-xs font-medium",
+          isAuthorized ? "text-neutral-500" : "text-stone-600",
         ])}
       >
-        <span>{ctaLabel}</span>
+        <span className="hidden @[480px]:inline">{ctaLabel}</span>
         <ArrowRightIcon className="size-3.5 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>
@@ -109,6 +122,7 @@ export function PermissionsSection() {
       <PermissionBlock
         enabledLabel="Char can hear your voice"
         enableLabel="Help Char listen to your voice"
+        Icon={MicIcon}
         permissionName="Microphone"
         status={mic.status}
         isPending={mic.isPending}
@@ -116,8 +130,9 @@ export function PermissionsSection() {
       />
 
       <PermissionBlock
-        enabledLabel="Char can hear others talk"
-        enableLabel="Help Char listen to others talk"
+        enabledLabel="Char can hear others"
+        enableLabel="Help Char listen to others"
+        Icon={Volume2Icon}
         permissionName="System audio"
         status={systemAudio.status}
         isPending={systemAudio.isPending}

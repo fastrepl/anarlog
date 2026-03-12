@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as sfxCommands } from "@hypr/plugin-sfx";
@@ -67,6 +67,7 @@ export function TabContentOnboarding({
   const currentTab = useTabs((state) => state.currentTab);
   const [isMuted, setIsMuted] = useState(false);
   const [currentStep, setCurrentStep] = useState(getInitialStep);
+  const onboardingVideoRef = useRef<HTMLVideoElement>(null);
 
   const goNext = useCallback(() => {
     const next = getNextStep(currentStep);
@@ -100,6 +101,12 @@ export function TabContentOnboarding({
     sfxCommands.setVolume("BGM", isMuted ? 0 : 0.2).catch(console.error);
   }, [isMuted]);
 
+  useEffect(() => {
+    if (onboardingVideoRef.current) {
+      onboardingVideoRef.current.playbackRate = 0.65;
+    }
+  }, []);
+
   const handleFinish = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
     if (currentTab) {
@@ -110,10 +117,10 @@ export function TabContentOnboarding({
   return (
     <StandardTabWrapper>
       <div className="relative flex h-full flex-col">
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[36%] overflow-hidden">
-          <div className="absolute inset-x-0 top-0 z-10 h-32 bg-linear-to-b from-stone-50 via-stone-50/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <video
-            className="absolute inset-x-0 bottom-0 h-full w-full [mask-image:linear-gradient(to_top,transparent,black_22%,black)] object-cover opacity-35"
+            ref={onboardingVideoRef}
+            className="absolute inset-0 h-full w-full object-cover object-bottom opacity-45"
             autoPlay
             loop
             muted
@@ -123,7 +130,9 @@ export function TabContentOnboarding({
           >
             <source src="/assets/onboarding-video.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-linear-to-t from-stone-50/20 via-stone-50/50 to-stone-50/95" />
+          <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-[72%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.7)_48%,transparent)] backdrop-blur-[24px]" />
+          <div className="absolute inset-x-0 top-0 h-[78%] bg-linear-to-b from-stone-50 via-stone-50/96 via-20% to-stone-50/0" />
         </div>
 
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-4 pb-3">
