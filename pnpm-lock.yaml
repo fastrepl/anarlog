@@ -586,6 +586,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18
+      tauri-liquid-icon:
+        specifier: ^1.1.0
+        version: 1.1.0
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
@@ -9238,6 +9241,10 @@ packages:
     resolution: {integrity: sha512-mBvWew1kZJHfNQVVfVllMjUDwCGN9apPa0t4/z1zaUJ9MzpXjRL3w8fsfJKB8gHN/h4rik9HneKfDbh2fErN+w==}
     engines: {node: ^14.14.0 || >=16.0.0}
 
+  '@xmldom/xmldom@0.8.11':
+    resolution: {integrity: sha512-cQzWCtO6C8TQiYl1ruKNn2U6Ao4o4WBBcbL61yJl84x+j5sOWWFU9X7DpND8XZG3daDppSsigMdfAIl2upQBRw==}
+    engines: {node: '>=10.0.0'}
+
   '@xstate/store@3.15.0':
     resolution: {integrity: sha512-1V4/5D55zvJz3inEbAH+pqrAy2xhb2d8OKC1fZcBwWmr51VpxTOCNgf9ma4fa/seUfpQPjRf9wxBSyfcTKtUbQ==}
     peerDependencies:
@@ -14563,6 +14570,10 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  plist@3.1.0:
+    resolution: {integrity: sha512-uysumyrvkUX0rX/dEVqt8gC3sTBzd4zoWfLeS29nb53imdaXVvLINYXTI2GNqzaMuvacNx4uJQ8+b3zXR0pkgQ==}
+    engines: {node: '>=10.4.0'}
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -16249,6 +16260,12 @@ packages:
     resolution: {integrity: sha512-BTLcK0xsDh2+PUe9F6c2TlRp4zOOBMTkoQHQIWSIzI0R7KG46uEwq4OPk2W7bZcprBMsuaeFsqwYr7pjh6CuHg==}
     engines: {node: '>=18'}
 
+  tauri-liquid-icon@1.1.0:
+    resolution: {integrity: sha512-TvyWOvVPYscYTNOo0Ay7WBA4qErK11VWEJEKOx0WAgMlx0BabLyKptDjQHiY/ixJmD8fyjfCDUHHpt79va/tAg==}
+    engines: {node: '>=16.0.0'}
+    os: [darwin]
+    hasBin: true
+
   tauri-plugin-keygen-api@https://codeload.github.com/bagindo/tauri-plugin-keygen/tar.gz/e0de03a76a5c82c36adb347e43e4bff4f78c87de:
     resolution: {tarball: https://codeload.github.com/bagindo/tauri-plugin-keygen/tar.gz/e0de03a76a5c82c36adb347e43e4bff4f78c87de}
     version: 2.0.0
@@ -17591,6 +17608,10 @@ packages:
   xmlbuilder@11.0.1:
     resolution: {integrity: sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==}
     engines: {node: '>=4.0'}
+
+  xmlbuilder@15.1.1:
+    resolution: {integrity: sha512-yMqGBqtXyeN1e3TGYvgNgDVZ3j84W4cwkOXQswghol6APgZWaff9lnbvN7MHYJOiXsvGPXtjTYJEiC9J2wv9Eg==}
+    engines: {node: '>=8.0'}
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
@@ -26436,6 +26457,8 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
+  '@xmldom/xmldom@0.8.11': {}
+
   '@xstate/store@3.15.0(react@19.2.4)(solid-js@1.9.10)':
     optionalDependencies:
       react: 19.2.4
@@ -33141,6 +33164,12 @@ snapshots:
     optionalDependencies:
       fsevents: 2.3.2
 
+  plist@3.1.0:
+    dependencies:
+      '@xmldom/xmldom': 0.8.11
+      base64-js: 1.5.1
+      xmlbuilder: 15.1.1
+
   pluralize@8.0.0: {}
 
   points-on-curve@0.2.0: {}
@@ -35267,6 +35296,10 @@ snapshots:
       minizlib: 3.1.0
       yallist: 5.0.0
 
+  tauri-liquid-icon@1.1.0:
+    dependencies:
+      plist: 3.1.0
+
   tauri-plugin-keygen-api@https://codeload.github.com/bagindo/tauri-plugin-keygen/tar.gz/e0de03a76a5c82c36adb347e43e4bff4f78c87de:
     dependencies:
       '@tauri-apps/api': 2.0.2
@@ -36692,6 +36725,8 @@ snapshots:
       js-yaml: 4.1.1
 
   xmlbuilder@11.0.1: {}
+
+  xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
 

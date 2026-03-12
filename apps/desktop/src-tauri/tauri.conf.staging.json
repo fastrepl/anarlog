@@ -20,6 +20,9 @@
       "icons/staging/icon.ico"
     ],
     "macOS": {
+      "files": {
+        "Resources/Assets.car": "resources/staging/Assets.car"
+      },
       "dmg": {
         "background": "assets/dmg-background-staging.png"
       }

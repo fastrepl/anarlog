@@ -16,7 +16,10 @@
     "security": {
       "assetProtocol": {
         "enable": true,
-        "scope": ["**/*", "$APPDATA/**"]
+        "scope": [
+          "**/*",
+          "$APPDATA/**"
+        ]
       }
     }
   },
@@ -27,11 +30,11 @@
     "targets": "all",
     "externalBin": [],
     "icon": [
-      "icons/stable/32x32.png",
-      "icons/stable/128x128.png",
-      "icons/stable/128x128@2x.png",
-      "icons/stable/icon.icns",
-      "icons/stable/icon.ico"
+      "icons/staging/32x32.png",
+      "icons/staging/128x128.png",
+      "icons/staging/128x128@2x.png",
+      "icons/staging/icon.icns",
+      "icons/staging/icon.ico"
     ],
     "resources": {
       "icons/stable/icon.icns": "icons/stable.icns",
@@ -57,13 +60,19 @@
           "x": 483,
           "y": 200
         }
+      },
+      "files": {
+        "Resources/Assets.car": "resources/staging/Assets.car"
       }
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["hyprnote", "char"]
+        "schemes": [
+          "hyprnote",
+          "char"
+        ]
       }
     },
     "updater": {
