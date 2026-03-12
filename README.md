@@ -26,7 +26,7 @@ You can also use it for taking notes for lectures or organizing your thoughts.
 brew install --cask fastrepl/fastrepl/char
 ```
 
-- [macOS](https://char.com/download) (public beta)
+- [macOS](https://char.com/download?utm_source=github&utm_medium=readme&utm_campaign=organic) (public beta)
 - [Windows](https://github.com/fastrepl/char/issues/66) (q2 2026)
 - [Linux](https://github.com/fastrepl/char/issues/67) (q2 2026)
 
@@ -74,7 +74,7 @@ Char plays nice with whatever stack you're running.
 
 Prefer a certain style? Choose from predefined templates like bullet points, agenda-based, or paragraph summary. Or create your own.
 
-Check out our [template gallery](https://char.com/templates) and add your own [here](https://github.com/fastrepl/char/tree/main/apps/web/content/templates).
+Check out our [template gallery](https://char.com/templates?utm_source=github&utm_medium=readme&utm_campaign=organic) and add your own [here](https://github.com/fastrepl/char/tree/main/apps/web/content/templates).
 
 ### AI Chat
 

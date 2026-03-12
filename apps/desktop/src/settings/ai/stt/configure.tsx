@@ -151,7 +151,7 @@ function HyprProviderCard({
               <div className="flex items-center gap-3 py-2">
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
                 <a
-                  href="https://char.com/docs/developers/local-models"
+                  href="https://char.com/docs/developers/local-models?utm_source=app&utm_medium=settings&utm_campaign=organic"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 text-xs text-neutral-400 hover:underline"

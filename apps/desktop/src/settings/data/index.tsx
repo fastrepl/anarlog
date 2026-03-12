@@ -102,7 +102,7 @@ export function Data() {
     <div>
       <StyledStreamdown className="text-neutral-500">
         {
-          "Import data from other apps. Read more about [import](https://char.com/docs/data/#import) and [export](https://char.com/docs/data/#export)."
+          "Import data from other apps. Read more about [import](https://char.com/docs/data/?utm_source=app&utm_medium=settings&utm_campaign=organic#import) and [export](https://char.com/docs/data/?utm_source=app&utm_medium=settings&utm_campaign=organic#export)."
         }
       </StyledStreamdown>
 

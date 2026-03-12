@@ -182,7 +182,7 @@ function ChangelogHeader({
   const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
   const webUrl = isNightly(version)
     ? githubReleaseUrl(version)
-    : `https://char.com/changelog/${version}`;
+    : `https://char.com/changelog/${version}?utm_source=app&utm_medium=changelog&utm_campaign=organic`;
 
   return (
     <div className="w-full pt-1">
