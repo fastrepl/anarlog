@@ -1,6 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
-    env,
+    collections::VecDeque,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -9,24 +8,21 @@ use ractor::ActorRef;
 
 use crate::{
     ListenerRuntime, SessionDataEvent,
-    actors::{AudioChunk, ChannelMode, ListenerMsg, RecMsg},
+    actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_aec::AEC;
+use hypr_audio::CaptureFrame;
 use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
 
-use super::ListenerRouting;
+use super::{ListenerRouting, SourceFrame};
 
 const AUDIO_AMPLITUDE_THROTTLE: Duration = Duration::from_millis(100);
 const MAX_BUFFER_CHUNKS: usize = 150;
 
-type AudioPair = (Vec<f32>, Vec<f32>);
 type BufferedAudio = (Arc<[f32]>, Arc<[f32]>, ChannelMode);
 
 pub(in crate::actors) struct Pipeline {
     vad_mask: VadMask,
-    aec: Option<AEC>,
-    joiner: Joiner,
     amplitude: AmplitudeEmitter,
     audio_buffer: AudioBuffer,
     backlog_quota: f32,
@@ -38,14 +34,6 @@ impl Pipeline {
 
     pub(super) fn new(runtime: Arc<dyn ListenerRuntime>, session_id: String) -> Self {
         Self {
-            aec: if env::var("NO_AEC").as_deref() == Ok("1") {
-                None
-            } else {
-                AEC::new()
-                    .map_err(|e| tracing::warn!(error.message = ?e, "aec_init_failed"))
-                    .ok()
-            },
-            joiner: Joiner::new(),
             amplitude: AmplitudeEmitter::new(runtime, session_id),
             audio_buffer: AudioBuffer::new(MAX_BUFFER_CHUNKS),
             backlog_quota: 0.0,
@@ -54,33 +42,20 @@ impl Pipeline {
     }
 
     pub(super) fn reset(&mut self) {
-        self.joiner.reset();
-        if let Some(aec) = &mut self.aec {
-            aec.reset();
-        }
         self.amplitude.reset();
         self.audio_buffer.clear();
         self.backlog_quota = 0.0;
         self.vad_mask = VadMask::default();
     }
 
-    pub(super) fn ingest_mic(&mut self, chunk: AudioChunk) {
-        self.joiner.push_mic(chunk.data);
-    }
-
-    pub(super) fn ingest_speaker(&mut self, chunk: AudioChunk) {
-        self.joiner.push_spk(chunk.data);
-    }
-
-    pub(super) fn flush(
+    pub(super) fn dispatch_frame(
         &mut self,
+        frame: SourceFrame,
         mode: ChannelMode,
         listener_routing: &ListenerRouting,
         recorder: Option<&ActorRef<RecMsg>>,
     ) {
-        while let Some((mic, spk)) = self.joiner.pop_pair(mode) {
-            self.dispatch(mic, spk, mode, listener_routing, recorder);
-        }
+        self.dispatch(frame, mode, listener_routing, recorder);
     }
 
     pub(super) fn on_listener_routing_changed(&mut self, listener_routing: &ListenerRouting) {
@@ -101,27 +76,14 @@ impl Pipeline {
 
     fn dispatch(
         &mut self,
-        mic: Vec<f32>,
-        spk: Vec<f32>,
+        frame: SourceFrame,
         mode: ChannelMode,
         listener_routing: &ListenerRouting,
         recorder: Option<&ActorRef<RecMsg>>,
     ) {
-        let mut processed_mic = if let Some(aec) = &mut self.aec {
-            match aec.process_streaming(&mic, &spk) {
-                Ok(processed) => processed,
-                Err(e) => {
-                    tracing::warn!(error.message = ?e, "aec_failed");
-                    mic
-                }
-            }
-        } else {
-            mic
-        };
-
+        let (mut processed_mic, processed_spk) = Self::select_tracks(frame, mode);
         self.vad_mask.process(&mut processed_mic);
         let processed_mic = Arc::<[f32]>::from(processed_mic);
-        let processed_spk = Arc::<[f32]>::from(spk);
 
         self.amplitude.observe_mic(&processed_mic);
         self.amplitude.observe_spk(&processed_spk);
@@ -200,6 +162,31 @@ impl Pipeline {
         if result.is_err() {
             tracing::warn!("listener_cast_failed");
         }
+    }
+
+    fn select_tracks(frame: SourceFrame, mode: ChannelMode) -> (Vec<f32>, Arc<[f32]>) {
+        let SourceFrame {
+            capture:
+                CaptureFrame {
+                    raw_mic,
+                    raw_speaker,
+                    aec_mic,
+                },
+            mic_muted,
+        } = frame;
+
+        let mic_source = match mode {
+            ChannelMode::SpeakerOnly => Arc::<[f32]>::from(vec![0.0; raw_speaker.len()]),
+            ChannelMode::MicOnly | ChannelMode::MicAndSpeaker => aec_mic.unwrap_or(raw_mic),
+        };
+
+        let mic = if mic_muted {
+            vec![0.0; mic_source.len()]
+        } else {
+            mic_source.to_vec()
+        };
+
+        (mic, raw_speaker)
     }
 }
 
@@ -333,94 +320,6 @@ impl AmplitudeEmitter {
     }
 }
 
-struct Joiner {
-    mic: VecDeque<Vec<f32>>,
-    spk: VecDeque<Vec<f32>>,
-    silence_cache: HashMap<usize, Arc<[f32]>>,
-}
-
-impl Joiner {
-    const MAX_LAG: usize = 4;
-    const MAX_QUEUE_SIZE: usize = 30;
-
-    fn new() -> Self {
-        Self {
-            mic: VecDeque::new(),
-            spk: VecDeque::new(),
-            silence_cache: HashMap::new(),
-        }
-    }
-
-    fn reset(&mut self) {
-        self.mic.clear();
-        self.spk.clear();
-    }
-
-    fn get_silence(&mut self, len: usize) -> Vec<f32> {
-        self.silence_cache
-            .entry(len)
-            .or_insert_with(|| Arc::from(vec![0.0; len]))
-            .to_vec()
-    }
-
-    fn push_mic(&mut self, data: Vec<f32>) {
-        self.mic.push_back(data);
-        if self.mic.len() > Self::MAX_QUEUE_SIZE {
-            tracing::warn!("mic_queue_overflow");
-            self.mic.pop_front();
-        }
-    }
-
-    fn push_spk(&mut self, data: Vec<f32>) {
-        self.spk.push_back(data);
-        if self.spk.len() > Self::MAX_QUEUE_SIZE {
-            tracing::warn!("spk_queue_overflow");
-            self.spk.pop_front();
-        }
-    }
-
-    fn pop_pair(&mut self, mode: ChannelMode) -> Option<AudioPair> {
-        if self.mic.front().is_some() && self.spk.front().is_some() {
-            return Some((self.mic.pop_front()?, self.spk.pop_front()?));
-        }
-
-        match mode {
-            ChannelMode::MicOnly => {
-                if let Some(mic) = self.mic.pop_front() {
-                    let spk = self.get_silence(mic.len());
-                    return Some((mic, spk));
-                }
-            }
-            ChannelMode::SpeakerOnly => {
-                if let Some(spk) = self.spk.pop_front() {
-                    let mic = self.get_silence(spk.len());
-                    return Some((mic, spk));
-                }
-            }
-            ChannelMode::MicAndSpeaker => {
-                if self.mic.front().is_some()
-                    && self.spk.is_empty()
-                    && self.mic.len() > Self::MAX_LAG
-                {
-                    let mic = self.mic.pop_front()?;
-                    let spk = self.get_silence(mic.len());
-                    return Some((mic, spk));
-                }
-                if self.spk.front().is_some()
-                    && self.mic.is_empty()
-                    && self.spk.len() > Self::MAX_LAG
-                {
-                    let spk = self.spk.pop_front()?;
-                    let mic = self.get_silence(spk.len());
-                    return Some((mic, spk));
-                }
-            }
-        }
-
-        None
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -541,9 +440,18 @@ mod tests {
         Pipeline::new(Arc::new(TestRuntime), "session".to_string())
     }
 
-    fn stereo_chunk() -> AudioChunk {
-        AudioChunk {
-            data: vec![0.25, -0.25, 0.5, -0.5],
+    fn capture_frame() -> CaptureFrame {
+        CaptureFrame {
+            raw_mic: Arc::from([0.25_f32, -0.25, 0.5, -0.5]),
+            raw_speaker: Arc::from([0.75_f32, -0.75, 1.0, -1.0]),
+            aec_mic: Some(Arc::from([0.1_f32, -0.1, 0.2, -0.2])),
+        }
+    }
+
+    fn source_frame(mic_muted: bool) -> SourceFrame {
+        SourceFrame {
+            capture: capture_frame(),
+            mic_muted,
         }
     }
 
@@ -551,9 +459,8 @@ mod tests {
     async fn buffers_until_listener_attaches_then_flushes() {
         let mut pipeline = test_pipeline();
 
-        pipeline.ingest_mic(stereo_chunk());
-        pipeline.ingest_speaker(stereo_chunk());
-        pipeline.flush(
+        pipeline.dispatch_frame(
+            source_frame(false),
             ChannelMode::MicAndSpeaker,
             &ListenerRouting::Buffering,
             None,
@@ -582,9 +489,8 @@ mod tests {
     async fn dropped_listener_clears_backlog_and_stops_future_buffering() {
         let mut pipeline = test_pipeline();
 
-        pipeline.ingest_mic(stereo_chunk());
-        pipeline.ingest_speaker(stereo_chunk());
-        pipeline.flush(
+        pipeline.dispatch_frame(
+            source_frame(false),
             ChannelMode::MicAndSpeaker,
             &ListenerRouting::Buffering,
             None,
@@ -601,9 +507,12 @@ mod tests {
 
         pipeline.on_listener_routing_changed(&ListenerRouting::Attached(listener_ref));
 
-        pipeline.ingest_mic(stereo_chunk());
-        pipeline.ingest_speaker(stereo_chunk());
-        pipeline.flush(ChannelMode::MicAndSpeaker, &ListenerRouting::Dropped, None);
+        pipeline.dispatch_frame(
+            source_frame(false),
+            ChannelMode::MicAndSpeaker,
+            &ListenerRouting::Dropped,
+            None,
+        );
 
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(200), probe_rx.recv())
@@ -623,9 +532,8 @@ mod tests {
             .await
             .unwrap();
 
-        pipeline.ingest_mic(stereo_chunk());
-        pipeline.ingest_speaker(stereo_chunk());
-        pipeline.flush(
+        pipeline.dispatch_frame(
+            source_frame(false),
             ChannelMode::MicAndSpeaker,
             &ListenerRouting::Dropped,
             Some(&recorder_ref),
@@ -638,5 +546,38 @@ mod tests {
         assert!(matches!(event, ProbeEvent::RecorderDual));
 
         handle.abort();
+    }
+
+    #[test]
+    fn select_tracks_prefers_aec_mic() {
+        let (mic, speaker) =
+            Pipeline::select_tracks(source_frame(false), ChannelMode::MicAndSpeaker);
+        assert_eq!(mic, vec![0.1, -0.1, 0.2, -0.2]);
+        assert_eq!(&*speaker, &[0.75, -0.75, 1.0, -1.0]);
+    }
+
+    #[test]
+    fn select_tracks_falls_back_to_raw_mic() {
+        let mut frame = source_frame(false);
+        frame.capture.aec_mic = None;
+
+        let (mic, speaker) = Pipeline::select_tracks(frame, ChannelMode::MicAndSpeaker);
+        assert_eq!(mic, vec![0.25, -0.25, 0.5, -0.5]);
+        assert_eq!(&*speaker, &[0.75, -0.75, 1.0, -1.0]);
+    }
+
+    #[test]
+    fn select_tracks_zeroes_muted_mic() {
+        let (mic, speaker) =
+            Pipeline::select_tracks(source_frame(true), ChannelMode::MicAndSpeaker);
+        assert_eq!(mic, vec![0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(&*speaker, &[0.75, -0.75, 1.0, -1.0]);
+    }
+
+    #[test]
+    fn select_tracks_zeroes_mic_for_speaker_only() {
+        let (mic, speaker) = Pipeline::select_tracks(source_frame(false), ChannelMode::SpeakerOnly);
+        assert_eq!(mic, vec![0.0, 0.0, 0.0, 0.0]);
+        assert_eq!(&*speaker, &[0.75, -0.75, 1.0, -1.0]);
     }
 }

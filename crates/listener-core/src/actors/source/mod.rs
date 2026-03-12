@@ -14,9 +14,9 @@ use tracing::Instrument;
 use crate::{
     ListenerRuntime, SessionErrorEvent, SessionProgressEvent,
     actors::session::session_span,
-    actors::{AudioChunk, ChannelMode, ListenerMsg, RecMsg},
+    actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_audio::AudioInput;
+use hypr_audio::{AudioInput, CaptureFrame};
 
 use pipeline::Pipeline;
 use stream::start_source_loop;
@@ -29,9 +29,13 @@ pub enum SourceMsg {
     GetMicDevice(RpcReplyPort<Option<String>>),
     SetListenerRouting(ListenerRouting),
     SetRecorder(Option<ActorRef<RecMsg>>),
-    MicChunk(AudioChunk),
-    SpeakerChunk(AudioChunk),
+    Frame(SourceFrame),
     StreamFailed(String),
+}
+
+pub struct SourceFrame {
+    pub capture: CaptureFrame,
+    pub mic_muted: bool,
 }
 
 #[derive(Clone)]
@@ -189,15 +193,13 @@ impl Actor for SourceActor {
             SourceMsg::SetRecorder(recorder) => {
                 st.recorder = recorder;
             }
-            SourceMsg::MicChunk(chunk) => {
-                st.pipeline.ingest_mic(chunk);
-                st.pipeline
-                    .flush(st.current_mode, &st.listener_routing, st.recorder.as_ref());
-            }
-            SourceMsg::SpeakerChunk(chunk) => {
-                st.pipeline.ingest_speaker(chunk);
-                st.pipeline
-                    .flush(st.current_mode, &st.listener_routing, st.recorder.as_ref());
+            SourceMsg::Frame(frame) => {
+                st.pipeline.dispatch_frame(
+                    frame,
+                    st.current_mode,
+                    &st.listener_routing,
+                    st.recorder.as_ref(),
+                );
             }
             SourceMsg::StreamFailed(reason) => {
                 tracing::error!(%reason, "source_stream_failed_stopping");

@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+hypr-aec = { workspace = true }
 hypr-audio-interface = { workspace = true }
 hypr-audio-utils = { workspace = true }
+hypr-resampler = { workspace = true }
 
 anyhow = { workspace = true }
 thiserror = { workspace = true }
@@ -18,7 +20,9 @@ serde_json = { workspace = true }
 futures-channel = { workspace = true }
 futures-util = { workspace = true }
 pin-project = { workspace = true }
-tokio = { workspace = true, features = ["rt", "macros"] }
+tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 
 cpal = { workspace = true }
 dasp = { workspace = true }
