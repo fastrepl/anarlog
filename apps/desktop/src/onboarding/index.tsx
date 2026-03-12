@@ -110,6 +110,22 @@ export function TabContentOnboarding({
   return (
     <StandardTabWrapper>
       <div className="relative flex h-full flex-col">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[36%] overflow-hidden">
+          <div className="absolute inset-x-0 top-0 z-10 h-32 bg-linear-to-b from-stone-50 via-stone-50/85 to-transparent" />
+          <video
+            className="absolute inset-x-0 bottom-0 h-full w-full [mask-image:linear-gradient(to_top,transparent,black_22%,black)] object-cover opacity-35"
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="auto"
+            aria-hidden="true"
+          >
+            <source src="/assets/onboarding-video.mp4" type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-linear-to-t from-stone-50/20 via-stone-50/50 to-stone-50/95" />
+        </div>
+
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-4 pb-3">
           <h1 className="font-serif text-2xl font-semibold text-neutral-900">
             Welcome to Char
@@ -127,7 +143,7 @@ export function TabContentOnboarding({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="relative z-10 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3 px-6 pb-16">
             <OnboardingSection
               title="Permissions"
@@ -153,7 +169,7 @@ export function TabContentOnboarding({
 
             <OnboardingSection
               title="Calendar"
-              description="Select calendars to sync"
+              description="Use Apple Calendar or Google Calendar"
               completedTitle="Calendar connected"
               status={getStepStatus("calendar", currentStep)}
               onBack={goBack}
