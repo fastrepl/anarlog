@@ -284,6 +284,11 @@ function FAQSection() {
         "BYOK allows you to connect your own LLM provider (like OpenAI, Anthropic, or self-hosted models) for AI features while maintaining full control over your data.",
     },
     {
+      question: "What value does an account unlock?",
+      answer:
+        "An account unlocks Char's cloud layer: powerful AI models, sync across devices, personalization, and integrations that streamline your workflow.",
+    },
+    {
       question: "What's included in shareable links?",
       answer:
         "Pro users get DocSend-like controls: track who views your notes, set expiration dates, and revoke access anytime.",
