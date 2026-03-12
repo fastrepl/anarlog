@@ -241,9 +241,9 @@ export const Route = createFileRoute("/admin/collections/")({
       return;
     }
 
-    const { hasCredentials } = await fetchGitHubCredentials();
+    const { hasCredentials, isValid } = await fetchGitHubCredentials();
 
-    if (!hasCredentials) {
+    if (!hasCredentials || !isValid) {
       throw redirect({
         to: "/auth/",
         search: {
