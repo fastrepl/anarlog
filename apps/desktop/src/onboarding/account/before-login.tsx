@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { OnboardingButton } from "../shared";
 
@@ -6,28 +6,20 @@ import { useAuth } from "~/auth";
 
 export function BeforeLogin() {
   const auth = useAuth();
-  const autoSignInCompleted = useAutoTriggerSignin();
   const [showCallbackUrlInput, setShowCallbackUrlInput] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
-        <OnboardingButton
-          onClick={() => auth?.signIn()}
-          disabled={!autoSignInCompleted}
-        >
-          {autoSignInCompleted
-            ? "Click here to Sign in"
-            : "Signing in on your browser..."}
+        <OnboardingButton onClick={() => auth?.signIn()}>
+          Sign in
         </OnboardingButton>
-        {autoSignInCompleted && (
-          <button
-            className="text-sm text-neutral-500 underline hover:text-neutral-600"
-            onClick={() => setShowCallbackUrlInput(true)}
-          >
-            Something not working?
-          </button>
-        )}
+        <button
+          className="text-sm text-neutral-500 underline hover:text-neutral-600"
+          onClick={() => setShowCallbackUrlInput(true)}
+        >
+          Something not working?
+        </button>
       </div>
       {showCallbackUrlInput && <CallbackUrlInput />}
     </div>
@@ -57,18 +49,4 @@ function CallbackUrlInput() {
       </button>
     </div>
   );
-}
-
-function useAutoTriggerSignin() {
-  const auth = useAuth();
-  const [triggered, setTriggered] = useState(false);
-
-  useEffect(() => {
-    if (!triggered && auth) {
-      setTriggered(true);
-      auth.signIn();
-    }
-  }, [auth, triggered]);
-
-  return triggered;
 }
