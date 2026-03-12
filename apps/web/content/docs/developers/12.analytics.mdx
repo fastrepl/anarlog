@@ -133,6 +133,46 @@ Notes:
 | `trial_skipped` | `reason = "not_eligible"`, `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 | `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 
+## UTM parameters on owned links
+
+All owned outbound links that drive traffic to `char.com` carry UTM parameters so installs and page visits can be attributed by source in PostHog.
+
+### Convention
+
+| Parameter | Description | Values |
+|-----------|-------------|--------|
+| `utm_source` | Where the link lives | `github`, `app`, `website` |
+| `utm_medium` | Type of content | `readme`, `contributing`, `settings`, `changelog`, `onboarding`, `blog`, `docs` |
+| `utm_campaign` | Campaign type | `organic` for all evergreen links |
+
+### Where UTMs are applied
+
+| Source | `utm_source` | `utm_medium` | Example file |
+|--------|-------------|--------------|--------------|
+| GitHub README | `github` | `readme` | `README.md` |
+| GitHub CONTRIBUTING | `github` | `contributing` | `CONTRIBUTING.md` |
+| Desktop app settings | `app` | `settings` | `apps/desktop/src/settings/ai/llm/shared.tsx` |
+| Desktop app changelog | `app` | `changelog` | `apps/desktop/src/changelog/index.tsx` |
+| In-app onboarding | `app` | `onboarding` | `crates/db-user/assets/onboarding-raw.html` |
+| Blog article CTAs | `website` | `blog` | `apps/web/content/articles/*.mdx` |
+| Documentation | `website` | `docs` | `apps/web/content/docs/about/0.hello-world.mdx` |
+
+### Rules
+
+- Append `?utm_source=...&utm_medium=...&utm_campaign=organic` to the URL.
+- If the URL already has query parameters, use `&` instead of `?`.
+- Place UTM parameters **before** any `#fragment` (e.g., `?utm_source=app&utm_medium=settings&utm_campaign=organic#section`).
+- Do not add UTMs to internal same-site navigation (relative links), API endpoints, OG meta tags, CI config URLs, or links to third-party sites.
+- Blog-to-blog cross-links (`char.com/blog/...` → `char.com/blog/...`) do not get UTMs since they are internal navigation.
+
+### How this connects to PostHog
+
+PostHog automatically captures UTM parameters from the landing page URL as properties on the user's first pageview event. This means:
+
+- `download_clicked` events can be segmented by the UTM properties of the session that led to them.
+- Stage 1 (Acquisition) and Stage 2 (Install conversion) attribution improves because you can see which source drove the visit.
+- The `utm_source` / `utm_medium` breakdown directly answers "where do our installs come from?"
+
 ## User journey funnel
 
 The user lifecycle is divided into 8 stages. Each stage lists the analytics signals that measure it, how identity linking works at that point, and known gaps.

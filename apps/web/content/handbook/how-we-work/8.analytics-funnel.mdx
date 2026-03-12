@@ -17,9 +17,13 @@ We track the user lifecycle as an 8-stage funnel. Website acquisition uses conse
 [8. Paying]
 ```
 
+## UTM parameters
+
+All owned outbound links (GitHub README, desktop app, blog CTAs, onboarding assets) carry `utm_source`, `utm_medium`, and `utm_campaign=organic` so we can attribute visits and installs by channel. See the [UTM convention reference](/docs/developers/analytics#utm-parameters-on-owned-links) for the full tagging guide.
+
 ## 1. Acquisition (website visits)
 
-Standard consented website analytics tracking, plus PostHog pageview and session tracking.
+Standard consented website analytics tracking, plus PostHog pageview and session tracking. UTM parameters on inbound links are automatically captured by PostHog as session properties.
 
 ## 2. Converting visits to app installs
 
