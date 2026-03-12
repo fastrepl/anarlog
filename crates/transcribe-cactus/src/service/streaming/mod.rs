@@ -1,3 +1,4 @@
+mod debug;
 mod message;
 pub(crate) mod response;
 mod service;

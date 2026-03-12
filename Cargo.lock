@@ -20137,6 +20137,7 @@ dependencies = [
  "axum 0.8.8",
  "bytes",
  "cactus",
+ "colored",
  "data",
  "dirs 6.0.0",
  "futures-util",

@@ -8,12 +8,21 @@ use owhisper_interface::{ControlMessage, ListenParams};
 
 use hypr_ws_utils::ConnectionGuard;
 
+use super::debug;
 use super::message::{AudioExtract, IncomingMessage, process_incoming_message};
 use super::response::{
     WsSender, build_transcript_response, format_timestamp_now, send_ws, send_ws_best_effort,
 };
 
 pub(super) const SAMPLE_RATE: u32 = 16_000;
+
+macro_rules! try_send {
+    ($ws:expr, $msg:expr) => {
+        if !send_ws($ws, $msg).await {
+            return LoopAction::Break(SessionExit::TransportClosed);
+        }
+    };
+}
 
 #[derive(Default)]
 struct ChannelState {
@@ -180,201 +189,211 @@ async fn handle_transcribe_event(
             result,
             chunk_duration_secs,
         }) => {
-            let channel_index = vec![ch_idx as i32, total_channels as i32];
-            let channel_u8 = vec![ch_idx as u8];
-            let state = &mut channel_states[ch_idx];
-
-            state.audio_offset += chunk_duration_secs;
-
-            let (seg_start, seg_dur) =
-                segment_timing_from_result(&result, state.audio_offset, state.segment_start);
-
-            let confidence = result.confidence as f64;
-            let confirmed_text = result.confirmed.trim();
-
-            let metrics = stream_result_metrics(&result);
-
-            state.pending_text = result.pending.clone();
-            state.pending_language = result.language.clone();
-            state.pending_confidence = confidence;
-
-            if result.cloud_handoff && result.cloud_job_id != 0 {
-                state.pending_cloud_job_id = result.cloud_job_id;
-                state.cloud_handoff_segment_start = state.segment_start;
-            }
-
-            if result.cloud_result_job_id != 0 && !result.cloud_result.is_empty() {
-                let cloud_text = result.cloud_result.trim();
-                let job_id = result.cloud_result_job_id;
-                let seg_start = state.cloud_handoff_segment_start;
-                let seg_duration = state.audio_offset - seg_start;
-                let mut keys = metrics.clone();
-                keys.insert("cloud_corrected".to_string(), serde_json::Value::Bool(true));
-                keys.insert(
-                    "cloud_job_id".to_string(),
-                    serde_json::Value::Number(job_id.into()),
-                );
-                tracing::info!(
-                    hyprnote.transcript.char_count = cloud_text.chars().count() as u64,
-                    hyprnote.stt.job.id = job_id,
-                    hyprnote.audio.channel_index = ch_idx,
-                    "cactus_cloud_correction"
-                );
-                if !send_ws(
-                    ws_sender,
-                    &build_transcript_response(
-                        cloud_text,
-                        seg_start,
-                        seg_duration,
-                        confidence,
-                        result.language.as_deref(),
-                        true,
-                        true,
-                        false,
-                        metadata,
-                        &channel_index,
-                        Some(keys),
-                    ),
-                )
-                .await
-                {
-                    return LoopAction::Break(SessionExit::TransportClosed);
-                }
-                state.pending_cloud_job_id = 0;
-            }
-
-            if !confirmed_text.is_empty() && confirmed_text != state.last_confirmed_sent {
-                if !state.speech_started {
-                    if !send_ws(
-                        ws_sender,
-                        &StreamResponse::SpeechStartedResponse {
-                            channel: channel_u8.clone(),
-                            timestamp: seg_start,
-                        },
-                    )
-                    .await
-                    {
-                        return LoopAction::Break(SessionExit::TransportClosed);
-                    }
-                }
-
-                let handoff_extra = {
-                    let mut keys = metrics.clone();
-                    if result.cloud_handoff && result.cloud_job_id != 0 {
-                        keys.insert("cloud_handoff".to_string(), serde_json::Value::Bool(true));
-                        keys.insert(
-                            "cloud_job_id".to_string(),
-                            serde_json::Value::Number(result.cloud_job_id.into()),
-                        );
-                    }
-                    Some(keys)
-                };
-
-                tracing::info!(
-                    hyprnote.transcript.char_count = confirmed_text.chars().count() as u64,
-                    hyprnote.audio.channel_index = ch_idx,
-                    "cactus_confirmed_text"
-                );
-                if !send_ws(
-                    ws_sender,
-                    &build_transcript_response(
-                        confirmed_text,
-                        seg_start,
-                        seg_dur,
-                        confidence,
-                        result.language.as_deref(),
-                        true,
-                        true,
-                        false,
-                        metadata,
-                        &channel_index,
-                        handoff_extra,
-                    ),
-                )
-                .await
-                {
-                    return LoopAction::Break(SessionExit::TransportClosed);
-                }
-                if !send_ws(
-                    ws_sender,
-                    &StreamResponse::UtteranceEndResponse {
-                        channel: channel_u8,
-                        last_word_end: state.audio_offset,
-                    },
-                )
-                .await
-                {
-                    return LoopAction::Break(SessionExit::TransportClosed);
-                }
-
-                state.last_confirmed_sent.clear();
-                state.last_confirmed_sent.push_str(confirmed_text);
-                state.last_pending_sent.clear();
-                state.segment_start = state.audio_offset;
-                state.speech_started = false;
-                return LoopAction::Continue;
-            }
-
-            let pending_text = result.pending.trim();
-            if pending_text.is_empty()
-                || pending_text == state.last_pending_sent
-                || pending_text == state.last_confirmed_sent
-            {
-                return LoopAction::Continue;
-            }
-
-            if !state.speech_started {
-                state.speech_started = true;
-                if !send_ws(
-                    ws_sender,
-                    &StreamResponse::SpeechStartedResponse {
-                        channel: channel_u8.clone(),
-                        timestamp: seg_start,
-                    },
-                )
-                .await
-                {
-                    return LoopAction::Break(SessionExit::TransportClosed);
-                }
-            }
-
-            let pending_handoff_extra = {
-                let mut keys = metrics;
-                if result.cloud_handoff && result.cloud_job_id != 0 {
-                    keys.insert("cloud_handoff".to_string(), serde_json::Value::Bool(true));
-                    keys.insert(
-                        "cloud_job_id".to_string(),
-                        serde_json::Value::Number(result.cloud_job_id.into()),
-                    );
-                }
-                Some(keys)
-            };
-
-            if !send_ws(
+            process_result(
                 ws_sender,
-                &build_transcript_response(
-                    pending_text,
-                    seg_start,
-                    seg_dur,
-                    confidence,
-                    result.language.as_deref(),
-                    false,
-                    false,
-                    false,
-                    metadata,
-                    &channel_index,
-                    pending_handoff_extra,
-                ),
+                ch_idx,
+                result,
+                chunk_duration_secs,
+                channel_states,
+                total_channels,
+                metadata,
             )
             .await
-            {
-                return LoopAction::Break(SessionExit::TransportClosed);
-            }
-            state.last_pending_sent.clear();
-            state.last_pending_sent.push_str(pending_text);
-            LoopAction::Continue
         }
     }
+}
+
+async fn process_result(
+    ws_sender: &mut WsSender,
+    ch_idx: usize,
+    result: hypr_cactus::StreamResult,
+    chunk_duration_secs: f64,
+    channel_states: &mut [ChannelState],
+    total_channels: usize,
+    metadata: &Metadata,
+) -> LoopAction {
+    let channel_index = vec![ch_idx as i32, total_channels as i32];
+    let channel_u8 = vec![ch_idx as u8];
+    let state = &mut channel_states[ch_idx];
+
+    state.audio_offset += chunk_duration_secs;
+
+    let (seg_start, seg_dur) =
+        segment_timing_from_result(&result, state.audio_offset, state.segment_start);
+    let confidence = result.confidence as f64;
+    let confirmed_text = result.confirmed.trim();
+    let metrics = stream_result_metrics(&result);
+
+    state.pending_text = result.pending.clone();
+    state.pending_language = result.language.clone();
+    state.pending_confidence = confidence;
+
+    if result.cloud_handoff && result.cloud_job_id != 0 {
+        state.pending_cloud_job_id = result.cloud_job_id;
+        state.cloud_handoff_segment_start = state.segment_start;
+    }
+
+    if result.cloud_result_job_id != 0 && !result.cloud_result.is_empty() {
+        let cloud_text = result.cloud_result.trim();
+        let job_id = result.cloud_result_job_id;
+        let cloud_seg_start = state.cloud_handoff_segment_start;
+        let cloud_seg_dur = state.audio_offset - cloud_seg_start;
+
+        debug::log(
+            ch_idx,
+            state.audio_offset,
+            debug::Kind::Cloud,
+            cloud_text,
+            cloud_seg_start,
+            cloud_seg_dur,
+            confidence,
+            &result,
+        );
+
+        let mut keys = metrics.clone();
+        keys.insert("cloud_corrected".to_string(), serde_json::Value::Bool(true));
+        keys.insert(
+            "cloud_job_id".to_string(),
+            serde_json::Value::Number(job_id.into()),
+        );
+
+        tracing::info!(
+            hyprnote.transcript.char_count = cloud_text.chars().count() as u64,
+            hyprnote.stt.job.id = job_id,
+            hyprnote.audio.channel_index = ch_idx,
+            "cactus_cloud_correction"
+        );
+
+        try_send!(
+            ws_sender,
+            &build_transcript_response(
+                cloud_text,
+                cloud_seg_start,
+                cloud_seg_dur,
+                confidence,
+                result.language.as_deref(),
+                true,
+                true,
+                false,
+                metadata,
+                &channel_index,
+                Some(keys),
+            )
+        );
+        state.pending_cloud_job_id = 0;
+    }
+
+    if !confirmed_text.is_empty() && confirmed_text != state.last_confirmed_sent {
+        debug::log(
+            ch_idx,
+            state.audio_offset,
+            debug::Kind::Confirmed,
+            confirmed_text,
+            seg_start,
+            seg_dur,
+            confidence,
+            &result,
+        );
+
+        if !state.speech_started {
+            try_send!(
+                ws_sender,
+                &StreamResponse::SpeechStartedResponse {
+                    channel: channel_u8.clone(),
+                    timestamp: seg_start,
+                }
+            );
+        }
+
+        tracing::info!(
+            hyprnote.transcript.char_count = confirmed_text.chars().count() as u64,
+            hyprnote.audio.channel_index = ch_idx,
+            "cactus_confirmed_text"
+        );
+
+        try_send!(
+            ws_sender,
+            &build_transcript_response(
+                confirmed_text,
+                seg_start,
+                seg_dur,
+                confidence,
+                result.language.as_deref(),
+                true,
+                true,
+                false,
+                metadata,
+                &channel_index,
+                build_extra_keys(&metrics, &result),
+            )
+        );
+
+        try_send!(
+            ws_sender,
+            &StreamResponse::UtteranceEndResponse {
+                channel: channel_u8,
+                last_word_end: state.audio_offset,
+            }
+        );
+
+        state.last_confirmed_sent.clear();
+        state.last_confirmed_sent.push_str(confirmed_text);
+        state.last_pending_sent.clear();
+        state.segment_start = state.audio_offset;
+        state.speech_started = false;
+        return LoopAction::Continue;
+    }
+
+    let pending_text = result.pending.trim();
+    if pending_text.is_empty()
+        || pending_text == state.last_pending_sent
+        || pending_text == state.last_confirmed_sent
+    {
+        return LoopAction::Continue;
+    }
+
+    debug::log(
+        ch_idx,
+        state.audio_offset,
+        debug::Kind::Partial,
+        pending_text,
+        seg_start,
+        seg_dur,
+        confidence,
+        &result,
+    );
+
+    if !state.speech_started {
+        state.speech_started = true;
+        try_send!(
+            ws_sender,
+            &StreamResponse::SpeechStartedResponse {
+                channel: channel_u8,
+                timestamp: seg_start,
+            }
+        );
+    }
+
+    try_send!(
+        ws_sender,
+        &build_transcript_response(
+            pending_text,
+            seg_start,
+            seg_dur,
+            confidence,
+            result.language.as_deref(),
+            false,
+            false,
+            false,
+            metadata,
+            &channel_index,
+            build_extra_keys(&metrics, &result),
+        )
+    );
+
+    state.last_pending_sent.clear();
+    state.last_pending_sent.push_str(pending_text);
+    LoopAction::Continue
 }
 
 async fn handle_ws_message(
@@ -482,16 +501,11 @@ async fn handle_ws_message(
     LoopAction::Continue
 }
 
-/// Compute (seg_start, seg_dur) for the current result using cactus segment
-/// timestamps (available since v1.11). Falls back to elapsed audio time when
-/// segments are unavailable.
 fn segment_timing_from_result(
     result: &hypr_cactus::StreamResult,
     audio_offset: f64,
     segment_start: f64,
 ) -> (f64, f64) {
-    print!("{:?}", result);
-
     if let (Some(first), Some(last)) = (result.segments.first(), result.segments.last()) {
         let start = first.start as f64;
         let end = last.end as f64;
@@ -505,40 +519,40 @@ fn segment_timing_from_result(
 fn stream_result_metrics(
     result: &hypr_cactus::StreamResult,
 ) -> std::collections::HashMap<String, serde_json::Value> {
-    let mut m = std::collections::HashMap::new();
-    m.insert(
-        "decode_tps".to_string(),
-        serde_json::json!(result.decode_tps),
-    );
-    m.insert(
-        "prefill_tps".to_string(),
-        serde_json::json!(result.prefill_tps),
-    );
-    m.insert(
-        "time_to_first_token_ms".to_string(),
-        serde_json::json!(result.time_to_first_token_ms),
-    );
-    m.insert(
-        "total_time_ms".to_string(),
-        serde_json::json!(result.total_time_ms),
-    );
-    m.insert(
-        "decode_tokens".to_string(),
-        serde_json::json!(result.decode_tokens),
-    );
-    m.insert(
-        "prefill_tokens".to_string(),
-        serde_json::json!(result.prefill_tokens),
-    );
-    m.insert(
-        "total_tokens".to_string(),
-        serde_json::json!(result.total_tokens),
-    );
-    m.insert(
-        "buffer_duration_ms".to_string(),
-        serde_json::json!(result.buffer_duration_ms),
-    );
-    m
+    [
+        ("decode_tps", serde_json::json!(result.decode_tps)),
+        ("prefill_tps", serde_json::json!(result.prefill_tps)),
+        (
+            "time_to_first_token_ms",
+            serde_json::json!(result.time_to_first_token_ms),
+        ),
+        ("total_time_ms", serde_json::json!(result.total_time_ms)),
+        ("decode_tokens", serde_json::json!(result.decode_tokens)),
+        ("prefill_tokens", serde_json::json!(result.prefill_tokens)),
+        ("total_tokens", serde_json::json!(result.total_tokens)),
+        (
+            "buffer_duration_ms",
+            serde_json::json!(result.buffer_duration_ms),
+        ),
+    ]
+    .into_iter()
+    .map(|(k, v)| (k.to_string(), v))
+    .collect()
+}
+
+fn build_extra_keys(
+    metrics: &std::collections::HashMap<String, serde_json::Value>,
+    result: &hypr_cactus::StreamResult,
+) -> Option<std::collections::HashMap<String, serde_json::Value>> {
+    let mut keys = metrics.clone();
+    if result.cloud_handoff && result.cloud_job_id != 0 {
+        keys.insert("cloud_handoff".to_string(), serde_json::Value::Bool(true));
+        keys.insert(
+            "cloud_job_id".to_string(),
+            serde_json::Value::Number(result.cloud_job_id.into()),
+        );
+    }
+    Some(keys)
 }
 
 async fn handle_finalize(

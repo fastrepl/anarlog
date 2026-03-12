@@ -13,6 +13,7 @@ owhisper-interface = { workspace = true }
 rodio = { workspace = true }
 
 bytes = { workspace = true }
+colored = "3"
 serde_html_form = { workspace = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
