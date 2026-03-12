@@ -1,10 +1,11 @@
 use tantivy::collector::{Count, TopDocs};
 use tantivy::query::{
-    BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, QueryParser, TermQuery,
+    AllQuery, BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, QueryParser,
+    TermQuery,
 };
 use tantivy::schema::{Facet, IndexRecordOption};
 use tantivy::snippet::SnippetGenerator;
-use tantivy::{Index, ReloadPolicy, TantivyDocument, Term};
+use tantivy::{DateTime, Index, ReloadPolicy, TantivyDocument, Term};
 use tauri_plugin_settings::SettingsPluginExt;
 
 use crate::query::build_created_at_range_query;
@@ -170,11 +171,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         let use_fuzzy = request.options.fuzzy.unwrap_or(false);
         let phrase_slop = request.options.phrase_slop.unwrap_or(0);
+        let has_query = !request.query.trim().is_empty();
 
         // Title boost factor (3x) to match Orama's title:3, content:1 behavior
         const TITLE_BOOST: f32 = 3.0;
 
-        let mut combined_query: Box<dyn Query> = if use_fuzzy {
+        let mut combined_query: Box<dyn Query> = if !has_query {
+            Box::new(AllQuery)
+        } else if use_fuzzy {
             let distance = request.options.distance.unwrap_or(1);
 
             // Parse query to extract phrases (quoted) and regular terms
@@ -427,7 +431,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
         doc.add_text(fields.title, &document.title);
         doc.add_text(fields.content, &document.content);
-        doc.add_i64(fields.created_at, document.created_at);
+        doc.add_date(
+            fields.created_at,
+            DateTime::from_timestamp_millis(document.created_at),
+        );
 
         for facet_path in &document.facets {
             if let Ok(facet) = Facet::from_text(facet_path) {
@@ -474,7 +481,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
         doc.add_text(fields.title, &document.title);
         doc.add_text(fields.content, &document.content);
-        doc.add_i64(fields.created_at, document.created_at);
+        doc.add_date(
+            fields.created_at,
+            DateTime::from_timestamp_millis(document.created_at),
+        );
 
         for facet_path in &document.facets {
             if let Ok(facet) = Facet::from_text(facet_path) {
@@ -524,7 +534,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
             doc.add_text(fields.title, &document.title);
             doc.add_text(fields.content, &document.content);
-            doc.add_i64(fields.created_at, document.created_at);
+            doc.add_date(
+                fields.created_at,
+                DateTime::from_timestamp_millis(document.created_at),
+            );
 
             for facet_path in &document.facets {
                 if let Ok(facet) = Facet::from_text(facet_path) {
