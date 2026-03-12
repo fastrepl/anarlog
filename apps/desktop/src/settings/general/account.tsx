@@ -36,6 +36,7 @@ const ACCOUNT_FEATURES = [
     label: "Pro AI models",
     icon: Sparkle,
     comingSoon: false,
+    benefit: "Use premium hosted models without managing API keys.",
     accent: {
       icon: "text-blue-900",
       label: "text-blue-950",
@@ -45,6 +46,7 @@ const ACCOUNT_FEATURES = [
     label: "Cloud sync",
     icon: Cloud,
     comingSoon: true,
+    benefit: "Keep your notes available across devices with selective sync.",
     accent: {
       icon: "text-sky-700",
       label: "text-sky-900",
@@ -54,6 +56,7 @@ const ACCOUNT_FEATURES = [
     label: "Memory",
     icon: Brain,
     comingSoon: true,
+    benefit: "Make Char more personal with saved preferences and context.",
     accent: {
       icon: "text-yellow-700",
       label: "text-yellow-900",
@@ -63,6 +66,7 @@ const ACCOUNT_FEATURES = [
     label: "Integrations",
     icon: Puzzle,
     comingSoon: true,
+    benefit: "Connect tools and pull context into Char with less busywork.",
     accent: {
       icon: "text-purple-700",
       label: "text-purple-900",
@@ -400,24 +404,30 @@ function FeatureItems() {
 
 function FeatureSpotlight() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
+    if (isPaused) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % ACCOUNT_FEATURES.length);
     }, 2200);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [isPaused]);
 
   const {
     label,
     icon: Icon,
     comingSoon,
+    benefit,
     accent,
   } = ACCOUNT_FEATURES[activeIndex];
 
   return (
-    <div className="flex w-full max-w-[220px] min-w-[180px] items-center justify-center p-2">
+    <div className="group relative flex w-full max-w-[220px] min-w-[180px] items-center justify-center p-2">
       <div className="relative min-h-[88px] w-full">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -426,33 +436,75 @@ function FeatureSpotlight() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.96 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center"
+            className="absolute inset-0"
           >
-            <motion.div
-              initial={{ scale: 0.86, rotate: -10 }}
-              animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0.9, rotate: 10 }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-              className="flex h-12 w-12 items-center justify-center"
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 10, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.96 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+              onFocus={() => setIsPaused(true)}
+              onBlur={() => setIsPaused(false)}
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center outline-none"
+              aria-label={`${label}. ${benefit}`}
             >
               <motion.div
-                animate={{ y: [0, -2, 0] }}
-                transition={{
-                  duration: 1.6,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
+                initial={{ scale: 0.86, rotate: -10 }}
+                animate={{
+                  scale: isPaused ? 1.08 : 1,
+                  rotate: 0,
+                  y: isPaused ? -2 : 0,
                 }}
+                exit={{ scale: 0.9, rotate: 10 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+                className="flex h-12 w-12 items-center justify-center"
               >
-                <Icon className={cn(["h-5 w-5", accent.icon])} />
+                <motion.div
+                  animate={
+                    isPaused ? { rotate: [0, -4, 4, 0] } : { y: [0, -2, 0] }
+                  }
+                  transition={{
+                    duration: isPaused ? 0.9 : 1.6,
+                    repeat: Number.POSITIVE_INFINITY,
+                    ease: "easeInOut",
+                  }}
+                >
+                  <Icon className={cn(["h-5 w-5", accent.icon])} />
+                </motion.div>
               </motion.div>
-            </motion.div>
-            <p className={cn(["text-sm font-medium", accent.label])}>
-              {label}
-              {comingSoon ? <span className="opacity-55"> Soon</span> : null}
-            </p>
+              <p className={cn(["text-sm font-medium", accent.label])}>
+                {label}
+              </p>
+            </motion.button>
           </motion.div>
         </AnimatePresence>
       </div>
+      <AnimatePresence>
+        {isPaused ? (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="pointer-events-none absolute top-full right-0 z-10 mt-1.5 w-[208px] rounded-xl border border-neutral-200 bg-white/95 p-2.5 text-left shadow-lg backdrop-blur-sm"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className={cn(["text-sm font-medium", accent.label])}>
+                {label}
+              </p>
+              {comingSoon ? (
+                <span className="text-xs text-neutral-400">Soon</span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs leading-[1.45] text-neutral-600">
+              {benefit}
+            </p>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
