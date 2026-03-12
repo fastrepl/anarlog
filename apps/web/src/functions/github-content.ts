@@ -840,7 +840,18 @@ export async function getBranchSha(
     );
 
     if (!response.ok) {
-      return { success: false, error: `Branch not found: ${branchName}` };
+      let message = `GitHub API error: ${response.status}`;
+      try {
+        const error = await response.json();
+        if (typeof error?.message === "string" && error.message.length > 0) {
+          message = error.message;
+        }
+      } catch {}
+
+      return {
+        success: false,
+        error: `Failed to access branch ref "${branchName}" (${response.status}): ${message}`,
+      };
     }
 
     const data = await response.json();
