@@ -6,6 +6,26 @@ import { getExtensions } from "./extensions";
 import { isValidTiptapContent, json2md, md2json } from "./utils";
 
 describe("json2md", () => {
+  test("renders underline as html tags", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "underlined",
+              marks: [{ type: "underline" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe("<u>underlined</u>");
+  });
+
   test("renders task items without escaping brackets", () => {
     const taskListContent = {
       type: "doc",
@@ -123,6 +143,17 @@ describe("json2md", () => {
 });
 
 describe("md2json", () => {
+  test("converts html underline tags to underline marks", () => {
+    const json = md2json("<u>underlined</u>");
+    const paragraph = json.content?.[0];
+    const textNode = paragraph?.content?.[0];
+
+    expect(paragraph?.type).toBe("paragraph");
+    expect(textNode?.type).toBe("text");
+    expect(textNode?.text).toBe("underlined");
+    expect(textNode?.marks).toEqual([{ type: "underline" }]);
+  });
+
   describe("image handling", () => {
     test("converts standalone image to JSON", () => {
       const markdown = "![alt text](https://example.com/image.png)";
