@@ -995,10 +995,17 @@ function NewPostInlineInput({
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasSubmittedRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      hasSubmittedRef.current = false;
+    }
+  }, [isLoading]);
 
   const validateSlug = (slug: string): string | null => {
     if (!slug.trim()) {
@@ -1025,7 +1032,8 @@ function NewPostInlineInput({
       const validationError = validateSlug(slug);
       if (validationError) {
         setError(validationError);
-      } else {
+      } else if (!hasSubmittedRef.current) {
+        hasSubmittedRef.current = true;
         setError(null);
         onSubmit(slug);
       }
@@ -1046,7 +1054,8 @@ function NewPostInlineInput({
       setError(validationError);
       // Keep focus if there's an error
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
+    } else if (!hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       setError(null);
       onSubmit(slug);
     }
