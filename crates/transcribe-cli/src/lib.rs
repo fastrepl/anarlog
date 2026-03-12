@@ -1,0 +1,331 @@
+use std::net::SocketAddr;
+use std::time::{Duration, Instant};
+
+use axum::Router;
+use clap::{Args, ValueEnum};
+use colored::Colorize;
+use futures_util::StreamExt;
+use owhisper_client::{FinalizeHandle, ListenClient, RealtimeSttAdapter};
+use owhisper_interface::MixedMessage;
+use owhisper_interface::stream::StreamResponse;
+
+use hypr_audio::AudioInput;
+use hypr_audio_utils::{AudioFormatExt, chunk_size_for_stt};
+
+pub const DEFAULT_SAMPLE_RATE: u32 = 16_000;
+pub const DEFAULT_TIMEOUT_SECS: u64 = 600;
+
+#[derive(Clone, ValueEnum)]
+pub enum AudioSource {
+    Input,
+    Output,
+}
+
+#[derive(Args)]
+pub struct AudioArgs {
+    #[arg(long, default_value = "input")]
+    pub audio: AudioSource,
+}
+
+pub fn open_audio(source: &AudioSource) -> AudioInput {
+    match source {
+        AudioSource::Output => AudioInput::from_speaker(),
+        AudioSource::Input => AudioInput::from_mic(None).expect("failed to open mic"),
+    }
+}
+
+pub fn create_audio_stream(
+    audio_input: &mut AudioInput,
+    sample_rate: u32,
+) -> std::pin::Pin<
+    Box<
+        dyn futures_util::Stream<
+                Item = MixedMessage<bytes::Bytes, owhisper_interface::ControlMessage>,
+            > + Send,
+    >,
+> {
+    let chunk_size = chunk_size_for_stt(sample_rate);
+    let stream = audio_input.stream();
+    Box::pin(
+        stream
+            .to_i16_le_chunks(sample_rate, chunk_size)
+            .map(MixedMessage::Audio),
+    )
+}
+
+pub fn print_audio_info(audio_input: &AudioInput, source: &AudioSource, sample_rate: u32) {
+    let source_name = match source {
+        AudioSource::Input => "input",
+        AudioSource::Output => "output",
+    };
+    let chunk_size = chunk_size_for_stt(sample_rate);
+
+    eprintln!("source: {} ({})", source_name, audio_input.device_name());
+    eprintln!(
+        "sample rate: {} Hz -> {} Hz, chunk size: {} samples",
+        audio_input.sample_rate(),
+        sample_rate,
+        chunk_size
+    );
+    eprintln!();
+}
+
+pub fn default_listen_params() -> owhisper_interface::ListenParams {
+    owhisper_interface::ListenParams {
+        sample_rate: DEFAULT_SAMPLE_RATE,
+        languages: vec![hypr_language::ISO639::En.into()],
+        ..Default::default()
+    }
+}
+
+pub async fn build_single_client<A: RealtimeSttAdapter>(
+    api_base: impl Into<String>,
+    api_key: Option<String>,
+    params: owhisper_interface::ListenParams,
+) -> ListenClient<A> {
+    let mut builder = ListenClient::builder()
+        .adapter::<A>()
+        .api_base(api_base.into())
+        .params(params);
+
+    if let Some(api_key) = api_key {
+        builder = builder.api_key(api_key);
+    }
+
+    builder.build_single().await
+}
+
+pub async fn run_single_client<A: RealtimeSttAdapter>(
+    source: AudioSource,
+    client: ListenClient<A>,
+    sample_rate: u32,
+    timeout_secs: u64,
+) {
+    let mut audio_input = open_audio(&source);
+    print_audio_info(&audio_input, &source, sample_rate);
+
+    let audio_stream = create_audio_stream(&mut audio_input, sample_rate);
+    let (response_stream, handle) = client
+        .from_realtime_audio(audio_stream)
+        .await
+        .expect("failed to connect");
+
+    process_stream(response_stream, handle, timeout_secs).await;
+}
+
+pub struct LocalServer {
+    addr: SocketAddr,
+    shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
+}
+
+impl LocalServer {
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    pub fn api_base(&self, suffix: &str) -> String {
+        format!("http://{}{}", self.addr, suffix)
+    }
+}
+
+impl Drop for LocalServer {
+    fn drop(&mut self) {
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        }
+    }
+}
+
+pub async fn spawn_router(app: Router) -> LocalServer {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .await
+            .unwrap();
+    });
+
+    LocalServer {
+        addr,
+        shutdown_tx: Some(shutdown_tx),
+    }
+}
+
+pub async fn process_stream<S, H>(response_stream: S, handle: H, timeout_secs: u64)
+where
+    S: futures_util::Stream<Item = Result<StreamResponse, owhisper_client::hypr_ws_client::Error>>,
+    H: FinalizeHandle,
+{
+    futures_util::pin_mut!(response_stream);
+
+    let mut transcript = Transcript::new(Instant::now());
+    let mut last_confirmed: Option<String> = None;
+
+    let read_loop = async {
+        while let Some(result) = response_stream.next().await {
+            match result {
+                Ok(StreamResponse::TranscriptResponse {
+                    is_final, channel, ..
+                }) => {
+                    let text = channel
+                        .alternatives
+                        .first()
+                        .map(|a| a.transcript.as_str())
+                        .unwrap_or("");
+
+                    if is_final {
+                        if last_confirmed.as_deref() == Some(text) {
+                            continue;
+                        }
+                        last_confirmed = Some(text.to_string());
+                        transcript.confirm(text);
+                    } else {
+                        transcript.set_partial(text);
+                    }
+                }
+                Ok(StreamResponse::TerminalResponse { .. }) => break,
+                Ok(StreamResponse::ErrorResponse { error_message, .. }) => {
+                    eprintln!("\nerror: {}", error_message);
+                    break;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("\nws error: {:?}", e);
+                    break;
+                }
+            }
+        }
+    };
+
+    let _ = tokio::time::timeout(Duration::from_secs(timeout_secs), read_loop).await;
+    handle.finalize().await;
+    eprintln!();
+}
+
+#[macro_export]
+macro_rules! simple_provider_example {
+    (
+        adapter: $adapter:path,
+        api_base: $api_base:expr,
+        api_key_env: $api_key_env:literal,
+        params: $params:expr $(,)?
+    ) => {
+        #[derive(::clap::Parser)]
+        struct Args {
+            #[command(flatten)]
+            audio: $crate::AudioArgs,
+        }
+
+        #[::tokio::main]
+        async fn main() {
+            let args = <Args as ::clap::Parser>::parse();
+            let client = $crate::build_single_client::<$adapter>(
+                $api_base,
+                Some(::std::env::var($api_key_env).expect(concat!($api_key_env, " not set"))),
+                $params,
+            )
+            .await;
+
+            $crate::run_single_client(
+                args.audio.audio,
+                client,
+                $crate::DEFAULT_SAMPLE_RATE,
+                $crate::DEFAULT_TIMEOUT_SECS,
+            )
+            .await;
+        }
+    };
+}
+
+fn fmt_ts(secs: f64) -> String {
+    let m = (secs / 60.0) as u32;
+    let s = secs % 60.0;
+    format!("{:02}:{:02}", m, s as u32)
+}
+
+struct Segment {
+    time: f64,
+    text: String,
+}
+
+struct Transcript {
+    segments: Vec<Segment>,
+    partial: String,
+    t0: Instant,
+}
+
+impl Transcript {
+    fn new(t0: Instant) -> Self {
+        Self {
+            segments: Vec::new(),
+            partial: String::new(),
+            t0,
+        }
+    }
+
+    fn elapsed(&self) -> f64 {
+        self.t0.elapsed().as_secs_f64()
+    }
+
+    fn set_partial(&mut self, text: &str) {
+        self.partial = text.to_string();
+        self.render();
+    }
+
+    fn confirm(&mut self, text: &str) {
+        self.segments.push(Segment {
+            time: self.elapsed(),
+            text: text.to_string(),
+        });
+        self.partial.clear();
+        self.trim();
+        self.render();
+    }
+
+    fn trim(&mut self) {
+        let max_chars = crossterm::terminal::size()
+            .map(|(cols, _)| cols as usize)
+            .unwrap_or(180);
+
+        let total_len: usize = self.segments.iter().map(|s| s.text.len() + 1).sum();
+        if total_len > max_chars {
+            let drain_count = self.segments.len() * 2 / 3;
+            if drain_count > 0 {
+                self.segments.drain(..drain_count);
+            }
+        }
+    }
+
+    fn render(&self) {
+        let confirmed: String = self
+            .segments
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        if confirmed.is_empty() && self.partial.is_empty() {
+            return;
+        }
+
+        let from = self.segments.first().map(|s| s.time).unwrap_or(0.0);
+        let to = self.elapsed();
+        let prefix = format!("[{} / {}]", fmt_ts(from), fmt_ts(to)).dimmed();
+
+        if self.partial.is_empty() {
+            eprintln!("{} {}", prefix, confirmed.bold().white());
+        } else {
+            eprintln!(
+                "{} {} {}",
+                prefix,
+                confirmed.bold().white(),
+                self.partial.dimmed()
+            );
+        }
+    }
+}
