@@ -1,0 +1,220 @@
+---
+title: "Web-to-App Identity Bridging"
+section: "Developers"
+description: "Investigation and proposal for connecting website visitor identity to desktop app installs"
+---
+
+## Problem
+
+86% of app installs are unattributed. When someone visits char.com, clicks download, installs the app, and starts using it, we cannot connect that website visit to the app install unless the user signs in -- and even then, only under specific conditions. This makes it impossible to measure which acquisition channels actually drive installs and activation.
+
+## Current state
+
+### Identity systems
+
+The website and desktop app use separate PostHog identity systems:
+
+| Surface | Distinct ID | How it's set |
+|---------|-------------|--------------|
+| Website (`apps/web`) | PostHog auto-generated anonymous ID (cookie-based) | Set automatically by `posthog.init()` in `apps/web/src/providers/posthog.tsx` |
+| Desktop (`apps/desktop` + `plugins/analytics`) | Machine fingerprint (hashed `machine_uid`) | Set by `hypr_host::fingerprint()` in `plugins/analytics/src/ext.rs` |
+| API server | `x-device-fingerprint` header or fallback UUID | Sent by desktop app via `DEVICE_FINGERPRINT_HEADER` in `apps/desktop/src/auth/context.tsx` |
+
+These are completely independent identifiers with no shared state.
+
+### Identity linking today
+
+Identity linking only happens at sign-in time through two `$identify` calls:
+
+1. **Web auth callback** (`apps/web/src/routes/_view/callback/auth.tsx`): When the user completes authentication on `char.com/callback/auth`, the web app calls `posthog.identify(supabaseUserId, { email })`. This merges the anonymous browser ID with the Supabase user ID.
+
+2. **Desktop auth handler** (`apps/desktop/src/auth/context.tsx`): When the desktop app receives the auth tokens, it calls `analyticsCommands.identify(session.user.id, { ... })`. Under the hood (`crates/analytics/src/lib.rs`), this sends a PostHog `$identify` event with `distinct_id = supabaseUserId` and `$anon_distinct_id = machineFingerprint`. This merges the machine fingerprint with the Supabase user ID.
+
+The chain is: **browser anon ID** --> `supabaseUserId` <-- **machine fingerprint**
+
+PostHog can retroactively merge events from both anonymous IDs onto the authenticated user profile. This means `download_clicked` (browser) and `show_main_window` (desktop) end up on the same person -- **but only if**:
+
+- The user signs in
+- The sign-in opens in the **same browser** where they clicked download (since sign-in uses `openerCommands.openUrl()` which opens the user's default browser)
+
+### Download flow
+
+The download links are direct redirects to the distribution server:
+
+```
+/download/apple-silicon --> https://desktop2.hyprnote.com/download/latest/dmg-aarch64?channel=stable
+```
+
+No tracking parameters, anonymous IDs, or attribution data are passed through the download URL.
+
+### What gets tracked
+
+**Website events** (anonymous browser ID):
+- `hero_section_viewed` -- landing page impression
+- `download_clicked` -- user clicks download button (with `platform` property)
+- `reminder_requested` / `os_waitlist_joined` -- waitlist signups (with email)
+- PostHog autocapture and pageviews
+
+**Desktop events** (machine fingerprint):
+- `show_main_window` -- first app open (and subsequent opens)
+- `onboarding_step_viewed` -- onboarding progress
+- `user_signed_in` -- sign-in completed (triggers `$identify`)
+- `onboarding_completed`, `session_started`, `note_created`, etc.
+
+## Where the identity chain breaks
+
+```
+Website Visit          Download Click         App Install          First Open           Sign In
+     |                      |                      |                    |                   |
+  [browser               [browser              [no tracking]      [machine             [supabaseUserId]
+   anon ID]               anon ID]                                 fingerprint]
+     |                      |                      |                    |                   |
+     +--- same ID ---------+                       |                    +--- $identify ----+
+                            |                       |                    |
+                            +---- BREAK ------------+-------- BREAK ----+
+                              (no ID passed            (no link between
+                               through download)        browser and machine)
+```
+
+The breaks happen at two points:
+
+**Break 1: Download click to app install.** The download URL (`desktop2.hyprnote.com/download/latest/...`) does not carry any identifier from the website. Once the user leaves the browser to download the DMG, the identity trail ends.
+
+**Break 2: App install to first open.** Even if we could tag the download, there is no mechanism for the installed `.app` to read back a token from the download URL. macOS does not pass URL parameters from a `.dmg` download through to the installed application.
+
+**Partial fix at sign-in:** When the user signs in, the desktop app opens `char.com/auth` in their default browser. If that browser is the same one they used to visit the site and click download, PostHog's `$identify` call retroactively links both anonymous IDs through the Supabase user ID. But this requires:
+
+1. User actually signs in (many don't, or sign in much later)
+2. Same browser is used for both download and sign-in
+3. Browser cookies haven't been cleared between download and sign-in
+
+## Recommended approach: shared anonymous ID via auth callback
+
+Rather than trying to pass an ID through the download/install flow (which is fundamentally blocked by OS-level boundaries between browser downloads and installed apps), we should maximize the effectiveness of the sign-in bridging that already partially works.
+
+### How it works today (the existing partial bridge)
+
+When the desktop app triggers sign-in, it opens `char.com/auth` in the user's default browser. The auth callback page (`apps/web/src/routes/_view/callback/auth.tsx`) already calls `posthog.identify(userId, { email })`. This merges the browser's anonymous ID with the Supabase user ID. Back in the desktop, `$identify` merges the machine fingerprint with the same Supabase user ID.
+
+**This already works** for users who (a) sign in and (b) use the same browser. The problem is the gap for users who **don't** sign in, or who sign in from a different browser.
+
+### Proposed solution: pass web anonymous ID through the download redirect
+
+**Core idea**: When a user clicks "Download", capture the PostHog anonymous ID and embed it in a short-lived server-side record keyed by the download URL or a token. When the app first opens, it fetches this mapping and calls `posthog.alias(webAnonId, machineFingerprint)` to link the two identities -- no sign-in required.
+
+#### Implementation steps
+
+**Step 1: Capture and persist the web anonymous ID at download time**
+
+In `apps/web/src/components/download-button.tsx` and `apps/web/src/routes/_view/download/index.tsx`, when `download_clicked` fires, include the PostHog `distinct_id` as a query parameter on the download redirect:
+
+```typescript
+// download-button.tsx
+const handleClick = () => {
+  const anonId = posthog.get_distinct_id();
+  track("download_clicked", {
+    platform,
+    timestamp: new Date().toISOString(),
+    ph_anon_id: anonId,
+  });
+};
+```
+
+Modify the download route (e.g., `apple-silicon.tsx`) to pass through a `ref` parameter to the redirect URL. However, since the redirect goes to `desktop2.hyprnote.com` (Crabnebula), we can't read the query parameter in the installed app directly. Instead:
+
+**Step 2: Create a server-side attribution endpoint**
+
+Add an API endpoint (e.g., `POST /api/attribution`) that:
+
+1. Accepts `{ web_anon_id, download_id }` where `download_id` is a generated UUID
+2. Stores this mapping with a 30-day TTL (Redis, KV store, or a simple database table)
+3. Returns the `download_id`
+
+The download flow becomes:
+
+```
+User clicks download
+  --> JS generates a download_id (UUID)
+  --> POST /api/attribution { web_anon_id: posthog.get_distinct_id(), download_id }
+  --> Store download_id in localStorage
+  --> Redirect to download URL
+```
+
+**Step 3: Pass the download_id into the app on first open**
+
+Since we can't pass data through the DMG install, we use the **sign-in flow as the bridge** but earlier in the funnel. The approach:
+
+- When the onboarding flow opens in the app, if the user is not signed in, show a "Link your download" step (or do it silently via the existing browser-opening flows)
+- The app opens a URL like `char.com/link?fingerprint={machineFingerprint}` in the user's default browser
+- That page reads the `download_id` from `localStorage` (set during download)
+- It calls the attribution API: `POST /api/attribution/link { download_id, machine_fingerprint }`
+- The server calls `posthog.alias(web_anon_id, machine_fingerprint)` server-side
+
+This happens before/without sign-in, bridging the identity gap for all users.
+
+**Step 4: Enhance the existing sign-in bridge**
+
+For users who do sign in, the existing bridge already works. But we can make it more robust by also reading the `download_id` from localStorage during the auth callback flow, providing a redundant link.
+
+### Alternative approaches considered
+
+#### 1. Deferred deep links (e.g., AppsFlyer, Branch.io)
+
+**How it would work**: Use a deep link provider that fingerprints the device at download time and matches it on first open.
+
+**Tradeoff**: Adds a third-party dependency, introduces privacy concerns (device fingerprinting by external service), and requires SDK integration in the Tauri app. The deferred deep link SDKs are primarily designed for mobile (iOS/Android) and have limited desktop support.
+
+**Verdict**: Overkill for the current scale, and the mobile SDKs don't map well to desktop.
+
+#### 2. Custom download server with fingerprinting
+
+**How it would work**: Instead of redirecting to Crabnebula, proxy downloads through our own server. Use IP + User-Agent fingerprinting to probabilistically match downloads to first app opens.
+
+**Tradeoff**: Requires hosting and serving large binary files, probabilistic matching has accuracy issues (shared IPs, VPNs), and it's a significant infrastructure investment.
+
+**Verdict**: Too much infrastructure overhead. Probabilistic matching is unreliable.
+
+#### 3. Clipboard-based token passing
+
+**How it would work**: Copy a short token to the clipboard when the user clicks download. The app checks the clipboard on first launch.
+
+**Tradeoff**: Poor UX (users don't expect clipboard manipulation), unreliable (clipboard gets overwritten), and feels invasive.
+
+**Verdict**: Bad UX, unreliable.
+
+#### 4. PostHog `alias()` at sign-in only (status quo + improvements)
+
+**How it would work**: Keep the current approach but add `posthog.alias()` calls in addition to `$identify` to make the stitching more explicit and robust.
+
+**Tradeoff**: Still requires sign-in. Doesn't help the majority of unattributed installs where users never sign in.
+
+**Verdict**: Good incremental improvement, but doesn't solve the core problem.
+
+### Recommended approach: Pragmatic two-phase rollout
+
+**Phase 1 (Quick win, low effort)**: Improve the existing sign-in bridge.
+
+1. During the web auth callback, also call `posthog.alias(webAnonId, supabaseUserId)` in addition to `posthog.identify()` for explicit bidirectional linking.
+2. Include `web_anon_id` as a property on the `download_clicked` event so we can at least retroactively analyze which anonymous profiles clicked download.
+3. Store the PostHog anonymous ID in `localStorage` on download click so it persists for the auth callback flow.
+
+**Phase 2 (Medium effort, bigger impact)**: Add the silent browser-based attribution link.
+
+1. Build the attribution API endpoint.
+2. During onboarding (before sign-in), open a `char.com/link` page in the user's browser. This page reads `localStorage` for the download ID, calls the attribution endpoint, and sends a `posthog.alias()` call to link the web anonymous ID with the machine fingerprint.
+3. This works for all users who complete onboarding, regardless of whether they sign in.
+
+### Privacy considerations
+
+- The web anonymous ID is PostHog's auto-generated UUID -- it does not contain PII.
+- The machine fingerprint is a hashed machine UID -- it does not contain PII.
+- The attribution link uses `localStorage` in the user's own browser -- no cross-site tracking.
+- The server-side mapping store should have a TTL (30 days) to avoid indefinite storage.
+- The `char.com/link` page should be transparent about what it does if the user inspects it.
+- All data is first-party (PostHog is self-hosted or configured with first-party cookies).
+
+### Expected impact
+
+- **Phase 1** should improve attribution for users who sign in (currently the bridge works but has edge cases around browser mismatch).
+- **Phase 2** should capture attribution for any user who completes the onboarding flow, even without sign-in. Given that onboarding includes a browser-based step (permissions, account creation), this should capture the majority of active installs.
+- Combined, this could reduce unattributed installs from ~86% to an estimated ~20-30% (the remainder being users who skip onboarding entirely or use a different browser for download vs. the one the app opens).
