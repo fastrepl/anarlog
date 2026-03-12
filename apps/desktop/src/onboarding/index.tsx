@@ -19,7 +19,6 @@ import { FolderLocationSection } from "./folder-location";
 import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
 
-import { usePermissions } from "~/shared/hooks/usePermissions";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -68,18 +67,6 @@ export function TabContentOnboarding({
   const currentTab = useTabs((state) => state.currentTab);
   const [isMuted, setIsMuted] = useState(false);
   const [currentStep, setCurrentStep] = useState(getInitialStep);
-
-  const { micPermissionStatus, systemAudioPermissionStatus } = usePermissions();
-
-  const allPermissionsGranted =
-    micPermissionStatus.data === "authorized" &&
-    systemAudioPermissionStatus.data === "authorized";
-
-  useEffect(() => {
-    if (currentStep === "permissions" && allPermissionsGranted) {
-      setCurrentStep("login");
-    }
-  }, [currentStep, allPermissionsGranted]);
 
   const goNext = useCallback(() => {
     const next = getNextStep(currentStep);
@@ -155,7 +142,7 @@ export function TabContentOnboarding({
 
             <OnboardingSection
               title="Account"
-              description="Sign in to unlock Pro features"
+              description="Start using Char"
               completedTitle="Signed up"
               status={getStepStatus("login", currentStep)}
               onBack={goBack}
