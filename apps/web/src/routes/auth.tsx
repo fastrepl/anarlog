@@ -2,7 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowLeftIcon, MailIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
@@ -682,12 +682,14 @@ function OAuthButton({
     },
   });
   const { mutate, isPending } = oauthMutation;
+  const hasAutoStartedRef = useRef(false);
 
   useEffect(() => {
-    if (autoStart && !isPending) {
+    if (autoStart && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
       mutate(provider);
     }
-  }, [autoStart, isPending, mutate, provider]);
+  }, [autoStart, mutate, provider]);
 
   return (
     <button
