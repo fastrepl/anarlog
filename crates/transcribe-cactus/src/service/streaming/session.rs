@@ -27,6 +27,7 @@ struct ChannelState {
     pending_confidence: f64,
     pending_cloud_job_id: u64,
     cloud_handoff_segment_start: f64,
+    last_segments: Vec<hypr_cactus::StreamSegment>,
 }
 
 enum LoopAction {
@@ -186,12 +187,8 @@ async fn handle_transcribe_event(
 
             state.audio_offset += chunk_duration_secs;
 
-            let seg_dur = if result.buffer_duration_ms > 0.0 {
-                result.buffer_duration_ms / 1000.0
-            } else {
-                state.audio_offset - state.segment_start
-            };
-            let seg_start = (state.audio_offset - seg_dur).max(state.segment_start);
+            let (seg_start, seg_dur) =
+                segment_timing_from_result(&result, state.audio_offset, state.segment_start);
 
             let confidence = result.confidence as f64;
             let confirmed_text = result.confirmed.trim();
@@ -314,6 +311,7 @@ async fn handle_transcribe_event(
                 state.last_confirmed_sent.clear();
                 state.last_confirmed_sent.push_str(confirmed_text);
                 state.last_pending_sent.clear();
+                state.last_segments = result.segments.clone();
                 state.segment_start = state.audio_offset;
                 state.speech_started = false;
                 return LoopAction::Continue;
@@ -484,6 +482,28 @@ async fn handle_ws_message(
     }
 
     LoopAction::Continue
+}
+
+fn segment_timing_from_result(
+    result: &hypr_cactus::StreamResult,
+    audio_offset: f64,
+    segment_start: f64,
+) -> (f64, f64) {
+    if let (Some(first), Some(last)) = (result.segments.first(), result.segments.last()) {
+        let start = first.start as f64;
+        let end = last.end as f64;
+        if end > start {
+            return (start, end - start);
+        }
+    }
+
+    let seg_dur = if result.buffer_duration_ms > 0.0 {
+        result.buffer_duration_ms / 1000.0
+    } else {
+        audio_offset - segment_start
+    };
+    let seg_start = (audio_offset - seg_dur).max(segment_start);
+    (seg_start, seg_dur)
 }
 
 fn stream_result_metrics(

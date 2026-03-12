@@ -56,11 +56,23 @@ pub struct Transcriber<'a> {
 unsafe impl Send for Transcriber<'_> {}
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct StreamSegment {
+    #[serde(default)]
+    pub start: f32,
+    #[serde(default)]
+    pub end: f32,
+    #[serde(default)]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct StreamResult {
     #[serde(default)]
     pub confirmed: String,
     #[serde(default)]
     pub pending: String,
+    #[serde(default)]
+    pub segments: Vec<StreamSegment>,
     #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]

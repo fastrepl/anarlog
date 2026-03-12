@@ -8,7 +8,6 @@ enum WhisperToken<'a> {
     StartOfTranscript,
     Language(&'a str),
     Transcribe,
-    NoTimestamps,
 }
 
 impl fmt::Display for WhisperToken<'_> {
@@ -19,7 +18,6 @@ impl fmt::Display for WhisperToken<'_> {
             Self::StartOfTranscript => write!(f, "<|startoftranscript|>"),
             Self::Language(l) => write!(f, "<|{l}|>"),
             Self::Transcribe => write!(f, "<|transcribe|>"),
-            Self::NoTimestamps => write!(f, "<|notimestamps|>"),
         }
     }
 }
@@ -39,7 +37,6 @@ pub(super) fn build_whisper_prompt(options: &TranscribeOptions) -> String {
     }
 
     tokens.push(WhisperToken::Transcribe);
-    tokens.push(WhisperToken::NoTimestamps);
 
     tokens.iter().map(|t| t.to_string()).collect()
 }
@@ -53,7 +50,7 @@ mod tests {
     #[test]
     fn no_language_no_prompt() {
         let opts = TranscribeOptions::default();
-        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startoftranscript|><|transcribe|><|notimestamps|>");
+        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startoftranscript|><|transcribe|>");
     }
 
     #[test]
@@ -62,7 +59,7 @@ mod tests {
             language: Some(Language::from(hypr_language::ISO639::En)),
             ..Default::default()
         };
-        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startoftranscript|><|en|><|transcribe|><|notimestamps|>");
+        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startoftranscript|><|en|><|transcribe|>");
     }
 
     #[test]
@@ -71,7 +68,7 @@ mod tests {
             initial_prompt: Some("Hello world".into()),
             ..Default::default()
         };
-        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startofprev|>Hello world<|startoftranscript|><|transcribe|><|notimestamps|>");
+        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startofprev|>Hello world<|startoftranscript|><|transcribe|>");
     }
 
     #[test]
@@ -81,6 +78,6 @@ mod tests {
             initial_prompt: Some("안녕하세요".into()),
             ..Default::default()
         };
-        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startofprev|>안녕하세요<|startoftranscript|><|ko|><|transcribe|><|notimestamps|>");
+        insta::assert_snapshot!(build_whisper_prompt(&opts), @"<|startofprev|>안녕하세요<|startoftranscript|><|ko|><|transcribe|>");
     }
 }
