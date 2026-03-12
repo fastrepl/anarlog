@@ -352,12 +352,20 @@ function CollectionsPage() {
             },
           ],
         );
+        openTab("file", name, path, data.branch);
+        setIsCreatingNewPost(false);
         scheduleDraftSync();
       } else {
+        setIsCreatingNewPost(false);
         void queryClient.invalidateQueries({
           queryKey: DRAFT_ARTICLES_QUERY_KEY,
         });
       }
+    },
+    onError: (error) => {
+      sonnerToast.error("Create failed", {
+        description: error.message,
+      });
     },
   });
 
@@ -561,7 +569,6 @@ function CollectionsPage() {
               name: `${slug}.mdx`,
               type: "file",
             });
-            setIsCreatingNewPost(false);
           }}
           onCancelNewPost={() => setIsCreatingNewPost(false)}
           editingItem={editingItem}
