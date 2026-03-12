@@ -30,7 +30,7 @@ Identity linking only happens at sign-in time through two `$identify` calls:
 
 2. **Desktop auth handler** (`apps/desktop/src/auth/context.tsx`): When the desktop app receives the auth tokens, it calls `analyticsCommands.identify(session.user.id, { ... })`. Under the hood (`crates/analytics/src/lib.rs`), this sends a PostHog `$identify` event with `distinct_id = supabaseUserId` and `$anon_distinct_id = machineFingerprint`. This merges the machine fingerprint with the Supabase user ID.
 
-The chain is: **browser anon ID** --> `supabaseUserId` <-- **machine fingerprint**
+The chain is: **browser anon ID** → `supabaseUserId` ← **machine fingerprint**
 
 PostHog can retroactively merge events from both anonymous IDs onto the authenticated user profile. This means `download_clicked` (browser) and `show_main_window` (desktop) end up on the same person -- **but only if**:
 
@@ -42,7 +42,7 @@ PostHog can retroactively merge events from both anonymous IDs onto the authenti
 The download links are direct redirects to the distribution server:
 
 ```
-/download/apple-silicon --> https://desktop2.hyprnote.com/download/latest/dmg-aarch64?channel=stable
+/download/apple-silicon → https://desktop2.hyprnote.com/download/latest/dmg-aarch64?channel=stable
 ```
 
 No tracking parameters, anonymous IDs, or attribution data are passed through the download URL.
@@ -134,10 +134,10 @@ The download flow becomes:
 
 ```
 User clicks download
-  --> JS generates a download_id (UUID)
-  --> POST /api/attribution { web_anon_id: posthog.get_distinct_id(), download_id }
-  --> Store download_id in localStorage
-  --> Redirect to download URL
+  → JS generates a download_id (UUID)
+  → POST /api/attribution { web_anon_id: posthog.get_distinct_id(), download_id }
+  → Store download_id in localStorage
+  → Redirect to download URL
 ```
 
 **Step 3: Pass the download_id into the app on first open**
