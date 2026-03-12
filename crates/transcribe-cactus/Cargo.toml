@@ -3,6 +3,9 @@ name = "transcribe-cactus"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+live-example = []
+
 [dependencies]
 hypr-audio-utils = { workspace = true }
 hypr-cactus = { workspace = true }
@@ -47,3 +50,7 @@ dirs = { workspace = true }
 
 sequential-test = "0.2"
 serde_json = { workspace = true }
+
+[[example]]
+name = "live"
+required-features = ["live-example"]

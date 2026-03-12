@@ -20,6 +20,6 @@ clap = { workspace = true, features = ["derive"] }
 crossterm = { workspace = true }
 
 [dev-dependencies]
-hypr-transcribe-cactus = { workspace = true }
 hypr-api-env = { workspace = true }
+hypr-transcribe-cactus = { workspace = true }
 hypr-transcribe-proxy = { workspace = true }

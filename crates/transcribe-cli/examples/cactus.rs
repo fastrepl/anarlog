@@ -6,8 +6,8 @@ use axum::http::StatusCode;
 use clap::Parser;
 use hypr_transcribe_cactus::TranscribeService;
 use transcribe_cli::{
-    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_single_client,
-    default_listen_params, run_single_client, spawn_router,
+    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_dual_client, build_single_client,
+    default_listen_params, run_dual_client, run_single_client, spawn_router,
 };
 
 #[derive(Parser)]
@@ -37,18 +37,35 @@ async fn main() {
         ),
     );
     let server = spawn_router(app).await;
-    let client = build_single_client::<owhisper_client::CactusAdapter>(
-        server.api_base("/v1"),
-        None,
-        default_listen_params(),
-    )
-    .await;
+    if args.audio.audio.is_dual() {
+        let client = build_dual_client::<owhisper_client::CactusAdapter>(
+            server.api_base("/v1"),
+            None,
+            default_listen_params(),
+        )
+        .await;
 
-    run_single_client(
-        args.audio.audio,
-        client,
-        DEFAULT_SAMPLE_RATE,
-        DEFAULT_TIMEOUT_SECS,
-    )
-    .await;
+        run_dual_client(
+            args.audio.audio,
+            client,
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_TIMEOUT_SECS,
+        )
+        .await;
+    } else {
+        let client = build_single_client::<owhisper_client::CactusAdapter>(
+            server.api_base("/v1"),
+            None,
+            default_listen_params(),
+        )
+        .await;
+
+        run_single_client(
+            args.audio.audio,
+            client,
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_TIMEOUT_SECS,
+        )
+        .await;
+    }
 }

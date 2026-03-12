@@ -1,8 +1,8 @@
 use clap::{Parser, ValueEnum};
 use hypr_transcribe_proxy::{HyprnoteRoutingConfig, SttProxyConfig};
 use transcribe_cli::{
-    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_single_client,
-    default_listen_params, run_single_client, spawn_router,
+    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_dual_client, build_single_client,
+    default_listen_params, run_dual_client, run_single_client, spawn_router,
 };
 
 #[derive(Clone, ValueEnum)]
@@ -60,52 +60,50 @@ async fn main() {
 
     match args.provider {
         ProviderArg::Hyprnote => {
-            let client = build_single_client::<owhisper_client::HyprnoteAdapter>(
+            run_with_adapter::<owhisper_client::HyprnoteAdapter>(
+                &args.audio.audio,
                 server.api_base(""),
-                None,
-                default_listen_params(),
-            )
-            .await;
-
-            run_single_client(
-                args.audio.audio,
-                client,
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_TIMEOUT_SECS,
             )
             .await;
         }
         ProviderArg::Deepgram => {
-            let client = build_single_client::<owhisper_client::DeepgramAdapter>(
+            run_with_adapter::<owhisper_client::DeepgramAdapter>(
+                &args.audio.audio,
                 server.api_base(""),
-                None,
-                default_listen_params(),
-            )
-            .await;
-
-            run_single_client(
-                args.audio.audio,
-                client,
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_TIMEOUT_SECS,
             )
             .await;
         }
         ProviderArg::Soniox => {
-            let client = build_single_client::<owhisper_client::SonioxAdapter>(
+            run_with_adapter::<owhisper_client::SonioxAdapter>(
+                &args.audio.audio,
                 server.api_base(""),
-                None,
-                default_listen_params(),
-            )
-            .await;
-
-            run_single_client(
-                args.audio.audio,
-                client,
-                DEFAULT_SAMPLE_RATE,
-                DEFAULT_TIMEOUT_SECS,
             )
             .await;
         }
+    }
+}
+
+async fn run_with_adapter<A: owhisper_client::RealtimeSttAdapter>(
+    source: &transcribe_cli::AudioSource,
+    api_base: String,
+) {
+    if source.is_dual() {
+        let client = build_dual_client::<A>(api_base, None, default_listen_params()).await;
+        run_dual_client(
+            source.clone(),
+            client,
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_TIMEOUT_SECS,
+        )
+        .await;
+    } else {
+        let client = build_single_client::<A>(api_base, None, default_listen_params()).await;
+        run_single_client(
+            source.clone(),
+            client,
+            DEFAULT_SAMPLE_RATE,
+            DEFAULT_TIMEOUT_SECS,
+        )
+        .await;
     }
 }
