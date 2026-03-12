@@ -482,19 +482,21 @@ async fn handle_ws_message(
     LoopAction::Continue
 }
 
+/// Compute (seg_start, seg_dur) for the current result.
+///
+/// We intentionally do NOT use `result.segments[*].start/end` here because
+/// the FFI returns those in cactus-internal cumulative time which may diverge
+/// from the session's own `audio_offset` / `segment_start` tracking (the
+/// session sums actual chunk durations while cactus advances by model-estimated
+/// confirmed_end_sec). Using segment timestamps directly could put
+/// SpeechStartedResponse / transcript events in a different time coordinate
+/// than the rest of the session. Instead we rely on `buffer_duration_ms`
+/// (set by cactus when text is confirmed) and fall back to elapsed audio time.
 fn segment_timing_from_result(
     result: &hypr_cactus::StreamResult,
     audio_offset: f64,
     segment_start: f64,
 ) -> (f64, f64) {
-    if let (Some(first), Some(last)) = (result.segments.first(), result.segments.last()) {
-        let start = first.start as f64;
-        let end = last.end as f64;
-        if end > start {
-            return (start, end - start);
-        }
-    }
-
     let seg_dur = if result.buffer_duration_ms > 0.0 {
         result.buffer_duration_ms / 1000.0
     } else {
