@@ -16,32 +16,37 @@ export function useChangeContentPathWizard({
   onSuccess: () => void;
 }) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [copyVault, setCopyVault] = useState(true);
+  const [moveVault, setMoveVault] = useState(true);
+
+  const selectPath = (path: string | null) => {
+    setSelectedPath(path);
+    setMoveVault(true);
+  };
 
   useEffect(() => {
     if (!open) return;
     setSelectedPath(currentPath ?? null);
-    setCopyVault(true);
+    setMoveVault(true);
   }, [currentPath, open]);
 
   const applyMutation = useMutation({
     mutationFn: async ({
       newPath,
-      shouldCopy,
+      shouldMove,
     }: {
       newPath: string;
-      shouldCopy: boolean;
+      shouldMove: boolean;
     }) => {
-      if (shouldCopy) {
-        const copyResult = await settingsCommands.copyVault(newPath);
-        if (copyResult.status === "error") {
-          throw new Error(copyResult.error);
+      if (shouldMove) {
+        const moveResult = await settingsCommands.moveVault(newPath);
+        if (moveResult.status === "error") {
+          throw new Error(moveResult.error);
         }
-      }
-
-      const setResult = await settingsCommands.setVaultBase(newPath);
-      if (setResult.status === "error") {
-        throw new Error(setResult.error);
+      } else {
+        const setResult = await settingsCommands.setVaultBase(newPath);
+        if (setResult.status === "error") {
+          throw new Error(setResult.error);
+        }
       }
     },
     onSuccess: async () => {
@@ -59,19 +64,19 @@ export function useChangeContentPathWizard({
     });
 
     if (selected) {
-      setSelectedPath(selected);
+      selectPath(selected);
     }
   };
 
   return {
     selectedPath,
-    selectPath: setSelectedPath,
-    copyVault,
-    setCopyVault,
+    selectPath,
+    moveVault,
+    setMoveVault,
     chooseFolder,
     apply: () => {
       if (selectedPath) {
-        applyMutation.mutate({ newPath: selectedPath, shouldCopy: copyVault });
+        applyMutation.mutate({ newPath: selectedPath, shouldMove: moveVault });
       }
     },
     isPending: applyMutation.isPending,

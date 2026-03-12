@@ -85,6 +85,35 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Settings<'a, R, M> {
         Ok(())
     }
 
+    pub async fn move_vault(&self, new_path: Utf8PathBuf) -> Result<(), crate::Error> {
+        let old_vault_base = self.vault_base()?;
+
+        if new_path == old_vault_base {
+            return Ok(());
+        }
+
+        hypr_storage::vault::validate_vault_base_change(
+            old_vault_base.as_ref(),
+            new_path.as_ref(),
+        )?;
+        if !hypr_storage::vault::fs::is_empty_or_missing_dir(new_path.as_ref())? {
+            return Err(hypr_storage::Error::VaultBaseIsNotEmpty.into());
+        }
+        hypr_storage::vault::ensure_vault_dir(new_path.as_ref())?;
+
+        // 1. Copy items to new location
+        hypr_storage::vault::fs::copy_vault_items(old_vault_base.as_ref(), new_path.as_ref())
+            .await?;
+
+        // 2. Persist the new vault path so config points to the copy
+        self.set_vault_base(new_path).await?;
+
+        // 3. Clean up old location (best-effort; data is already safe at the new path)
+        let _ = hypr_storage::vault::fs::remove_vault_items(old_vault_base.as_ref()).await;
+
+        Ok(())
+    }
+
     pub async fn set_vault_base(&self, new_path: Utf8PathBuf) -> Result<(), crate::Error> {
         let settings_base = self.settings_base_path()?;
         hypr_storage::vault::persist_vault_path(&settings_base, &settings_base, new_path.as_ref())?;

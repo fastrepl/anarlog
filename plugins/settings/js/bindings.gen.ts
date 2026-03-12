@@ -38,6 +38,14 @@ async copyVault(newPath: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async moveVault(newPath: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:settings|move_vault", { newPath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async setVaultBase(newPath: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:settings|set_vault_base", { newPath }) };
