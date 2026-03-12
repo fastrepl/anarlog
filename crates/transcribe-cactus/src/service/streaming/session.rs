@@ -27,7 +27,6 @@ struct ChannelState {
     pending_confidence: f64,
     pending_cloud_job_id: u64,
     cloud_handoff_segment_start: f64,
-    last_segments: Vec<hypr_cactus::StreamSegment>,
 }
 
 enum LoopAction {
@@ -311,7 +310,6 @@ async fn handle_transcribe_event(
                 state.last_confirmed_sent.clear();
                 state.last_confirmed_sent.push_str(confirmed_text);
                 state.last_pending_sent.clear();
-                state.last_segments = result.segments.clone();
                 state.segment_start = state.audio_offset;
                 state.speech_started = false;
                 return LoopAction::Continue;

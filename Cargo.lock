@@ -17770,9 +17770,6 @@ dependencies = [
  "tokio",
 ]
 
-[[package]]
-name = "tauri-plugin-apple-contact"
-version = "0.1.0"
 
 [[package]]
 name = "tauri-plugin-audio-priority"
@@ -18555,9 +18552,6 @@ dependencies = [
  "tokio",
 ]
 
-[[package]]
-name = "tauri-plugin-pdf"
-version = "0.1.0"
 
 [[package]]
 name = "tauri-plugin-permissions"
