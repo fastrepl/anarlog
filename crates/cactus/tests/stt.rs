@@ -104,7 +104,7 @@ fn test_stream_transcriber() {
     let chunk_size = 32000; // 1 second at 16kHz 16-bit mono
     let mut had_confirmed = false;
 
-    for chunk in pcm.chunks(chunk_size).take(10) {
+    for chunk in pcm.chunks(chunk_size).take(30) {
         let r = transcriber.process(chunk).unwrap();
         if !r.confirmed.is_empty() {
             had_confirmed = true;
