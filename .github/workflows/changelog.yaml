@@ -75,9 +75,9 @@ jobs:
             Read and follow positioning guidelines in `apps/web/content/AGENTS.md`.
 
             1.
-            Create apps/web/content/changelog/${{ steps.version.outputs.version }}.mdx.
+            Create packages/changelog/content/${{ steps.version.outputs.version }}.md.
             Changelog should be generated from commits between ${{ steps.version.outputs.prev }} ~ ${{ steps.version.outputs.current }}.
-            Follow guidelines in apps/web/content/changelog/AGENTS.md.
+            Follow guidelines in packages/changelog/content/AGENTS.md.
 
             2.
             Create a PR with title "Publish Changelog for ${{ steps.version.outputs.version }}"

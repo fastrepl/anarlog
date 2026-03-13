@@ -34,6 +34,7 @@
     "@effect/schema": "^0.75.5",
     "@floating-ui/react": "^0.27.17",
     "@hypr/api-client": "workspace:*",
+    "@hypr/changelog": "workspace:^",
     "@hypr/codemirror": "workspace:^",
     "@hypr/plugin-analytics": "workspace:*",
     "@hypr/plugin-audio-priority": "workspace:*",

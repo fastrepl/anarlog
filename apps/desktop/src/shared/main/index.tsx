@@ -662,7 +662,8 @@ function TabChatButton({
     currentTab?.type === "ai" ||
     currentTab?.type === "settings" ||
     currentTab?.type === "chat_support" ||
-    currentTab?.type === "onboarding"
+    currentTab?.type === "onboarding" ||
+    currentTab?.type === "changelog"
   ) {
     return null;
   }

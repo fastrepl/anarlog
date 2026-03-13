@@ -241,9 +241,9 @@ export const Route = createFileRoute("/admin/collections/")({
       return;
     }
 
-    const { hasCredentials } = await fetchGitHubCredentials();
+    const { hasCredentials, isValid } = await fetchGitHubCredentials();
 
-    if (!hasCredentials) {
+    if (!hasCredentials || !isValid) {
       throw redirect({
         to: "/auth/",
         search: {
@@ -352,12 +352,20 @@ function CollectionsPage() {
             },
           ],
         );
+        openTab("file", name, path, data.branch);
+        setIsCreatingNewPost(false);
         scheduleDraftSync();
       } else {
+        setIsCreatingNewPost(false);
         void queryClient.invalidateQueries({
           queryKey: DRAFT_ARTICLES_QUERY_KEY,
         });
       }
+    },
+    onError: (error) => {
+      sonnerToast.error("Create failed", {
+        description: error.message,
+      });
     },
   });
 
@@ -561,7 +569,6 @@ function CollectionsPage() {
               name: `${slug}.mdx`,
               type: "file",
             });
-            setIsCreatingNewPost(false);
           }}
           onCancelNewPost={() => setIsCreatingNewPost(false)}
           editingItem={editingItem}
@@ -988,10 +995,17 @@ function NewPostInlineInput({
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasSubmittedRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      hasSubmittedRef.current = false;
+    }
+  }, [isLoading]);
 
   const validateSlug = (slug: string): string | null => {
     if (!slug.trim()) {
@@ -1018,7 +1032,8 @@ function NewPostInlineInput({
       const validationError = validateSlug(slug);
       if (validationError) {
         setError(validationError);
-      } else {
+      } else if (!hasSubmittedRef.current) {
+        hasSubmittedRef.current = true;
         setError(null);
         onSubmit(slug);
       }
@@ -1039,7 +1054,8 @@ function NewPostInlineInput({
       setError(validationError);
       // Keep focus if there's an error
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
+    } else if (!hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       setError(null);
       onSubmit(slug);
     }
@@ -1384,7 +1400,7 @@ function ContentPanel({
     staleTime: 60000,
   });
 
-  const { mutate: publish, isPending: isPublishing } = useMutation({
+  const { mutateAsync: publish, isPending: isPublishing } = useMutation({
     mutationFn: async (params: {
       path: string;
       content: string;
@@ -1435,23 +1451,10 @@ function ContentPanel({
       const publishResult = await publishResponse.json();
       return { prUrl: publishResult.prUrl as string | undefined };
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["pendingPR", variables.path],
       });
-
-      if (data.prUrl) {
-        const opened = window.open(data.prUrl, "_blank");
-        if (!opened) {
-          sonnerToast.success("PR created", {
-            description: "Pop-up was blocked by your browser.",
-            action: {
-              label: "Open PR",
-              onClick: () => window.open(data.prUrl, "_blank"),
-            },
-          });
-        }
-      }
     },
     onError: (error) => {
       sonnerToast.error("Publish failed", {
@@ -1460,17 +1463,41 @@ function ContentPanel({
     },
   });
 
-  const handlePublish = useCallback(() => {
+  const handlePublish = useCallback(async () => {
     const currentEditorData = getCurrentEditorData();
 
     if (!currentTab || !currentEditorData) return;
 
-    publish({
-      path: currentTab.path,
-      content: currentEditorData.content,
-      metadata: currentEditorData.metadata,
-      branch: currentTab.branch,
-    });
+    const popup = window.open("", "_blank");
+
+    try {
+      const data = await publish({
+        path: currentTab.path,
+        content: currentEditorData.content,
+        metadata: currentEditorData.metadata,
+        branch: currentTab.branch,
+      });
+
+      if (data.prUrl) {
+        if (popup) {
+          popup.location.href = data.prUrl;
+          return;
+        }
+
+        sonnerToast.success("PR created", {
+          description: "Pop-up was blocked by your browser.",
+          action: {
+            label: "Open PR",
+            onClick: () => window.open(data.prUrl, "_blank"),
+          },
+        });
+        return;
+      }
+
+      popup?.close();
+    } catch {
+      popup?.close();
+    }
   }, [currentTab, getCurrentEditorData, publish]);
 
   return (

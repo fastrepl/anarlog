@@ -27,7 +27,7 @@ jobs:
             ## Your Task
             1. **Analyze Recent Changes**
                - Review git commits from the last 7 days using: `git log --since="7 days ago" --stat --oneline`
-               - Review the changelog files in `apps/web/content/changelog/` for any new releases
+               - Review the changelog files in `packages/changelog/content/` for any new releases
                - Focus on changes in: crates/, apps/desktop/, apps/web/, packages/, plugins/
                - Pay special attention to:
                  * New features or improvements

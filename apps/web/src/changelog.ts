@@ -29,20 +29,14 @@ function buildChangelogMeta(): ChangelogWithMeta[] {
   parsed.sort((a, b) => semver.compare(a.version, b.version));
 
   const stableByMajorMinor: Record<string, number[]> = {};
-  const preByBase: Record<string, number[]> = {};
   const allStableAsc: number[] = [];
 
   parsed.forEach((entry, idx) => {
     const v = entry.version;
     const majorMinor = `${v.major}.${v.minor}`;
-    const base = `${v.major}.${v.minor}.${v.patch}`;
 
-    if (v.prerelease.length === 0) {
-      allStableAsc.push(idx);
-      (stableByMajorMinor[majorMinor] ??= []).push(idx);
-    } else {
-      (preByBase[base] ??= []).push(idx);
-    }
+    allStableAsc.push(idx);
+    (stableByMajorMinor[majorMinor] ??= []).push(idx);
   });
 
   const stablePos: Record<number, number> = {};
@@ -57,36 +51,12 @@ function buildChangelogMeta(): ChangelogWithMeta[] {
     olderSlug: null,
   }));
 
-  // Pre-releases: chain within same base
-  Object.values(preByBase).forEach((indices) => {
-    indices.forEach((idx, j) => {
-      if (j === 0) {
-        withMeta[idx].beforeVersion = null;
-        return;
-      }
-
-      const prevIdx = indices[j - 1];
-      withMeta[idx].beforeVersion = parsed[prevIdx].doc.version;
-    });
-  });
-
-  // Stable releases: previous stable within same major/minor, or earliest pre
+  // Stable releases: previous stable within same major/minor
   Object.entries(stableByMajorMinor).forEach(([_, indicesForMm]) => {
     indicesForMm.forEach((idxInParsed, posInMm) => {
-      const entry = parsed[idxInParsed];
-      const v = entry.version;
-      const base = `${v.major}.${v.minor}.${v.patch}`;
-
       if (posInMm > 0) {
         const prevIdx = indicesForMm[posInMm - 1];
         withMeta[idxInParsed].beforeVersion = parsed[prevIdx].doc.version;
-        return;
-      }
-
-      const preIndices = preByBase[base];
-      if (preIndices && preIndices.length > 0) {
-        const firstPreIdx = preIndices[0];
-        withMeta[idxInParsed].beforeVersion = parsed[firstPreIdx].doc.version;
         return;
       }
 

@@ -14,6 +14,7 @@ urlencoding = { workspace = true }
 utoipa = { workspace = true }
 
 axum = { workspace = true }
+futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 sentry = { workspace = true }
 tokio = { workspace = true }

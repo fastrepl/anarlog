@@ -9,13 +9,11 @@ specta = ["dep:specta"]
 tauri-event = ["specta", "dep:tauri-specta"]
 
 [dependencies]
-hypr-aec = { workspace = true }
 hypr-audio = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-device-monitor = { workspace = true }
 hypr-host = { workspace = true }
 hypr-language = { workspace = true }
-hypr-resampler = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-supervisor = { workspace = true }
 hypr-transcript = { workspace = true }

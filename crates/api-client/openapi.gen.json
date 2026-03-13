@@ -1625,6 +1625,47 @@
         ],
         "type": "string"
       },
+      "WhoAmIItem": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "error": {
+            "nullable": true,
+            "type": "string"
+          },
+          "integration_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "integration_id",
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "WhoAmIResponse": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/WhoAmIItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "type": "object"
+      },
       "WorkingLocationProperties": {
         "properties": {
           "customLocation": {
@@ -2582,6 +2623,37 @@
             "description": "Invalid signature"
           }
         },
+        "tags": [
+          "nango"
+        ]
+      }
+    },
+    "/nango/whoami": {
+      "get": {
+        "operationId": "whoami",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoAmIResponse"
+                }
+              }
+            },
+            "description": "User info for all connections"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
         "tags": [
           "nango"
         ]

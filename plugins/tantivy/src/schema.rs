@@ -1,6 +1,7 @@
 use tantivy::TantivyDocument;
 use tantivy::schema::{
-    FAST, FacetOptions, Field, STORED, STRING, Schema, TextFieldIndexing, TextOptions, Value,
+    DateOptions, DateTimePrecision, FAST, FacetOptions, Field, STORED, STRING, Schema,
+    TextFieldIndexing, TextOptions, Value,
 };
 
 use crate::SearchDocument;
@@ -30,7 +31,10 @@ pub fn build_schema() -> Schema {
 
     schema_builder.add_text_field("title", text_options.clone());
     schema_builder.add_text_field("content", text_options);
-    schema_builder.add_i64_field("created_at", FAST | STORED);
+    schema_builder.add_date_field(
+        "created_at",
+        DateOptions::from(FAST | STORED).set_precision(DateTimePrecision::Milliseconds),
+    );
     schema_builder.add_facet_field("facets", FacetOptions::default());
     schema_builder.build()
 }
@@ -60,7 +64,10 @@ pub fn extract_search_document(
         .map(|s| s.to_string());
     let title = doc.get_first(fields.title)?.as_str()?.to_string();
     let content = doc.get_first(fields.content)?.as_str()?.to_string();
-    let created_at = doc.get_first(fields.created_at)?.as_i64()?;
+    let created_at = doc
+        .get_first(fields.created_at)?
+        .as_datetime()?
+        .into_timestamp_millis();
 
     let facets: Vec<String> = doc
         .get_all(fields.facets)
@@ -81,6 +88,7 @@ pub fn extract_search_document(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tantivy::DateTime;
 
     #[test]
     fn test_build_schema_has_language_field() {
@@ -97,5 +105,36 @@ mod tests {
             schema.get_field("content").is_ok(),
             "Schema should have a content field"
         );
+    }
+
+    #[test]
+    fn test_build_schema_stores_created_at_as_date_field() {
+        let schema = build_schema();
+        let created_at = schema.get_field("created_at").unwrap();
+        let entry = schema.get_field_entry(created_at);
+
+        assert!(entry.field_type().is_date());
+        assert!(entry.is_fast());
+        assert!(entry.is_stored());
+    }
+
+    #[test]
+    fn test_extract_search_document_reads_created_at_date_field_as_epoch_millis() {
+        let schema = build_schema();
+        let fields = get_fields(&schema);
+        let mut doc = TantivyDocument::new();
+
+        doc.add_text(fields.id, "doc-1");
+        doc.add_text(fields.doc_type, "session");
+        doc.add_text(fields.language, "en");
+        doc.add_text(fields.title, "Title");
+        doc.add_text(fields.content, "Content");
+        doc.add_date(
+            fields.created_at,
+            DateTime::from_timestamp_millis(1_710_000_000_123),
+        );
+
+        let extracted = extract_search_document(&schema, &fields, &doc).unwrap();
+        assert_eq!(extracted.created_at, 1_710_000_000_123);
     }
 }

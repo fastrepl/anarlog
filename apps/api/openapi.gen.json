@@ -406,6 +406,37 @@
         }
       }
     },
+    "/nango/whoami": {
+      "get": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "whoami",
+        "responses": {
+          "200": {
+            "description": "User info for all connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoAmIResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/stt/listen": {
       "get": {
         "tags": [
@@ -3642,6 +3673,53 @@
           "last",
           "unknown"
         ]
+      },
+      "WhoAmIItem": {
+        "type": "object",
+        "required": [
+          "integration_id",
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "integration_id": {
+            "type": "string"
+          }
+        }
+      },
+      "WhoAmIResponse": {
+        "type": "object",
+        "required": [
+          "accounts"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WhoAmIItem"
+            }
+          }
+        }
       },
       "WorkingLocationProperties": {
         "type": "object",

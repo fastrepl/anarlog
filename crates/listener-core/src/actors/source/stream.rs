@@ -1,21 +1,12 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
-
 use futures_util::StreamExt;
 use ractor::{ActorProcessingErr, ActorRef};
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    SessionProgressEvent,
-    actors::{AudioChunk, ChannelMode},
-};
-use hypr_audio::AudioInput;
+use crate::{SessionProgressEvent, actors::ChannelMode};
+use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame, CaptureStream};
 use hypr_audio_utils::chunk_size_for_stt;
-use hypr_resampler::ResampleExtDynamicNew;
 
-use super::{SourceMsg, SourceState};
+use super::{SourceFrame, SourceMsg, SourceState};
 
 pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,
@@ -72,12 +63,12 @@ async fn start_streams(
 struct StreamContext {
     actor: ActorRef<SourceMsg>,
     cancel_token: CancellationToken,
-    mic_muted: Arc<AtomicBool>,
+    mic_muted: std::sync::Arc<std::sync::atomic::AtomicBool>,
     mic_device: Option<String>,
 }
 
 impl StreamContext {
-    fn report_failure(&self, reason: &str) {
+    fn report_failure(&self, reason: impl Into<String>) {
         let _ = self.actor.cast(SourceMsg::StreamFailed(reason.into()));
     }
 
@@ -97,40 +88,37 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
         return;
     }
 
-    let mic_stream = if mode.uses_mic() {
-        match setup_mic_stream(&ctx) {
-            Ok(stream) => Some(stream),
-            Err(()) => return,
+    let sample_rate = crate::actors::SAMPLE_RATE;
+    let chunk_size = chunk_size_for_stt(sample_rate);
+
+    let capture_result: Result<CaptureStream, _> = match mode {
+        ChannelMode::MicAndSpeaker => {
+            let config = CaptureConfig {
+                sample_rate,
+                chunk_size,
+                mic_device: ctx.mic_device.clone(),
+                enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
+            };
+            AudioInput::from_mic_and_speaker(config)
         }
-    } else {
-        None
+        ChannelMode::SpeakerOnly => AudioInput::from_speaker_capture(sample_rate, chunk_size),
+        ChannelMode::MicOnly => {
+            AudioInput::from_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)
+        }
     };
 
-    if mode == ChannelMode::MicAndSpeaker {
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-    }
-
-    let spk_stream = if mode.uses_speaker() {
-        match setup_speaker_stream(&ctx) {
-            Ok(stream) => Some(stream),
-            Err(()) => return,
+    let mut capture_stream = match capture_result {
+        Ok(stream) => stream,
+        Err(error) => {
+            ctx.report_failure(error.to_string());
+            return;
         }
-    } else {
-        None
     };
-
-    tokio::pin!(mic_stream);
-    tokio::pin!(spk_stream);
 
     loop {
         let result = tokio::select! {
             _ = ctx.cancel_token.cancelled() => StreamResult::Stop,
-            item = async { mic_stream.as_mut().as_pin_mut()?.next().await }, if mic_stream.is_some() => {
-                handle_mic_item(&ctx, item)
-            }
-            item = async { spk_stream.as_mut().as_pin_mut()?.next().await }, if spk_stream.is_some() => {
-                handle_speaker_item(&ctx, item)
-            }
+            item = capture_stream.next() => handle_capture_item(&ctx, item)
         };
 
         if matches!(result, StreamResult::Stop) {
@@ -139,129 +127,29 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
     }
 }
 
-fn setup_mic_stream(
+fn handle_capture_item(
     ctx: &StreamContext,
-) -> Result<impl futures_util::Stream<Item = Result<Vec<f32>, hypr_resampler::Error>>, ()> {
-    let mut mic_input = match AudioInput::from_mic(ctx.mic_device.clone()) {
-        Ok(input) => input,
-        Err(err) => {
-            tracing::error!(
-                error.message = ?err,
-                hyprnote.audio.device = ?ctx.mic_device,
-                "mic_open_failed"
-            );
-            ctx.report_failure("mic_open_failed");
-            return Err(());
-        }
-    };
-
-    let chunk_size = chunk_size_for_stt(crate::actors::SAMPLE_RATE);
-    match mic_input
-        .stream()
-        .resampled_chunks(crate::actors::SAMPLE_RATE, chunk_size)
-    {
-        Ok(stream) => Ok(stream),
-        Err(err) => {
-            tracing::error!(
-                error.message = ?err,
-                hyprnote.audio.device = ?ctx.mic_device,
-                "mic_stream_setup_failed"
-            );
-            ctx.report_failure("mic_stream_setup_failed");
-            Err(())
-        }
-    }
-}
-
-fn setup_speaker_stream(
-    ctx: &StreamContext,
-) -> Result<impl futures_util::Stream<Item = Result<Vec<f32>, hypr_resampler::Error>>, ()> {
-    let mut spk_input = hypr_audio::AudioInput::from_speaker();
-    let chunk_size = chunk_size_for_stt(crate::actors::SAMPLE_RATE);
-    match spk_input
-        .stream()
-        .resampled_chunks(crate::actors::SAMPLE_RATE, chunk_size)
-    {
-        Ok(stream) => Ok(stream),
-        Err(err) => {
-            tracing::error!(error.message = ?err, "speaker_stream_setup_failed");
-            ctx.report_failure("speaker_stream_setup_failed");
-            Err(())
-        }
-    }
-}
-
-fn handle_mic_item(
-    ctx: &StreamContext,
-    item: Option<Result<Vec<f32>, hypr_resampler::Error>>,
+    item: Option<Result<CaptureFrame, hypr_audio::Error>>,
 ) -> StreamResult {
     match item {
-        Some(Ok(data)) => {
-            let output_data = if ctx.mic_muted.load(Ordering::Relaxed) {
-                vec![0.0; data.len()]
-            } else {
-                data
+        Some(Ok(frame)) => {
+            let frame = SourceFrame {
+                capture: frame,
+                mic_muted: ctx.mic_muted.load(std::sync::atomic::Ordering::Relaxed),
             };
-            if ctx
-                .actor
-                .cast(SourceMsg::MicChunk(AudioChunk { data: output_data }))
-                .is_err()
-            {
+            if ctx.actor.cast(SourceMsg::Frame(frame)).is_err() {
                 if !ctx.is_cancelled() {
-                    tracing::debug!("failed_to_cast_mic_chunk");
+                    tracing::debug!("failed_to_cast_capture_frame");
                 }
                 return StreamResult::Stop;
             }
             StreamResult::Continue
         }
-        Some(Err(err)) => {
-            tracing::error!(
-                error.message = ?err,
-                hyprnote.audio.device = ?ctx.mic_device,
-                "mic_resample_failed"
-            );
-            ctx.report_failure("mic_resample_failed");
+        Some(Err(error)) => {
+            tracing::error!(error.message = %error, "capture_stream_failed");
+            ctx.report_failure(error.to_string());
             StreamResult::Stop
         }
-        None => {
-            if !ctx.is_cancelled() {
-                tracing::error!(hyprnote.audio.device = ?ctx.mic_device, "mic_stream_ended");
-                ctx.report_failure("mic_stream_ended");
-            }
-            StreamResult::Stop
-        }
-    }
-}
-
-fn handle_speaker_item(
-    ctx: &StreamContext,
-    item: Option<Result<Vec<f32>, hypr_resampler::Error>>,
-) -> StreamResult {
-    match item {
-        Some(Ok(data)) => {
-            if ctx
-                .actor
-                .cast(SourceMsg::SpeakerChunk(AudioChunk { data }))
-                .is_err()
-            {
-                if !ctx.is_cancelled() {
-                    tracing::debug!("failed_to_cast_speaker_chunk");
-                }
-                return StreamResult::Stop;
-            }
-            StreamResult::Continue
-        }
-        Some(Err(err)) => {
-            tracing::error!(error.message = ?err, "speaker_resample_failed");
-            ctx.report_failure("speaker_resample_failed");
-            StreamResult::Stop
-        }
-        None => {
-            if !ctx.is_cancelled() {
-                tracing::error!("speaker_stream_ended");
-                ctx.report_failure("speaker_stream_ended");
-            }
-            StreamResult::Stop
-        }
+        None => StreamResult::Stop,
     }
 }

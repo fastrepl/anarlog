@@ -100,16 +100,6 @@ function useSettingsForm() {
   return { form, value };
 }
 
-export function SettingsAccount() {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="w-full max-w-md">
-        <AccountSettings />
-      </div>
-    </div>
-  );
-}
-
 export function SettingsApp() {
   const { form } = useSettingsForm();
 
@@ -128,6 +118,8 @@ export function SettingsApp() {
 
   return (
     <div className="flex flex-col gap-8 pt-3">
+      <AccountSettings />
+
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="save_recordings">

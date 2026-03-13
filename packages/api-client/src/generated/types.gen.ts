@@ -628,6 +628,18 @@ export type WebhookResponse = {
 
 export type WeekIndex = 'first' | 'second' | 'third' | 'fourth' | 'last' | 'unknown';
 
+export type WhoAmIItem = {
+    connection_id: string;
+    display_name?: string | null;
+    email?: string | null;
+    error?: string | null;
+    integration_id: string;
+};
+
+export type WhoAmIResponse = {
+    accounts: Array<WhoAmIItem>;
+};
+
 export type WorkingLocationProperties = {
     customLocation?: null | CustomLocation;
     homeOffice?: unknown;
@@ -1113,6 +1125,33 @@ export type NangoWebhookResponses = {
 };
 
 export type NangoWebhookResponse = NangoWebhookResponses[keyof NangoWebhookResponses];
+
+export type WhoamiData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/nango/whoami';
+};
+
+export type WhoamiErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type WhoamiResponses = {
+    /**
+     * User info for all connections
+     */
+    200: WhoAmIResponse;
+};
+
+export type WhoamiResponse = WhoamiResponses[keyof WhoamiResponses];
 
 export type SttListenStreamData = {
     body?: never;

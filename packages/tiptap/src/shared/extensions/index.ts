@@ -83,6 +83,57 @@ const AttachmentImage = Image.extend({
   },
 });
 
+const MarkdownUnderline = Underline.extend({
+  markdownTokenizer: {
+    name: "underline",
+    level: "inline",
+    start(src) {
+      const plusPlusIndex = src.indexOf("++");
+      const htmlIndex = src.indexOf("<u>");
+
+      if (plusPlusIndex === -1) {
+        return htmlIndex;
+      }
+
+      if (htmlIndex === -1) {
+        return plusPlusIndex;
+      }
+
+      return Math.min(plusPlusIndex, htmlIndex);
+    },
+    tokenize(src, _tokens, lexer) {
+      const plusPlusMatch = /^(\+\+)([\s\S]+?)(\+\+)/.exec(src);
+      if (plusPlusMatch) {
+        const innerContent = plusPlusMatch[2].trim();
+
+        return {
+          type: "underline",
+          raw: plusPlusMatch[0],
+          text: innerContent,
+          tokens: lexer.inlineTokens(innerContent),
+        };
+      }
+
+      const htmlMatch = /^(<u>)([\s\S]+?)(<\/u>)/.exec(src);
+      if (!htmlMatch) {
+        return undefined;
+      }
+
+      const innerContent = htmlMatch[2];
+
+      return {
+        type: "underline",
+        raw: htmlMatch[0],
+        text: innerContent,
+        tokens: lexer.inlineTokens(innerContent),
+      };
+    },
+  },
+  renderMarkdown(node, helpers) {
+    return `<u>${helpers.renderChildren(node)}</u>`;
+  },
+});
+
 const VALID_TLDS = new Set(tldList.map((t: string) => t.toLowerCase()));
 
 function isValidUrl(url: string): boolean {
@@ -116,7 +167,7 @@ export const getExtensions = (
     allowBase64: true,
     HTMLAttributes: { class: "tiptap-image" },
   }),
-  Underline,
+  MarkdownUnderline,
   Placeholder.configure({
     placeholder:
       placeholderComponent ??

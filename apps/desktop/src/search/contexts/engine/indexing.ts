@@ -7,6 +7,7 @@ import {
 import {
   collectCells,
   collectEnhancedNotesContent,
+  getSessionSearchTimestamp,
   toEpochMs,
   toTrimmedString,
 } from "./utils";
@@ -37,7 +38,7 @@ export async function indexSessions(store: MainStore): Promise<void> {
       language: null,
       title,
       content: createSessionSearchableContent(row),
-      created_at: toEpochMs(row.created_at),
+      created_at: getSessionSearchTimestamp(row),
       facets: [],
     });
   });

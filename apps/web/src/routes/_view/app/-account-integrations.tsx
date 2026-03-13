@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronDown, PlusIcon } from "lucide-react";
 
-import type { ConnectionItem } from "@hypr/api-client";
+import type { ConnectionItem, WhoAmIItem } from "@hypr/api-client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +11,7 @@ import {
 
 import { useBilling } from "@/hooks/use-billing";
 import { useConnections } from "@/hooks/use-connections";
+import { useWhoAmI } from "@/hooks/use-whoami";
 
 const INTEGRATIONS = [
   { id: "google-calendar", name: "Google Calendar" },
@@ -20,9 +21,14 @@ export function IntegrationsSettingsCard() {
   const navigate = useNavigate();
   const { isPro } = useBilling();
   const { data: connections, isLoading } = useConnections(isPro);
+  const { data: accounts } = useWhoAmI(isPro);
 
   const getProviderConnections = (integrationId: string) => {
     return connections?.filter((c) => c.integration_id === integrationId) ?? [];
+  };
+
+  const getAccountInfo = (connectionId: string) => {
+    return accounts?.find((a) => a.connection_id === connectionId);
   };
 
   return (
@@ -86,6 +92,7 @@ export function IntegrationsSettingsCard() {
                     key={connection.connection_id}
                     connection={connection}
                     integrationId={integration.id}
+                    account={getAccountInfo(connection.connection_id)}
                   />
                 ))}
               </div>
@@ -100,12 +107,16 @@ export function IntegrationsSettingsCard() {
 function ConnectionRow({
   connection,
   integrationId,
+  account,
 }: {
   connection: ConnectionItem;
   integrationId: string;
+  account?: WhoAmIItem;
 }) {
   const navigate = useNavigate();
   const isReconnectRequired = connection.status === "reconnect_required";
+  const displayLabel =
+    account?.email ?? account?.display_name ?? connection.connection_id;
 
   return (
     <div className="flex items-center justify-between rounded-md border border-neutral-100 px-3 py-2">
@@ -116,9 +127,7 @@ function ConnectionRow({
             isReconnectRequired ? "bg-amber-500" : "bg-green-500",
           ].join(" ")}
         />
-        <span className="text-xs text-neutral-700">
-          {connection.connection_id}
-        </span>
+        <span className="text-xs text-neutral-700">{displayLabel}</span>
         {isReconnectRequired && (
           <span className="text-xs text-amber-600">Reconnect required</span>
         )}

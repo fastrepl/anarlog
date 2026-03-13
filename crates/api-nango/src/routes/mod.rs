@@ -2,6 +2,7 @@ pub(crate) mod connect;
 pub(crate) mod disconnect;
 pub(crate) mod status;
 pub(crate) mod webhook;
+pub(crate) mod whoami;
 
 use axum::{
     Router,
@@ -15,6 +16,7 @@ pub use connect::{CreateSessionRequest, SessionMode, SessionResponse};
 pub use disconnect::{DeleteConnectionRequest, DeleteConnectionResponse};
 pub use status::{ConnectionItem, ListConnectionsResponse};
 pub use webhook::WebhookResponse;
+pub use whoami::{WhoAmIItem, WhoAmIResponse};
 
 pub fn router(config: NangoConfig) -> Router {
     let state = AppState::new(config);
@@ -25,6 +27,7 @@ pub fn router(config: NangoConfig) -> Router {
             "/connections",
             get(status::list_connections).delete(disconnect::delete_connection),
         )
+        .route("/whoami", get(whoami::whoami))
         .with_state(state)
 }
 

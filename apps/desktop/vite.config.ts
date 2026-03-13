@@ -6,6 +6,8 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 import { relayShim } from "@hypr/plugin-relay/vite";
 
+import { changelog } from "./plugins/changelog";
+
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
@@ -13,6 +15,7 @@ export default defineConfig(() => ({
   plugins: [
     tsconfigPaths(),
     relayShim(),
+    changelog(),
     tanstackRouter({ target: "react", autoCodeSplitting: false }),
     react({
       babel: {
