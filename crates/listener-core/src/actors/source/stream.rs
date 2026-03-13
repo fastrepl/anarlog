@@ -3,7 +3,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 use tokio_util::sync::CancellationToken;
 
 use crate::{SessionProgressEvent, actors::ChannelMode};
-use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame};
+use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame, CaptureStream};
 use hypr_audio_utils::chunk_size_for_stt;
 
 use super::{SourceFrame, SourceMsg, SourceState};
@@ -88,16 +88,26 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
         return;
     }
 
-    let capture_config = CaptureConfig {
-        sample_rate: crate::actors::SAMPLE_RATE,
-        chunk_size: chunk_size_for_stt(crate::actors::SAMPLE_RATE),
-        mic_device: ctx.mic_device.clone(),
-        include_mic: mode.uses_mic(),
-        include_speaker: mode.uses_speaker(),
-        enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
+    let sample_rate = crate::actors::SAMPLE_RATE;
+    let chunk_size = chunk_size_for_stt(sample_rate);
+
+    let capture_result: Result<CaptureStream, _> = match mode {
+        ChannelMode::MicAndSpeaker => {
+            let config = CaptureConfig {
+                sample_rate,
+                chunk_size,
+                mic_device: ctx.mic_device.clone(),
+                enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
+            };
+            AudioInput::from_mic_and_speaker(config)
+        }
+        ChannelMode::SpeakerOnly => AudioInput::from_speaker_capture(sample_rate, chunk_size),
+        ChannelMode::MicOnly => {
+            AudioInput::from_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)
+        }
     };
 
-    let mut capture_stream = match AudioInput::from_mic_and_speaker(capture_config) {
+    let mut capture_stream = match capture_result {
         Ok(stream) => stream,
         Err(error) => {
             ctx.report_failure(error.to_string());

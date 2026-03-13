@@ -121,6 +121,21 @@ impl AudioInput {
         capture::open_capture(config)
     }
 
+    pub fn from_speaker_capture(
+        sample_rate: u32,
+        chunk_size: usize,
+    ) -> Result<CaptureStream, Error> {
+        capture::open_speaker_capture(sample_rate, chunk_size)
+    }
+
+    pub fn from_mic_capture(
+        device: Option<String>,
+        sample_rate: u32,
+        chunk_size: usize,
+    ) -> Result<CaptureStream, Error> {
+        capture::open_mic_capture(device, sample_rate, chunk_size)
+    }
+
     pub fn from_mic(device_name: Option<String>) -> Result<Self, crate::Error> {
         let mic = MicInput::new(device_name)?;
 
