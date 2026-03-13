@@ -123,6 +123,7 @@ import { Route as ApiAdminStarsResearchRouteImport } from './routes/api/admin/st
 import { Route as ApiAdminStarsLeadsRouteImport } from './routes/api/admin/stars/leads'
 import { Route as ApiAdminStarsFetchRouteImport } from './routes/api/admin/stars/fetch'
 import { Route as ApiAdminMediaUploadRouteImport } from './routes/api/admin/media/upload'
+import { Route as ApiAdminMediaRegisterRouteImport } from './routes/api/admin/media/register'
 import { Route as ApiAdminMediaMoveRouteImport } from './routes/api/admin/media/move'
 import { Route as ApiAdminMediaListRouteImport } from './routes/api/admin/media/list'
 import { Route as ApiAdminMediaDeleteRouteImport } from './routes/api/admin/media/delete'
@@ -735,6 +736,11 @@ const ApiAdminMediaUploadRoute = ApiAdminMediaUploadRouteImport.update({
   path: '/api/admin/media/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminMediaRegisterRoute = ApiAdminMediaRegisterRouteImport.update({
+  id: '/api/admin/media/register',
+  path: '/api/admin/media/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminMediaMoveRoute = ApiAdminMediaMoveRouteImport.update({
   id: '/api/admin/media/move',
   path: '/api/admin/media/move',
@@ -1046,6 +1052,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
@@ -1188,6 +1195,7 @@ export interface FileRoutesByTo {
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
@@ -1336,6 +1344,7 @@ export interface FileRoutesById {
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
@@ -1484,6 +1493,7 @@ export interface FileRouteTypes {
     | '/api/admin/media/delete'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
@@ -1626,6 +1636,7 @@ export interface FileRouteTypes {
     | '/api/admin/media/delete'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
@@ -1773,6 +1784,7 @@ export interface FileRouteTypes {
     | '/api/admin/media/delete'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
@@ -1822,6 +1834,7 @@ export interface RootRouteChildren {
   ApiAdminMediaDeleteRoute: typeof ApiAdminMediaDeleteRoute
   ApiAdminMediaListRoute: typeof ApiAdminMediaListRoute
   ApiAdminMediaMoveRoute: typeof ApiAdminMediaMoveRoute
+  ApiAdminMediaRegisterRoute: typeof ApiAdminMediaRegisterRoute
   ApiAdminMediaUploadRoute: typeof ApiAdminMediaUploadRoute
   ApiAdminStarsFetchRoute: typeof ApiAdminStarsFetchRoute
   ApiAdminStarsLeadsRoute: typeof ApiAdminStarsLeadsRoute
@@ -2628,6 +2641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminMediaUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/media/register': {
+      id: '/api/admin/media/register'
+      path: '/api/admin/media/register'
+      fullPath: '/api/admin/media/register'
+      preLoaderRoute: typeof ApiAdminMediaRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/media/move': {
       id: '/api/admin/media/move'
       path: '/api/admin/media/move'
@@ -3143,6 +3163,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminMediaDeleteRoute: ApiAdminMediaDeleteRoute,
   ApiAdminMediaListRoute: ApiAdminMediaListRoute,
   ApiAdminMediaMoveRoute: ApiAdminMediaMoveRoute,
+  ApiAdminMediaRegisterRoute: ApiAdminMediaRegisterRoute,
   ApiAdminMediaUploadRoute: ApiAdminMediaUploadRoute,
   ApiAdminStarsFetchRoute: ApiAdminStarsFetchRoute,
   ApiAdminStarsLeadsRoute: ApiAdminStarsLeadsRoute,

@@ -1,3 +1,4 @@
+import MuxPlayer from "@mux/mux-player-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -2244,9 +2245,9 @@ function MediaItemCard({
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
@@ -2275,6 +2276,18 @@ function MediaItemCard({
             className="h-full w-full object-cover"
             loading="lazy"
           />
+        ) : isVideo && item.thumbnailUrl ? (
+          <div className="relative h-full w-full">
+            <img
+              src={item.thumbnailUrl}
+              alt={item.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
+            <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+              Video
+            </span>
+          </div>
         ) : isVideo ? (
           <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
             <FileIcon className="size-12 text-neutral-400" />
@@ -2504,9 +2517,9 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
@@ -2521,11 +2534,22 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
         />
       )}
       {isVideo && (
-        <video
-          src={item.publicUrl}
-          controls
-          className="max-h-full max-w-full object-contain"
-        />
+        <>
+          {item.playbackId ? (
+            <div className="w-full max-w-5xl overflow-hidden rounded-lg border border-neutral-200 bg-black">
+              <MuxPlayer
+                playbackId={item.playbackId}
+                className="aspect-video w-full"
+              />
+            </div>
+          ) : (
+            <video
+              src={item.publicUrl}
+              controls
+              className="max-h-full max-w-full object-contain"
+            />
+          )}
+        </>
       )}
       {isAudio && (
         <audio src={item.publicUrl} controls className="w-full max-w-md" />

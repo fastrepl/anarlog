@@ -9,6 +9,7 @@ import {
 import { sonnerToast as toast } from "@hypr/ui/components/ui/toast";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
+import type { MediaItem } from "@/lib/media-library";
 
 type FileStatus = "pending" | "uploading" | "done" | "error";
 
@@ -70,17 +71,7 @@ function UploadToast({
   );
 }
 
-export interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
+export type { MediaItem } from "@/lib/media-library";
 
 export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
   const response = await fetch(

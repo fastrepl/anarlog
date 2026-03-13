@@ -2,23 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
 import { env, requireEnv } from "@/env";
+import { listCatalogMediaItems } from "@/functions/media-catalog";
 import {
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
   parseMediaFilename,
 } from "@/lib/media";
-
-export interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
+import type { MediaItem } from "@/lib/media-library";
 
 function getSupabaseClient() {
   const key =
@@ -146,7 +136,7 @@ export async function listMediaFiles(
       return { items: [] };
     }
 
-    const items: MediaItem[] = data
+    const storageItems: MediaItem[] = data
       .filter(
         (item) =>
           item.name !== ".emptyFolderPlaceholder" && item.name !== ".folder",
@@ -168,8 +158,21 @@ export async function listMediaFiles(
         };
       });
 
-    const folders = items.filter((item) => item.type === "dir");
-    const files = items.filter((item) => item.type === "file");
+    const folders = storageItems.filter((item) => item.type === "dir");
+    const storageFiles = storageItems.filter((item) => item.type === "file");
+    const catalog = await listCatalogMediaItems(supabase, path);
+    const fileMap = new Map(
+      (catalog.supported ? catalog.items : []).map((item) => [item.path, item]),
+    );
+
+    for (const file of storageFiles) {
+      if (!fileMap.has(file.path)) {
+        fileMap.set(file.path, file);
+      }
+    }
+
+    const files = [...fileMap.values()];
+
     folders.sort((a, b) => a.name.localeCompare(b.name));
     files.sort((a, b) => a.name.localeCompare(b.name));
 

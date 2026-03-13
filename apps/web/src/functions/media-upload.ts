@@ -14,6 +14,24 @@ interface SignedUploadData {
   token: string;
 }
 
+async function registerUploadedMedia(params: {
+  path: string;
+  publicUrl: string;
+  mimeType: string | null;
+  size: number;
+}) {
+  const response = await fetch("/api/admin/media/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Failed to register media");
+  }
+}
+
 async function requestSignedUpload(
   endpoint: string,
   body: Record<string, unknown>,
@@ -49,6 +67,13 @@ async function uploadToSignedUrl(file: File, signedUpload: SignedUploadData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registerUploadedMedia({
+    path: signedUpload.path,
+    publicUrl: signedUpload.publicUrl,
+    mimeType: contentType || file.type || null,
+    size: file.size,
+  });
 
   return {
     path: signedUpload.path,

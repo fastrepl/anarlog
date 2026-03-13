@@ -7,18 +7,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
-
-interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
+import type { MediaItem } from "@/lib/media-library";
 
 async function fetchMediaItems(path: string): Promise<MediaItem[]> {
   const response = await fetch(
