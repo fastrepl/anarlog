@@ -140,15 +140,17 @@ export function TroubleShootingLink({
   onReset,
   onOpen,
   isPending,
+  className,
 }: {
   onRequest: () => void;
   onReset: () => void;
   onOpen: () => void;
   isPending: boolean;
+  className?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
   return (
-    <div className="text-xs text-neutral-600">
+    <div className={cn(["text-xs text-neutral-600", className])}>
       {!showActions ? (
         <button
           type="button"

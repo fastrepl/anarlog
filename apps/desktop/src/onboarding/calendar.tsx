@@ -1,10 +1,9 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { CalendarIcon } from "lucide-react";
 
 import { OnboardingButton } from "./shared";
 
 import { useAppleCalendarSelection } from "~/calendar/components/apple/calendar-selection";
-import { ApplePermissions } from "~/calendar/components/apple/permission";
+import { TroubleShootingLink } from "~/calendar/components/apple/permission";
 import { CalendarSelection } from "~/calendar/components/calendar-selection";
 import { SyncProvider } from "~/calendar/components/context";
 import { usePermission } from "~/shared/hooks/usePermissions";
@@ -22,23 +21,49 @@ function AppleCalendarList() {
   );
 }
 
-function RequestCalendarAccess({
-  onRequest,
+function AppleCalendarProvider({
+  isAuthorized,
   isPending,
+  onRequest,
+  onOpen,
+  onReset,
 }: {
-  onRequest: () => void;
+  isAuthorized: boolean;
   isPending: boolean;
+  onRequest: () => void;
+  onOpen: () => void;
+  onReset: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border px-4 py-6">
-      <CalendarIcon className="mb-2 size-6 text-neutral-300" />
-      <OnboardingButton
-        onClick={onRequest}
-        disabled={isPending}
-        className="border-stone-700 bg-stone-800 text-white hover:bg-stone-700"
-      >
-        Request Access to Apple Calendar
-      </OnboardingButton>
+    <div className="flex flex-col gap-3">
+      {isAuthorized ? (
+        <SyncProvider>
+          <AppleCalendarList />
+        </SyncProvider>
+      ) : (
+        <div className="flex items-center gap-3">
+          <OnboardingButton
+            onClick={onRequest}
+            disabled={isPending}
+            className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
+          >
+            <img
+              src="/assets/apple-calendar.png"
+              alt=""
+              aria-hidden="true"
+              className="size-5 rounded-[4px] object-cover"
+            />
+            Connect Apple Calendar
+          </OnboardingButton>
+          <TroubleShootingLink
+            onRequest={onRequest}
+            onReset={onReset}
+            onOpen={onOpen}
+            isPending={isPending}
+            className="text-sm text-neutral-500"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -51,25 +76,19 @@ export function CalendarSection({ onContinue }: { onContinue: () => void }) {
     main.QUERIES.enabledCalendars,
     main.STORE_ID,
   );
-  const hasConnectedCalendar = Object.keys(enabledCalendars ?? {}).length > 0;
+  const hasConnectedCalendar =
+    isAuthorized && Object.keys(enabledCalendars ?? {}).length > 0;
 
   return (
     <div className="flex flex-col gap-4">
       {isMacos && (
-        <div className="flex flex-col gap-4">
-          <ApplePermissions />
-
-          {isAuthorized ? (
-            <SyncProvider>
-              <AppleCalendarList />
-            </SyncProvider>
-          ) : (
-            <RequestCalendarAccess
-              onRequest={calendar.request}
-              isPending={calendar.isPending}
-            />
-          )}
-        </div>
+        <AppleCalendarProvider
+          isAuthorized={isAuthorized}
+          isPending={calendar.isPending}
+          onRequest={calendar.request}
+          onOpen={calendar.open}
+          onReset={calendar.reset}
+        />
       )}
 
       {hasConnectedCalendar ? (
