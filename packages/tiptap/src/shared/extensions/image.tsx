@@ -144,6 +144,7 @@ function ResizableImageNodeView({
           title={stripEditorWidthFromTitle(node.attrs.title)}
           className={cn([
             "tiptap-image max-w-full",
+            selected ? "rounded-md bg-white ring-1 ring-neutral-200" : "",
             hasExplicitWidth ? "w-full" : "",
           ])}
           draggable={false}

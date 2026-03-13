@@ -52,7 +52,7 @@ const previewCardComponents: typeof streamdownComponents = {
         {...props}
         title={title ?? undefined}
         className={cn([
-          "block max-h-32 w-full rounded-md border border-neutral-200 bg-white object-contain",
+          "block max-h-32 w-full rounded-md bg-white object-contain",
           props.className,
         ])}
         style={{
@@ -420,7 +420,7 @@ export function SessionPreviewCard({
                 className={cn([
                   "text-neutral-600",
                   previewHasImage
-                    ? "max-h-32 overflow-hidden rounded-md bg-neutral-50 p-1"
+                    ? "max-h-32 overflow-hidden"
                     : "max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
                 ])}
               >
@@ -429,7 +429,7 @@ export function SessionPreviewCard({
                     src={previewImage.src}
                     alt={previewImage.alt}
                     title={previewImage.title}
-                    className="block h-28 w-full rounded-md border border-neutral-200 bg-white object-cover object-top"
+                    className="block h-28 w-full object-cover object-top"
                   />
                 ) : previewMarkdown ? (
                   <Streamdown
