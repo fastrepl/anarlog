@@ -2252,9 +2252,13 @@ interface MetadataHandlers {
 }
 
 function MetadataPanel({
+  isExpanded,
+  onToggleExpanded,
   filePath,
   handlers,
 }: {
+  isExpanded: boolean;
+  onToggleExpanded: () => void;
   filePath: string;
   handlers: MetadataHandlers;
 }) {
@@ -2263,115 +2267,142 @@ function MetadataPanel({
   return (
     <div
       key={filePath}
-      className="h-full overflow-y-auto border-b border-neutral-200 text-sm"
+      className={cn([
+        "relative shrink-0",
+        isExpanded && "border-b border-neutral-200",
+      ])}
     >
-      <div className="flex border-b border-neutral-200">
-        <button
-          onClick={() => setIsTitleExpanded(!isTitleExpanded)}
-          className="relative flex w-24 shrink-0 items-center justify-between px-4 py-2 text-neutral-500 hover:text-neutral-700"
-        >
-          <span className="absolute left-1 text-red-400">*</span>
-          Title
-          <ChevronRightIcon
-            className={cn([
-              "size-3 transition-transform",
-              isTitleExpanded && "rotate-90",
-            ])}
-          />
-        </button>
-        <input
-          type="text"
-          value={handlers.metaTitle}
-          onChange={(e) => handlers.onMetaTitleChange(e.target.value)}
-          placeholder="SEO meta title"
-          className="flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
-        />
-      </div>
-      {isTitleExpanded && (
-        <div className="flex border-b border-neutral-200 bg-neutral-50">
-          <span className="relative flex w-24 shrink-0 items-center gap-1 px-4 py-2 text-neutral-400">
-            <span className="text-neutral-300">└</span>
-            Display
-          </span>
+      <div
+        className={cn([
+          "overflow-hidden text-sm transition-all duration-200",
+          isExpanded ? "max-h-125" : "max-h-0",
+        ])}
+      >
+        <div className="flex border-b border-neutral-200">
+          <button
+            onClick={() => setIsTitleExpanded(!isTitleExpanded)}
+            className="relative flex w-24 shrink-0 items-center justify-between px-4 py-2 text-neutral-500 hover:text-neutral-700"
+          >
+            <span className="absolute left-1 text-red-400">*</span>
+            Title
+            <ChevronRightIcon
+              className={cn([
+                "size-3 transition-transform",
+                isTitleExpanded && "rotate-90",
+              ])}
+            />
+          </button>
           <input
             type="text"
-            value={handlers.displayTitle}
-            onChange={(e) => handlers.onDisplayTitleChange(e.target.value)}
-            placeholder={handlers.metaTitle || "Display title (optional)"}
+            value={handlers.metaTitle}
+            onChange={(e) => handlers.onMetaTitleChange(e.target.value)}
+            placeholder="SEO meta title"
             className="flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
           />
         </div>
-      )}
-      <MetadataRow label="Author" required>
-        <div className="flex-1 px-2 py-2">
-          <AuthorSelect
-            value={handlers.author}
-            onChange={handlers.onAuthorChange}
-          />
-        </div>
-      </MetadataRow>
-      <MetadataRow label="Date" required>
-        <input
-          type="date"
-          value={handlers.date}
-          onChange={(e) => handlers.onDateChange(e.target.value)}
-          className="-ml-1 flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden"
-        />
-      </MetadataRow>
-      <MetadataRow label="Description" required>
-        <textarea
-          ref={(el) => {
-            if (el) {
-              el.style.height = "auto";
-              el.style.height = `${el.scrollHeight}px`;
-            }
-          }}
-          value={handlers.metaDescription}
-          onChange={(e) => handlers.onMetaDescriptionChange(e.target.value)}
-          placeholder="Meta description for SEO"
-          rows={1}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = "auto";
-            target.style.height = `${target.scrollHeight}px`;
-          }}
-          className="flex-1 resize-none bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
-        />
-      </MetadataRow>
-      <MetadataRow label="Category">
-        <select
-          value={handlers.category}
-          onChange={(e) => handlers.onCategoryChange(e.target.value)}
-          className="flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden"
-        >
-          <option value="">Select category</option>
-          <option value="Case Study">Case Study</option>
-          <option value="Char Weekly">Char Weekly</option>
-          <option value="Productivity Hack">Productivity Hack</option>
-          <option value="Engineering">Engineering</option>
-        </select>
-      </MetadataRow>
-      <MetadataRow label="Cover">
-        <div className="flex flex-1 items-center gap-2 px-2 py-2">
+        {isTitleExpanded && (
+          <div className="flex border-b border-neutral-200 bg-neutral-50">
+            <span className="relative flex w-24 shrink-0 items-center gap-1 px-4 py-2 text-neutral-400">
+              <span className="text-neutral-300">└</span>
+              Display
+            </span>
+            <input
+              type="text"
+              value={handlers.displayTitle}
+              onChange={(e) => handlers.onDisplayTitleChange(e.target.value)}
+              placeholder={handlers.metaTitle || "Display title (optional)"}
+              className="flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
+            />
+          </div>
+        )}
+        <MetadataRow label="Author" required>
+          <div className="flex-1 px-2 py-2">
+            <AuthorSelect
+              value={handlers.author}
+              onChange={handlers.onAuthorChange}
+            />
+          </div>
+        </MetadataRow>
+        <MetadataRow label="Date" required>
           <input
-            type="text"
-            value={handlers.coverImage}
-            onChange={(e) => handlers.onCoverImageChange(e.target.value)}
-            placeholder="/api/images/blog/slug/cover.png"
-            className="flex-1 bg-transparent text-neutral-900 outline-hidden placeholder:text-neutral-300"
+            type="date"
+            value={handlers.date}
+            onChange={(e) => handlers.onDateChange(e.target.value)}
+            className="-ml-1 flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden"
           />
-        </div>
-      </MetadataRow>
-      <MetadataRow label="Featured" noBorder>
-        <div className="flex flex-1 items-center px-2 py-2">
-          <input
-            type="checkbox"
-            checked={handlers.featured}
-            onChange={(e) => handlers.onFeaturedChange(e.target.checked)}
-            className="rounded"
+        </MetadataRow>
+        <MetadataRow label="Description" required>
+          <textarea
+            ref={(el) => {
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            value={handlers.metaDescription}
+            onChange={(e) => handlers.onMetaDescriptionChange(e.target.value)}
+            placeholder="Meta description for SEO"
+            rows={1}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = "auto";
+              target.style.height = `${target.scrollHeight}px`;
+            }}
+            className="flex-1 resize-none bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
           />
-        </div>
-      </MetadataRow>
+        </MetadataRow>
+        <MetadataRow label="Category">
+          <select
+            value={handlers.category}
+            onChange={(e) => handlers.onCategoryChange(e.target.value)}
+            className="flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden"
+          >
+            <option value="">Select category</option>
+            <option value="Case Study">Case Study</option>
+            <option value="Char Weekly">Char Weekly</option>
+            <option value="Productivity Hack">Productivity Hack</option>
+            <option value="Engineering">Engineering</option>
+          </select>
+        </MetadataRow>
+        <MetadataRow label="Cover">
+          <div className="flex flex-1 items-center gap-2 px-2 py-2">
+            <input
+              type="text"
+              value={handlers.coverImage}
+              onChange={(e) => handlers.onCoverImageChange(e.target.value)}
+              placeholder="/api/images/blog/slug/cover.png"
+              className="flex-1 bg-transparent text-neutral-900 outline-hidden placeholder:text-neutral-300"
+            />
+          </div>
+        </MetadataRow>
+        <MetadataRow label="Featured" noBorder>
+          <div className="flex flex-1 items-center px-2 py-2">
+            <input
+              type="checkbox"
+              checked={handlers.featured}
+              onChange={(e) => handlers.onFeaturedChange(e.target.checked)}
+              className="rounded"
+            />
+          </div>
+        </MetadataRow>
+      </div>
+      <button
+        onClick={onToggleExpanded}
+        className={cn([
+          "absolute top-full left-1/2 z-10 -translate-x-1/2",
+          "flex items-center justify-center",
+          "h-4 w-10 rounded-b-md border border-t-0 border-neutral-200 bg-white",
+          "text-neutral-400 hover:text-neutral-600",
+          "cursor-pointer transition-colors",
+        ])}
+      >
+        <ChevronDownIcon
+          className={cn([
+            "size-3 transition-transform duration-200",
+            isExpanded && "rotate-180",
+          ])}
+        />
+      </button>
     </div>
   );
 }
@@ -2770,6 +2801,7 @@ const FileEditor = React.forwardRef<
   const [featured, setFeatured] = useState(fileContent?.featured || false);
   const [category, setCategory] = useState(fileContent?.category || "");
 
+  const [isMetadataExpanded, setIsMetadataExpanded] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isMediaSelectorOpen, setIsMediaSelectorOpen] = useState(false);
   const [autoSaveCountdown, setAutoSaveCountdown] = useState<number | null>(
@@ -3162,42 +3194,27 @@ const FileEditor = React.forwardRef<
     return (
       <>
         {pendingPRBanner}
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="min-h-0 flex-1"
-          autoSaveId="article-preview-layout"
-        >
+        <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
           <ResizablePanel defaultSize={50} minSize={30}>
-            <ResizablePanelGroup
-              direction="vertical"
-              className="h-full min-h-0"
-              autoSaveId="article-preview-editor"
-            >
-              <ResizablePanel defaultSize={36} minSize={20} maxSize={60}>
-                <MetadataPanel
-                  filePath={filePath}
-                  handlers={metadataHandlers}
-                />
-              </ResizablePanel>
-              <ResizableHandle
-                withHandle
-                className="bg-neutral-200 hover:bg-neutral-300"
+            <div className="flex h-full flex-col">
+              <MetadataPanel
+                isExpanded={isMetadataExpanded}
+                onToggleExpanded={() =>
+                  setIsMetadataExpanded(!isMetadataExpanded)
+                }
+                filePath={filePath}
+                handlers={metadataHandlers}
               />
-              <ResizablePanel defaultSize={64} minSize={25}>
-                <BlogEditor
-                  editor={editor}
-                  onGoogleDocsImport={handleGoogleDocsImport}
-                  isImporting={isImporting}
-                  onAddImageFromLibrary={() => setIsMediaSelectorOpen(true)}
-                  showToolbar={false}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
+              <BlogEditor
+                editor={editor}
+                onGoogleDocsImport={handleGoogleDocsImport}
+                isImporting={isImporting}
+                onAddImageFromLibrary={() => setIsMediaSelectorOpen(true)}
+                showToolbar={false}
+              />
+            </div>
           </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            className="bg-neutral-200 hover:bg-neutral-300"
-          />
+          <ResizableHandle className="w-px bg-neutral-200" />
           <ResizablePanel defaultSize={50} minSize={30}>
             {renderPreview()}
           </ResizablePanel>
@@ -3215,11 +3232,7 @@ const FileEditor = React.forwardRef<
   return (
     <>
       {pendingPRBanner}
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="min-h-0 flex-1"
-        autoSaveId="article-edit-layout"
-      >
+      <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
         <ResizablePanel defaultSize={70} minSize={50}>
           <BlogEditor
             editor={editor}
@@ -3228,10 +3241,7 @@ const FileEditor = React.forwardRef<
             onAddImageFromLibrary={() => setIsMediaSelectorOpen(true)}
           />
         </ResizablePanel>
-        <ResizableHandle
-          withHandle
-          className="bg-neutral-200 hover:bg-neutral-300"
-        />
+        <ResizableHandle className="w-px bg-neutral-200" />
         <ResizablePanel defaultSize={30} minSize={20}>
           <div className="h-full overflow-y-auto">
             <MetadataSidePanel
