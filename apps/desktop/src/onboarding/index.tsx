@@ -163,7 +163,7 @@ export function TabContentOnboarding({
               onBack={goBack}
               onNext={goNext}
             >
-              <PermissionsSection />
+              <PermissionsSection onContinue={goNext} />
             </OnboardingSection>
 
             <OnboardingSection

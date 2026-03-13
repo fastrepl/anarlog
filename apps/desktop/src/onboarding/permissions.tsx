@@ -5,6 +5,7 @@ import {
   type LucideIcon,
   Volume2Icon,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import { type PermissionStatus } from "@hypr/plugin-permissions";
 import { cn } from "@hypr/utils";
@@ -103,9 +104,23 @@ function PermissionBlock({
   );
 }
 
-export function PermissionsSection() {
+export function PermissionsSection({
+  onContinue,
+}: {
+  onContinue?: () => void;
+}) {
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
+  const hasContinuedRef = useRef(false);
+
+  const isComplete =
+    mic.status === "authorized" && systemAudio.status === "authorized";
+
+  useEffect(() => {
+    if (!isComplete || hasContinuedRef.current) return;
+    hasContinuedRef.current = true;
+    onContinue?.();
+  }, [isComplete, onContinue]);
 
   const handleAction = (perm: ReturnType<typeof usePermission>) => {
     if (perm.status === "denied") {
