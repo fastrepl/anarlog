@@ -32,7 +32,7 @@ fn sanitize_filename(name: &str) -> String {
         .to_string()
 }
 
-fn group_by_session_id<'a, T, F>(items: &'a [T], get_id: F) -> HashMap<&'a str, Vec<&'a T>>
+fn group_by_session_id<T, F>(items: &[T], get_id: F) -> HashMap<&str, Vec<&T>>
 where
     F: Fn(&T) -> &str,
 {
@@ -135,14 +135,13 @@ fn collect_session_ops(base_dir: &Path, data: &Collection) -> Result<Vec<FileOp>
             content: build_meta_json(session, session_participants, &session_tags),
         });
 
-        if let Some(transcripts) = transcripts.get(sid) {
-            if let Some(t) = transcripts.first() {
+        if let Some(transcripts) = transcripts.get(sid)
+            && let Some(t) = transcripts.first() {
                 ops.push(FileOp::Write {
                     path: dir.join(files::TRANSCRIPT),
                     content: build_transcript_json(t),
                 });
             }
-        }
 
         ops.extend(build_memo_op(&dir, session));
 

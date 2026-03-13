@@ -30,6 +30,7 @@ exclude = [
   "apps/api",
   "apps/bot",
   "apps/web",
+  "plugins/cli2",
   "plugins/db",
   "plugins/export",
 ]

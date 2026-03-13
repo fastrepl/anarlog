@@ -21,6 +21,8 @@ macro_rules! define_notification_callback {
             *$static_name.lock().unwrap() = Some(Box::new(f));
         }
 
+        /// # Safety
+        /// `key_ptr` must be a valid, non-null pointer to a null-terminated C string.
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn $extern_fn(key_ptr: *const c_char) {
             if let Some(cb) = $static_name.lock().unwrap().as_ref() {
