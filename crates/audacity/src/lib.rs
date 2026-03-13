@@ -2,6 +2,9 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+const COMMANDS_FILENAME: &str = "audacity_commands.txt";
+const SCRIPT_FILENAME: &str = "open_in_audacity.py";
+
 #[derive(Debug, Clone)]
 pub struct Track {
     path: PathBuf,
@@ -26,6 +29,20 @@ impl Track {
     pub fn muted(mut self, muted: bool) -> Self {
         self.muted = muted;
         self
+    }
+
+    fn import_command(&self) -> io::Result<String> {
+        Ok(format!("Import2: Filename={}", audacity_path(&self.path)?))
+    }
+
+    fn push_status_commands(&self, track_index: usize, commands: &mut Vec<String>) {
+        commands.push(select_tracks_command(track_index, 1));
+        if let Some(name) = &self.name {
+            commands.push(format!("SetTrackStatus: Name={}", audacity_value(name)));
+        }
+        if self.muted {
+            commands.push("SetTrackAudio: Mute=1".to_string());
+        }
     }
 }
 
@@ -57,8 +74,8 @@ impl Project {
         let out_dir = out_dir.as_ref();
         fs::create_dir_all(out_dir)?;
 
-        let commands_path = out_dir.join("audacity_commands.txt");
-        let script_path = out_dir.join("open_in_audacity.py");
+        let commands_path = out_dir.join(COMMANDS_FILENAME);
+        let script_path = out_dir.join(SCRIPT_FILENAME);
 
         fs::write(&commands_path, self.render_commands()?)?;
         fs::write(&script_path, PYTHON_HELPER)?;
@@ -79,34 +96,35 @@ impl Project {
     }
 
     fn render_commands(&self) -> io::Result<String> {
-        let mut commands = Vec::new();
-
-        for track in &self.tracks {
-            commands.push(format!(
-                "Import2: Filename={}",
-                audacity_string(&track.path)?
-            ));
-        }
-
-        for (index, track) in self.tracks.iter().enumerate() {
-            commands.push(format!("SelectTracks: Track={index} TrackCount=1 Mode=Set"));
-            if let Some(name) = &track.name {
-                commands.push(format!("SetTrackStatus: Name={}", audacity_value(name)));
-            }
-            if track.muted {
-                commands.push("SetTrackAudio: Mute=1".to_string());
-            }
-        }
-
-        if self.align_start_to_zero && !self.tracks.is_empty() {
-            commands.push(format!(
-                "SelectTracks: Track=0 TrackCount={} Mode=Set",
-                self.tracks.len()
-            ));
-            commands.push("Align_StartToZero:".to_string());
+        let commands = self.render_command_lines()?;
+        if commands.is_empty() {
+            return Ok(String::new());
         }
 
         Ok(format!("{}\n", commands.join("\n")))
+    }
+
+    fn render_command_lines(&self) -> io::Result<Vec<String>> {
+        let mut commands = Vec::with_capacity(self.tracks.len() * 3 + 2);
+
+        for track in &self.tracks {
+            commands.push(track.import_command()?);
+        }
+
+        for (index, track) in self.tracks.iter().enumerate() {
+            track.push_status_commands(index, &mut commands);
+        }
+
+        if self.should_align_start_to_zero() {
+            commands.push(select_tracks_command(0, self.tracks.len()));
+            commands.push("Align_StartToZero:".to_string());
+        }
+
+        Ok(commands)
+    }
+
+    fn should_align_start_to_zero(&self) -> bool {
+        self.align_start_to_zero && !self.tracks.is_empty()
     }
 }
 
@@ -116,17 +134,21 @@ pub struct Bundle {
     pub script_path: PathBuf,
 }
 
-fn audacity_string(path: &Path) -> io::Result<String> {
+fn audacity_path(path: &Path) -> io::Result<String> {
     let path = path.canonicalize()?;
-    let path = path
-        .to_string_lossy()
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"");
-    Ok(format!("\"{path}\""))
+    Ok(audacity_value(&path.to_string_lossy()))
 }
 
 fn audacity_value(value: &str) -> String {
-    format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+    format!("\"{}\"", escape_audacity_value(value))
+}
+
+fn escape_audacity_value(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn select_tracks_command(track_index: usize, track_count: usize) -> String {
+    format!("SelectTracks: Track={track_index} TrackCount={track_count} Mode=Set")
 }
 
 const PYTHON_HELPER: &str = r##"#!/usr/bin/env python3
@@ -134,7 +156,6 @@ import os
 import queue
 import signal
 import threading
-import time
 from pathlib import Path
 
 
@@ -192,16 +213,39 @@ def open_pipe(path, mode, timeout=3.0):
     return opened
 
 
-def drain_responses(from_pipe, done):
-    while not done.is_set():
+def read_response(from_pipe):
+    response = []
+    while True:
         line = from_pipe.readline()
         if line == "":
-            done.set()
-            return
+            raise SystemExit("Audacity pipe closed while waiting for a response.")
 
         line = line.rstrip("\r\n")
-        if line:
-            print(f"<- {line}")
+        if not line:
+            return response
+
+        print(f"<- {line}")
+        response.append(line)
+
+
+def send_command(to_pipe, from_pipe, command):
+    print(f"-> {command}")
+    to_pipe.write(command + "\n")
+    to_pipe.flush()
+
+    response = read_response(from_pipe)
+    if not response:
+        raise SystemExit(f"No response from Audacity for command: {command}")
+
+    status_line = response[-1]
+    if status_line.endswith("finished: OK"):
+        return
+
+    raise SystemExit(
+        "Audacity command failed:\n"
+        f"  command: {command}\n"
+        f"  status: {status_line}"
+    )
 
 
 def exit_now(code):
@@ -220,23 +264,11 @@ def main():
         if line.strip() and not line.lstrip().startswith("#")
     ]
 
-    done = threading.Event()
     signal.signal(signal.SIGINT, lambda *_: exit_now(130))
 
     with open_pipe(to_path, "w") as to_pipe, open_pipe(from_path, "r") as from_pipe:
-        reader = threading.Thread(target=drain_responses, args=(from_pipe, done), daemon=True)
-        reader.start()
-
         for command in commands:
-            print(f"-> {command}")
-            to_pipe.write(command + "\n")
-            to_pipe.flush()
-            time.sleep(0.3)
-
-        time.sleep(1.0)
-        done.set()
-        time.sleep(0.2)
-        exit_now(0)
+            send_command(to_pipe, from_pipe, command)
 
 
 if __name__ == "__main__":
@@ -245,3 +277,64 @@ if __name__ == "__main__":
     except BrokenPipeError:
         raise SystemExit("Audacity pipe closed while sending commands.")
 "##;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn render_command_lines_renders_tracks_and_alignment() {
+        let temp_dir = unique_test_dir("render-command-lines");
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let first_path = temp_dir.join("one.wav");
+        let second_path = temp_dir.join("two.wav");
+        fs::write(&first_path, []).unwrap();
+        fs::write(&second_path, []).unwrap();
+
+        let project = Project::new()
+            .with_track(Track::new(&first_path).with_name("lead"))
+            .with_track(Track::new(&second_path).with_name("backing").muted(true));
+
+        let commands = project.render_command_lines().unwrap();
+
+        assert_eq!(
+            commands,
+            vec![
+                format!("Import2: Filename={}", audacity_path(&first_path).unwrap()),
+                format!("Import2: Filename={}", audacity_path(&second_path).unwrap()),
+                "SelectTracks: Track=0 TrackCount=1 Mode=Set".to_string(),
+                "SetTrackStatus: Name=\"lead\"".to_string(),
+                "SelectTracks: Track=1 TrackCount=1 Mode=Set".to_string(),
+                "SetTrackStatus: Name=\"backing\"".to_string(),
+                "SetTrackAudio: Mute=1".to_string(),
+                "SelectTracks: Track=0 TrackCount=2 Mode=Set".to_string(),
+                "Align_StartToZero:".to_string(),
+            ]
+        );
+
+        fs::remove_dir_all(temp_dir).unwrap();
+    }
+
+    #[test]
+    fn render_commands_is_empty_for_empty_projects() {
+        assert_eq!(Project::new().render_commands().unwrap(), "");
+    }
+
+    #[test]
+    fn audacity_value_escapes_quotes_and_backslashes() {
+        assert_eq!(
+            audacity_value(r#"say "hello" from c:\tmp"#),
+            r#""say \"hello\" from c:\\tmp""#
+        );
+    }
+
+    fn unique_test_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("audacity-{label}-{}-{nanos}", std::process::id()))
+    }
+}
