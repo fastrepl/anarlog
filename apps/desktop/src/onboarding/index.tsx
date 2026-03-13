@@ -179,7 +179,7 @@ export function TabContentOnboarding({
 
             <OnboardingSection
               title="Calendar"
-              description="Connect Apple Calendar and choose what to sync"
+              description="Connect your calendar to get meeting reminders"
               completedTitle="Apple Calendar connected"
               status={getStepStatus("calendar", currentStep)}
               onBack={goBack}
