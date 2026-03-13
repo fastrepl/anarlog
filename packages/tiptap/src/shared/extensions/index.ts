@@ -1,6 +1,5 @@
 import FileHandler from "@tiptap/extension-file-handler";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import {
   Table,
@@ -22,10 +21,13 @@ import { ClearMarksOnEnter } from "../clear-marks-on-enter";
 import { ClipboardTextSerializer } from "../clipboard";
 import CustomListKeymap from "../custom-list-keymap";
 import { Hashtag } from "../hashtag";
+import { AttachmentImage } from "./image";
 import { Placeholder, type PlaceholderFunction } from "./placeholder";
 import { SearchAndReplace } from "./search-and-replace";
 
 export type { PlaceholderFunction };
+export * from "./image";
+export * from "./image-metadata";
 
 export type ImageUploadResult = {
   url: string;
@@ -42,46 +44,6 @@ export type ExtensionOptions = {
   imageExtension?: any;
   onLinkOpen?: (url: string) => void;
 };
-
-const AttachmentImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      attachmentId: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("data-attachment-id"),
-        renderHTML: (attributes) => {
-          if (!attributes.attachmentId) {
-            return {};
-          }
-          return { "data-attachment-id": attributes.attachmentId };
-        },
-      },
-    };
-  },
-
-  parseMarkdown: (token: { href?: string; text?: string; title?: string }) => {
-    const src = token.href || "";
-    return {
-      type: "image",
-      attrs: {
-        src,
-        alt: token.text || "",
-        title: token.title || null,
-        attachmentId: null,
-      },
-    };
-  },
-
-  renderMarkdown: (node: {
-    attrs?: { src?: string; alt?: string; title?: string };
-  }) => {
-    const src = node.attrs?.src || "";
-    const alt = node.attrs?.alt || "";
-    const title = node.attrs?.title;
-    return title ? `![${alt}](${src} "${title}")` : `![${alt}](${src})`;
-  },
-});
 
 const MarkdownUnderline = Underline.extend({
   markdownTokenizer: {

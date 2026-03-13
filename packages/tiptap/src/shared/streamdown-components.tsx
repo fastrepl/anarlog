@@ -1,5 +1,7 @@
 import { cn } from "@hypr/utils";
 
+import { parseImageTitleMetadata } from "./extensions/image-metadata";
+
 const HEADING_SHARED = "text-gray-700 font-semibold text-sm mb-1 min-h-6";
 const HEADING_WITH_MARGIN = "mt-4 first:mt-0";
 
@@ -50,4 +52,19 @@ export const streamdownComponents = {
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
     <p className="mb-1">{props.children as React.ReactNode}</p>
   ),
+  img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    const { editorWidth, title } = parseImageTitleMetadata(props.title);
+
+    return (
+      <img
+        {...props}
+        title={title ?? undefined}
+        className={cn(["max-w-full", props.className])}
+        style={{
+          ...(editorWidth ? { width: `${editorWidth}%` } : {}),
+          ...(props.style || {}),
+        }}
+      />
+    );
+  },
 } as const;

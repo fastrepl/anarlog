@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
+import { moveCatalogMediaAsset } from "@/functions/media-catalog";
 import { getSupabaseServerClient } from "@/functions/supabase";
 import { moveMediaFile } from "@/functions/supabase-media";
 
@@ -52,6 +53,12 @@ export const Route = createFileRoute("/api/admin/media/move")({
             headers: { "Content-Type": "application/json" },
           });
         }
+
+        await moveCatalogMediaAsset(
+          supabase,
+          fromPath,
+          result.newPath || toPath,
+        );
 
         return new Response(
           JSON.stringify({

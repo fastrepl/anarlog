@@ -1,17 +1,26 @@
+import Image from "@tiptap/extension-image";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { AttachmentImage, normalizeEditorWidth } from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
 
-function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
+import {
+  normalizeEditorWidth,
+  parseImageTitleMetadata,
+  serializeImageTitleMetadata,
+  stripEditorWidthFromTitle,
+} from "./image-metadata";
+
+function ResizableImageNodeView({
+  node,
+  updateAttributes,
+  selected,
+  editor,
+}: NodeViewProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [draftWidth, setDraftWidth] = useState<number | null>(null);
-  const [altText, setAltText] = useState(node.attrs.alt || "");
-  const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const draftWidthRef = useRef<number | null>(null);
@@ -20,10 +29,6 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
     startWidth: number;
     startX: number;
   } | null>(null);
-
-  useEffect(() => {
-    setAltText(node.attrs.alt || "");
-  }, [node.attrs.alt]);
 
   useEffect(() => {
     if (!isResizing) {
@@ -79,21 +84,6 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
     };
   }, [isResizing, updateAttributes]);
 
-  const handleAltChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newAlt = e.target.value;
-      setAltText(newAlt);
-      updateAttributes({ alt: newAlt });
-    },
-    [updateAttributes],
-  );
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      inputRef.current?.blur();
-    }
-  }, []);
-
   const handleResizeStart = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
       const container = containerRef.current;
@@ -123,7 +113,8 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
     [],
   );
 
-  const showControls = isHovered || isFocused || selected || isResizing;
+  const showControls =
+    editor.isEditable && (isHovered || selected || isResizing);
   const imageWidth =
     draftWidth !== null
       ? `${draftWidth}px`
@@ -145,7 +136,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
           ref={imageRef}
           src={node.attrs.src}
           alt={node.attrs.alt || ""}
-          title={node.attrs.title || undefined}
+          title={stripEditorWidthFromTitle(node.attrs.title)}
           className={cn([
             "tiptap-image max-w-full",
             hasExplicitWidth ? "w-full" : "",
@@ -163,33 +154,95 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
             <span className="h-8 w-1 rounded-full bg-neutral-400" />
           </button>
         )}
-        {showControls && (
-          <div className="absolute right-2 bottom-2 left-2 rounded-md border border-neutral-200 bg-white/95 p-2 shadow-lg backdrop-blur-sm">
-            <label className="flex items-center gap-2">
-              <span className="text-xs whitespace-nowrap text-neutral-500">
-                Alt text:
-              </span>
-              <input
-                ref={inputRef}
-                type="text"
-                value={altText}
-                onChange={handleAltChange}
-                onKeyDown={handleKeyDown}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                placeholder="Describe this image..."
-                className="flex-1 border-none bg-transparent text-sm text-neutral-700 outline-none placeholder:text-neutral-400"
-              />
-            </label>
-          </div>
-        )}
       </div>
     </NodeViewWrapper>
   );
 }
 
-export const BlogImage = AttachmentImage.extend({
+export const AttachmentImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      title: {
+        default: null,
+        parseHTML: (element) =>
+          stripEditorWidthFromTitle(element.getAttribute("title")) ?? null,
+        renderHTML: (attributes) => {
+          if (!attributes.title) {
+            return {};
+          }
+
+          return { title: attributes.title };
+        },
+      },
+      attachmentId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-attachment-id"),
+        renderHTML: (attributes) => {
+          if (!attributes.attachmentId) {
+            return {};
+          }
+          return { "data-attachment-id": attributes.attachmentId };
+        },
+      },
+      editorWidth: {
+        default: null,
+        parseHTML: (element) => {
+          const attr = element.getAttribute("data-editor-width");
+          if (attr) {
+            return normalizeEditorWidth(Number(attr));
+          }
+
+          return parseImageTitleMetadata(element.getAttribute("title"))
+            .editorWidth;
+        },
+        renderHTML: (attributes) => {
+          const editorWidth = normalizeEditorWidth(attributes.editorWidth);
+          if (!editorWidth) {
+            return {};
+          }
+
+          return { "data-editor-width": editorWidth };
+        },
+      },
+    };
+  },
+
   addNodeView() {
-    return ReactNodeViewRenderer(ImageNodeView);
+    return ReactNodeViewRenderer(ResizableImageNodeView);
+  },
+
+  parseMarkdown: (token: { href?: string; text?: string; title?: string }) => {
+    const metadata = parseImageTitleMetadata(token.title);
+    const src = token.href || "";
+
+    return {
+      type: "image",
+      attrs: {
+        src,
+        alt: token.text || "",
+        title: metadata.title,
+        attachmentId: null,
+        editorWidth: metadata.editorWidth,
+      },
+    };
+  },
+
+  renderMarkdown: (node: {
+    attrs?: {
+      src?: string;
+      alt?: string;
+      title?: string;
+      editorWidth?: number | null;
+    };
+  }) => {
+    const src = node.attrs?.src || "";
+    const alt = node.attrs?.alt || "";
+    const title = serializeImageTitleMetadata({
+      editorWidth: node.attrs?.editorWidth,
+      title: node.attrs?.title,
+    });
+
+    return title ? `![${alt}](${src} "${title}")` : `![${alt}](${src})`;
   },
 });
