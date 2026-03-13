@@ -14,6 +14,8 @@ import {
 } from "~/calendar/components/calendar-selection";
 import * as main from "~/store/tinybase/store/main";
 
+const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
+
 export function AppleCalendarSelection({
   calendarClassName,
   leftAction,
@@ -80,10 +82,16 @@ export function useAppleCalendarSelection() {
       });
     }
 
-    return Array.from(grouped.entries()).map(([sourceName, calendars]) => ({
-      sourceName,
-      calendars,
-    }));
+    return Array.from(grouped.entries())
+      .map(([sourceName, calendars]) => ({
+        sourceName,
+        calendars,
+      }))
+      .sort((a, b) => {
+        if (a.sourceName === SUBSCRIBED_SOURCE_NAME) return 1;
+        if (b.sourceName === SUBSCRIBED_SOURCE_NAME) return -1;
+        return 0;
+      });
   }, [calendars]);
 
   const handleToggle = useCallback(
