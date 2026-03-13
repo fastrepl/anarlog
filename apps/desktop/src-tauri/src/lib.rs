@@ -8,10 +8,17 @@ mod supervisor;
 use ext::*;
 use store::*;
 
-#[cfg(target_os = "macos")]
 use tauri::Manager;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
+
+fn create_audio_provider() -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
+    if std::env::var("HYPR_MOCK_AUDIO").is_ok() {
+        std::sync::Arc::new(hypr_audio_mock::MockAudio::new())
+    } else {
+        std::sync::Arc::new(hypr_audio_actual::ActualAudio)
+    }
+}
 
 #[tokio::main]
 pub async fn main() {
@@ -60,7 +67,9 @@ pub async fn main() {
         .as_ref()
         .map(|client| tauri_plugin_sentry::minidump::init(client));
 
-    let mut builder = tauri::Builder::default();
+    let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> = create_audio_provider();
+
+    let mut builder = tauri::Builder::default().manage(audio);
 
     // https://docs.crabnebula.dev/plugins/tauri-e2e-tests/#macos-support
     #[cfg(all(target_os = "macos", feature = "automation"))]

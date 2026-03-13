@@ -1,20 +1,8 @@
-mod frame;
 mod joiner;
 mod stream;
 
-pub use frame::CaptureFrame;
-pub use stream::CaptureStream;
-
-use crate::Error;
+use hypr_audio::{CaptureConfig, CaptureStream, Error};
 use stream::{CaptureSide, setup_mic_stream, setup_speaker_stream};
-
-#[derive(Debug, Clone)]
-pub struct CaptureConfig {
-    pub sample_rate: u32,
-    pub chunk_size: usize,
-    pub mic_device: Option<String>,
-    pub enable_aec: bool,
-}
 
 pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error> {
     let mic_stream = setup_mic_stream(config.sample_rate, config.chunk_size, config.mic_device)?;

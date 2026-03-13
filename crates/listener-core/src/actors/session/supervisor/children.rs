@@ -69,6 +69,7 @@ pub(super) async fn spawn_source(
             mic_device: None,
             onboarding: ctx.params.onboarding,
             runtime: ctx.runtime.clone(),
+            audio: ctx.audio.clone(),
             session_id: ctx.params.session_id.clone(),
             listener_routing,
             recorder,

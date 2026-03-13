@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 hypr-audio = { workspace = true }
+hypr-audio-actual = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-language = { workspace = true }
 owhisper-client = { workspace = true }

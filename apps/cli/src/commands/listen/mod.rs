@@ -96,11 +96,14 @@ pub async fn run(args: Args) -> CliResult<()> {
     let (listener_tx, mut listener_rx) = tokio::sync::mpsc::unbounded_channel();
     let runtime = Arc::new(ListenRuntime::new(vault_base, listener_tx));
 
+    let audio: Arc<dyn hypr_audio_actual::AudioProvider> = Arc::new(hypr_audio_actual::ActualAudio);
+
     let (root_ref, _handle) = Actor::spawn(
         Some(RootActor::name()),
         RootActor,
         RootArgs {
             runtime: runtime.clone(),
+            audio,
         },
     )
     .await
@@ -122,15 +125,9 @@ pub async fn run(args: Args) -> CliResult<()> {
         keywords: vec![],
     };
 
-    let started = ractor::call!(root_ref, RootMsg::StartSession, params)
-        .map_err(|e| CliError::operation_failed("start session", e.to_string()))?;
-
-    if !started {
-        return Err(CliError::operation_failed(
-            "start session",
-            "session did not transition to active",
-        ));
-    }
+    ractor::call!(root_ref, RootMsg::StartSession, params)
+        .map_err(|e| CliError::operation_failed("start session", e.to_string()))?
+        .map_err(|e| CliError::operation_failed("start session", format!("{e:?}")))?;
 
     let mut terminal = TerminalGuard::new();
     let (draw_tx, draw_rx) = tokio::sync::broadcast::channel(16);

@@ -98,7 +98,11 @@ pico-args = { workspace = true }
 ractor = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
+hypr-audio-actual = { workspace = true }
+hypr-audio-mock = { workspace = true }
+
 [features]
+default = []
 devtools = ["tauri/devtools"]
 automation = ["tauri-plugin-automation"]
 

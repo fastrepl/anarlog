@@ -14,7 +14,10 @@ pub struct Listener<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     #[tracing::instrument(skip_all)]
     pub async fn list_microphone_devices(&self) -> Result<Vec<String>, crate::Error> {
-        Ok(hypr_audio::AudioInput::list_mic_devices())
+        let audio = self
+            .manager
+            .state::<std::sync::Arc<dyn hypr_audio::AudioProvider>>();
+        Ok(audio.list_mic_devices())
     }
 
     #[tracing::instrument(skip_all)]

@@ -3,7 +3,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 use tokio_util::sync::CancellationToken;
 
 use crate::{SessionProgressEvent, actors::ChannelMode};
-use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame, CaptureStream};
+use hypr_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream};
 use hypr_audio_utils::chunk_size_for_stt;
 
 use super::{SourceFrame, SourceMsg, SourceState};
@@ -41,6 +41,7 @@ async fn start_streams(
     let myself2 = myself.clone();
     let mic_muted = st.mic_muted.clone();
     let mic_device = st.mic_device.clone();
+    let audio = st.audio.clone();
 
     let stream_cancel_token = CancellationToken::new();
     st.stream_cancel_token = Some(stream_cancel_token.clone());
@@ -51,6 +52,7 @@ async fn start_streams(
             cancel_token: stream_cancel_token,
             mic_muted,
             mic_device,
+            audio,
         };
 
         run_stream_loop(ctx, mode).await;
@@ -65,6 +67,7 @@ struct StreamContext {
     cancel_token: CancellationToken,
     mic_muted: std::sync::Arc<std::sync::atomic::AtomicBool>,
     mic_device: Option<String>,
+    audio: std::sync::Arc<dyn AudioProvider>,
 }
 
 impl StreamContext {
@@ -99,11 +102,12 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
                 mic_device: ctx.mic_device.clone(),
                 enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
             };
-            AudioInput::from_mic_and_speaker(config)
+            ctx.audio.open_capture(config)
         }
-        ChannelMode::SpeakerOnly => AudioInput::from_speaker_capture(sample_rate, chunk_size),
+        ChannelMode::SpeakerOnly => ctx.audio.open_speaker_capture(sample_rate, chunk_size),
         ChannelMode::MicOnly => {
-            AudioInput::from_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)
+            ctx.audio
+                .open_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)
         }
     };
 

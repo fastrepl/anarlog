@@ -4,46 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-aec = { workspace = true }
-hypr-audio-interface = { workspace = true }
-hypr-audio-utils = { workspace = true }
-hypr-resampler = { workspace = true }
-
-anyhow = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-
-bytes = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-
-futures-channel = { workspace = true }
 futures-util = { workspace = true }
-pin-project = { workspace = true }
-tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
-tokio-stream = { workspace = true }
-tokio-util = { workspace = true }
-
-cpal = { workspace = true }
-dasp = { workspace = true }
-rodio = { workspace = true }
-
-ebur128 = "0.1.10"
-ringbuf = { workspace = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-cidre = { workspace = true, features = ["av"] }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-wasapi = "0.19.0"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-libpulse-binding = "2.30.1"
-
-[dev-dependencies]
-hound = { workspace = true }
-hypr-audio-utils = { workspace = true }
-hypr-data = { workspace = true }
-hypr-resampler = { workspace = true }
-rodio = { workspace = true }
-serial_test = { workspace = true }
+thiserror = { workspace = true }

@@ -48,9 +48,11 @@ hypr-apple-note = { path = "crates/apple-note", package = "apple-note" }
 hypr-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
 hypr-audacity = { path = "crates/audacity", package = "audacity" }
 hypr-audio = { path = "crates/audio", package = "audio" }
+hypr-audio-actual = { path = "crates/audio-actual", package = "audio-actual" }
 hypr-audio-device = { path = "crates/audio-device", package = "audio-device" }
 hypr-audio-interface = { path = "crates/audio-interface", package = "audio-interface" }
 hypr-audio-mime = { path = "crates/audio-mime", package = "audio-mime" }
+hypr-audio-mock = { path = "crates/audio-mock", package = "audio-mock" }
 hypr-audio-snapshot = { path = "crates/audio-snapshot", package = "audio-snapshot" }
 hypr-audio-sync = { path = "crates/audio-sync", package = "audio-sync" }
 hypr-audio-utils = { path = "crates/audio-utils", package = "audio-utils" }

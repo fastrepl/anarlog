@@ -1,8 +1,11 @@
+use std::sync::Arc;
+
 use clap::{Parser, ValueEnum};
 use hypr_transcribe_proxy::{HyprnoteRoutingConfig, SttProxyConfig};
 use transcribe_cli::{
-    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_dual_client, build_single_client,
-    default_listen_params, run_dual_client, run_single_client, spawn_router,
+    ActualAudio, AudioArgs, AudioProvider, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS,
+    build_dual_client, build_single_client, default_listen_params, run_dual_client,
+    run_single_client, spawn_router,
 };
 
 #[derive(Clone, ValueEnum)]
@@ -58,9 +61,12 @@ async fn main() {
     eprintln!("proxy: {} -> {}", server.addr(), provider_name);
     eprintln!();
 
+    let audio: Arc<dyn AudioProvider> = Arc::new(ActualAudio);
+
     match args.provider {
         ProviderArg::Hyprnote => {
             run_with_adapter::<owhisper_client::HyprnoteAdapter>(
+                audio,
                 &args.audio.audio,
                 server.api_base(""),
             )
@@ -68,6 +74,7 @@ async fn main() {
         }
         ProviderArg::Deepgram => {
             run_with_adapter::<owhisper_client::DeepgramAdapter>(
+                audio,
                 &args.audio.audio,
                 server.api_base(""),
             )
@@ -75,6 +82,7 @@ async fn main() {
         }
         ProviderArg::Soniox => {
             run_with_adapter::<owhisper_client::SonioxAdapter>(
+                audio,
                 &args.audio.audio,
                 server.api_base(""),
             )
@@ -84,12 +92,14 @@ async fn main() {
 }
 
 async fn run_with_adapter<A: owhisper_client::RealtimeSttAdapter>(
+    audio: Arc<dyn AudioProvider>,
     source: &transcribe_cli::AudioSource,
     api_base: String,
 ) {
     if source.is_dual() {
         let client = build_dual_client::<A>(api_base, None, default_listen_params()).await;
         run_dual_client(
+            audio,
             source.clone(),
             client,
             DEFAULT_SAMPLE_RATE,
@@ -99,6 +109,7 @@ async fn run_with_adapter<A: owhisper_client::RealtimeSttAdapter>(
     } else {
         let client = build_single_client::<A>(api_base, None, default_listen_params()).await;
         run_single_client(
+            audio,
             source.clone(),
             client,
             DEFAULT_SAMPLE_RATE,

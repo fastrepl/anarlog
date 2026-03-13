@@ -9,23 +9,23 @@ use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use crate::Error;
+use hypr_audio::{CaptureFrame, CaptureStream, Error};
+
 use crate::mic::MicInput;
 use crate::speaker::SpeakerInput;
 
-use super::frame::CaptureFrame;
 use super::joiner::Joiner;
 
 pub(crate) type ChunkStream =
     Pin<Box<dyn Stream<Item = Result<Vec<f32>, hypr_resampler::Error>> + Send>>;
 
-pub struct CaptureStream {
+struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
     cancel_token: CancellationToken,
     task: JoinHandle<()>,
 }
 
-impl Stream for CaptureStream {
+impl Stream for CaptureStreamInner {
     type Item = Result<CaptureFrame, Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -33,7 +33,7 @@ impl Stream for CaptureStream {
     }
 }
 
-impl Drop for CaptureStream {
+impl Drop for CaptureStreamInner {
     fn drop(&mut self) {
         self.cancel_token.cancel();
         self.task.abort();
@@ -80,11 +80,11 @@ pub(crate) fn open_dual(
         speaker_stream,
     ));
 
-    CaptureStream {
+    CaptureStream::new(CaptureStreamInner {
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
-    }
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,11 +103,11 @@ pub(crate) fn open_single(chunk_stream: ChunkStream, side: CaptureSide) -> Captu
         side,
     ));
 
-    CaptureStream {
+    CaptureStream::new(CaptureStreamInner {
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
-    }
+    })
 }
 
 enum StreamResult {

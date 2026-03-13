@@ -12,6 +12,7 @@ name = "char"
 path = "src/main.rs"
 
 [dependencies]
+hypr-audio-actual = { workspace = true }
 hypr-file = { workspace = true }
 hypr-language = { workspace = true }
 hypr-listener-core = { workspace = true }

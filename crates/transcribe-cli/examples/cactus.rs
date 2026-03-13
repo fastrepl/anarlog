@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use axum::Router;
 use axum::error_handling::HandleError;
@@ -6,8 +7,9 @@ use axum::http::StatusCode;
 use clap::Parser;
 use hypr_transcribe_cactus::TranscribeService;
 use transcribe_cli::{
-    AudioArgs, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS, build_dual_client, build_single_client,
-    default_listen_params, run_dual_client, run_single_client, spawn_router,
+    ActualAudio, AudioArgs, AudioProvider, DEFAULT_SAMPLE_RATE, DEFAULT_TIMEOUT_SECS,
+    build_dual_client, build_single_client, default_listen_params, run_dual_client,
+    run_single_client, spawn_router,
 };
 
 #[derive(Parser)]
@@ -22,6 +24,7 @@ struct Args {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let audio: Arc<dyn AudioProvider> = Arc::new(ActualAudio);
 
     assert!(
         args.model.exists(),
@@ -46,6 +49,7 @@ async fn main() {
         .await;
 
         run_dual_client(
+            audio,
             args.audio.audio,
             client,
             DEFAULT_SAMPLE_RATE,
@@ -61,6 +65,7 @@ async fn main() {
         .await;
 
         run_single_client(
+            audio,
             args.audio.audio,
             client,
             DEFAULT_SAMPLE_RATE,

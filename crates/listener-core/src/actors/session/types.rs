@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
+use hypr_audio::AudioProvider;
+
 use crate::{ListenerRuntime, RecordingMode, TranscriptionMode};
 
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
@@ -27,6 +29,7 @@ pub struct SessionParams {
 #[derive(Clone)]
 pub struct SessionContext {
     pub runtime: Arc<dyn ListenerRuntime>,
+    pub audio: Arc<dyn AudioProvider>,
     pub params: SessionParams,
     pub app_dir: PathBuf,
     pub started_at_instant: Instant,

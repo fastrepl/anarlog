@@ -16,7 +16,7 @@ use crate::{
     actors::session::session_span,
     actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_audio::{AudioInput, CaptureFrame};
+use hypr_audio::{AudioProvider, CaptureFrame};
 
 use pipeline::Pipeline;
 use stream::start_source_loop;
@@ -49,6 +49,7 @@ pub struct SourceArgs {
     pub mic_device: Option<String>,
     pub onboarding: bool,
     pub runtime: Arc<dyn ListenerRuntime>,
+    pub audio: Arc<dyn AudioProvider>,
     pub session_id: String,
     pub listener_routing: ListenerRouting,
     pub recorder: Option<ActorRef<RecMsg>>,
@@ -56,6 +57,7 @@ pub struct SourceArgs {
 
 pub struct SourceState {
     pub(super) runtime: Arc<dyn ListenerRuntime>,
+    pub(super) audio: Arc<dyn AudioProvider>,
     pub(super) session_id: String,
     pub(super) mic_device: Option<String>,
     pub(super) onboarding: bool,
@@ -131,16 +133,17 @@ impl Actor for SourceActor {
 
             let device_watcher = DeviceChangeWatcher::spawn(myself.clone());
 
-            let silence_stream_tx = Some(hypr_audio::AudioOutput::silence());
+            let silence_stream_tx = Some(args.audio.play_silence());
             let mic_device = args
                 .mic_device
-                .or_else(|| Some(AudioInput::get_default_device_name()));
+                .or_else(|| Some(args.audio.default_device_name()));
             tracing::info!(mic_device = ?mic_device);
 
             let pipeline = Pipeline::new(args.runtime.clone(), args.session_id.clone());
 
             let mut st = SourceState {
                 runtime: args.runtime,
+                audio: args.audio,
                 session_id: args.session_id,
                 mic_device,
                 onboarding: args.onboarding,

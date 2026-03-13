@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use axum::Router;
@@ -9,8 +10,11 @@ use owhisper_client::{FinalizeHandle, ListenClient, ListenClientDual, RealtimeSt
 use owhisper_interface::MixedMessage;
 use owhisper_interface::stream::StreamResponse;
 
-use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame};
-use hypr_audio_utils::{AudioFormatExt, chunk_size_for_stt, f32_to_i16_bytes};
+use hypr_audio::{CaptureConfig, CaptureFrame};
+use hypr_audio_utils::{chunk_size_for_stt, f32_to_i16_bytes};
+
+pub use hypr_audio::AudioProvider;
+pub use hypr_audio_actual::ActualAudio;
 
 pub const DEFAULT_SAMPLE_RATE: u32 = 16_000;
 pub const DEFAULT_TIMEOUT_SECS: u64 = 600;
@@ -50,18 +54,9 @@ pub struct AudioArgs {
     pub audio: AudioSource,
 }
 
-pub fn open_audio(source: &AudioSource) -> AudioInput {
-    match source {
-        AudioSource::Output => AudioInput::from_speaker(),
-        AudioSource::Input => AudioInput::from_mic(None).expect("failed to open mic"),
-        AudioSource::RawDual | AudioSource::AecDual => {
-            panic!("dual audio modes use the realtime capture pipeline")
-        }
-    }
-}
-
-pub fn create_audio_stream(
-    audio_input: &mut AudioInput,
+pub fn create_single_audio_stream(
+    audio: &Arc<dyn AudioProvider>,
+    source: &AudioSource,
     sample_rate: u32,
 ) -> std::pin::Pin<
     Box<
@@ -71,15 +66,33 @@ pub fn create_audio_stream(
     >,
 > {
     let chunk_size = chunk_size_for_stt(sample_rate);
-    let stream = audio_input.stream();
-    Box::pin(
-        stream
-            .to_i16_le_chunks(sample_rate, chunk_size)
-            .map(MixedMessage::Audio),
-    )
+    match source {
+        AudioSource::Input => {
+            let capture = audio
+                .open_mic_capture(None, sample_rate, chunk_size)
+                .expect("failed to open mic capture");
+            Box::pin(capture.map(|result| {
+                let frame = result.unwrap_or_else(|e| panic!("capture failed: {e}"));
+                MixedMessage::Audio(f32_to_i16_bytes(frame.raw_mic.iter().copied()))
+            }))
+        }
+        AudioSource::Output => {
+            let capture = audio
+                .open_speaker_capture(sample_rate, chunk_size)
+                .expect("failed to open speaker capture");
+            Box::pin(capture.map(|result| {
+                let frame = result.unwrap_or_else(|e| panic!("capture failed: {e}"));
+                MixedMessage::Audio(f32_to_i16_bytes(frame.raw_speaker.iter().copied()))
+            }))
+        }
+        AudioSource::RawDual | AudioSource::AecDual => {
+            panic!("dual audio modes use create_dual_audio_stream")
+        }
+    }
 }
 
 pub fn create_dual_audio_stream(
+    audio: &Arc<dyn AudioProvider>,
     source: &AudioSource,
     sample_rate: u32,
 ) -> std::pin::Pin<
@@ -93,13 +106,14 @@ pub fn create_dual_audio_stream(
     >,
 > {
     let chunk_size = chunk_size_for_stt(sample_rate);
-    let capture_stream = AudioInput::from_mic_and_speaker(CaptureConfig {
-        sample_rate,
-        chunk_size,
-        mic_device: None,
-        enable_aec: source.uses_aec(),
-    })
-    .expect("failed to open realtime capture");
+    let capture_stream = audio
+        .open_capture(CaptureConfig {
+            sample_rate,
+            chunk_size,
+            mic_device: None,
+            enable_aec: source.uses_aec(),
+        })
+        .expect("failed to open realtime capture");
     let source = source.clone();
 
     Box::pin(capture_stream.map(move |result| {
@@ -108,7 +122,7 @@ pub fn create_dual_audio_stream(
     }))
 }
 
-pub fn print_audio_info(audio_input: &AudioInput, source: &AudioSource, sample_rate: u32) {
+pub fn print_audio_info(audio: &dyn AudioProvider, source: &AudioSource, sample_rate: u32) {
     let source_name = match source {
         AudioSource::Input => "input",
         AudioSource::Output => "output",
@@ -116,17 +130,15 @@ pub fn print_audio_info(audio_input: &AudioInput, source: &AudioSource, sample_r
     };
     let chunk_size = chunk_size_for_stt(sample_rate);
 
-    eprintln!("source: {} ({})", source_name, audio_input.device_name());
+    eprintln!("source: {} ({})", source_name, audio.default_device_name());
     eprintln!(
-        "sample rate: {} Hz -> {} Hz, chunk size: {} samples",
-        audio_input.sample_rate(),
-        sample_rate,
-        chunk_size
+        "sample rate: {} Hz, chunk size: {} samples",
+        sample_rate, chunk_size
     );
     eprintln!();
 }
 
-pub fn print_dual_audio_info(source: &AudioSource, sample_rate: u32) {
+pub fn print_dual_audio_info(audio: &dyn AudioProvider, source: &AudioSource, sample_rate: u32) {
     let chunk_size = chunk_size_for_stt(sample_rate);
     let source_name = match source {
         AudioSource::RawDual => "raw-dual",
@@ -137,7 +149,7 @@ pub fn print_dual_audio_info(source: &AudioSource, sample_rate: u32) {
     eprintln!(
         "source: {} (input: {}, output: RealtimeSpeaker)",
         source_name,
-        AudioInput::get_default_device_name()
+        audio.default_device_name()
     );
     eprintln!(
         "sample rate: {} Hz, chunk size: {} samples, AEC: {}",
@@ -195,6 +207,7 @@ pub async fn build_dual_client<A: RealtimeSttAdapter>(
 }
 
 pub async fn run_single_client<A: RealtimeSttAdapter>(
+    audio: Arc<dyn AudioProvider>,
     source: AudioSource,
     client: ListenClient<A>,
     sample_rate: u32,
@@ -206,10 +219,9 @@ pub async fn run_single_client<A: RealtimeSttAdapter>(
         _ => unreachable!(),
     };
 
-    let mut audio_input = open_audio(&source);
-    print_audio_info(&audio_input, &source, sample_rate);
+    print_audio_info(&*audio, &source, sample_rate);
 
-    let audio_stream = create_audio_stream(&mut audio_input, sample_rate);
+    let audio_stream = create_single_audio_stream(&audio, &source, sample_rate);
     let (response_stream, handle) = client
         .from_realtime_audio(audio_stream)
         .await
@@ -225,14 +237,15 @@ pub async fn run_single_client<A: RealtimeSttAdapter>(
 }
 
 pub async fn run_dual_client<A: RealtimeSttAdapter>(
+    audio: Arc<dyn AudioProvider>,
     source: AudioSource,
     client: ListenClientDual<A>,
     sample_rate: u32,
     timeout_secs: u64,
 ) {
-    print_dual_audio_info(&source, sample_rate);
+    print_dual_audio_info(&*audio, &source, sample_rate);
 
-    let audio_stream = create_dual_audio_stream(&source, sample_rate);
+    let audio_stream = create_dual_audio_stream(&audio, &source, sample_rate);
     let (response_stream, handle) = client
         .from_realtime_audio(audio_stream)
         .await
@@ -373,6 +386,9 @@ macro_rules! simple_provider_example {
         #[::tokio::main]
         async fn main() {
             let args = <Args as ::clap::Parser>::parse();
+            let audio: ::std::sync::Arc<dyn $crate::AudioProvider> =
+                ::std::sync::Arc::new($crate::ActualAudio);
+
             if args.audio.audio.is_dual() {
                 let client = $crate::build_dual_client::<$adapter>(
                     $api_base,
@@ -382,6 +398,7 @@ macro_rules! simple_provider_example {
                 .await;
 
                 $crate::run_dual_client(
+                    audio,
                     args.audio.audio,
                     client,
                     $crate::DEFAULT_SAMPLE_RATE,
@@ -397,6 +414,7 @@ macro_rules! simple_provider_example {
                 .await;
 
                 $crate::run_single_client(
+                    audio,
                     args.audio.audio,
                     client,
                     $crate::DEFAULT_SAMPLE_RATE,

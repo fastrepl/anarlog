@@ -11,6 +11,7 @@ use crate::actors::{
     SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
 };
 use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State, StopSessionParams};
+use hypr_audio::AudioProvider;
 
 pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
@@ -20,10 +21,12 @@ pub enum RootMsg {
 
 pub struct RootArgs {
     pub runtime: Arc<dyn ListenerRuntime>,
+    pub audio: Arc<dyn AudioProvider>,
 }
 
 pub struct RootState {
     runtime: Arc<dyn ListenerRuntime>,
+    audio: Arc<dyn AudioProvider>,
     session_id: Option<String>,
     supervisor: Option<ActorCell>,
     finalizing: bool,
@@ -50,6 +53,7 @@ impl Actor for RootActor {
     ) -> Result<Self::State, ActorProcessingErr> {
         Ok(RootState {
             runtime: args.runtime,
+            audio: args.audio,
             session_id: None,
             supervisor: None,
             finalizing: false,
@@ -152,6 +156,7 @@ async fn start_session_impl(
 
         let ctx = SessionContext {
             runtime: state.runtime.clone(),
+            audio: state.audio.clone(),
             params: params.clone(),
             app_dir,
             started_at_instant: Instant::now(),

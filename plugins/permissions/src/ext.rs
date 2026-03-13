@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::models::PermissionStatus;
 
 #[cfg(target_os = "macos")]
@@ -36,6 +38,17 @@ pub struct Permissions<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 }
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
+    fn audio_provider(&self) -> Option<Arc<dyn hypr_audio::AudioProvider>> {
+        self.manager
+            .try_state::<Arc<dyn hypr_audio::AudioProvider>>()
+            .map(|s| Arc::clone(&*s))
+    }
+
+    fn require_audio(&self) -> Result<Arc<dyn hypr_audio::AudioProvider>, crate::Error> {
+        self.audio_provider()
+            .ok_or(crate::Error::NoAudioProvider)
+    }
+
     pub async fn open(&self, permission: Permission) -> Result<(), crate::Error> {
         match permission {
             Permission::Calendar => self.open_calendar().await,
@@ -109,24 +122,20 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
             Permission::Calendar => match value {
                 "notDetermined" => PermissionStatus::NeverRequested,
                 "fullAccess" => PermissionStatus::Authorized,
-                // "restricted" | "denied" | "writeOnly" | _
                 _ => PermissionStatus::Denied,
             },
             Permission::Contacts => match value {
                 "notDetermined" => PermissionStatus::NeverRequested,
                 "authorized" => PermissionStatus::Authorized,
-                // "restricted" | "denied" | _
                 _ => PermissionStatus::Denied,
             },
             Permission::Microphone => match value {
                 "notDetermined" => PermissionStatus::NeverRequested,
                 "authorized" => PermissionStatus::Authorized,
-                // "restricted" | "denied" | _
                 _ => PermissionStatus::Denied,
             },
             Permission::Accessibility => match value {
                 "trusted" => PermissionStatus::Authorized,
-                // "untrusted" | _
                 _ => PermissionStatus::Denied,
             },
             Permission::SystemAudio => unreachable!(),
@@ -193,6 +202,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     async fn open_system_audio(&self) -> Result<(), crate::Error> {
+        let _audio = self.require_audio()?;
+
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
@@ -253,14 +264,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            use futures_util::StreamExt;
-            let mut mic_sample_stream = hypr_audio::AudioInput::from_mic(None)?.stream();
-            let sample = mic_sample_stream.next().await;
-            Ok(if sample.is_some() {
-                PermissionStatus::Authorized
-            } else {
-                PermissionStatus::Denied
-            })
+            let audio = self.require_audio()?;
+            match audio.probe_mic(None) {
+                Ok(()) => Ok(PermissionStatus::Authorized),
+                Err(_) => Ok(PermissionStatus::Denied),
+            }
         }
     }
 
@@ -270,14 +278,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            use futures_util::StreamExt;
-            let mut speaker_sample_stream = hypr_audio::AudioInput::from_speaker().stream();
-            let sample = speaker_sample_stream.next().await;
-            Ok(if sample.is_some() {
-                PermissionStatus::Authorized
-            } else {
-                PermissionStatus::Denied
-            })
+            let audio = self.require_audio()?;
+            match audio.probe_speaker() {
+                Ok(()) => Ok(PermissionStatus::Authorized),
+                Err(_) => Ok(PermissionStatus::Denied),
+            }
         }
     }
 
@@ -354,21 +359,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
         #[cfg(not(target_os = "macos"))]
         {
-            use futures_util::StreamExt;
-            let mut mic_sample_stream = hypr_audio::AudioInput::from_mic(None)?.stream();
-            mic_sample_stream.next().await;
+            let audio = self.require_audio()?;
+            audio.probe_mic(None)?;
         }
 
         Ok(())
     }
 
     async fn request_system_audio(&self) -> Result<(), crate::Error> {
-        let stop = hypr_audio::AudioOutput::silence();
-
-        use futures_util::StreamExt;
-        let mut speaker_sample_stream = hypr_audio::AudioInput::from_speaker().stream();
-        speaker_sample_stream.next().await;
-
+        let audio = self.require_audio()?;
+        let stop = audio.play_silence();
+        audio.probe_speaker()?;
         let _ = stop.send(());
         Ok(())
     }

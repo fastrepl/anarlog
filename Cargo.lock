@@ -1368,8 +1368,17 @@ version = "0.1.0"
 name = "audio"
 version = "0.1.0"
 dependencies = [
+ "futures-util",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "audio-actual"
+version = "0.1.0"
+dependencies = [
  "aec",
  "anyhow",
+ "audio",
  "audio-interface",
  "audio-utils",
  "bytes",
@@ -1431,6 +1440,20 @@ dependencies = [
 [[package]]
 name = "audio-mime"
 version = "0.1.0"
+
+[[package]]
+name = "audio-mock"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "data",
+ "futures-util",
+ "hound",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+]
 
 [[package]]
 name = "audio-snapshot"
@@ -3277,6 +3300,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 name = "cli"
 version = "0.1.0"
 dependencies = [
+ "audio-actual",
  "clap",
  "comfy-table",
  "crossterm",
@@ -4648,6 +4672,8 @@ dependencies = [
 name = "desktop"
 version = "0.0.0"
 dependencies = [
+ "audio-actual",
+ "audio-mock",
  "host",
  "intercept",
  "pico-args",
@@ -20185,6 +20211,7 @@ version = "0.1.0"
 dependencies = [
  "api-env",
  "audio",
+ "audio-actual",
  "audio-utils",
  "axum 0.8.8",
  "bytes",
