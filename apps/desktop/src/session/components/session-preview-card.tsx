@@ -1,10 +1,11 @@
 import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Streamdown } from "streamdown";
+import { defaultRehypePlugins, Streamdown } from "streamdown";
 
 import {
   isValidTiptapContent,
   json2md,
+  parseImageTitleMetadata,
   streamdownComponents,
 } from "@hypr/tiptap/shared";
 import {
@@ -43,7 +44,30 @@ const previewCardComponents: typeof streamdownComponents = {
       {props.children}
     </h4>
   ),
+  img: (props) => {
+    const { editorWidth, title } = parseImageTitleMetadata(props.title);
+
+    return (
+      <img
+        {...props}
+        title={title ?? undefined}
+        className={cn([
+          "block max-h-32 w-full rounded-md border border-neutral-200 bg-white object-contain",
+          props.className,
+        ])}
+        style={{
+          ...(editorWidth ? { width: `${editorWidth}%` } : {}),
+          ...(props.style || {}),
+        }}
+      />
+    );
+  },
 };
+
+const previewCardRehypePlugins = [
+  defaultRehypePlugins.raw,
+  defaultRehypePlugins.sanitize,
+];
 
 const MAX_PREVIEW_LENGTH = 200;
 const FOLLOW_RANGE = 16;
@@ -54,6 +78,7 @@ const OPEN_DELAY_WARM = 0;
 const WARMUP_COOLDOWN_MS = 600;
 
 let lastPreviewClosedAt = 0;
+const MARKDOWN_IMAGE_REGEX = /!\[[^\]]*]\([^)]+\)|<img\s/i;
 
 function isWarmedUp() {
   return Date.now() - lastPreviewClosedAt < WARMUP_COOLDOWN_MS;
@@ -61,6 +86,75 @@ function isWarmedUp() {
 
 function markPreviewClosed() {
   lastPreviewClosedAt = Date.now();
+}
+
+function tiptapNodeHasImage(node: unknown): boolean {
+  if (!node || typeof node !== "object") {
+    return false;
+  }
+
+  const content = (node as { content?: unknown }).content;
+  if ((node as { type?: unknown }).type === "image") {
+    return true;
+  }
+
+  if (!Array.isArray(content)) {
+    return false;
+  }
+
+  return content.some(tiptapNodeHasImage);
+}
+
+function sourceHasImages(source: string | undefined): boolean {
+  if (typeof source !== "string") {
+    return false;
+  }
+
+  const trimmed = source.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (isValidTiptapContent(parsed)) {
+        return tiptapNodeHasImage(parsed);
+      }
+    } catch {}
+  }
+
+  return MARKDOWN_IMAGE_REGEX.test(trimmed);
+}
+
+function extractPreviewImage(markdown: string | null) {
+  if (!markdown) {
+    return null;
+  }
+
+  const markdownMatch = markdown.match(
+    /!\[(?<alt>[^\]]*)]\((?<src>\S+?)(?:\s+"(?<title>[^"]*)")?\)/,
+  );
+  if (markdownMatch?.groups?.src) {
+    return {
+      src: markdownMatch.groups.src,
+      alt: markdownMatch.groups.alt || "",
+      title: markdownMatch.groups.title || undefined,
+    };
+  }
+
+  const htmlMatch = markdown.match(
+    /<img\s[^>]*src=["'](?<src>[^"']+)["'][^>]*alt=["'](?<alt>[^"']*)["'][^>]*>/i,
+  );
+  if (htmlMatch?.groups?.src) {
+    return {
+      src: htmlMatch.groups.src,
+      alt: htmlMatch.groups.alt || "",
+      title: undefined,
+    };
+  }
+
+  return null;
 }
 
 function useSessionPreviewData(sessionId: string) {
@@ -100,9 +194,14 @@ function useSessionPreviewData(sessionId: string) {
   );
 
   const hasEnhanced = !!firstEnhancedNoteId && !!enhancedContent;
+  const rawHasImages = useMemo(() => sourceHasImages(rawMd), [rawMd]);
 
   const { previewMarkdown, previewPlainText } = useMemo(() => {
-    const source = hasEnhanced ? (enhancedContent as string) : rawMd;
+    const source = rawHasImages
+      ? rawMd
+      : hasEnhanced
+        ? (enhancedContent as string)
+        : rawMd;
     if (typeof source !== "string" || !source.trim()) {
       return { previewMarkdown: null, previewPlainText: "" };
     }
@@ -118,13 +217,17 @@ function useSessionPreviewData(sessionId: string) {
       } catch {}
     }
 
+    if (MARKDOWN_IMAGE_REGEX.test(trimmed)) {
+      return { previewMarkdown: trimmed, previewPlainText: "" };
+    }
+
     const plain = extractPlainText(source);
     const truncated =
       plain.length > MAX_PREVIEW_LENGTH
         ? plain.slice(0, MAX_PREVIEW_LENGTH) + "…"
         : plain;
     return { previewMarkdown: null, previewPlainText: truncated };
-  }, [hasEnhanced, enhancedContent, rawMd]);
+  }, [hasEnhanced, enhancedContent, rawHasImages, rawMd]);
 
   const hasContent = !!previewMarkdown || !!previewPlainText;
 
@@ -247,6 +350,12 @@ export function SessionPreviewCard({
     dateDisplay,
     participantMappingIds,
   } = useSessionPreviewData(sessionId);
+  const previewHasImage =
+    !!previewMarkdown && MARKDOWN_IMAGE_REGEX.test(previewMarkdown);
+  const previewImage = useMemo(
+    () => extractPreviewImage(previewMarkdown),
+    [previewMarkdown],
+  );
 
   const followAxis = side === "right" ? "y" : "x";
   const { triggerRef, handleMouseMove, handleMouseLeave, style } =
@@ -307,12 +416,27 @@ export function SessionPreviewCard({
 
           {(previewMarkdown || previewPlainText) && (
             <div className="mt-1 flex flex-col gap-1">
-              <div className="max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
-                {previewMarkdown ? (
+              <div
+                className={cn([
+                  "text-neutral-600",
+                  previewHasImage
+                    ? "max-h-32 overflow-hidden rounded-md bg-neutral-50 p-1"
+                    : "max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+                ])}
+              >
+                {previewHasImage && previewImage ? (
+                  <img
+                    src={previewImage.src}
+                    alt={previewImage.alt}
+                    title={previewImage.title}
+                    className="block h-28 w-full rounded-md border border-neutral-200 bg-white object-cover object-top"
+                  />
+                ) : previewMarkdown ? (
                   <Streamdown
                     components={previewCardComponents}
                     className="flex flex-col text-xs"
                     isAnimating={false}
+                    rehypePlugins={previewCardRehypePlugins}
                   >
                     {previewMarkdown}
                   </Streamdown>
