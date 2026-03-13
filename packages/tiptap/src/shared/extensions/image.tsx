@@ -25,6 +25,7 @@ function ResizableImageNodeView({
   const imageRef = useRef<HTMLImageElement>(null);
   const draftWidthRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{
+    direction: "left" | "right";
     editorWidth: number;
     startWidth: number;
     startX: number;
@@ -41,12 +42,12 @@ function ResizableImageNodeView({
         return;
       }
 
+      const deltaX =
+        (event.clientX - resizeState.startX) *
+        (resizeState.direction === "left" ? -1 : 1);
       const nextWidth = Math.min(
         resizeState.editorWidth,
-        Math.max(
-          120,
-          resizeState.startWidth + event.clientX - resizeState.startX,
-        ),
+        Math.max(120, resizeState.startWidth + deltaX),
       );
 
       draftWidthRef.current = nextWidth;
@@ -85,7 +86,10 @@ function ResizableImageNodeView({
   }, [isResizing, updateAttributes]);
 
   const handleResizeStart = useCallback(
-    (event: React.PointerEvent<HTMLButtonElement>) => {
+    (
+      direction: "left" | "right",
+      event: React.PointerEvent<HTMLButtonElement>,
+    ) => {
       const container = containerRef.current;
       const image = imageRef.current;
       if (!container || !image) {
@@ -101,6 +105,7 @@ function ResizableImageNodeView({
         container.getBoundingClientRect().width;
 
       resizeStateRef.current = {
+        direction,
         editorWidth,
         startWidth: image.getBoundingClientRect().width,
         startX: event.clientX,
@@ -124,10 +129,10 @@ function ResizableImageNodeView({
   const hasExplicitWidth = imageWidth !== undefined;
 
   return (
-    <NodeViewWrapper className="relative">
+    <NodeViewWrapper className="relative overflow-visible">
       <div
         ref={containerRef}
-        className="relative inline-block w-fit max-w-full"
+        className="relative inline-block w-fit max-w-full overflow-visible"
         style={imageWidth ? { width: imageWidth } : undefined}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -140,19 +145,36 @@ function ResizableImageNodeView({
           className={cn([
             "tiptap-image max-w-full",
             hasExplicitWidth ? "w-full" : "",
-            selected ? "ring-2 ring-blue-500" : "",
           ])}
           draggable={false}
         />
         {showControls && (
-          <button
-            type="button"
-            aria-label="Resize image"
-            onPointerDown={handleResizeStart}
-            className="absolute top-1/2 right-0 flex h-16 w-4 translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
-          >
-            <span className="h-8 w-1 rounded-full bg-neutral-400" />
-          </button>
+          <>
+            <div
+              aria-hidden="true"
+              className="absolute top-0 right-full z-10 h-full w-3"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-full z-10 h-full w-3"
+            />
+            <button
+              type="button"
+              aria-label="Resize image from left"
+              onPointerDown={(event) => handleResizeStart("left", event)}
+              className="absolute top-1/2 right-full z-20 mr-3 flex h-16 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+            >
+              <span className="h-8 w-1 rounded-full bg-neutral-400" />
+            </button>
+            <button
+              type="button"
+              aria-label="Resize image from right"
+              onPointerDown={(event) => handleResizeStart("right", event)}
+              className="absolute top-1/2 left-full z-20 ml-3 flex h-16 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+            >
+              <span className="h-8 w-1 rounded-full bg-neutral-400" />
+            </button>
+          </>
         )}
       </div>
     </NodeViewWrapper>

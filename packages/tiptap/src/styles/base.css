@@ -37,6 +37,7 @@
   .node-image {
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
+    overflow: visible;
   }
 
   > .node-image:first-child {
@@ -47,7 +48,7 @@
     padding-bottom: 0;
   }
 
-  .node-image.ProseMirror-selectednode .image-component {
+  .node-image.ProseMirror-selectednode {
     outline: none;
   }
 
@@ -55,5 +56,8 @@
     max-width: 100%;
     height: auto;
     display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
 }

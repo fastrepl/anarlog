@@ -6,6 +6,7 @@
 @import "tailwindcss";
 
 @source "../../node_modules/streamdown/dist/index.js";
+@source "../../../../packages/tiptap/src";
 @source "../../../../packages/transcript/src";
 
 @theme {
