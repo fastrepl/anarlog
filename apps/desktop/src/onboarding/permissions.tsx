@@ -46,13 +46,14 @@ function PermissionBlock({
     <button
       type="button"
       onClick={onAction}
-      disabled={isPending}
+      disabled={isPending || isAuthorized}
       className={cn([
         "group flex min-w-0 flex-1 basis-0 items-center gap-3 rounded-xl px-3 py-3 text-left transition-all",
         isAuthorized
-          ? "border border-neutral-200 bg-white hover:border-neutral-300 hover:bg-stone-50 active:scale-[0.98]"
+          ? "border border-neutral-200 bg-white"
           : "border border-stone-600 bg-stone-800 text-white shadow-[0_4px_14px_rgba(87,83,78,0.18)] hover:bg-stone-700 active:scale-[0.98]",
-        isPending && "cursor-not-allowed opacity-50",
+        (isPending || isAuthorized) && "cursor-default",
+        isPending && "opacity-50",
       ])}
       aria-label={
         opensSettings
