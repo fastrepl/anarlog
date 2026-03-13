@@ -3,7 +3,7 @@ import { Image as UnpicImage } from "@unpic/react/base";
 import type { ComponentProps } from "react";
 import { transform } from "unpic/providers/netlify";
 
-import { stripEditorWidthFromTitle } from "@/lib/image-editor-metadata";
+import { stripEditorWidthFromTitle } from "@hypr/tiptap/shared";
 
 function isGifSource(src: ImageProps["src"]) {
   return (
