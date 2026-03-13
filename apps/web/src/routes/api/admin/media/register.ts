@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
-import { deleteCatalogMediaAssets } from "@/functions/media-catalog";
+import { registerStorageMediaAsset } from "@/functions/media-catalog";
 import { getSupabaseServerClient } from "@/functions/supabase";
-import { deleteMediaFiles } from "@/functions/supabase-media";
 
-export const Route = createFileRoute("/api/admin/media/delete")({
+export const Route = createFileRoute("/api/admin/media/register")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -20,7 +19,12 @@ export const Route = createFileRoute("/api/admin/media/delete")({
           }
         }
 
-        let body: { paths: string[] };
+        let body: {
+          path?: string;
+          publicUrl?: string;
+          mimeType?: string | null;
+          size?: number;
+        };
         try {
           body = await request.json();
         } catch {
@@ -30,11 +34,11 @@ export const Route = createFileRoute("/api/admin/media/delete")({
           });
         }
 
-        const { paths } = body;
-
-        if (!paths || !Array.isArray(paths) || paths.length === 0) {
+        if (!body.path || !body.publicUrl) {
           return new Response(
-            JSON.stringify({ error: "Missing required field: paths (array)" }),
+            JSON.stringify({
+              error: "Missing required fields: path, publicUrl",
+            }),
             {
               status: 400,
               headers: { "Content-Type": "application/json" },
@@ -43,20 +47,17 @@ export const Route = createFileRoute("/api/admin/media/delete")({
         }
 
         const supabase = getSupabaseServerClient();
-        const result = await deleteMediaFiles(supabase, paths);
-        await deleteCatalogMediaAssets(supabase, result.deleted);
+        await registerStorageMediaAsset(supabase, {
+          path: body.path,
+          publicUrl: body.publicUrl,
+          mimeType: body.mimeType || null,
+          size: body.size || 0,
+        });
 
-        return new Response(
-          JSON.stringify({
-            success: result.success,
-            deleted: result.deleted,
-            errors: result.errors,
-          }),
-          {
-            status: result.success ? 200 : 207,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
       },
     },
   },
