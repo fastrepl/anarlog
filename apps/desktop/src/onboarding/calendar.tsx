@@ -1,8 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { CalendarIcon } from "lucide-react";
 
-import { Button } from "@hypr/ui/components/ui/button";
-
 import { OnboardingButton } from "./shared";
 
 import { useAppleCalendarSelection } from "~/calendar/components/apple/calendar-selection";
@@ -33,14 +31,13 @@ function RequestCalendarAccess({
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border px-4 py-6">
       <CalendarIcon className="mb-2 size-6 text-neutral-300" />
-      <Button
-        variant="outline"
-        size="sm"
+      <OnboardingButton
         onClick={onRequest}
         disabled={isPending}
+        className="border-stone-700 bg-stone-800 text-white hover:bg-stone-700"
       >
         Request Access to Apple Calendar
-      </Button>
+      </OnboardingButton>
     </div>
   );
 }
@@ -69,7 +66,17 @@ export function CalendarSection({ onContinue }: { onContinue: () => void }) {
         </div>
       )}
 
-      <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
+      {hasConnectedCalendar ? (
+        <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
+      ) : (
+        <button
+          type="button"
+          onClick={onContinue}
+          className="w-fit text-sm text-neutral-500/70 transition-colors hover:text-neutral-700"
+        >
+          Skip
+        </button>
+      )}
     </div>
   );
 }

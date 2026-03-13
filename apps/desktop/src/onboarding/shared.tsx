@@ -123,13 +123,17 @@ export function OnboardingSection({
   );
 }
 
-export function OnboardingButton(
-  props: React.ButtonHTMLAttributes<HTMLButtonElement>,
-) {
+export function OnboardingButton({
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
-      className="w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 py-2.5 text-sm font-medium text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] transition-all duration-200 hover:bg-stone-700"
+      className={cn([
+        "w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 py-2.5 text-sm font-medium text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] transition-all duration-200 hover:bg-stone-700",
+        className,
+      ])}
     />
   );
 }
