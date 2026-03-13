@@ -4,9 +4,9 @@ import { cn } from "@hypr/utils";
 
 import { MockWindow } from "@/components/mock-window";
 
-const TITLE = "Press Kit - Hyprnote";
+const TITLE = "Press Kit - Char";
 const DESCRIPTION =
-  "Download Hyprnote press materials, logos, screenshots, and brand assets.";
+  "Download Char press materials, logos, screenshots, and brand assets.";
 
 export const Route = createFileRoute("/_view/press-kit/")({
   component: Component,
@@ -41,37 +41,37 @@ export const Route = createFileRoute("/_view/press-kit/")({
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <div className="px-6 py-16 lg:py-24">
-          <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Press Kit
             </h1>
-            <p className="text-lg sm:text-xl text-neutral-600">
+            <p className="text-lg text-neutral-600 sm:text-xl">
               Download press materials, logos, screenshots, and learn more about
-              Hyprnote. For press inquiries, contact us at{" "}
+              Char. For press inquiries, contact us at{" "}
               <a
-                href="mailto:founders@hyprnote.com"
+                href="mailto:founders@char.com"
                 className="text-stone-600 underline hover:text-stone-700"
               >
-                founders@hyprnote.com
+                founders@char.com
               </a>
             </p>
           </div>
         </div>
 
         <section className="px-6 pb-16 lg:pb-24">
-          <div className="max-w-4xl mx-auto">
-            <MockWindow className="rounded-lg w-full max-w-none">
+          <div className="mx-auto max-w-4xl">
+            <MockWindow className="w-full max-w-none rounded-lg">
               <div className="p-8">
                 <div className="mb-8">
-                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+                  <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
                     Press Materials
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
                     <FinderFolder
                       to="/press-kit/app/"
                       folderImage="/api/images/icons/macos-folder-blue.png"
@@ -88,7 +88,7 @@ function Component() {
                       label="Team"
                     />
                     <div className="invisible">
-                      <div className="mb-3 w-16 h-16"></div>
+                      <div className="mb-3 h-16 w-16"></div>
                       <div className="font-medium text-stone-600">
                         Placeholder
                       </div>
@@ -97,10 +97,10 @@ function Component() {
                 </div>
 
                 <div className="border-t border-neutral-100 pt-8">
-                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+                  <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
                     Quick Actions
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
                     <FinderAction
                       href="/download/apple-silicon"
                       label="Download"
@@ -108,19 +108,19 @@ function Component() {
                       appIcon
                     />
                     <FinderAction
-                      href="mailto:founders@hyprnote.com"
+                      href="mailto:founders@char.com"
                       iconImage="/api/images/icons/macos-mail.png"
                       label="Contact"
                     />
                     <FinderAction
-                      href="https://github.com/fastrepl/hyprnote"
+                      href="https://github.com/fastrepl/char"
                       iconImage="/api/images/icons/github.webp"
                       label="GitHub"
                       external
                       roundedIcon
                     />
                     <div className="invisible">
-                      <div className="mb-3 w-16 h-16"></div>
+                      <div className="mb-3 h-16 w-16"></div>
                       <div className="font-medium text-stone-600">
                         Placeholder
                       </div>
@@ -129,7 +129,7 @@ function Component() {
                 </div>
               </div>
 
-              <div className="bg-stone-50 border-t border-neutral-200 px-4 py-2">
+              <div className="border-t border-neutral-200 bg-stone-50 px-4 py-2">
                 <span className="text-xs text-neutral-500">
                   7 items, 2 groups
                 </span>
@@ -155,16 +155,16 @@ function FinderFolder({
     <Link
       to={to}
       className={cn([
-        "group flex flex-col items-center text-center p-4 rounded-lg",
-        "hover:bg-stone-50 transition-colors",
+        "group flex flex-col items-center rounded-lg p-4 text-center",
+        "transition-colors hover:bg-stone-50",
         "cursor-pointer",
       ])}
     >
-      <div className="mb-3 w-16 h-16 flex items-center justify-center">
+      <div className="mb-3 flex h-16 w-16 items-center justify-center">
         <img
           src={folderImage}
           alt={`${label} folder`}
-          className="w-16 h-16 group-hover:scale-110 transition-transform"
+          className="h-16 w-16 transition-transform group-hover:scale-110"
         />
       </div>
       <div className="font-medium text-stone-600">{label}</div>
@@ -195,15 +195,15 @@ function FinderAction({
         {appIcon ? (
           <img
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
-            className="w-16 h-16 mx-auto rounded-[20px] border border-neutral-100 group-hover:scale-110 transition-transform shadow-md"
+            alt="Char"
+            className="mx-auto h-16 w-16 rounded-[20px] border border-neutral-100 shadow-md transition-transform group-hover:scale-110"
           />
         ) : iconImage ? (
           <img
             src={iconImage}
             alt={label}
             className={cn([
-              "w-16 h-16 mx-auto group-hover:scale-110 transition-transform",
+              "mx-auto h-16 w-16 transition-transform group-hover:scale-110",
               roundedIcon ? "rounded-[20px] shadow-md" : "",
             ])}
           />
@@ -214,8 +214,8 @@ function FinderAction({
   );
 
   const className = cn([
-    "group flex flex-col items-center text-center p-4 rounded-lg",
-    "hover:bg-stone-50 transition-colors",
+    "group flex flex-col items-center rounded-lg p-4 text-center",
+    "transition-colors hover:bg-stone-50",
     "cursor-pointer",
   ]);
 

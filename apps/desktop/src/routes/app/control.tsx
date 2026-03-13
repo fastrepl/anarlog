@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isTauri } from "@tauri-apps/api/core";
 import { ChevronDown, Mic, MicOff, Square, X } from "lucide-react";
 import { useRef } from "react";
 
@@ -8,8 +8,8 @@ import { commands as iconCommands } from "@hypr/plugin-icon";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import { useListener } from "../../contexts/listener";
-import { useWidgetState } from "../../hooks/useWidgetState";
+import { useWidgetState } from "~/shared/hooks/useWidgetState";
+import { useListener } from "~/stt/contexts";
 
 export const Route = createFileRoute("/app/control")({
   component: Component,
@@ -115,17 +115,17 @@ function CollapsedWidget({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       className={cn([
-        "h-full w-full flex items-center justify-center cursor-pointer",
+        "flex h-full w-full cursor-pointer items-center justify-center",
       ])}
     >
       {isActive || isFinalizing ? (
         <div
           data-tauri-drag-region
           className={cn([
-            "w-3 h-3 rounded-full",
+            "h-3 w-3 rounded-full",
             isFinalizing
-              ? "bg-yellow-500 animate-pulse"
-              : "bg-red-500 animate-pulse",
+              ? "animate-pulse bg-yellow-500"
+              : "animate-pulse bg-red-500",
           ])}
         />
       ) : iconBase64 ? (
@@ -133,13 +133,13 @@ function CollapsedWidget({
           data-tauri-drag-region
           src={`data:image/png;base64,${iconBase64}`}
           alt="App Icon"
-          className="w-12 h-12 rounded-xl"
+          className="h-12 w-12 rounded-xl"
           draggable={false}
         />
       ) : (
         <div
           data-tauri-drag-region
-          className="w-12 h-12 rounded-full bg-white/40"
+          className="h-12 w-12 rounded-full bg-white/40"
         />
       )}
     </div>
@@ -165,29 +165,33 @@ function ExpandedPanel({
   stop: () => void;
   setMuted: (muted: boolean) => void;
 }) {
-  const handleClose = () => {
-    getCurrentWindow().close();
+  const handleClose = async () => {
+    if (!isTauri()) {
+      return;
+    }
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await getCurrentWindow().close();
   };
 
   return (
     <div
       className={cn([
-        "h-full w-full flex flex-col",
-        "bg-black/70 backdrop-blur-md rounded-xl",
+        "flex h-full w-full flex-col",
+        "rounded-xl bg-black/70 backdrop-blur-md",
       ])}
     >
       <header
         data-tauri-drag-region
         className={cn([
-          "flex flex-row shrink-0",
-          "w-full items-center justify-between h-8",
+          "flex shrink-0 flex-row",
+          "h-8 w-full items-center justify-between",
           "px-3",
         ])}
       >
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10"
+          className="h-5 w-5 text-white/40 hover:bg-white/10 hover:text-white"
           onClick={onCollapse}
         >
           <ChevronDown className="h-3 w-3" />
@@ -195,31 +199,33 @@ function ExpandedPanel({
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-white/40 hover:text-white hover:bg-white/10"
-          onClick={handleClose}
+          className="h-5 w-5 text-white/40 hover:bg-white/10 hover:text-white"
+          onClick={() => {
+            void handleClose();
+          }}
         >
           <X className="h-3 w-3" />
         </Button>
       </header>
 
-      <div className="flex-1 p-4 flex flex-col items-center justify-center gap-4">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
         {isActive || isFinalizing ? (
           <>
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  "w-2.5 h-2.5 rounded-full",
+                  "h-2.5 w-2.5 rounded-full",
                   isFinalizing
-                    ? "bg-yellow-500 animate-pulse"
-                    : "bg-red-500 animate-pulse",
+                    ? "animate-pulse bg-yellow-500"
+                    : "animate-pulse bg-red-500",
                 )}
               />
-              <span className="text-white font-mono text-2xl font-medium">
+              <span className="font-mono text-2xl font-medium text-white">
                 {formatTime(seconds)}
               </span>
             </div>
 
-            <div className="flex items-center gap-2 h-4">
+            <div className="flex h-4 items-center gap-2">
               <div className="flex items-center gap-0.5">
                 {[...Array(5)].map((_, i) => (
                   <div
@@ -234,7 +240,7 @@ function ExpandedPanel({
                   />
                 ))}
               </div>
-              <span className="text-white/40 text-xs">MIC</span>
+              <span className="text-xs text-white/40">MIC</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -268,7 +274,7 @@ function ExpandedPanel({
             </div>
           </>
         ) : (
-          <div className="text-white/60 text-sm text-center">
+          <div className="text-center text-sm text-white/60">
             No active session
           </div>
         )}

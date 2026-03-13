@@ -20,11 +20,11 @@ export const Route = createFileRoute("/_view/legal/$slug")({
     }
 
     const { doc } = loaderData;
-    const url = `https://hyprnote.com/legal/${doc.slug}`;
+    const url = `https://char.com/legal/${doc.slug}`;
 
     return {
       meta: [
-        { title: `${doc.title} - Hyprnote` },
+        { title: `${doc.title} - Char` },
         { name: "description", content: doc.summary },
         { property: "og:title", content: doc.title },
         { property: "og:description", content: doc.summary },
@@ -46,11 +46,11 @@ function Component() {
       className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white px-4 py-16 sm:px-6 lg:px-8">
         <article className="prose prose-stone prose-lg max-w-none">
           <h1>{doc.title}</h1>
 
-          <p className="text-xl text-neutral-600 mb-8">
+          <p className="mb-8 text-xl text-neutral-600">
             Last updated:{" "}
             {new Date(doc.date).toLocaleDateString("en-US", {
               year: "numeric",

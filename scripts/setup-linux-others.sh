@@ -14,6 +14,7 @@ sudo apt-get install -y \
   pkg-config \
   patchelf \
   cmake \
-  curl
+  curl \
+  libcurl4-openssl-dev
 
 curl -fsSL https://get.pnpm.io/install.sh | sh -

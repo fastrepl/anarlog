@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod/tests.rs
+expression: output
+---
+export const simpleEnumSchema = z.enum(["One", "Two", "Three"]);
+export type SimpleEnum = z.infer<typeof simpleEnumSchema>;

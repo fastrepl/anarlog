@@ -1,6 +1,6 @@
 import { $, browser, expect } from "@wdio/globals";
 
-describe("Hyprnote Desktop App", () => {
+describe("Char Desktop App", () => {
   it("should launch the application", async () => {
     const title = await browser.getTitle();
     expect(title).toBeTruthy();

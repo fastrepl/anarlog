@@ -1,4 +1,10 @@
-const COMMANDS: &[&str] = &["event", "set_properties", "set_disabled", "is_disabled"];
+const COMMANDS: &[&str] = &[
+    "event",
+    "set_properties",
+    "set_disabled",
+    "is_disabled",
+    "identify",
+];
 
 fn main() {
     println!("cargo:rerun-if-env-changed=POSTHOG_API_KEY");

@@ -1,0 +1,66 @@
+name: devin_triage_issues
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: |
+            You are tasked with triaging open GitHub issues for Hyprnote to determine if they have already been addressed.
+
+            ## Context
+            Hyprnote is a Tauri-based desktop app for AI meeting notes that prioritizes privacy.
+            Repository: fastrepl/hyprnote
+
+            ## Your Task
+            1. **Fetch Open Issues**
+               - Use the GitHub API to list all open issues (not pull requests) in `fastrepl/hyprnote`
+               - For each issue, note the title, body, labels, and creation date
+
+            2. **Assess Each Issue Against the Codebase**
+               For each open issue:
+               - Understand what the issue is requesting or reporting
+               - Search the codebase for relevant code changes that may address it
+               - Check git history since the issue was created: `git log --since="<issue_created_date>" --all --oneline --grep="<relevant_keywords>"`
+               - Look at recent commits and PRs that touch related files
+               - Read the relevant source files to determine if the described problem still exists or the requested feature has been implemented
+
+            3. **Close Resolved Issues**
+               If you determine an issue has been addressed:
+               - Close the issue via the GitHub API
+               - Leave a comment explaining:
+                 * What change resolved it (reference the commit or PR if possible)
+                 * A brief explanation of how it was fixed/implemented
+               - Use this format for the comment:
+                 ```
+                 This issue appears to have been addressed by [commit/PR reference].
+
+                 [Brief explanation of the fix/implementation]
+
+                 Closing this issue. If this is not fully resolved, please reopen and provide details.
+                 ```
+
+            4. **Skip Ambiguous Cases**
+               - If you're not confident an issue is resolved, leave it open
+               - Only close issues where there is clear evidence the problem is fixed or the feature is implemented
+               - Feature requests with partial implementation should remain open
+               - Do NOT close issues labeled `enhancement` or `feature-request` unless the feature is clearly fully implemented
+
+            ## Important Notes
+            - Be conservative: when in doubt, leave the issue open
+            - Do not create any PRs for this task
+            - Focus on bug reports and specific problems that can be verified in the code
+            - Check both the desktop app code and web app code as relevant
+            - If there are no issues to close, simply report that all open issues still need attention
+          title: ${{ github.run_id }}-triage-issues
+          tags: '["triage_issues"]'

@@ -1,7 +1,6 @@
-use crate::{
-    event::HookEvent,
-    runner::{HookResult, run_hooks_for_event},
-};
+use hypr_hooks::{HookEvent, HookResult, run_hooks_for_event};
+
+use crate::config;
 
 pub struct Hooks<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -10,7 +9,8 @@ pub struct Hooks<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Hooks<'a, R, M> {
     pub async fn handle_event(&self, event: HookEvent) -> crate::Result<Vec<HookResult>> {
-        run_hooks_for_event(self.manager, event).await
+        let config = config::load_config(self.manager).await?;
+        Ok(run_hooks_for_event(&config, event).await)
     }
 }
 

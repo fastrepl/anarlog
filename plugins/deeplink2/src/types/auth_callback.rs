@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -16,22 +15,5 @@ impl fmt::Debug for AuthCallbackSearch {
             .field("access_token", &"[REDACTED]")
             .field("refresh_token", &"[REDACTED]")
             .finish()
-    }
-}
-
-impl AuthCallbackSearch {
-    pub fn from_query_params(query_params: &HashMap<String, String>) -> crate::Result<Self> {
-        let access_token = query_params
-            .get("access_token")
-            .ok_or(crate::Error::MissingQueryParam("access_token".to_string()))?;
-
-        let refresh_token = query_params
-            .get("refresh_token")
-            .ok_or(crate::Error::MissingQueryParam("refresh_token".to_string()))?;
-
-        Ok(Self {
-            access_token: access_token.to_string(),
-            refresh_token: refresh_token.to_string(),
-        })
     }
 }

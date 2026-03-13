@@ -14,11 +14,11 @@ export const Route = createFileRoute("/_view/roadmap/")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Roadmap - Hyprnote" },
+      { title: "Roadmap - Char" },
       {
         name: "description",
         content:
-          "See what we're building next for Hyprnote. Our product roadmap and future plans.",
+          "See what we're building next for Char. Our product roadmap and future plans.",
       },
     ],
   }),
@@ -78,16 +78,16 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <div className="px-6 py-12 lg:py-20">
           <header className="mb-12 text-center">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif text-stone-600 mb-6">
+            <h1 className="mb-6 font-serif text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
               Product Roadmap
             </h1>
-            <p className="text-xl text-neutral-600 max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-xl text-neutral-600">
               See what we're building and what's coming next. We're always
               listening to feedback from our community.
             </p>
@@ -145,23 +145,20 @@ const statusConfig: Record<
 
 function TableView({ items }: { items: RoadmapItem[] }) {
   return (
-    <div className="overflow-x-auto -mx-6">
+    <div className="-mx-6 overflow-x-auto">
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-neutral-50">
-            <th className="text-left py-2 px-3 text-sm font-medium text-stone-500 border-y border-neutral-100 whitespace-nowrap">
+            <th className="border-y border-neutral-100 px-3 py-2 text-left text-sm font-medium whitespace-nowrap text-stone-500">
               Name
             </th>
-            <th className="text-left py-2 px-3 text-sm font-medium text-stone-500 border-y border-l border-neutral-100">
-              Description
-            </th>
-            <th className="text-left py-2 px-3 text-sm font-medium text-stone-500 border-y border-l border-neutral-100 whitespace-nowrap">
+            <th className="border-y border-l border-neutral-100 px-3 py-2 text-left text-sm font-medium whitespace-nowrap text-stone-500">
               Status
             </th>
-            <th className="text-left py-2 px-3 text-sm font-medium text-stone-500 border-y border-l border-neutral-100 whitespace-nowrap">
+            <th className="border-y border-l border-neutral-100 px-3 py-2 text-left text-sm font-medium whitespace-nowrap text-stone-500">
               Priority
             </th>
-            <th className="text-left py-2 px-3 text-sm font-medium text-stone-500 border-y border-l border-neutral-100 whitespace-nowrap">
+            <th className="border-y border-l border-neutral-100 px-3 py-2 text-left text-sm font-medium whitespace-nowrap text-stone-500">
               Date
             </th>
           </tr>
@@ -174,9 +171,9 @@ function TableView({ items }: { items: RoadmapItem[] }) {
             return (
               <tr
                 key={item.slug}
-                className="hover:bg-stone-50 transition-colors"
+                className="transition-colors hover:bg-stone-50"
               >
-                <td className="py-2 px-3 border-y border-neutral-100 whitespace-nowrap">
+                <td className="border-y border-neutral-100 px-3 py-2 whitespace-nowrap">
                   <Link
                     to="/roadmap/$slug/"
                     params={{ slug: item.slug }}
@@ -185,13 +182,10 @@ function TableView({ items }: { items: RoadmapItem[] }) {
                     {item.title}
                   </Link>
                 </td>
-                <td className="py-2 px-3 border-y border-l border-neutral-100 text-sm text-stone-600">
-                  {item.description}
-                </td>
-                <td className="py-2 px-3 border-y border-l border-neutral-100">
+                <td className="border-y border-l border-neutral-100 px-3 py-2">
                   <span
                     className={cn([
-                      "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap",
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
                       statusInfo.className,
                     ])}
                   >
@@ -199,17 +193,17 @@ function TableView({ items }: { items: RoadmapItem[] }) {
                     {statusInfo.label}
                   </span>
                 </td>
-                <td className="py-2 px-3 border-y border-l border-neutral-100">
+                <td className="border-y border-l border-neutral-100 px-3 py-2">
                   <span
                     className={cn([
-                      "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full whitespace-nowrap",
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
                       priorityInfo.className,
                     ])}
                   >
                     {priorityInfo.label}
                   </span>
                 </td>
-                <td className="py-2 px-3 border-y border-l border-neutral-100 text-sm text-stone-500 whitespace-nowrap">
+                <td className="border-y border-l border-neutral-100 px-3 py-2 text-sm whitespace-nowrap text-stone-500">
                   {item.date || "—"}
                 </td>
               </tr>
@@ -258,35 +252,34 @@ function CTASection({
   };
 
   return (
-    <section className="mt-16 py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 -mx-6 px-6">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="-mx-6 mt-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-6 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
+        <h2 className="font-serif text-2xl sm:text-3xl">
           Where conversations
           <br className="sm:hidden" /> stay yours
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
-          Start using Hyprnote today and bring clarity to your back-to-back
-          meetings
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+          Start using Char today and bring clarity to your back-to-back meetings
         </p>
-        <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
           {platformCTA.action === "download" ? (
             <DownloadButton />
           ) : (
             <button
               onClick={handleCTAClick}
               className={cn([
-                "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-                "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-                "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
                 "transition-all",
               ])}
             >
@@ -297,7 +290,7 @@ function CTASection({
                 viewBox="0 0 24 24"
                 strokeWidth="1.5"
                 stroke="currentColor"
-                className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform"
+                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
               >
                 <path
                   strokeLinecap="round"

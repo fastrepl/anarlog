@@ -1,0 +1,78 @@
+---
+title: "Node.js & pnpm"
+section: "Onboarding"
+summary: "Install Node.js and pnpm — the JavaScript runtime and package manager the project depends on"
+---
+
+## What they are
+
+**[Node.js](https://nodejs.org)** is a JavaScript runtime. Our website, docs, and desktop app frontend all run on JavaScript — Node.js is what executes it on your machine.
+
+**[pnpm](https://pnpm.io)** is a package manager for JavaScript. When the project needs external libraries (and it needs hundreds), pnpm downloads and manages them. It's similar to npm but faster and more efficient.
+
+You need both installed even if you never write JavaScript. Building the website, running the dev server, and previewing content changes all require them.
+
+## Prerequisites
+
+- [Homebrew](/company-handbook/onboarding/homebrew) installed
+
+## Install Node.js
+
+```bash
+brew install node
+```
+
+Verify:
+
+```bash
+node --version
+```
+
+You should see `v20.x.x` or higher.
+
+## Install pnpm
+
+```bash
+brew install pnpm
+```
+
+Verify:
+
+```bash
+pnpm --version
+```
+
+You should see `9.x.x` or higher.
+
+## Install project dependencies
+
+Once both are installed, navigate to the Char repo and install all project dependencies:
+
+```bash
+cd ~/Dev/hyprnote
+pnpm install
+```
+
+This downloads everything the project needs. It takes a minute or two the first time.
+
+## When you'll use these
+
+You won't run `node` or `pnpm` commands constantly, but they're behind the scenes for:
+
+- `pnpm -F desktop tauri dev` — Run the desktop app locally
+- `pnpm -F web dev` — Run the website locally to preview content changes
+- `pnpm install` — Run this after pulling new changes that update dependencies
+
+Most of these commands are wrapped in Taskfile commands, so you'll often just run `task <something>` instead. But Node.js and pnpm need to be installed for any of it to work.
+
+## Troubleshooting
+
+**"node: command not found"** — Close and reopen your terminal after installing. If it still doesn't work, run `brew link node`.
+
+**"pnpm: command not found"** — Same fix — close and reopen your terminal, or run `brew link pnpm`.
+
+**"pnpm install" fails with permission errors** — Don't use `sudo`. If you get permission errors, the issue is usually with your Node.js installation. Reinstall Node.js via Homebrew.
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

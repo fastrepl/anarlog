@@ -1,5 +1,7 @@
 use serde::{Serialize, ser::Serializer};
 
+pub use hypr_listener_core::DegradedError;
+
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, thiserror::Error)]
@@ -14,6 +16,8 @@ pub enum Error {
     LocalSttError(#[from] tauri_plugin_local_stt::Error),
     #[error("no session")]
     NoneSession,
+    #[error("session already running")]
+    SessionAlreadyRunning,
     #[error("start session failed")]
     StartSessionFailed,
     #[error("stop session failed")]

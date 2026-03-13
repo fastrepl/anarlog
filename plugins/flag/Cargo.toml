@@ -15,6 +15,9 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+hypr-analytics = { workspace = true }
+hypr-host = { workspace = true }
+
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 

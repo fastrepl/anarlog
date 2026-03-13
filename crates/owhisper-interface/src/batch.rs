@@ -6,6 +6,7 @@ use crate::stream;
 
 common_derives! {
     #[specta(rename = "BatchWord")]
+    #[cfg_attr(feature = "openapi", schema(as = BatchWord))]
     pub struct Word {
         pub word: String,
         pub start: f64,
@@ -18,6 +19,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "BatchAlternatives")]
+    #[cfg_attr(feature = "openapi", schema(as = BatchAlternatives))]
     pub struct Alternatives {
         pub transcript: String,
         pub confidence: f64,
@@ -28,6 +30,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "BatchChannel")]
+    #[cfg_attr(feature = "openapi", schema(as = BatchChannel))]
     pub struct Channel {
         pub alternatives: Vec<Alternatives>,
     }
@@ -35,6 +38,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "BatchResults")]
+    #[cfg_attr(feature = "openapi", schema(as = BatchResults))]
     pub struct Results {
         pub channels: Vec<Channel>,
     }
@@ -42,7 +46,9 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "BatchResponse")]
+    #[cfg_attr(feature = "openapi", schema(as = BatchResponse))]
     pub struct Response {
+        #[cfg_attr(feature = "openapi", schema(value_type = Object))]
         pub metadata: serde_json::Value,
         pub results: Results,
     }
@@ -64,11 +70,11 @@ impl From<stream::Word> for Word {
 }
 
 impl From<stream::Alternatives> for Alternatives {
-    fn from(mut alternatives: stream::Alternatives) -> Self {
+    fn from(alternatives: stream::Alternatives) -> Self {
         let transcript = alternatives.transcript.trim().to_string();
         let words = alternatives
             .words
-            .drain(..)
+            .into_iter()
             .map(Word::from)
             .collect::<Vec<_>>();
 
@@ -81,10 +87,10 @@ impl From<stream::Alternatives> for Alternatives {
 }
 
 impl From<stream::Channel> for Channel {
-    fn from(mut channel: stream::Channel) -> Self {
+    fn from(channel: stream::Channel) -> Self {
         let alternatives = channel
             .alternatives
-            .drain(..)
+            .into_iter()
             .map(Alternatives::from)
             .collect::<Vec<_>>();
 

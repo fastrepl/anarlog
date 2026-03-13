@@ -1,6 +1,7 @@
 const COMMANDS: &[&str] = &[
     "get_git_hash",
     "get_fingerprint",
+    "get_device_info",
     "opinionated_md_to_html",
     "delete_session_folder",
     "parse_meeting_link",
@@ -13,7 +14,10 @@ const COMMANDS: &[&str] = &[
 ];
 
 fn main() {
-    let gitcl = vergen_gix::GixBuilder::all_git().unwrap();
+    let gitcl = vergen_gix::GixBuilder::default()
+        .sha(false)
+        .build()
+        .unwrap();
     vergen_gix::Emitter::default()
         .add_instructions(&gitcl)
         .unwrap()

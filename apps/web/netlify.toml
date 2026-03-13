@@ -6,7 +6,8 @@ publish = "apps/web/dist/client"
 ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF apps/web packages/api-client packages/tiptap packages/ui packages/utils package.json pnpm-lock.yaml"
 
 [build.environment]
-VITE_APP_URL = "https://hyprnote.com"
+VITE_APP_URL = "https://char.com"
+NODE_OPTIONS = "--max-old-space-size=4096"
 NODE_VERSION = "22"
 
 [images]
@@ -18,10 +19,21 @@ remote_images = [
 ]
 
 # Domain migration: hyprnote.com -> char.com (301 for SEO)
-# Exclude /admin, /app, /api, /webhook, /callback, /auth from redirects
-# These paths stay on hyprnote.com without redirect
+# Exclude /admin, /app, /api, /webhook from redirects.
+# Auth paths MUST redirect so PKCE cookies stay on one domain.
 
-# Redirect content pages from hyprnote.com to char.com
+[[redirects]]
+from = "https://hyprnote.com/auth"
+to = "https://char.com/auth"
+status = 301
+force = true
+
+[[redirects]]
+from = "https://hyprnote.com/callback/*"
+to = "https://char.com/callback/:splat"
+status = 301
+force = true
+
 [[redirects]]
 from = "https://hyprnote.com/blog/*"
 to = "https://char.com/blog/:splat"
@@ -37,12 +49,6 @@ force = true
 [[redirects]]
 from = "https://hyprnote.com/changelog/*"
 to = "https://char.com/changelog/:splat"
-status = 301
-force = true
-
-[[redirects]]
-from = "https://hyprnote.com/templates/*"
-to = "https://char.com/templates/:splat"
 status = 301
 force = true
 
@@ -154,18 +160,12 @@ to = "https://char.com/contact"
 status = 301
 force = true
 
-# Homepage redirect
 [[redirects]]
 from = "https://hyprnote.com"
 to = "https://char.com"
 status = 301
 force = true
 
-# Note: www.hyprnote.com and http variants are handled by Netlify's built-in
-# www redirect (www -> apex) and HTTPS enforcement. After those redirects,
-# the selective rules above will apply to hyprnote.com.
-
-# Secondary domains-> char.com
 [[redirects]]
 from = "https://getchar.com/*"
 to = "https://char.com/:splat"

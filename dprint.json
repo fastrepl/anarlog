@@ -1,9 +1,17 @@
 {
   "markdown": {
-    "associations": ["**/*.jinja", "crates/db-user/assets/**/*.md"]
+    "associations": [
+      "**/*.jinja",
+      "crates/db-user/assets/**/*.md"
+    ]
   },
   "markup": {
-    "associations": ["!**/*.html", "!**/*.jinja", "**/*.wxs", "**/*.wxl"]
+    "associations": [
+      "!**/*.html",
+      "!**/*.jinja",
+      "**/*.wxs",
+      "**/*.wxl"
+    ]
   },
   "excludes": [
     ".venv",
@@ -18,7 +26,6 @@
     "**/gen/**",
     "**/generated/**",
     "**/permissions/**",
-    "**/*.swift",
     "**/migrations/**/*.sql",
     "**/tests/*.sql",
     "**/charts/**",
@@ -30,25 +37,49 @@
     "commands": [
       {
         "command": "gofmt",
-        "exts": ["go"],
-        "cacheKeyFiles": ["go.mod", "go.sum"]
+        "exts": [
+          "go"
+        ],
+        "cacheKeyFiles": [
+          "go.mod",
+          "go.sum"
+        ]
       },
       {
         "command": "rustfmt --edition 2024",
-        "exts": ["rs"],
-        "cacheKeyFiles": ["rust-toolchain.toml"]
+        "exts": [
+          "rs"
+        ],
+        "cacheKeyFiles": [
+          "rust-toolchain.toml"
+        ]
       },
       {
-        "command": "swift-format format",
-        "exts": ["swift"]
+        "command": "swift format",
+        "exts": [
+          "swift"
+        ]
       },
       {
-        "command": "pnpm exec prettier --config .prettierrc --write",
-        "exts": ["js", "ts", "jsx", "tsx", "mjs", "mts"]
+        "command": "pnpm exec oxfmt --stdin-filepath {{file_path}}",
+        "exts": [
+          "js",
+          "ts",
+          "jsx",
+          "tsx",
+          "mjs",
+          "mts"
+        ],
+        "cacheKeyFiles": [
+          ".oxfmtrc.json",
+          "package.json"
+        ]
       },
       {
         "command": "node apps/web/scripts/format-mdx.js",
-        "exts": ["mdx"]
+        "exts": [
+          "mdx"
+        ]
       }
     ]
   },

@@ -12,18 +12,18 @@ export const Route = createFileRoute("/_view/product/self-hosting")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Self-Hosting - Hyprnote" },
+      { title: "Self-Hosting - Char" },
       {
         name: "description",
         content:
-          "Deploy Hyprnote on your own infrastructure. Complete control over your meeting data with on-premises deployment, air-gapped environments, and full data sovereignty.",
+          "Deploy Char on your own infrastructure. Complete control over your meeting data with on-premises deployment, air-gapped environments, and full data sovereignty.",
       },
       { name: "robots", content: "noindex, nofollow" },
-      { property: "og:title", content: "Self-Hosting - Hyprnote" },
+      { property: "og:title", content: "Self-Hosting - Char" },
       {
         property: "og:description",
         content:
-          "Run Hyprnote entirely on your own servers. Enterprise-grade meeting transcription with complete infrastructure control, compliance-ready deployment, and zero external dependencies.",
+          "Run Char entirely on your own servers. Enterprise-grade meeting transcription with complete infrastructure control, compliance-ready deployment, and zero external dependencies.",
       },
       { property: "og:type", content: "website" },
       {
@@ -39,10 +39,10 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <WhySelfHostSection />
@@ -66,27 +66,27 @@ function Component() {
 function HeroSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center text-center gap-6 py-24 px-4">
-        <div className="flex flex-col gap-6 max-w-4xl">
-          <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600">
-            Run Hyprnote on
+      <div className="flex flex-col items-center gap-6 px-4 py-24 text-center">
+        <div className="flex max-w-4xl flex-col gap-6">
+          <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+            Run Char on
             <br />
             your infrastructure
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600 max-w-3xl mx-auto">
-            Deploy Hyprnote entirely on your own servers. Complete control over
-            your meeting data with on-premises deployment, air-gapped
-            environments, and full data sovereignty.
+          <p className="mx-auto max-w-3xl text-lg text-neutral-600 sm:text-xl">
+            Deploy Char entirely on your own servers. Complete control over your
+            meeting data with on-premises deployment, air-gapped environments,
+            and full data sovereignty.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 pt-6 items-center">
+        <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row">
           <GithubStars />
           <Link
             to="/opensource/"
             className={cn([
-              "px-6 h-12 flex items-center justify-center text-base font-medium rounded-full",
+              "flex h-12 items-center justify-center rounded-full px-6 text-base font-medium",
               "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900",
-              "shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all",
+              "shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >
             Our open source manifesto
@@ -100,18 +100,18 @@ function HeroSection() {
 function WhySelfHostSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Why self-host
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-b border-neutral-100 md:border-b-0">
+        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:server-security"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Complete data sovereignty
           </h3>
           <p className="text-neutral-600">
@@ -120,12 +120,12 @@ function WhySelfHostSection() {
             infrastructure.
           </p>
         </div>
-        <div className="p-8 border-b border-neutral-100 md:border-b-0">
+        <div className="border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:shield-check"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Compliance ready
           </h3>
           <p className="text-neutral-600">
@@ -134,13 +134,13 @@ function WhySelfHostSection() {
             control.
           </p>
         </div>
-        <div className="p-8 border-r border-neutral-100">
-          <Icon icon="mdi:lan" className="text-3xl text-stone-600 mb-4" />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+        <div className="border-r border-neutral-100 p-8">
+          <Icon icon="mdi:lan" className="mb-4 text-3xl text-stone-700" />
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Air-gapped deployment
           </h3>
           <p className="text-neutral-600">
-            Run Hyprnote in completely isolated environments with zero internet
+            Run Char in completely isolated environments with zero internet
             connectivity. Perfect for defense, government, and high-security
             organizations.
           </p>
@@ -148,9 +148,9 @@ function WhySelfHostSection() {
         <div className="p-8">
           <Icon
             icon="mdi:tune-vertical"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Full customization
           </h3>
           <p className="text-neutral-600">
@@ -166,14 +166,14 @@ function WhySelfHostSection() {
 function ComparisonSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Self-hosted vs. Cloud
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-neutral-100">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="border-r border-neutral-100 p-8">
+          <div className="mb-6 flex items-center gap-2">
             <Icon icon="mdi:cloud" className="text-2xl text-neutral-400" />
             <h3 className="font-serif text-lg text-neutral-700">
               Cloud-hosted Solutions
@@ -183,94 +183,94 @@ function ComparisonSection() {
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Data stored on vendor servers</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Limited compliance control</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Vendor lock-in risks</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Internet dependency</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Third-party data access risks</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Limited customization options</span>
             </li>
           </ul>
         </div>
-        <div className="p-8 bg-green-50/50">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-green-50/50 p-8">
+          <div className="mb-6 flex items-center gap-2">
             <Icon icon="mdi:server" className="text-2xl text-green-600" />
             <h3 className="font-serif text-lg text-green-900">
-              Hyprnote Self-hosted
+              Char Self-hosted
             </h3>
           </div>
           <ul className="flex flex-col gap-4 text-green-900">
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Data stays on your servers</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Full compliance control</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>No vendor dependencies</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Works completely offline</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Zero external data access</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Fully customizable codebase</span>
             </li>
@@ -284,56 +284,56 @@ function ComparisonSection() {
 function DeploymentOptionsSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Deployment options
         </p>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3">
-        <div className="p-6 border-r border-b border-neutral-100">
-          <Icon icon="mdi:docker" className="text-2xl text-stone-600 mb-3" />
-          <h3 className="font-medium text-stone-600 mb-2">Docker containers</h3>
+        <div className="border-r border-b border-neutral-100 p-6">
+          <Icon icon="mdi:docker" className="mb-3 text-2xl text-stone-700" />
+          <h3 className="mb-2 font-medium text-stone-700">Docker containers</h3>
           <p className="text-sm text-neutral-600">
             Deploy with Docker Compose for quick setup. Ideal for teams wanting
             containerized infrastructure.
           </p>
         </div>
-        <div className="p-6 border-r border-b border-neutral-100 lg:border-r">
+        <div className="border-r border-b border-neutral-100 p-6 lg:border-r">
           <Icon
             icon="mdi:kubernetes"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Kubernetes</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Kubernetes</h3>
           <p className="text-sm text-neutral-600">
             Scale across clusters with Helm charts. Built for enterprise
             orchestration and high availability.
           </p>
         </div>
-        <div className="p-6 border-b border-neutral-100 sm:border-r lg:border-r-0">
-          <Icon icon="mdi:server" className="text-2xl text-stone-600 mb-3" />
-          <h3 className="font-medium text-stone-600 mb-2">Bare metal</h3>
+        <div className="border-b border-neutral-100 p-6 sm:border-r lg:border-r-0">
+          <Icon icon="mdi:server" className="mb-3 text-2xl text-stone-700" />
+          <h3 className="mb-2 font-medium text-stone-700">Bare metal</h3>
           <p className="text-sm text-neutral-600">
             Install directly on your servers for maximum performance and
             complete hardware control.
           </p>
         </div>
-        <div className="p-6 border-r border-neutral-100 sm:border-b-0 border-b lg:border-b-0">
+        <div className="border-r border-b border-neutral-100 p-6 sm:border-b-0 lg:border-b-0">
           <Icon
             icon="mdi:cloud-lock"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Private cloud</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Private cloud</h3>
           <p className="text-sm text-neutral-600">
             Deploy on AWS, GCP, or Azure within your VPC. Your cloud, your
             rules, your data.
           </p>
         </div>
-        <div className="p-6 border-r border-neutral-100">
+        <div className="border-r border-neutral-100 p-6">
           <Icon
             icon="mdi:lan-disconnect"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Air-gapped</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Air-gapped</h3>
           <p className="text-sm text-neutral-600">
             Fully isolated deployment with no network connectivity. All
             dependencies bundled offline.
@@ -342,9 +342,9 @@ function DeploymentOptionsSection() {
         <div className="p-6">
           <Icon
             icon="mdi:office-building"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">On-premises</h3>
+          <h3 className="mb-2 font-medium text-stone-700">On-premises</h3>
           <p className="text-sm text-neutral-600">
             Run in your own data center with dedicated hardware. Maximum
             security and performance.
@@ -358,19 +358,19 @@ function DeploymentOptionsSection() {
 function WhatYouCanHostSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           What you can self-host
         </p>
       </div>
       <div className="divide-y divide-neutral-100">
-        <div className="p-8 flex items-start gap-4">
+        <div className="flex items-start gap-4 p-8">
           <Icon
             icon="mdi:microphone"
-            className="text-3xl text-stone-600 shrink-0"
+            className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-700">
               Transcription server
             </h3>
             <p className="text-neutral-600">
@@ -380,10 +380,10 @@ function WhatYouCanHostSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 flex items-start gap-4">
-          <Icon icon="mdi:brain" className="text-3xl text-stone-600 shrink-0" />
+        <div className="flex items-start gap-4 p-8">
+          <Icon icon="mdi:brain" className="shrink-0 text-3xl text-stone-700" />
           <div>
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-700">
               LLM inference
             </h3>
             <p className="text-neutral-600">
@@ -393,13 +393,13 @@ function WhatYouCanHostSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 flex items-start gap-4">
+        <div className="flex items-start gap-4 p-8">
           <Icon
             icon="mdi:database"
-            className="text-3xl text-stone-600 shrink-0"
+            className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-700">
               Data storage
             </h3>
             <p className="text-neutral-600">
@@ -417,19 +417,19 @@ function WhatYouCanHostSection() {
 function EnterpriseSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Built for enterprise
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-b border-neutral-100 md:border-b-0 flex gap-4">
+        <div className="flex gap-4 border-r border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:shield-check"
-            className="text-3xl text-green-600 shrink-0"
+            className="shrink-0 text-3xl text-green-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               HIPAA & SOC 2 ready
             </h3>
             <p className="text-neutral-600">
@@ -438,13 +438,13 @@ function EnterpriseSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 border-b border-neutral-100 md:border-b-0 flex gap-4">
+        <div className="flex gap-4 border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:account-group"
-            className="text-3xl text-blue-600 shrink-0"
+            className="shrink-0 text-3xl text-blue-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               SSO & LDAP integration
             </h3>
             <p className="text-neutral-600">
@@ -453,13 +453,13 @@ function EnterpriseSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 border-r border-neutral-100 flex gap-4">
+        <div className="flex gap-4 border-r border-neutral-100 p-8">
           <Icon
             icon="mdi:chart-line"
-            className="text-3xl text-purple-600 shrink-0"
+            className="shrink-0 text-3xl text-purple-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               Usage analytics
             </h3>
             <p className="text-neutral-600">
@@ -468,13 +468,13 @@ function EnterpriseSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 flex gap-4">
+        <div className="flex gap-4 p-8">
           <Icon
             icon="mdi:headset"
-            className="text-3xl text-orange-600 shrink-0"
+            className="shrink-0 text-3xl text-orange-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               Dedicated support
             </h3>
             <p className="text-neutral-600">
@@ -491,27 +491,27 @@ function EnterpriseSection() {
 function OpenSourceSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Open source foundation
         </p>
       </div>
-      <div className="p-8 flex items-start gap-4">
-        <Icon icon="mdi:github" className="text-4xl text-stone-600 shrink-0" />
+      <div className="flex items-start gap-4 p-8">
+        <Icon icon="mdi:github" className="shrink-0 text-4xl text-stone-700" />
         <div>
-          <h3 className="text-xl font-serif text-stone-600 mb-3">
+          <h3 className="mb-3 font-serif text-xl text-stone-700">
             Fully auditable codebase
           </h3>
-          <p className="text-neutral-600 mb-4">
-            Hyprnote is open source under GPL-3.0. Inspect every line of code,
+          <p className="mb-4 text-neutral-600">
+            Char is open source under GPL-3.0. Inspect every line of code,
             verify security practices, and customize to your needs. No black
             boxes, no hidden data collection.
           </p>
           <a
-            href="https://github.com/fastrepl/hyprnote"
+            href="https://github.com/fastrepl/char"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-stone-600 hover:text-stone-800 font-medium"
+            className="inline-flex items-center gap-2 font-medium text-stone-700 hover:text-stone-800"
           >
             <Icon icon="mdi:github" className="text-xl" />
             View on GitHub

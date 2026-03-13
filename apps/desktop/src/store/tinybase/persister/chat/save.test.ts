@@ -1,8 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
 
-import type { TablesContent } from "../shared";
 import { buildChatSaveOps } from "./save";
 import type { ChatJson } from "./types";
+
+import type { TablesContent } from "~/store/tinybase/persister/shared";
 
 type JsonOp = { type: "write-json"; path: string; content: ChatJson };
 
@@ -32,6 +33,7 @@ describe("buildChatSaveOps", () => {
             content: "Hello",
             metadata: "{}",
             parts: "[]",
+            status: "ready",
           },
         },
       };
@@ -59,6 +61,7 @@ describe("buildChatSaveOps", () => {
               content: "Hello",
               metadata: "{}",
               parts: "[]",
+              status: "ready",
             },
           ],
         },

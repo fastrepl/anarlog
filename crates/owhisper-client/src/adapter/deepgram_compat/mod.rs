@@ -12,7 +12,16 @@ use owhisper_interface::ListenParams;
 use super::url_builder::{QueryParamBuilder, resolve_model_for_languages};
 
 pub fn listen_endpoint_url(api_base: &str) -> (url::Url, Vec<(String, String)>) {
-    let mut url: url::Url = api_base.parse().expect("invalid_api_base");
+    let mut url: url::Url = match api_base.parse() {
+        Ok(url) => url,
+        Err(error) => {
+            tracing::error!(%error, "invalid api_base for deepgram adapter; using default API base");
+            crate::providers::Provider::Deepgram
+                .default_api_base()
+                .parse()
+                .expect("invalid_default_api_base")
+        }
+    };
     let existing_params = super::extract_query_params(&url);
     url.set_query(None);
     super::append_path_if_missing(&mut url, "/listen");
@@ -49,6 +58,13 @@ mod tests {
     fn test_listen_endpoint_url_no_double_listen_with_trailing_slash() {
         let (url, params) = listen_endpoint_url("https://api.hyprnote.com/listen/");
         assert_eq!(url.as_str(), "https://api.hyprnote.com/listen/");
+        assert!(params.is_empty());
+    }
+
+    #[test]
+    fn test_listen_endpoint_url_falls_back_on_invalid_base() {
+        let (url, params) = listen_endpoint_url("12");
+        assert_eq!(url.as_str(), "https://api.deepgram.com/v1/listen");
         assert!(params.is_empty());
     }
 }

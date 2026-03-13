@@ -1,5 +1,6 @@
 use anyhow::Result;
 use futures_util::Stream;
+use pin_project::pin_project;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, mpsc};
 use std::task::{Poll, Waker};
@@ -47,7 +48,6 @@ impl SpeakerInput {
             sample_queue,
             waker_state,
             capture_thread: Some(capture_thread),
-            read_buffer: vec![0.0f32; CHUNK_SIZE],
         }
     }
 }
@@ -58,11 +58,11 @@ struct WakerState {
     shutdown: bool,
 }
 
+#[pin_project(PinnedDrop)]
 pub struct SpeakerStream {
     sample_queue: Arc<Mutex<VecDeque<f32>>>,
     waker_state: Arc<Mutex<WakerState>>,
     capture_thread: Option<thread::JoinHandle<()>>,
-    read_buffer: Vec<f32>,
 }
 
 impl SpeakerStream {
@@ -173,14 +173,17 @@ impl SpeakerStream {
     }
 }
 
-impl Drop for SpeakerStream {
-    fn drop(&mut self) {
+#[pin_project::pinned_drop]
+impl PinnedDrop for SpeakerStream {
+    fn drop(self: std::pin::Pin<&mut Self>) {
+        let this = self.project();
+
         {
-            let mut state = self.waker_state.lock().unwrap();
+            let mut state = this.waker_state.lock().unwrap();
             state.shutdown = true;
         }
 
-        if let Some(thread) = self.capture_thread.take() {
+        if let Some(thread) = this.capture_thread.take() {
             if let Err(e) = thread.join() {
                 error!("Failed to join capture thread: {:?}", e);
             }
@@ -190,30 +193,31 @@ impl Drop for SpeakerStream {
 
 impl Stream for SpeakerStream {
     type Item = Vec<f32>;
+
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+
         {
-            let state = self.waker_state.lock().unwrap();
+            let state = this.waker_state.lock().unwrap();
             if state.shutdown {
                 return Poll::Ready(None);
             }
         }
 
         {
-            let mut queue = self.sample_queue.lock().unwrap();
+            let mut queue = this.sample_queue.lock().unwrap();
             if !queue.is_empty() {
-                let chunk_len = queue.len().min(self.read_buffer.len());
-                for i in 0..chunk_len {
-                    self.read_buffer[i] = queue.pop_front().unwrap();
-                }
-                return Poll::Ready(Some(self.read_buffer[..chunk_len].to_vec()));
+                let chunk_len = queue.len().min(CHUNK_SIZE);
+                let chunk: Vec<f32> = queue.drain(..chunk_len).collect();
+                return Poll::Ready(Some(chunk));
             }
         }
 
         {
-            let mut state = self.waker_state.lock().unwrap();
+            let mut state = this.waker_state.lock().unwrap();
             if state.shutdown {
                 return Poll::Ready(None);
             }
@@ -223,13 +227,11 @@ impl Stream for SpeakerStream {
         }
 
         {
-            let mut queue = self.sample_queue.lock().unwrap();
+            let mut queue = this.sample_queue.lock().unwrap();
             if !queue.is_empty() {
-                let chunk_len = queue.len().min(self.read_buffer.len());
-                for i in 0..chunk_len {
-                    self.read_buffer[i] = queue.pop_front().unwrap();
-                }
-                Poll::Ready(Some(self.read_buffer[..chunk_len].to_vec()))
+                let chunk_len = queue.len().min(CHUNK_SIZE);
+                let chunk: Vec<f32> = queue.drain(..chunk_len).collect();
+                Poll::Ready(Some(chunk))
             } else {
                 Poll::Pending
             }

@@ -5,23 +5,11 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    HyprLLMError(#[from] hypr_llm::Error),
-    #[error(transparent)]
-    HyprLLMInterfaceError(#[from] hypr_llm_interface::Error),
-    #[error(transparent)]
-    HyprLlamaError(#[from] hypr_llama::Error),
-    #[error(transparent)]
-    HyprFileError(#[from] hypr_file::Error),
-    #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
-    #[error(transparent)]
-    IoError(#[from] std::io::Error),
+    CoreError(#[from] hypr_local_llm_core::Error),
     #[error(transparent)]
     StoreError(#[from] tauri_plugin_store2::Error),
-    #[error("Model not downloaded")]
-    ModelNotDownloaded,
-    #[error("server already running")]
-    ServerAlreadyRunning,
+    #[error(transparent)]
+    ModelDownloaderError(#[from] hypr_model_downloader::Error),
     #[error("Other error: {0}")]
     Other(String),
 }

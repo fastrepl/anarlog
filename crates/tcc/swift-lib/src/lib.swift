@@ -1,7 +1,7 @@
 // https://github.com/insidegui/AudioCap/blob/93881a4/AudioCap/ProcessTap/AudioRecordingPermission.swift
 
-import SwiftRs
 import Foundation
+import SwiftRs
 
 private let TCC_PATH = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
 

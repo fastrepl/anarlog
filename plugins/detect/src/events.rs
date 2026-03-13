@@ -9,10 +9,11 @@ macro_rules! common_event_derives {
 common_event_derives! {
     #[serde(tag = "type")]
     pub enum DetectEvent {
-        #[serde(rename = "micStarted")]
-        MicStarted {
+        #[serde(rename = "micDetected")]
+        MicDetected {
             key: String,
             apps: Vec<hypr_detect::InstalledApp>,
+            duration_secs: u64,
         },
         #[serde(rename = "micStopped")]
         MicStopped {
@@ -22,25 +23,5 @@ common_event_derives! {
         MicMuteStateChanged { value: bool },
         #[serde(rename = "sleepStateChanged")]
         SleepStateChanged { value: bool },
-    }
-}
-
-impl From<hypr_detect::DetectEvent> for DetectEvent {
-    fn from(event: hypr_detect::DetectEvent) -> Self {
-        match event {
-            hypr_detect::DetectEvent::MicStarted(apps) => Self::MicStarted {
-                key: uuid::Uuid::new_v4().to_string(),
-                apps,
-            },
-            hypr_detect::DetectEvent::MicStopped(apps) => Self::MicStopped { apps },
-            #[cfg(all(target_os = "macos", feature = "zoom"))]
-            hypr_detect::DetectEvent::ZoomMuteStateChanged { value } => {
-                Self::MicMuteStateChanged { value }
-            }
-            #[cfg(all(target_os = "macos", feature = "sleep"))]
-            hypr_detect::DetectEvent::SleepStateChanged { value } => {
-                Self::SleepStateChanged { value }
-            }
-        }
     }
 }

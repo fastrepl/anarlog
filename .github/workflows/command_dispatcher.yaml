@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/check-permission
         with:
           user: ${{ github.event.comment.user.login }}
-          allowed-users: yujonglee|ComputelessComputer
+          allowed-users: yujonglee|ComputelessComputer|goranmoomin|elstua
 
   parse-nightly-options:
     needs: check-permission

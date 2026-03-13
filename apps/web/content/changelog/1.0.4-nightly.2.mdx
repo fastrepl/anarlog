@@ -1,0 +1,22 @@
+---
+date: "2026-02-04"
+---
+
+- Add undo delete with visual feedback: deleted notes show dissolving animation with 5-second countdown timer, hover to pause and reveal "Restore" button, or press Cmd+Z to instantly restore
+- Add manual timezone override in Settings > Language & Region for sidebar timeline display
+- Add recently opened sessions tracking for quick access to recent notes
+- Add space hotkey for controlling audio player playback
+- Add tooltip with keyboard shortcut for sidebar toggle button
+- Rename "Language & Vocabulary" to "Language & Region" in settings
+- Improve subscription status display: show detailed status (PRO, trialing with days remaining, past due, canceled) with urgent styling when trial has 3 or fewer days
+- Improve onboarding flow: new final step that automatically starts Pro trial for eligible users
+- Improve context menu text consistency (capitalized "Open in New Tab", "Delete Note", etc.)
+- Fix "invalid Refresh Token: Already Used" error in authentication
+- Fix auto-enhance logic with proper eligibility checks (minimum 5 words required)
+- Fix transcript data migration to preserve speaker hints and support multiple transcripts per session
+- Fix duplication of rescheduled calendar events
+- Fix memory leaks and high CPU usage
+- Hide retranscribe button during active listening
+- Improve scroll behavior for dropdown selections
+- Remove trial begin/expired modals (replaced with inline status display)
+- Various upstream updates (Tauri 2.10.1)

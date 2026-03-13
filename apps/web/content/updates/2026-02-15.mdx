@@ -1,0 +1,61 @@
+---
+title: "Char Weekly: February 15, 2026"
+date: "2026-02-15"
+---
+
+This was a big week. Hyprnote is now Char. Alongside the rebrand, we shipped v1.0.6 and v1.0.7 stable with a completely new search engine, two new speech-to-text providers, and a revamped chat experience — plus a bunch of reliability improvements under the hood.
+
+## Hyprnote is now Char
+
+We've rebranded. All external-facing content, the website, GitHub repo links, and deeplink schemes have been updated to reflect the new Char name. The website banner now reads "Hyprnote is now Char", and char.com redirects are live. If you have existing bookmarks or links, they'll continue to work. You can read more about the reasoning in [our dedicated blog post](/blog/hyprnote-is-now-char).
+
+## Search, powered by Tantivy
+
+We replaced our search infrastructure with Tantivy, a Rust-native full-text search engine. Indexing is noticeably faster and search results are more accurate when you're looking across your sessions.
+
+The search UI also got a refresh. The search bar now collapses to an icon by default and expands on click, giving you more screen real estate. Advanced filters let you narrow results by meeting notes, people, and organizations. Date presets like "Today", "This week", and "This month" are available too.
+
+## New transcription providers
+
+Two new speech-to-text providers landed this week. Mistral is now available as a transcription provider, and we added a DashScope adapter for Alibaba's Qwen3-ASR model with real-time speech recognition support. You can optimize for cost, quality, or language support depending on your needs.
+
+We also added a configurable mic active threshold for detection, so you can tune how long the microphone must be active before triggering notifications.
+
+## Chat gets a major overhaul
+
+Chat is back as an experimental feature, rebuilt from the ground up. The old feedback modal is gone. You now report bugs and suggest features directly through chat. Under the hood, chat uses MCP (Model Context Protocol) tools that can create GitHub issues, add comments, and search existing issues on your behalf.
+
+Chat can open as a full tab alongside your session tabs, and slash commands give you quick access to common actions. Chat now receives richer session context, so responses are more relevant to what you're working on. Search results within chat include full session context too.
+
+## Resilient transcription
+
+Live transcription failures are no longer fatal. If the transcription provider goes down mid-session, the recorder keeps running and the session enters a degraded mode instead of crashing. A visual indicator in the transcript view shows when transcription is operating in degraded mode.
+
+We also replaced the old ractor-based supervisor with a custom SessionActor that gives us finer-grained, per-actor-type supervision and better fault recovery.
+
+## Multi-session operations
+
+You can now select multiple sessions in the timeline and delete them in bulk. The familiar undo toast from single-session delete extends to multi-select as well — hover to pause the countdown, press Cmd+Z to restore. Cleaning up old sessions is much faster this way.
+
+## Calendar and events
+
+Calendar event sync is more reliable, especially for timeline and notification interactions. Event descriptions now show up in session metadata chips, so you can see the meeting agenda at a glance without opening the calendar.
+
+## UI and experience
+
+- Onboarding has been moved from a separate window into the main app flow, making it feel more integrated
+- macOS dock right-click menu now shows "New Note" for quick access
+- Context menus are available for creating new notes and tabs via right-click
+- Tab bar blur visibility and width have been polished
+- Settings UI has been simplified with cleaner labels, timezone selector, and week start configuration
+- Auto-focus on the title input when no title is set, so you can start typing immediately
+
+## Documentation
+
+We published comprehensive data handling transparency documentation, giving you a clear picture of how Char processes and stores your data. We also added onboarding guides for Cursor and Claude Code in the developer handbook.
+
+## What's next
+
+The Char rebrand is just the beginning. We're continuing to expand transcription provider support and polish the chat experience. If you're on the nightly channel, you'll see improvements landing daily. If you're on stable, v1.0.7 is available now.
+
+As always, you can download the latest version from our [changelog](/changelog) or let the app auto-update.

@@ -1,0 +1,21 @@
+[package]
+name = "local-stt-server"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+tauri-event = ["specta", "dep:tauri-specta"]
+
+[dependencies]
+hypr-transcribe-cactus = { workspace = true }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = { workspace = true }
+
+serde = { workspace = true }
+specta = { workspace = true, optional = true }
+tauri-specta = { workspace = true, optional = true, features = ["derive"] }

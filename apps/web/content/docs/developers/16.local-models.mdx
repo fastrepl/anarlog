@@ -1,19 +1,40 @@
 ---
 title: "Local Models"
 section: "Developers"
-description: "Learn about local models in Hyprnote"
+description: "Learn about local models in Char"
 ---
 
-## Language Models (LLM)
+## Language models (LLM)
 
 - https://lmstudio.ai
 - https://lemonade-server.ai
 
-## Speech-to-Text (STT)
+For step-by-step setup instructions for LM Studio and Ollama, see the [Local LLM Setup guide](/docs/faq/local-llm-setup).
+
+## Speech-to-text (STT)
 
 - All STT models are stored in `~/Library/Application Support/hyprnote/models/stt/`
+- The built-in whisper-cpp backend is now an optional compile-time feature. Production builds on macOS Apple Silicon use the Argmax sidecar by default. Whisper-cpp quantized models have been removed from the settings UI.
 
-### Manual Download
+### Cactus engine (beta)
+
+Cactus is a new local STT backend that runs optimized Whisper models. Cactus models are listed in Settings > Transcription under the Hyprnote provider. Models with an "Apple NPU" suffix use the Apple Neural Engine for hardware-accelerated inference on Apple Silicon Macs; non-Apple variants run on any platform.
+
+| Model | Quantization | Platform |
+| ----- | ------------ | -------- |
+| Whisper Small (INT4) | INT4 | General |
+| Whisper Small (INT8) | INT8 | General |
+| Whisper Small (INT8, Apple NPU) | INT8 | Apple Silicon |
+| Whisper Medium (INT4) | INT4 | General |
+| Whisper Medium (INT4, Apple NPU) | INT4 | Apple Silicon |
+| Whisper Medium (INT8) | INT8 | General |
+| Whisper Medium (INT8, Apple NPU) | INT8 | Apple Silicon |
+
+Cactus models are downloaded and managed from the Settings UI. They are stored in a separate `cactus/` directory within the models folder.
+
+### Argmax models
+
+Manual download:
 
 | URL                                                                                               | Folder                                    |
 | ------------------------------------------------------------------------------------------------- | ----------------------------------------- |
@@ -21,6 +42,8 @@ description: "Learn about local models in Hyprnote"
 | https://huggingface.co/argmaxinc/parakeetkit-pro/tree/main/nvidia_parakeet-v2_476MB               | `nvidia_parakeet-v2_476MB`                |
 | https://huggingface.co/argmaxinc/parakeetkit-pro/tree/main/nvidia_parakeet-v3_494MB               | `nvidia_parakeet-v3_494MB`                |
 | https://huggingface.co/argmaxinc/ctckit-pro/tree/main/parakeet-tdt_ctc-110m                       | `parakeet-tdt_ctc-110m`                   |
+
+For details on how your data is handled when using local vs cloud models, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).
 
 If you have [Huggingface CLI](https://huggingface.co/docs/huggingface_hub/guides/cli) installed:
 

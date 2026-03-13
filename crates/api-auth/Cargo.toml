@@ -1,0 +1,12 @@
+[package]
+name = "api-auth"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-supabase-auth = { workspace = true, features = ["server"] }
+
+axum = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

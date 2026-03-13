@@ -4,10 +4,7 @@ use crate::adapter::deepgram_compat::{
     LanguageQueryStrategy, Serializer, TranscriptionMode, UrlQuery,
 };
 
-pub const PARAKEET_V3_LANGS: &[&str] = &[
-    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
-    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
-];
+pub use hypr_am::PARAKEET_V3_LANGS;
 
 pub struct ArgmaxLanguageStrategy;
 
@@ -20,6 +17,9 @@ impl LanguageQueryStrategy for ArgmaxLanguageStrategy {
     ) {
         let lang = pick_single_language(params);
         query_pairs.append_pair("language", lang.iso639().code());
+        if !params.languages.is_empty() {
+            query_pairs.append_pair("detect_language", "false");
+        }
     }
 }
 

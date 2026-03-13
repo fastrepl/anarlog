@@ -26,7 +26,4 @@ pub enum Error {
 
     #[error("Tar file not found")]
     TarFileNotFound,
-
-    #[error("Tar checksum mismatch")]
-    TarChecksumMismatch,
 }

@@ -1,14 +1,14 @@
 ---
 title: "Release"
 section: "Developers"
-description: "Release commands and testing in Hyprnote"
+description: "Release commands and testing in Char"
 ---
 
-## Release Commands
+## Release commands
 
 Release builds can be triggered via PR comments. These commands are only available to authorized users.
 
-### Nightly Release
+### Nightly release
 
 ```
 /nightly
@@ -24,7 +24,7 @@ To build and upload without publishing (for manual testing):
 
 This uploads artifacts to Crabnebula as a draft and to S3, but skips publishing and GitHub release creation. You can then manually download from Crabnebula, test the build, and later publish via the Crabnebula dashboard or by running the workflow again with `publish=true`.
 
-### Stable Release
+### Stable release
 
 ```
 /stable
@@ -36,7 +36,7 @@ Triggers a stable release from the latest nightly tag. Same options apply:
 /stable --no-publish
 ```
 
-### Staging Build
+### Staging build
 
 ```
 /staging
@@ -46,13 +46,13 @@ Triggers a staging build for testing. Staging builds are never published to Crab
 
 ## Testing
 
-### Fresh Start Testing
+### Fresh start testing
 
-> If you got `"Hyprnote Staging" is an app downloaded from the Internet`, it might prevent you from onboarding.
+> If you got `"Char Staging" is an app downloaded from the Internet`, it might prevent you from onboarding.
 > Press `cmd+shift+q` to force quit the app, and rerun the command.
 
 ```bash
-open -a "Hyprnote Staging" --args --onboarding $(date +%s)
+open -a "Char Staging" --args --onboarding $(date +%s)
 ```
 
 This will:
@@ -63,7 +63,7 @@ This will:
 The timestamp is used to detect fresh launches vs relaunches (e.g., during permission setup).
 If the timestamp is older than 2.5 seconds, it's treated as a restart and `--onboarding` will be ignored.
 
-### Data Paths
+### Data paths
 
 There are two base directories:
 
@@ -93,14 +93,14 @@ Example:
 VAULT_BASE="$HOME/Library/Application Support/hyprnote" pnpm -F desktop tauri:dev
 ```
 
-#### Platform Paths
+#### Platform paths
 
 | Platform | Base Path |
 |----------|-----------|
 | macOS | `~/Library/Application Support/{folder}/` |
 | Linux | `~/.local/share/{folder}/` |
 
-### Files by Base Path
+### Files by base path
 
 #### At global_base (cannot be redirected)
 

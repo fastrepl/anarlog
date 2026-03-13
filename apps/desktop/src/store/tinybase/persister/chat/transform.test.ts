@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import type { TablesContent } from "../shared";
 import {
   chatJsonToData,
   createEmptyLoadedChatData,
@@ -8,6 +7,12 @@ import {
 } from "./load";
 import { tablesToChatJsonList } from "./save";
 import type { ChatJson, LoadedChatData } from "./types";
+
+import type { TablesContent } from "~/store/tinybase/persister/shared";
+
+const readyMessage = {
+  status: "ready" as const,
+};
 
 describe("chatJsonToData", () => {
   test("converts ChatJson to LoadedChatData", () => {
@@ -28,6 +33,7 @@ describe("chatJsonToData", () => {
           content: "Hello",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
         {
           id: "msg-2",
@@ -38,6 +44,7 @@ describe("chatJsonToData", () => {
           content: "Hi there!",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       ],
     };
@@ -58,6 +65,7 @@ describe("chatJsonToData", () => {
       content: "Hello",
       metadata: "{}",
       parts: "[]",
+      ...readyMessage,
     });
 
     expect(data.chat_messages["msg-2"]).toEqual({
@@ -68,7 +76,45 @@ describe("chatJsonToData", () => {
       content: "Hi there!",
       metadata: "{}",
       parts: "[]",
+      ...readyMessage,
     });
+  });
+
+  test("defaults missing status to ready and normalizes streaming to aborted", () => {
+    const data = chatJsonToData({
+      chat_group: {
+        id: "group-1",
+        user_id: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
+        title: "Test Chat",
+      },
+      messages: [
+        {
+          id: "msg-1",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:01Z",
+          chat_group_id: "group-1",
+          role: "assistant",
+          content: "Legacy",
+          metadata: "{}",
+          parts: "[]",
+        } as ChatJson["messages"][number],
+        {
+          id: "msg-2",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:02Z",
+          chat_group_id: "group-1",
+          role: "assistant",
+          content: "Interrupted",
+          metadata: "{}",
+          parts: "[]",
+          status: "streaming",
+        },
+      ],
+    });
+
+    expect(data.chat_messages["msg-1"]?.status).toBe("ready");
+    expect(data.chat_messages["msg-2"]?.status).toBe("aborted");
   });
 
   test("handles empty messages array", () => {
@@ -108,6 +154,7 @@ describe("mergeLoadedData", () => {
           content: "Hello",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -129,6 +176,7 @@ describe("mergeLoadedData", () => {
           content: "Hi",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -171,6 +219,7 @@ describe("tablesToChatJsonList", () => {
           content: "Hello",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
         "msg-2": {
           user_id: "user-1",
@@ -180,6 +229,7 @@ describe("tablesToChatJsonList", () => {
           content: "Hi!",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -211,6 +261,7 @@ describe("tablesToChatJsonList", () => {
           content: "Second",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
         "msg-1": {
           user_id: "user-1",
@@ -220,6 +271,7 @@ describe("tablesToChatJsonList", () => {
           content: "First",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -248,6 +300,7 @@ describe("tablesToChatJsonList", () => {
           content: "Valid",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
         "msg-orphan": {
           user_id: "user-1",
@@ -257,6 +310,7 @@ describe("tablesToChatJsonList", () => {
           content: "Orphan",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -291,6 +345,7 @@ describe("tablesToChatJsonList", () => {
           content: "Group 1 message",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
         "msg-2": {
           user_id: "user-1",
@@ -300,6 +355,7 @@ describe("tablesToChatJsonList", () => {
           content: "Group 2 message",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -308,8 +364,8 @@ describe("tablesToChatJsonList", () => {
 
     expect(result).toHaveLength(2);
 
-    const group1 = result.find((r) => r.chat_group.id === "group-1");
-    const group2 = result.find((r) => r.chat_group.id === "group-2");
+    const group1 = result.find((row) => row.chat_group.id === "group-1");
+    const group2 = result.find((row) => row.chat_group.id === "group-2");
 
     expect(group1?.messages).toHaveLength(1);
     expect(group2?.messages).toHaveLength(1);
@@ -341,6 +397,7 @@ describe("roundtrip", () => {
           content: "Hello",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       },
     };
@@ -371,6 +428,7 @@ describe("roundtrip", () => {
           content: "Hello",
           metadata: "{}",
           parts: "[]",
+          ...readyMessage,
         },
       ],
     };

@@ -18,6 +18,7 @@ export async function* withEarlyValidationRetry<
     maxRetries?: number;
     onRetry?: (attempt: number, feedback: string) => void;
     onRetrySuccess?: () => void;
+    onGiveUp?: () => void;
   } = {},
 ): AsyncIterable<TextStreamPart<TOOLS>> {
   const {
@@ -26,6 +27,7 @@ export async function* withEarlyValidationRetry<
     maxRetries = 2,
     onRetry,
     onRetrySuccess,
+    onGiveUp,
   } = options;
 
   let previousFeedback: string | undefined;
@@ -63,16 +65,16 @@ export async function* withEarlyValidationRetry<
               const result = validator(accumulatedText);
 
               if (!result.valid) {
-                abortController.abort();
-                previousFeedback = result.feedback;
-
                 if (attempt < maxRetries - 1) {
+                  abortController.abort();
+                  previousFeedback = result.feedback;
                   onRetry?.(attempt + 1, result.feedback);
                   break;
                 }
-                throw new Error(
-                  `Validation failed after ${maxRetries} attempts: ${result.feedback}`,
-                );
+
+                onGiveUp?.();
+                yield* flushBuffer();
+                continue;
               }
 
               yield* flushBuffer();

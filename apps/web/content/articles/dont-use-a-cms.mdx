@@ -3,27 +3,21 @@ meta_title: "When You Should (and Shouldn't) Use a CMS"
 display_title: "Don't Use a CMS Until You Absolutely Need One"
 meta_description: "Most teams adopt a CMS far too early. Here's when a CMS actually makes sense—and why Git + MDX is often the faster, safer choice for early teams."
 author: "John Jeong"
-published: true
+category: "Engineering"
 date: "2025-11-29"
 ---
 
-There's this recurring mistake I see early teams make: they pick a CMS way too early.
+There's a recurring mistake I see early teams make: they pick a CMS way too early.
 
-Not because they need one. Not because their content is complicated. But because they feel like a "real company" is supposed to have a CMS.
+They adopt one because it feels official, not because they need it or because their content is genuinely complicated. It's the same instinct that leads to setting up Jira before you have 5 engineers, or building a microservice before you have users. The structure feels mature and professional.
 
-It's the same energy as buying Jira before you have 5 engineers, or setting up a microservice before you have users. It feels official. Mature. Professional.
+But it's unnecessary work that slows you down.
 
-But it's fake work.
+This post is Part 4 of our publishing series, and it's probably the most direct one: don't use a CMS until you actually need one. Most teams don't, and you probably don't either.
 
-And it slows you down.
+## 1. CMS complexity creeps up slowly and quietly
 
-This post is Part 4 of our publishing series, and it's probably the most blunt one:
-
-**Don't use a CMS until reality forces you to. Most teams don't need one. And you probably don't either.**
-
-## 1. CMS Complexity Creeps Up Slowly and Quietly
-
-Here's the curve:
+The trajectory looks like this:
 
 - **Day 1:** "Let's use Sanity/Payload/GitBook, it looks nice."
 - **Month 3:** "Our schema is getting a little complicated…"
@@ -31,177 +25,68 @@ Here's the curve:
 - **Month 12:** "Migration failed. Again."
 - **Month 24:** "Wait… can we ever leave this platform?"
 
-The CMS becomes the product you have to maintain.
+The CMS stops being a tool and becomes another product you have to maintain.
 
-Not the tool you use.
+## 2. CMS systems are designed for companies that already have a "content department"
 
-## 2. CMS Systems Are Designed for Companies That Already Have a "Content Department"
+Look at any enterprise CMS marketing page and you'll see: roles, permissions, workflows, approvals, locales, rich schemas, omnichannel delivery, asset pipelines, collaborators, audit logs.
 
-Look closely at any enterprise CMS marketing page:
+That's not for a team of three founders and one designer. That's for companies that already have a PM writing specs, a marketing team writing pages, a content manager building assets, an editor reviewing drafts, and a legal team reviewing everything again.
 
-- roles
-- permissions
-- workflows
-- approvals
-- locales
-- rich schemas
-- omnichannel delivery
-- asset pipelines
-- collaborators
-- audit logs
+If you don't have that structure yet, you're building overhead before you have the team to justify it.
 
-That's not for a team of three founders and one designer.
+## 3. Most early-stage content lives in three places: your IDE, your head, or your repo
 
-That's for companies that already have:
+When you're small, content comes from whoever feels like writing that week: founders, engineers, product people, support. You're building a product, not running a newsroom. So why use a tool designed for newsrooms?
 
-- a PM writing specs
-- a marketing team writing pages
-- a content manager building assets
-- an editor reviewing drafts
-- a legal team reviewing everything again
+## 4. Writing should be fast, not "structured"
 
-If you don't have that yet, you're building overhead before you have the team to need it.
+Early-stage content has one job: communicate clearly, ship quickly, correct later, and move on.
 
-## 3. Most Early-Stage Content Lives in Three Places: Your IDE, Your Head, or Your Repo
+A CMS inverts this. You spend time defining models, configuring schemas, deciding fields, arranging layouts, creating environments, and publishing through abstraction layers. You end up spending more time setting up the publishing pipeline than actually writing.
 
-When you're small, content comes from:
+The best writing stacks make writing feel like thinking. A CMS makes it feel like filing a ticket.
 
-- founders
-- engineers
-- product
-- support
-- whoever feels like writing that week
+## 5. CMS lock-in hurts exactly when you don't have time
 
-You aren't running a newsroom. You're building a product.
+You don't feel lock-in in Month 1. You feel it in Year 2 when you want to redesign the site, migrate to a new framework, or reduce technical debt—and you discover exports with weird block formats, "portable text" that isn't portable, HTML blobs with inline attributes, API rate limits, broken image references, and schema migrations that silently fail.
 
-So why pick a tool built for newsrooms?
+That's when your CMS quietly tells you: "By the way, you can't leave."
 
-## 4. Writing Should Be Fast, Not "Structured"
+## 6. Every CMS introduces a second reality
 
-The whole point of early-stage content is:
+A CMS creates two worlds: the content world (editor UI, schema models, drafts) and the code world (MDX, components, styling, deployment). You maintain a mental bridge between both, and every change travels across two systems.
 
-- communicate clearly
-- ship quickly
-- correct later
-- move on
+Early teams can't absorb that cognitive cost. You need one world, not two.
 
-A CMS flips that energy:
+## 7. Git + MDX + IDE will take you much further than you think
 
-- define model
-- configure schema
-- decide fields
-- arrange layout
-- create environment
-- publish through abstraction
-
-You end up spending more time setting up the publishing pipeline than actually publishing.
-
-The best writing stacks make writing feel like thinking. A CMS makes writing feel like… filing a ticket.
-
-## 5. CMS Lock-In Hurts Exactly When You Don't Have Time
-
-You don't feel lock-in in Month 1. You feel it in Year 2:
-
-- exports with weird block formats
-- "portable text" that isn't portable
-- HTML blobs with inline attributes
-- API rate limits
-- broken image references
-- schema migrations that silently fail
-- "upgrade your plan to unlock this feature"
-
-At the exact moment when:
-
-- you want to redesign the site
-- you want to migrate to a new framework
-- your content volume has grown
-- you have no time to unravel technical debt
-
-That's when your CMS taps you on the shoulder and says: "By the way, you can't leave."
-
-## 6. Every CMS Introduces a Second Reality
-
-A CMS creates two worlds:
-
-- the "content world" (editor UI, schema models, drafts)
-- the "code world" (MDX, components, styling, deployment)
-
-You now maintain a mental bridge between both.
-
-Every change travels across two systems:
-
-- content updates → CMS
-- component updates → code
-- schema updates → both
-- workflows → CMS
-- build pipeline → code
-
-Early teams can't afford that cognitive tax. You need one world, not two.
-
-## 7. Git + MDX + IDE Will Take You Much Further Than You Think
-
-People underestimate how far you can get with:
+File-based stacks scale well:
 
 - a repo
-- MDX
+- MDX files
 - an IDE
 - a few components
 - a preview environment
 - GitHub PR flow
 
-It scales surprisingly well:
+You can build blogs, docs, changelogs, guides, handbooks, landing pages, tutorials, API examples, even product marketing pages. Companies like Vercel, Supabase, PlanetScale, PostHog, and Expo still run on file-based stacks at world-class scale.
 
-- blogs
-- docs
-- changelogs
-- guides
-- handbooks
-- landing pages
-- tutorials
-- API examples
-- even product marketing pages if you build a few MDX components
+## 8. There will be a time to add a CMS — but let that moment arrive naturally
 
-Many companies you admire still run on file-based stacks:
+You'll know you need one when non-engineers need to ship content independently, you publish across multiple frontends, you need localization or scheduling, your content model is richer than Markdown, a dedicated content team exists, or schema-based relationships actually matter.
 
-- Vercel
-- Supabase
-- PlanetScale
-- PostHog
-- Expo
+At that point, consider a git-based CMS like Keystatic, Tina, or Decap as a first step—they add UI without losing portability. Move to a headless CMS like Sanity or Payload only when you need cross-surface, omnichannel, or truly complex models.
 
-These aren't "toy setups." They are running content at world-class scale.
+But add either before you need it, and they'll slow you down and trap you.
 
-## 8. There Will Be a Time to Add a CMS — But Let That Moment Arrive Naturally
+## 9. You're early. Stay nimble.
 
-You'll know it when:
+A CMS is structure. Structure is stability. Stability is for late-stage companies. Speed is for early-stage companies, and speed comes from removing structure until the moment it stops working.
 
-- non-engineers need to ship content independently
-- you publish across multiple frontends (docs + app + website)
-- you need localization / scheduling / workflows
-- your content model is truly richer than Markdown
-- a dedicated content team exists
-- schema-based relationships actually matter
+Don't over-engineer your publishing stack. Don't imitate companies 100x your size. Don't install enterprise workflows into a tiny team.
 
-At that point:
-
-- **Git-based CMS (Keystatic, Tina, Decap)** → Good first step. Adds UI without losing portability.
-- **Headless CMS (Sanity, Payload)** → Only when you need cross-surface, omnichannel, or rich models.
-
-But if you add any of these before you need them? They slow you down and trap you.
-
-## 9. The Real Reason: You're Early. Stay Nimble.
-
-A CMS is structure. Structure is stability. Stability is efficiency. Efficiency is for late-stage companies.
-
-Speed is for early-stage companies. And speed comes from removing structure until the moment it stops working.
-
-So don't over-engineer your publishing stack. Don't imitate companies 100x your size. Don't install enterprise workflows into a tiny team.
-
-Just write. And ship. In the simplest system that respects your time.
-
-You can add complexity later.
-
-You cannot subtract it.
+Just write and ship in the simplest system that respects your time. You can add complexity later. You cannot subtract it.
 
 ---
 
@@ -209,8 +94,8 @@ You cannot subtract it.
 
 1. [Why We Write Our Blog in an IDE](/blog/using-ide-for-writing)
 2. [Why Our CMS Is GitHub](/blog/why-our-cms-is-github)
-3. [Choosing a CMS in 2025](/blog/choosing-a-cms)
+3. [Choosing a CMS in 2026](/blog/choosing-a-cms)
 4. [Don't Use a CMS Until You Absolutely Need One](/blog/dont-use-a-cms) (You are here)
 5. [Docs Edition: What to Use for Developer Documentation](/blog/developer-documentation-tools)
-6. [How We Built Hyprnote's Publishing Stack](/blog/hyprnote-publishing-stack)
+6. [How We Built Char's Publishing Stack](/blog/hyprnote-publishing-stack)
 7. [Building an Editorial Workflow with GitHub and Slack](/blog/building-editorial-workflow-github-slack)

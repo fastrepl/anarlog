@@ -20,6 +20,5 @@ specta = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-once_cell = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { createTestMainStore, MOCK_DATA_DIR } from "../testing/mocks";
 import { createJsonFilePersister } from "./json-file";
+
+import {
+  createTestMainStore,
+  MOCK_DATA_DIR,
+} from "~/store/tinybase/persister/testing/mocks";
 
 const settingsMocks = vi.hoisted(() => ({
   vaultBase: vi
@@ -65,7 +69,7 @@ describe("createJsonFilePersister", () => {
           meeting_link: "",
           description: "",
           note: "",
-          ignored: false,
+          is_all_day: false,
           recurrence_series_id: "",
         },
       };
@@ -118,7 +122,7 @@ describe("createJsonFilePersister", () => {
         meeting_link: "",
         description: "",
         note: "",
-        ignored: false,
+        is_all_day: false,
         recurrence_series_id: "",
       });
 

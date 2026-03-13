@@ -16,6 +16,15 @@ pub async fn get_fingerprint<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_device_info<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    locale: Option<String>,
+) -> Result<hypr_template_support::DeviceInfo, String> {
+    Ok(app.misc().get_device_info(locale))
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn opinionated_md_to_html<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     text: String,

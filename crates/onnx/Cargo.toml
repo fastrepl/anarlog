@@ -8,7 +8,6 @@ default = []
 cuda = ["ort/cuda"]
 coreml = ["ort/coreml"]
 directml = ["ort/directml"]
-load-dynamic = ["ort/load-dynamic"]
 
 [dependencies]
 ndarray = "0.16"

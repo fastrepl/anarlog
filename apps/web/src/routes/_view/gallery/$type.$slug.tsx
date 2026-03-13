@@ -38,14 +38,14 @@ export const Route = createFileRoute("/_view/gallery/$type/$slug")({
 
     const { type, item } = loaderData;
     const typeLabel = type === "template" ? "Template" : "Shortcut";
-    const url = `https://hyprnote.com/gallery/${type}/${item.slug}`;
+    const url = `https://char.com/gallery/${type}/${item.slug}`;
 
     const ogType = type === "template" ? "templates" : "shortcuts";
-    const ogImageUrl = `https://hyprnote.com/og?type=${ogType}&title=${encodeURIComponent(item.title)}&category=${encodeURIComponent(item.category)}${item.description ? `&description=${encodeURIComponent(item.description)}` : ""}&v=1`;
+    const ogImageUrl = `https://char.com/og?type=${ogType}&title=${encodeURIComponent(item.title)}&category=${encodeURIComponent(item.category)}${item.description ? `&description=${encodeURIComponent(item.description)}` : ""}&v=1`;
 
     return {
       meta: [
-        { title: `${item.title} - ${typeLabel} - Hyprnote` },
+        { title: `${item.title} - ${typeLabel} - Char` },
         { name: "description", content: item.description },
         {
           property: "og:title",
@@ -73,7 +73,7 @@ function Component() {
 
   return (
     <div className="min-h-screen">
-      <div className="min-h-screen max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
         <div className="flex">
           <LeftSidebar type={type} item={item} />
           <MainContent type={type} item={item} />
@@ -92,12 +92,12 @@ function LeftSidebar({
   item: (typeof allTemplates)[0] | (typeof allShortcuts)[0];
 }) {
   return (
-    <aside className="hidden lg:block w-64 shrink-0">
-      <div className="sticky top-17.25 max-h-[calc(100vh-69px)] overflow-y-auto px-4 pt-6 pb-18 scrollbar-hide">
+    <aside className="hidden w-64 shrink-0 lg:block">
+      <div className="scrollbar-hide sticky top-17.25 max-h-[calc(100vh-69px)] overflow-y-auto px-4 pt-6 pb-18">
         <Link
           to="/gallery/"
           search={{ type }}
-          className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-stone-600 transition-colors mb-6 font-serif"
+          className="mb-6 inline-flex items-center gap-2 font-serif text-sm text-neutral-600 transition-colors hover:text-stone-700"
         >
           <Icon icon="mdi:arrow-left" className="text-base" />
           <span>Back to gallery</span>
@@ -105,12 +105,12 @@ function LeftSidebar({
 
         <div className="flex flex-col gap-6">
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+            <h3 className="mb-3 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Type
             </h3>
             <span
               className={cn([
-                "text-xs px-2 py-0.5 rounded-full font-medium",
+                "rounded-full px-2 py-0.5 text-xs font-medium",
                 type === "template"
                   ? "bg-blue-50 text-blue-600"
                   : "bg-purple-50 text-purple-600",
@@ -121,26 +121,26 @@ function LeftSidebar({
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+            <h3 className="mb-3 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Category
             </h3>
             <Link
               to="/gallery/"
               search={{ type, category: item.category }}
-              className="text-sm text-stone-600 hover:text-stone-800 transition-colors"
+              className="text-sm text-stone-700 transition-colors hover:text-stone-800"
             >
               {item.category}
             </Link>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
+            <h3 className="mb-3 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               On this page
             </h3>
             <nav className="flex flex-col gap-1">
               <a
                 href="#content"
-                className="block text-sm text-neutral-500 hover:text-stone-600 py-1 transition-colors"
+                className="block py-1 text-sm text-neutral-500 transition-colors hover:text-stone-700"
               >
                 {type === "template" ? "Structure" : "Details"}
               </a>
@@ -160,12 +160,12 @@ function MainContent({
   item: (typeof allTemplates)[0] | (typeof allShortcuts)[0];
 }) {
   return (
-    <main className="flex-1 min-w-0 pb-6 px-4 lg:px-8 py-6">
-      <div className="lg:hidden mb-6">
+    <main className="min-w-0 flex-1 px-4 py-6 pb-6 lg:px-8">
+      <div className="mb-6 lg:hidden">
         <Link
           to="/gallery/"
           search={{ type }}
-          className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-stone-600 transition-colors font-serif"
+          className="inline-flex items-center gap-2 font-serif text-sm text-neutral-600 transition-colors hover:text-stone-700"
         >
           <Icon icon="mdi:arrow-left" className="text-base" />
           <span>Back to gallery</span>
@@ -190,11 +190,11 @@ function ItemHeader({
   const isTemplate = type === "template";
 
   return (
-    <header id="overview" className="mb-8 lg:mb-12 scroll-mt-20">
-      <div className="lg:hidden mb-4 flex items-center gap-2">
+    <header id="overview" className="mb-8 scroll-mt-20 lg:mb-12">
+      <div className="mb-4 flex items-center gap-2 lg:hidden">
         <span
           className={cn([
-            "text-xs px-2 py-0.5 rounded-full font-medium",
+            "rounded-full px-2 py-0.5 text-xs font-medium",
             isTemplate
               ? "bg-blue-50 text-blue-600"
               : "bg-purple-50 text-purple-600",
@@ -204,10 +204,10 @@ function ItemHeader({
         </span>
         <span className="text-sm text-neutral-500">{item.category}</span>
       </div>
-      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-stone-600 mb-4">
+      <h1 className="mb-4 font-serif text-2xl text-stone-700 sm:text-3xl lg:text-4xl">
         {item.title}
       </h1>
-      <p className="text-lg lg:text-xl text-neutral-600 leading-relaxed mb-6">
+      <p className="mb-6 text-lg leading-relaxed text-neutral-600 lg:text-xl">
         {item.description}
       </p>
 
@@ -216,7 +216,7 @@ function ItemHeader({
           {item.targets.map((target) => (
             <span
               key={target}
-              className="text-sm px-3 py-1 bg-stone-50 text-stone-600 rounded-full border border-stone-100"
+              className="rounded-full border border-stone-100 bg-stone-50 px-3 py-1 text-sm text-stone-700"
             >
               {target}
             </span>
@@ -238,30 +238,30 @@ function ItemContent({
 
   return (
     <section id="content" className="scroll-mt-20">
-      <h2 className="text-xl font-serif text-stone-700 mb-4">
+      <h2 className="mb-4 font-serif text-xl text-stone-700">
         {isTemplate ? "Structure" : "Details"}
       </h2>
-      <div className="border border-neutral-200 rounded-xs px-6 lg:px-8 pt-3 lg:pt-4 pb-6 lg:pb-8 bg-white">
+      <div className="rounded-xs border border-neutral-200 bg-white px-6 pt-3 pb-6 lg:px-8 lg:pt-4 lg:pb-8">
         {isTemplate && "sections" in item && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-stone-600 uppercase tracking-wider mb-3">
+            <h3 className="mb-3 text-sm font-semibold tracking-wider text-stone-700 uppercase">
               Template Sections
             </h3>
             <div className="flex flex-col gap-3">
               {item.sections.map((section, index) => (
                 <div
                   key={section.title}
-                  className="p-3 rounded-lg bg-stone-50 border border-stone-100"
+                  className="rounded-lg border border-stone-100 bg-stone-50 p-3"
                 >
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="w-5 h-5 rounded-full bg-stone-200 text-stone-600 text-xs font-medium flex items-center justify-center">
+                  <div className="mb-1 flex items-center gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-200 text-xs font-medium text-stone-700">
                       {index + 1}
                     </span>
-                    <h4 className="font-medium text-stone-700 text-sm">
+                    <h4 className="text-sm font-medium text-stone-700">
                       {section.title}
                     </h4>
                   </div>
-                  <p className="text-xs text-neutral-600 ml-8">
+                  <p className="ml-8 text-xs text-neutral-600">
                     {section.description}
                   </p>
                 </div>
@@ -298,7 +298,7 @@ function SuggestedItems({
 
   return (
     <section className="mt-12">
-      <h2 className="text-xl font-serif text-stone-700 mb-4">
+      <h2 className="mb-4 font-serif text-xl text-stone-700">
         Other {item.category} {type === "template" ? "templates" : "shortcuts"}
       </h2>
       <div className="grid gap-4">
@@ -307,12 +307,12 @@ function SuggestedItems({
             key={t.slug}
             to="/gallery/$type/$slug/"
             params={{ type, slug: t.slug }}
-            className="group p-4 border border-neutral-200 rounded-xs bg-white hover:shadow-md hover:border-neutral-300 transition-all"
+            className="group rounded-xs border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-md"
           >
-            <h3 className="font-serif text-lg text-stone-600 mb-1 group-hover:text-stone-800 transition-colors">
+            <h3 className="mb-1 font-serif text-lg text-stone-700 transition-colors group-hover:text-stone-800">
               {t.title}
             </h3>
-            <p className="text-sm text-neutral-600 line-clamp-2">
+            <p className="line-clamp-2 text-sm text-neutral-600">
               {t.description}
             </p>
           </Link>
@@ -324,11 +324,11 @@ function SuggestedItems({
 
 function ItemFooter({ type }: { type: GalleryType }) {
   return (
-    <footer className="mt-12 pt-8 border-t border-neutral-100">
+    <footer className="mt-12 border-t border-neutral-100 pt-8">
       <Link
         to="/gallery/"
         search={{ type }}
-        className="inline-flex items-center gap-2 text-neutral-600 hover:text-stone-600 transition-colors font-medium"
+        className="inline-flex items-center gap-2 font-medium text-neutral-600 transition-colors hover:text-stone-700"
       >
         <span>&larr;</span>
         <span>View all {type === "template" ? "templates" : "shortcuts"}</span>
@@ -346,21 +346,21 @@ function RightSidebar({
 }) {
   const isTemplate = type === "template";
   const contentDir = isTemplate ? "templates" : "shortcuts";
-  const rawMdxUrl = `https://github.com/fastrepl/hyprnote/blob/main/apps/web/content/${contentDir}/${item.slug}.mdx?plain=1`;
+  const rawMdxUrl = `https://github.com/fastrepl/char/blob/main/apps/web/content/${contentDir}/${item.slug}.mdx?plain=1`;
 
   return (
-    <aside className="hidden sm:block w-80 shrink-0">
+    <aside className="hidden w-80 shrink-0 sm:block">
       <div className="sticky top-17.25 flex flex-col gap-4 px-4 py-6">
-        <div className="border border-neutral-200 rounded-xs overflow-hidden bg-white bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] p-6 text-center">
-          <h3 className="font-serif text-lg text-stone-600 mb-3">
+        <div className="overflow-hidden rounded-xs border border-neutral-200 bg-white bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] p-6 text-center">
+          <h3 className="mb-3 font-serif text-lg text-stone-700">
             Use this {isTemplate ? "template" : "shortcut"}
           </h3>
-          <p className="text-sm text-neutral-600 mb-6">
-            Download Hyprnote to use this {isTemplate ? "template" : "shortcut"}{" "}
-            and get AI-powered meeting notes.
+          <p className="mb-6 text-sm text-neutral-600">
+            Download Char to use this {isTemplate ? "template" : "shortcut"} and
+            get AI-powered meeting notes.
           </p>
           <DownloadButton />
-          <p className="text-xs text-neutral-500 mt-4">
+          <p className="mt-4 text-xs text-neutral-500">
             Free to use. No credit card required.
           </p>
         </div>
@@ -369,26 +369,26 @@ function RightSidebar({
           href={rawMdxUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 px-4 py-3 border border-neutral-200 rounded-xs bg-white hover:bg-neutral-50 transition-colors text-sm text-neutral-600 hover:text-neutral-800"
+          className="flex items-center justify-center gap-2 rounded-xs border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-800"
         >
           <Icon icon="mdi:file-document-outline" className="text-lg" />
           View raw MDX source
         </a>
 
-        <div className="border border-dashed border-neutral-300 rounded-xs p-6 bg-stone-50/50 text-center">
-          <h3 className="font-serif text-lg text-stone-600 mb-3">Contribute</h3>
-          <p className="text-sm text-neutral-600 mb-6">
+        <div className="rounded-xs border border-dashed border-neutral-300 bg-stone-50/50 p-6 text-center">
+          <h3 className="mb-3 font-serif text-lg text-stone-700">Contribute</h3>
+          <p className="mb-6 text-sm text-neutral-600">
             Have an idea? Submit a PR and help the community.
           </p>
           <a
-            href={`https://github.com/fastrepl/hyprnote/tree/main/apps/web/content/${contentDir}`}
+            href={`https://github.com/fastrepl/char/tree/main/apps/web/content/${contentDir}`}
             target="_blank"
             rel="noopener noreferrer"
             className={cn([
-              "group px-6 h-12 inline-flex items-center justify-center gap-2 w-fit",
-              "bg-linear-to-t from-neutral-800 to-neutral-700 text-white rounded-full",
-              "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
-              "transition-all cursor-pointer text-base sm:text-lg",
+              "group inline-flex h-12 w-fit items-center justify-center gap-2 px-6",
+              "rounded-full bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
+              "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+              "cursor-pointer text-base transition-all sm:text-lg",
             ])}
           >
             <Icon icon="mdi:github" className="text-xl" />

@@ -3,7 +3,7 @@ name = "desktop"
 version = "0.0.0"
 authors = ["you"]
 edition = "2024"
-description = "Hyprnote desktop App"
+description = "Char Desktop App"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -23,23 +23,24 @@ tauri-build = { workspace = true, features = [] }
 tauri = { workspace = true, features = ["specta", "macos-private-api", "protocol-asset"] }
 
 tauri-plugin-analytics = { workspace = true }
-tauri-plugin-apple-calendar = { workspace = true }
-tauri-plugin-apple-contact = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-autostart = { workspace = true }
 tauri-plugin-bedrock = { workspace = true }
+tauri-plugin-calendar = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
 tauri-plugin-db2 = { workspace = true }
 tauri-plugin-deep-link = { workspace = true }
 tauri-plugin-deeplink2 = { workspace = true }
 tauri-plugin-detect = { workspace = true }
 tauri-plugin-dialog = { workspace = true }
-tauri-plugin-extensions = { workspace = true }
+tauri-plugin-dock = { workspace = true }
+tauri-plugin-export = { workspace = true }
 tauri-plugin-flag = { workspace = true }
 tauri-plugin-fs-db = { workspace = true }
 tauri-plugin-fs-sync = { workspace = true }
 tauri-plugin-fs2 = { workspace = true }
+tauri-plugin-git = { workspace = true }
 tauri-plugin-hooks = { workspace = true }
 tauri-plugin-http = { workspace = true }
 tauri-plugin-icon = { workspace = true }
@@ -48,6 +49,7 @@ tauri-plugin-js = { workspace = true }
 tauri-plugin-listener = { workspace = true }
 tauri-plugin-listener2 = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
+tauri-plugin-mcp = { workspace = true }
 tauri-plugin-misc = { workspace = true }
 tauri-plugin-network = { workspace = true }
 tauri-plugin-notification = { workspace = true }
@@ -57,10 +59,10 @@ tauri-plugin-opener2 = { workspace = true }
 tauri-plugin-os = { workspace = true }
 tauri-plugin-overlay = { workspace = true }
 tauri-plugin-path2 = { workspace = true }
-tauri-plugin-pdf = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-plugin-prevent-default = { workspace = true }
 tauri-plugin-process = { workspace = true }
+tauri-plugin-relay = { workspace = true }
 tauri-plugin-screen = { workspace = true }
 tauri-plugin-sentry = { workspace = true }
 tauri-plugin-settings = { workspace = true }
@@ -90,17 +92,15 @@ strum = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
 
 hypr-host = { workspace = true }
+hypr-supervisor = { workspace = true }
 
+pico-args = { workspace = true }
 ractor = { workspace = true }
-ractor-supervisor = { workspace = true }
-
-pico-args = "0.5"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [features]
 devtools = ["tauri/devtools"]
 automation = ["tauri-plugin-automation"]
-apple-calendar-fixture = ["tauri-plugin-apple-calendar/fixture"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-automation = { version = "0.1", optional = true }

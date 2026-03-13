@@ -16,10 +16,11 @@ const config = defineConfig(() => ({
     tailwindcss(),
     tanstackStart({
       sitemap: {
-        host: "https://hyprnote.com",
+        host: "https://char.com",
       },
       prerender: {
         enabled: true,
+        concurrency: 3,
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
         filter: ({ path }) => {
@@ -36,7 +37,9 @@ const config = defineConfig(() => ({
     }),
     viteReact(),
     generateSitemap(getSitemap()),
-    netlify({ dev: { images: { enabled: true } } }),
+    process.env.SKIP_NETLIFY === "1"
+      ? null
+      : netlify({ dev: { images: { enabled: true } } }),
   ],
   ssr: {
     noExternal: [
@@ -45,6 +48,9 @@ const config = defineConfig(() => ({
       "react-tweet",
       "@content-collections/mdx",
     ],
+  },
+  preview: {
+    host: "127.0.0.1",
   },
 }));
 

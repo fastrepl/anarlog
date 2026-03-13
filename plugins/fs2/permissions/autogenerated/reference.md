@@ -6,6 +6,7 @@ Default permissions for the fs2 plugin
 
 - `allow-read-text-file`
 - `allow-remove`
+- `allow-write-text-file`
 
 ## Permission Table
 
@@ -64,6 +65,32 @@ Enables the remove command without any pre-configured scope.
 <td>
 
 Denies the remove command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs2:allow-write-text-file`
+
+</td>
+<td>
+
+Enables the write_text_file command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs2:deny-write-text-file`
+
+</td>
+<td>
+
+Denies the write_text_file command without any pre-configured scope.
 
 </td>
 </tr>

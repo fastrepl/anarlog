@@ -8,6 +8,8 @@ import {
 
 import { sonnerToast as toast } from "@hypr/ui/components/ui/toast";
 
+import { uploadMediaLibraryFile } from "@/functions/media-upload";
+
 type FileStatus = "pending" | "uploading" | "done" | "error";
 
 interface FileProgress {
@@ -28,27 +30,27 @@ function UploadToast({
 
   return (
     <div className="flex flex-col gap-2 p-3">
-      <div className="font-medium text-sm">
+      <div className="text-sm font-medium">
         {error
           ? "Upload failed"
           : done
             ? `Uploaded ${completedCount} file${completedCount !== 1 ? "s" : ""}`
             : `Uploading ${files.length} file${files.length !== 1 ? "s" : ""}...`}
       </div>
-      <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+      <div className="flex max-h-32 flex-col gap-1 overflow-y-auto">
         {files.map((file, i) => (
           <div key={i} className="flex items-center gap-2 text-xs">
             {file.status === "pending" && (
-              <CircleIcon className="size-3 text-neutral-300 shrink-0" />
+              <CircleIcon className="size-3 shrink-0 text-neutral-300" />
             )}
             {file.status === "uploading" && (
-              <Loader2Icon className="size-3 text-blue-500 animate-spin shrink-0" />
+              <Loader2Icon className="size-3 shrink-0 animate-spin text-blue-500" />
             )}
             {file.status === "done" && (
-              <CheckCircle2Icon className="size-3 text-green-500 shrink-0" />
+              <CheckCircle2Icon className="size-3 shrink-0 text-green-500" />
             )}
             {file.status === "error" && (
-              <XCircleIcon className="size-3 text-red-500 shrink-0" />
+              <XCircleIcon className="size-3 shrink-0 text-red-500" />
             )}
             <span
               className={[
@@ -89,24 +91,6 @@ export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
     throw new Error(data.error || "Failed to fetch media");
   }
   return data.items;
-}
-
-async function uploadFile(params: {
-  filename: string;
-  content: string;
-  folder: string;
-}) {
-  const response = await fetch("/api/admin/media/upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || "Upload failed");
-  }
-  return response.json();
 }
 
 async function deleteFiles(paths: string[]) {
@@ -197,19 +181,8 @@ export function useMediaApi({
           fileProgress[i].status = "uploading";
           updateToast();
 
-          const reader = new FileReader();
-          const content = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => {
-              const base64 = (reader.result as string).split(",")[1];
-              resolve(base64);
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-
-          await uploadFile({
-            filename: file.name,
-            content,
+          await uploadMediaLibraryFile({
+            file,
             folder: currentFolderPath,
           });
 
@@ -247,20 +220,10 @@ export function useMediaApi({
 
   const replaceMutation = useMutation({
     mutationFn: async (params: { file: File; path: string }) => {
-      const reader = new FileReader();
-      const content = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const base64 = (reader.result as string).split(",")[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(params.file);
-      });
-
-      await uploadFile({
-        filename: params.file.name,
-        content,
-        folder: params.path.split("/").slice(0, -1).join("/"),
+      await uploadMediaLibraryFile({
+        file: params.file,
+        path: params.path,
+        upsert: true,
       });
     },
     onSuccess: () => {

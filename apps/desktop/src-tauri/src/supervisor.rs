@@ -1,11 +1,9 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use hypr_supervisor::dynamic::{DynamicSupervisor, DynamicSupervisorMsg, DynamicSupervisorOptions};
 use ractor::ActorRef;
 use ractor::concurrency::Duration;
-use ractor_supervisor::dynamic::{
-    DynamicSupervisor, DynamicSupervisorMsg, DynamicSupervisorOptions,
-};
 
 pub type SupervisorRef = ActorRef<DynamicSupervisorMsg>;
 pub type SupervisorHandle = tokio::task::JoinHandle<()>;

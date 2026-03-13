@@ -1,0 +1,67 @@
+---
+title: "Cursor"
+section: "Onboarding"
+summary: "Set up Cursor — our recommended AI-powered code editor"
+---
+
+## What it is
+
+[Cursor](https://cursor.com) is a code editor built on VS Code with deep AI integration. It can autocomplete, refactor, explain code, and generate entire features from natural language prompts. We use it as our primary IDE.
+
+Even if you're not an engineer, Cursor is useful for editing MDX content files, browsing the codebase, and making small changes.
+
+## Prerequisites
+
+- [Homebrew](/company-handbook/onboarding/homebrew) installed
+- [Node.js & pnpm](/company-handbook/onboarding/node-and-pnpm) installed (for working with the codebase)
+
+## Install
+
+```bash
+brew install --cask cursor
+```
+
+Or download directly from [cursor.com](https://cursor.com).
+
+## First launch
+
+1. Open Cursor
+2. Sign in with your account (free tier works, Pro is better)
+3. When prompted to import VS Code settings, do it if you have existing VS Code config — otherwise skip
+4. Open the Char repo: `File > Open Folder` and select your `hyprnote` directory
+
+## Key features to know
+
+**Cmd + K** — AI edit. Select code, press `Cmd + K`, describe what you want changed. Useful for quick edits without understanding the full syntax.
+
+**Cmd + L** — AI chat. Ask questions about the codebase, get explanations, generate code.
+
+**Tab completion** — Cursor predicts your next edit as you type. Press Tab to accept.
+
+**Composer** (`Cmd + Shift + I`) — Multi-file AI editing. Describe a feature or change and Cursor will make edits across multiple files.
+
+## Recommended setup
+
+Install the recommended extensions when Cursor prompts you. The repo includes a `.vscode/extensions.json` with our standard set.
+
+## Walkthrough
+
+Watch the [Cursor Visual Editor walkthrough](https://www.youtube.com/watch?v=XOtHjA8THCw) for a quick intro to the main features.
+
+## For non-engineers
+
+You don't need to understand code to use Cursor productively:
+
+- **Edit MDX files** — Blog posts, docs, and handbook pages are all MDX (Markdown with some extras). Open them in Cursor, edit the text, save.
+- **Search the codebase** — `Cmd + Shift + F` to search all files. Useful for finding where specific text appears.
+- **Use AI to help** — `Cmd + L` and ask "explain this file" or "what does this component do" in plain English.
+
+## Troubleshooting
+
+**"Cursor can't connect to the network when indexing"** — Ensure you have a stable internet connection and restart Cursor.
+
+**Extensions not loading** — Run `Cmd + Shift + P` > "Developer: Reload Window".
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

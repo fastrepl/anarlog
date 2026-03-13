@@ -50,3 +50,7 @@ pub const DIARIZATION_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/src/english_1/diarization.json"
 );
+
+pub const DEEPGRAM_JSON: &str = include_str!("./deepgram.json");
+
+pub const SONIOX_JSON: &str = include_str!("./soniox.json");

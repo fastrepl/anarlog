@@ -15,12 +15,12 @@
   "dependencies": {
     "@t3-oss/env-core": "^0.13.10",
     "probot": "^13.4.7",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@octokit/plugin-rest-endpoint-methods": "^17.0.0",
-    "@types/node": "^20.19.30",
-    "nock": "^14.0.10",
+    "@types/node": "^20.19.33",
+    "nock": "^14.0.11",
     "smee-client": "^2.0.4",
     "typescript": "^5.9.3",
     "vitest": "^2.1.9"

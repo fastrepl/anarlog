@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Char</title>
+  <script src="https://cdn.twind.style" crossorigin></script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-white via-stone-50 to-white flex items-center justify-center p-6">
+  <div class="max-w-md w-full text-center flex flex-col gap-8">
+    <div class="flex flex-col gap-3">
+      <h1 class="text-3xl font-serif tracking-tight text-stone-700">{{ title }}</h1>
+      <p class="text-neutral-600">{{ description }}</p>
+    </div>
+    {% if is_success %}
+    <a href="{{ deeplink_url }}" class="w-full h-12 flex items-center justify-center text-base font-medium transition-all bg-gradient-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg cursor-pointer">
+      Open Char
+    </a>
+    {% endif %}
+  </div>
+</body>
+</html>

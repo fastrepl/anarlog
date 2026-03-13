@@ -1,0 +1,8 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const withBigIntSchema = z.object({
+  big: z.string(),
+});
+export type WithBigInt = z.infer<typeof withBigIntSchema>;

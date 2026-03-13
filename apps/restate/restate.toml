@@ -1,7 +1,0 @@
-# https://docs.restate.dev/references/cli-config
-
-[admin]
-bind-address = "127.0.0.1:9070"
-
-[ingress]
-bind-address = "127.0.0.1:8080"

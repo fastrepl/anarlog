@@ -11,8 +11,6 @@ on:
       - Cargo.toml
       - Cargo.lock
   pull_request:
-    branches-ignore:
-      - "**/graphite-base/**"
     paths:
       - apps/desktop/**
       - plugins/**
@@ -20,31 +18,26 @@ on:
       - Cargo.toml
       - Cargo.lock
 jobs:
-  optimize_ci:
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check_skip.outputs.skip }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check_skip
-        uses: ./.github/actions/graphite_optimizer
-        with:
-          graphite_token: ${{ secrets.GRAPHITE_TOKEN }}
-
   desktop_ci:
-    needs: optimize_ci
-    if: needs.optimize_ci.outputs.skip == 'false'
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: "macos"
-            runner: "depot-macos-14"
-          - platform: "linux"
+            runner: "depot-macos-15"
+          - platform: "linux-x86_64"
             runner: "depot-ubuntu-22.04-8"
+          - platform: "linux-aarch64"
+            runner: "depot-ubuntu-22.04-arm-8"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
       - uses: ./.github/actions/pnpm_install
       - uses: denoland/setup-deno@v2
       - run: pnpm -F ui build
@@ -56,10 +49,11 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: ${{ matrix.platform }}
+      - if: matrix.platform == 'macos'
+        run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - run: cargo check -p desktop
       - run: cargo test -p desktop
-      - name: Test workspace crates
-        run: |
+      - run: |
           cargo test --workspace \
             --exclude desktop \
             --exclude control-tauri \
@@ -73,18 +67,16 @@ jobs:
             --exclude apple-note \
             --exclude notification-linux \
             --exclude am \
-            --exclude am2 \
             --exclude aec \
             --exclude agc \
             --exclude whisper \
             --exclude whisper-local \
             --exclude whisper-local-model \
-            --exclude moonshine \
-            --exclude kyutai \
             --exclude vad2 \
-            --exclude vad3 \
+            --exclude vad \
             --exclude vvad \
-            --exclude vad-ext \
+            --exclude vad-masking \
+            --exclude vad-chunking \
             --exclude onnx \
             --exclude pyannote-local \
             --exclude llama \
@@ -95,23 +87,27 @@ jobs:
             --exclude bundle \
             --exclude host \
             --exclude intercept \
-            --exclude extensions-runtime \
             --exclude frontmatter \
             --exclude openstatus \
             --exclude audio \
             --exclude audio-device \
             --exclude transcribe-whisper-local \
             --exclude device-monitor \
+            --exclude cli \
+            --exclude cactus-sys \
+            --exclude cactus \
+            --exclude transcribe-cactus \
+            --exclude llm-cactus \
+            --exclude local-llm-core \
+            --exclude local-stt-server \
             --exclude tauri-plugin-analytics\
             --exclude tauri-plugin-apple-calendar \
-            --exclude tauri-plugin-apple-contact \
             --exclude tauri-plugin-audio-priority \
             --exclude tauri-plugin-auth \
             --exclude tauri-plugin-bedrock \
             --exclude tauri-plugin-db2 \
             --exclude tauri-plugin-deeplink2 \
             --exclude tauri-plugin-detect \
-            --exclude tauri-plugin-extensions \
             --exclude tauri-plugin-fs-db \
             --exclude tauri-plugin-fs-sync \
             --exclude tauri-plugin-fs2 \
@@ -147,8 +143,8 @@ jobs:
 
   ci:
     if: always()
-    needs: [optimize_ci, desktop_ci]
+    needs: [desktop_ci]
     runs-on: ubuntu-latest
     steps:
       - run: exit 1
-        if: needs.optimize_ci.outputs.skip == 'false' && (contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled'))
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

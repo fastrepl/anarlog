@@ -1,0 +1,47 @@
+---
+title: "Char Weekly: February 8, 2026"
+date: "2026-02-08"
+---
+
+Two stable releases in one week. We shipped v1.0.4 and v1.0.5 back-to-back, bringing a redesigned calendar, backlink mentions, undo delete, and a bunch of quality-of-life improvements.
+
+## Calendar redesign
+
+The calendar got a complete overhaul. There's now a full calendar interface with a week view, event popovers, and improved navigation controls. You can see your week at a glance and jump directly into upcoming sessions without scrolling through day view.
+
+We also added the ability to unignore calendar events directly from the sidebar timeline via context menu. If you previously dismissed an event and changed your mind, you can restore it without digging through settings.
+
+## Backlink mentions
+
+You can now mention notes, people, and companies inline using backlink mentions. Each mention displays a type badge--person, company, or note--so you can see what you're linking to at a glance. This creates a connected knowledge graph across your sessions.
+
+## Undo delete
+
+Deleted notes now show a dissolving animation with a 5-second countdown timer. Hover to pause the countdown and reveal a "Restore" button, or press Cmd+Z to instantly restore. You won't lose work to an accidental delete.
+
+## Hold-to-quit
+
+We redesigned the Cmd+Q behavior, inspired by Chrome. Instead of immediately hiding the app, you now hold Cmd+Q to quit with a visual overlay showing the progress. This replaces the previous Cmd+Shift+Q shortcut and prevents accidental quits.
+
+## In-meeting reminder
+
+There's a new experimental notification that alerts you when another app has been using your microphone for 3+ minutes while Char isn't listening. If you forgot to start recording, this nudge will catch it. It's opt-in in the lab settings and still early, but we think it'll be useful.
+
+## Performance and stability
+
+Under the hood, we fixed memory leaks from actor subscriptions and timer accumulation, and resolved high CPU usage caused by a MutationObserver watching the entire document tree. We also upgraded to Tauri 2.10.1 and updated several core dependencies including cpal 0.17 for audio handling.
+
+## Other improvements
+
+- Cmd+Shift+N hotkey to create a new note and start listening in one action
+- Recently opened notes now appear in the Open Note dialog (Cmd+O) for quick access
+- Manual timezone override in Settings for sidebar timeline display
+- Fallback support for local AI models without tool calling (e.g., Gemma via LM Studio)
+- Fix for "invalid Refresh Token: Already Used" authentication error
+- Fix for opening a note now switching to an existing tab instead of creating a duplicate
+
+## What's next
+
+We're working on the next round of features. If you're on the nightly channel, you'll see improvements landing daily. If you're on stable, v1.0.5 is available now.
+
+You can download the latest version from our [changelog](/changelog) or let the app auto-update.

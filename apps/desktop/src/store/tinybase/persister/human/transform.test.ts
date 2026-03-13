@@ -59,6 +59,7 @@ describe("frontmatterToHuman", () => {
     );
     expect(result).toEqual({
       user_id: "user-1",
+      created_at: undefined,
       name: "John Doe",
       email: "john@example.com",
       org_id: "org-1",
@@ -66,6 +67,7 @@ describe("frontmatterToHuman", () => {
       linkedin_username: "johndoe",
       memo: "Notes",
       pinned: false,
+      pin_order: undefined,
     });
   });
 });
@@ -81,6 +83,7 @@ describe("humanToFrontmatter", () => {
       linkedin_username: "",
       memo: "",
       pinned: false,
+      created_at: "",
     });
     expect(result.frontmatter.emails).toEqual([
       "a@example.com",
@@ -98,6 +101,7 @@ describe("humanToFrontmatter", () => {
       linkedin_username: "",
       memo: "",
       pinned: false,
+      created_at: "",
     });
     expect(result.frontmatter.emails).toEqual([]);
   });
@@ -112,6 +116,7 @@ describe("humanToFrontmatter", () => {
       linkedin_username: "",
       memo: "",
       pinned: false,
+      created_at: "",
     });
     expect(result.frontmatter.emails).toEqual([
       "a@example.com",
@@ -129,6 +134,7 @@ describe("humanToFrontmatter", () => {
       linkedin_username: "",
       memo: "",
       pinned: false,
+      created_at: "",
     });
     expect(result.frontmatter.emails).toEqual(["a@example.com"]);
   });
@@ -143,6 +149,7 @@ describe("humanToFrontmatter", () => {
       linkedin_username: "",
       memo: "Some notes",
       pinned: false,
+      created_at: "",
     });
     expect(result.body).toBe("Some notes");
   });
@@ -150,6 +157,7 @@ describe("humanToFrontmatter", () => {
   test("converts all fields correctly", () => {
     const result = humanToFrontmatter({
       user_id: "user-1",
+      created_at: "2024-01-01T00:00:00Z",
       name: "John Doe",
       email: "john@example.com",
       org_id: "org-1",
@@ -161,12 +169,14 @@ describe("humanToFrontmatter", () => {
     expect(result).toEqual({
       frontmatter: {
         user_id: "user-1",
+        created_at: "2024-01-01T00:00:00Z",
         name: "John Doe",
         emails: ["john@example.com"],
         org_id: "org-1",
         job_title: "Engineer",
         linkedin_username: "johndoe",
         pinned: false,
+        pin_order: 0,
       },
       body: "Notes",
     });

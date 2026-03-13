@@ -1,12 +1,12 @@
-mod utils;
+mod common;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use llm_proxy::{LlmProxyConfig, router};
-use utils::*;
+use common::analytics::{MockAnalytics, simple_message, stream_request};
+use llm_proxy::{LlmProxyConfig, MODEL_KEY_DEFAULT, StaticModelResolver, router};
 
 async fn start_server(config: LlmProxyConfig) -> SocketAddr {
     let app = router(config);
@@ -23,11 +23,15 @@ async fn start_server(config: LlmProxyConfig) -> SocketAddr {
 
 fn real_config(analytics: MockAnalytics) -> LlmProxyConfig {
     let api_key = std::env::var("OPENROUTER_API_KEY").expect("OPENROUTER_API_KEY must be set");
-    LlmProxyConfig::new(api_key)
-        .with_models_default(vec![
+    let resolver = StaticModelResolver::default().with_models(
+        MODEL_KEY_DEFAULT,
+        vec![
             "moonshotai/kimi-k2-0905".into(),
             "anthropic/claude-haiku-4.5".into(),
-        ])
+        ],
+    );
+    LlmProxyConfig::new(api_key)
+        .with_model_resolver(Arc::new(resolver))
         .with_analytics(Arc::new(analytics))
 }
 

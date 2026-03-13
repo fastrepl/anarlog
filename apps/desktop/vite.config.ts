@@ -2,12 +2,17 @@
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type UserConfig } from "vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+
+import { relayShim } from "@hypr/plugin-relay/vite";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
+    tsconfigPaths(),
+    relayShim(),
     tanstackRouter({ target: "react", autoCodeSplitting: false }),
     react({
       babel: {
@@ -24,7 +29,7 @@ export default defineConfig(() => ({
     alias:
       process.env.NODE_ENV === "development"
         ? {
-            "@tauri-apps/plugin-updater": "/src/mocks/updater.ts",
+            "@tauri-apps/plugin-updater": "/src/shared/mock-updater.ts",
           }
         : {},
     dedupe: [

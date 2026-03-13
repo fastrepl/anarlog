@@ -1,9 +1,11 @@
 use futures_util::Stream;
+use pin_project::pin_project;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::task::{Context, Poll};
 
+#[pin_project]
 pub struct MockInnerStream {
     chunks: Vec<Vec<f32>>,
     chunk_idx: usize,
@@ -31,10 +33,11 @@ impl MockInnerStream {
 impl Stream for MockInnerStream {
     type Item = Vec<f32>;
 
-    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.chunk_idx < self.chunks.len() {
-            let chunk = self.chunks[self.chunk_idx].clone();
-            self.chunk_idx += 1;
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        if *this.chunk_idx < this.chunks.len() {
+            let chunk = this.chunks[*this.chunk_idx].clone();
+            *this.chunk_idx += 1;
             Poll::Ready(Some(chunk))
         } else {
             Poll::Ready(None)

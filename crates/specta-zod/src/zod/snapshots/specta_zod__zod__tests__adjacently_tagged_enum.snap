@@ -1,0 +1,6 @@
+---
+source: crates/specta-zod/src/zod/tests.rs
+expression: output
+---
+export const adjacentlyTaggedEnumSchema = z.union([z.object({ type: z.literal("Text"), data: z.string() }), z.object({ type: z.literal("Number"), data: z.number() })]);
+export type AdjacentlyTaggedEnum = z.infer<typeof adjacentlyTaggedEnumSchema>;

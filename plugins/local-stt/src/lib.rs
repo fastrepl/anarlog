@@ -1,8 +1,7 @@
+use hypr_model_downloader::ModelDownloadManager;
+use hypr_supervisor::dynamic::DynamicSupervisorMsg;
 use ractor::{ActorCell, ActorRef};
-use ractor_supervisor::dynamic::DynamicSupervisorMsg;
-use std::collections::HashMap;
 use tauri::{Manager, Wry};
-use tokio_util::sync::CancellationToken;
 
 mod commands;
 mod error;
@@ -23,9 +22,9 @@ pub type SupervisorHandle = tokio::task::JoinHandle<()>;
 
 pub struct State {
     pub am_api_key: Option<String>,
-    pub download_task: HashMap<SupportedSttModel, (tokio::task::JoinHandle<()>, CancellationToken)>,
     pub stt_supervisor: Option<ActorRef<DynamicSupervisorMsg>>,
     pub supervisor_handle: Option<SupervisorHandle>,
+    pub model_downloader: ModelDownloadManager<LocalModel>,
 }
 
 #[derive(Default)]
@@ -40,16 +39,17 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::models_dir::<Wry>,
+            commands::cactus_models_dir::<Wry>,
             commands::is_model_downloaded::<Wry>,
             commands::is_model_downloading::<Wry>,
             commands::download_model::<Wry>,
             commands::cancel_download::<Wry>,
             commands::delete_model::<Wry>,
+            commands::get_server_for_model::<Wry>,
             commands::get_servers::<Wry>,
             commands::start_server::<Wry>,
             commands::stop_server::<Wry>,
             commands::list_supported_models,
-            commands::list_supported_languages,
         ])
         .events(tauri_specta::collect_events![
             types::DownloadProgressPayload,
@@ -68,11 +68,13 @@ pub fn init<R: tauri::Runtime>(options: InitOptions) -> tauri::plugin::TauriPlug
 
             let api_key = option_env!("AM_API_KEY").map(|s| s.to_string());
 
+            let model_downloader = ext::create_model_downloader(app.app_handle());
+
             let state = std::sync::Arc::new(tokio::sync::Mutex::new(State {
                 am_api_key: api_key,
-                download_task: HashMap::new(),
                 stt_supervisor: None,
                 supervisor_handle: None,
+                model_downloader,
             }));
 
             app.manage(state.clone());

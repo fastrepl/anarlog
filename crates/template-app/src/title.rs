@@ -1,11 +1,11 @@
-use crate::{common_derives, filters};
+use crate::common_derives;
+use hypr_askama_utils::filters;
 
 common_derives! {
     #[derive(askama::Template)]
     #[template(path = "title.system.md.jinja")]
     pub struct TitleSystem {
         pub language: Option<String>,
-        pub current_date: Option<String>,
     }
 }
 
@@ -26,14 +26,14 @@ mod tests {
         test_language_as_specified,
         TitleSystem {
             language: Some("ko".to_string()),
-            current_date: None,
         },
         |v| v.contains("Korean")
     );
 
     tpl_snapshot!(
         test_title_system,
-        TitleSystem { language: None, current_date: None },
+        TitleSystem { language: None },
+        fixed_date = "2025-01-01",
         @r#"
     # General Instructions
 

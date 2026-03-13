@@ -8,6 +8,7 @@ mod supervisor;
 use ext::*;
 use store::*;
 
+#[cfg(target_os = "macos")]
 use tauri::Manager;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
@@ -40,7 +41,9 @@ pub async fn main() {
             ));
 
             sentry::configure_scope(|scope| {
-                scope.set_tag("service", "hyprnote-desktop");
+                scope.set_tag("service.namespace", "hyprnote");
+                scope.set_tag("service.name", "desktop");
+                scope.set_tag("enduser.pseudo.id", hypr_host::fingerprint());
                 scope.set_user(Some(sentry::User {
                     id: Some(hypr_host::fingerprint()),
                     ..Default::default()
@@ -80,8 +83,7 @@ pub async fn main() {
         .plugin(tauri_plugin_analytics::init())
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
-        .plugin(tauri_plugin_apple_calendar::init())
-        .plugin(tauri_plugin_apple_contact::init())
+        .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_auth::init())
         .plugin(tauri_plugin_db2::init())
         .plugin(tauri_plugin_tracing::init())
@@ -97,13 +99,14 @@ pub async fn main() {
         .plugin(tauri_plugin_fs2::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_path2::init())
-        .plugin(tauri_plugin_pdf::init())
+        .plugin(tauri_plugin_export::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_mcp::init())
         .plugin(tauri_plugin_misc::init())
         .plugin(tauri_plugin_template::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_detect::init())
-        .plugin(tauri_plugin_extensions::init())
+        .plugin(tauri_plugin_dock::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_notify::init())
         .plugin(tauri_plugin_overlay::init())
@@ -119,6 +122,7 @@ pub async fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_listener::init())
         .plugin(tauri_plugin_listener2::init())
+        .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
         .plugin(tauri_plugin_local_stt::init(
             tauri_plugin_local_stt::InitOptions {
@@ -142,6 +146,11 @@ pub async fn main() {
 
     if let Some(client) = sentry_client.as_ref() {
         builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));
+    }
+
+    #[cfg(any(debug_assertions, feature = "devtools"))]
+    {
+        builder = builder.plugin(tauri_plugin_relay::init());
     }
 
     #[cfg(all(not(debug_assertions), not(feature = "devtools")))]
@@ -177,9 +186,18 @@ pub async fn main() {
             }
 
             {
+                use tauri_plugin_tray::HyprMenuItem;
+                app_handle.on_menu_event(|app, event| {
+                    if let Ok(item) = HyprMenuItem::try_from(event.id().clone()) {
+                        item.handle(app);
+                    }
+                });
+            }
+
+            {
                 use tauri_plugin_settings::SettingsPluginExt;
-                if let Ok(base) = app_handle.settings().global_base()
-                    && let Err(e) = agents::write_agents_file(&base)
+                if let Ok(base) = app_handle.settings().vault_base()
+                    && let Err(e) = agents::write_agents_file(base.as_std_path())
                 {
                     tracing::error!("failed to write AGENTS.md: {}", e);
                 }
@@ -208,9 +226,11 @@ pub async fn main() {
         None => {}
         Some(false) => app.set_onboarding_needed(false).unwrap(),
         Some(true) => {
+            use tauri_plugin_auth::AuthPluginExt;
             use tauri_plugin_settings::SettingsPluginExt;
             use tauri_plugin_store2::Store2PluginExt;
 
+            let _ = app.clear_auth();
             let _ = app.settings().reset();
             let _ = app.store2().reset();
             let _ = app.set_onboarding_needed(true);
@@ -222,36 +242,34 @@ pub async fn main() {
                 let _ = permissions.reset(Permission::SystemAudio).await;
                 let _ = permissions.reset(Permission::Accessibility).await;
                 let _ = permissions.reset(Permission::Calendar).await;
-                let _ = permissions.reset(Permission::Contacts).await;
             });
         }
     }
 
     {
         let app_handle = app.handle().clone();
-        if app.get_onboarding_needed().unwrap_or(true) {
-            AppWindow::Main.hide(&app_handle).unwrap();
-            AppWindow::Onboarding.show(&app_handle).unwrap();
-        } else {
-            AppWindow::Onboarding.destroy(&app_handle).unwrap();
-            AppWindow::Main.show(&app_handle).unwrap();
-        }
+        AppWindow::Main.show(&app_handle).unwrap();
     }
 
     #[cfg(target_os = "macos")]
     hypr_intercept::setup_force_quit_handler();
 
+    #[cfg(target_os = "macos")]
+    {
+        let handle = app.handle().clone();
+        hypr_intercept::set_close_handler(move || {
+            for (_, window) in handle.webview_windows() {
+                let _ = window.close();
+            }
+            let _ = handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        });
+    }
+
     #[allow(unused_variables)]
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            if app.get_onboarding_needed().unwrap_or(true) {
-                AppWindow::Main.hide(&app).unwrap();
-                AppWindow::Onboarding.show(&app).unwrap();
-            } else {
-                AppWindow::Onboarding.destroy(&app).unwrap();
-                AppWindow::Main.show(&app).unwrap();
-            }
+            AppWindow::Main.show(&app).unwrap();
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::ExitRequested { api, .. } => {
@@ -324,14 +342,17 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_onboarding_needed::<tauri::Wry>,
             commands::get_dismissed_toasts::<tauri::Wry>,
             commands::set_dismissed_toasts::<tauri::Wry>,
-            commands::get_onboarding_local::<tauri::Wry>,
-            commands::set_onboarding_local::<tauri::Wry>,
             commands::get_env::<tauri::Wry>,
             commands::show_devtool,
             commands::resize_window_for_chat::<tauri::Wry>,
             commands::resize_window_for_sidebar::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::set_tinybase_values::<tauri::Wry>,
+            commands::get_pinned_tabs::<tauri::Wry>,
+            commands::set_pinned_tabs::<tauri::Wry>,
+            commands::get_recently_opened_sessions::<tauri::Wry>,
+            commands::set_recently_opened_sessions::<tauri::Wry>,
+            commands::list_plugins::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

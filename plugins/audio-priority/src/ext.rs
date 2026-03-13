@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use tauri_plugin_settings::SettingsPluginExt;
@@ -11,7 +12,7 @@ pub fn audio_priority_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<PathBuf, crate::Error> {
     let base = app.settings().global_base()?;
-    Ok(base.join(FILENAME))
+    Ok(base.join(FILENAME).into_std_path_buf())
 }
 
 pub struct AudioPriority<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
@@ -90,13 +91,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> AudioPriority<'a, R, M> {
 
     pub async fn save_input_priorities(&self, priorities: Vec<String>) -> crate::Result<()> {
         let mut state = self.load_state().await?;
-        state.input_priorities = priorities;
+        state.input_priorities =
+            merge_priorities_preserving_disconnected(&state.input_priorities, &priorities);
         self.save_state(state).await
     }
 
     pub async fn save_output_priorities(&self, priorities: Vec<String>) -> crate::Result<()> {
         let mut state = self.load_state().await?;
-        state.output_priorities = priorities;
+        state.output_priorities =
+            merge_priorities_preserving_disconnected(&state.output_priorities, &priorities);
         self.save_state(state).await
     }
 
@@ -200,6 +203,88 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> AudioPriority<'a, R, M> {
         hidden_list.retain(|u| u != device_id);
 
         self.save_state(state).await
+    }
+}
+
+fn merge_priorities_preserving_disconnected(
+    old_priorities: &[String],
+    new_priorities: &[String],
+) -> Vec<String> {
+    let new_set: HashSet<&str> = new_priorities.iter().map(|s| s.as_str()).collect();
+    let mut new_iter = new_priorities.iter();
+    let mut result: Vec<String> = Vec::new();
+
+    for old_id in old_priorities {
+        if new_set.contains(old_id.as_str()) {
+            if let Some(new_id) = new_iter.next() {
+                result.push(new_id.clone());
+            }
+        } else {
+            result.push(old_id.clone());
+        }
+    }
+
+    for remaining in new_iter {
+        result.push(remaining.clone());
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn s(v: &str) -> String {
+        v.to_string()
+    }
+
+    #[test]
+    fn merge_preserves_disconnected_devices_at_their_positions() {
+        let old = vec![s("USB_A"), s("USB_B"), s("Built_In"), s("BT")];
+        let new = vec![s("BT"), s("Built_In")];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("USB_A"), s("USB_B"), s("BT"), s("Built_In")]);
+    }
+
+    #[test]
+    fn merge_no_disconnected_devices() {
+        let old = vec![s("A"), s("B"), s("C")];
+        let new = vec![s("C"), s("A"), s("B")];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("C"), s("A"), s("B")]);
+    }
+
+    #[test]
+    fn merge_empty_old() {
+        let old: Vec<String> = vec![];
+        let new = vec![s("A"), s("B")];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("A"), s("B")]);
+    }
+
+    #[test]
+    fn merge_empty_new() {
+        let old = vec![s("A"), s("B")];
+        let new: Vec<String> = vec![];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("A"), s("B")]);
+    }
+
+    #[test]
+    fn merge_new_device_not_in_old() {
+        let old = vec![s("A"), s("B")];
+        let new = vec![s("B"), s("A"), s("C")];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("B"), s("A"), s("C")]);
+    }
+
+    #[test]
+    fn merge_swap_with_disconnected_in_middle() {
+        let old = vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")];
+        let new = vec![s("USB_A"), s("BT")];
+        let result = merge_priorities_preserving_disconnected(&old, &new);
+        assert_eq!(result, vec![s("Built_In"), s("USB_A"), s("USB_B"), s("BT")]);
     }
 }
 

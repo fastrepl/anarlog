@@ -4,15 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-reqwest = { workspace = true, features = ["json"] }
-url = { workspace = true }
-
+chrono = { workspace = true, features = ["serde"] }
+progenitor-client = { workspace = true }
+regress = "0.10"
+reqwest = { workspace = true, features = ["json", "stream"] }
 serde = { workspace = true, features = ["derive"] }
-specta = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 
-[dev-dependencies]
-hypr-data = { workspace = true }
-
-reqwest = { workspace = true, features = ["json"] }
-rodio = { workspace = true }
-tokio = { workspace = true, features = ["rt", "macros"] }
+[build-dependencies]
+progenitor-utils = { path = "../progenitor-utils" }

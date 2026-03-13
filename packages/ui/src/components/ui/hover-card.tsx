@@ -1,4 +1,5 @@
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card";
+import { motion, type MotionStyle } from "motion/react";
 import * as React from "react";
 
 import { cn } from "@hypr/utils";
@@ -8,19 +9,90 @@ const HoverCardTrigger = HoverCardPrimitive.Trigger;
 
 const HoverCardContent = React.forwardRef<
   React.ComponentRef<typeof HoverCardPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof HoverCardPrimitive.Content>
->(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-  <HoverCardPrimitive.Content
-    ref={ref}
-    align={align}
-    sideOffset={sideOffset}
-    className={cn([
-      "z-50 w-64 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-(--radix-hover-card-content-transform-origin)",
+  React.ComponentPropsWithoutRef<typeof HoverCardPrimitive.Content> & {
+    followStyle?: MotionStyle;
+  }
+>(
+  (
+    {
       className,
-    ])}
-    {...props}
-  />
-));
+      align = "center",
+      sideOffset = 4,
+      side = "bottom",
+      followStyle,
+      ...props
+    },
+    ref,
+  ) => {
+    const getInitialPosition = () => {
+      switch (side) {
+        case "top":
+          return { y: 6 };
+        case "bottom":
+          return { y: -6 };
+        case "left":
+          return { x: 6 };
+        case "right":
+          return { x: -6 };
+        default:
+          return { y: -6 };
+      }
+    };
+
+    const initialPosition = getInitialPosition();
+
+    return (
+      <HoverCardPrimitive.Portal>
+        <HoverCardPrimitive.Content
+          ref={ref}
+          align={align}
+          sideOffset={sideOffset}
+          side={side}
+          asChild
+          {...props}
+        >
+          <motion.div
+            initial={{
+              opacity: 0,
+              scale: 0.97,
+              filter: "blur(2px)",
+              ...initialPosition,
+            }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              filter: "blur(0px)",
+              x: 0,
+              y: 0,
+              transition: {
+                duration: 0.2,
+                ease: [0.16, 1, 0.3, 1],
+              },
+            }}
+            exit={{
+              opacity: 0,
+              scale: 0.97,
+              filter: "blur(2px)",
+              ...initialPosition,
+              transition: {
+                duration: 0.1,
+                ease: "easeIn",
+              },
+            }}
+            style={followStyle}
+            className={cn([
+              "bg-popover text-popover-foreground z-50 w-64 rounded-md border p-4 shadow-md outline-hidden",
+              "origin-(--radix-hover-card-content-transform-origin)",
+              className,
+            ])}
+          >
+            {props.children}
+          </motion.div>
+        </HoverCardPrimitive.Content>
+      </HoverCardPrimitive.Portal>
+    );
+  },
+);
 HoverCardContent.displayName = HoverCardPrimitive.Content.displayName;
 
 export { HoverCard, HoverCardContent, HoverCardTrigger };

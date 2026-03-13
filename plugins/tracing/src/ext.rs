@@ -12,7 +12,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tracing<'a, R, M> {
             .path()
             .app_log_dir()
             .map_err(|e| crate::Error::PathResolver(e.to_string()))?;
-        let _ = std::fs::create_dir_all(&logs_dir);
+        std::fs::create_dir_all(&logs_dir)
+            .map_err(|e| crate::Error::PathResolver(format!("create logs dir: {}", e)))?;
         Ok(logs_dir)
     }
 

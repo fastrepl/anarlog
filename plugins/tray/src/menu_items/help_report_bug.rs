@@ -16,12 +16,17 @@ impl MenuItemHandler for HelpReportBug {
     }
 
     fn handle(app: &AppHandle<tauri::Wry>) {
-        use tauri_plugin_windows::{AppWindow, OpenFeedback, WindowsPluginExt};
+        use tauri_plugin_windows::{AppWindow, ChatState, OpenTab, TabInput, WindowsPluginExt};
         use tauri_specta::Event;
 
         if app.windows().show(AppWindow::Main).is_ok() {
-            let event = OpenFeedback {
-                feedback_type: "bug".to_string(),
+            let event = OpenTab {
+                tab: TabInput::ChatSupport {
+                    state: Some(ChatState {
+                        initial_message: Some("I'd like to report a bug.".to_string()),
+                        ..Default::default()
+                    }),
+                },
             };
             let _ = event.emit(app);
         }

@@ -2,7 +2,7 @@ import { MDXContent } from "@content-collections/mdx/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -10,6 +10,7 @@ import { DownloadButton } from "@/components/download-button";
 import { Image } from "@/components/image";
 import { defaultMDXComponents } from "@/components/mdx";
 import { SlashSeparator } from "@/components/slash-separator";
+import { useBlogToc } from "@/hooks/use-blog-toc";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
@@ -17,23 +18,23 @@ export const Route = createFileRoute("/_view/blog/$slug")({
   component: Component,
   loader: async ({ params }) => {
     const article = allArticles.find((article) => article.slug === params.slug);
-    if (!article || (!import.meta.env.DEV && article.published !== true)) {
-      throw notFound();
-    }
-
-    if (!import.meta.env.DEV && article.published === false) {
+    if (!article) {
       throw notFound();
     }
 
     const relatedArticles = allArticles
-      .filter(
-        (a) =>
-          a.slug !== article.slug &&
-          (import.meta.env.DEV || a.published === true),
-      )
+      .filter((a) => a.slug !== article.slug)
       .sort((a, b) => {
-        const aScore = a.author === article.author ? 1 : 0;
-        const bScore = b.author === article.author ? 1 : 0;
+        const aScore = a.author.some((name: string) =>
+          article.author.includes(name),
+        )
+          ? 1
+          : 0;
+        const bScore = b.author.some((name: string) =>
+          article.author.includes(name),
+        )
+          ? 1
+          : 0;
         if (aScore !== bScore) {
           return bScore - aScore;
         }
@@ -50,24 +51,26 @@ export const Route = createFileRoute("/_view/blog/$slug")({
     }
 
     const { article } = loaderData;
-    const url = `https://hyprnote.com/blog/${article.slug}`;
+    const url = `https://char.com/blog/${article.slug}`;
 
+    const title = article.title ?? "";
+    const metaDescription = article.meta_description ?? "";
     const ogImage =
       article.coverImage ||
-      `https://hyprnote.com/og?type=blog&title=${encodeURIComponent(article.title)}${article.author ? `&author=${encodeURIComponent(article.author)}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
+      `https://char.com/og?type=blog&title=${encodeURIComponent(title)}${article.author.length > 0 ? `&author=${encodeURIComponent(article.author.join(", "))}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
 
     return {
       meta: [
-        { title: `${article.title} - Hyprnote Blog` },
-        { name: "description", content: article.meta_description },
+        { title: `${title} - Char Blog` },
+        { name: "description", content: metaDescription },
         { tag: "link", attrs: { rel: "canonical", href: url } },
         {
           property: "og:title",
-          content: `${article.title} - Hyprnote Blog`,
+          content: `${title} - Char Blog`,
         },
         {
           property: "og:description",
-          content: article.meta_description,
+          content: metaDescription,
         },
         { property: "og:type", content: "article" },
         { property: "og:url", content: url },
@@ -75,15 +78,15 @@ export const Route = createFileRoute("/_view/blog/$slug")({
         { name: "twitter:card", content: "summary_large_image" },
         {
           name: "twitter:title",
-          content: `${article.title} - Hyprnote Blog`,
+          content: `${title} - Char Blog`,
         },
         {
           name: "twitter:description",
-          content: article.meta_description,
+          content: metaDescription,
         },
         { name: "twitter:image", content: ogImage },
-        ...(article.author
-          ? [{ name: "author", content: article.author }]
+        ...(article.author.length > 0
+          ? [{ name: "author", content: article.author.join(", ") }]
           : []),
         {
           property: "article:published_time",
@@ -99,57 +102,69 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      data-blog-article
+      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <TableOfContents toc={article.toc} />
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection article={article} />
         <SlashSeparator />
-        <div className="max-w-200 mx-auto px-4 py-8">
+        <div className="mx-auto max-w-200 px-4 py-8">
           <ArticleContent article={article} />
           <RelatedArticlesSection relatedArticles={relatedArticles} />
         </div>
         <SlashSeparator />
         <CTASection />
-        <MobileCTA />
       </div>
     </main>
   );
 }
 
 function HeroSection({ article }: { article: any }) {
-  const avatarUrl = AUTHOR_AVATARS[article.author];
-
   return (
-    <header className="py-12 lg:py-16 text-center max-w-200 mx-auto px-4">
+    <header className="px-4 py-12 text-center lg:py-16">
       <Link
         to="/blog/"
-        className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-stone-600 transition-colors mb-8"
+        className="mb-8 inline-flex items-center gap-2 text-sm text-neutral-600 transition-colors hover:text-stone-600"
       >
         <span>←</span>
         <span>Back to Blog</span>
       </Link>
 
-      <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-stone-600 mb-6">
+      {article.category && (
+        <p className="mb-4 font-mono text-sm text-stone-500">
+          {article.category}
+        </p>
+      )}
+
+      <h1 className="mb-6 font-serif text-3xl text-stone-600 sm:text-4xl lg:text-5xl">
         {article.title}
       </h1>
 
-      {article.author && (
-        <div className="flex items-center justify-center gap-3 mb-2">
-          {avatarUrl && (
-            <img
-              src={avatarUrl}
-              alt={article.author}
-              className="w-8 h-8 rounded-full object-cover"
-            />
-          )}
-          <p className="text-base text-neutral-600">{article.author}</p>
+      {article.author.length > 0 && (
+        <div className="mb-2 flex items-center justify-center gap-3">
+          {article.author.map((name: string) => {
+            const avatarUrl = AUTHOR_AVATARS[name];
+            return (
+              <div key={name} className="flex items-center gap-2">
+                {avatarUrl && (
+                  <img
+                    src={avatarUrl}
+                    alt={name}
+                    className="h-8 w-8 rounded-full object-cover"
+                  />
+                )}
+                <p className="text-base text-neutral-600">{name}</p>
+              </div>
+            );
+          })}
         </div>
       )}
 
       <time
         dateTime={article.date}
-        className="text-xs font-mono text-neutral-500"
+        className="font-mono text-xs text-neutral-500"
       >
         {new Date(article.date).toLocaleDateString("en-US", {
           year: "numeric",
@@ -179,17 +194,17 @@ function RelatedArticlesSection({
   }
 
   return (
-    <div className="mt-16 pt-8 border-t border-neutral-100">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-serif text-stone-600">More articles</h3>
+    <div className="mt-16 border-t border-neutral-100 pt-8">
+      <div className="mb-6 flex items-center justify-between">
+        <h3 className="font-serif text-xl text-stone-600">More articles</h3>
         <Link
           to="/blog/"
-          className="text-sm text-neutral-600 hover:text-stone-600 transition-colors"
+          className="text-sm text-neutral-600 transition-colors hover:text-stone-600"
         >
           See all
         </Link>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {relatedArticles.map((related) => (
           <RelatedArticleCard key={related.slug} article={related} />
         ))}
@@ -203,34 +218,34 @@ function CTASection() {
   const platformCTA = getPlatformCTA(platform);
 
   return (
-    <section className="py-16 px-4 bg-linear-to-t from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
-          Try Hyprnote for yourself
+        <h2 className="font-serif text-2xl sm:text-3xl">
+          Try Char for yourself
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           The AI notepad for people in back-to-back meetings. Local-first,
           privacy-focused, and open source.
         </p>
-        <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
           {platformCTA.action === "download" ? (
             <DownloadButton />
           ) : (
             <Link
               to="/download/"
               className={cn([
-                "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-                "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-                "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
                 "transition-all",
               ])}
             >
@@ -243,89 +258,221 @@ function CTASection() {
   );
 }
 
-function MobileCTA() {
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+function TableOfContents({
+  toc,
+}: {
+  toc: Array<{ id: string; text: string; level: number }>;
+}) {
+  const blogTocCtx = useBlogToc();
+  const [activeId, setActiveIdLocal] = useState<string | null>(
+    toc.length > 0 ? toc[0].id : null,
+  );
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const headingElementsRef = useRef<Record<string, IntersectionObserverEntry>>(
+    {},
+  );
+  const isUserScrollingToc = useRef(false);
+  const userScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wheelAccumulator = useRef(0);
+
+  const setActiveId = useCallback(
+    (id: string | null) => {
+      setActiveIdLocal(id);
+      blogTocCtx?.setActiveId(id);
+    },
+    [blogTocCtx],
+  );
 
   useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(false);
-      } else if (currentScrollY < lastScrollY) {
-        setIsVisible(true);
-      }
-
-      setLastScrollY(currentScrollY);
+    blogTocCtx?.setToc(toc);
+    return () => {
+      blogTocCtx?.setToc([]);
+      blogTocCtx?.setActiveId(null);
     };
+  }, [toc]);
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
+  const scrollToHeading = useCallback((id: string) => {
+    isUserScrollingToc.current = true;
+    if (userScrollTimeout.current) {
+      clearTimeout(userScrollTimeout.current);
+    }
+    userScrollTimeout.current = setTimeout(() => {
+      isUserScrollingToc.current = false;
+    }, 1000);
+
+    setActiveId(id);
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  const getActiveHeading = useCallback(() => {
+    const visibleHeadings: IntersectionObserverEntry[] = [];
+    for (const entry of Object.values(headingElementsRef.current)) {
+      if (entry.isIntersecting) {
+        visibleHeadings.push(entry);
+      }
+    }
+
+    if (visibleHeadings.length > 0) {
+      const sorted = visibleHeadings.sort(
+        (a, b) =>
+          (a.target as HTMLElement).getBoundingClientRect().top -
+          (b.target as HTMLElement).getBoundingClientRect().top,
+      );
+      return sorted[0].target.id;
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (toc.length === 0) return;
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          headingElementsRef.current[entry.target.id] = entry;
+        }
+        if (!isUserScrollingToc.current) {
+          const active = getActiveHeading();
+          if (active) {
+            setActiveId(active);
+          }
+        }
+      },
+      { rootMargin: "-80px 0px -60% 0px", threshold: 0 },
+    );
+
+    const headingIds = toc.map((item) => item.id);
+    for (const id of headingIds) {
+      const el = document.getElementById(id);
+      if (el) {
+        observerRef.current.observe(el);
+      }
+    }
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      observerRef.current?.disconnect();
     };
-  }, [lastScrollY]);
+  }, [toc, getActiveHeading]);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const THRESHOLD = 50;
+      wheelAccumulator.current += e.deltaY;
+
+      if (Math.abs(wheelAccumulator.current) < THRESHOLD) return;
+
+      const direction = wheelAccumulator.current > 0 ? 1 : -1;
+      wheelAccumulator.current = 0;
+
+      const currentIndex = toc.findIndex((item) => item.id === activeId);
+      const nextIndex = Math.max(
+        0,
+        Math.min(toc.length - 1, currentIndex + direction),
+      );
+
+      if (nextIndex !== currentIndex) {
+        scrollToHeading(toc[nextIndex].id);
+      }
+    },
+    [toc, activeId, scrollToHeading],
+  );
+
+  if (toc.length === 0) {
+    return null;
+  }
+
+  const activeIndex = toc.findIndex((item) => item.id === activeId);
+  const ITEM_HEIGHT = 40;
 
   return (
-    <motion.div
-      className="sm:hidden fixed bottom-0 left-0 right-0 border-t border-neutral-200 bg-white/95 backdrop-blur-xs p-4 z-20"
-      initial={{ y: 0 }}
-      animate={{ y: isVisible ? 0 : "100%" }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+    <aside
+      className={cn([
+        "fixed top-0 right-0 z-10 hidden h-screen xl:flex",
+        "w-64 items-center",
+      ])}
     >
-      <Link
-        to="/download/"
-        className={cn([
-          "group px-4 h-12 flex items-center justify-center text-base w-full",
-          "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-          "hover:scale-[102%] active:scale-[98%]",
-          "transition-all",
-        ])}
+      <nav
+        className="relative w-full cursor-ns-resize overflow-hidden"
+        style={{ height: ITEM_HEIGHT * 5 }}
+        onWheel={handleWheel}
       >
-        Download for free
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="1.5"
-          stroke="currentColor"
-          className="h-5 w-5 ml-2 group-hover:translate-y-0.5 transition-transform"
+        <motion.div
+          className="flex flex-col"
+          animate={{ y: -activeIndex * ITEM_HEIGHT + ITEM_HEIGHT * 2 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"
-          />
-        </svg>
-      </Link>
-    </motion.div>
+          {toc.map((item, index) => {
+            const distance = Math.abs(index - activeIndex);
+            const isActive = index === activeIndex;
+
+            return (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToHeading(item.id);
+                }}
+                className={cn([
+                  "flex shrink-0 items-center pr-4 pl-6 transition-colors duration-200",
+                  isActive
+                    ? "font-medium text-stone-800"
+                    : "text-neutral-400 hover:text-neutral-600",
+                  item.level === 3 && "pl-9",
+                  item.level === 4 && "pl-12",
+                ])}
+                style={{
+                  height: ITEM_HEIGHT,
+                  opacity: isActive
+                    ? 1
+                    : distance === 1
+                      ? 0.45
+                      : distance === 2
+                        ? 0.2
+                        : 0.08,
+                  fontSize: isActive ? 14 : 13,
+                }}
+              >
+                <span className="line-clamp-1">{item.text}</span>
+              </a>
+            );
+          })}
+        </motion.div>
+      </nav>
+    </aside>
   );
 }
 
 function RelatedArticleCard({ article }: { article: any }) {
+  const title = article.title ?? "";
   const ogImage =
     article.coverImage ||
-    `https://hyprnote.com/og?type=blog&title=${encodeURIComponent(article.title)}${article.author ? `&author=${encodeURIComponent(article.author)}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
+    `https://char.com/og?type=blog&title=${encodeURIComponent(title)}${article.author ? `&author=${encodeURIComponent(article.author)}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
 
   return (
     <Link
       to="/blog/$slug/"
       params={{ slug: article.slug }}
-      className="group block border border-neutral-200 rounded-xs hover:border-neutral-200 hover:shadow-xs transition-all bg-white overflow-hidden"
+      className="group block overflow-hidden rounded-xs border border-neutral-200 bg-white transition-all hover:border-neutral-200 hover:shadow-xs"
     >
       <div className="aspect-40/21 overflow-hidden">
         <img
           src={ogImage}
-          alt={article.title}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          alt={title}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       </div>
       <div className="p-4">
-        <h4 className="font-serif text-sm text-stone-600 group-hover:text-stone-800 transition-colors line-clamp-2 mb-2">
-          {article.title}
+        <h4 className="mb-2 line-clamp-2 font-serif text-sm text-stone-600 transition-colors group-hover:text-stone-800">
+          {title}
         </h4>
-        <p className="text-xs text-neutral-500 line-clamp-2 mb-2">
+        <p className="mb-2 line-clamp-2 text-xs text-neutral-500">
           {article.summary}
         </p>
         <time dateTime={article.date} className="text-xs text-neutral-400">

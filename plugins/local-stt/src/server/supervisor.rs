@@ -1,18 +1,26 @@
-use ractor::{ActorCell, ActorProcessingErr, ActorRef, concurrency::Duration, registry};
-use ractor_supervisor::{
-    core::{ChildBackoffFn, ChildSpec, Restart, SpawnFn, SupervisorError},
-    dynamic::{DynamicSupervisor, DynamicSupervisorMsg, DynamicSupervisorOptions},
+use hypr_supervisor::{
+    RestartPolicy,
+    dynamic::{
+        ChildBackoffFn, DynChildSpec, DynSpawnFn, DynamicSupervisor, DynamicSupervisorMsg,
+        DynamicSupervisorOptions, SupervisorError,
+    },
 };
+use ractor::{ActorCell, ActorProcessingErr, ActorRef, concurrency::Duration, registry};
 
+#[cfg(feature = "whisper-cpp")]
+use super::internal::{InternalSTTActor, InternalSTTArgs};
+#[cfg(target_arch = "aarch64")]
+use super::internal2::{Internal2STTActor, Internal2STTArgs};
 use super::{
     ServerType,
     external::{ExternalSTTActor, ExternalSTTArgs},
-    internal::{InternalSTTActor, InternalSTTArgs},
 };
 
 pub type SupervisorRef = ActorRef<DynamicSupervisorMsg>;
 
 pub const INTERNAL_STT_ACTOR_NAME: &str = "internal_stt";
+#[cfg(target_arch = "aarch64")]
+pub const INTERNAL2_STT_ACTOR_NAME: &str = "internal2_stt";
 pub const EXTERNAL_STT_ACTOR_NAME: &str = "external_stt";
 pub const SUPERVISOR_NAME: &str = "stt_supervisor";
 
@@ -40,11 +48,21 @@ pub async fn spawn_stt_supervisor(
     Ok((supervisor_ref, handle))
 }
 
+#[cfg(feature = "whisper-cpp")]
 pub async fn start_internal_stt(
     supervisor: &ActorRef<DynamicSupervisorMsg>,
     args: InternalSTTArgs,
 ) -> Result<(), ActorProcessingErr> {
     let child_spec = create_internal_child_spec_with_args(args);
+    DynamicSupervisor::spawn_child(supervisor.clone(), child_spec).await
+}
+
+#[cfg(target_arch = "aarch64")]
+pub async fn start_internal2_stt(
+    supervisor: &ActorRef<DynamicSupervisorMsg>,
+    args: Internal2STTArgs,
+) -> Result<(), ActorProcessingErr> {
+    let child_spec = create_internal2_child_spec_with_args(args);
     DynamicSupervisor::spawn_child(supervisor.clone(), child_spec).await
 }
 
@@ -56,8 +74,9 @@ pub async fn start_external_stt(
     DynamicSupervisor::spawn_child(supervisor.clone(), child_spec).await
 }
 
-fn create_internal_child_spec_with_args(args: InternalSTTArgs) -> ChildSpec {
-    let spawn_fn = SpawnFn::new(move |supervisor: ActorCell, child_id: String| {
+#[cfg(feature = "whisper-cpp")]
+fn create_internal_child_spec_with_args(args: InternalSTTArgs) -> DynChildSpec {
+    let spawn_fn = DynSpawnFn::new(move |supervisor: ActorCell, child_id: String| {
         let args = args.clone();
         async move {
             let (actor_ref, _handle) =
@@ -67,10 +86,10 @@ fn create_internal_child_spec_with_args(args: InternalSTTArgs) -> ChildSpec {
         }
     });
 
-    ChildSpec {
+    DynChildSpec {
         id: INTERNAL_STT_ACTOR_NAME.to_string(),
         spawn_fn,
-        restart: Restart::Transient,
+        restart: RestartPolicy::Transient,
         backoff_fn: Some(ChildBackoffFn::new(|_, _, _, _| {
             Some(Duration::from_millis(500))
         })),
@@ -78,8 +97,31 @@ fn create_internal_child_spec_with_args(args: InternalSTTArgs) -> ChildSpec {
     }
 }
 
-fn create_external_child_spec_with_args(args: ExternalSTTArgs) -> ChildSpec {
-    let spawn_fn = SpawnFn::new(move |supervisor: ActorCell, child_id: String| {
+#[cfg(target_arch = "aarch64")]
+fn create_internal2_child_spec_with_args(args: Internal2STTArgs) -> DynChildSpec {
+    let spawn_fn = DynSpawnFn::new(move |supervisor: ActorCell, child_id: String| {
+        let args = args.clone();
+        async move {
+            let (actor_ref, _handle) =
+                DynamicSupervisor::spawn_linked(child_id, Internal2STTActor, args, supervisor)
+                    .await?;
+            Ok(actor_ref.get_cell())
+        }
+    });
+
+    DynChildSpec {
+        id: INTERNAL2_STT_ACTOR_NAME.to_string(),
+        spawn_fn,
+        restart: RestartPolicy::Transient,
+        backoff_fn: Some(ChildBackoffFn::new(|_, _, _, _| {
+            Some(Duration::from_millis(500))
+        })),
+        reset_after: None,
+    }
+}
+
+fn create_external_child_spec_with_args(args: ExternalSTTArgs) -> DynChildSpec {
+    let spawn_fn = DynSpawnFn::new(move |supervisor: ActorCell, child_id: String| {
         let args = args.clone();
         async move {
             let (actor_ref, _handle) =
@@ -89,10 +131,10 @@ fn create_external_child_spec_with_args(args: ExternalSTTArgs) -> ChildSpec {
         }
     });
 
-    ChildSpec {
+    DynChildSpec {
         id: EXTERNAL_STT_ACTOR_NAME.to_string(),
         spawn_fn,
-        restart: Restart::Transient,
+        restart: RestartPolicy::Transient,
         backoff_fn: Some(ChildBackoffFn::new(|_, _, _, _| {
             Some(Duration::from_secs(1))
         })),
@@ -104,24 +146,45 @@ pub async fn stop_stt_server(
     supervisor: &ActorRef<DynamicSupervisorMsg>,
     server_type: ServerType,
 ) -> Result<(), ActorProcessingErr> {
-    let child_id = match server_type {
-        ServerType::Internal => INTERNAL_STT_ACTOR_NAME,
-        ServerType::External => EXTERNAL_STT_ACTOR_NAME,
+    let child_ids: Vec<&str> = match server_type {
+        ServerType::Internal => {
+            #[cfg(all(target_arch = "aarch64", feature = "whisper-cpp"))]
+            {
+                vec![INTERNAL2_STT_ACTOR_NAME, INTERNAL_STT_ACTOR_NAME]
+            }
+            #[cfg(all(target_arch = "aarch64", not(feature = "whisper-cpp")))]
+            {
+                vec![INTERNAL2_STT_ACTOR_NAME]
+            }
+            #[cfg(not(target_arch = "aarch64"))]
+            {
+                vec![]
+            }
+        }
+        ServerType::External => vec![EXTERNAL_STT_ACTOR_NAME],
     };
 
-    let result = DynamicSupervisor::terminate_child(supervisor.clone(), child_id.to_string()).await;
+    for child_id in child_ids {
+        let result =
+            DynamicSupervisor::terminate_child(supervisor.clone(), child_id.to_string()).await;
 
-    if let Err(e) = result {
-        if let Some(supervisor_error) = e.downcast_ref::<SupervisorError>()
-            && matches!(supervisor_error, SupervisorError::ChildNotFound { .. })
-        {
-            return Ok(());
+        if let Err(e) = result {
+            if let Some(supervisor_error) = e.downcast_ref::<SupervisorError>()
+                && matches!(supervisor_error, SupervisorError::ChildNotFound { .. })
+            {
+                continue;
+            }
+            return Err(e);
         }
-        return Err(e);
     }
 
     match server_type {
-        ServerType::Internal => wait_for_actor_shutdown(InternalSTTActor::name()).await,
+        ServerType::Internal => {
+            #[cfg(target_arch = "aarch64")]
+            wait_for_actor_shutdown(Internal2STTActor::name()).await;
+            #[cfg(feature = "whisper-cpp")]
+            wait_for_actor_shutdown(InternalSTTActor::name()).await;
+        }
         ServerType::External => wait_for_actor_shutdown(ExternalSTTActor::name()).await,
     }
 
