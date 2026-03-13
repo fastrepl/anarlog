@@ -1400,7 +1400,7 @@ function ContentPanel({
     staleTime: 60000,
   });
 
-  const { mutate: publish, isPending: isPublishing } = useMutation({
+  const { mutateAsync: publish, isPending: isPublishing } = useMutation({
     mutationFn: async (params: {
       path: string;
       content: string;
@@ -1451,23 +1451,10 @@ function ContentPanel({
       const publishResult = await publishResponse.json();
       return { prUrl: publishResult.prUrl as string | undefined };
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["pendingPR", variables.path],
       });
-
-      if (data.prUrl) {
-        const opened = window.open(data.prUrl, "_blank");
-        if (!opened) {
-          sonnerToast.success("PR created", {
-            description: "Pop-up was blocked by your browser.",
-            action: {
-              label: "Open PR",
-              onClick: () => window.open(data.prUrl, "_blank"),
-            },
-          });
-        }
-      }
     },
     onError: (error) => {
       sonnerToast.error("Publish failed", {
@@ -1476,17 +1463,41 @@ function ContentPanel({
     },
   });
 
-  const handlePublish = useCallback(() => {
+  const handlePublish = useCallback(async () => {
     const currentEditorData = getCurrentEditorData();
 
     if (!currentTab || !currentEditorData) return;
 
-    publish({
-      path: currentTab.path,
-      content: currentEditorData.content,
-      metadata: currentEditorData.metadata,
-      branch: currentTab.branch,
-    });
+    const popup = window.open("", "_blank");
+
+    try {
+      const data = await publish({
+        path: currentTab.path,
+        content: currentEditorData.content,
+        metadata: currentEditorData.metadata,
+        branch: currentTab.branch,
+      });
+
+      if (data.prUrl) {
+        if (popup) {
+          popup.location.href = data.prUrl;
+          return;
+        }
+
+        sonnerToast.success("PR created", {
+          description: "Pop-up was blocked by your browser.",
+          action: {
+            label: "Open PR",
+            onClick: () => window.open(data.prUrl, "_blank"),
+          },
+        });
+        return;
+      }
+
+      popup?.close();
+    } catch {
+      popup?.close();
+    }
   }, [currentTab, getCurrentEditorData, publish]);
 
   return (
