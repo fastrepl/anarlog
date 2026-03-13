@@ -9,6 +9,7 @@ import {
 import { sonnerToast as toast } from "@hypr/ui/components/ui/toast";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
+import { fetchAdminJson, isAdminSignInRedirectError } from "@/lib/admin-auth";
 import type { MediaItem } from "@/lib/media-library";
 
 type FileStatus = "pending" | "uploading" | "done" | "error";
@@ -74,24 +75,28 @@ function UploadToast({
 export type { MediaItem } from "@/lib/media-library";
 
 export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
-  const response = await fetch(
+  const data = await fetchAdminJson<{ items: MediaItem[] }>(
     `/api/admin/media/list?path=${encodeURIComponent(path)}`,
+    undefined,
+    "Failed to fetch media",
   );
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch media");
-  }
+
   return data.items;
 }
 
 async function deleteFiles(paths: string[]) {
-  const response = await fetch("/api/admin/media/delete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paths }),
-  });
+  const data = await fetchAdminJson<{
+    errors?: string[];
+  }>(
+    "/api/admin/media/delete",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paths }),
+    },
+    "Failed to delete files",
+  );
 
-  const data = await response.json();
   if (data.errors && data.errors.length > 0) {
     throw new Error(`Some files failed to delete: ${data.errors.join(", ")}`);
   }
@@ -99,31 +104,27 @@ async function deleteFiles(paths: string[]) {
 }
 
 async function createFolder(params: { name: string; parentFolder: string }) {
-  const response = await fetch("/api/admin/media/create-folder", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || "Failed to create folder");
-  }
-  return response.json();
+  return fetchAdminJson<any>(
+    "/api/admin/media/create-folder",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    },
+    "Failed to create folder",
+  );
 }
 
 async function moveFile(params: { fromPath: string; toPath: string }) {
-  const response = await fetch("/api/admin/media/move", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.error || "Failed to move file");
-  }
-  return response.json();
+  return fetchAdminJson<any>(
+    "/api/admin/media/move",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    },
+    "Failed to move file",
+  );
 }
 
 export function useMediaApi({
@@ -183,6 +184,10 @@ export function useMediaApi({
 
         updateToast(true);
       } catch (error) {
+        if (isAdminSignInRedirectError(error)) {
+          throw error;
+        }
+
         const currentIndex = fileProgress.findIndex(
           (f) => f.status === "uploading",
         );

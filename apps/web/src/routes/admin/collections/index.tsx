@@ -72,6 +72,7 @@ import {
   uploadBlogImageFile,
   uploadInlineMarkdownImages,
 } from "@/functions/media-upload";
+import { fetchAdminJson, isAdminSignInRedirectError } from "@/lib/admin-auth";
 import { AUTHORS } from "@/lib/team";
 
 interface ContentItem {
@@ -259,16 +260,31 @@ export const Route = createFileRoute("/admin/collections/")({
 });
 
 async function fetchDraftArticles() {
-  const response = await fetch("/api/admin/content/list-drafts", {
-    cache: "no-store",
-  });
+  const data = await fetchAdminJson<{ drafts: DraftArticle[] }>(
+    "/api/admin/content/list-drafts",
+    {
+      cache: "no-store",
+    },
+    "Failed to fetch drafts",
+  );
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch drafts");
-  }
+  return data.drafts;
+}
 
-  const data = await response.json();
-  return data.drafts as DraftArticle[];
+async function postAdminJson<T>(
+  path: string,
+  body: unknown,
+  fallbackError: string,
+) {
+  return fetchAdminJson<T>(
+    path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    fallbackError,
+  );
 }
 
 function getFileExtension(filename: string): string {
@@ -317,18 +333,12 @@ function CollectionsPage() {
       folder: string;
       name: string;
       type: "file" | "folder";
-    }) => {
-      const response = await fetch("/api/admin/content/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create");
-      }
-      return response.json();
-    },
+    }) =>
+      postAdminJson<any>(
+        "/api/admin/content/create",
+        params,
+        "Failed to create",
+      ),
     onSuccess: (data, variables) => {
       setEditingItem(null);
       if (data.branch && variables.type === "file") {
@@ -362,44 +372,36 @@ function CollectionsPage() {
         });
       }
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
       sonnerToast.error("Create failed", {
-        description: error.message,
+        description: error instanceof Error ? error.message : "Create failed",
       });
     },
   });
 
   const renameMutation = useMutation({
-    mutationFn: async (params: { fromPath: string; toPath: string }) => {
-      const response = await fetch("/api/admin/content/rename", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to rename");
-      }
-      return response.json();
-    },
+    mutationFn: async (params: { fromPath: string; toPath: string }) =>
+      postAdminJson<any>(
+        "/api/admin/content/rename",
+        params,
+        "Failed to rename",
+      ),
     onSuccess: () => {
       setEditingItem(null);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (params: { path: string }) => {
-      const response = await fetch("/api/admin/content/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to delete");
-      }
-      return response.json();
-    },
+    mutationFn: async (params: { path: string }) =>
+      postAdminJson<any>(
+        "/api/admin/content/delete",
+        params,
+        "Failed to delete",
+      ),
     onSuccess: (_data, variables) => {
       const deletedPath = variables.path;
       setDeleteConfirmation(null);
@@ -419,21 +421,12 @@ function CollectionsPage() {
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: async (params: {
-      sourcePath: string;
-      newFilename?: string;
-    }) => {
-      const response = await fetch("/api/admin/content/duplicate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to duplicate");
-      }
-      return response.json();
-    },
+    mutationFn: async (params: { sourcePath: string; newFilename?: string }) =>
+      postAdminJson<any>(
+        "/api/admin/content/duplicate",
+        params,
+        "Failed to duplicate",
+      ),
   });
 
   const currentTab = tabs.find((t) => t.active);
@@ -1326,21 +1319,14 @@ function ContentPanel({
         path: params.path,
       });
 
-      const response = await fetch("/api/admin/content/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      return postAdminJson<any>(
+        "/api/admin/content/save",
+        {
           ...params,
           content: processedContent,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to save");
-      }
-
-      return response.json();
+        },
+        "Failed to save",
+      );
     },
     [],
   );
@@ -1354,9 +1340,13 @@ function ContentPanel({
         });
       }
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
       sonnerToast.error("Save failed", {
-        description: error.message,
+        description: error instanceof Error ? error.message : "Save failed",
       });
     },
   });
@@ -1382,16 +1372,24 @@ function ContentPanel({
     queryKey: ["pendingPR", currentTab?.path],
     queryFn: async () => {
       const params = new URLSearchParams({ path: currentTab!.path });
-      const response = await fetch(`/api/admin/content/pending-pr?${params}`);
-      if (!response.ok) {
+      try {
+        return await fetchAdminJson<{
+          hasPendingPR: boolean;
+          prNumber?: number;
+          prUrl?: string;
+          branchName?: string;
+        }>(
+          `/api/admin/content/pending-pr?${params}`,
+          undefined,
+          "Failed to fetch pending pull request",
+        );
+      } catch (error) {
+        if (isAdminSignInRedirectError(error)) {
+          throw error;
+        }
+
         return { hasPendingPR: false };
       }
-      return response.json() as Promise<{
-        hasPendingPR: boolean;
-        prNumber?: number;
-        prUrl?: string;
-        branchName?: string;
-      }>;
     },
     enabled:
       !!currentTab?.path &&
@@ -1417,17 +1415,21 @@ function ContentPanel({
 
       if (!branchName) {
         const prParams = new URLSearchParams({ path: params.path });
-        const prResponse = await fetch(
+        const prData = await fetchAdminJson<{
+          hasPendingPR: boolean;
+          prUrl?: string;
+          branchName?: string;
+        }>(
           `/api/admin/content/pending-pr?${prParams}`,
+          undefined,
+          "Failed to fetch pending pull request",
         );
-        if (prResponse.ok) {
-          const prData = await prResponse.json();
-          if (prData.hasPendingPR && prData.prUrl) {
-            return { prUrl: prData.prUrl as string };
-          }
-          if (prData.branchName) {
-            branchName = prData.branchName;
-          }
+
+        if (prData.hasPendingPR && prData.prUrl) {
+          return { prUrl: prData.prUrl as string };
+        }
+        if (prData.branchName) {
+          branchName = prData.branchName;
         }
       }
 
@@ -1435,20 +1437,15 @@ function ContentPanel({
         throw new Error("No branch available for publishing");
       }
 
-      const publishResponse = await fetch("/api/admin/content/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const publishResult = await postAdminJson<any>(
+        "/api/admin/content/publish",
+        {
           path: params.path,
           branch: branchName,
           metadata: params.metadata,
-        }),
-      });
-      if (!publishResponse.ok) {
-        const error = await publishResponse.json();
-        throw new Error(error.error || "Failed to publish");
-      }
-      const publishResult = await publishResponse.json();
+        },
+        "Failed to publish",
+      );
       return { prUrl: publishResult.prUrl as string | undefined };
     },
     onSuccess: (_data, variables) => {
@@ -1456,9 +1453,14 @@ function ContentPanel({
         queryKey: ["pendingPR", variables.path],
       });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
       sonnerToast.error("Publish failed", {
-        description: error.message,
+        description:
+          error instanceof Error ? error.message : "Failed to publish",
       });
     },
   });
@@ -2424,13 +2426,11 @@ function GitHistory({ filePath }: { filePath: string }) {
     queryKey: ["gitHistory", filePath],
     queryFn: async () => {
       if (!filePath) return [];
-      const response = await fetch(
+      const data = await fetchAdminJson<{ commits?: CommitInfo[] }>(
         `/api/admin/content/history?path=${encodeURIComponent(filePath)}`,
+        undefined,
+        "Failed to fetch history",
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch history");
-      }
-      const data = await response.json();
       return data.commits || [];
     },
     enabled: isExpanded && !!filePath,
@@ -2677,14 +2677,11 @@ const FileEditor = React.forwardRef<
         path: `apps/web/content/${filePath}`,
         branch: branch!,
       });
-      const response = await fetch(
+      return fetchAdminJson<BranchFileResponse>(
         `/api/admin/content/get-branch-file?${params}`,
+        undefined,
+        "Failed to fetch file from branch",
       );
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to fetch file from branch");
-      }
-      return response.json() as Promise<BranchFileResponse>;
     },
     enabled: !!branch,
     staleTime: 30000,
@@ -2694,16 +2691,24 @@ const FileEditor = React.forwardRef<
     queryKey: ["pendingPR", filePath],
     queryFn: async () => {
       const params = new URLSearchParams({ path: filePath });
-      const response = await fetch(`/api/admin/content/pending-pr?${params}`);
-      if (!response.ok) {
+      try {
+        return await fetchAdminJson<{
+          hasPendingPR: boolean;
+          prNumber?: number;
+          prUrl?: string;
+          branchName?: string;
+        }>(
+          `/api/admin/content/pending-pr?${params}`,
+          undefined,
+          "Failed to fetch pending pull request",
+        );
+      } catch (error) {
+        if (isAdminSignInRedirectError(error)) {
+          throw error;
+        }
+
         return { hasPendingPR: false };
       }
-      return response.json() as Promise<{
-        hasPendingPR: boolean;
-        prNumber?: number;
-        prUrl?: string;
-        branchName?: string;
-      }>;
     },
     enabled: !branch && filePath.startsWith("articles/"),
     staleTime: 60000,
@@ -2716,13 +2721,11 @@ const FileEditor = React.forwardRef<
         path: `apps/web/content/${filePath}`,
         branch: pendingPRData!.branchName!,
       });
-      const response = await fetch(
+      return fetchAdminJson<BranchFileResponse>(
         `/api/admin/content/get-branch-file?${params}`,
+        undefined,
+        "Failed to fetch file from PR branch",
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch file from PR branch");
-      }
-      return response.json() as Promise<BranchFileResponse>;
     },
     enabled: !!pendingPRData?.hasPendingPR && !!pendingPRData?.branchName,
     staleTime: 30000,
@@ -2834,18 +2837,12 @@ const FileEditor = React.forwardRef<
       description?: string;
       coverImage?: string;
       slug?: string;
-    }) => {
-      const response = await fetch("/api/admin/import/google-docs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(params),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Import failed");
-      }
-      return response.json() as Promise<ImportResult>;
-    },
+    }) =>
+      postAdminJson<ImportResult>(
+        "/api/admin/import/google-docs",
+        params,
+        "Import failed",
+      ),
     onSuccess: (data) => {
       if (data.md) {
         editor?.commands.setContent(data.md, { contentType: "markdown" });

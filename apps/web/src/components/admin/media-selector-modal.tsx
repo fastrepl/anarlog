@@ -7,16 +7,16 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
+import { fetchAdminJson } from "@/lib/admin-auth";
 import type { MediaItem } from "@/lib/media-library";
 
 async function fetchMediaItems(path: string): Promise<MediaItem[]> {
-  const response = await fetch(
+  const data = await fetchAdminJson<{ items: MediaItem[] }>(
     `/api/admin/media/list?path=${encodeURIComponent(path)}`,
+    undefined,
+    "Failed to fetch media",
   );
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch media");
-  }
+
   return data.items;
 }
 

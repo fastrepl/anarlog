@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { fetchAdminJson } from "@/lib/admin-auth";
 import {
   extractBase64Images,
   extractSlugFromPath,
@@ -20,34 +21,30 @@ async function registerUploadedMedia(params: {
   mimeType: string | null;
   size: number;
 }) {
-  const response = await fetch("/api/admin/media/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null);
-    throw new Error(data?.error || "Failed to register media");
-  }
+  await fetchAdminJson(
+    "/api/admin/media/register",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    },
+    "Failed to register media",
+  );
 }
 
 async function requestSignedUpload(
   endpoint: string,
   body: Record<string, unknown>,
 ) {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Upload failed");
-  }
-
-  return data as SignedUploadData;
+  return fetchAdminJson<SignedUploadData>(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    "Upload failed",
+  );
 }
 
 async function uploadToSignedUrl(file: File, signedUpload: SignedUploadData) {
