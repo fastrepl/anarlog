@@ -16,7 +16,8 @@ function AppleCalendarList() {
       groups={groups}
       onToggle={handleToggle}
       isLoading={isLoading}
-      className="rounded-lg border"
+      disableHoverTone
+      className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
     />
   );
 }

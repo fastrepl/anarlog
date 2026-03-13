@@ -26,6 +26,7 @@ interface CalendarSelectionProps {
   onToggle: (calendar: CalendarItem, enabled: boolean) => void;
   className?: string;
   isLoading?: boolean;
+  disableHoverTone?: boolean;
 }
 
 export function CalendarSelection({
@@ -33,6 +34,7 @@ export function CalendarSelection({
   onToggle,
   className,
   isLoading,
+  disableHoverTone,
 }: CalendarSelectionProps) {
   const defaultOpen = useMemo(
     () =>
@@ -98,7 +100,8 @@ export function CalendarSelection({
             <AccordionTrigger
               className={cn([
                 "cursor-pointer py-2 hover:no-underline",
-                "-mx-2 rounded-md px-2 hover:bg-neutral-50",
+                "-mx-2 rounded-md px-2",
+                !disableHoverTone && "hover:bg-neutral-50",
               ])}
             >
               <div className="flex items-center gap-2">
