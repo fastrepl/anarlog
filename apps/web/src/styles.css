@@ -53,6 +53,7 @@
 @import "tailwind-scrollbar-hide/v4";
 @plugin "@tailwindcss/typography";
 
+@source "../../../packages/ui/src";
 @source "../../../packages/tiptap/src";
 @source "../../../packages/transcript/src";
 

@@ -418,6 +418,15 @@ function CollectionsPage() {
         queryKey: DRAFT_ARTICLES_QUERY_KEY,
       });
     },
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
+      sonnerToast.error("Delete failed", {
+        description: error instanceof Error ? error.message : "Delete failed",
+      });
+    },
   });
 
   const duplicateMutation = useMutation({
