@@ -244,7 +244,6 @@ export function SessionPreviewCard({
     title,
     previewMarkdown,
     previewPlainText,
-    previewLabel,
     dateDisplay,
     participantMappingIds,
   } = useSessionPreviewData(sessionId);
