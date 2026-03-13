@@ -39,7 +39,7 @@ function RequestCalendarAccess({
         onClick={onRequest}
         disabled={isPending}
       >
-        Request Access to Calendar
+        Request Access to Apple Calendar
       </Button>
     </div>
   );

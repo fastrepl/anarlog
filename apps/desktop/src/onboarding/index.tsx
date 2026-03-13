@@ -168,7 +168,7 @@ export function TabContentOnboarding({
 
             <OnboardingSection
               title="Account"
-              description="Start using Char"
+              description="Start using Char to focus on people, not note-taking"
               completedTitle="Signed up"
               status={getStepStatus("login", currentStep)}
               onBack={goBack}
@@ -179,8 +179,8 @@ export function TabContentOnboarding({
 
             <OnboardingSection
               title="Calendar"
-              description="Use Apple Calendar or Google Calendar"
-              completedTitle="Calendar connected"
+              description="Connect Apple Calendar and choose what to sync"
+              completedTitle="Apple Calendar connected"
               status={getStepStatus("calendar", currentStep)}
               onBack={goBack}
               onNext={goNext}
