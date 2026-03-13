@@ -1360,6 +1360,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 name = "audio"
 version = "0.1.0"
 dependencies = [
+ "aec",
  "anyhow",
  "audio-interface",
  "audio-utils",
@@ -1382,6 +1383,8 @@ dependencies = [
  "serial_test",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-stream",
+ "tokio-util",
  "tracing",
  "wasapi",
 ]
@@ -10228,7 +10231,6 @@ dependencies = [
 name = "listener-core"
 version = "0.1.0"
 dependencies = [
- "aec",
  "audio",
  "audio-utils",
  "bytes",
@@ -10242,7 +10244,6 @@ dependencies = [
  "owhisper-client",
  "owhisper-interface",
  "ractor",
- "resampler",
  "sentry",
  "serde",
  "serde_json",
