@@ -8,6 +8,7 @@ import { ApplePermissions } from "~/calendar/components/apple/permission";
 import { CalendarSelection } from "~/calendar/components/calendar-selection";
 import { SyncProvider } from "~/calendar/components/context";
 import { usePermission } from "~/shared/hooks/usePermissions";
+import * as main from "~/store/tinybase/store/main";
 
 function AppleCalendarList() {
   const { groups, handleToggle, isLoading } = useAppleCalendarSelection();
@@ -46,6 +47,11 @@ export function CalendarSection({ onContinue }: { onContinue: () => void }) {
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
   const isAuthorized = calendar.status === "authorized";
+  const enabledCalendars = main.UI.useResultTable(
+    main.QUERIES.enabledCalendars,
+    main.STORE_ID,
+  );
+  const hasConnectedCalendar = Object.keys(enabledCalendars ?? {}).length > 0;
 
   return (
     <div className="flex flex-col gap-4">
