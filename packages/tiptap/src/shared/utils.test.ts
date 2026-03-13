@@ -140,6 +140,27 @@ describe("json2md", () => {
     expect(markdown).toContain("second task");
     expect(markdown).toContain("third task");
   });
+
+  test("renders image width metadata into markdown titles", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: {
+            src: "https://example.com/image.png",
+            alt: "alt text",
+            title: "Example",
+            editorWidth: 42,
+          },
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      '![alt text](https://example.com/image.png "char-editor-width=42|Example")',
+    );
+  });
 });
 
 describe("md2json", () => {
@@ -200,6 +221,29 @@ describe("md2json", () => {
       expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
       expect(imageNode?.attrs?.alt).toBe("alt text");
       expect(imageNode?.attrs?.title).toBe("Image Title");
+    });
+
+    test("converts image width metadata to JSON attributes", () => {
+      const markdown =
+        '![alt text](https://example.com/image.png "char-editor-width=42|Image Title")';
+      const json = md2json(markdown);
+
+      const findImage = (content: any[]): any => {
+        for (const node of content) {
+          if (node.type === "image") return node;
+          if (node.content) {
+            const found = findImage(node.content);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const imageNode = findImage(json.content!);
+      expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
+      expect(imageNode?.attrs?.alt).toBe("alt text");
+      expect(imageNode?.attrs?.title).toBe("Image Title");
+      expect(imageNode?.attrs?.editorWidth).toBe(42);
     });
 
     test("converts multiple standalone images to JSON", () => {
