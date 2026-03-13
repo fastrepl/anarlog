@@ -510,7 +510,7 @@ fn segment_timing_from_result(
         let start = first.start as f64;
         let end = last.end as f64;
         if end > start {
-            return (segment_start + start, end - start);
+            return (start, end - start);
         }
     }
     (segment_start, audio_offset - segment_start)

@@ -9,11 +9,22 @@ use owhisper_client::{FinalizeHandle, ListenClient, ListenClientDual, RealtimeSt
 use owhisper_interface::MixedMessage;
 use owhisper_interface::stream::StreamResponse;
 
-use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame, open_capture};
+use hypr_audio::{AudioInput, CaptureConfig, CaptureFrame};
 use hypr_audio_utils::{AudioFormatExt, chunk_size_for_stt, f32_to_i16_bytes};
 
 pub const DEFAULT_SAMPLE_RATE: u32 = 16_000;
 pub const DEFAULT_TIMEOUT_SECS: u64 = 600;
+
+#[derive(Clone, Copy)]
+pub enum ChannelKind {
+    Mic,
+    Speaker,
+}
+
+pub enum DisplayMode {
+    Single(ChannelKind),
+    Dual,
+}
 
 #[derive(Clone, ValueEnum)]
 pub enum AudioSource {
@@ -82,12 +93,10 @@ pub fn create_dual_audio_stream(
     >,
 > {
     let chunk_size = chunk_size_for_stt(sample_rate);
-    let capture_stream = open_capture(CaptureConfig {
+    let capture_stream = AudioInput::from_mic_and_speaker(CaptureConfig {
         sample_rate,
         chunk_size,
         mic_device: None,
-        include_mic: true,
-        include_speaker: true,
         enable_aec: source.uses_aec(),
     })
     .expect("failed to open realtime capture");
@@ -191,6 +200,12 @@ pub async fn run_single_client<A: RealtimeSttAdapter>(
     sample_rate: u32,
     timeout_secs: u64,
 ) {
+    let kind = match source {
+        AudioSource::Input => ChannelKind::Mic,
+        AudioSource::Output => ChannelKind::Speaker,
+        _ => unreachable!(),
+    };
+
     let mut audio_input = open_audio(&source);
     print_audio_info(&audio_input, &source, sample_rate);
 
@@ -200,7 +215,13 @@ pub async fn run_single_client<A: RealtimeSttAdapter>(
         .await
         .expect("failed to connect");
 
-    process_stream(response_stream, handle, timeout_secs).await;
+    process_stream(
+        response_stream,
+        handle,
+        timeout_secs,
+        DisplayMode::Single(kind),
+    )
+    .await;
 }
 
 pub async fn run_dual_client<A: RealtimeSttAdapter>(
@@ -217,7 +238,7 @@ pub async fn run_dual_client<A: RealtimeSttAdapter>(
         .await
         .expect("failed to connect");
 
-    process_stream(response_stream, handle, timeout_secs).await;
+    process_stream(response_stream, handle, timeout_secs, DisplayMode::Dual).await;
 }
 
 pub struct LocalServer {
@@ -263,21 +284,34 @@ pub async fn spawn_router(app: Router) -> LocalServer {
     }
 }
 
-pub async fn process_stream<S, H>(response_stream: S, handle: H, timeout_secs: u64)
-where
+pub async fn process_stream<S, H>(
+    response_stream: S,
+    handle: H,
+    timeout_secs: u64,
+    mode: DisplayMode,
+) where
     S: futures_util::Stream<Item = Result<StreamResponse, owhisper_client::hypr_ws_client::Error>>,
     H: FinalizeHandle,
 {
     futures_util::pin_mut!(response_stream);
 
-    let mut transcript = Transcript::new(Instant::now());
-    let mut last_confirmed: Option<String> = None;
+    let t0 = Instant::now();
+    let mut channels: Vec<(Transcript, Option<String>)> = match &mode {
+        DisplayMode::Single(kind) => vec![(Transcript::new(t0, *kind), None)],
+        DisplayMode::Dual => vec![
+            (Transcript::new(t0, ChannelKind::Mic), None),
+            (Transcript::new(t0, ChannelKind::Speaker), None),
+        ],
+    };
 
     let read_loop = async {
         while let Some(result) = response_stream.next().await {
             match result {
                 Ok(StreamResponse::TranscriptResponse {
-                    is_final, channel, ..
+                    is_final,
+                    channel,
+                    channel_index,
+                    ..
                 }) => {
                     let text = channel
                         .alternatives
@@ -285,11 +319,19 @@ where
                         .map(|a| a.transcript.as_str())
                         .unwrap_or("");
 
+                    let ch = match &mode {
+                        DisplayMode::Single(_) => 0,
+                        DisplayMode::Dual => {
+                            channel_index.first().copied().unwrap_or(0).clamp(0, 1) as usize
+                        }
+                    };
+
+                    let (transcript, last_confirmed) = &mut channels[ch];
                     if is_final {
                         if last_confirmed.as_deref() == Some(text) {
                             continue;
                         }
-                        last_confirmed = Some(text.to_string());
+                        *last_confirmed = Some(text.to_string());
                         transcript.confirm(text);
                     } else {
                         transcript.set_partial(text);
@@ -397,14 +439,16 @@ struct Transcript {
     segments: Vec<Segment>,
     partial: String,
     t0: Instant,
+    kind: ChannelKind,
 }
 
 impl Transcript {
-    fn new(t0: Instant) -> Self {
+    fn new(t0: Instant, kind: ChannelKind) -> Self {
         Self {
             segments: Vec::new(),
             partial: String::new(),
             t0,
+            kind,
         }
     }
 
@@ -428,11 +472,22 @@ impl Transcript {
     }
 
     fn trim(&mut self) {
+        const OVERHEAD: usize = 70;
         let max_chars = crossterm::terminal::size()
-            .map(|(cols, _)| cols as usize)
-            .unwrap_or(180);
+            .map(|(cols, _)| (cols as usize).saturating_sub(OVERHEAD))
+            .unwrap_or(120);
 
-        let total_len: usize = self.segments.iter().map(|s| s.text.len() + 1).sum();
+        let partial_len = if self.partial.is_empty() {
+            0
+        } else {
+            self.partial.len() + 1
+        };
+        let total_len: usize = self
+            .segments
+            .iter()
+            .map(|s| s.text.len() + 1)
+            .sum::<usize>()
+            + partial_len;
         if total_len > max_chars {
             let drain_count = self.segments.len() * 2 / 3;
             if drain_count > 0 {
@@ -453,19 +508,28 @@ impl Transcript {
             return;
         }
 
-        let from = self.segments.first().map(|s| s.time).unwrap_or(0.0);
         let to = self.elapsed();
-        let prefix = format!("[{} / {}]", fmt_ts(from), fmt_ts(to)).dimmed();
+        let from = self.segments.first().map(|s| fmt_ts(s.time));
+        let prefix = format!("[{} / {}]", from.as_deref().unwrap_or("--:--"), fmt_ts(to)).dimmed();
 
-        if self.partial.is_empty() {
-            eprintln!("{} {}", prefix, confirmed.bold().white());
+        let colored_confirmed = match self.kind {
+            ChannelKind::Mic => confirmed.truecolor(255, 190, 190).bold(),
+            ChannelKind::Speaker => confirmed.truecolor(190, 200, 255).bold(),
+        };
+
+        let colored_partial = if self.partial.is_empty() {
+            None
         } else {
-            eprintln!(
-                "{} {} {}",
-                prefix,
-                confirmed.bold().white(),
-                self.partial.dimmed()
-            );
+            Some(match self.kind {
+                ChannelKind::Mic => self.partial.truecolor(128, 95, 95),
+                ChannelKind::Speaker => self.partial.truecolor(95, 100, 128),
+            })
+        };
+
+        if let Some(partial) = colored_partial {
+            eprintln!("{} {} {}", prefix, colored_confirmed, partial);
+        } else {
+            eprintln!("{} {}", prefix, colored_confirmed);
         }
     }
 }
