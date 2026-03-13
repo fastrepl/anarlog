@@ -241,9 +241,9 @@ export const Route = createFileRoute("/admin/collections/")({
       return;
     }
 
-    const { hasCredentials } = await fetchGitHubCredentials();
+    const { hasCredentials, isValid } = await fetchGitHubCredentials();
 
-    if (!hasCredentials) {
+    if (!hasCredentials || !isValid) {
       throw redirect({
         to: "/auth/",
         search: {
@@ -352,12 +352,20 @@ function CollectionsPage() {
             },
           ],
         );
+        openTab("file", name, path, data.branch);
+        setIsCreatingNewPost(false);
         scheduleDraftSync();
       } else {
+        setIsCreatingNewPost(false);
         void queryClient.invalidateQueries({
           queryKey: DRAFT_ARTICLES_QUERY_KEY,
         });
       }
+    },
+    onError: (error) => {
+      sonnerToast.error("Create failed", {
+        description: error.message,
+      });
     },
   });
 
@@ -561,7 +569,6 @@ function CollectionsPage() {
               name: `${slug}.mdx`,
               type: "file",
             });
-            setIsCreatingNewPost(false);
           }}
           onCancelNewPost={() => setIsCreatingNewPost(false)}
           editingItem={editingItem}
@@ -988,10 +995,17 @@ function NewPostInlineInput({
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasSubmittedRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      hasSubmittedRef.current = false;
+    }
+  }, [isLoading]);
 
   const validateSlug = (slug: string): string | null => {
     if (!slug.trim()) {
@@ -1018,7 +1032,8 @@ function NewPostInlineInput({
       const validationError = validateSlug(slug);
       if (validationError) {
         setError(validationError);
-      } else {
+      } else if (!hasSubmittedRef.current) {
+        hasSubmittedRef.current = true;
         setError(null);
         onSubmit(slug);
       }
@@ -1039,7 +1054,8 @@ function NewPostInlineInput({
       setError(validationError);
       // Keep focus if there's an error
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
+    } else if (!hasSubmittedRef.current) {
+      hasSubmittedRef.current = true;
       setError(null);
       onSubmit(slug);
     }
