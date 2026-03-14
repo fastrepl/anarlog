@@ -23,7 +23,7 @@ export function BeforeLogin({ onContinue }: { onContinue: () => void }) {
           >
             Sign in
           </OnboardingButton>
-          {didClickSignIn && (
+          {didClickSignIn ? (
             <button
               type="button"
               className="text-sm text-neutral-500 underline hover:text-neutral-600"
@@ -31,18 +31,21 @@ export function BeforeLogin({ onContinue }: { onContinue: () => void }) {
             >
               Something not working?
             </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                void analyticsCommands.event({
+                  event: "onboarding_login_skipped",
+                });
+                onContinue();
+              }}
+              className="text-sm text-neutral-500/70 transition-colors hover:text-neutral-700"
+            >
+              Skip for now
+            </button>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void analyticsCommands.event({ event: "onboarding_login_skipped" });
-            onContinue();
-          }}
-          className="text-sm text-neutral-500/70 transition-colors hover:text-neutral-700"
-        >
-          Skip for now
-        </button>
       </div>
       {showCallbackUrlInput && <CallbackUrlInput />}
     </div>
