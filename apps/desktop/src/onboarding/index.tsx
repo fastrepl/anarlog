@@ -19,6 +19,7 @@ import { FolderLocationSection } from "./folder-location";
 import { PermissionsSection } from "./permissions";
 import { OnboardingSection } from "./shared";
 
+import { useAuth } from "~/auth";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -65,8 +66,10 @@ export function TabContentOnboarding({
   const queryClient = useQueryClient();
   const close = useTabs((state) => state.close);
   const currentTab = useTabs((state) => state.currentTab);
+  const auth = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [currentStep, setCurrentStep] = useState(getInitialStep);
+  const [didSkipLogin, setDidSkipLogin] = useState(false);
   const onboardingVideoRef = useRef<HTMLVideoElement>(null);
 
   const goNext = useCallback(() => {
@@ -169,12 +172,21 @@ export function TabContentOnboarding({
             <OnboardingSection
               title="Account"
               description="Start using Char to focus on people, not note-taking"
-              completedTitle="Signed up"
+              completedTitle={
+                auth.session
+                  ? "Signed in"
+                  : didSkipLogin
+                    ? "Skipped"
+                    : "Account"
+              }
               status={getStepStatus("login", currentStep)}
               onBack={goBack}
               onNext={goNext}
             >
-              <LoginSection onContinue={goNext} />
+              <LoginSection
+                onContinue={goNext}
+                onSkip={() => setDidSkipLogin(true)}
+              />
             </OnboardingSection>
 
             <OnboardingSection
