@@ -9,13 +9,30 @@ import { useAuth } from "~/auth";
 export function BeforeLogin({ onContinue }: { onContinue: () => void }) {
   const auth = useAuth();
   const [showCallbackUrlInput, setShowCallbackUrlInput] = useState(false);
+  const [didClickSignIn, setDidClickSignIn] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col items-start gap-2">
-        <OnboardingButton onClick={() => auth?.signIn()}>
-          Sign in
-        </OnboardingButton>
+        <div className="flex items-center gap-3">
+          <OnboardingButton
+            onClick={() => {
+              setDidClickSignIn(true);
+              auth?.signIn();
+            }}
+          >
+            Sign in
+          </OnboardingButton>
+          {didClickSignIn && (
+            <button
+              type="button"
+              className="text-sm text-neutral-500 underline hover:text-neutral-600"
+              onClick={() => setShowCallbackUrlInput(true)}
+            >
+              Something not working?
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -25,15 +42,6 @@ export function BeforeLogin({ onContinue }: { onContinue: () => void }) {
           className="text-sm text-neutral-500/70 transition-colors hover:text-neutral-700"
         >
           Skip for now
-        </button>
-      </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="text-sm text-neutral-500 underline hover:text-neutral-600"
-          onClick={() => setShowCallbackUrlInput(true)}
-        >
-          Something not working?
         </button>
       </div>
       {showCallbackUrlInput && <CallbackUrlInput />}
