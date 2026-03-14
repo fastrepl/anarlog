@@ -279,6 +279,7 @@ mod tests {
     use std::sync::Arc;
     use std::time::{Instant, SystemTime};
 
+    use hypr_audio::{AudioProvider, CaptureConfig, CaptureStream};
     use hypr_supervisor::RestartTracker;
     use ractor::ActorStatus;
 
@@ -308,6 +309,47 @@ mod tests {
         fn emit_error(&self, _event: SessionErrorEvent) {}
 
         fn emit_data(&self, _event: SessionDataEvent) {}
+    }
+
+    impl AudioProvider for TestRuntime {
+        fn open_capture(&self, _config: CaptureConfig) -> Result<CaptureStream, hypr_audio::Error> {
+            unimplemented!()
+        }
+        fn open_speaker_capture(
+            &self,
+            _sample_rate: u32,
+            _chunk_size: usize,
+        ) -> Result<CaptureStream, hypr_audio::Error> {
+            unimplemented!()
+        }
+        fn open_mic_capture(
+            &self,
+            _device: Option<String>,
+            _sample_rate: u32,
+            _chunk_size: usize,
+        ) -> Result<CaptureStream, hypr_audio::Error> {
+            unimplemented!()
+        }
+        fn default_device_name(&self) -> String {
+            "test".to_string()
+        }
+        fn list_mic_devices(&self) -> Vec<String> {
+            vec![]
+        }
+        fn play_silence(&self) -> std::sync::mpsc::Sender<()> {
+            let (tx, _rx) = std::sync::mpsc::channel();
+            tx
+        }
+        fn play_bytes(&self, _bytes: &'static [u8]) -> std::sync::mpsc::Sender<()> {
+            let (tx, _rx) = std::sync::mpsc::channel();
+            tx
+        }
+        fn probe_mic(&self, _device: Option<String>) -> Result<(), hypr_audio::Error> {
+            Ok(())
+        }
+        fn probe_speaker(&self) -> Result<(), hypr_audio::Error> {
+            Ok(())
+        }
     }
 
     struct StopProbe {
@@ -342,6 +384,7 @@ mod tests {
     fn test_ctx() -> SessionContext {
         SessionContext {
             runtime: Arc::new(TestRuntime),
+            audio: Arc::new(TestRuntime),
             params: SessionParams {
                 session_id: "session".to_string(),
                 languages: vec![],

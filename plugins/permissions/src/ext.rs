@@ -202,8 +202,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     async fn open_system_audio(&self) -> Result<(), crate::Error> {
-        let _audio = self.require_audio()?;
-
         #[cfg(target_os = "macos")]
         {
             std::process::Command::new("open")
