@@ -7,7 +7,21 @@ import {
   type PermissionStatus,
 } from "@hypr/plugin-permissions";
 
-import { relaunch } from "~/store/tinybase/store/save";
+import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
+
+async function handleSystemAudioPermissionSuccess() {
+  const restartStatus = await scheduleAutomaticRelaunch(2000);
+
+  void message(
+    restartStatus === "deferred"
+      ? "The app will restart after onboarding to apply the changes"
+      : "The app will now restart to apply the changes",
+    {
+      kind: "info",
+      title: "System Audio Status Changed",
+    },
+  );
+}
 
 export function usePermission(type: Permission) {
   const status = useQuery({
@@ -24,13 +38,9 @@ export function usePermission(type: Permission) {
 
   const requestMutation = useMutation({
     mutationFn: () => permissionsCommands.requestPermission(type),
-    onSuccess: () => {
+    onSuccess: async () => {
       if (type === "systemAudio") {
-        void message("The app will now restart to apply the changes", {
-          kind: "info",
-          title: "System Audio Status Changed",
-        });
-        setTimeout(() => relaunch(), 2000);
+        await handleSystemAudioPermissionSuccess();
         return;
       }
       setTimeout(() => status.refetch(), 1000);
@@ -112,12 +122,8 @@ export function usePermissions() {
 
   const systemAudioPermission = useMutation({
     mutationFn: () => permissionsCommands.requestPermission("systemAudio"),
-    onSuccess: () => {
-      void message("The app will now restart to apply the changes", {
-        kind: "info",
-        title: "System Audio Status Changed",
-      });
-      setTimeout(() => relaunch(), 2000);
+    onSuccess: async () => {
+      await handleSystemAudioPermissionSuccess();
     },
     onError: console.error,
   });
