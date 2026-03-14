@@ -5,6 +5,7 @@ import { deleteContentFile } from "@/functions/github-content";
 
 interface DeleteRequest {
   path: string;
+  branch?: string;
 }
 
 export const Route = createFileRoute("/api/admin/content/delete")({
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/api/admin/content/delete")({
           });
         }
 
-        const { path } = body;
+        const { path, branch } = body;
 
         if (!path) {
           return new Response(
@@ -41,7 +42,7 @@ export const Route = createFileRoute("/api/admin/content/delete")({
           );
         }
 
-        const result = await deleteContentFile(path);
+        const result = await deleteContentFile(path, branch);
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {

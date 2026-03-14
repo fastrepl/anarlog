@@ -396,7 +396,7 @@ function CollectionsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (params: { path: string }) =>
+    mutationFn: async (params: { path: string; branch?: string }) =>
       postAdminJson<any>(
         "/api/admin/content/delete",
         params,
@@ -620,6 +620,8 @@ function CollectionsPage() {
                   slug: (path.split("/").pop() || "").replace(/\.mdx$/, ""),
                   type: "file",
                   collection: path.split("/")[0] || "articles",
+                  branch:
+                    currentTab?.type === "file" ? currentTab.branch : undefined,
                 },
                 collectionName: path.split("/")[0] || "articles",
               })
@@ -658,6 +660,7 @@ function CollectionsPage() {
                   if (deleteConfirmation) {
                     deleteMutation.mutate({
                       path: deleteConfirmation.item.path,
+                      branch: deleteConfirmation.item.branch,
                     });
                   }
                 }}

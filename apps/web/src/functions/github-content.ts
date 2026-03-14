@@ -42,6 +42,7 @@ interface CommitBody {
   message: string;
   content?: string;
   sha?: string;
+  branch?: string;
   author?: { name: string; email: string };
   committer?: { name: string; email: string };
 }
@@ -49,13 +50,14 @@ interface CommitBody {
 function buildCommitBody(
   message: string,
   author?: { name: string; email: string },
-  options?: { content?: string; sha?: string },
+  options?: { content?: string; sha?: string; branch?: string },
 ): CommitBody {
   const body: CommitBody = {
     message,
   };
   if (options?.content !== undefined) body.content = options.content;
   if (options?.sha) body.sha = options.sha;
+  if (options?.branch) body.branch = options.branch;
   if (author) {
     body.author = author;
     body.committer = author;
@@ -490,6 +492,7 @@ export async function renameContentFile(
 
 export async function deleteContentFile(
   filePath: string,
+  branchName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (isDev()) {
     try {
@@ -512,6 +515,7 @@ export async function deleteContentFile(
     return { success: false, error: "GitHub token not configured" };
   }
   const { token: githubToken, author } = credentials;
+  const targetBranch = branchName || GITHUB_BRANCH;
 
   const fullPath = filePath.startsWith("apps/web/content")
     ? filePath
@@ -519,7 +523,7 @@ export async function deleteContentFile(
 
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -548,7 +552,10 @@ export async function deleteContentFile(
           Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify(
-          buildCommitBody(`Delete ${filePath} via admin`, author, { sha }),
+          buildCommitBody(`Delete ${filePath} via admin`, author, {
+            sha,
+            branch: targetBranch,
+          }),
         ),
       },
     );
