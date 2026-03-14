@@ -8,7 +8,7 @@ hypr-audio = { workspace = true }
 hypr-data = { workspace = true }
 
 futures-util = { workspace = true }
-hound = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
 tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }

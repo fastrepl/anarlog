@@ -4,6 +4,7 @@ use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 
 use futures_util::Stream;
+use rodio::Source;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, MissedTickBehavior};
@@ -15,8 +16,9 @@ pub use hypr_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream, 
 const MOCK_MIC_DEVICE_NAME: &str = "mock-mic";
 const MOCK_MIC_AUDIO_ENV: &str = "HYPR_MOCK_MIC_AUDIO";
 const MOCK_SPK_AUDIO_ENV: &str = "HYPR_MOCK_SPK_AUDIO";
-const DEFAULT_MIC_AUDIO_PATH: &str = hypr_data::english_1::AUDIO_PATH;
-const DEFAULT_SPEAKER_AUDIO_PATH: &str = hypr_data::english_2::AUDIO_PATH;
+const MOCK_PLAYBACK_ENV: &str = "MOCK_PLAYBACK";
+const DEFAULT_MIC_AUDIO_PATH: &str = hypr_data::english_10::AUDIO_MIC_MP3_PATH;
+const DEFAULT_SPEAKER_AUDIO_PATH: &str = hypr_data::english_10::AUDIO_SPK_MP3_PATH;
 
 pub struct MockAudio {
     mic_cache: OnceLock<Result<MockAudioData, Error>>,
@@ -119,12 +121,14 @@ impl AudioProvider for MockAudio {
 #[derive(Clone)]
 struct MockAudioData {
     samples: Arc<[f32]>,
+    sample_rate: u32,
 }
 
 impl MockAudioData {
     fn silence() -> Self {
         Self {
             samples: Arc::from([]),
+            sample_rate: 0,
         }
     }
 
@@ -154,11 +158,86 @@ impl Drop for CaptureStreamInner {
     }
 }
 
+struct StereoPlaybackSource {
+    mic: Arc<[f32]>,
+    spk: Arc<[f32]>,
+    position: usize,
+    sample_rate: u32,
+}
+
+impl Iterator for StereoPlaybackSource {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<f32> {
+        let channel = self.position % 2;
+        let sample_idx = self.position / 2;
+        let max_len = self.mic.len().max(self.spk.len());
+        if sample_idx >= max_len {
+            return None;
+        }
+        self.position += 1;
+        Some(if channel == 0 {
+            self.mic.get(sample_idx).copied().unwrap_or(0.0)
+        } else {
+            self.spk.get(sample_idx).copied().unwrap_or(0.0)
+        })
+    }
+}
+
+impl Source for StereoPlaybackSource {
+    fn current_span_len(&self) -> Option<usize> {
+        None
+    }
+    fn channels(&self) -> u16 {
+        2
+    }
+    fn sample_rate(&self) -> u32 {
+        self.sample_rate
+    }
+    fn total_duration(&self) -> Option<std::time::Duration> {
+        None
+    }
+}
+
+fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData) {
+    let sample_rate = mic.sample_rate.max(spk.sample_rate).max(16000);
+    let mic_samples = Arc::clone(&mic.samples);
+    let spk_samples = Arc::clone(&spk.samples);
+
+    std::thread::spawn(move || {
+        use rodio::{OutputStreamBuilder, Sink};
+
+        match OutputStreamBuilder::open_default_stream() {
+            Ok(stream) => {
+                let sink = Sink::connect_new(stream.mixer());
+                sink.append(StereoPlaybackSource {
+                    mic: mic_samples,
+                    spk: spk_samples,
+                    position: 0,
+                    sample_rate,
+                });
+                tracing::info!(
+                    sample_rate,
+                    "mock playback started (mic=left, speaker=right)"
+                );
+                sink.sleep_until_end();
+            }
+            Err(e) => {
+                tracing::warn!(error = ?e, "failed to open audio output for mock playback");
+            }
+        }
+    });
+}
+
 fn open_capture_stream(
     mic: MockAudioData,
     speaker: MockAudioData,
     config: CaptureConfig,
 ) -> CaptureStream {
+    if std::env::var(MOCK_PLAYBACK_ENV).ok().as_deref() != Some("0") {
+        start_stereo_playback(&mic, &speaker);
+    }
+
     let cancel_token = CancellationToken::new();
     let (tx, rx) = mpsc::channel(32);
     let task = tokio::spawn(run_capture_loop(
@@ -241,14 +320,14 @@ fn duration_for_tick(sample_rate: u32, samples_per_tick: usize) -> Duration {
 
 fn load_mock_audio(env_key: &str, default_path: &'static str) -> Result<MockAudioData, Error> {
     if let Some(path) = std::env::var_os(env_key) {
-        return load_wav(Path::new(&path)).or_else(|error| {
-            tracing::warn!(env = env_key, path = ?path, error = ?error, "failed_to_load_mock_wav");
+        return load_audio(Path::new(&path), env_key == MOCK_SPK_AUDIO_ENV).or_else(|error| {
+            tracing::warn!(env = env_key, path = ?path, error = ?error, "failed_to_load_mock_audio");
             fallback_mock_audio(env_key)
         });
     }
 
-    load_wav(Path::new(default_path)).or_else(|error| {
-        tracing::warn!(env = env_key, path = default_path, error = ?error, "failed_to_load_default_mock_wav");
+    load_audio(Path::new(default_path), env_key == MOCK_SPK_AUDIO_ENV).or_else(|error| {
+        tracing::warn!(env = env_key, path = default_path, error = ?error, "failed_to_load_default_mock_audio");
         fallback_mock_audio(env_key)
     })
 }
@@ -261,46 +340,26 @@ fn fallback_mock_audio(env_key: &str) -> Result<MockAudioData, Error> {
     }
 }
 
-fn load_wav(path: &Path) -> Result<MockAudioData, Error> {
-    let mut reader = hound::WavReader::open(path).map_err(map_wav_error)?;
-    let spec = reader.spec();
-    let channels = spec.channels.max(1) as usize;
-
-    let samples = match spec.sample_format {
-        hound::SampleFormat::Float => reader
-            .samples::<f32>()
-            .enumerate()
-            .filter_map(|(idx, sample)| {
-                let sample = sample.ok()?;
-                (idx % channels == 0).then_some(sample)
-            })
-            .collect::<Vec<_>>(),
-        hound::SampleFormat::Int => {
-            let scale = max_int_amplitude(spec.bits_per_sample);
-            reader
-                .samples::<i32>()
-                .enumerate()
-                .filter_map(|(idx, sample)| {
-                    let sample = sample.ok()?;
-                    (idx % channels == 0).then_some((sample as f32 / scale).clamp(-1.0, 1.0))
-                })
-                .collect::<Vec<_>>()
-        }
-    };
+fn load_audio(path: &Path, is_speaker: bool) -> Result<MockAudioData, Error> {
+    let file = std::fs::File::open(path).map_err(|_| map_audio_error(is_speaker))?;
+    let decoder = rodio::Decoder::try_from(file).map_err(|_| map_audio_error(is_speaker))?;
+    let sample_rate = decoder.sample_rate();
+    let channels = decoder.channels().max(1) as usize;
+    let samples = decoder
+        .enumerate()
+        .filter_map(|(idx, sample)| (idx % channels == 0).then_some(sample.clamp(-1.0, 1.0)))
+        .collect::<Vec<_>>();
 
     Ok(MockAudioData {
         samples: Arc::from(samples.into_boxed_slice()),
+        sample_rate,
     })
 }
 
-fn max_int_amplitude(bits_per_sample: u16) -> f32 {
-    let exponent = bits_per_sample.saturating_sub(1) as u32;
-    ((1_i64 << exponent) as f32).max(1.0)
-}
-
-fn map_wav_error(error: hound::Error) -> Error {
-    match error {
-        hound::Error::IoError(_) => Error::MicOpenFailed,
-        _ => Error::MicStreamSetupFailed,
+fn map_audio_error(is_speaker: bool) -> Error {
+    if is_speaker {
+        Error::SpeakerStreamSetupFailed
+    } else {
+        Error::MicStreamSetupFailed
     }
 }

@@ -1448,7 +1448,7 @@ dependencies = [
  "audio",
  "data",
  "futures-util",
- "hound",
+ "rodio",
  "tokio",
  "tokio-stream",
  "tokio-util",
