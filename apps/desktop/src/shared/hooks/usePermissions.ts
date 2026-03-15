@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { message } from "@tauri-apps/plugin-dialog";
+import { useState } from "react";
 
 import {
   type Permission,
@@ -9,21 +10,31 @@ import {
 
 import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
 
+let pendingSystemAudioStatusChangedMessage = false;
+
+export function consumePendingSystemAudioStatusChangedMessage() {
+  const pending = pendingSystemAudioStatusChangedMessage;
+  pendingSystemAudioStatusChangedMessage = false;
+  return pending;
+}
+
 async function handleSystemAudioPermissionSuccess() {
   const restartStatus = await scheduleAutomaticRelaunch(2000);
 
-  void message(
-    restartStatus === "deferred"
-      ? "The app will restart after onboarding to apply the changes"
-      : "The app will now restart to apply the changes",
-    {
-      kind: "info",
-      title: "System Audio Status Changed",
-    },
-  );
+  if (restartStatus === "deferred") {
+    pendingSystemAudioStatusChangedMessage = true;
+    return;
+  }
+
+  void message("The app will now restart to apply the changes", {
+    kind: "info",
+    title: "System Audio Status Changed",
+  });
 }
 
 export function usePermission(type: Permission) {
+  const [optimisticStatus, setOptimisticStatus] =
+    useState<PermissionStatus | null>(null);
   const status = useQuery({
     queryKey: [`${type}Permission`],
     queryFn: () => permissionsCommands.checkPermission(type),
@@ -40,9 +51,12 @@ export function usePermission(type: Permission) {
     mutationFn: () => permissionsCommands.requestPermission(type),
     onSuccess: async () => {
       if (type === "systemAudio") {
+        setOptimisticStatus("authorized");
+        setTimeout(() => void status.refetch(), 1000);
         await handleSystemAudioPermissionSuccess();
         return;
       }
+      setOptimisticStatus(null);
       setTimeout(() => status.refetch(), 1000);
     },
   });
@@ -50,6 +64,7 @@ export function usePermission(type: Permission) {
   const resetMutation = useMutation({
     mutationFn: () => permissionsCommands.resetPermission(type),
     onSuccess: () => {
+      setOptimisticStatus(null);
       setTimeout(() => status.refetch(), 1000);
     },
   });
@@ -68,7 +83,13 @@ export function usePermission(type: Permission) {
     resetMutation.mutate();
   };
 
-  return { status: status.data, isPending, open, request, reset };
+  return {
+    status: optimisticStatus ?? status.data,
+    isPending,
+    open,
+    request,
+    reset,
+  };
 }
 
 export function usePermissions() {
