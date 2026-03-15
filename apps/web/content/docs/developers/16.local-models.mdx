@@ -18,7 +18,7 @@ For step-by-step setup instructions for LM Studio and Ollama, see the [Local LLM
 
 ### Cactus engine (beta)
 
-Cactus is a new local STT backend that runs optimized Whisper models. Cactus models are listed in Settings > Transcription under the Hyprnote provider. Models with an "Apple NPU" suffix use the Apple Neural Engine for hardware-accelerated inference on Apple Silicon Macs; non-Apple variants run on any platform.
+Cactus is a local STT backend that runs optimized Whisper models. Cactus models are listed in Settings > Transcription under the Hyprnote provider. Models with an "Apple NPU" suffix use the Apple Neural Engine for hardware-accelerated inference on Apple Silicon Macs; non-Apple variants run on any platform.
 
 | Model | Quantization | Platform |
 | ----- | ------------ | -------- |
@@ -31,6 +31,10 @@ Cactus is a new local STT backend that runs optimized Whisper models. Cactus mod
 | Whisper Medium (INT8, Apple NPU) | INT8 | Apple Silicon |
 
 Cactus models are downloaded and managed from the Settings UI. They are stored in a separate `cactus/` directory within the models folder.
+
+**Timestamps:** Cactus v1.11+ produces word-level timestamps in transcription output, enabling precise alignment of transcript words with audio playback.
+
+**Custom vocabulary:** Cactus supports custom vocabulary to improve recognition accuracy for domain-specific terms, names, and acronyms. Custom vocabulary words are defined in **Settings** > **Intelligence** > **Memory** and are passed to the Cactus engine during both streaming and batch transcription.
 
 ### Argmax models
 
