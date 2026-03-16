@@ -270,17 +270,6 @@ pub async fn main() {
     #[cfg(target_os = "macos")]
     hypr_intercept::setup_force_quit_handler();
 
-    #[cfg(target_os = "macos")]
-    {
-        let handle = app.handle().clone();
-        hypr_intercept::set_close_handler(move || {
-            for (_, window) in handle.webview_windows() {
-                let _ = window.close();
-            }
-            let _ = handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
-        });
-    }
-
     #[allow(unused_variables)]
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
