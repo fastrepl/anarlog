@@ -1,9 +1,11 @@
 import { Pause, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";
+
+import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -14,8 +16,11 @@ export function Timeline() {
     pause,
     resume,
     start,
+    stop,
     playbackRate,
     setPlaybackRate,
+    deleteRecording,
+    isDeletingRecording,
   } = useAudioPlayer();
   const time = useAudioTime();
   const [showRateMenu, setShowRateMenu] = useState(false);
@@ -44,8 +49,50 @@ export function Timeline() {
     }
   };
 
+  const handleDeleteRecording = useCallback(async () => {
+    setShowRateMenu(false);
+    await deleteRecording();
+  }, [deleteRecording]);
+
+  const contextMenu = useMemo(
+    () => [
+      ...(state === "paused"
+        ? [{ id: "resume", text: "Resume", action: resume }]
+        : []),
+      ...(state === "stopped"
+        ? [{ id: "play", text: "Play", action: start }]
+        : []),
+      ...(state === "playing"
+        ? [{ id: "pause", text: "Pause", action: pause }]
+        : []),
+      ...(state !== "stopped"
+        ? [{ id: "stop", text: "Stop", action: stop }]
+        : []),
+      { separator: true as const },
+      {
+        id: "delete-recording",
+        text: "Delete recording",
+        action: () => void handleDeleteRecording(),
+        disabled: isDeletingRecording,
+      },
+    ],
+    [
+      state,
+      resume,
+      start,
+      pause,
+      stop,
+      isDeletingRecording,
+      handleDeleteRecording,
+    ],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
   return (
-    <div className="w-full rounded-xl bg-neutral-50">
+    <div
+      className="w-full rounded-xl bg-neutral-50"
+      onContextMenu={showContextMenu}
+    >
       <div className={cn(["flex items-center gap-2 p-2", "w-full max-w-full"])}>
         <button
           onClick={handleClick}
