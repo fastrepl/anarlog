@@ -869,6 +869,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
 
 [[package]]
+name = "as-any"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0f477b951e452a0b6b4a10b53ccd569042d1d01729b519e02074a9c0958a063"
+
+[[package]]
 name = "askama"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2822,6 +2828,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "calendar"
+version = "0.1.0"
+dependencies = [
+ "api-client",
+ "apple-calendar",
+ "calendar-interface",
+ "chrono",
+ "chrono-tz 0.10.4",
+ "google-calendar",
+ "outlook-calendar",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "calendar-interface"
 version = "0.1.0"
 dependencies = [
@@ -3266,10 +3290,12 @@ dependencies = [
  "owhisper-interface",
  "ractor",
  "ratatui",
+ "rig-core",
  "serde",
  "serde_json",
  "storage",
  "strsim",
+ "strum 0.27.2",
  "tachyonfx",
  "tempfile",
  "textwrap",
@@ -11116,6 +11142,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nanoid"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ffa00dec017b5b1a8b7cf5e2c008bfda1aa7e0697ac1508b491fdf2622fb4d8"
+dependencies = [
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12293,6 +12328,15 @@ name = "ordered-float"
 version = "4.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "ordered-float"
+version = "5.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f4779c6901a562440c3786d08192c6fbda7c1c2060edd10006b05ee35d10f2d"
 dependencies = [
  "num-traits",
 ]
@@ -14577,6 +14621,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47b34b781b31e5d73e9fbc8689c70551fd1ade9a19e3e28cfec8580a79290cc4"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "rig-core"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24eb001344690ad016a095c6384b09b93ea12551490b4ed1a197058aeac990d6"
+dependencies = [
+ "as-any",
+ "async-stream",
+ "base64 0.22.1",
+ "bytes",
+ "eventsource-stream",
+ "fastrand",
+ "futures",
+ "futures-timer",
+ "glob",
+ "http 1.4.0",
+ "mime",
+ "mime_guess",
+ "nanoid",
+ "ordered-float 5.1.0",
+ "pin-project-lite",
+ "reqwest 0.13.2",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-futures",
+ "url",
 ]
 
 [[package]]
@@ -17752,16 +17828,9 @@ dependencies = [
 name = "tauri-plugin-calendar"
 version = "0.1.0"
 dependencies = [
- "api-client",
- "apple-calendar",
+ "calendar",
  "calendar-interface",
- "chrono",
- "chrono-tz 0.10.4",
- "google-calendar",
- "outlook-calendar",
- "reqwest 0.13.2",
  "serde",
- "serde_json",
  "specta",
  "specta-typescript",
  "tauri",
@@ -19165,7 +19234,7 @@ dependencies = [
  "nix 0.29.0",
  "num-derive",
  "num-traits",
- "ordered-float",
+ "ordered-float 4.6.0",
  "pest",
  "pest_derive",
  "phf 0.11.3",
@@ -19974,6 +20043,9 @@ version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97d095ae15e245a057c8e8451bab9b3ee1e1f68e9ba2b4fbc18d0ac5237835f2"
 dependencies = [
+ "futures",
+ "futures-task",
+ "pin-project",
  "tracing",
 ]
 
@@ -21958,7 +22030,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f2ab60e120fd6eaa68d9567f3226e876684639d22a4219b313ff69ec0ccd5ac"
 dependencies = [
  "log",
- "ordered-float",
+ "ordered-float 4.6.0",
  "strsim",
  "thiserror 1.0.69",
  "wezterm-dynamic-derive",

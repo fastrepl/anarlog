@@ -1,13 +1,10 @@
 mod commands;
-mod convert;
 mod error;
 mod events;
-mod ext;
-mod fetch;
 
 pub use error::Error;
 pub use events::*;
-pub use ext::{CalendarExt, CalendarPluginExt, ProviderConnectionIds};
+pub use hypr_calendar::ProviderConnectionIds;
 
 pub(crate) struct PluginConfig {
     pub api_base_url: String,
@@ -45,7 +42,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 use tauri_specta::Event;
 
                 let app_handle = app.app_handle().clone();
-                hypr_apple_calendar::setup_change_notification(move || {
+                hypr_calendar::setup_change_notification(move || {
                     let _ = CalendarChangedEvent.emit(&app_handle);
                 });
             }
