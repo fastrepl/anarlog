@@ -1,5 +1,6 @@
 import { AlertCircleIcon, AudioLinesIcon } from "lucide-react";
 
+import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
 export function TranscriptEmptyState({
@@ -54,12 +55,27 @@ export function TranscriptEmptyState({
           <p className="text-sm text-neutral-500">
             {hasAudio ? "Recording available" : "No transcript available"}
           </p>
-          {hasAudio && (
-            <p className="text-xs text-neutral-400">
-              Use the refresh button above to generate a transcript from this
-              recording.
-            </p>
-          )}
+          <p className="text-xs text-neutral-400">
+            {hasAudio
+              ? "Use the refresh button above to generate a transcript, or upload audio or a VTT/SRT file."
+              : "Upload audio or a VTT/SRT transcript to populate this note."}
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-neutral-200 bg-white/90 text-neutral-700 hover:bg-neutral-50"
+            >
+              Upload audio
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-neutral-200 bg-white/90 text-neutral-700 hover:bg-neutral-50"
+            >
+              Upload transcript
+            </Button>
+          </div>
         </div>
       )}
     </div>
