@@ -34,7 +34,7 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
-const LISTEN_BUTTON_WIDTH = "w-44";
+const LISTEN_BUTTON_WIDTH = "w-[160px]";
 
 export function HeaderListenButton() {
   const visible = useHeaderListenVisible();
@@ -172,12 +172,18 @@ function HeaderListenButtonInner() {
       onContextMenu={isRecording ? undefined : handleOpenMenu}
       disabled={isFinalizing || (!isRecording && isDisabled)}
       className={cn([
-        "group relative inline-flex h-8 items-center justify-center rounded-full text-sm font-medium text-white select-none",
+        "group relative inline-flex h-9 items-center justify-center rounded-full text-sm font-medium select-none",
         LISTEN_BUTTON_WIDTH,
-        isRecording ? "px-4" : "pr-8 pl-4",
-        "border-2 border-stone-600 bg-stone-800",
+        "px-3",
+        "border-2",
+        isRecording
+          ? "border-red-400 bg-red-50 text-red-600"
+          : "border-stone-600 bg-stone-800 text-white",
         "transition-all duration-200 ease-out",
-        "hover:bg-stone-700",
+        !isFinalizing &&
+          (isRecording
+            ? "hover:bg-red-50 hover:text-red-700"
+            : "hover:bg-stone-700"),
         isFinalizing && "cursor-wait",
         "disabled:opacity-50",
       ])}
@@ -200,31 +206,36 @@ function HeaderListenButtonInner() {
             <>
               <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover:opacity-0">
                 <span className="flex items-center gap-2">
-                  {muted && <MicOff className="size-3.5 text-white/70" />}
+                  {muted && <MicOff className="size-3.5 text-red-500" />}
                   <DancingSticks
                     amplitude={Math.min(
                       Math.hypot(amplitude.mic, amplitude.speaker),
                       1,
                     )}
-                    color="#ffffff"
+                    color="#dc2626"
                     height={20}
-                    width={56}
+                    width={72}
                     stickWidth={3}
                     gap={2}
                   />
                 </span>
               </span>
               <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                <span className="whitespace-nowrap">Stop listening</span>
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <span className="size-2.5 rounded-xs bg-red-600" />
+                  <span>Stop listening</span>
+                </span>
               </span>
             </>
           )}
         </div>
       ) : (
-        <>
-          <RecordingIcon />
-          <span className="whitespace-nowrap">New meeting</span>
-        </>
+        <span className="flex w-full items-center justify-center px-7">
+          <span className="inline-flex shrink-0 items-center gap-2">
+            <RecordingIcon />
+            <span className="whitespace-nowrap">New meeting</span>
+          </span>
+        </span>
       )}
     </button>
   );
@@ -232,7 +243,7 @@ function HeaderListenButtonInner() {
   const chevron = (
     <button
       type="button"
-      className="absolute inset-y-0 right-0 z-10 inline-flex w-9 cursor-pointer items-center justify-center rounded-r-full bg-transparent text-white/70 transition-colors select-none hover:text-white"
+      className="absolute inset-y-0 right-0 z-10 inline-flex w-7 cursor-pointer items-center justify-center rounded-r-full bg-transparent text-white/70 transition-colors select-none hover:text-white"
       onMouseDown={handleMenuMouseDown}
       onClick={(event) => {
         event.stopPropagation();
@@ -252,7 +263,7 @@ function HeaderListenButtonInner() {
           onMouseDownCapture={handleMenuMouseDown}
           onContextMenu={handleOpenMenu}
         >
-          {warningMessage ? (
+          {warningMessage && !isRecording ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <span className="inline-flex">{button}</span>
