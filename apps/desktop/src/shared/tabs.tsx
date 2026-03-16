@@ -251,11 +251,6 @@ export function TabItemBase({
             >
               {finalizing ? (
                 <Spinner size={16} />
-              ) : active ? (
-                <div className="relative size-2">
-                  <div className="absolute inset-0 rounded-full bg-red-600"></div>
-                  <div className="absolute inset-0 animate-ping rounded-full bg-red-300"></div>
-                </div>
               ) : pinned ? (
                 <button
                   onClick={(e) => {
