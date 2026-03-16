@@ -401,10 +401,9 @@ export function SessionPreviewCard({
       </HoverCardTrigger>
       <HoverCardContent
         side={side}
-        align="start"
         sideOffset={8}
         followStyle={style}
-        className={cn(["w-72 p-4", "pointer-events-none"])}
+        className={cn(["w-72 pb-0!", "pointer-events-none"])}
       >
         <div className="flex flex-col gap-1">
           {dateDisplay && (
@@ -414,39 +413,32 @@ export function SessionPreviewCard({
           <div className="text-sm font-medium">{title || "Untitled"}</div>
           <ParticipantsList mappingIds={participantMappingIds} />
 
-          {(previewMarkdown || previewPlainText) && (
-            <div className="mt-1 flex flex-col gap-1">
-              <div
-                className={cn([
-                  "text-neutral-600",
-                  previewHasImage
-                    ? "max-h-32 overflow-hidden"
-                    : "max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
-                ])}
-              >
-                {previewHasImage && previewImage ? (
-                  <img
-                    src={previewImage.src}
-                    alt={previewImage.alt}
-                    title={previewImage.title}
-                    className="block h-28 w-full object-cover object-top"
-                  />
-                ) : previewMarkdown ? (
-                  <Streamdown
-                    components={previewCardComponents}
-                    className="flex flex-col text-xs"
-                    isAnimating={false}
-                    rehypePlugins={previewCardRehypePlugins}
-                  >
-                    {previewMarkdown}
-                  </Streamdown>
-                ) : (
-                  <div className="text-xs leading-relaxed">
-                    {previewPlainText}
-                  </div>
-                )}
-              </div>
+          {previewMarkdown || previewPlainText ? (
+            <div className="mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
+              {previewHasImage && previewImage ? (
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.alt}
+                  title={previewImage.title}
+                  className="block w-full object-cover object-top"
+                />
+              ) : previewMarkdown ? (
+                <Streamdown
+                  components={previewCardComponents}
+                  className="flex flex-col text-xs"
+                  isAnimating={false}
+                  rehypePlugins={previewCardRehypePlugins}
+                >
+                  {previewMarkdown}
+                </Streamdown>
+              ) : (
+                <div className="text-xs leading-relaxed">
+                  {previewPlainText}
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="h-4" />
           )}
         </div>
       </HoverCardContent>
