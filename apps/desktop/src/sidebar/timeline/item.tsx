@@ -12,6 +12,7 @@ import { cn, format, getYear, safeParseDate, TZDate } from "@hypr/utils";
 
 import {
   type EventTimelineItem,
+  isTimelineItemInFuture,
   type SessionTimelineItem,
   type TimelineItem,
   TimelinePrecision,
@@ -134,7 +135,7 @@ function ItemBase({
               ignored && "line-through",
             )}
           >
-            {title || <span className="text-neutral-400">Untitled</span>}
+            {title || "Untitled"}
           </div>
           {displayTime && (
             <div className="font-mono text-xs text-neutral-500">
@@ -203,6 +204,7 @@ const EventItem = memo(
     );
 
     const itemKey = `event-${item.id}`;
+    const muted = isTimelineItemInFuture(item);
 
     const handleClick = useCallback(() => {
       useTimelineSelection.getState().setAnchor(itemKey);
@@ -297,7 +299,7 @@ const EventItem = memo(
         calendarId={calendarId}
         selected={selected}
         ignored={ignored}
-        muted
+        muted={muted}
         multiSelected={multiSelected}
         onClick={handleClick}
         onCmdClick={handleCmdClick}
@@ -364,6 +366,7 @@ const SessionItem = memo(
         ),
       [sessionEvent?.started_at, item.data.created_at, precision, timezone],
     );
+    const muted = isTimelineItemInFuture(item);
 
     const itemKey = `session-${item.id}`;
 
@@ -456,6 +459,7 @@ const SessionItem = memo(
           calendarId={calendarId}
           showSpinner={showSpinner}
           selected={selected}
+          muted={muted}
           multiSelected={multiSelected}
           onClick={handleClick}
           onCmdClick={handleCmdClick}

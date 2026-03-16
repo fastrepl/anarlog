@@ -6,6 +6,7 @@ import {
   filterTimelineTablesUpToTomorrow,
   getBucketInfo,
   hasTimelineItemsAfterTomorrow,
+  isTimelineItemInFuture,
   type TimelineEventsTable,
   type TimelineSessionsTable,
 } from ".";
@@ -99,6 +100,46 @@ describe("timeline utils", () => {
 
     const todayBucket = buckets.find((bucket) => bucket.label === "Today");
     expect(todayBucket).toBeUndefined();
+  });
+
+  test("isTimelineItemInFuture only returns true for future-starting items", () => {
+    expect(
+      isTimelineItemInFuture({
+        type: "session",
+        id: "future-session",
+        data: {
+          title: "Future Session",
+          created_at: "2024-01-10T12:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2024-01-16T11:00:00.000Z",
+          }),
+        },
+      }),
+    ).toBe(true);
+
+    expect(
+      isTimelineItemInFuture({
+        type: "session",
+        id: "past-session",
+        data: {
+          title: "Past Session",
+          created_at: "2024-01-14T12:00:00.000Z",
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      isTimelineItemInFuture({
+        type: "event",
+        id: "past-event",
+        data: {
+          title: "Past Event",
+          started_at: "2024-01-15T11:00:00.000Z",
+          ended_at: "2024-01-15T11:30:00.000Z",
+          has_recurrence_rules: false,
+        },
+      }),
+    ).toBe(false);
   });
 
   test("filterTimelineTablesUpToTomorrow keeps tomorrow and removes later items", () => {
