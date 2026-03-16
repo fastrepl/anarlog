@@ -10,12 +10,14 @@ const {
   useTableMock,
   useListenerMock,
   useAudioPlayerMock,
+  useSessionImportPickerActionsMock,
 } = vi.hoisted(() => ({
   useSliceRowIdsMock: vi.fn(),
   useStoreMock: vi.fn(),
   useTableMock: vi.fn(),
   useListenerMock: vi.fn(),
   useAudioPlayerMock: vi.fn(),
+  useSessionImportPickerActionsMock: vi.fn(),
 }));
 
 vi.mock("~/store/tinybase/store/main", () => ({
@@ -38,6 +40,10 @@ vi.mock("~/stt/contexts", () => ({
 
 vi.mock("~/audio-player", () => ({
   useAudioPlayer: useAudioPlayerMock,
+}));
+
+vi.mock("../session-import", () => ({
+  useSessionImportPickerActions: useSessionImportPickerActionsMock,
 }));
 
 vi.mock("./screens/batch", () => ({
@@ -117,6 +123,14 @@ describe("Transcript", () => {
     useTableMock.mockImplementation(() => transcriptsTable);
     useListenerMock.mockImplementation((selector) => selector(listenerState));
     useAudioPlayerMock.mockReturnValue({ audioExists: false });
+    useSessionImportPickerActionsMock.mockReturnValue({
+      disableAudioImport: false,
+      audioImportWarningMessage: "",
+      isImportingAudio: false,
+      isImportingTranscript: false,
+      selectAndImportAudio: vi.fn(),
+      selectAndImportTranscript: vi.fn(),
+    });
   });
 
   it("switches to transcript viewer after transcript words persist", () => {

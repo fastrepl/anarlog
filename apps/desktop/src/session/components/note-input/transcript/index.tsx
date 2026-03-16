@@ -1,5 +1,6 @@
 import { type RefObject } from "react";
 
+import { useSessionImportPickerActions } from "../session-import";
 import { useTranscriptOperations } from "./mutations";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
@@ -18,6 +19,14 @@ export function Transcript({
 }) {
   const operations = useTranscriptOperations({ sessionId, isEditing });
   const screen = useTranscriptScreen({ sessionId, operations });
+  const {
+    disableAudioImport,
+    audioImportWarningMessage,
+    isImportingAudio,
+    isImportingTranscript,
+    selectAndImportAudio,
+    selectAndImportTranscript,
+  } = useSessionImportPickerActions(sessionId);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -43,6 +52,20 @@ export function Transcript({
           isBatching={false}
           hasAudio={screen.hasAudio}
           error={screen.error}
+          disableUploadAudio={disableAudioImport}
+          isImportingAudio={isImportingAudio}
+          isImportingTranscript={isImportingTranscript}
+          audioImportWarningMessage={audioImportWarningMessage}
+          onUploadAudio={() => {
+            void selectAndImportAudio().catch((error) => {
+              console.error("[transcript_audio_import] failed:", error);
+            });
+          }}
+          onUploadTranscript={() => {
+            void selectAndImportTranscript().catch((error) => {
+              console.error("[transcript_import] failed:", error);
+            });
+          }}
         />
       )}
       {screen.kind === "ready" && (

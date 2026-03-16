@@ -1,5 +1,6 @@
 import { AlertCircleIcon, AudioLinesIcon } from "lucide-react";
 
+import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
 export function TranscriptEmptyState({
@@ -8,12 +9,24 @@ export function TranscriptEmptyState({
   percentage,
   phase,
   error,
+  onUploadAudio,
+  onUploadTranscript,
+  disableUploadAudio,
+  isImportingAudio,
+  isImportingTranscript,
+  audioImportWarningMessage,
 }: {
   isBatching?: boolean;
   hasAudio?: boolean;
   percentage?: number;
   phase?: "importing" | "transcribing";
   error?: string | null;
+  onUploadAudio?: () => void;
+  onUploadTranscript?: () => void;
+  disableUploadAudio?: boolean;
+  isImportingAudio?: boolean;
+  isImportingTranscript?: boolean;
+  audioImportWarningMessage?: string;
 }) {
   if (error) {
     return (
@@ -54,10 +67,50 @@ export function TranscriptEmptyState({
           <p className="text-sm text-neutral-500">
             {hasAudio ? "Recording available" : "No transcript available"}
           </p>
-          {hasAudio && (
+          <p className="text-xs text-neutral-400">
+            {hasAudio
+              ? "Use the refresh button above to generate a transcript, or upload audio or a VTT/SRT file."
+              : "Upload audio or a VTT/SRT transcript to populate this note."}
+          </p>
+          {(onUploadAudio || onUploadTranscript) && (
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                className="h-8 rounded-full px-3 text-xs"
+                disabled={
+                  disableUploadAudio || isImportingTranscript || !onUploadAudio
+                }
+                onClick={onUploadAudio}
+              >
+                {isImportingAudio ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size={12} />
+                    Importing audio...
+                  </span>
+                ) : (
+                  "Upload audio"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-8 rounded-full px-3 text-xs"
+                disabled={isImportingAudio || !onUploadTranscript}
+                onClick={onUploadTranscript}
+              >
+                {isImportingTranscript ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner size={12} />
+                    Importing transcript...
+                  </span>
+                ) : (
+                  "Upload transcript"
+                )}
+              </Button>
+            </div>
+          )}
+          {disableUploadAudio && audioImportWarningMessage && (
             <p className="text-xs text-neutral-400">
-              Use the refresh button above to generate a transcript from this
-              recording.
+              {audioImportWarningMessage}
             </p>
           )}
         </div>
