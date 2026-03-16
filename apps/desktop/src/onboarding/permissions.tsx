@@ -134,7 +134,7 @@ export function PermissionsSection({
     <div className="@container flex items-stretch gap-3">
       <PermissionBlock
         enabledLabel="Char can hear your voice"
-        enableLabel="Help Char listen to your voice"
+        enableLabel="Help Char listen to you"
         Icon={MicIcon}
         permissionName="Microphone"
         status={mic.status}
