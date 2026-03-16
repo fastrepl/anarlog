@@ -1,6 +1,5 @@
 import "../../styles.css";
 
-import { isNodeActive } from "@tiptap/core";
 import {
   EditorContent,
   type JSONContent,
@@ -162,9 +161,7 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
           }
 
           if (event.key === "Tab" && event.shiftKey) {
-            const isInListItem =
-              isNodeActive(state, "listItem") ||
-              isNodeActive(state, "taskItem");
+            const isInListItem = shared.isSelectionInListItem(state);
             if (!isInListItem && isInFirstBlock && onNavigateToTitle) {
               event.preventDefault();
               onNavigateToTitle();
@@ -180,9 +177,7 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
           }
 
           if (event.key === "Tab") {
-            const isInListItem =
-              isNodeActive(state, "listItem") ||
-              isNodeActive(state, "taskItem");
+            const isInListItem = shared.isSelectionInListItem(state);
             if (isInListItem) {
               return false;
             }
