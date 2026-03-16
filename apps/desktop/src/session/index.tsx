@@ -9,7 +9,6 @@ import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { cn } from "@hypr/utils";
 
 import { CaretPositionProvider } from "./components/caret-position-context";
-import { FloatingActionButton } from "./components/floating";
 import { NoteInput } from "./components/note-input";
 import { SearchProvider } from "./components/note-input/transcript/search/context";
 import { OuterHeader } from "./components/outer-header";
@@ -252,7 +251,6 @@ function TabContentNoteInner({
     <>
       <StandardTabWrapper
         afterBorder={showTimeline && <AudioPlayer.Timeline />}
-        floatingButton={<FloatingActionButton tab={tab} />}
         showTimeline={showTimeline}
       >
         <div className="flex h-full flex-col">
