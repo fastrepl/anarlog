@@ -9,11 +9,12 @@ export const Route = createFileRoute("/_view/docs/$")({
   beforeLoad: ({ params }) => {
     const splat = params._splat || "";
     const normalizedSplat = splat.replace(/\/$/, "");
+    const defaultPage = docsStructure.defaultPages[normalizedSplat];
 
-    if (docsStructure.defaultPages[normalizedSplat]) {
+    if (defaultPage && defaultPage !== normalizedSplat) {
       throw redirect({
         to: "/docs/$/",
-        params: { _splat: docsStructure.defaultPages[normalizedSplat] },
+        params: { _splat: defaultPage },
       });
     }
 
