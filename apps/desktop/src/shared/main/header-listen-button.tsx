@@ -1,4 +1,4 @@
-import { EllipsisVerticalIcon } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   type MouseEvent,
   useCallback,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
@@ -36,19 +37,13 @@ import {
 } from "~/session/components/shared";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
-import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
-type PendingHeaderAction =
-  | {
-      type: "record_only";
-      sessionId: string;
-    }
-  | {
-      type: "upload_audio" | "upload_transcript";
-      sessionId: string;
-      path: string;
-    };
+type PendingHeaderAction = {
+  type: "upload_audio" | "upload_transcript";
+  sessionId: string;
+  path: string;
+};
 
 export function HeaderListenButton() {
   const visible = useHeaderListenVisible();
@@ -136,17 +131,39 @@ function HeaderListenButtonInner({
   const { isDisabled, warningMessage } = useHeaderListenState();
   const [open, setOpen] = useState(false);
   const [isSelectingFile, setIsSelectingFile] = useState(false);
+  const [menuWidth, setMenuWidth] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const handleClick = useNewNoteAndListen();
   const createSession = useCreateSession();
   const openNew = useTabs((state) => state.openNew);
 
-  const disableRecordOnly = isDisabled || isBusy || isSelectingFile;
   const disableUploadAudio = isDisabled || isBusy || isSelectingFile;
   const disableUploadTranscript = isBusy || isSelectingFile;
   const menuDisabled = useMemo(
-    () => disableRecordOnly && disableUploadAudio && disableUploadTranscript,
-    [disableRecordOnly, disableUploadAudio, disableUploadTranscript],
+    () => disableUploadAudio && disableUploadTranscript,
+    [disableUploadAudio, disableUploadTranscript],
   );
+
+  useEffect(() => {
+    const node = containerRef.current;
+
+    if (!node) {
+      return;
+    }
+
+    const updateWidth = () => {
+      setMenuWidth(node.offsetWidth);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const handleConfigure = useCallback(() => {
     openNew({ type: "ai", state: { tab: "transcription" } });
@@ -179,18 +196,6 @@ function HeaderListenButtonInner({
     },
     [menuDisabled],
   );
-
-  const handleRecordOnly = useCallback(() => {
-    if (disableRecordOnly) {
-      return;
-    }
-
-    setOpen(false);
-    onQueueAction({
-      type: "record_only",
-      sessionId: createTranscriptSession(),
-    });
-  }, [createTranscriptSession, disableRecordOnly, onQueueAction]);
 
   const handleUploadAudio = useCallback(async () => {
     if (disableUploadAudio) {
@@ -250,7 +255,7 @@ function HeaderListenButtonInner({
       className={cn([
         "inline-flex items-center justify-center rounded-full text-sm font-medium text-white select-none",
         "gap-2",
-        "h-8 pr-9 pl-4",
+        "h-8 pr-8 pl-4",
         "border-2 border-stone-600 bg-stone-800",
         "transition-all duration-200 ease-out",
         "hover:bg-stone-700",
@@ -265,63 +270,62 @@ function HeaderListenButtonInner({
   const moreButton = (
     <button
       type="button"
-      className="absolute top-1/2 right-2 z-10 -translate-y-1/2 cursor-pointer text-white/70 transition-colors select-none hover:text-white disabled:cursor-default disabled:opacity-50"
+      className="absolute inset-y-0 right-0 z-10 inline-flex w-9 cursor-pointer items-center justify-center rounded-r-full bg-transparent text-white/70 transition-colors select-none hover:text-white disabled:cursor-default disabled:opacity-50"
       disabled={menuDisabled}
       onMouseDown={handleMenuMouseDown}
       onClick={(event) => {
         event.stopPropagation();
       }}
     >
-      <EllipsisVerticalIcon className="size-4" />
+      <ChevronDown className="size-3.5" />
       <span className="sr-only">More options</span>
     </button>
   );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <div
-        className="relative flex items-center select-none"
-        onMouseDownCapture={handleMenuMouseDown}
-        onContextMenu={handleOpenMenu}
-      >
-        {warningMessage ? (
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <span className="inline-flex">{button}</span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              <ActionableTooltipContent
-                message={warningMessage}
-                action={{
-                  label: "Configure",
-                  handleClick: handleConfigure,
-                }}
-              />
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          button
-        )}
-        <PopoverTrigger asChild>{moreButton}</PopoverTrigger>
-      </div>
+      <PopoverAnchor asChild>
+        <div
+          ref={containerRef}
+          className="relative flex items-center select-none"
+          onMouseDownCapture={handleMenuMouseDown}
+          onContextMenu={handleOpenMenu}
+        >
+          {warningMessage ? (
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">{button}</span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <ActionableTooltipContent
+                  message={warningMessage}
+                  action={{
+                    label: "Configure",
+                    handleClick: handleConfigure,
+                  }}
+                />
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            button
+          )}
+          <PopoverTrigger asChild>{moreButton}</PopoverTrigger>
+        </div>
+      </PopoverAnchor>
       <PopoverContent
         side="bottom"
         align="end"
-        sideOffset={8}
-        className="w-43 rounded-xl p-1.5"
+        sideOffset={4}
+        style={menuWidth ? { width: menuWidth } : undefined}
+        className={cn([
+          "overflow-hidden rounded-[1.25rem] border border-white/70 p-1.5 ring-1 ring-black/6 outline-none",
+          "bg-white/68 text-stone-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_24px_48px_-24px_rgba(48,44,40,0.52),0_8px_18px_rgba(255,255,255,0.28)] backdrop-blur-md backdrop-saturate-150",
+        ])}
       >
         <div className="flex flex-col gap-1">
           <Button
             variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
-            disabled={disableRecordOnly}
-            onClick={handleRecordOnly}
-          >
-            <span className="text-sm">Record only</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
+            className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
             disabled={disableUploadAudio}
             onClick={() => {
               void handleUploadAudio();
@@ -331,7 +335,7 @@ function HeaderListenButtonInner({
           </Button>
           <Button
             variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
+            className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
             disabled={disableUploadTranscript}
             onClick={() => {
               void handleUploadTranscript();
@@ -353,9 +357,6 @@ function PendingHeaderActionRunner({
   onComplete: () => void;
 }) {
   const hasRunRef = useRef(false);
-  const startBatchRecording = useStartListening(action.sessionId, {
-    transcriptionMode: "batch",
-  });
   const { importAudio } = useImportAudioToTranscript(action.sessionId);
   const { importTranscript } = useImportTranscriptToSession(action.sessionId);
 
@@ -370,11 +371,6 @@ function PendingHeaderActionRunner({
 
     const run = async () => {
       try {
-        if (action.type === "record_only") {
-          await startBatchRecording();
-          return;
-        }
-
         if (action.type === "upload_audio") {
           await importAudio(action.path);
           return;
@@ -395,7 +391,7 @@ function PendingHeaderActionRunner({
     return () => {
       active = false;
     };
-  }, [action, importAudio, importTranscript, onComplete, startBatchRecording]);
+  }, [action, importAudio, importTranscript, onComplete]);
 
   return null;
 }
