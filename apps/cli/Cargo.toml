@@ -72,8 +72,8 @@ url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
-cli-docs = { path = "../../crates/cli-docs" }
 clap_complete = { workspace = true }
+cli-docs = { path = "../../crates/cli-docs" }
 clio = { version = "0.3", features = ["clap-parse"] }
 strum = { workspace = true, features = ["derive"] }
 url = { workspace = true }
