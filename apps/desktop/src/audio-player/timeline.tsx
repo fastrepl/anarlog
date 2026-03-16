@@ -90,7 +90,7 @@ export function Timeline() {
 
   return (
     <div
-      className="w-full rounded-xl bg-neutral-50"
+      className="w-full rounded-xl bg-neutral-50 select-none"
       onContextMenu={showContextMenu}
     >
       <div className={cn(["flex items-center gap-2 p-2", "w-full max-w-full"])}>
@@ -101,7 +101,7 @@ export function Timeline() {
             "h-8 w-8 rounded-full",
             "border border-neutral-200 bg-white",
             "transition-all hover:scale-110 hover:bg-neutral-100",
-            "shrink-0 shadow-xs",
+            "shrink-0 shadow-xs select-none",
           ])}
         >
           {state === "playing" ? (
@@ -111,7 +111,7 @@ export function Timeline() {
           )}
         </button>
 
-        <div className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-neutral-600 tabular-nums">
+        <div className="inline-flex shrink-0 items-center gap-1 font-mono text-xs text-neutral-600 tabular-nums select-none">
           <span>{formatTime(time.current)}</span>/
           <span>{formatTime(time.total)}</span>
         </div>
@@ -124,7 +124,7 @@ export function Timeline() {
               "h-6 rounded-md px-1.5",
               "border border-neutral-200 bg-white",
               "transition-colors hover:bg-neutral-100",
-              "font-mono text-xs text-neutral-700",
+              "font-mono text-xs text-neutral-700 select-none",
               "shadow-xs",
             ])}
           >
@@ -146,7 +146,7 @@ export function Timeline() {
                     setShowRateMenu(false);
                   }}
                   className={cn([
-                    "block w-full px-3 py-1 text-left font-mono text-xs",
+                    "block w-full px-3 py-1 text-left font-mono text-xs select-none",
                     "transition-colors hover:bg-neutral-100",
                     rate === playbackRate
                       ? "font-semibold text-neutral-900"
