@@ -3,74 +3,35 @@ title: "Char Weekly: March 15, 2026"
 date: "2026-03-15"
 ---
 
-One stable release this week — v1.0.14 — alongside massive work on the transcript engine, the CLI, and audio infrastructure. The headline: the Hyprnote-to-Char rename is now handled automatically during updates, images in notes are resizable, you can connect multiple Google Calendar accounts, and the transcript view was rebuilt from the ground up.
+Two stable releases shipped this week: v1.0.13 and v1.0.14. The biggest changes are custom storage locations, multiple Google Calendar accounts, resizable images in notes, and a stronger recording flow.
 
-## Hyprnote is now Char — seamless migration
+## Storage and navigation
 
-v1.0.14 handles the app rename automatically. When you update, Char migrates the macOS app bundle from "Hyprnote" to "Char" behind the scenes — no manual steps, no data loss. The migration runs at startup and covers both stable and nightly update channels. If you're still on an older version, just update and everything carries over.
+You can now choose a custom location for your Char content in Settings, and detected Obsidian vaults are offered as a quick destination. Search also moved into the left sidebar, which makes it much easier to jump between recent activity and search results without leaving your place.
 
-## Resizable images in notes
+Folder moves and renames are also more reliable now because filesystem changes are applied before app state updates. The Today timeline's current-time marker is more accurate as well, especially during ongoing events and in your selected timezone.
 
-Images you paste or drag into the note editor can now be resized by dragging their edges. This works in both the desktop note editor and the blog editor on the web. Image metadata (alt text, dimensions) is stored alongside the content, so your layout is preserved when you reopen a session.
+## Hyprnote is now Char
 
-## Multiple Google Calendar accounts
+This release also carries the Hyprnote-to-Char rename through the stable app. Existing users can update without changing how they work, and the app now consistently presents itself as Char.
 
-You can now connect more than one Google Calendar account at the same time. If you use separate calendars for work and personal life — or manage multiple Google Workspace accounts — they all sync into the Char timeline. Connected account email addresses are now displayed in account settings so you can see exactly which accounts are linked.
+## Calendar and notes
 
-## Rebuilt transcript view
+You can now connect multiple Google Calendar accounts at the same time, and account settings show which email address each connection belongs to. In notes, images are now resizable, underline exports correctly to Markdown, and note previews are cleaner.
 
-The transcript UI was restructured significantly this week. The renderer, search, and editing logic were broken into smaller, focused modules — dedicated hooks for viewport tracking, segment rendering, and word-level selection. Search got its own context and matching engine, and editing uses a cleaner hook-based architecture. The result is a transcript view that's faster to render and easier to extend. For users, the visible change is smoother scrolling and more responsive search-and-replace in long transcripts.
+## Recording and UI
 
-## Folder operations are now filesystem-first
-
-Moving and renaming folders now writes to the filesystem before updating app state. Previously, the app state could update before the filesystem caught up, leading to brief inconsistencies. This also means folder renames are more reliable when your storage is on a slower drive or network mount.
-
-## Onboarding polish
-
-The onboarding flow got a visual refresh — clearer step states, a new video walkthrough, and improved Apple Calendar permission prompts. The calendar onboarding step now shows a proper loading state while fetching calendars, and the permission request is more explicit about what access Char needs.
-
-## Obsidian vault picker in settings
-
-The storage settings now list detected Obsidian vaults as quick-pick destinations. If you already use Obsidian, you can point Char at your vault with one click instead of manually navigating to the folder. This also works during onboarding.
-
-## Chat UI refinements
-
-Chat received another round of polish. Auto-scroll behavior is smarter — it tracks whether you've scrolled up and doesn't jump you back to the bottom mid-conversation. The chat header handles long titles without overflowing, the panel no longer expands off-screen when there isn't enough room, and various layout fixes across the chat body, context bar, and input area make the whole experience tighter.
-
-## Session preview images
-
-Note preview cards in the sidebar and tab bar now render images embedded in your notes. If you pasted a screenshot or diagram into a session, it shows up in the preview instead of just text. This makes it easier to visually distinguish sessions at a glance.
-
-## Transcript engine rewrite (Rust)
-
-Under the hood, the `transcript` crate was rewritten. Speaker labeling, segment collection, word stitching, and normalization each got their own module. The processor now handles multi-speaker conversations more accurately, with proper segment boundaries and speaker assignment. This is the foundation for better diarization and transcript accuracy going forward.
-
-## CLI overhaul
-
-The CLI saw a major overhaul this week. The `transcribe-cli` crate was merged into the main CLI app, a new `chat` command was added, and the `listen` command got a waveform visualizer and restructured TUI. Model management was simplified, debug commands were reorganized under a `debug` subcommand with dedicated audio and client tooling, and an npm distribution package was scaffolded for easier installation. The CLI also gained a session context runtime and dedicated Cactus runtime for local transcription.
-
-## Mock audio for testing
-
-A new `audio-mock` crate enables testing audio pipelines without real hardware. It plays back pre-recorded MP3 files through the same `AudioInput` interface that real microphones and speakers use, which means the listener plugin, CLI, and desktop app can all run integration tests with deterministic audio. Test fixtures with English audio and pyannote speaker annotations were added to the data crate.
-
-## Cactus v1.11 with timestamps
-
-The Cactus local STT engine was updated to v1.11, which adds word-level timestamp support. Live transcription sessions now get timing data from the local model, enabling synchronized playback highlighting and more accurate segment boundaries. A new live transcription example was added for testing the streaming path.
+Creating a new note now automatically starts recording, audio can stay in memory with a disk fallback when needed, and on-device transcription now returns word-level timestamps. `App Settings` is also now the primary settings view, and several chat and header UI issues were cleaned up.
 
 ## Other improvements
 
-- App Settings is now the primary settings view, with account settings integrated directly
 - Permission detection on macOS now uses an external binary, fixing edge cases where the in-process check could hang
 - Meeting countdown timer and autostart for upcoming calendar events
-- Creating a new note now automatically starts recording
-- In-memory audio recording with automatic disk fallback when a session degrades
 - Listen button styling blends with the background for a cleaner header look
 - AI button now has a visible label
 - Undo-delete toast positioning adjusted to avoid overlapping content
-- Underline formatting now exports correctly to Markdown
 - Timeline sidebar items use clearer, more intuitive wording
 - Fixed duplicate calendar attendee when the organizer was also synced as a participant
-- Vite upgraded to v8 across the monorepo
 - Changelog rendering migrated to Streamdown and shared between desktop and web
 
 Full version details on the [changelog](/changelog).
