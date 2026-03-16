@@ -53,6 +53,9 @@ jobs:
           platform: macos
       - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - run: cargo build --release -p cli --target aarch64-apple-darwin
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          APP_VERSION: ${{ needs.compute-version.outputs.version }}
       - run: |
           BIN="target/aarch64-apple-darwin/release/char"
           strip -x "$BIN"

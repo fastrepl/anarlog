@@ -7,11 +7,11 @@ mod ui;
 use std::time::Duration;
 
 use hypr_cli_tui::{Screen, ScreenContext, ScreenControl, TuiEvent, run_screen};
-use hypr_openrouter::Client;
 use tokio::sync::mpsc;
 
+use crate::config::session_context::load_chat_system_message;
 use crate::error::{CliError, CliResult};
-use crate::runtime::session_context::load_chat_system_message;
+use crate::llm::{LlmProvider, resolve_config};
 
 use self::action::Action;
 use self::app::App;
@@ -23,6 +23,8 @@ const IDLE_FRAME: Duration = Duration::from_secs(1);
 pub struct Args {
     pub session: Option<String>,
     pub prompt: Option<String>,
+    pub provider: Option<LlmProvider>,
+    pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub model: Option<String>,
 }
@@ -40,8 +42,8 @@ impl ChatScreen {
     fn apply_effects(&mut self, effects: Vec<Effect>) -> ScreenControl<()> {
         for effect in effects {
             match effect {
-                Effect::Submit { messages } => {
-                    self.runtime.submit(messages);
+                Effect::Submit { prompt, history } => {
+                    self.runtime.submit(prompt, history);
                 }
                 Effect::Exit => return ScreenControl::Exit(()),
             }
@@ -80,7 +82,7 @@ impl Screen for ChatScreen {
     ) -> ScreenControl<Self::Output> {
         let action = match event {
             RuntimeEvent::StreamChunk(chunk) => Action::StreamChunk(chunk),
-            RuntimeEvent::StreamCompleted => Action::StreamCompleted,
+            RuntimeEvent::StreamCompleted(final_text) => Action::StreamCompleted(final_text),
             RuntimeEvent::StreamFailed(error) => Action::StreamFailed(error),
         };
         let effects = self.app.dispatch(action);
@@ -101,79 +103,22 @@ impl Screen for ChatScreen {
 }
 
 pub async fn run(args: Args) -> CliResult<()> {
-    let api_key = args
-        .api_key
-        .ok_or_else(|| CliError::required_argument_with_hint("--api-key", "set CHAR_API_KEY"))?;
-    let model = args
-        .model
-        .unwrap_or_else(|| "anthropic/claude-sonnet-4".to_string());
-
-    if let Some(prompt) = args.prompt {
-        return run_prompt(&api_key, &model, &prompt).await;
-    }
-
     let system_message = args
         .session
         .as_deref()
         .map(load_chat_system_message)
         .transpose()?;
+    let config = resolve_config(args.provider, args.base_url, args.api_key, args.model)?;
+
+    if let Some(prompt) = args.prompt {
+        return runtime::run_prompt(config, system_message, &prompt).await;
+    }
 
     let (runtime_tx, runtime_rx) = mpsc::unbounded_channel();
-    let client = Client::new(api_key.clone());
-    let runtime = Runtime::new(client, model.clone(), runtime_tx);
-    let app = App::new(model, args.session, system_message);
+    let runtime = Runtime::new(config.clone(), system_message, runtime_tx)?;
+    let app = App::new(config.model, args.session);
 
     run_screen(ChatScreen::new(app, runtime), Some(runtime_rx))
         .await
         .map_err(|e| CliError::operation_failed("chat tui", e.to_string()))
-}
-
-async fn run_prompt(api_key: &str, model: &str, prompt: &str) -> CliResult<()> {
-    use futures_util::StreamExt;
-    use hypr_openrouter::{ChatCompletionRequest, ChatMessage, Role};
-    use std::io::Write;
-
-    let text = if prompt == "-" {
-        std::io::read_to_string(std::io::stdin())
-            .map_err(|e| CliError::operation_failed("read stdin", e.to_string()))?
-    } else {
-        prompt.to_string()
-    };
-
-    let client = Client::new(api_key.to_string());
-    let req = ChatCompletionRequest {
-        model: Some(model.to_string()),
-        messages: vec![ChatMessage::new(Role::User, text)],
-        ..Default::default()
-    };
-
-    let mut stream = client
-        .chat_completion_stream(&req)
-        .await
-        .map_err(|e| CliError::operation_failed("chat stream", e.to_string()))?;
-
-    let stdout = std::io::stdout();
-    let mut out = stdout.lock();
-
-    while let Some(chunk) = stream.next().await {
-        match chunk {
-            Ok(chunk) => {
-                if let Some(choice) = chunk.choices.first()
-                    && let Some(content) = choice.delta.content.as_deref()
-                {
-                    out.write_all(content.as_bytes())
-                        .map_err(|e| CliError::operation_failed("write stdout", e.to_string()))?;
-                    out.flush()
-                        .map_err(|e| CliError::operation_failed("flush stdout", e.to_string()))?;
-                }
-            }
-            Err(e) => {
-                return Err(CliError::operation_failed("chat stream", e.to_string()));
-            }
-        }
-    }
-
-    writeln!(out).map_err(|e| CliError::operation_failed("write stdout", e.to_string()))?;
-
-    Ok(())
 }

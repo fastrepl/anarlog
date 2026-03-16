@@ -9,10 +9,12 @@ use hypr_local_model::{LocalModel, LocalModelKind};
 use hypr_local_stt_core::SUPPORTED_MODELS as SUPPORTED_STT_MODELS;
 use hypr_model_downloader::ModelDownloadManager;
 
-pub use crate::cli::{CactusCommands, ModelCommands, ModelKind};
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub use crate::cli::CactusCommands;
+pub use crate::cli::{ModelCommands, ModelKind};
+use crate::config::cactus;
+use crate::config::desktop as settings;
 use crate::error::{CliError, CliResult, did_you_mean};
-use crate::runtime::cactus;
-use crate::runtime::desktop as settings;
 use runtime::CliModelRuntime;
 
 pub async fn run(command: ModelCommands) -> CliResult<()> {
@@ -85,6 +87,7 @@ pub async fn run(command: ModelCommands) -> CliResult<()> {
             let rows = list::collect_model_rows(&models, &models_base, &current, &manager).await;
             list::write_model_output(&rows, &models_base, format).await
         }
+        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
         ModelCommands::Cactus { command } => {
             run_cactus(command, &paths.settings_path, &models_base).await
         }
@@ -103,6 +106,7 @@ pub async fn run(command: ModelCommands) -> CliResult<()> {
     }
 }
 
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 async fn run_cactus(
     command: CactusCommands,
     settings_path: &std::path::Path,
@@ -223,13 +227,17 @@ fn find_model(name: &str) -> Option<LocalModel> {
 fn all_models(kind: Option<ModelKind>) -> Vec<LocalModel> {
     LocalModel::all()
         .into_iter()
-        .filter(|model| matches_kind(model, kind))
+        .filter(|model| model_is_enabled(model) && matches_kind(model, kind))
         .collect()
 }
 
 fn supported_models(kind: Option<ModelKind>) -> CliResult<Vec<LocalModel>> {
     match kind {
-        Some(ModelKind::Stt) => Ok(SUPPORTED_STT_MODELS.iter().cloned().collect()),
+        Some(ModelKind::Stt) => Ok(SUPPORTED_STT_MODELS
+            .iter()
+            .filter(|model| model_is_enabled(model))
+            .cloned()
+            .collect()),
         Some(ModelKind::Llm) => Err(CliError::invalid_argument(
             "--supported",
             "true",
@@ -241,6 +249,10 @@ fn supported_models(kind: Option<ModelKind>) -> CliResult<Vec<LocalModel>> {
             "Pass `--kind stt` (supported list is STT-only right now).",
         )),
     }
+}
+
+fn model_is_enabled(model: &LocalModel) -> bool {
+    cactus::CACTUS_ENABLED || !cactus::is_cactus_local_model(model)
 }
 
 fn matches_kind(model: &LocalModel, kind: Option<ModelKind>) -> bool {

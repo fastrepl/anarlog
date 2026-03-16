@@ -12,6 +12,7 @@ name = "char"
 path = "src/main.rs"
 
 [dependencies]
+hypr-analytics = { workspace = true }
 hypr-api-env = { workspace = true }
 hypr-audio = { workspace = true }
 hypr-audio-actual = { workspace = true }
@@ -21,6 +22,7 @@ hypr-cli-tui = { workspace = true }
 hypr-db3 = { workspace = true }
 hypr-file = { workspace = true }
 hypr-fs-sync-core = { workspace = true }
+hypr-host = { workspace = true }
 hypr-language = { workspace = true }
 hypr-listener-core = { workspace = true }
 hypr-listener2-core = { workspace = true }
@@ -69,9 +71,7 @@ tokio-stream = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
-[build-dependencies]
-clap = { workspace = true, features = ["derive", "env"] }
-clap-verbosity-flag = { version = "3", features = ["tracing"] }
+[dev-dependencies]
 cli-docs = { path = "../../crates/cli-docs" }
 clap_complete = { workspace = true }
 clio = { version = "0.3", features = ["clap-parse"] }

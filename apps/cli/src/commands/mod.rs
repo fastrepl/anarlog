@@ -23,7 +23,11 @@ pub struct SttGlobalArgs {
 
 impl Provider {
     pub fn is_local(&self) -> bool {
-        matches!(self, Provider::Cactus)
+        match self {
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+            Provider::Cactus => true,
+            _ => false,
+        }
     }
 
     pub fn cloud_provider(&self) -> Option<owhisper_client::Provider> {
@@ -36,6 +40,7 @@ impl Provider {
             Provider::Gladia => Some(owhisper_client::Provider::Gladia),
             Provider::Elevenlabs => Some(owhisper_client::Provider::ElevenLabs),
             Provider::Mistral => Some(owhisper_client::Provider::Mistral),
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
             Provider::Cactus => None,
         }
     }
@@ -52,6 +57,7 @@ impl From<Provider> for BatchProvider {
             Provider::Gladia => BatchProvider::Gladia,
             Provider::Elevenlabs => BatchProvider::ElevenLabs,
             Provider::Mistral => BatchProvider::Mistral,
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
             Provider::Cactus => BatchProvider::Cactus,
         }
     }

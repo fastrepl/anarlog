@@ -24,6 +24,7 @@ pub struct DesktopPaths {
 #[derive(Clone, Debug)]
 pub struct ProviderConfig {
     pub base_url: Option<String>,
+    pub api_key: Option<String>,
     pub has_api_key: bool,
 }
 
@@ -177,16 +178,19 @@ fn parse_provider_map(value: Option<&serde_json::Value>) -> HashMap<String, Prov
             .map(str::trim)
             .filter(|v| !v.is_empty())
             .map(ToString::to_string);
-        let has_api_key = config_obj
+        let api_key = config_obj
             .get("api_key")
             .and_then(serde_json::Value::as_str)
             .map(str::trim)
-            .is_some_and(|v| !v.is_empty());
+            .filter(|v| !v.is_empty())
+            .map(ToString::to_string);
+        let has_api_key = api_key.is_some();
 
         out.insert(
             provider_id.clone(),
             ProviderConfig {
                 base_url,
+                api_key,
                 has_api_key,
             },
         );

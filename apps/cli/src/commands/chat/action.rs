@@ -5,6 +5,6 @@ pub(crate) enum Action {
     Key(KeyEvent),
     Paste(String),
     StreamChunk(String),
-    StreamCompleted,
+    StreamCompleted(Option<String>),
     StreamFailed(String),
 }

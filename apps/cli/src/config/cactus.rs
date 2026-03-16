@@ -2,8 +2,21 @@ use std::path::PathBuf;
 
 use hypr_local_model::{CactusSttModel, LocalModel};
 
+use crate::config::desktop;
 use crate::error::{CliError, CliResult, did_you_mean};
-use crate::runtime::desktop;
+
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+pub const CACTUS_ENABLED: bool = true;
+#[cfg(not(any(target_arch = "arm", target_arch = "aarch64")))]
+pub const CACTUS_ENABLED: bool = false;
+
+pub fn is_cactus_local_model(model: &LocalModel) -> bool {
+    matches!(model, LocalModel::Cactus(_) | LocalModel::CactusLlm(_))
+}
+
+pub fn unsupported_cactus_error() -> CliError {
+    CliError::msg("cactus local models are only available on ARM devices")
+}
 
 pub fn canonical_cactus_name(name: &str) -> String {
     if name.starts_with("cactus-") {
@@ -14,6 +27,10 @@ pub fn canonical_cactus_name(name: &str) -> String {
 }
 
 pub fn all_cactus_models() -> Vec<LocalModel> {
+    if !CACTUS_ENABLED {
+        return Vec::new();
+    }
+
     LocalModel::all()
         .into_iter()
         .filter(|model| model.cli_name().starts_with("cactus-"))
@@ -36,6 +53,10 @@ pub fn default_cactus_model() -> CactusSttModel {
 }
 
 pub fn not_found_cactus_model(name: &str, include_downloaded_hint: bool) -> CliError {
+    if !CACTUS_ENABLED {
+        return unsupported_cactus_error();
+    }
+
     let names: Vec<&str> = LocalModel::all()
         .iter()
         .filter_map(|model| {
@@ -61,6 +82,10 @@ pub fn not_found_cactus_model(name: &str, include_downloaded_hint: bool) -> CliE
 }
 
 pub fn suggest_cactus_models() -> String {
+    if !CACTUS_ENABLED {
+        return "Cactus local models are only available on ARM devices.".to_string();
+    }
+
     let models_base = desktop::resolve_paths().models_base;
     let mut downloaded = Vec::new();
     let mut available = Vec::new();
@@ -102,6 +127,10 @@ pub fn suggest_cactus_models() -> String {
 }
 
 pub fn resolve_cactus_model(name: Option<&str>) -> CliResult<(CactusSttModel, PathBuf)> {
+    if !CACTUS_ENABLED {
+        return Err(unsupported_cactus_error());
+    }
+
     let models_base = desktop::resolve_paths().models_base;
 
     let model = match name {

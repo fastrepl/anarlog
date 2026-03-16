@@ -3,7 +3,6 @@ pub mod client;
 pub mod display;
 pub mod server;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use owhisper_client::RealtimeSttAdapter;
@@ -13,18 +12,27 @@ use self::client::*;
 use self::server::spawn_router;
 pub use crate::cli::{DebugProvider, TranscribeArgs};
 use crate::commands::Provider as SharedProvider;
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+use crate::config::stt::resolve_local_model_path;
+use crate::config::stt::{ResolvedSttConfig, resolve_config};
 use crate::error::{CliError, CliResult};
-use crate::runtime::stt::{ResolvedSttConfig, resolve_config, resolve_local_model_path};
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+use std::path::PathBuf;
 
 impl DebugProvider {
     fn is_local(&self) -> bool {
-        matches!(self, DebugProvider::Cactus)
+        match self {
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+            DebugProvider::Cactus => true,
+            _ => false,
+        }
     }
 
     fn shared_provider(&self) -> Option<SharedProvider> {
         match self {
             DebugProvider::Deepgram => Some(SharedProvider::Deepgram),
             DebugProvider::Soniox => Some(SharedProvider::Soniox),
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
             DebugProvider::Cactus => Some(SharedProvider::Cactus),
             DebugProvider::ProxyHyprnote
             | DebugProvider::ProxyDeepgram
@@ -61,6 +69,7 @@ pub async fn run(args: TranscribeArgs) -> CliResult<()> {
             run_resolved_provider::<owhisper_client::SonioxAdapter>(&resolved, args.audio.audio)
                 .await?;
         }
+        #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
         DebugProvider::Cactus => {
             if args.model_path.is_some() {
                 let model_path = resolve_local_model_path(args.model.as_deref(), args.model_path)?;
@@ -156,6 +165,7 @@ async fn run_resolved_provider<A: RealtimeSttAdapter>(
     run_for_source::<A>(audio, source, &resolved.base_url, api_key, params).await
 }
 
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 async fn run_cactus_from_path(model_path: PathBuf, source: AudioSource) -> CliResult<()> {
     let server = hypr_local_stt_server::LocalSttServer::start(model_path)
         .await

@@ -5,11 +5,12 @@ use hypr_local_model::LocalModel;
 use hypr_local_stt_server::LocalSttServer;
 
 use crate::commands::Provider;
-use crate::error::{CliError, CliResult};
-use crate::runtime::cactus::{
-    canonical_cactus_name, not_found_cactus_model, resolve_cactus_model, suggest_cactus_models,
+use crate::config::cactus::{
+    CACTUS_ENABLED, canonical_cactus_name, not_found_cactus_model, resolve_cactus_model,
+    suggest_cactus_models, unsupported_cactus_error,
 };
-use crate::runtime::desktop;
+use crate::config::desktop;
+use crate::error::{CliError, CliResult};
 
 pub struct CactusServerInfo {
     pub server: LocalSttServer,
@@ -156,6 +157,10 @@ pub fn resolve_local_model_path(
 }
 
 pub fn resolve_cactus_model_path(name: &str) -> CliResult<PathBuf> {
+    if !CACTUS_ENABLED {
+        return Err(unsupported_cactus_error());
+    }
+
     let paths = desktop::resolve_paths();
     let models_base = &paths.models_base;
     let canonical = canonical_cactus_name(name);

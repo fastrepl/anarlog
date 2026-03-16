@@ -1,6 +1,6 @@
 pub use crate::cli::{ConnectProvider, ConnectionType};
+use crate::config::desktop;
 use crate::error::{CliError, CliResult};
-use crate::runtime::desktop;
 
 impl std::fmt::Display for ConnectionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -26,6 +26,7 @@ const STT_PROVIDERS: &[ConnectProvider] = &[
     ConnectProvider::Elevenlabs,
     ConnectProvider::Mistral,
     ConnectProvider::Fireworks,
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     ConnectProvider::Cactus,
     ConnectProvider::Custom,
 ];
@@ -54,6 +55,7 @@ impl ConnectProvider {
             Self::Elevenlabs => "elevenlabs",
             Self::Mistral => "mistral",
             Self::Fireworks => "fireworks",
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
             Self::Cactus => "cactus",
             Self::Anthropic => "anthropic",
             Self::Openrouter => "openrouter",
@@ -67,7 +69,12 @@ impl ConnectProvider {
     }
 
     fn is_local(&self) -> bool {
-        matches!(self, Self::Cactus | Self::Ollama | Self::Lmstudio)
+        match self {
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+            Self::Cactus => true,
+            Self::Ollama | Self::Lmstudio => true,
+            _ => false,
+        }
     }
 
     fn default_base_url(&self) -> Option<&'static str> {
@@ -85,7 +92,9 @@ impl ConnectProvider {
             Self::GoogleGenerativeAi => Some("https://generativelanguage.googleapis.com/v1beta"),
             Self::Ollama => Some("http://127.0.0.1:11434/v1"),
             Self::Lmstudio => Some("http://127.0.0.1:1234/v1"),
-            Self::Cactus | Self::AzureOpenai | Self::AzureAi | Self::Custom => None,
+            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
+            Self::Cactus => None,
+            Self::AzureOpenai | Self::AzureAi | Self::Custom => None,
         }
     }
 

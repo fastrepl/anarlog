@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 
+use crate::llm::LlmProvider;
+
 /// Live transcription and audio tools
 #[derive(Parser)]
 #[command(
@@ -60,7 +62,8 @@ fn parse_base_url(value: &str) -> Result<String, String> {
     Ok(value.to_string())
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, strum::IntoStaticStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum Commands {
     /// Interactive chat with an LLM
     Chat {
@@ -69,6 +72,8 @@ pub enum Commands {
         /// Send a single prompt without entering the TUI (use `-` to read from stdin)
         #[arg(long)]
         prompt: Option<String>,
+        #[arg(long, value_enum)]
+        provider: Option<LlmProvider>,
     },
     /// Start live transcription (TUI)
     Listen {
@@ -125,6 +130,7 @@ pub enum Provider {
     Gladia,
     Elevenlabs,
     Mistral,
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     Cactus,
 }
 
@@ -151,6 +157,7 @@ pub enum ConnectProvider {
     Elevenlabs,
     Mistral,
     Fireworks,
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     Cactus,
     Anthropic,
     Openrouter,
@@ -199,6 +206,7 @@ pub enum ModelCommands {
         format: OutputFormat,
     },
     /// Manage downloadable Cactus models
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     Cactus {
         #[command(subcommand)]
         command: CactusCommands,
@@ -209,6 +217,7 @@ pub enum ModelCommands {
     Delete { name: String },
 }
 
+#[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
 #[derive(Subcommand, Debug)]
 pub enum CactusCommands {
     /// List available Cactus models
@@ -262,6 +271,7 @@ pub struct TranscribeArgs {
 pub enum DebugProvider {
     Deepgram,
     Soniox,
+    #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
     Cactus,
     ProxyHyprnote,
     ProxyDeepgram,
@@ -298,5 +308,23 @@ mod tests {
     #[test]
     fn verify_cli() {
         Cli::command().debug_assert();
+    }
+
+    #[test]
+    fn generate_docs() {
+        let cmd = Cli::command();
+        let md = cli_docs::generate(&cmd);
+
+        let frontmatter = "\
+---
+title: \"CLI Reference\"
+section: \"CLI\"
+description: \"Command-line reference for the char CLI\"
+---\n\n";
+
+        let mdx_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../web/content/docs/cli/index.mdx");
+        std::fs::create_dir_all(mdx_path.parent().unwrap()).unwrap();
+        std::fs::write(&mdx_path, format!("{frontmatter}{md}")).unwrap();
     }
 }

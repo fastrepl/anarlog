@@ -1,5 +1,6 @@
 mod output;
 mod response;
+pub(crate) mod runtime;
 
 use std::io::IsTerminal;
 use std::sync::Arc;
@@ -9,9 +10,10 @@ use tokio::sync::mpsc;
 
 pub use crate::cli::BatchArgs;
 use crate::commands::{OutputFormat, SttGlobalArgs};
+use crate::config::stt::resolve_config;
 use crate::error::{CliError, CliResult};
-use crate::runtime::batch::ChannelBatchRuntime;
-use crate::runtime::stt::resolve_config;
+
+use self::runtime::ChannelBatchRuntime;
 
 pub async fn run(args: BatchArgs, stt: SttGlobalArgs, quiet: bool) -> CliResult<()> {
     let resolved = resolve_config(

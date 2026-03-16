@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use hypr_cli_tui::textarea_input_from_key_event;
-use hypr_openrouter::{ChatMessage, Role};
+use rig::message::Message;
 use tui_textarea::TextArea;
 
 use crate::output::format_hhmmss;
@@ -27,8 +27,7 @@ pub(crate) struct VisibleMessage {
 pub(crate) struct App {
     model: String,
     session: Option<String>,
-    system_message: Option<String>,
-    api_history: Vec<ChatMessage>,
+    api_history: Vec<Message>,
     transcript: Vec<VisibleMessage>,
     input: TextArea<'static>,
     pending_assistant: String,
@@ -41,11 +40,7 @@ pub(crate) struct App {
 }
 
 impl App {
-    pub(crate) fn new(
-        model: String,
-        session: Option<String>,
-        system_message: Option<String>,
-    ) -> Self {
+    pub(crate) fn new(model: String, session: Option<String>) -> Self {
         let mut input = TextArea::default();
         input.set_placeholder_text("Type a message and press Enter...");
         input.set_placeholder_style(Theme::default().placeholder);
@@ -59,7 +54,6 @@ impl App {
         Self {
             model,
             session,
-            system_message,
             api_history: Vec::new(),
             transcript: Vec::new(),
             input,
@@ -85,8 +79,8 @@ impl App {
                 }
                 Vec::new()
             }
-            Action::StreamCompleted => {
-                self.finish_stream();
+            Action::StreamCompleted(final_text) => {
+                self.finish_stream(final_text);
                 Vec::new()
             }
             Action::StreamFailed(error) => {
@@ -223,23 +217,39 @@ impl App {
             speaker: Speaker::User,
             content: content.clone(),
         });
-        self.api_history
-            .push(ChatMessage::new(Role::User, content.clone()));
+        let history = self.api_history.clone();
+        self.api_history.push(Message::user(content.clone()));
 
-        let mut messages = Vec::new();
-        if let Some(system_message) = self.system_message.as_deref() {
-            messages.push(ChatMessage::new(Role::System, system_message));
-        }
-        messages.extend(self.api_history.iter().cloned());
-
-        vec![Effect::Submit { messages }]
+        vec![Effect::Submit {
+            prompt: content,
+            history,
+        }]
     }
 
-    fn finish_stream(&mut self) {
+    fn finish_stream(&mut self, final_text: Option<String>) {
         self.streaming = false;
         self.status = "Ready".to_string();
 
+        if self.pending_assistant.is_empty()
+            && let Some(final_text) = final_text.as_deref()
+            && !final_text.is_empty()
+        {
+            self.pending_assistant = final_text.to_string();
+        } else if let Some(final_text) = final_text.as_deref()
+            && final_text.starts_with(&self.pending_assistant)
+            && final_text.len() > self.pending_assistant.len()
+        {
+            self.pending_assistant
+                .push_str(&final_text[self.pending_assistant.len()..]);
+        }
+
         if self.pending_assistant.is_empty() {
+            self.last_error = Some("Empty response from model".to_string());
+            self.status = "Error: empty response".to_string();
+            self.transcript.push(VisibleMessage {
+                speaker: Speaker::Error,
+                content: "No response content received from the model.".to_string(),
+            });
             return;
         }
 
@@ -248,8 +258,7 @@ impl App {
             speaker: Speaker::Assistant,
             content: content.clone(),
         });
-        self.api_history
-            .push(ChatMessage::new(Role::Assistant, content));
+        self.api_history.push(Message::assistant(content));
     }
 
     fn fail_stream(&mut self, error: String) {
@@ -260,8 +269,7 @@ impl App {
                 speaker: Speaker::Assistant,
                 content: content.clone(),
             });
-            self.api_history
-                .push(ChatMessage::new(Role::Assistant, content));
+            self.api_history.push(Message::assistant(content));
         }
         self.last_error = Some(error.clone());
         self.status = format!("Error: {error}");
@@ -306,7 +314,7 @@ mod tests {
 
     #[test]
     fn submit_creates_request_effect() {
-        let mut app = App::new("model".to_string(), None, None);
+        let mut app = App::new("model".to_string(), None);
         app.input_mut().insert_str("hello");
 
         let effects = app.dispatch(Action::Key(KeyEvent::from(KeyCode::Enter)));
@@ -318,7 +326,7 @@ mod tests {
 
     #[test]
     fn empty_submit_is_ignored() {
-        let mut app = App::new("model".to_string(), None, None);
+        let mut app = App::new("model".to_string(), None);
 
         let effects = app.dispatch(Action::Key(KeyEvent::from(KeyCode::Enter)));
 
@@ -328,7 +336,7 @@ mod tests {
 
     #[test]
     fn stream_failure_preserves_partial_response() {
-        let mut app = App::new("model".to_string(), None, None);
+        let mut app = App::new("model".to_string(), None);
         app.input_mut().insert_str("hello");
         let _ = app.dispatch(Action::Key(KeyEvent::from(KeyCode::Enter)));
         let _ = app.dispatch(Action::StreamChunk("partial".to_string()));
@@ -337,5 +345,19 @@ mod tests {
         assert_eq!(app.transcript.len(), 3);
         assert_eq!(app.transcript[1].content, "partial");
         assert_eq!(app.transcript[2].speaker, Speaker::Error);
+    }
+
+    #[test]
+    fn empty_stream_completion_shows_error() {
+        let mut app = App::new("model".to_string(), None);
+        app.input_mut().insert_str("hello");
+        let _ = app.dispatch(Action::Key(KeyEvent::from(KeyCode::Enter)));
+        let _ = app.dispatch(Action::StreamCompleted(None));
+
+        assert!(!app.streaming);
+        assert_eq!(app.transcript.len(), 2);
+        assert_eq!(app.transcript[0].speaker, Speaker::User);
+        assert_eq!(app.transcript[1].speaker, Speaker::Error);
+        assert!(app.last_error.is_some());
     }
 }

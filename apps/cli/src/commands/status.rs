@@ -2,8 +2,8 @@ use std::io::IsTerminal;
 
 use comfy_table::{Cell, Color, ContentArrangement, Table, presets::UTF8_FULL_CONDENSED};
 
+use crate::config::desktop;
 use crate::error::CliResult;
-use crate::runtime::desktop;
 
 pub fn run() -> CliResult<()> {
     let paths = desktop::resolve_paths();

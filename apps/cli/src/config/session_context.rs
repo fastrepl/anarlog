@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use hypr_fs_sync_core::session_content::load_session_content;
 use hypr_fs_sync_core::types::SessionContentData;
 
+use crate::config::desktop;
 use crate::error::{CliError, CliResult};
-use crate::runtime::desktop;
 
 pub fn load_chat_system_message(session_id: &str) -> CliResult<String> {
     let paths = desktop::resolve_paths();

@@ -1,6 +1,9 @@
-use hypr_openrouter::ChatMessage;
+use rig::message::Message;
 
 pub(crate) enum Effect {
-    Submit { messages: Vec<ChatMessage> },
+    Submit {
+        prompt: String,
+        history: Vec<Message>,
+    },
     Exit,
 }
