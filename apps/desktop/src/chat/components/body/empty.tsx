@@ -58,7 +58,11 @@ export function ChatBodyEmpty({
       <div className="flex justify-start px-3 py-2 pb-4">
         <div className="flex max-w-[80%] min-w-[240px] flex-col">
           <div className="mb-2 flex items-center gap-2">
-            <img src="/assets/dynamic.gif" alt="Char" className="h-5 w-5" />
+            <img
+              src="/assets/char-logo-icon-black.svg"
+              alt="Char"
+              className="size-4 object-contain"
+            />
             <span className="text-sm font-medium text-neutral-800">
               Char AI
             </span>
@@ -84,7 +88,11 @@ export function ChatBodyEmpty({
     <div className="flex justify-start px-3 pb-4">
       <div className="flex max-w-[80%] min-w-[240px] flex-col">
         <div className="mb-2 flex items-center gap-1">
-          <img src="/assets/dynamic.gif" alt="Char" className="h-5 w-5" />
+          <img
+            src="/assets/char-logo-icon-black.svg"
+            alt="Char"
+            className="size-4 object-contain"
+          />
           <span className="text-sm font-medium text-neutral-800">Char AI</span>
           <BetaChip />
         </div>

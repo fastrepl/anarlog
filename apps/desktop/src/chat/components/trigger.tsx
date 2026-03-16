@@ -59,9 +59,9 @@ export function ChatTrigger({
       ])}
     >
       <img
-        src="/assets/dynamic.gif"
-        alt="Chat Assistant"
-        className="size-8 object-contain"
+        src="/assets/char-logo-icon-black.svg"
+        alt="Char"
+        className="size-[18px] shrink-0 object-contain"
       />
       <span className="text-md font-medium">Chat with notes</span>
     </button>,
