@@ -2,6 +2,8 @@
 pub enum Error {
     #[error(transparent)]
     Calendar(#[from] hypr_calendar::Error),
+    #[error("auth error: {0}")]
+    Auth(String),
 }
 
 impl serde::Serialize for Error {

@@ -21,7 +21,7 @@ pub async fn is_provider_enabled<R: tauri::Runtime>(
 ) -> Result<bool, Error> {
     let config = app.state::<crate::PluginConfig>();
     let token = access_token(&app);
-    let apple = is_apple_authorized(&app).await;
+    let apple = is_apple_authorized(&app).await?;
     hypr_calendar::is_provider_enabled(&config.api_base_url, token.as_deref(), apple, provider)
         .await
         .map_err(Into::into)
@@ -34,7 +34,7 @@ pub async fn list_connection_ids<R: tauri::Runtime>(
 ) -> Result<Vec<hypr_calendar::ProviderConnectionIds>, Error> {
     let config = app.state::<crate::PluginConfig>();
     let token = access_token(&app);
-    let apple = is_apple_authorized(&app).await;
+    let apple = is_apple_authorized(&app).await?;
     hypr_calendar::list_connection_ids(&config.api_base_url, token.as_deref(), apple)
         .await
         .map_err(Into::into)
@@ -48,7 +48,10 @@ pub async fn list_calendars<R: tauri::Runtime>(
     connection_id: String,
 ) -> Result<Vec<CalendarListItem>, Error> {
     let config = app.state::<crate::PluginConfig>();
-    let token = access_token(&app).unwrap_or_default();
+    let token = match provider {
+        CalendarProviderType::Apple => access_token(&app).unwrap_or_default(),
+        _ => require_access_token(&app)?,
+    };
     hypr_calendar::list_calendars(&config.api_base_url, &token, provider, &connection_id)
         .await
         .map_err(Into::into)
@@ -63,7 +66,10 @@ pub async fn list_events<R: tauri::Runtime>(
     filter: EventFilter,
 ) -> Result<Vec<CalendarEvent>, Error> {
     let config = app.state::<crate::PluginConfig>();
-    let token = access_token(&app).unwrap_or_default();
+    let token = match provider {
+        CalendarProviderType::Apple => access_token(&app).unwrap_or_default(),
+        _ => require_access_token(&app)?,
+    };
     hypr_calendar::list_events(
         &config.api_base_url,
         &token,
@@ -98,19 +104,31 @@ fn access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<String> 
     app.access_token().ok().flatten().filter(|t| !t.is_empty())
 }
 
-async fn is_apple_authorized<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> bool {
+fn require_access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<String, Error> {
+    let token = app.access_token().map_err(|e| Error::Auth(e.to_string()))?;
+    match token {
+        Some(t) if !t.is_empty() => Ok(t),
+        _ => Err(hypr_calendar::Error::NotAuthenticated.into()),
+    }
+}
+
+async fn is_apple_authorized<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<bool, Error> {
     #[cfg(target_os = "macos")]
     {
-        app.permissions()
+        let status = app
+            .permissions()
             .check(tauri_plugin_permissions::Permission::Calendar)
             .await
-            .map(|s| matches!(s, tauri_plugin_permissions::PermissionStatus::Authorized))
-            .unwrap_or(false)
+            .map_err(|e| hypr_calendar::Error::Api(e.to_string()))?;
+        Ok(matches!(
+            status,
+            tauri_plugin_permissions::PermissionStatus::Authorized
+        ))
     }
 
     #[cfg(not(target_os = "macos"))]
     {
         let _ = app;
-        false
+        Ok(false)
     }
 }
