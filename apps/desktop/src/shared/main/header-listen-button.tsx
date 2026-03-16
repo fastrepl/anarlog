@@ -34,6 +34,8 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
+const LISTEN_BUTTON_WIDTH = "w-44";
+
 export function HeaderListenButton() {
   const visible = useHeaderListenVisible();
 
@@ -170,38 +172,54 @@ function HeaderListenButtonInner() {
       onContextMenu={isRecording ? undefined : handleOpenMenu}
       disabled={isFinalizing || (!isRecording && isDisabled)}
       className={cn([
-        "inline-flex items-center justify-center rounded-full text-sm font-medium text-white select-none",
-        "gap-2",
-        isRecording ? "h-8 px-4" : "h-8 pr-8 pl-4",
+        "group relative inline-flex h-8 items-center justify-center rounded-full text-sm font-medium text-white select-none",
+        LISTEN_BUTTON_WIDTH,
+        isRecording ? "px-4" : "pr-8 pl-4",
         "border-2 border-stone-600 bg-stone-800",
         "transition-all duration-200 ease-out",
         "hover:bg-stone-700",
         isFinalizing && "cursor-wait",
         "disabled:opacity-50",
       ])}
+      aria-label={
+        isFinalizing
+          ? "Finalizing"
+          : isActive
+            ? "Stop listening"
+            : "New meeting"
+      }
     >
       {isRecording ? (
-        <>
+        <div className="relative flex w-full items-center justify-center">
           {isFinalizing ? (
-            <span className="size-2 animate-pulse rounded-full bg-yellow-400" />
+            <div className="flex items-center gap-2">
+              <span className="size-2 animate-pulse rounded-full bg-yellow-400" />
+              <span className="whitespace-nowrap">Finalizing</span>
+            </div>
           ) : (
             <>
-              {muted && <MicOff className="size-3.5 text-white/70" />}
-              <DancingSticks
-                amplitude={Math.min(
-                  Math.hypot(amplitude.mic, amplitude.speaker),
-                  1,
-                )}
-                color="#ffffff"
-                height={16}
-                width={44}
-              />
+              <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover:opacity-0">
+                <span className="flex items-center gap-2">
+                  {muted && <MicOff className="size-3.5 text-white/70" />}
+                  <DancingSticks
+                    amplitude={Math.min(
+                      Math.hypot(amplitude.mic, amplitude.speaker),
+                      1,
+                    )}
+                    color="#ffffff"
+                    height={20}
+                    width={56}
+                    stickWidth={3}
+                    gap={2}
+                  />
+                </span>
+              </span>
+              <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <span className="whitespace-nowrap">Stop listening</span>
+              </span>
             </>
           )}
-          <span className="whitespace-nowrap">
-            {isFinalizing ? "Finalizing" : "Stop listening"}
-          </span>
-        </>
+        </div>
       ) : (
         <>
           <RecordingIcon />
