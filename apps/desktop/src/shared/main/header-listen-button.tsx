@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, MicOff } from "lucide-react";
 import {
   type MouseEvent,
   useCallback,
@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
+import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import {
   Popover,
   PopoverAnchor,
@@ -53,7 +54,8 @@ function useHeaderListenVisible() {
 
   const isRecording = liveStatus === "active" || liveStatus === "finalizing";
 
-  if (isRecording || loading) return false;
+  if (isRecording) return true;
+  if (loading) return false;
   if (currentTab?.type === "empty") return true;
   if (currentTab?.type === "sessions" && hasTranscript) return true;
 
@@ -96,7 +98,16 @@ function HeaderListenButtonInner() {
   const handleClick = useNewNoteAndListen();
   const handleUpload = useNewNoteAndUpload();
   const openNew = useTabs((state) => state.openNew);
+  const { status, stop, amplitude, muted } = useListener((state) => ({
+    status: state.live.status,
+    stop: state.stop,
+    amplitude: state.live.amplitude,
+    muted: state.live.muted,
+  }));
   const [open, setOpen] = useState(false);
+  const isActive = status === "active";
+  const isFinalizing = status === "finalizing";
+  const isRecording = isActive || isFinalizing;
 
   useEffect(() => {
     const node = containerRef.current;
@@ -149,25 +160,54 @@ function HeaderListenButtonInner() {
     });
   }, [handleUpload]);
 
+  const handleButtonClick = isActive ? stop : handleClick;
+
   const button = (
     <button
       type="button"
-      onClick={handleClick}
-      onMouseDown={handleMenuMouseDown}
-      onContextMenu={handleOpenMenu}
-      disabled={isDisabled}
+      onClick={handleButtonClick}
+      onMouseDown={isRecording ? undefined : handleMenuMouseDown}
+      onContextMenu={isRecording ? undefined : handleOpenMenu}
+      disabled={isFinalizing || (!isRecording && isDisabled)}
       className={cn([
         "inline-flex items-center justify-center rounded-full text-sm font-medium text-white select-none",
         "gap-2",
-        "h-8 pr-8 pl-4",
+        isRecording ? "h-8 px-4" : "h-8 pr-8 pl-4",
         "border-2 border-stone-600 bg-stone-800",
         "transition-all duration-200 ease-out",
         "hover:bg-stone-700",
+        isFinalizing && "cursor-wait",
         "disabled:opacity-50",
       ])}
     >
-      <RecordingIcon />
-      <span className="whitespace-nowrap">New meeting</span>
+      {isRecording ? (
+        <>
+          {isFinalizing ? (
+            <span className="size-2 animate-pulse rounded-full bg-yellow-400" />
+          ) : (
+            <>
+              {muted && <MicOff className="size-3.5 text-white/70" />}
+              <DancingSticks
+                amplitude={Math.min(
+                  Math.hypot(amplitude.mic, amplitude.speaker),
+                  1,
+                )}
+                color="#ffffff"
+                height={16}
+                width={44}
+              />
+            </>
+          )}
+          <span className="whitespace-nowrap">
+            {isFinalizing ? "Finalizing" : "Stop listening"}
+          </span>
+        </>
+      ) : (
+        <>
+          <RecordingIcon />
+          <span className="whitespace-nowrap">New meeting</span>
+        </>
+      )}
     </button>
   );
 
@@ -212,36 +252,38 @@ function HeaderListenButtonInner() {
           ) : (
             button
           )}
-          <PopoverTrigger asChild>{chevron}</PopoverTrigger>
+          {!isRecording && <PopoverTrigger asChild>{chevron}</PopoverTrigger>}
         </div>
       </PopoverAnchor>
-      <PopoverContent
-        side="bottom"
-        align="end"
-        sideOffset={4}
-        style={menuWidth ? { width: menuWidth } : undefined}
-        className={cn([
-          "overflow-hidden rounded-[1.25rem] border border-white/70 p-1.5 ring-1 ring-black/6 outline-none",
-          "bg-white/68 text-stone-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_24px_48px_-24px_rgba(48,44,40,0.52),0_8px_18px_rgba(255,255,255,0.28)] backdrop-blur-md backdrop-saturate-150",
-        ])}
-      >
-        <div className="flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
-            onClick={handleUploadAudio}
-          >
-            <span className="text-sm">Upload audio</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
-            onClick={handleUploadTranscript}
-          >
-            <span className="text-sm">Upload transcript</span>
-          </Button>
-        </div>
-      </PopoverContent>
+      {!isRecording && (
+        <PopoverContent
+          side="bottom"
+          align="end"
+          sideOffset={4}
+          style={menuWidth ? { width: menuWidth } : undefined}
+          className={cn([
+            "overflow-hidden rounded-[1.25rem] border border-white/70 p-1.5 ring-1 ring-black/6 outline-none",
+            "bg-white/68 text-stone-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_24px_48px_-24px_rgba(48,44,40,0.52),0_8px_18px_rgba(255,255,255,0.28)] backdrop-blur-md backdrop-saturate-150",
+          ])}
+        >
+          <div className="flex flex-col gap-1">
+            <Button
+              variant="ghost"
+              className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
+              onClick={handleUploadAudio}
+            >
+              <span className="text-sm">Upload audio</span>
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-9 w-full justify-center rounded-[0.95rem] px-3 text-sm text-stone-900 shadow-none hover:bg-black/6 hover:text-stone-950 focus-visible:ring-0 focus-visible:outline-none"
+              onClick={handleUploadTranscript}
+            >
+              <span className="text-sm">Upload transcript</span>
+            </Button>
+          </div>
+        </PopoverContent>
+      )}
     </Popover>
   );
 }
