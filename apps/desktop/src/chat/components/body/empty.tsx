@@ -87,7 +87,7 @@ export function ChatBodyEmpty({
   return (
     <div className="flex justify-start px-3 pb-4">
       <div className="flex max-w-[80%] min-w-[240px] flex-col">
-        <div className="mb-2 flex items-center gap-1">
+        <div className="mb-2 flex items-center gap-2">
           <img
             src="/assets/char-logo-icon-black.svg"
             alt="Char"

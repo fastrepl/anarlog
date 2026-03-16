@@ -46,7 +46,7 @@ export function ChatTrigger({
       onClick={onClick}
       className={cn([
         "fixed right-4 z-40",
-        "flex h-14 flex-row items-center justify-center gap-1 rounded-full px-4",
+        "flex h-14 flex-row items-center justify-center gap-2 rounded-full px-4",
         "bg-white shadow-lg hover:shadow-xl",
         "border border-neutral-200",
         "transition-all duration-200 ease-out",

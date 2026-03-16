@@ -120,7 +120,11 @@ function ChatGroups({
           variant="ghost"
           className="group flex h-auto max-w-full min-w-0 justify-start gap-2 px-2 py-1.5"
         >
-          <MessageCircle className="h-3.5 w-3.5 shrink-0 text-neutral-400 transition-colors group-hover:text-neutral-600" />
+          <img
+            src="/assets/char-logo-icon-black.svg"
+            alt="Char"
+            className="size-[13px] shrink-0 object-contain opacity-55 transition-opacity group-hover:opacity-75"
+          />
           <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
             {currentChatTitle || "Ask Char anything"}
           </h3>
