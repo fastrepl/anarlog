@@ -541,24 +541,21 @@ fn wait_for_context_ready(mainloop: &mut Mainloop, context: &PaContext) -> Resul
     let timeout = Duration::from_secs(5);
     let start = std::time::Instant::now();
 
-    mainloop.lock();
     loop {
         if start.elapsed() > timeout {
-            mainloop.unlock();
             anyhow::bail!("Timeout waiting for PulseAudio context");
         }
 
+        mainloop.lock();
         let state = context.get_state();
+        mainloop.unlock();
+
         match state {
-            pulse::context::State::Ready => {
-                mainloop.unlock();
-                return Ok(());
-            }
+            pulse::context::State::Ready => return Ok(()),
             pulse::context::State::Failed | pulse::context::State::Terminated => {
-                mainloop.unlock();
                 anyhow::bail!("PulseAudio context entered {:?} state", state);
             }
-            _ => mainloop.wait(),
+            _ => thread::sleep(Duration::from_millis(10)),
         }
     }
 }
@@ -567,24 +564,21 @@ fn wait_for_stream_ready(mainloop: &mut Mainloop, stream: &PaStream) -> Result<(
     let timeout = Duration::from_secs(5);
     let start = std::time::Instant::now();
 
-    mainloop.lock();
     loop {
         if start.elapsed() > timeout {
-            mainloop.unlock();
             anyhow::bail!("Timeout waiting for PulseAudio stream");
         }
 
+        mainloop.lock();
         let state = stream.get_state();
+        mainloop.unlock();
+
         match state {
-            pulse::stream::State::Ready => {
-                mainloop.unlock();
-                return Ok(());
-            }
+            pulse::stream::State::Ready => return Ok(()),
             pulse::stream::State::Failed | pulse::stream::State::Terminated => {
-                mainloop.unlock();
                 anyhow::bail!("PulseAudio stream entered {:?} state", state);
             }
-            _ => mainloop.wait(),
+            _ => thread::sleep(Duration::from_millis(10)),
         }
     }
 }
