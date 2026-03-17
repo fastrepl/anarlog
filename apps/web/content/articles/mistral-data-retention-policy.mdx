@@ -14,35 +14,35 @@ For teams evaluating AI providers on data governance grounds, that starting poin
 
 Here is how the policy works in practice.
 
-**What Mistral Stores by Default**
+## What Mistral Stores by Default
 
-**For API users, Mistral retains your inputs and outputs for 30 rolling days after the request is processed. This window exists for abuse monitoring. After 30 days, the data is deleted. It is not used to train Mistral's models unless you explicitly opt in.**
+For API users, Mistral retains your inputs and outputs for 30 rolling days after the request is processed. This window exists for abuse monitoring. After 30 days, the data is deleted. It is not used to train Mistral's models unless you explicitly opt in.
 
-**For free users of Le Chat, Mistral's consumer product, your conversations may be used for model improvement unless you opt out. You can do this by opening the Privacy menu in the Admin Console and disabling the toggle under Anonymous improvement data.**
+For free users of Le Chat, Mistral's consumer product, your conversations may be used for model improvement unless you opt out. You can do this by opening the Privacy menu in the Admin Console and disabling the toggle under Anonymous improvement data.
 
-**Paid plans are handled differently. Users on Le Chat Team, Le Chat Enterprise, or any paid API plan have their data excluded from training by default. No opt-out required.**
+Paid plans are handled differently. Users on Le Chat Team, Le Chat Enterprise, or any paid API plan have their data excluded from training by default. No opt-out required.
 
-**Account metadata follows a separate schedule. Name and identity data is kept for 5 years after account termination. Email and phone number are retained for 1 year after account deletion. Technical data such as connection logs is kept for 1 rolling year.**
+Account metadata follows a separate schedule. Name and identity data is kept for 5 years after account termination. Email and phone number are retained for 1 year after account deletion. Technical data such as connection logs is kept for 1 rolling year.
 
-**Where Your Data Is Stored**
+## Where Your Data Is Stored
 
-**By default, all data is hosted within the European Union. Mistral [explicitly states](https://legal.mistral.ai/terms/privacy-policy) that it prioritizes EU-based infrastructure providers and applies GDPR-standard safeguards when any non-EU provider is involved.**
+By default, all data is hosted within the European Union. Mistral [explicitly states](https://legal.mistral.ai/terms/privacy-policy) that it prioritizes EU-based infrastructure providers and applies GDPR-standard safeguards when any non-EU provider is involved.
 
-**There is a US API endpoint available if you need it. Using it will route your data to US infrastructure. If EU residency matters for your use case, stick with the default endpoint and confirm with your Mistral account contact that your deployment is EU-only.**
+There is a US API endpoint available if you need it. Using it will route your data to US infrastructure. If EU residency matters for your use case, stick with the default endpoint and confirm with your Mistral account contact that your deployment is EU-only.
 
-**Zero Data Retention**
+## Is Zero Data Retention Applicable?
 
-**ZDR is available on the API. When activated, Mistral does not retain your inputs or outputs beyond what is needed to return the result. The 30-day abuse monitoring window does not apply.**
+ZDR is available on the API. When activated, Mistral does not retain your inputs or outputs beyond what is needed to return the result. The 30-day abuse monitoring window does not apply.
 
-**One important limitation: Zero Data Retention is not available on Le Chat. Because the consumer product relies on stored conversation history to function, ZDR cannot be applied there. If ZDR is a requirement, you need to use the API directly.**
+One important limitation: Zero Data Retention is not available on Le Chat. Because the consumer product relies on stored conversation history to function, ZDR cannot be applied there. If ZDR is a requirement, you need to use the API directly.
 
-**Training Opt-Out in Plain Terms**
+## Training Opt-Out in Plain Terms
 
-**Free Le Chat users are opted in to training by default and can opt out via Privacy settings. Paid Le Chat and paid API users are opted out by default. ZDR API customers have no training risk because their data is never retained to begin with.**
+Free Le Chat users are opted in to training by default and can opt out via Privacy settings. Paid Le Chat and paid API users are opted out by default. ZDR API customers have no training risk because their data is never retained to begin with.
 
-**If you are a paid API customer, you do not need to take any action to keep your data out of training pipelines. It is already excluded.**
+If you are a paid API customer, you do not need to take any action to keep your data out of training pipelines. It is already excluded.
 
-**GDPR and Compliance**
+## GDPR and Compliance
 
 **As an EU company, Mistral operates under GDPR natively rather than as a compliance overlay. A Data Processing Addendum is available for all business customers. GDPR rights including access, correction, deletion, and portability can be exercised by contacting Mistral's privacy team directly.**
 
