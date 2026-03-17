@@ -135,24 +135,6 @@ fn collect_session_ops(base_dir: &Path, data: &Collection) -> Result<Vec<FileOp>
         });
 
         // transcript.json (if exists)
-<<<<<<< HEAD
-        if let Some(transcripts) = transcripts.get(sid)
-            && let Some(t) = transcripts.first() {
-                ops.push(FileOp::Write {
-                    path: dir.join(files::TRANSCRIPT),
-                    content: build_transcript_json(t),
-                });
-            }
-||||||| 15704006b
-        if let Some(transcripts) = transcripts.get(sid) {
-            if let Some(t) = transcripts.first() {
-                ops.push(FileOp::Write {
-                    path: dir.join(files::TRANSCRIPT),
-                    content: build_transcript_json(t),
-                });
-            }
-        }
-=======
         if let Some(transcripts) = transcripts.get(sid)
             && !transcripts.is_empty()
         {
@@ -162,7 +144,6 @@ fn collect_session_ops(base_dir: &Path, data: &Collection) -> Result<Vec<FileOp>
                 force: false,
             });
         }
->>>>>>> origin/main
 
         // _memo.md (if user has notes)
         ops.extend(build_memo_op(&dir, session));
