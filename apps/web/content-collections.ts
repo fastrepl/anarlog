@@ -309,6 +309,7 @@ const legal = defineCollection({
     date: z.string(),
   }),
   transform: async (document, context) => {
+    const toc = extractToc(document.content);
     const mdx = await compileMDX(context, document, {
       remarkPlugins: [remarkGfm, mdxMermaid],
       rehypePlugins: [
@@ -331,6 +332,7 @@ const legal = defineCollection({
       ...document,
       mdx,
       slug,
+      toc,
     };
   },
 });
