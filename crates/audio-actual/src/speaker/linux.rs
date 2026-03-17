@@ -235,6 +235,7 @@ fn pipewire_capture_loop(
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
     pw::init();
+    let _deinit_guard = PipeWireDeinitGuard;
 
     let mainloop =
         pw::main_loop::MainLoopRc::new(None).context("Failed to create PipeWire main loop")?;
@@ -386,15 +387,15 @@ fn pipewire_capture_loop(
     mainloop.run();
 
     alive.store(false, Ordering::Release);
-
-    // Drop PipeWire objects before deinit.
-    drop(stream);
-    drop(core);
-    drop(context);
-    drop(mainloop);
-    unsafe { pw::deinit() };
-
     Ok(())
+}
+
+struct PipeWireDeinitGuard;
+
+impl Drop for PipeWireDeinitGuard {
+    fn drop(&mut self) {
+        unsafe { pw::deinit() };
+    }
 }
 
 fn pulseaudio_capture_loop(
