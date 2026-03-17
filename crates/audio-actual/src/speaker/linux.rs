@@ -14,6 +14,7 @@ use pulse::mainloop::threaded::Mainloop;
 use pulse::sample::{Format, Spec};
 use pulse::stream::{FlagSet as StreamFlagSet, Stream as PaStream};
 use pw::properties::properties;
+use pw::spa::utils::Direction;
 use ringbuf::{
     HeapCons, HeapProd, HeapRb,
     traits::{Producer, Split},
@@ -234,14 +235,14 @@ fn pipewire_capture_loop(
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
     let mainloop =
-        pw::main_loop::MainLoop::new(None).context("Failed to create PipeWire main loop")?;
-    let context =
-        pw::context::Context::new(&mainloop).context("Failed to create PipeWire context")?;
+        pw::main_loop::MainLoopRc::new(None).context("Failed to create PipeWire main loop")?;
+    let context = pw::context::ContextBox::new(&mainloop.loop_(), None)
+        .context("Failed to create PipeWire context")?;
     let core = context
         .connect(None)
         .context("Failed to connect to PipeWire core")?;
 
-    let stream = pw::stream::Stream::new(
+    let stream = pw::stream::StreamBox::new(
         &core,
         "hyprnote-speaker-capture",
         properties! {
@@ -318,11 +319,12 @@ fn pipewire_capture_loop(
             }
 
             let data = &mut datas[0];
+            let chunk_size = data.chunk().size() as usize;
             let Some(bytes) = data.data() else {
                 return;
             };
 
-            let chunk_len = (data.chunk().size() as usize).min(bytes.len());
+            let chunk_len = chunk_size.min(bytes.len());
             if chunk_len == 0 {
                 return;
             }
@@ -369,7 +371,7 @@ fn pipewire_capture_loop(
 
     stream
         .connect(
-            pw::spa::utils::Direction::Input,
+            Direction::Input,
             None,
             pw::stream::StreamFlags::AUTOCONNECT
                 | pw::stream::StreamFlags::MAP_BUFFERS

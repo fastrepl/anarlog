@@ -5,6 +5,8 @@
 set -euo pipefail
 
 sudo apt update
+sudo add-apt-repository -y ppa:pipewire-debian/pipewire-upstream
+sudo apt update
 sudo apt-get install -y \
   libgtk-3-dev \
   libgtk-4-dev \
