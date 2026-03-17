@@ -108,9 +108,9 @@ impl SpeakerStream {
             thread::spawn(move || {
                 let result = pipewire_capture_loop(
                     producer,
-                    waker.clone(),
+                    Arc::clone(&waker),
                     wake_pending,
-                    alive.clone(),
+                    Arc::clone(&alive),
                     current_sample_rate,
                     dropped_samples,
                     shutdown_rx,
@@ -175,9 +175,9 @@ impl SpeakerStream {
             thread::spawn(move || {
                 let result = pulseaudio_capture_loop(
                     producer,
-                    waker.clone(),
+                    Arc::clone(&waker),
                     wake_pending,
-                    alive.clone(),
+                    Arc::clone(&alive),
                     running,
                     current_sample_rate,
                     dropped_samples,
@@ -234,6 +234,8 @@ fn pipewire_capture_loop(
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
+    pw::init();
+
     let mainloop =
         pw::main_loop::MainLoopRc::new(None).context("Failed to create PipeWire main loop")?;
     let context = pw::context::ContextBox::new(&mainloop.loop_(), None)
@@ -384,6 +386,14 @@ fn pipewire_capture_loop(
     mainloop.run();
 
     alive.store(false, Ordering::Release);
+
+    // Drop PipeWire objects before deinit.
+    drop(stream);
+    drop(core);
+    drop(context);
+    drop(mainloop);
+    unsafe { pw::deinit() };
+
     Ok(())
 }
 
@@ -530,21 +540,24 @@ fn wait_for_context_ready(mainloop: &mut Mainloop, context: &PaContext) -> Resul
     let timeout = Duration::from_secs(5);
     let start = std::time::Instant::now();
 
+    mainloop.lock();
     loop {
         if start.elapsed() > timeout {
+            mainloop.unlock();
             anyhow::bail!("Timeout waiting for PulseAudio context");
         }
 
-        mainloop.lock();
         let state = context.get_state();
-        mainloop.unlock();
-
         match state {
-            pulse::context::State::Ready => return Ok(()),
-            pulse::context::State::Failed | pulse::context::State::Terminated => {
-                anyhow::bail!("PulseAudio context failed");
+            pulse::context::State::Ready => {
+                mainloop.unlock();
+                return Ok(());
             }
-            _ => thread::sleep(Duration::from_millis(10)),
+            pulse::context::State::Failed | pulse::context::State::Terminated => {
+                mainloop.unlock();
+                anyhow::bail!("PulseAudio context entered {:?} state", state);
+            }
+            _ => mainloop.wait(),
         }
     }
 }
@@ -553,21 +566,24 @@ fn wait_for_stream_ready(mainloop: &mut Mainloop, stream: &PaStream) -> Result<(
     let timeout = Duration::from_secs(5);
     let start = std::time::Instant::now();
 
+    mainloop.lock();
     loop {
         if start.elapsed() > timeout {
+            mainloop.unlock();
             anyhow::bail!("Timeout waiting for PulseAudio stream");
         }
 
-        mainloop.lock();
         let state = stream.get_state();
-        mainloop.unlock();
-
         match state {
-            pulse::stream::State::Ready => return Ok(()),
-            pulse::stream::State::Failed | pulse::stream::State::Terminated => {
-                anyhow::bail!("PulseAudio stream failed");
+            pulse::stream::State::Ready => {
+                mainloop.unlock();
+                return Ok(());
             }
-            _ => thread::sleep(Duration::from_millis(10)),
+            pulse::stream::State::Failed | pulse::stream::State::Terminated => {
+                mainloop.unlock();
+                anyhow::bail!("PulseAudio stream entered {:?} state", state);
+            }
+            _ => mainloop.wait(),
         }
     }
 }
@@ -576,8 +592,6 @@ fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> O
     use std::sync::mpsc;
 
     let (tx, rx) = mpsc::channel();
-    let done = Arc::new(AtomicBool::new(false));
-    let done_clone = done.clone();
 
     mainloop.lock();
     let introspector = context.introspect();
@@ -588,18 +602,10 @@ fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> O
         } else {
             let _ = tx.send(None);
         }
-        done_clone.store(true, Ordering::Release);
     });
     mainloop.unlock();
 
-    let timeout = Duration::from_secs(2);
-    let start = std::time::Instant::now();
-
-    while !done.load(Ordering::Acquire) && start.elapsed() < timeout {
-        thread::sleep(Duration::from_millis(10));
-    }
-
-    rx.recv_timeout(Duration::from_millis(100)).ok().flatten()
+    rx.recv_timeout(Duration::from_secs(2)).ok().flatten()
 }
 
 impl Stream for SpeakerStream {
