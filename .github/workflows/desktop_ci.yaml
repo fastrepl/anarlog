@@ -19,6 +19,7 @@ on:
       - Cargo.lock
 jobs:
   desktop_ci:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     defaults:
       run:
         shell: bash

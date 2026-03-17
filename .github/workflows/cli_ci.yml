@@ -12,6 +12,7 @@ on:
 
 jobs:
   check:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     strategy:
       fail-fast: false
       matrix:
