@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
+import { CookiePreferencesButton } from "@/components/privacy-consent";
 
 const vsList = [
   { slug: "otter", name: "Otter.ai" },
@@ -80,6 +81,8 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         >
           Privacy
         </Link>
+        {" · "}
+        <CookiePreferencesButton />
       </p>
     </div>
   );
