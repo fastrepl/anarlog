@@ -8,7 +8,8 @@ use ractor_supervisor::core::{ChildBackoffFn, ChildSpec, Restart, SpawnFn};
 use ractor_supervisor::supervisor::{Supervisor, SupervisorArguments, SupervisorOptions};
 
 use crate::actors::{
-    ChannelMode, ListenerActor, ListenerArgs, RecArgs, RecorderActor, SourceActor, SourceArgs,
+    ChannelMode, ListenerActor, ListenerArgs, RecArgs, RecorderActor, RecorderSink, SourceActor,
+    SourceArgs,
 };
 
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
@@ -139,6 +140,7 @@ pub async fn spawn_session_supervisor(
                         RecArgs {
                             app_dir: ctx.app_dir.clone(),
                             session_id: ctx.params.session_id.clone(),
+                            sink: RecorderSink::File,
                         },
                         supervisor_cell,
                     )

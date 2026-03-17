@@ -18,9 +18,18 @@ pub enum RecMsg {
     AudioDual(Arc<[f32]>, Arc<[f32]>),
 }
 
+#[derive(Debug, Clone)]
+pub enum RecorderSink {
+    File,
+    #[allow(dead_code)]
+    Memory,
+    Disabled,
+}
+
 pub struct RecArgs {
     pub app_dir: PathBuf,
     pub session_id: String,
+    pub sink: RecorderSink,
 }
 
 pub struct RecState {
@@ -51,6 +60,23 @@ impl Actor for RecorderActor {
         _myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
+        let sink = match args.sink {
+            RecorderSink::File => RecorderSink::File,
+            RecorderSink::Memory => RecorderSink::Disabled,
+            RecorderSink::Disabled => RecorderSink::Disabled,
+        };
+
+        if matches!(sink, RecorderSink::Disabled) {
+            return Ok(RecState {
+                writer: None,
+                writer_mic: None,
+                writer_spk: None,
+                wav_path: PathBuf::new(),
+                last_flush: Instant::now(),
+                is_stereo: false,
+            });
+        }
+
         let dir = find_session_dir(&args.app_dir, &args.session_id);
         std::fs::create_dir_all(&dir)?;
 
