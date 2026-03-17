@@ -34,7 +34,7 @@ describe("extractChangedTables", () => {
 
   describe("e2e: MergeableStore with persister", () => {
     let store: ReturnType<typeof createMergeableStore>;
-    let saveFn: ReturnType<typeof vi.fn>;
+    let saveFn: ReturnType<typeof vi.fn<(...args: any[]) => Promise<void>>>;
     let capturedChangedTables: ChangedTables | null;
 
     beforeEach(async () => {
@@ -407,7 +407,7 @@ describe("iterateTableRows", () => {
           created_at: "2024-01-01",
           title: "Test",
           folder_id: "",
-          event_id: "",
+          event_json: "",
           raw_md: "",
         },
         "session-2": {
@@ -415,7 +415,7 @@ describe("iterateTableRows", () => {
           created_at: "2024-01-02",
           title: "Test 2",
           folder_id: "",
-          event_id: "",
+          event_json: "",
           raw_md: "",
         },
       },
@@ -430,7 +430,7 @@ describe("iterateTableRows", () => {
       created_at: "2024-01-01",
       title: "Test",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     expect(result.find((r) => r.id === "session-2")).toEqual({
@@ -439,7 +439,7 @@ describe("iterateTableRows", () => {
       created_at: "2024-01-02",
       title: "Test 2",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
   });

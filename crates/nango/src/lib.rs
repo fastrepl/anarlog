@@ -1,9 +1,27 @@
-// https://docs.nango.dev/host/cloud#cloud-vs-self-hosting
-
+mod client;
+mod connect_session;
+mod connection;
 mod error;
-pub use error::*;
+mod http;
+mod integration;
+pub mod proxy;
+mod sync;
+mod trigger;
+pub mod webhook;
 
-use std::collections::HashMap;
+pub use client::NangoIntegration;
+pub use client::*;
+pub use connect_session::*;
+pub use connection::*;
+pub use error::*;
+pub use http::NangoHttpClient;
+pub use http::OwnedNangoHttpClient;
+pub use integration::*;
+pub use proxy::NangoProxy;
+pub use proxy::OwnedNangoProxy;
+pub use sync::*;
+pub use trigger::*;
+pub use webhook::*;
 
 macro_rules! common_derives {
     ($item:item) => {
@@ -21,340 +39,31 @@ macro_rules! common_derives {
     };
 }
 
-// https://docs.nango.dev/understand/concepts/integrations
-common_derives! {
-    #[derive(strum::AsRefStr, std::hash::Hash)]
-    pub enum NangoIntegration {
-        #[serde(rename = "google-calendar")]
-        #[strum(serialize = "google-calendar")]
-        GoogleCalendar,
-        #[serde(rename = "outlook-calendar")]
-        #[strum(serialize = "outlook-calendar")]
-        OutlookCalendar,
-    }
-}
-
-impl TryFrom<String> for NangoIntegration {
-    type Error = crate::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "google-calendar" => Ok(NangoIntegration::GoogleCalendar),
-            "outlook-calendar" => Ok(NangoIntegration::OutlookCalendar),
-            _ => Err(Error::UnknownIntegration),
-        }
-    }
-}
-
-impl From<NangoIntegration> for String {
-    fn from(integration: NangoIntegration) -> Self {
-        match integration {
-            NangoIntegration::GoogleCalendar => "google-calendar".to_string(),
-            NangoIntegration::OutlookCalendar => "outlook-calendar".to_string(),
-        }
-    }
-}
-
-#[derive(Clone, Default)]
-pub struct NangoClientBuilder {
-    api_key: Option<String>,
-    api_base: Option<String>,
-}
-
-#[derive(Clone)]
-pub struct NangoClient {
-    client: reqwest::Client,
-    api_base: url::Url,
-}
-
-// https://docs.nango.dev/reference/api/connect/sessions/create
-common_derives! {
-    pub struct NangoConnectSessionRequest {
-        pub end_user: NangoConnectSessionRequestUser,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub organization: Option<NangoConnectSessionRequestOrganization>,
-        pub allowed_integrations: Vec<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub integrations_config_defaults: Option<HashMap<String, NangoConnectSessionRequestIntegrationConfig>>,
-    }
-}
-
-common_derives! {
-    pub struct NangoConnectSessionRequestUser {
-        pub id: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub display_name: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub email: Option<String>,
-    }
-}
-
-common_derives! {
-    pub struct NangoConnectSessionRequestOrganization {
-        pub id: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub display_name: Option<String>,
-    }
-}
-
-common_derives! {
-    pub struct NangoConnectSessionRequestIntegrationConfig {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub user_scopes: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub connection_config: Option<NangoConnectSessionRequestIntegrationConnectionConfig>,
-    }
-}
-
-common_derives! {
-    pub struct NangoConnectSessionRequestIntegrationConnectionConfig {
-        pub oauth_scopes_override: String
-    }
-}
-
-common_derives! {
-    pub enum NangoConnectSessionResponse {
-        #[serde(rename = "data")]
-        Ok { token: String, expires_at: String },
-        #[serde(rename = "error")]
-        Error { code: String },
-    }
-}
-
-common_derives! {
-    #[serde(untagged)]
-    pub enum NangoGetConnectionResponse {
-        #[serde(rename = "data")]
-        Ok(Box<NangoGetConnectionResponseData>),
-        #[serde(rename = "error")]
-        Error { message: String },
-    }
-}
-
-// https://docs.nango.dev/reference/api/connection/get
-common_derives! {
-    pub struct NangoGetConnectionResponseData {
-        pub id: String,
-        pub connection_id: String,
-        pub provider_config_key: String,
-        pub provider: String,
-        pub errors: Vec<serde_json::Value>,
-        pub metadata: serde_json::Value,
-        pub connection_config: serde_json::Value,
-        pub created_at: String,
-        pub updated_at: String,
-        pub last_fetched_at: String,
-        pub credentials: NangoCredentials,
-    }
-}
-
-common_derives! {
-    #[serde(tag = "type")]
-    pub enum NangoCredentials {
-        #[serde(rename = "OAUTH2")]
-        OAuth2(NangoCredentialsOAuth2),
-    }
-}
-
-common_derives! {
-    pub struct NangoCredentialsOAuth2 {
-        pub access_token: String,
-    }
-}
-
-// https://docs.nango.dev/guides/getting-started/authorize-an-api-from-your-app#save-the-connection-id-backend
-common_derives! {
-    pub struct NangoConnectWebhook {
-        pub r#type: String,
-        pub operation: String,
-        #[serde(rename = "connectionId")]
-        pub connection_id: String,
-        #[serde(rename = "endUser")]
-        pub end_user: NangoConnectWebhookEndUser,
-    }
-}
-
-common_derives! {
-    pub struct NangoConnectWebhookEndUser {
-        #[serde(rename = "endUserId")]
-        pub end_user_id: String,
-        #[serde(rename = "organizationId")]
-        pub organization_id: Option<String>,
-    }
-}
-
-impl NangoClient {
-    // https://docs.nango.dev/reference/api/connection/get
-    pub async fn get_connection(
-        &self,
-        connection_id: impl std::fmt::Display,
-    ) -> Result<NangoGetConnectionResponseData, crate::Error> {
-        let mut url = self.api_base.clone();
-        url.set_path(&format!("/connection/{}", connection_id));
-
-        let res: NangoGetConnectionResponse = self.client.get(url).send().await?.json().await?;
-        match res {
-            NangoGetConnectionResponse::Ok(data) => Ok(*data),
-            NangoGetConnectionResponse::Error { message } => Err(crate::Error::NangoError(message)),
-        }
-    }
-
-    // https://docs.nango.dev/reference/api/connect/sessions/create
-    pub async fn create_connect_session(
-        &self,
-        req: NangoConnectSessionRequest,
-    ) -> Result<NangoConnectSessionResponse, crate::Error> {
-        let mut url = self.api_base.clone();
-        url.set_path("/connect/sessions");
-
-        let res = self
-            .client
-            .post(url)
-            .header("Content-Type", "application/json")
-            .json(&req)
-            .send()
-            .await?
-            .json()
-            .await?;
-
-        Ok(res)
-    }
-
-    pub fn for_connection(
-        &self,
-        integration: NangoIntegration,
-        connection_id: impl Into<String>,
-    ) -> NangoProxyBuilder<'_> {
-        NangoProxyBuilder {
-            nango: self,
-            integration_id: integration.into(),
-            connection_id: connection_id.into(),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct NangoProxyBuilder<'a> {
-    nango: &'a NangoClient,
-    integration_id: String,
-    connection_id: String,
-}
-
-impl NangoClientBuilder {
-    pub fn api_base(mut self, api_base: impl Into<String>) -> Self {
-        self.api_base = Some(api_base.into());
-        self
-    }
-
-    pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
-        self.api_key = Some(api_key.into());
-        self
-    }
-
-    pub fn build(self) -> NangoClient {
-        let mut headers = reqwest::header::HeaderMap::new();
-
-        // https://docs.nango.dev/reference/api/authentication
-        let auth_str = format!("Bearer {}", self.api_key.unwrap());
-        let mut auth_value = reqwest::header::HeaderValue::from_str(&auth_str).unwrap();
-        auth_value.set_sensitive(true);
-
-        headers.insert(reqwest::header::AUTHORIZATION, auth_value);
-
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()
-            .unwrap();
-
-        NangoClient {
-            client,
-            api_base: self.api_base.unwrap().parse().unwrap(),
-        }
-    }
-}
-
-impl NangoProxyBuilder<'_> {
-    // https://docs.nango.dev/reference/api/proxy/get
-    pub fn get(&self, path: impl std::fmt::Display) -> reqwest::RequestBuilder {
-        let url = make_proxy_url(&self.nango.api_base, path);
-
-        self.nango
-            .client
-            .get(url)
-            .header("Connection-Id", &self.connection_id)
-            .header("Provider-Config-Key", &self.integration_id)
-    }
-
-    // https://docs.nango.dev/reference/api/proxy/post
-    pub fn post<T: serde::Serialize + ?Sized>(
-        &self,
-        path: impl std::fmt::Display,
-        data: &T,
-    ) -> reqwest::RequestBuilder {
-        let url = make_proxy_url(&self.nango.api_base, path);
-
-        self.nango
-            .client
-            .post(url)
-            .header("Content-Type", "application/json")
-            .header("Connection-Id", &self.connection_id)
-            .header("Provider-Config-Key", &self.integration_id)
-            .json(data)
-    }
-}
-
-fn make_proxy_url(base: &url::Url, path: impl std::fmt::Display) -> url::Url {
-    let mut url = base.clone();
-    let path_str = path.to_string();
-    let path_without_query = path_str.split('?').next().unwrap_or(&path_str);
-    url.path_segments_mut()
-        .unwrap()
-        .push("proxy")
-        .extend(path_without_query.split('/').filter(|s| !s.is_empty()));
-    url
-}
+pub(crate) use common_derives;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_make_proxy_url() {
-        let base = "https://api.nango.dev".parse().unwrap();
-
-        assert_eq!(
-            make_proxy_url(&base, "/users").to_string(),
-            "https://api.nango.dev/proxy/users"
-        );
-        assert_eq!(
-            make_proxy_url(&base, "users/123").to_string(),
-            "https://api.nango.dev/proxy/users/123"
-        );
-
-        // we don't support query params yet
-        assert_eq!(
-            make_proxy_url(&base, "users/123?foo=bar").to_string(),
-            "https://api.nango.dev/proxy/users/123"
-        );
-    }
-
     #[tokio::test]
     #[ignore]
-    async fn test_non_proxy() {
+    async fn test_create_connect_session() {
         let nango_client = NangoClientBuilder::default()
             .api_base("https://api.nango.dev")
             .api_key("de9c36c9-33dc-4ebf-b006-153d458583ea")
-            .build();
+            .build()
+            .unwrap();
 
         let _ = nango_client
-            .create_connect_session(NangoConnectSessionRequest {
-                end_user: NangoConnectSessionRequestUser {
+            .create_connect_session(CreateConnectSessionRequest {
+                end_user: EndUser {
                     id: "id".to_string(),
                     display_name: None,
                     email: None,
+                    tags: None,
                 },
                 organization: None,
-                allowed_integrations: vec![],
+                allowed_integrations: None,
                 integrations_config_defaults: None,
             })
             .await
@@ -366,10 +75,31 @@ mod tests {
         let nango_client = NangoClientBuilder::default()
             .api_base("https://api.nango.dev")
             .api_key("api_key")
-            .build();
+            .build()
+            .unwrap();
 
         let _ = nango_client
-            .for_connection(NangoIntegration::GoogleCalendar, "connection")
-            .get("/users");
+            .integration("google-calendar")
+            .connection("connection")
+            .get("/users")
+            .unwrap();
+    }
+
+    #[test]
+    fn test_build_missing_api_key() {
+        let result = NangoClientBuilder::default()
+            .api_base("https://api.nango.dev")
+            .build();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_defaults_api_base() {
+        let nango_client = NangoClientBuilder::default()
+            .api_key("key")
+            .build()
+            .unwrap();
+        assert_eq!(nango_client.api_base.as_str(), "https://api.nango.dev/");
     }
 }

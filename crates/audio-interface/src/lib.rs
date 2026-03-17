@@ -6,6 +6,7 @@ pub trait AsyncSource {
     fn sample_rate(&self) -> u32;
 }
 
+#[cfg(feature = "rodio")]
 impl<S: rodio::Source> AsyncSource for S {
     fn as_stream(&mut self) -> impl Stream<Item = f32> + '_ {
         let channels = self.channels() as usize;

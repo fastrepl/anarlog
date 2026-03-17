@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
 import { getSupabaseServerClient } from "@/functions/supabase";
-import { uploadMediaFile } from "@/functions/supabase-media";
+import { createSignedMediaUpload } from "@/functions/supabase-media";
 
 export const Route = createFileRoute("/api/admin/blog/upload-image")({
   server: {
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/admin/blog/upload-image")({
           }
         }
 
-        let body: { filename: string; content: string };
+        let body: { filename: string; folder?: string };
         try {
           body = await request.json();
         } catch {
@@ -29,12 +29,12 @@ export const Route = createFileRoute("/api/admin/blog/upload-image")({
           });
         }
 
-        const { filename, content } = body;
+        const { filename, folder } = body;
 
-        if (!filename || !content) {
+        if (!filename) {
           return new Response(
             JSON.stringify({
-              error: "Missing required fields: filename, content",
+              error: "Missing required field: filename",
             }),
             {
               status: 400,
@@ -44,12 +44,10 @@ export const Route = createFileRoute("/api/admin/blog/upload-image")({
         }
 
         const supabase = getSupabaseServerClient();
-        const result = await uploadMediaFile(
-          supabase,
+        const result = await createSignedMediaUpload(supabase, {
           filename,
-          content,
-          "blog",
-        );
+          folder: folder || "blog",
+        });
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
@@ -60,8 +58,10 @@ export const Route = createFileRoute("/api/admin/blog/upload-image")({
 
         return new Response(
           JSON.stringify({
-            success: true,
-            url: result.publicUrl,
+            path: result.path,
+            publicUrl: result.publicUrl,
+            token: result.token,
+            signedUrl: result.signedUrl,
           }),
           {
             status: 200,

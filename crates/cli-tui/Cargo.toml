@@ -1,0 +1,11 @@
+[package]
+name = "cli-tui"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true, features = ["sync", "rt", "time"] }
+tokio-stream = { workspace = true }
+tui-textarea = { workspace = true }

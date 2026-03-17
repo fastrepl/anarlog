@@ -5,15 +5,13 @@ edition = "2024"
 
 [dependencies]
 outlit = "0.2.0"
-posthog = { git = "https://github.com/yujonglee/posthog-rs", package = "async-posthog", rev = "1779042" }
-posthog-core = { git = "https://github.com/yujonglee/posthog-rs", package = "posthog-core", rev = "1779042" }
+posthog-rs = { workspace = true }
 
-chrono = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

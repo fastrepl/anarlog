@@ -6,6 +6,26 @@ import { getExtensions } from "./extensions";
 import { isValidTiptapContent, json2md, md2json } from "./utils";
 
 describe("json2md", () => {
+  test("renders underline as html tags", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "underlined",
+              marks: [{ type: "underline" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(markdown).toBe("<u>underlined</u>");
+  });
+
   test("renders task items without escaping brackets", () => {
     const taskListContent = {
       type: "doc",
@@ -120,9 +140,41 @@ describe("json2md", () => {
     expect(markdown).toContain("second task");
     expect(markdown).toContain("third task");
   });
+
+  test("renders image width metadata into markdown titles", () => {
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "image",
+          attrs: {
+            src: "https://example.com/image.png",
+            alt: "alt text",
+            title: "Example",
+            editorWidth: 42,
+          },
+        },
+      ],
+    });
+
+    expect(markdown).toBe(
+      '![alt text](https://example.com/image.png "char-editor-width=42|Example")',
+    );
+  });
 });
 
 describe("md2json", () => {
+  test("converts html underline tags to underline marks", () => {
+    const json = md2json("<u>underlined</u>");
+    const paragraph = json.content?.[0];
+    const textNode = paragraph?.content?.[0];
+
+    expect(paragraph?.type).toBe("paragraph");
+    expect(textNode?.type).toBe("text");
+    expect(textNode?.text).toBe("underlined");
+    expect(textNode?.marks).toEqual([{ type: "underline" }]);
+  });
+
   describe("image handling", () => {
     test("converts standalone image to JSON", () => {
       const markdown = "![alt text](https://example.com/image.png)";
@@ -169,6 +221,29 @@ describe("md2json", () => {
       expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
       expect(imageNode?.attrs?.alt).toBe("alt text");
       expect(imageNode?.attrs?.title).toBe("Image Title");
+    });
+
+    test("converts image width metadata to JSON attributes", () => {
+      const markdown =
+        '![alt text](https://example.com/image.png "char-editor-width=42|Image Title")';
+      const json = md2json(markdown);
+
+      const findImage = (content: any[]): any => {
+        for (const node of content) {
+          if (node.type === "image") return node;
+          if (node.content) {
+            const found = findImage(node.content);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const imageNode = findImage(json.content!);
+      expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
+      expect(imageNode?.attrs?.alt).toBe("alt text");
+      expect(imageNode?.attrs?.title).toBe("Image Title");
+      expect(imageNode?.attrs?.editorWidth).toBe(42);
     });
 
     test("converts multiple standalone images to JSON", () => {
@@ -359,6 +434,69 @@ console.log("hello");
       const taskList = json.content!.find((node) => node.type === "taskList");
       expect(taskList).toBeDefined();
     });
+  });
+});
+
+describe("md2json mark sanitization", () => {
+  const schema = getSchema(getExtensions());
+
+  function validateJsonContent(json: JSONContent): {
+    valid: boolean;
+    error?: string;
+  } {
+    try {
+      schema.nodeFromJSON(json);
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  test("bold wrapping code produces valid schema (no bold+code)", () => {
+    const json = md2json("**`code`**");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+    if (!validation.valid) {
+      throw new Error(`Schema validation failed: ${validation.error}`);
+    }
+  });
+
+  test("italic wrapping code produces valid schema", () => {
+    const json = md2json("*`code`*");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+  });
+
+  test("strikethrough wrapping code produces valid schema", () => {
+    const json = md2json("~~`code`~~");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
+  });
+
+  test("bold+code keeps only code mark", () => {
+    const json = md2json("**`code`**");
+    const findTextNode = (node: JSONContent): JSONContent | null => {
+      if (node.type === "text") return node;
+      for (const child of node.content || []) {
+        const found = findTextNode(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    const textNode = findTextNode(json);
+    expect(textNode).toBeDefined();
+    expect(textNode!.marks).toBeDefined();
+    expect(textNode!.marks!.length).toBe(1);
+    expect(textNode!.marks![0].type).toBe("code");
+  });
+
+  test("mixed bold and code in same paragraph produces valid schema", () => {
+    const json = md2json("**bold** and **`code`** and more");
+    const validation = validateJsonContent(json);
+    expect(validation.valid).toBe(true);
   });
 });
 

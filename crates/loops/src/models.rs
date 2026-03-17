@@ -15,3 +15,10 @@ pub enum Response {
     Success { success: bool },
     Error { success: bool, message: String },
 }
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct DeleteContactResponse {
+    pub success: bool,
+    #[serde(default)]
+    pub message: Option<String>,
+}

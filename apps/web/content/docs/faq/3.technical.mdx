@@ -1,17 +1,35 @@
 ---
 title: "Technical"
 section: "FAQ"
-description: "Technical requirements and specifications for Hyprnote."
+description: "Technical requirements and specifications for Char."
 ---
 
 ## What are the system requirements?
 
-Hyprnote requires macOS 12.0 or later with Apple Silicon (M1/M2/M3) or Intel processor. We recommend at least 8GB of RAM for optimal performance with local AI features.
+Char requires macOS 12.0 or later with Apple Silicon (M1/M2/M3) or Intel processor. We recommend at least 8GB of RAM for optimal performance with local AI features.
 
-## How much storage space does Hyprnote need?
+## How much storage space does Char need?
 
 The app itself is about 200MB. Recording storage depends on your usage - a 1-hour meeting uses approximately 50-100MB. We recommend having at least 5GB of free space.
 
-## Does Hyprnote work offline?
+## Does Char work offline?
 
-Yes! Since Hyprnote uses local AI, it works completely offline. You don't need an internet connection to record, transcribe, or generate summaries.
+Yes! Since Char uses local AI, it works completely offline. You don't need an internet connection to record, transcribe, or generate summaries. See [Local Models](/docs/developers/local-models) for available local STT models (including the new Cactus engine) and [Local LLM Setup](/docs/faq/local-llm-setup) for configuring local AI.
+
+## What cloud STT providers does Char support?
+
+Char supports 9 cloud speech-to-text providers: Deepgram, AssemblyAI, Soniox, Fireworks, OpenAI, Gladia, ElevenLabs, DashScope (Alibaba Cloud's Qwen3-ASR), and Mistral (Voxtral). Each provider can be used via BYOK (Bring Your Own Key) in Settings > Transcription. See [Better Transcription](/docs/pro/better-transcription) for details.
+
+## How does Char route cloud LLM requests?
+
+When using cloud AI (Char Pro), LLM requests are routed through [OpenRouter](https://openrouter.ai). OpenRouter acts as a unified gateway to multiple model providers (OpenAI, Anthropic, Google, and others), so Char can switch between models without requiring separate API keys for each provider. A single `OPENROUTER_API_KEY` is all that's needed for cloud LLM access. We have [Zero Data Retention (ZDR)](https://openrouter.ai/docs/guides/features/zdr) enabled on our OpenRouter account, ensuring all requests only route to endpoints where providers do not retain your data.
+
+## How does in-app search work?
+
+Char uses [Tantivy](https://github.com/quickwit-oss/tantivy), a Rust full-text search engine, to index and search your notes locally. Documents are indexed in the background as you create and edit sessions. The search supports filtering by type (meeting notes, people, organizations) and date range, with results ranked by relevance.
+
+Within a note or transcript, <kbd>⌘</kbd> + <kbd>F</kbd> opens an inline search bar with case-sensitive matching, whole-word matching, and find-and-replace (<kbd>⌘</kbd> + <kbd>H</kbd>). Replace supports single-match and replace-all modes.
+
+## What is the support chat powered by?
+
+The in-app support chat uses the [Model Context Protocol (MCP)](https://modelcontextprotocol.io) to connect to Char's support server. The MCP server provides tools for GitHub issue management (`search_issues`, `create_issue`, `add_comment`) and Stripe billing operations (`list_subscriptions`, `create_billing_portal_session`). It also serves MCP prompts that guide the chat's behavior. Destructive actions like creating issues require user confirmation before executing.

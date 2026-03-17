@@ -1,0 +1,12 @@
+[package]
+name = "db3"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-cloudsync = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+uuid = { workspace = true, features = ["v4"] }

@@ -18,6 +18,10 @@ pub enum Error {
     UpdateNotAvailable,
     #[error("version mismatch: expected {expected}, got {actual}")]
     VersionMismatch { expected: String, actual: String },
+    #[error("failed to determine current app path")]
+    FailedToDetermineCurrentAppPath,
+    #[error("failed to schedule installed app launch at {path}: {details}")]
+    FailedToScheduleInstalledAppLaunch { path: String, details: String },
 }
 
 impl Serialize for Error {

@@ -1,0 +1,46 @@
+---
+title: "Homebrew"
+section: "Onboarding"
+summary: "Install Homebrew — the Mac package manager that everything else depends on"
+---
+
+## What it is
+
+[Homebrew](https://brew.sh) is a package manager for macOS. Think of it as an app store that runs in your terminal — you type a command, and it installs software for you. Almost every other tool in our stack is installed through Homebrew.
+
+## Install
+
+Open your terminal (press `Cmd + Space`, type "Terminal", hit Enter) and paste this:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Follow the prompts. It will ask for your Mac password — that's normal.
+
+**Important:** After installation finishes, Homebrew will print a "Next steps" message with two commands to add Homebrew to your PATH. Run both of them. If you skip this, `brew` commands won't work.
+
+## Verify
+
+Close and reopen your terminal, then run:
+
+```bash
+brew --version
+```
+
+You should see something like `Homebrew 4.x.x`. If you get "command not found", you missed the PATH step above — scroll back in your terminal and run those two commands.
+
+## Basics
+
+```bash
+brew install <package>     # Install something
+brew update                # Update Homebrew itself
+brew upgrade               # Upgrade all installed packages
+brew list                  # See what's installed
+```
+
+You'll use `brew install` frequently during the rest of this setup.
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

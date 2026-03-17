@@ -1,0 +1,35 @@
+---
+title: "Char Weekly: February 8, 2026"
+date: "2026-02-08"
+---
+
+Three stable releases shipped this week: v1.0.3, v1.0.4, and v1.0.5. The headline items are note recovery, a redesigned calendar, better navigation, and a stronger round of performance fixes.
+
+## Notes and navigation
+
+This week added a lot of everyday note-management polish. You can now open notes from a dedicated `Cmd+O` command, keep pinned tabs across restarts, undo deletes with a five-second restore window, and jump back into recently opened notes from the same command palette. Backlink mentions for notes, people, and companies also landed in stable.
+
+## Calendar redesign
+
+The calendar got its biggest update of the week. There's now a full calendar view with a week layout, event popovers, improved navigation, and a context menu for unignoring events directly from the sidebar timeline. We also fixed recurring event duplication and added a manual timezone override for the timeline.
+
+## Quit behavior and notifications
+
+We changed `Cmd+Q` to a hold-to-quit interaction so accidental quits are much less likely. On the notification side, the experimental in-meeting reminder is now available in lab settings and can alert you when another app has been using your microphone for a while but Char is not recording.
+
+## Performance and stability
+
+We fixed memory leaks from actor subscriptions and timer cleanup, resolved high CPU usage caused by an overly broad DOM observer, and shipped a Tauri 2.10.1 upgrade. We also fixed duplicate tabs when reopening a note and cleaned up a few markdown and UI regressions.
+
+## Other improvements
+
+- `Cmd+Shift+N` now creates a new note and starts listening in one action
+- Dropdown keyboard navigation is better across settings and selectors
+- LM Studio errors now point to setup docs instead of failing silently
+- Shortcut and tooltip labeling are more consistent across the app
+
+## What's next
+
+We're continuing to tighten the core note-taking workflow and calendar experience. If you're on stable, v1.0.5 is available now.
+
+You can download the latest version from our [changelog](/changelog) or let the app auto-update.

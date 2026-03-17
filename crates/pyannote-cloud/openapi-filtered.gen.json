@@ -1,0 +1,1222 @@
+{
+  "components": {
+    "schemas": {
+      "Confidence": {
+        "properties": {
+          "resolution": {
+            "description": "Resolution of the confidence scores. Value is number of seconds per sample",
+            "example": 0.02,
+            "type": "number"
+          },
+          "score": {
+            "description": "List of confidence scores for each sample. Values are between 0 and 100",
+            "example": [
+              95,
+              89,
+              78,
+              67,
+              56,
+              45,
+              34,
+              23,
+              12,
+              1
+            ],
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "score",
+          "resolution"
+        ],
+        "type": "object"
+      },
+      "DiarizationJob": {
+        "properties": {
+          "createdAt": {
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "jobId": {
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/DiarizationJobOutput"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DiarizationJobOutput": {
+        "properties": {
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "diarization": {
+            "description": "List of diarization segments",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "type": "array"
+          },
+          "error": {
+            "description": "Error message if any",
+            "type": "string"
+          },
+          "exclusiveDiarization": {
+            "description": "Exclusive diarization segments where only one speaker is active at a time. Only returned if `exclusive` is set to true when job is created.",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "type": "array"
+          },
+          "turnLevelTranscription": {
+            "description": "Turn-level (speaker turn) transcription segments with text. Only returned if `transcription` is set to true when job is created.",
+            "example": [
+              {
+                "end": 2.3,
+                "speaker": "SPEAKER_00",
+                "start": 0.5,
+                "text": "Hello, how are you?"
+              }
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TranscriptionSegment"
+            },
+            "type": "array"
+          },
+          "warning": {
+            "description": "Warning message if any",
+            "type": "string"
+          },
+          "wordLevelTranscription": {
+            "description": "Word-level transcription segments with text. Only returned if `transcription` is set to true when job is created.",
+            "example": [
+              {
+                "end": 0.8,
+                "speaker": "SPEAKER_00",
+                "start": 0.5,
+                "text": "Hello"
+              }
+            ],
+            "items": {
+              "$ref": "#/components/schemas/TranscriptionSegment"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "diarization"
+        ],
+        "type": "object"
+      },
+      "DiarizationSegment": {
+        "properties": {
+          "confidence": {
+            "description": "Confidence scores that this speech turn matches each diarization speaker. Only available if `turnLevelConfidence` is set to true when job is created.",
+            "example": {
+              "SPEAKER_00": 16,
+              "SPEAKER_01": 93
+            },
+            "type": "object"
+          },
+          "end": {
+            "description": "End time of the segment in seconds",
+            "example": 30.5,
+            "type": "number"
+          },
+          "speaker": {
+            "description": "Speaker label",
+            "example": "SPEAKER_00",
+            "type": "string"
+          },
+          "start": {
+            "description": "Start time of the segment in seconds",
+            "example": 15,
+            "type": "number"
+          }
+        },
+        "required": [
+          "speaker",
+          "start",
+          "end"
+        ],
+        "type": "object"
+      },
+      "DiarizeRequest": {
+        "properties": {
+          "confidence": {
+            "default": false,
+            "description": "Include confidence values in the output. Output is considerably larger when this option is enabled. Output includes a list of confidence scores with a resolution.",
+            "example": true,
+            "type": "boolean"
+          },
+          "exclusive": {
+            "default": false,
+            "description": "Includes exclusive diarization values in the output in `exclusiveDiarization` key (equivalent to diarization but without overlapping speech).",
+            "example": true,
+            "type": "boolean"
+          },
+          "maxSpeakers": {
+            "description": "Maximum number of speakers (must be >= minSpeakers if both are set)",
+            "example": 4,
+            "minimum": 1,
+            "type": "number"
+          },
+          "minSpeakers": {
+            "description": "Minimum number of speakers (must be <= maxSpeakers if both are set)",
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          },
+          "model": {
+            "default": "precision-2",
+            "enum": [
+              "precision-2",
+              "community-1"
+            ],
+            "example": "precision-2",
+            "nullable": true,
+            "type": "string"
+          },
+          "numSpeakers": {
+            "description": "Number of speakers. Only use if the number of speakers is known in advance. Number of speakers is detected automatically if not provided. Setting this value results in better overall diarization performance. In rare cases where we cannot honor this request (e.g. short files and large number of speakers), a warning will be added to the output. Equivalent to sending minSpeakers==maxSpeakers",
+            "example": 2,
+            "minimum": 1,
+            "type": "number"
+          },
+          "transcription": {
+            "default": false,
+            "description": "Enable speaker attributed transcription. Only available for the `precision-2` diarization model.",
+            "type": "boolean"
+          },
+          "transcriptionConfig": {
+            "$ref": "#/components/schemas/TranscriptionConfiguration"
+          },
+          "turnLevelConfidence": {
+            "default": false,
+            "description": "Includes turn-level confidence values in the output.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "url": {
+            "description": "URL of the audio file to be processed",
+            "example": "https://example.com/audio.wav",
+            "type": "string"
+          },
+          "webhook": {
+            "description": "Webhook URL to receive results when job is completed (optional)",
+            "example": "https://example.com/webhook",
+            "type": "string"
+          },
+          "webhookStatusOnly": {
+            "default": false,
+            "description": "When true, webhook payload only includes jobId and status (excludes output). Useful for large payloads.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "GetJobsResponse": {
+        "properties": {
+          "items": {
+            "description": "List of jobs. Sorted by creation date, descending. Does not include output data.",
+            "items": {
+              "$ref": "#/components/schemas/JobListItem"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "Total number of jobs",
+            "example": 100,
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "type": "object"
+      },
+      "GetMediaUploadUrl": {
+        "properties": {
+          "url": {
+            "description": "The url should be in the form media://object-key where the object-key can be any alpha-numeric string. The object-key is unique to your account API token so there is no risk of collision with other users.",
+            "maxLength": 255,
+            "pattern": "/^media:\\/\\/[a-zA-Z0-9\\-_\\.\\/]+$/",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "IdentificationJobOutput": {
+        "properties": {
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "diarization": {
+            "description": "List of diarization segments",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "type": "array"
+          },
+          "error": {
+            "description": "Error message if any",
+            "type": "string"
+          },
+          "exclusiveDiarization": {
+            "description": "Exclusive diarization segments where only one speaker is active at a time. Only returned if `exclusive` is set to true when job is created.",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "type": "array"
+          },
+          "identification": {
+            "description": "List of identification segments",
+            "items": {
+              "$ref": "#/components/schemas/IdentificationSegment"
+            },
+            "type": "array"
+          },
+          "voiceprints": {
+            "items": {
+              "$ref": "#/components/schemas/IdentificationVoiceprint"
+            },
+            "type": "array"
+          },
+          "warning": {
+            "description": "Warning message if any",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "IdentificationSegment": {
+        "properties": {
+          "confidence": {
+            "description": "Confidence scores that this speech turn matches each diarization speaker. Only available if `turnLevelConfidence` is set to true when job is created.",
+            "example": {
+              "SPEAKER_00": 16,
+              "SPEAKER_01": 93
+            },
+            "type": "object"
+          },
+          "diarizationSpeaker": {
+            "description": "Speaker label",
+            "example": "SPEAKER_00",
+            "type": "string"
+          },
+          "end": {
+            "description": "End time of the segment in seconds",
+            "example": 30.5,
+            "type": "number"
+          },
+          "match": {
+            "description": "Label of the voiceprint that was identified following the matching settings",
+            "example": "Sam",
+            "nullable": true,
+            "type": "string"
+          },
+          "speaker": {
+            "description": "Speaker label",
+            "example": "SPEAKER_00",
+            "type": "string"
+          },
+          "start": {
+            "description": "Start time of the segment in seconds",
+            "example": 15,
+            "type": "number"
+          }
+        },
+        "required": [
+          "diarizationSpeaker",
+          "match"
+        ],
+        "type": "object"
+      },
+      "IdentificationVoiceprint": {
+        "properties": {
+          "confidence": {
+            "description": "Confidence for each speaker label, as a dictionary of speaker label to confidence score",
+            "example": {
+              "Rick": 24,
+              "Sam": 16
+            },
+            "type": "object"
+          },
+          "match": {
+            "description": "Label of the voiceprint that was identified following the matching settings",
+            "example": "Sam",
+            "type": "string"
+          },
+          "speaker": {
+            "description": "Diarization speaker",
+            "example": "SPEAKER_00",
+            "type": "string"
+          }
+        },
+        "required": [
+          "speaker",
+          "match",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "IdentifyJob": {
+        "properties": {
+          "createdAt": {
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "jobId": {
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/IdentificationJobOutput"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "IdentifyRequest": {
+        "properties": {
+          "confidence": {
+            "default": false,
+            "description": "Include confidence values in the output. Output is considerably larger when this option is enabled. Output includes a list of confidence scores with a resolution.",
+            "example": true,
+            "type": "boolean"
+          },
+          "exclusive": {
+            "default": false,
+            "description": "Includes exclusive diarization values in the output in `exclusiveDiarization` key (equivalent to diarization but without overlapping speech).",
+            "example": true,
+            "type": "boolean"
+          },
+          "matching": {
+            "$ref": "#/components/schemas/MatchingOptions"
+          },
+          "maxSpeakers": {
+            "description": "Maximum number of speakers (must be >= minSpeakers if both are set)",
+            "example": 4,
+            "minimum": 1,
+            "type": "number"
+          },
+          "minSpeakers": {
+            "description": "Minimum number of speakers (must be <= maxSpeakers if both are set)",
+            "example": 1,
+            "minimum": 1,
+            "type": "number"
+          },
+          "model": {
+            "default": "precision-2",
+            "enum": [
+              "precision-2"
+            ],
+            "example": "precision-2",
+            "nullable": true,
+            "type": "string"
+          },
+          "numSpeakers": {
+            "description": "Number of speakers. Only use if the number of speakers is known in advance. Number of speakers is detected automatically if not provided. Setting this value results in better overall diarization performance. In rare cases where we cannot honor this request (e.g. short files and large number of speakers), a warning will be added to the output. Equivalent to sending minSpeakers==maxSpeakers",
+            "example": 2,
+            "minimum": 1,
+            "type": "number"
+          },
+          "turnLevelConfidence": {
+            "default": false,
+            "description": "Includes turn-level confidence values in the output.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "url": {
+            "description": "URL of the audio file to be processed",
+            "example": "https://example.com/audio.wav",
+            "type": "string"
+          },
+          "voiceprints": {
+            "description": "List of voiceprints to identify against",
+            "items": {
+              "$ref": "#/components/schemas/Voiceprint"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          },
+          "webhook": {
+            "description": "Webhook URL to receive results when job is completed (optional)",
+            "example": "https://example.com/webhook",
+            "type": "string"
+          },
+          "webhookStatusOnly": {
+            "default": false,
+            "description": "When true, webhook payload only includes jobId and status (excludes output). Useful for large payloads.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "voiceprints"
+        ],
+        "type": "object"
+      },
+      "JobCreated": {
+        "properties": {
+          "jobId": {
+            "description": "ID of the job",
+            "example": "3c8a89a5-dcc6-4edb-a75d-ffd64739674d",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the job",
+            "enum": [
+              "pending",
+              "created",
+              "succeeded",
+              "canceled",
+              "failed",
+              "running"
+            ],
+            "example": "created",
+            "type": "string"
+          },
+          "warning": {
+            "description": "Warning message if any",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ],
+        "type": "object"
+      },
+      "JobListItem": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "JobStatus": {
+        "description": "Status of the job",
+        "enum": [
+          "pending",
+          "created",
+          "succeeded",
+          "canceled",
+          "failed",
+          "running"
+        ],
+        "type": "string"
+      },
+      "MatchingOptions": {
+        "properties": {
+          "exclusive": {
+            "default": true,
+            "description": "Prevent multiple speakers from being matched to the same voiceprint. Default to true",
+            "nullable": true,
+            "type": "boolean"
+          },
+          "threshold": {
+            "default": 0,
+            "description": "Prevent matching if confidence score is below this threshold. Value is between 0 and 100. Default is 0, meaning all voiceprints are matched",
+            "format": "float",
+            "maximum": 100,
+            "minimum": 0,
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "MediaResponse": {
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "TestResponse": {
+        "properties": {
+          "message": {
+            "description": "Message of the test",
+            "example": "Test connection successful",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the test",
+            "example": "OK",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "type": "object"
+      },
+      "TranscriptionConfiguration": {
+        "properties": {
+          "model": {
+            "default": "parakeet-tdt-0.6b-v3",
+            "description": "Transcription model to use. Supported languages depend on the chosen model:\n  - `parakeet-tdt-0.6b-v3`: Bulgarian, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, German, Greek, Hungarian, Italian, Latvian, Lithuanian, Maltese, Polish, Portuguese, Romanian, Slovak, Slovenian, Spanish, Swedish, Russian or Ukrainian.\n  - `faster-whisper-large-v3-turbo`: Afrikaans, Albanian, Amharic, Arabic, Armenian, Assamese, Azerbaijani, Bashkir, Basque, Belarusian, Bengali, Bosnian, Breton, Bulgarian, Cantonese, Catalan, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Faroese, Finnish, French, Galician, Georgian, German, Greek, Gujarati, HaitianCreole, Hausa, Hawaiian, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Javanese, Kannada, Kazakh, Khmer, Korean, Lao, Latin, Latvian, Lingala, Lithuanian, Luxembourgish, Macedonian, Malagasy, Malay, Malayalam, Maltese, Maori, Marathi, Mongolian, Myanmar, Nepali, Norwegian, Nynorsk, Occitan, Pashto, Persian, Polish, Portuguese, Punjabi, Romanian, Russian, Sanskrit, Serbian, Shona, Sindhi, Sinhala, Slovak, Slovenian, Somali, Spanish, Sundanese, Swahili, Swedish, Tagalog, Tajik, Tamil, Tatar, Telugu, Thai, Tibetan, Turkish, Turkmen, Ukrainian, Urdu, Uzbek, Vietnamese, Welsh, Yiddish or Yoruba.",
+            "enum": [
+              "parakeet-tdt-0.6b-v3",
+              "faster-whisper-large-v3-turbo"
+            ],
+            "example": "faster-whisper-large-v3-turbo",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TranscriptionSegment": {
+        "properties": {
+          "end": {
+            "description": "End time of the segment in seconds",
+            "type": "number"
+          },
+          "speaker": {
+            "description": "Speaker label",
+            "type": "string"
+          },
+          "start": {
+            "description": "Start time of the segment in seconds",
+            "type": "number"
+          },
+          "text": {
+            "description": "The transcribed speech content for this segment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "text",
+          "speaker"
+        ],
+        "type": "object"
+      },
+      "Voiceprint": {
+        "properties": {
+          "label": {
+            "description": "Label for the speaker. Labels can't start with \"SPEAKER_\"",
+            "example": "John Doe",
+            "maxLength": 100,
+            "pattern": "^(?!speaker_).*",
+            "type": "string"
+          },
+          "voiceprint": {
+            "description": "Voiceprint of a speaker",
+            "example": "U29tZUJhc2U2NERhdGE",
+            "format": "base64",
+            "maxLength": 20000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "voiceprint"
+        ],
+        "type": "object"
+      },
+      "VoiceprintJob": {
+        "properties": {
+          "createdAt": {
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "jobId": {
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/VoiceprintJobResults"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "VoiceprintJobResults": {
+        "properties": {
+          "error": {
+            "description": "Error message if any",
+            "type": "string"
+          },
+          "voiceprint": {
+            "description": "Voiceprint of the audio. To be used for identification",
+            "example": "aGVsbG8gd29ybGQ",
+            "type": "string"
+          },
+          "warning": {
+            "description": "Warning message if any",
+            "type": "string"
+          }
+        },
+        "required": [
+          "voiceprint"
+        ],
+        "type": "object"
+      },
+      "VoiceprintRequest": {
+        "properties": {
+          "model": {
+            "default": "precision-2",
+            "enum": [
+              "precision-2"
+            ],
+            "example": "precision-2",
+            "nullable": true,
+            "type": "string"
+          },
+          "url": {
+            "description": "URL of the voiceprint audio file",
+            "example": "https://example.com/voice.wav",
+            "type": "string"
+          },
+          "webhook": {
+            "description": "Webhook URL to receive voiceprint results (optional)",
+            "example": "https://example.com/webhook",
+            "type": "string"
+          },
+          "webhookStatusOnly": {
+            "default": false,
+            "description": "When true, webhook payload only includes jobId and status (excludes output). Useful for large payloads.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "api-key": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "pyannoteAI Docs",
+    "url": "https://docs.pyannote.ai/"
+  },
+  "info": {
+    "contact": {},
+    "description": "",
+    "termsOfService": "https://pyannote.ai/terms-of-use",
+    "title": "pyannoteAI API",
+    "version": "local"
+  },
+  "openapi": "3.0.0",
+  "paths": {
+    "/v1/diarize": {
+      "post": {
+        "operationId": "diarize",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiarizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Diarize audio",
+        "tags": [
+          "Api",
+          "Operations"
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    },
+    "/v1/identify": {
+      "post": {
+        "operationId": "identify",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Identify speaker with diarization",
+        "tags": [
+          "Api",
+          "Operations"
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    },
+    "/v1/jobs": {
+      "get": {
+        "operationId": "getJobsByTeam",
+        "parameters": [
+          {
+            "description": "Number of jobs to return",
+            "in": "query",
+            "name": "take",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "example": 10,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Status of the jobs to return",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pending",
+                "created",
+                "succeeded",
+                "canceled",
+                "failed",
+                "running"
+              ],
+              "example": "succeeded",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Number of jobs to skip",
+            "in": "query",
+            "name": "skip",
+            "required": false,
+            "schema": {
+              "default": null,
+              "example": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetJobsResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Get all jobs.",
+        "tags": [
+          "Api",
+          "Jobs"
+        ],
+        "x-api-key-permissions": [
+          "jobs:read"
+        ]
+      }
+    },
+    "/v1/jobs/{jobId}": {
+      "get": {
+        "operationId": "getJobById",
+        "parameters": [
+          {
+            "description": "Job ID to track the progress",
+            "in": "path",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/DiarizationJob",
+                      "title": "Diarization"
+                    },
+                    {
+                      "$ref": "#/components/schemas/VoiceprintJob",
+                      "title": "Voiceprint"
+                    },
+                    {
+                      "$ref": "#/components/schemas/IdentifyJob",
+                      "title": "Identification"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Get job by ID",
+        "tags": [
+          "Api",
+          "Jobs"
+        ],
+        "x-api-key-permissions": [
+          "jobs:read"
+        ]
+      }
+    },
+    "/v1/media/input": {
+      "post": {
+        "description": "To use the provided temporary storage is a two step process.\n    You start by declaring a media:// url that you can reference in any other API calls. The response will provide a url where you can put your media. This allows you to use the media:// url as a short-cut for a temporary storage location.\n    You'll be returned a pre-signed url you can use to PUT and upload your media file. The temporary storage should allow you to read and write to the media:// locations for a period of at least 24 hours before it is removed.",
+        "operationId": "getMediaUploadURL",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMediaUploadUrl"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Get upload URL",
+        "tags": [
+          "Media"
+        ],
+        "x-api-key-permissions": [
+          "media:write"
+        ]
+      }
+    },
+    "/v1/media/output": {
+      "post": {
+        "description": "You can download media you previously uploaded with /media/input or media that was generated through another API call.\nThe temporary storage should allow you to read and write to the media:// locations for a period of at least 24 hours before it is removed.",
+        "operationId": "getMediaDownloadURL",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetMediaUploadUrl"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Get download URL",
+        "tags": [
+          "Media"
+        ],
+        "x-api-key-permissions": [
+          "media:read"
+        ]
+      }
+    },
+    "/v1/test": {
+      "get": {
+        "operationId": "testKey",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Test API endpoint",
+        "tags": [
+          "Api",
+          "Test"
+        ]
+      }
+    },
+    "/v1/voiceprint": {
+      "post": {
+        "operationId": "voiceprint",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "api-key": []
+          }
+        ],
+        "summary": "Extract voiceprint",
+        "tags": [
+          "Api",
+          "Operations"
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.pyannote.ai"
+    }
+  ],
+  "tags": []
+}

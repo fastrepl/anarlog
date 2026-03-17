@@ -1,13 +1,14 @@
 use tauri::{
-    AppHandle, Result,
-    image::Image,
+    Result,
     menu::{Menu, MenuItemKind, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
 };
 
+use crate::tray_icon::TrayIconState;
+
 use crate::menu_items::{
-    AppHide, AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, HyprMenuItem, MenuItemHandler,
-    TrayCheckUpdate, TrayOpen, TrayQuit, TraySettings, TrayStart, TrayVersion,
+    AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayOpen,
+    TrayQuit, TraySettings, TrayStart, TrayVersion,
 };
 
 const TRAY_ID: &str = "hypr-tray";
@@ -53,7 +54,6 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                         &PredefinedMenuItem::hide_others(app, None)?,
                         &PredefinedMenuItem::show_all(app, None)?,
                         &PredefinedMenuItem::separator(app)?,
-                        &AppHide::build(app)?, // `cmd+q` will do nothing if removed
                         &TrayQuit::build(app)?,
                     ],
                 )?;
@@ -107,19 +107,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         )?;
 
         TrayIconBuilder::with_id(TRAY_ID)
-            .icon(Image::from_bytes(include_bytes!(
-                "../icons/tray_default.png"
-            ))?)
+            .icon(TrayIconState::Default.to_image()?)
             .icon_as_template(true)
             .menu(&menu)
             .show_menu_on_left_click(true)
-            .on_menu_event(move |app: &AppHandle, event| {
-                // Tauri dispatches menu events globally, so we receive events from context menus
-                // created elsewhere. TryFrom gracefully ignores unknown menu IDs that don't belong to the tray menu.
-                if let Ok(item) = HyprMenuItem::try_from(event.id.clone()) {
-                    item.handle(app);
-                }
-            })
             .build(app)?;
 
         Ok(())

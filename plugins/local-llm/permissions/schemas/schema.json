@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the cancel_download command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-download",
+          "markdownDescription": "Enables the cancel_download command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_download command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-download",
+          "markdownDescription": "Denies the cancel_download command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-model",
+          "markdownDescription": "Enables the delete_model command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-model",
+          "markdownDescription": "Denies the delete_model command without any pre-configured scope."
+        },
+        {
           "description": "Enables the download_model command without any pre-configured scope.",
           "type": "string",
           "const": "allow-download-model",
@@ -331,18 +355,6 @@
           "markdownDescription": "Denies the get_current_model_selection command without any pre-configured scope."
         },
         {
-          "description": "Enables the get_status command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-status",
-          "markdownDescription": "Enables the get_status command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_status command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-status",
-          "markdownDescription": "Denies the get_status command without any pre-configured scope."
-        },
-        {
           "description": "Enables the is_model_downloaded command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-model-downloaded",
@@ -365,18 +377,6 @@
           "type": "string",
           "const": "deny-is-model-downloading",
           "markdownDescription": "Denies the is_model_downloading command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the is_server_running command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-is-server-running",
-          "markdownDescription": "Enables the is_server_running command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the is_server_running command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-is-server-running",
-          "markdownDescription": "Denies the is_server_running command without any pre-configured scope."
         },
         {
           "description": "Enables the list_custom_models command without any pre-configured scope.",
@@ -427,16 +427,16 @@
           "markdownDescription": "Denies the models_dir command without any pre-configured scope."
         },
         {
-          "description": "Enables the restart_server command without any pre-configured scope.",
+          "description": "Enables the server_url command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-restart-server",
-          "markdownDescription": "Enables the restart_server command without any pre-configured scope."
+          "const": "allow-server-url",
+          "markdownDescription": "Enables the server_url command without any pre-configured scope."
         },
         {
-          "description": "Denies the restart_server command without any pre-configured scope.",
+          "description": "Denies the server_url command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-restart-server",
-          "markdownDescription": "Denies the restart_server command without any pre-configured scope."
+          "const": "deny-server-url",
+          "markdownDescription": "Denies the server_url command without any pre-configured scope."
         },
         {
           "description": "Enables the set_current_model command without any pre-configured scope.",
@@ -487,10 +487,10 @@
           "markdownDescription": "Denies the stop_server command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-server-running`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-restart-server`\n- `allow-get-current-model`\n- `allow-set-current-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-get-current-model-selection`\n- `allow-set-current-model-selection`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-get-current-model`\n- `allow-set-current-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-get-current-model-selection`\n- `allow-set-current-model-selection`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-server-url`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-server-running`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-restart-server`\n- `allow-get-current-model`\n- `allow-set-current-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-get-current-model-selection`\n- `allow-set-current-model-selection`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloading`\n- `allow-is-model-downloaded`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-get-current-model`\n- `allow-set-current-model`\n- `allow-list-downloaded-model`\n- `allow-list-supported-model`\n- `allow-list-custom-models`\n- `allow-get-current-model-selection`\n- `allow-set-current-model-selection`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-server-url`"
         }
       ]
     }

@@ -355,6 +355,18 @@
           "markdownDescription": "Denies the run_batch command without any pre-configured scope."
         },
         {
+          "description": "Enables the run_denoise command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-run-denoise",
+          "markdownDescription": "Enables the run_denoise command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the run_denoise command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-run-denoise",
+          "markdownDescription": "Denies the run_denoise command without any pre-configured scope."
+        },
+        {
           "description": "Enables the suggest_providers_for_languages_batch command without any pre-configured scope.",
           "type": "string",
           "const": "allow-suggest-providers-for-languages-batch",
@@ -367,10 +379,10 @@
           "markdownDescription": "Denies the suggest_providers_for_languages_batch command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-run-batch`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-run-batch`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-run-batch`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-run-batch`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
         }
       ]
     }

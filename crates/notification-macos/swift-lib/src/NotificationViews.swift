@@ -1,5 +1,18 @@
 import Cocoa
 
+class ShadowContainerView: NSView {
+  override func layout() {
+    super.layout()
+    let pathRect = bounds.insetBy(dx: 0.5, dy: 0.5)
+    layer?.shadowPath = CGPath(
+      roundedRect: pathRect,
+      cornerWidth: Layout.cornerRadius,
+      cornerHeight: Layout.cornerRadius,
+      transform: nil
+    )
+  }
+}
+
 class NotificationBackgroundView: NSView {
   let bgLayer = CALayer()
   let borderLayer = CALayer()
@@ -11,6 +24,26 @@ class NotificationBackgroundView: NSView {
   private var isPaused: Bool = false
   private var progressRatio: CGFloat = 1.0
   var onProgressComplete: (() -> Void)?
+
+  var isProgressHidden: Bool = false {
+    didSet {
+      progressLayer.isHidden = isProgressHidden
+    }
+  }
+
+  func makeBackgroundOpaque() {
+    bgLayer.backgroundColor = NSColor(calibratedWhite: 0.92, alpha: 1.0).cgColor
+    layer?.cornerRadius = Layout.cornerRadius
+    bgLayer.cornerRadius = Layout.cornerRadius
+    borderLayer.cornerRadius = Layout.cornerRadius
+    borderLayer.borderWidth = 1.5
+    borderLayer.borderColor = NSColor(calibratedWhite: 0.75, alpha: 0.5).cgColor
+    if #available(macOS 11.0, *) {
+      layer?.cornerCurve = .continuous
+      bgLayer.cornerCurve = .continuous
+      borderLayer.cornerCurve = .continuous
+    }
+  }
 
   private var progressBarFullWidth: CGFloat {
     bounds.width - (Layout.progressBarInset * 2)
@@ -91,6 +124,8 @@ class NotificationBackgroundView: NSView {
   }
 
   func startProgress(duration: Double) {
+    guard duration > 0 else { return }
+
     totalDuration = duration
     remainingDuration = duration
     progressStartTime = Date()
@@ -222,9 +257,25 @@ class ClickableView: NSView {
     alphaValue = 0.95
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.alphaValue = 1.0 }
     if let notification = notification {
-      RustBridge.onCollapsedConfirm(key: notification.key)
-      notification.dismiss()
+      if notification.payload.hasOptions, let optionsButton = findOptionsButton(in: self) {
+        optionsButton.showOptionsMenu()
+      } else {
+        RustBridge.onCollapsedConfirm(key: notification.key)
+        notification.dismiss()
+      }
     }
+  }
+
+  private func findOptionsButton(in view: NSView) -> OptionsButton? {
+    for subview in view.subviews {
+      if let button = subview as? OptionsButton {
+        return button
+      }
+      if let found = findOptionsButton(in: subview) {
+        return found
+      }
+    }
+    return nil
   }
 
   override func viewDidMoveToWindow() {

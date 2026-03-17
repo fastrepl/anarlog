@@ -38,6 +38,14 @@ async updateDocument(document: SearchDocument, collection: string | null) : Prom
     else return { status: "error", error: e  as any };
 }
 },
+async updateDocuments(documents: SearchDocument[], collection: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:tantivy|update_documents", { documents, collection }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async removeDocument(id: string, collection: string | null) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:tantivy|remove_document", { id, collection }) };

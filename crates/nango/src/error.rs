@@ -2,12 +2,20 @@ use serde::{Serialize, ser::Serializer};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("nango error: {0}")]
-    NangoError(String),
+    #[error("API error (status {0}): {1}")]
+    Api(u16, String),
     #[error(transparent)]
-    ReqwestError(#[from] reqwest::Error),
-    #[error("unknown integration")]
-    UnknownIntegration,
+    Request(#[from] reqwest::Error),
+    #[error("missing api key")]
+    MissingApiKey,
+    #[error("invalid api key")]
+    InvalidApiKey,
+    #[error("invalid api base url")]
+    InvalidApiBase,
+    #[error("invalid url: cannot modify path segments")]
+    InvalidUrl,
+    #[error("webhook signature error: {0}")]
+    WebhookSignature(String),
 }
 
 impl Serialize for Error {

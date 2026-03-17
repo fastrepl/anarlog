@@ -1,0 +1,17 @@
+name: chrome_cd
+
+on:
+  workflow_dispatch:
+
+jobs:
+  zip:
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F @hypr/chrome zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-zip
+          path: apps/chrome/.output/*.zip
+          retention-days: 30

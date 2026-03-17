@@ -36,12 +36,7 @@ export const TEAM_MEMBERS = {
   },
 } as const;
 
-export type TeamMemberId = keyof typeof TEAM_MEMBERS;
-export type TeamMember = (typeof TEAM_MEMBERS)[TeamMemberId];
-
 export const FOUNDERS = [TEAM_MEMBERS.john, TEAM_MEMBERS.yujong] as const;
-
-export const AUTHOR_NAMES = Object.values(TEAM_MEMBERS).map((m) => m.name);
 
 export const AUTHOR_AVATARS: Record<string, string> = Object.fromEntries(
   Object.values(TEAM_MEMBERS).map((m) => [m.name, m.avatar]),
@@ -52,16 +47,6 @@ export const AUTHORS = Object.values(TEAM_MEMBERS).map((m) => ({
   avatar: m.avatar,
 }));
 
-export function getAuthorAvatar(author: string, absolute = false): string {
-  const avatar = AUTHOR_AVATARS[author];
-  if (!avatar) {
-    return absolute
-      ? "https://hyprnote.com/api/images/icons/stable-icon.png"
-      : "/api/images/icons/stable-icon.png";
-  }
-  return absolute ? `https://hyprnote.com${avatar}` : avatar;
-}
-
 export const ADMIN_EMAILS = [
   "yujonglee@hyprnote.com",
   "yujonglee.dev@gmail.com",
@@ -69,6 +54,10 @@ export const ADMIN_EMAILS = [
   "marketing@hyprnote.com",
   "harshika.alagh@gmail.com",
   "yunhyungjo@yonsei.ac.kr",
+  "goranmoomin@daum.net",
+  "artem@hyprnote.com",
+  "stua@fastmail.com",
+  "thestua@gmail.com",
 ];
 
 export const TEAM_PHOTOS = [

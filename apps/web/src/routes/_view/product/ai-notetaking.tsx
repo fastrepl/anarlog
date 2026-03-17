@@ -1,11 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  ArrowRightIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  SearchIcon,
-} from "lucide-react";
+import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
@@ -20,14 +15,14 @@ export const Route = createFileRoute("/_view/product/ai-notetaking")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "AI Notetaking - Hyprnote" },
+      { title: "AI Notetaking - Char" },
       {
         name: "description",
         content:
           "Complete AI-powered notetaking solution. Record meetings, transcribe audio, and get intelligent summaries with customizable templates. Works with any video conferencing tool.",
       },
       { name: "robots", content: "noindex, nofollow" },
-      { property: "og:title", content: "AI Notetaking - Hyprnote" },
+      { property: "og:title", content: "AI Notetaking - Char" },
       {
         property: "og:description",
         content:
@@ -36,7 +31,7 @@ export const Route = createFileRoute("/_view/product/ai-notetaking")({
       { property: "og:type", content: "website" },
       {
         property: "og:url",
-        content: "https://hyprnote.com/product/ai-notetaking",
+        content: "https://char.com/product/ai-notetaking",
       },
     ],
   }),
@@ -78,10 +73,10 @@ const tabs = [
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen overflow-x-hidden"
+      className="min-h-screen overflow-x-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <EditorSection />
@@ -106,66 +101,21 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mb-12 text-center max-w-4xl mx-auto">
-          <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
-            <span className="inline-block mx-auto min-[680px]:hidden">
-              AI notetaking for
-              <br />
-              <span
-                className="inline-block whitespace-nowrap"
-                style={{ width: "240px", maxWidth: "100%" }}
-              >
-                your{" "}
-                <span
-                  className="inline-block relative"
-                  style={{ minWidth: "12ch" }}
-                >
-                  <span className="invisible">meetings</span>
-                  <Typewriter
-                    text={["meetings", "lectures", "thoughts"]}
-                    speed={100}
-                    deleteSpeed={50}
-                    waitTime={2000}
-                    loop={true}
-                    className="absolute left-0 top-0"
-                  />
-                </span>
-              </span>
-            </span>
-
-            <span
-              className="hidden min-[680px]:inline-block mx-auto whitespace-nowrap"
-              style={{ width: "680px", maxWidth: "100%" }}
-            >
-              AI notetaking for your{" "}
-              <span
-                className="inline-block relative"
-                style={{ minWidth: "12ch" }}
-              >
-                <span className="invisible">meetings</span>
-                <Typewriter
-                  text={["meetings", "lectures", "thoughts"]}
-                  speed={100}
-                  deleteSpeed={50}
-                  waitTime={2000}
-                  loop={true}
-                  className="absolute left-0 top-0"
-                />
-              </span>
-            </span>
+        <header className="mx-auto mb-12 max-w-4xl text-center">
+          <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+            AI Notepad for Smarter Meeting Notes
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600">
-            Record meetings or upload audio files to get instant
-            <br className="hidden sm:inline" /> AI transcriptions and
-            customizable summaries
+          <p className="text-lg text-neutral-600 sm:text-xl">
+            You focus on the conversation. AI transcribes, summarizes,
+            <br className="hidden sm:inline" /> and fills in what you missed.
           </p>
           <div className="mt-8">
             <Link
               to="/download/"
               className={cn([
-                "inline-block px-8 py-3 text-base font-medium rounded-full",
+                "inline-block rounded-full px-8 py-3 text-base font-medium",
                 "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "hover:scale-105 active:scale-95 transition-transform",
+                "transition-transform hover:scale-105 active:scale-95",
               ])}
             >
               Download for free
@@ -173,11 +123,11 @@ function HeroSection() {
           </div>
         </header>
       </div>
-      <div className="relative aspect-video w-full border-t border-neutral-100 overflow-hidden">
+      <div className="relative aspect-video w-full overflow-hidden border-t border-neutral-100">
         <img
           src="/api/images/hyprnote/ai-notetaking-hero.jpg"
           alt="AI notetaking in action"
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
         />
       </div>
     </div>
@@ -190,28 +140,28 @@ function EditorSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-3xl font-serif text-stone-600">
-              Simple notetaking
+            <h2 className="font-serif text-3xl text-stone-700">
+              Simple, Familiar Notepad
             </h2>
-            <p className="text-base text-neutral-600 leading-relaxed">
-              Hyprnote comes with a easy-to-use text editor where you can jot
-              down stuff in markdown.
+            <p className="text-base leading-relaxed text-neutral-600">
+              Char comes with a easy-to-use text editor where you can jot down
+              stuff in markdown.
             </p>
             <ul className="flex flex-col gap-3">
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Full markdown syntax support for quick formatting
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Clean, distraction-free writing experience
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Rich text editing with familiar keyboard shortcuts
                 </span>
@@ -219,9 +169,9 @@ function EditorSection() {
             </ul>
           </div>
         </div>
-        <div className="flex items-end justify-center px-8 pb-0 pt-8 bg-stone-50/30 overflow-hidden">
+        <div className="flex items-end justify-center overflow-hidden bg-stone-50/30 px-8 pt-8 pb-0">
           <MockWindow>
-            <div className="p-6 h-80 overflow-hidden">
+            <div className="h-80 overflow-hidden p-6">
               <AnimatedMarkdownDemo />
             </div>
           </MockWindow>
@@ -229,38 +179,38 @@ function EditorSection() {
       </div>
 
       <div className="sm:hidden">
-        <div className="p-6 border-b border-neutral-100">
-          <h2 className="text-2xl font-serif text-stone-600 mb-3">
-            Simple notetaking
+        <div className="border-b border-neutral-100 p-6">
+          <h2 className="mb-3 font-serif text-2xl text-stone-700">
+            Simple, Familiar Notepad
           </h2>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-            Hyprnote comes with a easy-to-use text editor where you can jot down
+          <p className="mb-4 text-sm leading-relaxed text-neutral-600">
+            Char comes with a easy-to-use text editor where you can jot down
             stuff in markdown.
           </p>
           <ul className="flex flex-col gap-3">
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Full markdown syntax support for quick formatting
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Clean, distraction-free writing experience
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Rich text editing with familiar keyboard shortcuts
               </span>
             </li>
           </ul>
         </div>
-        <div className="px-6 pb-0 bg-stone-50/30 overflow-clip">
+        <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
           <MockWindow variant="mobile">
-            <div className="p-6 h-[200px] overflow-hidden">
+            <div className="h-[200px] overflow-hidden p-6">
               <AnimatedMarkdownDemo isMobile />
             </div>
           </MockWindow>
@@ -311,16 +261,16 @@ function AudioTranscriptionDemo() {
 
   return (
     <div
-      className="relative w-full bg-white flex flex-col items-center justify-center p-8 gap-6"
+      className="relative flex w-full flex-col items-center justify-center gap-6 bg-white p-8"
       style={{ aspectRatio: "52/39" }}
     >
-      <div className="w-full flex items-center justify-center gap-1 flex-1">
+      <div className="flex w-full flex-1 items-center justify-center gap-1">
         {audioBarHeights.map((height, i) => {
           const isTranscribed = i / audioBarHeights.length <= progress;
           return (
             <div
               key={i}
-              className="flex-1 transition-colors duration-300 rounded-full"
+              className="flex-1 rounded-full transition-colors duration-300"
               style={{
                 height: `${height * 100}%`,
                 backgroundColor: isTranscribed ? "#ef4444" : "#f5f5f4",
@@ -331,13 +281,13 @@ function AudioTranscriptionDemo() {
         })}
       </div>
 
-      <div className="w-full px-4 relative h-8 flex items-center">
+      <div className="relative flex h-8 w-full items-center px-4">
         {words.map((word, i) => {
           const isVisible = progress >= word.position;
           return (
             <span
               key={i}
-              className="absolute text-neutral-600 text-xs sm:text-sm transition-opacity duration-300"
+              className="absolute text-xs text-neutral-600 transition-opacity duration-300 sm:text-sm"
               style={{
                 left: `${word.position * 100}%`,
                 opacity: isVisible ? 1 : 0,
@@ -647,57 +597,52 @@ function AnimatedMarkdownDemo({ isMobile = false }: { isMobile?: boolean }) {
 function TranscriptionSection() {
   return (
     <section id="transcription" className="border-y border-neutral-100">
-      <div className="text-center py-12 px-4 lg:px-0">
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">
-          Transcription
+      <div className="px-4 py-12 text-center lg:px-0">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          Live meetings to recorded audio, Char transcribes it all
         </h2>
-        <p className="text-base text-neutral-600 max-w-2xl mx-auto">
-          From live meetings to recorded audio, Hyprnote can transcribe it all
-        </p>
       </div>
 
       <div className="border-t border-neutral-100">
         <div className="hidden sm:grid sm:grid-cols-2">
-          <div className="border-r border-neutral-100 flex flex-col">
-            <div className="p-8 flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <Icon icon="mdi:chip" className="text-3xl text-stone-600" />
-                  <h3 className="text-2xl font-serif text-stone-600">
-                    Fully on-device
-                  </h3>
-                </div>
-                <div className="px-4 py-1.5 bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs text-xs font-medium whitespace-nowrap">
-                  Apple Silicon only
-                </div>
+          <div className="flex flex-col border-r border-neutral-100">
+            <div className="flex flex-col gap-4 p-8">
+              <div className="flex items-center gap-3">
+                <Icon
+                  icon="mdi:microphone"
+                  className="text-3xl text-stone-700"
+                />
+                <h3 className="font-serif text-2xl text-stone-700">
+                  Real-time transcription
+                </h3>
               </div>
-              <p className="text-base text-neutral-600 leading-relaxed">
-                For Apple Silicon Macs, transcription happens entirely on your
-                device. Fast, private, and no internet required.
+              <p className="text-base leading-relaxed text-neutral-600">
+                Every word captured as it's spoken. See the transcript build in
+                real-time with speaker identification and timestamps.
               </p>
             </div>
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
+            <div className="flex flex-1 items-center justify-center overflow-hidden">
               <img
                 src="/api/images/hyprnote/no-wifi.png"
                 alt="On-device transcription"
-                className="w-full h-full object-contain"
+                className="h-full w-full object-contain"
               />
             </div>
           </div>
           <div className="flex flex-col">
-            <div className="p-8 flex flex-col gap-4">
+            <div className="flex flex-col gap-4 p-8">
               <div className="flex items-center gap-3">
-                <Icon icon="mdi:upload" className="text-3xl text-stone-600" />
-                <h3 className="text-2xl font-serif text-stone-600">
+                <Icon icon="mdi:upload" className="text-3xl text-stone-700" />
+                <h3 className="font-serif text-2xl text-stone-700">
                   Upload files
                 </h3>
               </div>
-              <p className="text-base text-neutral-600 leading-relaxed">
+              <p className="text-base leading-relaxed text-neutral-600">
                 Upload audio files (M4A, MP3, WAV) or existing transcripts (VTT,
                 TXT) to get AI summaries and insights.
               </p>
             </div>
-            <div className="flex-1 flex items-center justify-center overflow-hidden bg-neutral-100">
+            <div className="flex flex-1 items-center justify-center overflow-hidden bg-neutral-100">
               <AudioTranscriptionDemo />
             </div>
           </div>
@@ -706,37 +651,30 @@ function TranscriptionSection() {
         <div className="sm:hidden">
           <div className="border-b border-neutral-100">
             <div className="p-6">
-              <div className="inline-block px-4 py-1.5 bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs text-xs font-medium mb-3">
-                Apple Silicon only
-              </div>
-              <div className="flex items-center gap-3 mb-3">
-                <Icon icon="mdi:chip" className="text-2xl text-stone-600" />
-                <h3 className="text-xl font-serif text-stone-600">
-                  Fully on-device
+              <div className="mb-3 flex items-center gap-3">
+                <Icon
+                  icon="mdi:microphone"
+                  className="text-2xl text-stone-700"
+                />
+                <h3 className="font-serif text-xl text-stone-700">
+                  Real-time transcription
                 </h3>
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-                For Apple Silicon Macs, transcription happens entirely on your
-                device. Fast, private, and no internet required.
+              <p className="mb-4 text-sm leading-relaxed text-neutral-600">
+                Every word captured as it's spoken. See the transcript build in
+                real-time with speaker identification and timestamps.
               </p>
-            </div>
-            <div className="overflow-hidden bg-neutral-100">
-              <img
-                src="/api/images/hyprnote/no-wifi.png"
-                alt="On-device transcription"
-                className="w-full h-auto object-contain"
-              />
             </div>
           </div>
           <div>
             <div className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Icon icon="mdi:upload" className="text-2xl text-stone-600" />
-                <h3 className="text-xl font-serif text-stone-600">
+              <div className="mb-3 flex items-center gap-3">
+                <Icon icon="mdi:upload" className="text-2xl text-stone-700" />
+                <h3 className="font-serif text-xl text-stone-700">
                   Upload files
                 </h3>
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed mb-4">
+              <p className="mb-4 text-sm leading-relaxed text-neutral-600">
                 Upload audio files (M4A, MP3, WAV) or existing transcripts (VTT,
                 TXT) to get AI summaries and insights.
               </p>
@@ -816,33 +754,29 @@ function SummariesSection() {
 
   return (
     <section id="summaries">
-      <div className="text-center py-12 px-4 lg:px-0">
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">
-          AI summaries
+      <div className="px-4 py-12 text-center lg:px-0">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          Your Notes+AI = Perfect Summary
         </h2>
-        <p className="text-base text-neutral-600">
-          Hyprnote combines your notes with transcripts to create intelligent
-          summaries after your meeting ends
-        </p>
       </div>
       <div className="border-t border-neutral-100">
         <div className="hidden sm:grid sm:grid-cols-2">
-          <div className="border-r border-neutral-100 flex flex-col overflow-clip">
-            <div className="p-8 flex flex-col gap-4">
-              <p className="text-lg font-serif text-neutral-600 leading-relaxed">
+          <div className="flex flex-col overflow-clip border-r border-neutral-100">
+            <div className="flex flex-col gap-4 p-8">
+              <p className="font-serif text-lg leading-relaxed text-neutral-600">
                 <span className="font-semibold">While you take notes,</span>{" "}
-                Hyprnote listens and keeps track of everything that happens
-                during the meeting.
+                Char listens and keeps track of everything that happens during
+                the meeting.
               </p>
             </div>
-            <div className="flex-1 flex items-end justify-center px-8 pb-0 bg-stone-50/30">
+            <div className="flex flex-1 items-end justify-center bg-stone-50/30 px-8 pb-0">
               <MockWindow showAudioIndicator={enhancedLines === 0}>
-                <div className="p-6 h-[300px] overflow-hidden">
+                <div className="h-[300px] overflow-hidden p-6">
                   <div className="text-neutral-700">ui update - mobile</div>
                   <div className="text-neutral-700">api</div>
-                  <div className="text-neutral-700 mt-4">new dash - urgent</div>
+                  <div className="mt-4 text-neutral-700">new dash - urgent</div>
                   <div className="text-neutral-700">a/b test next wk</div>
-                  <div className="text-neutral-700 mt-4">
+                  <div className="mt-4 text-neutral-700">
                     {typedText1}
                     {typedText1 && typedText1.length < text1.length && (
                       <span className="animate-pulse">|</span>
@@ -860,18 +794,17 @@ function SummariesSection() {
           </div>
 
           <div className="flex flex-col overflow-clip">
-            <div className="p-8 flex flex-col gap-4">
-              <p className="text-lg font-serif text-neutral-600 leading-relaxed">
+            <div className="flex flex-col gap-4 p-8">
+              <p className="font-serif text-lg leading-relaxed text-neutral-600">
                 <span className="font-semibold">
                   After the meeting is over,
                 </span>{" "}
-                Hyprnote combines your notes with transcripts to create a
-                perfect summary.
+                Char combines your notes with transcripts to create a summary.
               </p>
             </div>
-            <div className="flex-1 flex items-end justify-center px-8 pb-0 bg-stone-50/30">
+            <div className="flex flex-1 items-end justify-center bg-stone-50/30 px-8 pb-0">
               <MockWindow>
-                <div className="p-6 flex flex-col gap-4 h-[300px] overflow-hidden">
+                <div className="flex h-[300px] flex-col gap-4 overflow-hidden p-6">
                   <div className="flex flex-col gap-2">
                     <h4
                       className={cn([
@@ -881,7 +814,7 @@ function SummariesSection() {
                     >
                       Mobile UI Update and API Adjustments
                     </h4>
-                    <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-5">
+                    <ul className="flex list-disc flex-col gap-2 pl-5 text-neutral-700">
                       <li
                         className={cn([
                           "transition-opacity duration-500",
@@ -923,7 +856,7 @@ function SummariesSection() {
                     >
                       New Dashboard – Urgent Priority
                     </h4>
-                    <ul className="flex flex-col gap-2 text-sm text-neutral-700 list-disc pl-5">
+                    <ul className="flex list-disc flex-col gap-2 pl-5 text-sm text-neutral-700">
                       <li
                         className={cn([
                           "transition-opacity duration-500",
@@ -953,20 +886,20 @@ function SummariesSection() {
         <div className="sm:hidden">
           <div className="border-b border-neutral-100">
             <div className="p-6 pb-2">
-              <p className="text-base font-serif text-neutral-600 leading-relaxed mb-4">
+              <p className="mb-4 font-serif text-base leading-relaxed text-neutral-600">
                 <span className="font-semibold">While you take notes,</span>{" "}
-                Hyprnote listens and keeps track of everything that happens
-                during the meeting.
+                Char listens and keeps track of everything that happens during
+                the meeting.
               </p>
             </div>
-            <div className="px-6 pb-0 bg-stone-50/30 overflow-clip">
+            <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
               <MockWindow variant="mobile">
-                <div className="p-6 h-[200px] overflow-hidden">
+                <div className="h-[200px] overflow-hidden p-6">
                   <div className="text-neutral-700">ui update - mobile</div>
                   <div className="text-neutral-700">api</div>
-                  <div className="text-neutral-700 mt-3">new dash - urgent</div>
+                  <div className="mt-3 text-neutral-700">new dash - urgent</div>
                   <div className="text-neutral-700">a/b test next wk</div>
-                  <div className="text-neutral-700 mt-3">
+                  <div className="mt-3 text-neutral-700">
                     {typedText1}
                     {typedText1 && typedText1.length < text1.length && (
                       <span className="animate-pulse">|</span>
@@ -985,22 +918,21 @@ function SummariesSection() {
 
           <div>
             <div className="p-6 pb-2">
-              <p className="text-base font-serif text-neutral-600 leading-relaxed mb-4">
+              <p className="mb-4 font-serif text-base leading-relaxed text-neutral-600">
                 <span className="font-semibold">
                   After the meeting is over,
                 </span>{" "}
-                Hyprnote combines your notes with transcripts to create a
-                perfect summary.
+                Char combines your notes with transcripts to create a summary.
               </p>
             </div>
-            <div className="px-6 pb-0 bg-stone-50/30 overflow-clip">
+            <div className="overflow-clip bg-stone-50/30 px-6 pb-0">
               <MockWindow variant="mobile">
-                <div className="p-6 flex flex-col gap-4 h-[200px] overflow-hidden">
+                <div className="flex h-[200px] flex-col gap-4 overflow-hidden p-6">
                   <div className="flex flex-col gap-2">
                     <h4 className="text-lg font-semibold text-stone-700">
                       Mobile UI Update and API Adjustments
                     </h4>
-                    <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-4">
+                    <ul className="flex list-disc flex-col gap-2 pl-4 text-neutral-700">
                       <li
                         className={cn([
                           "transition-opacity duration-500",
@@ -1037,7 +969,7 @@ function SummariesSection() {
                     <h4 className="text-lg font-semibold text-stone-700">
                       New Dashboard – Urgent Priority
                     </h4>
-                    <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-4">
+                    <ul className="flex list-disc flex-col gap-2 pl-4 text-neutral-700">
                       <li
                         className={cn([
                           "transition-opacity duration-500",
@@ -1085,10 +1017,10 @@ function SearchSection() {
         backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
       }}
     >
-      <div className="py-20 px-6">
-        <div className="text-center flex flex-col gap-12">
+      <div className="px-6 py-20">
+        <div className="flex flex-col gap-12 text-center">
           <div>
-            <h2 className="text-3xl font-serif text-stone-50 mb-4">
+            <h2 className="mb-4 font-serif text-3xl text-stone-50">
               Find anything instantly
             </h2>
             <p className="text-base text-neutral-100">
@@ -1097,36 +1029,20 @@ function SearchSection() {
             </p>
           </div>
 
-          <div className="relative max-w-2xl mx-auto flex flex-col gap-3">
-            <div className="flex items-center gap-3 px-4 py-3 border border-stone-300 rounded-full bg-white shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
-              <SearchIcon className="text-stone-400 shrink-0 size-5" />
-              <div className="flex-1 text-left min-w-0 overflow-hidden">
+          <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
+            <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
+              <SearchIcon className="size-5 shrink-0 text-stone-400" />
+              <div className="min-w-0 flex-1 overflow-hidden text-left">
                 <Typewriter
                   text={searchQueries}
                   speed={100}
                   deleteSpeed={30}
                   waitTime={2000}
-                  className="text-base sm:text-lg text-stone-600 font-light truncate block"
+                  className="block truncate text-base font-light text-stone-700 sm:text-lg"
                   cursorClassName="ml-1"
                 />
               </div>
-              <Link
-                to="/product/mini-apps/"
-                hash="advanced-search"
-                className="hidden sm:inline-flex px-5 h-10 items-center justify-center gap-2 text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all shrink-0"
-              >
-                Go to Advanced Search
-                <ArrowRightIcon className="size-4" />
-              </Link>
             </div>
-            <Link
-              to="/product/mini-apps/"
-              hash="advanced-search"
-              className="sm:hidden w-full px-4 h-10 inline-flex items-center justify-center gap-2 text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md active:scale-[98%] transition-all"
-            >
-              Go to Advanced Search
-              <ArrowRightIcon className="size-4" />
-            </Link>
           </div>
         </div>
       </div>
@@ -1205,9 +1121,9 @@ const CollaboratorsCell = memo(() => {
 
   return (
     <>
-      <div className="overflow-hidden p-4 sm:aspect-4/3 h-[300px] sm:h-auto">
-        <div className="h-full flex items-end">
-          <div className="w-full flex flex-col gap-2">
+      <div className="h-[300px] overflow-hidden p-4 sm:aspect-4/3 sm:h-auto">
+        <div className="flex h-full items-end">
+          <div className="flex w-full flex-col gap-2">
             <AnimatePresence>
               {collaborators.map((person) => (
                 <motion.div
@@ -1222,18 +1138,18 @@ const CollaboratorsCell = memo(() => {
                     duration: 0.5,
                     ease: "easeOut",
                   }}
-                  className="flex items-center gap-3 bg-linear-to-br from-stone-50/80 to-white/80 backdrop-blur-xs rounded-lg p-3 border border-stone-200/50"
+                  className="flex items-center gap-3 rounded-lg border border-stone-200/50 bg-linear-to-br from-stone-50/80 to-white/80 p-3 backdrop-blur-xs"
                 >
                   <Image
                     src={person.avatar}
                     alt={person.name}
                     width={32}
                     height={32}
-                    className="rounded-full shrink-0"
+                    className="shrink-0 rounded-full"
                     objectFit="cover"
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-stone-700 truncate">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-stone-700">
                       {person.name}
                     </div>
                   </div>
@@ -1247,11 +1163,11 @@ const CollaboratorsCell = memo(() => {
                     }
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.3 }}
-                    className="shrink-0 w-32 relative"
+                    className="relative w-32 shrink-0"
                   >
-                    <div className="flex items-center gap-1 text-xs text-neutral-700 bg-white border border-stone-200 px-2 py-1 rounded">
+                    <div className="flex items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-neutral-700">
                       <span className="flex-1 truncate">{person.scope}</span>
-                      <ChevronDownIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+                      <ChevronDownIcon className="h-4 w-4 shrink-0 text-neutral-400" />
                     </div>
                     <AnimatePresence>
                       {person.name === "David Kim" && showPopover && (
@@ -1271,7 +1187,7 @@ const CollaboratorsCell = memo(() => {
                           transition={{
                             duration: 0.2,
                           }}
-                          className="absolute bottom-full mb-1 left-0 w-32 bg-white border border-stone-200 rounded shadow-lg z-20 overflow-hidden"
+                          className="absolute bottom-full left-0 z-20 mb-1 w-32 overflow-hidden rounded border border-stone-200 bg-white shadow-lg"
                         >
                           <div
                             className={cn([
@@ -1281,7 +1197,7 @@ const CollaboratorsCell = memo(() => {
                           >
                             <CheckIcon
                               className={cn([
-                                "w-4 h-4",
+                                "h-4 w-4",
                                 davidScope === "Can view"
                                   ? "text-green-600"
                                   : "text-transparent",
@@ -1297,7 +1213,7 @@ const CollaboratorsCell = memo(() => {
                           >
                             <CheckIcon
                               className={cn([
-                                "w-4 h-4",
+                                "h-4 w-4",
                                 davidScope === "Can comment"
                                   ? "text-green-600"
                                   : "text-transparent",
@@ -1306,7 +1222,7 @@ const CollaboratorsCell = memo(() => {
                             <span>Can comment</span>
                           </div>
                           <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                            <CheckIcon className="w-4 h-4 text-transparent" />
+                            <CheckIcon className="h-4 w-4 text-transparent" />
                             <span>Can edit</span>
                           </div>
                         </motion.div>
@@ -1429,18 +1345,18 @@ const ShareLinksCell = memo(() => {
   }, []);
 
   return (
-    <div className="overflow-hidden p-4 flex items-center justify-center sm:aspect-4/3 h-[300px] sm:h-auto">
-      <div className="w-full flex flex-col gap-2">
+    <div className="flex h-[300px] items-center justify-center overflow-hidden p-4 sm:aspect-4/3 sm:h-auto">
+      <div className="flex w-full flex-col gap-2">
         <motion.div
           animate={linkClicked ? { scale: [1, 0.95, 1] } : {}}
           transition={{ duration: 0.3 }}
           className={cn([
-            "bg-linear-to-br from-purple-50/80 to-white/80 backdrop-blur-xs rounded-lg p-3 border border-stone-200/50 flex items-center justify-between gap-3 cursor-pointer overflow-visible relative",
+            "relative flex cursor-pointer items-center justify-between gap-3 overflow-visible rounded-lg border border-stone-200/50 bg-linear-to-br from-purple-50/80 to-white/80 p-3 backdrop-blur-xs",
             showLinkPopover && "z-10",
           ])}
         >
-          <Icon icon="hugeicons:note" className="w-8 text-stone-600" />
-          <div className="flex-1 flex items-center justify-between gap-2 relative">
+          <Icon icon="hugeicons:note" className="w-8 text-stone-700" />
+          <div className="relative flex flex-1 items-center justify-between gap-2">
             <motion.div
               key={linkPermission}
               initial={
@@ -1448,10 +1364,10 @@ const ShareLinksCell = memo(() => {
               }
               animate={{ scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="flex items-center gap-1 text-xs text-neutral-700 bg-white border border-stone-200 px-2 py-1 rounded relative w-32"
+              className="relative flex w-32 items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-neutral-700"
             >
               <span className="flex-1 truncate">{linkPermission}</span>
-              <ChevronDownIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+              <ChevronDownIcon className="h-4 w-4 shrink-0 text-neutral-400" />
             </motion.div>
             <AnimatePresence>
               {showLinkPopover && (
@@ -1460,7 +1376,7 @@ const ShareLinksCell = memo(() => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute top-full mt-1 left-0 w-32 bg-white border border-stone-200 rounded shadow-lg z-20 overflow-hidden"
+                  className="absolute top-full left-0 z-20 mt-1 w-32 overflow-hidden rounded border border-stone-200 bg-white shadow-lg"
                 >
                   <div
                     className={cn([
@@ -1470,7 +1386,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         linkPermission === "Restricted"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1486,7 +1402,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         linkPermission === "View only"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1502,7 +1418,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         linkPermission === "Editable"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1518,13 +1434,13 @@ const ShareLinksCell = memo(() => {
               animate={linkClicked ? { scale: [1, 0.95, 1] } : {}}
               transition={{ duration: 0.3 }}
               className={cn([
-                "w-24 px-3 py-2 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                "flex w-24 items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium transition-all",
                 showCopied
                   ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
                   : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 hover:scale-105 active:scale-95",
               ])}
             >
-              {showCopied && <CheckIcon className="w-4 h-4 shrink-0" />}
+              {showCopied && <CheckIcon className="h-4 w-4 shrink-0" />}
               <span>{showCopied ? "Copied" : "Copy"}</span>
             </motion.button>
           </div>
@@ -1533,23 +1449,23 @@ const ShareLinksCell = memo(() => {
           animate={slackClicked ? { scale: [1, 0.95, 1] } : {}}
           transition={{ duration: 0.3 }}
           className={cn([
-            "bg-linear-to-br from-green-50/80 to-white/80 backdrop-blur-xs rounded-lg p-3 border border-stone-200/50 flex items-center gap-3 cursor-pointer overflow-visible relative",
+            "relative flex cursor-pointer items-center gap-3 overflow-visible rounded-lg border border-stone-200/50 bg-linear-to-br from-green-50/80 to-white/80 p-3 backdrop-blur-xs",
             showSlackPopover && "z-10",
           ])}
         >
           <Icon icon="logos:slack-icon" className="w-8" />
-          <div className="flex-1 flex items-center justify-between gap-2 relative">
+          <div className="relative flex flex-1 items-center justify-between gap-2">
             <motion.div
               key={selectedChannel || "default"}
               initial={selectedChannel ? { scale: 1.1 } : { scale: 1 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="flex items-center gap-1 text-xs text-neutral-700 bg-white border border-stone-200 px-2 py-1 rounded relative w-32"
+              className="relative flex w-32 items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-neutral-700"
             >
               <span className="flex-1 truncate">
                 {selectedChannel || "Select channel"}
               </span>
-              <ChevronDownIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+              <ChevronDownIcon className="h-4 w-4 shrink-0 text-neutral-400" />
             </motion.div>
             <AnimatePresence>
               {showSlackPopover && (
@@ -1558,7 +1474,7 @@ const ShareLinksCell = memo(() => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute top-full mt-1 left-0 w-40 bg-white border border-stone-200 rounded shadow-lg z-20 overflow-hidden"
+                  className="absolute top-full left-0 z-20 mt-1 w-40 overflow-hidden rounded border border-stone-200 bg-white shadow-lg"
                 >
                   <div
                     className={cn([
@@ -1568,7 +1484,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         selectedChannel === "#team-meeting"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1577,11 +1493,11 @@ const ShareLinksCell = memo(() => {
                     <span>#team-meeting</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>#marketing</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>#general</span>
                   </div>
                 </motion.div>
@@ -1592,7 +1508,7 @@ const ShareLinksCell = memo(() => {
               animate={sendClicked ? { scale: [1, 0.95, 1] } : {}}
               transition={{ duration: 0.3 }}
               className={cn([
-                "w-24 px-3 py-2 rounded-full text-xs font-medium transition-all flex items-center justify-center",
+                "flex w-24 items-center justify-center rounded-full px-3 py-2 text-xs font-medium transition-all",
                 showSent
                   ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
                   : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 hover:scale-105 active:scale-95",
@@ -1600,7 +1516,7 @@ const ShareLinksCell = memo(() => {
             >
               {showSent ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <CheckIcon className="w-4 h-4 shrink-0" />
+                  <CheckIcon className="h-4 w-4 shrink-0" />
                   Sent
                 </span>
               ) : (
@@ -1612,21 +1528,21 @@ const ShareLinksCell = memo(() => {
         <motion.div
           animate={teamsClicked ? { scale: [1, 0.95, 1] } : {}}
           transition={{ duration: 0.3 }}
-          className="bg-linear-to-br from-indigo-50/80 to-white/80 backdrop-blur-xs rounded-lg p-3 border border-stone-200/50 flex items-center gap-3 cursor-pointer overflow-visible relative"
+          className="relative flex cursor-pointer items-center gap-3 overflow-visible rounded-lg border border-stone-200/50 bg-linear-to-br from-indigo-50/80 to-white/80 p-3 backdrop-blur-xs"
         >
           <Icon icon="logos:microsoft-teams" className="w-8" />
-          <div className="flex-1 flex items-center justify-between gap-2 relative">
+          <div className="relative flex flex-1 items-center justify-between gap-2">
             <motion.div
               key={selectedTeam || "default"}
               initial={selectedTeam ? { scale: 1.1 } : { scale: 1 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="flex items-center gap-1 text-xs text-neutral-700 bg-white border border-stone-200 px-2 py-1 rounded relative w-32"
+              className="relative flex w-32 items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-neutral-700"
             >
               <span className="flex-1 truncate">
                 {selectedTeam || "Select team"}
               </span>
-              <ChevronDownIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+              <ChevronDownIcon className="h-4 w-4 shrink-0 text-neutral-400" />
             </motion.div>
             <AnimatePresence>
               {showTeamsPopover && (
@@ -1635,7 +1551,7 @@ const ShareLinksCell = memo(() => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute bottom-full mb-1 left-0 w-32 bg-white border border-stone-200 rounded shadow-lg z-20 overflow-hidden"
+                  className="absolute bottom-full left-0 z-20 mb-1 w-32 overflow-hidden rounded border border-stone-200 bg-white shadow-lg"
                 >
                   <div
                     className={cn([
@@ -1645,7 +1561,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         selectedTeam === "Design Team"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1654,11 +1570,11 @@ const ShareLinksCell = memo(() => {
                     <span>Design Team</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>Engineering</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>Marketing</span>
                   </div>
                 </motion.div>
@@ -1669,7 +1585,7 @@ const ShareLinksCell = memo(() => {
               animate={teamsSendClicked ? { scale: [1, 0.95, 1] } : {}}
               transition={{ duration: 0.3 }}
               className={cn([
-                "w-24 px-3 py-2 rounded-full text-xs font-medium transition-all flex items-center justify-center",
+                "flex w-24 items-center justify-center rounded-full px-3 py-2 text-xs font-medium transition-all",
                 teamsShowSent
                   ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
                   : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 hover:scale-105 active:scale-95",
@@ -1677,7 +1593,7 @@ const ShareLinksCell = memo(() => {
             >
               {teamsShowSent ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <CheckIcon className="w-4 h-4 shrink-0" />
+                  <CheckIcon className="h-4 w-4 shrink-0" />
                   Sent
                 </span>
               ) : (
@@ -1689,21 +1605,21 @@ const ShareLinksCell = memo(() => {
         <motion.div
           animate={salesforceClicked ? { scale: [1, 0.95, 1] } : {}}
           transition={{ duration: 0.3 }}
-          className="bg-linear-to-br from-cyan-50/80 to-white/80 backdrop-blur-xs rounded-lg p-3 border border-stone-200/50 flex items-center gap-3 cursor-pointer overflow-visible relative"
+          className="relative flex cursor-pointer items-center gap-3 overflow-visible rounded-lg border border-stone-200/50 bg-linear-to-br from-cyan-50/80 to-white/80 p-3 backdrop-blur-xs"
         >
           <Icon icon="logos:salesforce" className="w-8" />
-          <div className="flex-1 flex items-center justify-between gap-2 relative">
+          <div className="relative flex flex-1 items-center justify-between gap-2">
             <motion.div
               key={selectedLead || "default"}
               initial={selectedLead ? { scale: 1.1 } : { scale: 1 }}
               animate={{ scale: 1 }}
               transition={{ duration: 0.3 }}
-              className="flex items-center gap-1 text-xs text-neutral-700 bg-white border border-stone-200 px-2 py-1 rounded relative w-32"
+              className="relative flex w-32 items-center gap-1 rounded border border-stone-200 bg-white px-2 py-1 text-xs text-neutral-700"
             >
               <span className="flex-1 truncate">
                 {selectedLead || "Select lead"}
               </span>
-              <ChevronDownIcon className="w-4 h-4 text-neutral-400 shrink-0" />
+              <ChevronDownIcon className="h-4 w-4 shrink-0 text-neutral-400" />
             </motion.div>
             <AnimatePresence>
               {showSalesforcePopover && (
@@ -1712,7 +1628,7 @@ const ShareLinksCell = memo(() => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute bottom-full mb-1 left-0 w-32 bg-white border border-stone-200 rounded shadow-lg z-20 overflow-hidden"
+                  className="absolute bottom-full left-0 z-20 mb-1 w-32 overflow-hidden rounded border border-stone-200 bg-white shadow-lg"
                 >
                   <div
                     className={cn([
@@ -1722,7 +1638,7 @@ const ShareLinksCell = memo(() => {
                   >
                     <CheckIcon
                       className={cn([
-                        "w-4 h-4",
+                        "h-4 w-4",
                         selectedLead === "John Smith"
                           ? "text-green-600"
                           : "text-transparent",
@@ -1731,11 +1647,11 @@ const ShareLinksCell = memo(() => {
                     <span>John Smith</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>Sarah Williams</span>
                   </div>
                   <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-neutral-700 hover:bg-stone-50">
-                    <CheckIcon className="w-4 h-4 text-transparent" />
+                    <CheckIcon className="h-4 w-4 text-transparent" />
                     <span>Mike Anderson</span>
                   </div>
                 </motion.div>
@@ -1746,7 +1662,7 @@ const ShareLinksCell = memo(() => {
               animate={salesforceSendClicked ? { scale: [1, 0.95, 1] } : {}}
               transition={{ duration: 0.3 }}
               className={cn([
-                "w-24 px-3 py-2 rounded-full text-xs font-medium transition-all flex items-center justify-center",
+                "flex w-24 items-center justify-center rounded-full px-3 py-2 text-xs font-medium transition-all",
                 salesforceShowSent
                   ? "bg-linear-to-t from-stone-600 to-stone-500 text-white"
                   : "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 hover:scale-105 active:scale-95",
@@ -1754,7 +1670,7 @@ const ShareLinksCell = memo(() => {
             >
               {salesforceShowSent ? (
                 <span className="flex items-center justify-center gap-1.5">
-                  <CheckIcon className="w-4 h-4 shrink-0" />
+                  <CheckIcon className="h-4 w-4 shrink-0" />
                   Synced
                 </span>
               ) : (
@@ -1811,7 +1727,7 @@ const TrackProtectCell = memo(() => {
   }, []);
 
   return (
-    <div className="overflow-hidden bg-linear-to-br from-stone-50/30 to-stone-100/50 flex flex-col relative sm:aspect-4/3 h-[300px] sm:h-auto">
+    <div className="relative flex h-[300px] flex-col overflow-hidden bg-linear-to-br from-stone-50/30 to-stone-100/50 sm:aspect-4/3 sm:h-auto">
       <AnimatePresence>
         {countdown > 0 && showNote && (
           <motion.div
@@ -1819,32 +1735,32 @@ const TrackProtectCell = memo(() => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             key={countdown}
-            className="absolute top-2 right-2 bg-stone-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-semibold text-sm z-10 border-2 border-stone-400 shadow-md"
+            className="absolute top-2 right-2 z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-stone-400 bg-stone-600 text-sm font-semibold text-white shadow-md"
             style={{
               background: `conic-linear(#57534e 0deg ${(4 - countdown) * 120}deg, #78716c ${(4 - countdown) * 120}deg 360deg)`,
             }}
           >
-            <div className="absolute inset-1 bg-stone-600 rounded-full flex items-center justify-center">
+            <div className="absolute inset-1 flex items-center justify-center rounded-full bg-stone-600">
               {countdown}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex-1 relative">
+      <div className="relative flex-1">
         <AnimatePresence>
           {showNote && !showShatter && (
             <motion.div
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.1 }}
-              className="bg-white p-4 relative overflow-hidden h-full"
+              className="relative h-full overflow-hidden bg-white p-4"
             >
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 {Array.from({ length: 8 }).map((_, i) => (
                   <div
                     key={i}
-                    className="absolute text-stone-300/30 text-xs font-medium whitespace-nowrap"
+                    className="absolute text-xs font-medium whitespace-nowrap text-stone-300/30"
                     style={{
                       top: `${(i * 15) % 100}%`,
                       left: `${(i * 25) % 100}%`,
@@ -1856,29 +1772,29 @@ const TrackProtectCell = memo(() => {
                 ))}
               </div>
 
-              <div className="flex flex-col gap-3 relative">
+              <div className="relative flex flex-col gap-3">
                 <div className="text-sm font-semibold text-stone-700">
                   Mobile UI Update
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-3 bg-stone-100 rounded w-full" />
-                  <div className="h-3 bg-stone-100 rounded w-full" />
-                  <div className="h-3 bg-stone-100 rounded w-5/6" />
+                  <div className="h-3 w-full rounded bg-stone-100" />
+                  <div className="h-3 w-full rounded bg-stone-100" />
+                  <div className="h-3 w-5/6 rounded bg-stone-100" />
                 </div>
-                <div className="text-sm font-semibold text-stone-700 mt-4">
+                <div className="mt-4 text-sm font-semibold text-stone-700">
                   Dashboard Priority
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-3 bg-stone-100 rounded w-full" />
-                  <div className="h-3 bg-stone-100 rounded w-full" />
-                  <div className="h-3 bg-stone-100 rounded w-4/5" />
+                  <div className="h-3 w-full rounded bg-stone-100" />
+                  <div className="h-3 w-full rounded bg-stone-100" />
+                  <div className="h-3 w-4/5 rounded bg-stone-100" />
                 </div>
-                <div className="text-sm font-semibold text-stone-700 mt-4">
+                <div className="mt-4 text-sm font-semibold text-stone-700">
                   Next Steps
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="h-3 bg-stone-100 rounded w-full" />
-                  <div className="h-3 bg-stone-100 rounded w-5/6" />
+                  <div className="h-3 w-full rounded bg-stone-100" />
+                  <div className="h-3 w-5/6 rounded bg-stone-100" />
                 </div>
               </div>
             </motion.div>
@@ -1887,7 +1803,7 @@ const TrackProtectCell = memo(() => {
 
         <AnimatePresence>
           {showShatter && (
-            <div className="absolute inset-0 bg-white overflow-hidden">
+            <div className="absolute inset-0 overflow-hidden bg-white">
               {Array.from({ length: 144 }).map((_, i) => {
                 const row = Math.floor(i / 12);
                 const col = i % 12;
@@ -1935,11 +1851,11 @@ TrackProtectCell.displayName = "TrackProtectCell";
 function SharingSection() {
   return (
     <section id="sharing">
-      <div className="text-center py-12 px-4 lg:px-0">
-        <div className="inline-block px-4 py-1.5 bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs text-xs font-medium mb-4">
+      <div className="px-4 py-12 text-center lg:px-0">
+        <div className="mb-4 inline-block rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-xs">
           Coming Soon
         </div>
-        <h2 className="text-3xl font-serif text-stone-600 mb-4">Share notes</h2>
+        <h2 className="mb-4 font-serif text-3xl text-stone-700">Share notes</h2>
         <p className="text-base text-neutral-600">
           Collaborate seamlessly by sharing meeting notes, transcripts, and
           summaries with your team.
@@ -1947,36 +1863,36 @@ function SharingSection() {
       </div>
       <div className="border-t border-neutral-100">
         <div className="hidden min-[1000px]:grid min-[1000px]:grid-cols-3">
-          <div className="border-r border-neutral-100 flex flex-col bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+          <div className="flex flex-col border-r border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
+            <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
               <div className="flex items-center gap-3">
                 <Icon
                   icon="mdi:account-group"
-                  className="text-3xl text-stone-600"
+                  className="text-3xl text-stone-700"
                 />
-                <h3 className="text-2xl font-serif text-stone-600">
+                <h3 className="font-serif text-2xl text-stone-700">
                   Control who can access
                 </h3>
               </div>
-              <p className="text-base text-neutral-600 leading-relaxed">
+              <p className="text-base leading-relaxed text-neutral-600">
                 Invite selected people or teams to collaborate on notes with
                 granular access controls.
               </p>
             </div>
             <CollaboratorsCell />
           </div>
-          <div className="border-r border-neutral-100 flex flex-col bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+          <div className="flex flex-col border-r border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
+            <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
               <div className="flex items-center gap-3">
                 <Icon
                   icon="mdi:link-variant"
-                  className="text-3xl text-stone-600"
+                  className="text-3xl text-stone-700"
                 />
-                <h3 className="text-2xl font-serif text-stone-600">
+                <h3 className="font-serif text-2xl text-stone-700">
                   Share instantly
                 </h3>
               </div>
-              <p className="text-base text-neutral-600 leading-relaxed">
+              <p className="text-base leading-relaxed text-neutral-600">
                 Send links or publish notes directly to Slack, Teams, or
                 generate public shareable links.
               </p>
@@ -1984,17 +1900,17 @@ function SharingSection() {
             <ShareLinksCell />
           </div>
           <div className="flex flex-col bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+            <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
               <div className="flex items-center gap-3">
                 <Icon
                   icon="mdi:shield-lock"
-                  className="text-3xl text-stone-600"
+                  className="text-3xl text-stone-700"
                 />
-                <h3 className="text-2xl font-serif text-stone-600">
+                <h3 className="font-serif text-2xl text-stone-700">
                   Track and protect
                 </h3>
               </div>
-              <p className="text-base text-neutral-600 leading-relaxed">
+              <p className="text-base leading-relaxed text-neutral-600">
                 DocSend-like features including view tracking, expiration dates,
                 copy protection, and watermarks.
               </p>
@@ -2003,56 +1919,56 @@ function SharingSection() {
           </div>
         </div>
 
-        <div className="hidden sm:block min-[1000px]:hidden! overflow-x-auto">
+        <div className="hidden overflow-x-auto min-[1000px]:hidden! sm:block">
           <div className="flex min-w-max">
-            <div className="w-[400px] border-r border-neutral-100 flex flex-col bg-linear-to-b from-white to-stone-50/30">
-              <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+            <div className="flex w-[400px] flex-col border-r border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
+              <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:account-group"
-                    className="text-3xl text-stone-600"
+                    className="text-3xl text-stone-700"
                   />
-                  <h3 className="text-2xl font-serif text-stone-600">
+                  <h3 className="font-serif text-2xl text-stone-700">
                     Control who can access
                   </h3>
                 </div>
-                <p className="text-base text-neutral-600 leading-relaxed">
+                <p className="text-base leading-relaxed text-neutral-600">
                   Invite selected people or teams to collaborate on notes with
                   granular access controls.
                 </p>
               </div>
               <CollaboratorsCell />
             </div>
-            <div className="w-[400px] border-r border-neutral-100 flex flex-col bg-linear-to-b from-white to-stone-50/30">
-              <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+            <div className="flex w-[400px] flex-col border-r border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
+              <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:link-variant"
-                    className="text-3xl text-stone-600"
+                    className="text-3xl text-stone-700"
                   />
-                  <h3 className="text-2xl font-serif text-stone-600">
+                  <h3 className="font-serif text-2xl text-stone-700">
                     Share instantly
                   </h3>
                 </div>
-                <p className="text-base text-neutral-600 leading-relaxed">
+                <p className="text-base leading-relaxed text-neutral-600">
                   Send links or publish notes directly to Slack, Teams, or
                   generate public shareable links.
                 </p>
               </div>
               <ShareLinksCell />
             </div>
-            <div className="w-[400px] flex flex-col bg-linear-to-b from-white to-stone-50/30">
-              <div className="p-4 flex flex-col gap-4 flex-1 border-b border-neutral-100">
+            <div className="flex w-[400px] flex-col bg-linear-to-b from-white to-stone-50/30">
+              <div className="flex flex-1 flex-col gap-4 border-b border-neutral-100 p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:shield-lock"
-                    className="text-3xl text-stone-600"
+                    className="text-3xl text-stone-700"
                   />
-                  <h3 className="text-2xl font-serif text-stone-600">
+                  <h3 className="font-serif text-2xl text-stone-700">
                     Track and protect
                   </h3>
                 </div>
-                <p className="text-base text-neutral-600 leading-relaxed">
+                <p className="text-base leading-relaxed text-neutral-600">
                   DocSend-like features including view tracking, expiration
                   dates, copy protection, and watermarks.
                 </p>
@@ -2064,17 +1980,17 @@ function SharingSection() {
 
         <div className="sm:hidden">
           <div className="border-b border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 border-b border-neutral-100">
-              <div className="flex items-center gap-3 mb-3">
+            <div className="border-b border-neutral-100 p-4">
+              <div className="mb-3 flex items-center gap-3">
                 <Icon
                   icon="mdi:account-group"
-                  className="text-2xl text-stone-600"
+                  className="text-2xl text-stone-700"
                 />
-                <h3 className="text-xl font-serif text-stone-600">
+                <h3 className="font-serif text-xl text-stone-700">
                   Control who can access
                 </h3>
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-600">
                 Invite selected people or teams to collaborate on notes with
                 granular access controls.
               </p>
@@ -2082,17 +1998,17 @@ function SharingSection() {
             <CollaboratorsCell />
           </div>
           <div className="border-b border-neutral-100 bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 border-b border-neutral-100">
-              <div className="flex items-center gap-3 mb-3">
+            <div className="border-b border-neutral-100 p-4">
+              <div className="mb-3 flex items-center gap-3">
                 <Icon
                   icon="mdi:link-variant"
-                  className="text-2xl text-stone-600"
+                  className="text-2xl text-stone-700"
                 />
-                <h3 className="text-xl font-serif text-stone-600">
+                <h3 className="font-serif text-xl text-stone-700">
                   Share instantly
                 </h3>
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-600">
                 Send links or publish notes directly to Slack, Teams, or
                 generate public shareable links.
               </p>
@@ -2100,17 +2016,17 @@ function SharingSection() {
             <ShareLinksCell />
           </div>
           <div className="bg-linear-to-b from-white to-stone-50/30">
-            <div className="p-4 border-b border-neutral-100">
-              <div className="flex items-center gap-3 mb-3">
+            <div className="border-b border-neutral-100 p-4">
+              <div className="mb-3 flex items-center gap-3">
                 <Icon
                   icon="mdi:shield-lock"
-                  className="text-2xl text-stone-600"
+                  className="text-2xl text-stone-700"
                 />
-                <h3 className="text-xl font-serif text-stone-600">
+                <h3 className="font-serif text-xl text-stone-700">
                   Track and protect
                 </h3>
               </div>
-              <p className="text-sm text-neutral-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-600">
                 DocSend-like features including view tracking, expiration dates,
                 copy protection, and watermarks.
               </p>
@@ -2167,14 +2083,14 @@ function FloatingPanelSection() {
 
 function FloatingPanelHeader() {
   return (
-    <div className="text-center py-12 px-4 lg:px-0">
-      <div className="inline-block px-4 py-1.5 bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs text-xs font-medium mb-4">
+    <div className="px-4 py-12 text-center lg:px-0">
+      <div className="mb-4 inline-block rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-xs">
         Coming Soon
       </div>
-      <h2 className="text-3xl font-serif text-stone-600 mb-4">
+      <h2 className="mb-4 font-serif text-3xl text-stone-700">
         Floating panel for meetings
       </h2>
-      <p className="text-base text-neutral-600 max-w-3xl mx-auto">
+      <p className="mx-auto max-w-3xl text-base text-neutral-600">
         A compact overlay that stays on top during meetings but won't show when
         you share your screen.
       </p>
@@ -2282,9 +2198,9 @@ function FloatingPanelTablet({
   onPauseChange: (paused: boolean) => void;
 }) {
   return (
-    <div className="min-[800px]:max-[1000px]:block hidden border-t border-neutral-100">
+    <div className="hidden border-t border-neutral-100 min-[800px]:max-[1000px]:block">
       <div className="flex flex-col">
-        <div className="overflow-x-auto scrollbar-hide border-b border-neutral-100">
+        <div className="scrollbar-hide overflow-x-auto border-b border-neutral-100">
           <div className="flex">
             {floatingPanelTabs.map((tab, index) => (
               <button
@@ -2297,7 +2213,7 @@ function FloatingPanelTablet({
                   selectedTab === index && onPauseChange(false)
                 }
                 className={cn([
-                  "flex flex-col items-start cursor-pointer p-6 border-r border-neutral-100 last:border-r-0 min-w-[280px] text-left transition-colors relative overflow-hidden",
+                  "relative flex min-w-[280px] cursor-pointer flex-col items-start overflow-hidden border-r border-neutral-100 p-6 text-left transition-colors last:border-r-0",
                   selectedTab !== index && "hover:bg-neutral-50",
                 ])}
               >
@@ -2308,7 +2224,7 @@ function FloatingPanelTablet({
                   />
                 )}
                 <div className="relative">
-                  <h3 className="text-base font-serif font-medium text-stone-600 mb-1">
+                  <h3 className="mb-1 font-serif text-base font-medium text-stone-700">
                     {tab.title}
                   </h3>
                   <p className="text-sm text-neutral-600">{tab.description}</p>
@@ -2326,7 +2242,7 @@ function FloatingPanelTablet({
           <img
             src={floatingPanelTabs[selectedTab].image}
             alt={`${floatingPanelTabs[selectedTab].title} preview`}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
         </div>
       </div>
@@ -2376,9 +2292,9 @@ function FloatingPanelDesktop() {
   };
 
   return (
-    <div className="min-[1000px]:grid hidden grid-cols-2 border-t border-neutral-100">
+    <div className="hidden grid-cols-2 border-t border-neutral-100 min-[1000px]:grid">
       <div
-        className="border-r border-neutral-100 relative overflow-hidden"
+        className="relative overflow-hidden border-r border-neutral-100"
         style={{ paddingBottom: "56.25%" }}
       >
         <div className="absolute inset-0 overflow-y-auto">
@@ -2389,7 +2305,7 @@ function FloatingPanelDesktop() {
               onMouseEnter={() => selectedTab === index && setIsPaused(true)}
               onMouseLeave={() => selectedTab === index && setIsPaused(false)}
               className={cn([
-                "p-6 cursor-pointer transition-colors relative overflow-hidden",
+                "relative cursor-pointer overflow-hidden p-6 transition-colors",
                 index < tabs.length - 1 && "border-b border-neutral-100",
                 selectedTab !== index && "hover:bg-neutral-50",
               ])}
@@ -2401,7 +2317,7 @@ function FloatingPanelDesktop() {
                 />
               )}
               <div className="relative">
-                <h3 className="text-base font-serif font-medium text-stone-600 mb-1">
+                <h3 className="mb-1 font-serif text-base font-medium text-stone-700">
                   {tab.title}
                 </h3>
                 <p className="text-sm text-neutral-600">{tab.description}</p>
@@ -2412,14 +2328,14 @@ function FloatingPanelDesktop() {
       </div>
 
       <div
-        className="aspect-4/3 overflow-hidden bg-neutral-100 flex items-center justify-center"
+        className="flex aspect-4/3 items-center justify-center overflow-hidden bg-neutral-100"
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
         <img
           src={floatingPanelTabs[selectedTab].image}
           alt={`${floatingPanelTabs[selectedTab].title} preview`}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
         />
       </div>
     </div>
@@ -2440,10 +2356,10 @@ function FloatingPanelMobile({
   progress: number;
 }) {
   return (
-    <div className="max-[800px]:block hidden">
+    <div className="hidden max-[800px]:block">
       <div
         ref={scrollRef}
-        className="overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+        className="scrollbar-hide snap-x snap-mandatory overflow-x-auto"
         onScroll={(e) => {
           const container = e.currentTarget;
           const scrollLeft = container.scrollLeft;
@@ -2457,16 +2373,16 @@ function FloatingPanelMobile({
         <div className="flex">
           {floatingPanelTabs.map((tab, index) => (
             <div key={index} className="w-full shrink-0 snap-center">
-              <div className="border-y border-neutral-100 overflow-hidden flex flex-col">
-                <div className="aspect-4/3 border-b border-neutral-100 overflow-hidden">
+              <div className="flex flex-col overflow-hidden border-y border-neutral-100">
+                <div className="aspect-4/3 overflow-hidden border-b border-neutral-100">
                   <img
                     src={tab.image}
                     alt={`${tab.title} preview`}
-                    className="w-full h-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 </div>
                 <div className="p-6">
-                  <p className="text-sm text-neutral-600 leading-relaxed">
+                  <p className="text-sm leading-relaxed text-neutral-600">
                     <span className="font-semibold text-stone-800">
                       {tab.title}
                     </span>{" "}
@@ -2485,7 +2401,7 @@ function FloatingPanelMobile({
             key={index}
             onClick={() => scrollToTab(index)}
             className={cn([
-              "h-1 rounded-full cursor-pointer overflow-hidden",
+              "h-1 cursor-pointer overflow-hidden rounded-full",
               selectedTab === index
                 ? "w-8 bg-neutral-300"
                 : "w-8 bg-neutral-300 hover:bg-neutral-400",
@@ -2507,21 +2423,21 @@ function FloatingPanelMobile({
 
 function CTASection() {
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 lg:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16 lg:px-0">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <img
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
+        <h2 className="font-serif text-2xl sm:text-3xl">
           The complete AI notetaking solution
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           From live meetings to archived recordings, handle all your audio
           transcription and AI summary needs with one powerful tool
         </p>
@@ -2529,9 +2445,9 @@ function CTASection() {
           <Link
             to="/download/"
             className={cn([
-              "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-              "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-              "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+              "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+              "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
               "transition-all",
             ])}
           >
@@ -2542,7 +2458,7 @@ function CTASection() {
               viewBox="0 0 24 24"
               strokeWidth="1.5"
               stroke="currentColor"
-              className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform"
+              className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
             >
               <path
                 strokeLinecap="round"

@@ -7,13 +7,11 @@ edition = "2024"
 default = []
 coreml = ["hypr-onnx/coreml"]
 directml = ["hypr-onnx/directml"]
-load-dynamic = ["hypr-onnx/load-dynamic"]
-
 [dependencies]
 hypr-onnx = { workspace = true }
 
 dasp = { workspace = true }
-knf-rs = { git = "https://github.com/thewh1teagle/pyannote-rs", rev = "d97bd3b", package = "knf-rs" }
+knf-rs = { git = "https://github.com/thewh1teagle/pyannote-rs", rev = "e23bd29", package = "knf-rs" }
 simsimd = { version = "6" }
 
 thiserror = { workspace = true }

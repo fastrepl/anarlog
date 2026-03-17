@@ -1,16 +1,16 @@
 ---
 title: "Distribution"
 section: "Developers"
-description: "Learn how to distribute Hyprnote"
+description: "Learn how to distribute Char"
 ---
 
-# Flatpak Packaging for Hyprnote
+# Flatpak Packaging for Char
 
-This document describes how to build Hyprnote as a Flatpak and submit it to Flathub.
+This document describes how to build Char as a Flatpak and submit it to Flathub.
 
 ## Overview
 
-Hyprnote uses the "build from source" strategy for Flatpak packaging, which is the preferred approach for Flathub. This means the entire application is built inside the Flatpak sandbox using vendored dependencies.
+Char uses the "build from source" strategy for Flatpak packaging, which is the preferred approach for Flathub. This means the entire application is built inside the Flatpak sandbox using vendored dependencies.
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ pip install aiohttp toml
 pip install toml
 ```
 
-## Generating Vendored Dependencies
+## Generating vendored dependencies
 
 Before building the Flatpak, you need to generate JSON files containing all vendored dependencies. These files allow the build to proceed offline, which is required by Flathub.
 
@@ -70,7 +70,7 @@ python3 flatpak-builder-tools/cargo/flatpak-cargo-generator.py \
   -o apps/desktop/flatpak/cargo-sources.json
 ```
 
-## Building Locally
+## Building locally
 
 Once the vendored dependency files are generated, you can build the Flatpak locally:
 
@@ -78,7 +78,7 @@ Once the vendored dependency files are generated, you can build the Flatpak loca
 # Build and install to user Flatpak
 flatpak-builder --user --install --force-clean \
   flatpak-build-dir \
-  apps/desktop/flatpak/com.hyprnote.Hyprnote.yml
+  apps/desktop/flatpak/com.hyprnote.Char.yml
 ```
 
 ## Running the Flatpak
@@ -86,7 +86,7 @@ flatpak-builder --user --install --force-clean \
 After building and installing:
 
 ```bash
-flatpak run com.hyprnote.Hyprnote
+flatpak run com.hyprnote.Char
 ```
 
 ## Debugging
@@ -95,26 +95,26 @@ To debug inside the Flatpak sandbox:
 
 ```bash
 # Open a shell inside the sandbox
-flatpak run --devel --command=sh com.hyprnote.Hyprnote
+flatpak run --devel --command=sh com.hyprnote.Char
 
 # Inside the sandbox, you can inspect /app and run the binary directly
 ls /app/bin/
 /app/bin/hyprnote
 ```
 
-## Flathub Submission
+## Flathub submission
 
-### Preparation Checklist
+### Preparation checklist
 
 Before submitting to Flathub, ensure:
 
 - [ ] The manifest builds successfully with `flatpak-builder`
-- [ ] The app runs correctly via `flatpak run com.hyprnote.Hyprnote`
+- [ ] The app runs correctly via `flatpak run com.hyprnote.Char`
 - [ ] All vendored dependencies are up to date
 - [ ] The metainfo.xml file has valid screenshots and descriptions
 - [ ] The desktop file has correct categories and keywords
 
-### Submission Process
+### Submission process
 
 1. Fork the `flathub/flathub` repository on GitHub
 
@@ -128,18 +128,18 @@ Before submitting to Flathub, ensure:
 3. Create a new branch for your app:
 
    ```bash
-   git checkout -b com.hyprnote.Hyprnote
+   git checkout -b com.hyprnote.Char
    ```
 
 4. Create the app directory and copy files:
 
    ```bash
-   mkdir com.hyprnote.Hyprnote
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Hyprnote.yml com.hyprnote.Hyprnote/
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Hyprnote.desktop com.hyprnote.Hyprnote/
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Hyprnote.metainfo.xml com.hyprnote.Hyprnote/
-   cp /path/to/hyprnote/apps/desktop/flatpak/pnpm-sources.json com.hyprnote.Hyprnote/
-   cp /path/to/hyprnote/apps/desktop/flatpak/cargo-sources.json com.hyprnote.Hyprnote/
+   mkdir com.hyprnote.Char
+   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.yml com.hyprnote.Char/
+   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.desktop com.hyprnote.Char/
+   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.metainfo.xml com.hyprnote.Char/
+   cp /path/to/hyprnote/apps/desktop/flatpak/pnpm-sources.json com.hyprnote.Char/
+   cp /path/to/hyprnote/apps/desktop/flatpak/cargo-sources.json com.hyprnote.Char/
    ```
 
 5. Update the manifest to use a git source instead of a local directory:
@@ -147,7 +147,7 @@ Before submitting to Flathub, ensure:
    ```yaml
    sources:
      - type: git
-       url: https://github.com/fastrepl/hyprnote.git
+       url: https://github.com/fastrepl/char.git
        tag: desktop_vX.Y.Z  # Use the release tag
        commit: abc123...     # Include the commit hash
    ```
@@ -156,19 +156,19 @@ Before submitting to Flathub, ensure:
 
    ```bash
    git add .
-   git commit -m "Add com.hyprnote.Hyprnote"
-   git push origin com.hyprnote.Hyprnote
+   git commit -m "Add com.hyprnote.Char"
+   git push origin com.hyprnote.Char
    ```
 
 7. Open a pull request from your branch to the `new-pr` branch of `flathub/flathub`
 
 8. Respond to review comments from Flathub maintainers
 
-### After Approval
+### After approval
 
 Once approved:
 
-- Flathub creates a dedicated repository: `flathub/com.hyprnote.Hyprnote`
+- Flathub creates a dedicated repository: `flathub/com.hyprnote.Char`
 - You are invited as a maintainer
 - Future updates are done by pushing to that repository
 
@@ -176,19 +176,19 @@ Once approved:
 
 When releasing a new version:
 
-1. Update the version in `com.hyprnote.Hyprnote.metainfo.xml`
+1. Update the version in `com.hyprnote.Char.metainfo.xml`
 2. Regenerate vendored dependencies if dependencies changed
 3. Update the git source tag/commit in the Flathub manifest
 4. Push changes to the Flathub app repository
 
-## File Structure
+## File structure
 
 ```
 apps/desktop/
   flatpak/
-    com.hyprnote.Hyprnote.yml        # Flatpak manifest
-    com.hyprnote.Hyprnote.desktop    # Desktop entry file
-    com.hyprnote.Hyprnote.metainfo.xml  # AppStream metadata
+    com.hyprnote.Char.yml        # Flatpak manifest
+    com.hyprnote.Char.desktop    # Desktop entry file
+    com.hyprnote.Char.metainfo.xml  # AppStream metadata
     pnpm-sources.json                # Vendored pnpm dependencies (generated)
     cargo-sources.json               # Vendored Cargo dependencies (generated)
   src-tauri/

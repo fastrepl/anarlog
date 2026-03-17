@@ -1,0 +1,40 @@
+---
+title: "Char Weekly: March 1, 2026"
+date: "2026-03-01"
+---
+
+Two stable releases shipped this week: v1.0.9 and v1.0.10. The biggest changes are better AI context, Azure provider support, smarter chat and export flows, and more reliable recording and calendar behavior.
+
+## Pre-meeting notes in AI summaries
+
+If you write notes before a meeting starts, those notes are now passed to the AI as a separate section when generating summaries. That gives the model better context about what was planned versus what actually happened in the meeting.
+
+## Azure LLM support
+
+Azure OpenAI and Azure AI Foundry are now supported as LLM providers (beta). If your organization standardizes on Azure for AI services, you can now point Char directly at your Azure endpoints. This joins the existing lineup of OpenRouter, local models via Ollama and LM Studio, and direct API keys.
+
+## Chat refinements
+
+Chat now stays visible as a persistent panel instead of a floating overlay, so it remains in context while you work. We also tightened up summary generation and edge-case handling around tab switching.
+
+## Notes and export
+
+Links in the editor behave much better now. Link text edits update the underlying URL, hover-to-open replaces the old `Cmd+Click` flow, and inline formatting clears more predictably on empty lines. Session preview cards also got richer, showing note metadata and better snippets.
+
+Export is now consolidated behind a single **Export** button where you pick the format and what to include. Playback speed is also configurable directly from the transcript view.
+
+## Calendar and recording improvements
+
+When mic usage is detected, the notification now lists nearby calendar events so you can jump straight into the right session. This makes the common flow — start a call, get prompted to record — much faster.
+
+Session creation from calendar events now picks up participants more reliably, calendar onboarding shows a proper **Request Access to Calendar** button when permissions are missing, and recordings are now saved as MP3.
+
+## Other fixes
+
+- Auth flow fixed when the user was already logged into char.com in their browser
+- Detect notifications setting is now properly respected
+- Integration connections can now be triggered directly from the desktop app
+- Typing `@` with no query now shows default mention suggestions
+- List and task items are handled more reliably in structured notes
+
+Full version details on the [changelog](/changelog).

@@ -5,7 +5,7 @@ use backon::{ConstantBuilder, Retryable};
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort};
 
 use super::{ServerInfo, ServerStatus};
-use crate::SupportedSttModel;
+use crate::LocalModel;
 
 pub enum ExternalSTTMessage {
     GetHealth(RpcReplyPort<ServerInfo>),
@@ -256,7 +256,7 @@ impl Actor for ExternalSTTActor {
                 let info = ServerInfo {
                     url: Some(state.base_url.clone()),
                     status,
-                    model: Some(SupportedSttModel::Am(state.model.clone())),
+                    model: Some(LocalModel::Am(state.model.clone())),
                 };
 
                 if let Err(e) = reply_port.send(info) {

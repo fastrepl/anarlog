@@ -1,0 +1,333 @@
+---
+title: "CLI Reference"
+section: "CLI"
+description: "Command-line reference for the char CLI"
+---
+
+## char
+
+Live transcription and audio tools
+
+```
+char [--base-url] [--api-key] [-m] [-l] [--record] [--no-color] [-v] [-q] [-h] [-V] <command>
+```
+
+**Global options:**
+
+- `--base-url <BASE_URL>`
+- `--api-key <API_KEY>`
+- `-m, --model <MODEL>`
+- `-l, --language <LANGUAGE>` (default: `en`)
+- `--record`
+- `--no-color`
+- `-v, --verbose` — Increase logging verbosity
+- `-q, --quiet` — Decrease logging verbosity
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `chat` — Interactive chat with an LLM
+- `listen` — Start live transcription (TUI)
+- `connect` — Configure an STT or LLM provider
+- `status` — Show configured providers and settings
+- `auth` — Authenticate with char.com
+- `desktop` — Open the desktop app or download page
+- `batch` — Transcribe an audio file
+- `model` — Manage local models
+- `completions` — Generate shell completions
+
+---
+
+### char chat
+
+Interactive chat with an LLM
+
+```
+char chat [--session] [--prompt] [--provider] [-h] [-V]
+```
+
+**Options:**
+
+- `--session <SESSION>`
+- `--prompt <PROMPT>` — Send a single prompt without entering the TUI (use `-` to read from stdin)
+- `--provider <PROVIDER>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char listen
+
+Start live transcription (TUI)
+
+```
+char listen <-p> [--audio] [-h] [-V]
+```
+
+**Options:**
+
+- `-p, --provider <PROVIDER>`
+- `--audio <AUDIO>` (default: `dual`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char connect
+
+Configure an STT or LLM provider
+
+```
+char connect [--type] [--provider] [-h] [-V]
+```
+
+**Options:**
+
+- `--type <TYPE>`
+- `--provider <PROVIDER>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char status
+
+Show configured providers and settings
+
+```
+char status [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char auth
+
+Authenticate with char.com
+
+```
+char auth [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char desktop
+
+Open the desktop app or download page
+
+```
+char desktop [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char batch
+
+Transcribe an audio file
+
+```
+char batch <--input> <-p> [-k] [-o] [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `--input <FILE>`
+- `-p, --provider <PROVIDER>`
+- `-k, --keyword <KEYWORD>`
+- `-o, --output <FILE>`
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char model
+
+Manage local models
+
+```
+char model [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `paths` — Show resolved paths for settings and model storage
+- `current` — Show current STT and LLM provider/model configuration
+- `list` — List available models and their download status
+- `cactus` — Manage downloadable Cactus models
+- `download` — Download a model by name
+- `delete` — Delete a downloaded model
+
+---
+
+### char model paths
+
+Show resolved paths for settings and model storage
+
+```
+char model paths [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char model current
+
+Show current STT and LLM provider/model configuration
+
+```
+char model current [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char model list
+
+List available models and their download status
+
+```
+char model list [--kind] [--supported] [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `--kind <KIND>`
+- `--supported`
+- `-f, --format <FORMAT>` (default: `text`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char model cactus
+
+Manage downloadable Cactus models
+
+```
+char model cactus [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `list` — List available Cactus models
+- `download` — Download a Cactus model by name
+- `delete` — Delete a downloaded Cactus model
+
+---
+
+### char model cactus list
+
+List available Cactus models
+
+```
+char model cactus list [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `text`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char model cactus download
+
+Download a Cactus model by name
+
+```
+char model cactus download [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char model cactus delete
+
+Delete a downloaded Cactus model
+
+```
+char model cactus delete [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char model download
+
+Download a model by name
+
+```
+char model download [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char model delete
+
+Delete a downloaded model
+
+```
+char model delete [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char completions
+
+Generate shell completions
+
+```
+char completions [-h] [-V] <shell>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<SHELL>`
+

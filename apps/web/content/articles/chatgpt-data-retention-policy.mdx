@@ -1,0 +1,112 @@
+---
+meta_title: "OpenAI ChatGPT Data Retention Policy: What You Need to Know"
+meta_description: "A no-BS breakdown of what ChatGPT keeps, for how long, and what controls you actually have"
+author:
+  - "Harshika"
+featured: false
+category: "Guides"
+date: "2026-03-10"
+---
+
+In May 2025, a federal judge ordered OpenAI to preserve every ChatGPT conversation including the ones you deleted. Not just temporarily. Indefinitely, until further notice.  
+
+Most users had no idea this happened. If you're evaluating AI providers before plugging one into your workflow, this is exactly the kind of detail that matters.  
+
+Here's a full breakdown of OpenAI's data retention policy: what they keep, how long, and what you can actually do about it.
+
+## What ChatGPT Stores Data by Default
+
+When you use ChatGPT on a free, Plus, Pro, or Team plan, your conversations are saved to your account automatically. They sit there indefinitely until you delete them.  
+
+Once you delete a conversation, it disappears from your view immediately. But according to [OpenAI's own help documentation](https://help.openai.com/en/articles/8983778-chat-and-file-retention-policies-in-chatgpt), the data isn't actually removed from their servers for another 30 days and that's under normal circumstances.  
+
+One thing most users don't realize: if you've enabled ChatGPT's Memory feature, stored memories are retained separately from your chat history. Deleting a conversation doesn't wipe the memories extracted from it. You have to clear those manually through Settings.
+
+## The Court Order You Probably Missed
+
+In May 2025, a federal judge issued a preservation order requiring OpenAI to retain all ChatGPT user logs as part of the *New York Times* copyright lawsuit. The ruling was explicit: preserve and segregate all output log data that would otherwise be deleted. This includes conversations users had already removed.  
+
+[Bloomberg Law reported](https://news.bloomberglaw.com/ip-law/openai-must-turn-over-20-million-chatgpt-logs-judge-affirms) that by November 2025, the judge further ordered OpenAI to hand over 20 million de-identified ChatGPT logs to the Times and other news plaintiffs.  
+
+The preservation order itself was lifted in late September 2025. OpenAI resumed normal deletion practices after that point. But conversations from the April–September 2025 window remain in secure storage pending the ongoing litigation.  
+
+OpenAI says access to that data is restricted to a small, audited legal and security team. The Times and other plaintiffs don't have open access—any disclosure goes through court-approved discovery procedures. Still, data you thought was gone is sitting in a server somewhere.
+
+## The "Opt Out of Training" Setting and What It Actually Does
+
+ChatGPT uses your conversations to improve its models by default. You can turn this off: **Settings → Data Controls → toggle off "Improve model for everyone."**  
+
+Two important caveats:
+
+- It only affects future conversations. Any data already used for training stays in the training set. Disabling the toggle doesn't reach back.
+- It doesn't change how long your data is stored. Even with the setting off, OpenAI still keeps conversations on their servers for 30 days after deletion. They retain them during this window to screen for abuse and policy violations.
+
+Temporary Chat mode works somewhat differently. Conversations in Temporary Chat are never used for training and are scheduled for deletion within 30 days automatically. You don't need to manually delete them but they're still on OpenAI's servers during that window.
+
+## How ChatGPT's Data Retention Policy Differs by Plan
+
+Not all ChatGPT users are equal when it comes to data retention:
+
+### 1. Free, Plus, Pro, Team
+
+Conversations are retained indefinitely until deleted. After deletion, they remain on OpenAI's systems for up to 30 days. Data may be used for model training unless you opt out. Memory is stored separately until explicitly cleared.
+
+### 2. ChatGPT Enterprise and Edu
+
+Conversations are not used to train OpenAI's models by default—no opt-out required. Workspace admins control retention settings. Deleted conversations are removed within 30 days unless legally required to be kept.
+
+### 3. API (Standard)
+
+Inputs and outputs are retained for up to 30 days for abuse monitoring, then deleted. Not used for model training.
+
+### 4. API (Zero Data Retention)
+
+Inputs and outputs are never logged. There's no retention period because there's no retention. This is the strongest data protection OpenAI offers, and it's only available to qualifying business customers who apply for it through their API account settings.
+
+## What About GDPR and HIPAA?
+
+If you're in a regulated industry or dealing with sensitive data, the consumer-facing ChatGPT product is not the right tool. OpenAI has been explicit about this.  
+
+Standard ChatGPT (Free, Plus, Pro, Team) does not offer a Business Associate Agreement, which means it cannot be used with Protected Health Information under HIPAA. Using it with patient data is a compliance violation.  
+
+For GDPR, OpenAI offers a Data Processing Addendum (DPA) for ChatGPT Team, Enterprise, and API customers, not for consumer accounts. If you're in the EU and not on one of those plans, GDPR compliance is your own responsibility to figure out.  
+
+There's also a jurisdiction question worth flagging. Reddit's r/privacy community has noted that because OpenAI's servers are primarily US-based, data transferred from the EU to process through ChatGPT is subject to cross-border data transfer rules under GDPR. This has compliance implications for European organizations that aren't using a DPA.
+
+## So What's the Practical Risk?
+
+For most individual users, the day-to-day risk is limited. OpenAI doesn't sell your conversations, and the data isn't publicly accessible.  
+
+The risk is more nuanced:
+
+- **Legal exposure**: The court order showed that data you delete can be preserved and disclosed through legal proceedings. If you've had sensitive conversations through ChatGPT, there's a window of time where that data exists outside your control.
+- **Training data reuse**: Unless you've explicitly opted out, your conversations have likely contributed to model training. That data doesn't get unlearned when you opt out later.
+- **Compliance liability**: In healthcare, legal, finance, and other regulated fields, using consumer ChatGPT with client or patient information creates compliance risk regardless of what OpenAI promises about their security practices.
+
+## The OpenAI API Has Meaningfully Better Data Controls
+
+If you're building with OpenAI or using a tool that lets you bring your own API key, then the data situation is materially different from the consumer product.  
+
+With the standard API, OpenAI retains inputs and outputs for 30 days for abuse monitoring, then deletes them. There's no default use of your data for model training. If you qualify for Zero Data Retention endpoints, OpenAI never logs your data at all.  
+
+This is relevant if you're evaluating how OpenAI fits into a broader AI workflow where you want control over which provider sees what data.  
+
+## BTW, Your OpenAI API Key Works for Meeting Notes Too
+
+If you're already paying for API access, you can use that same key for meeting transcription and notes without going through the consumer product.
+
+[Char](https://char.com/) is an open-source AI notepad for meetings that lets you bring your own API key. Connect your OpenAI, Anthropic, Google Gemini, or Azure-hosted GPT key, and your meeting data goes through the API. The retention policies from your API agreement apply, not the consumer defaults described above.
+
+If even API-level retention is too much, Char also runs fully offline with local models through Ollama or LM Studio. Nothing leaves your machine.
+
+No bot in your call. Char captures audio directly from your computer's input and output. No third-party bot joins your Zoom or Google Meet, so no intermediary service handles your meeting data.
+
+Notes stay on your device. Transcripts and summaries are stored as plain markdown files locally—no cloud-synced account storage retaining data on someone else's servers.
+
+More than a transcription tool. Char does real-time transcription while you jot down what matters, then generates summaries from your memos once the meeting ends. Built-in AI chat lets you ask follow-ups—action items, rewrites, translations. It supports customizable note templates and integrates with Apple Calendar, Contacts, and Obsidian, with Notion, Slack, HubSpot, and Salesforce on the way.
+
+You're not locked into one provider. If your security team approves a different model next quarter, switch the key. Your notes are markdown files on your machine either way.
+
+[Download Char for macOS](https://char.com/download/apple-silicon) and use the AI provider your security team actually trusts.
+
+&nbsp;

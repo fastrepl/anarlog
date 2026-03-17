@@ -1,0 +1,8 @@
+---
+source: crates/specta-zod/src/zod.rs
+expression: output
+---
+export const withFlattenSchema = z.union([z.object({ type: z.literal("A") }), z.object({ type: z.literal("B") })]).and(z.object({
+  name: z.string(),
+}));
+export type WithFlatten = z.infer<typeof withFlattenSchema>;

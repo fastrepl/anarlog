@@ -1,0 +1,22 @@
+[package]
+name = "calendar"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+specta = ["dep:specta"]
+
+[dependencies]
+hypr-api-client = { workspace = true }
+hypr-apple-calendar = { workspace = true, features = ["specta"] }
+hypr-calendar-interface = { workspace = true }
+hypr-google-calendar = { workspace = true, features = ["specta"] }
+hypr-outlook-calendar = { workspace = true, features = ["specta"] }
+
+chrono = { workspace = true, features = ["serde"] }
+chrono-tz = { workspace = true }
+reqwest = { workspace = true, features = ["json"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["chrono"], optional = true }
+thiserror = { workspace = true }

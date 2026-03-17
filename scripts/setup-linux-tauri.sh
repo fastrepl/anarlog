@@ -14,4 +14,5 @@ sudo apt-get install -y \
   libxdo-dev \
   libssl-dev \
   libayatana-appindicator3-dev \
-  librsvg2-dev
+  librsvg2-dev \
+  xdg-utils

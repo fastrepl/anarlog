@@ -15,7 +15,7 @@ pub async fn list_supported_model() -> Result<Vec<ModelInfo>, String> {
         ModelInfo {
             key: SupportedModel::HyprLLM,
             name: "HyprLLM".to_string(),
-            description: "Experimental model trained by the Hyprnote team.".to_string(),
+            description: "Experimental model trained by the Char team.".to_string(),
             size_bytes: SupportedModel::HyprLLM.model_size(),
         },
         ModelInfo {
@@ -31,12 +31,6 @@ pub async fn list_supported_model() -> Result<Vec<ModelInfo>, String> {
             size_bytes: SupportedModel::Llama3p2_3bQ4.model_size(),
         },
     ])
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn is_server_running<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> bool {
-    app.is_server_running().await
 }
 
 #[tauri::command]
@@ -73,21 +67,20 @@ pub async fn download_model<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn start_server<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
-    app.start_server().await.map_err(|e| e.to_string())
+pub async fn cancel_download<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    model: crate::SupportedModel,
+) -> Result<bool, String> {
+    app.cancel_download(model).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_server<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    app.stop_server().await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn restart_server<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
-    app.stop_server().await.map_err(|e| e.to_string())?;
-    app.start_server().await.map_err(|e| e.to_string())
+pub async fn delete_model<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    model: crate::SupportedModel,
+) -> Result<(), String> {
+    app.delete_model(&model).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -139,4 +132,24 @@ pub async fn set_current_model_selection<R: tauri::Runtime>(
 ) -> Result<(), String> {
     app.set_current_model_selection(model)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn start_server<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<String, String> {
+    app.start_server().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_server<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    app.stop_server().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn server_url<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Option<String>, String> {
+    app.server_url().await.map_err(|e| e.to_string())
 }

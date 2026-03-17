@@ -17,12 +17,12 @@ impl MenuItemHandler for TraySettings {
             let submenu = Submenu::with_id(app, Self::ID, "Settings", true)?;
 
             let open_ai =
-                MenuItem::with_id(app, TraySettingsAI::ID, "Open AI", true, None::<&str>)?;
+                MenuItem::with_id(app, TraySettingsAI::ID, "AI Settings", true, None::<&str>)?;
 
             let open_general = MenuItem::with_id(
                 app,
                 TraySettingsGeneral::ID,
-                "Open General",
+                "App Settings",
                 true,
                 None::<&str>,
             )?;
@@ -43,7 +43,7 @@ impl MenuItemHandler for TraySettingsGeneral {
     const ID: &'static str = "hypr_tray_settings_general";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
-        let item = MenuItem::with_id(app, Self::ID, "Open General", true, None::<&str>)?;
+        let item = MenuItem::with_id(app, Self::ID, "App Settings", true, None::<&str>)?;
         Ok(MenuItemKind::MenuItem(item))
     }
 
@@ -65,7 +65,7 @@ impl MenuItemHandler for TraySettingsAI {
     const ID: &'static str = "hypr_tray_settings_ai";
 
     fn build(app: &AppHandle<tauri::Wry>) -> Result<MenuItemKind<tauri::Wry>> {
-        let item = MenuItem::with_id(app, Self::ID, "Open AI", true, None::<&str>)?;
+        let item = MenuItem::with_id(app, Self::ID, "AI Settings", true, None::<&str>)?;
         Ok(MenuItemKind::MenuItem(item))
     }
 

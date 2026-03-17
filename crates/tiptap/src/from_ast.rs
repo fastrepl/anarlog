@@ -23,11 +23,12 @@ fn unescape_markdown(md: &str) -> String {
     while let Some(c) = chars.next() {
         if c == '\\'
             && let Some(&next) = chars.peek()
-                && is_markdown_escapable(next) {
-                    result.push(next);
-                    chars.next();
-                    continue;
-                }
+            && is_markdown_escapable(next)
+        {
+            result.push(next);
+            chars.next();
+            continue;
+        }
         result.push(c);
     }
 

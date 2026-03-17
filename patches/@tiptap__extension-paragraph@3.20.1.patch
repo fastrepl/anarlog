@@ -1,0 +1,141 @@
+diff --git a/dist/index.cjs b/dist/index.cjs
+index e11d6cbc2247f889502ad44efb6e53621261449e..56d0c2fbe87cdc22acaa4399cae272b242b7a7fc 100644
+--- a/dist/index.cjs
++++ b/dist/index.cjs
+@@ -27,8 +27,6 @@ module.exports = __toCommonJS(index_exports);
+ 
+ // src/paragraph.ts
+ var import_core = require("@tiptap/core");
+-var EMPTY_PARAGRAPH_MARKDOWN = "&nbsp;";
+-var NBSP_CHAR = "\xA0";
+ var Paragraph = import_core.Node.create({
+   name: "paragraph",
+   priority: 1e3,
+@@ -50,21 +48,10 @@ var Paragraph = import_core.Node.create({
+     if (tokens.length === 1 && tokens[0].type === "image") {
+       return helpers.parseChildren([tokens[0]]);
+     }
+-    const content = helpers.parseInline(tokens);
+-    if (content.length === 1 && content[0].type === "text" && (content[0].text === EMPTY_PARAGRAPH_MARKDOWN || content[0].text === NBSP_CHAR)) {
+-      return helpers.createNode("paragraph", void 0, []);
+-    }
+-    return helpers.createNode("paragraph", void 0, content);
++    return helpers.createNode("paragraph", void 0, helpers.parseInline(tokens));
+   },
+   renderMarkdown: (node, h) => {
+-    if (!node) {
+-      return "";
+-    }
+-    const content = Array.isArray(node.content) ? node.content : [];
+-    if (content.length === 0) {
+-      return EMPTY_PARAGRAPH_MARKDOWN;
+-    }
+-    return h.renderChildren(content);
++    return h.renderChildren(node.content || []);
+   },
+   addCommands() {
+     return {
+diff --git a/dist/index.js b/dist/index.js
+index 80cad4f737fc27caddad6db7d7b5788932c60903..a005a4219c068f6cb537c0b433df417fc43bc086 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -1,7 +1,5 @@
+ // src/paragraph.ts
+ import { mergeAttributes, Node } from "@tiptap/core";
+-var EMPTY_PARAGRAPH_MARKDOWN = "&nbsp;";
+-var NBSP_CHAR = "\xA0";
+ var Paragraph = Node.create({
+   name: "paragraph",
+   priority: 1e3,
+@@ -23,21 +21,10 @@ var Paragraph = Node.create({
+     if (tokens.length === 1 && tokens[0].type === "image") {
+       return helpers.parseChildren([tokens[0]]);
+     }
+-    const content = helpers.parseInline(tokens);
+-    if (content.length === 1 && content[0].type === "text" && (content[0].text === EMPTY_PARAGRAPH_MARKDOWN || content[0].text === NBSP_CHAR)) {
+-      return helpers.createNode("paragraph", void 0, []);
+-    }
+-    return helpers.createNode("paragraph", void 0, content);
++    return helpers.createNode("paragraph", void 0, helpers.parseInline(tokens));
+   },
+   renderMarkdown: (node, h) => {
+-    if (!node) {
+-      return "";
+-    }
+-    const content = Array.isArray(node.content) ? node.content : [];
+-    if (content.length === 0) {
+-      return EMPTY_PARAGRAPH_MARKDOWN;
+-    }
+-    return h.renderChildren(content);
++    return h.renderChildren(node.content || []);
+   },
+   addCommands() {
+     return {
+diff --git a/src/paragraph.ts b/src/paragraph.ts
+index 7cc10fffc975674d7b04c7feab0c820b20ce7783..8f30d2f1841ac2d52415d0434fc6361f520bb580 100644
+--- a/src/paragraph.ts
++++ b/src/paragraph.ts
+@@ -21,19 +21,6 @@ declare module '@tiptap/core' {
+   }
+ }
+ 
+-/**
+- * Markdown marker for empty paragraphs to preserve blank lines.
+- * Using &nbsp; (non-breaking space HTML entity) ensures the paragraph
+- * is not collapsed by markdown parsers while remaining human-readable.
+- */
+-const EMPTY_PARAGRAPH_MARKDOWN = '&nbsp;'
+-
+-/**
+- * Unicode character for non-breaking space (U+00A0).
+- * Some markdown parsers may convert &nbsp; entities to this literal character.
+- */
+-const NBSP_CHAR = '\u00A0'
+-
+ /**
+  * This extension allows you to create paragraphs.
+  * @see https://www.tiptap.dev/api/nodes/paragraph
+@@ -71,37 +58,15 @@ export const Paragraph = Node.create<ParagraphOptions>({
+       return helpers.parseChildren([tokens[0]])
+     }
+ 
+-    // Parse the inline tokens
+-    const content = helpers.parseInline(tokens)
+-
+-    // Special case: if paragraph contains only &nbsp; (non-breaking space),
+-    // treat it as an empty paragraph to preserve blank lines
+-    if (
+-      content.length === 1 &&
+-      content[0].type === 'text' &&
+-      (content[0].text === EMPTY_PARAGRAPH_MARKDOWN || content[0].text === NBSP_CHAR)
+-    ) {
+-      return helpers.createNode('paragraph', undefined, [])
+-    }
+-
+-    // Convert 'paragraph' token to paragraph node
+-    return helpers.createNode('paragraph', undefined, content)
++    return helpers.createNode(
++      'paragraph',
++      undefined,
++      helpers.parseInline(tokens),
++    )
+   },
+ 
+   renderMarkdown: (node, h) => {
+-    if (!node) {
+-      return ''
+-    }
+-
+-    // Normalize content: treat undefined/null as empty array
+-    const content = Array.isArray(node.content) ? node.content : []
+-
+-    // If the paragraph is empty, render a non-breaking space to preserve blank lines
+-    if (content.length === 0) {
+-      return EMPTY_PARAGRAPH_MARKDOWN
+-    }
+-
+-    return h.renderChildren(content)
++    return h.renderChildren(node.content || [])
+   },
+ 
+   addCommands() {

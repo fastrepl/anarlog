@@ -1,0 +1,31 @@
+---
+title: "Char Weekly: March 8, 2026"
+date: "2026-03-08"
+---
+
+Two stable releases shipped this week: v1.0.11 and v1.0.12. Google Calendar sync is now in beta, chat can edit notes directly, and batch transcription is much more reliable.
+
+## Google Calendar sync
+
+Google Calendar events now sync into Char alongside Apple Calendar. If your team uses Google Workspace, your upcoming meetings show up in the timeline automatically. Calendar sync is also more reliable when calendars are added, removed, or toggled in settings — edge cases around stale calendar state were cleaned up.
+
+## Chat edits your notes directly
+
+Chat can now edit your summaries in place. Ask it to revise a section, reformat bullets, or expand on a topic, and it applies the changes directly to your notes. A new context indicator shows which session chat is working with, and starter prompts make common actions one click away.
+
+## Notes and export
+
+This week also added Org mode export, proper code block support in the editor, richer session preview cards, plain-text mention export for Markdown, and short tips while AI is generating summaries.
+
+## Batch transcription reliability
+
+Batch transcription is more reliable, especially when providers fail or you retry an existing run. Re-running a transcript no longer clears the old transcript before the new one actually starts, and Parakeet is now available as a local transcription model option in Cactus.
+
+## Other improvements
+
+- Calendar event descriptions now render clickable links
+- Search and replace behaves more reliably across notes and transcripts
+- Folders get a cleaner placeholder state while we prepare a larger update
+- Failed batch transcription no longer resets the in-progress work
+
+Full version details on the [changelog](/changelog).

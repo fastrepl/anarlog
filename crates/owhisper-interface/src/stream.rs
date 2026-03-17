@@ -5,6 +5,7 @@ use crate::common_derives;
 
 common_derives! {
     #[specta(rename = "StreamWord")]
+    #[cfg_attr(feature = "openapi", schema(as = StreamWord))]
     pub struct Word {
         pub word: String,
         pub start: f64,
@@ -18,6 +19,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "StreamAlternatives")]
+    #[cfg_attr(feature = "openapi", schema(as = StreamAlternatives))]
     pub struct Alternatives {
         pub transcript: String,
         pub words: Vec<Word>,
@@ -29,6 +31,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "StreamChannel")]
+    #[cfg_attr(feature = "openapi", schema(as = StreamChannel))]
     pub struct Channel {
         pub alternatives: Vec<Alternatives>,
     }
@@ -36,6 +39,7 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "StreamModelInfo")]
+    #[cfg_attr(feature = "openapi", schema(as = StreamModelInfo))]
     pub struct ModelInfo {
         pub name: String,
         pub version: String,
@@ -45,12 +49,14 @@ common_derives! {
 
 common_derives! {
     #[specta(rename = "StreamMetadata")]
+    #[cfg_attr(feature = "openapi", schema(as = StreamMetadata))]
     pub struct Metadata {
         pub request_id: String,
         pub model_info: ModelInfo,
         pub model_uuid: String,
         #[serde(default)]
         #[specta(type = Extra)]
+        #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub extra: Option<std::collections::HashMap<String, serde_json::Value>>,
     }
 }
@@ -147,7 +153,7 @@ impl StreamResponse {
     pub fn text(&self) -> Option<&str> {
         match self {
             StreamResponse::TranscriptResponse { channel, .. } => {
-                Some(&channel.alternatives[0].transcript)
+                channel.alternatives.first().map(|a| a.transcript.as_str())
             }
             _ => None,
         }
@@ -176,7 +182,12 @@ impl StreamResponse {
 
     pub fn set_extra(&mut self, extra: &Extra) {
         if let StreamResponse::TranscriptResponse { metadata, .. } = self {
-            metadata.extra = Some(extra.clone().into());
+            let incoming: std::collections::HashMap<String, serde_json::Value> =
+                extra.clone().into();
+            match &mut metadata.extra {
+                Some(existing) => existing.extend(incoming),
+                slot => *slot = Some(incoming),
+            }
         }
     }
 

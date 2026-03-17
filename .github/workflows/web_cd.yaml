@@ -31,7 +31,7 @@ jobs:
       - run: pnpm -F ui build
       - run: pnpm -F web build
         env:
-          VITE_APP_URL: "https://hyprnote.com"
+          VITE_APP_URL: "https://char.com"
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
       - run: npm install -g netlify-cli
       - run: netlify deploy --prod --dir=apps/web/dist/client

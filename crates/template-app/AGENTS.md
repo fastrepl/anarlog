@@ -7,7 +7,7 @@
 # Syntax
 
 - Read [docs](https://askama.readthedocs.io/en/stable/template_syntax.html) for template syntax.
-- Our custom filters are defined in `crates/template2/assets/filters.rs`.
+- Our custom filters are defined in `crates/askama-utils/src/filters.rs`.
 
 # Tooling
 

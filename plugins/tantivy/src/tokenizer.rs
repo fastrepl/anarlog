@@ -1,7 +1,7 @@
 use hypr_language::ISO639;
 use tantivy::Index;
 use tantivy::tokenizer::{
-    AsciiFoldingFilter, Language, LowerCaser, RemoveLongFilter, SimpleTokenizer, Stemmer,
+    AsciiFoldingFilter, Language, LowerCaser, NgramTokenizer, RemoveLongFilter, Stemmer,
     TextAnalyzer,
 };
 
@@ -56,7 +56,7 @@ pub fn get_tokenizer_name_for_language(lang: &hypr_language::Language) -> &'stat
 pub fn register_tokenizers(index: &Index) {
     let tokenizer_manager = index.tokenizers();
 
-    let multilang_tokenizer = TextAnalyzer::builder(SimpleTokenizer::default())
+    let multilang_tokenizer = TextAnalyzer::builder(NgramTokenizer::new(1, 3, false).unwrap())
         .filter(RemoveLongFilter::limit(40))
         .filter(LowerCaser)
         .filter(AsciiFoldingFilter)
@@ -85,7 +85,7 @@ pub fn register_tokenizers(index: &Index) {
     ];
 
     for (name, lang) in languages {
-        let tokenizer = TextAnalyzer::builder(SimpleTokenizer::default())
+        let tokenizer = TextAnalyzer::builder(NgramTokenizer::new(1, 3, false).unwrap())
             .filter(RemoveLongFilter::limit(40))
             .filter(LowerCaser)
             .filter(AsciiFoldingFilter)

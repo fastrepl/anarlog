@@ -1,3 +1,9 @@
+// https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3
+pub const PARAKEET_V3_LANGS: &[&str] = &[
+    "bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "hr", "hu", "it", "lt", "lv", "mt",
+    "nl", "pl", "pt", "ro", "ru", "sk", "sl", "sv", "uk",
+];
+
 #[derive(
     Debug,
     Clone,
@@ -43,6 +49,28 @@ impl AmModel {
             AmModel::ParakeetV2 => "Parakeet V2 (English)",
             AmModel::ParakeetV3 => "Parakeet V3 (Multilingual)",
             AmModel::WhisperLargeV3 => "Whisper Large V3 (Multilingual)",
+        }
+    }
+
+    pub fn description(&self) -> &str {
+        match self {
+            AmModel::ParakeetV2 => "English only. Works best for English.",
+            AmModel::ParakeetV3 => "English and European languages.",
+            AmModel::WhisperLargeV3 => "Broad coverage of languages.",
+        }
+    }
+
+    pub fn supported_languages(&self) -> Vec<hypr_language::Language> {
+        use hypr_language::ISO639;
+
+        match self {
+            AmModel::ParakeetV2 => vec![ISO639::En.into()],
+            AmModel::ParakeetV3 => PARAKEET_V3_LANGS
+                .iter()
+                .filter_map(|code| code.parse::<ISO639>().ok())
+                .map(|iso| iso.into())
+                .collect(),
+            AmModel::WhisperLargeV3 => hypr_language::whisper_multilingual(),
         }
     }
 
@@ -96,18 +124,13 @@ impl AmModel {
         }
     }
 
-    pub fn tar_verify_and_unpack(
+    pub fn tar_unpack_and_cleanup(
         &self,
         input_path: impl AsRef<std::path::Path>,
         output_path: impl AsRef<std::path::Path>,
     ) -> Result<(), crate::Error> {
         if !input_path.as_ref().exists() {
             return Err(crate::Error::TarFileNotFound);
-        }
-
-        if hypr_file::calculate_file_checksum(&input_path)? != self.tar_checksum() {
-            let _ = std::fs::remove_file(&input_path);
-            return Err(crate::Error::TarChecksumMismatch);
         }
 
         extract_tar_file(&input_path, output_path)?;
@@ -135,4 +158,36 @@ fn extract_tar_file(
     archive.unpack(extract_to.as_ref())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tar_unpack_and_cleanup_skips_checksum_verification() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let input_tar = temp_dir.path().join("model.tar");
+        let output_dir = temp_dir.path().join("out");
+
+        let source_file = temp_dir.path().join("source.txt");
+        std::fs::write(&source_file, b"weights").unwrap();
+
+        {
+            let tar_file = std::fs::File::create(&input_tar).unwrap();
+            let mut builder = tar::Builder::new(tar_file);
+            builder
+                .append_path_with_name(&source_file, "fake-model/weights.bin")
+                .unwrap();
+            builder.finish().unwrap();
+        }
+
+        let model = AmModel::ParakeetV2;
+        model
+            .tar_unpack_and_cleanup(&input_tar, &output_dir)
+            .unwrap();
+
+        assert!(!input_tar.exists());
+        assert!(output_dir.join("fake-model/weights.bin").exists());
+    }
 }

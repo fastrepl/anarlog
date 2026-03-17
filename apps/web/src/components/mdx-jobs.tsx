@@ -17,7 +17,7 @@ export function ToolIcon({
   return (
     <Icon
       icon={icon}
-      className={cn(["inline-block align-middle mb-1", className])}
+      className={cn(["mb-1 inline-block align-middle", className])}
     />
   );
 }
@@ -87,7 +87,7 @@ const TOOL_NAMES: Record<string, string> = {
   figma: "Figma",
   slack: "Slack",
   github: "GitHub",
-  hyprnote: "Hyprnote",
+  hyprnote: "Char",
 };
 
 function ToolWithIcon({ tool }: { tool: string }) {
@@ -101,7 +101,7 @@ function ToolWithIcon({ tool }: { tool: string }) {
   if (config.icon) {
     return (
       <>
-        <Icon icon={config.icon} className="inline-block align-middle mb-1" />{" "}
+        <Icon icon={config.icon} className="mb-1 inline-block align-middle" />{" "}
         {name}
       </>
     );
@@ -209,7 +209,7 @@ export function GitHubMention({
       target="_blank"
       rel="noopener noreferrer"
       className={[
-        "inline items-center align-baseline whitespace-nowrap",
+        "inline-flex items-center gap-1 align-middle whitespace-nowrap",
         "font-semibold text-inherit",
         "underline underline-offset-2 decoration-neutral-400",
         "hover:decoration-neutral-600 transition-colors",
@@ -218,7 +218,7 @@ export function GitHubMention({
       <img
         src={avatarUrl}
         alt={name ?? username}
-        className="inline size-5 rounded-full no-underline align-middle mr-1"
+        className="size-5 shrink-0 rounded-full no-underline"
       />
       {name ?? `@${username}`}
     </a>
@@ -229,15 +229,19 @@ export function HyprnoteIcon() {
   return (
     <img
       src="/api/images/hyprnote/icon.png"
-      alt="Hyprnote"
-      className="inline-block align-middle size-4.5 mb-0.75 rounded-md"
+      alt="Char"
+      className="mb-0.75 inline-block size-4.5 rounded-md align-middle"
     />
   );
 }
 
+export function CharIcon() {
+  return <HyprnoteIcon />;
+}
+
 export function ChevronIcon() {
   return (
-    <ChevronDown className="size-4 text-neutral-400 group-open:rotate-180 transition-transform" />
+    <ChevronDown className="size-4 text-neutral-400 transition-transform group-open:rotate-180" />
   );
 }
 
@@ -249,15 +253,43 @@ export function Collapsible({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-lg border border-neutral-200 bg-neutral-50 overflow-hidden">
-      <summary className="cursor-pointer px-4 py-3 font-medium text-neutral-700 hover:bg-neutral-100 transition-colors flex items-center justify-between">
+    <details className="group overflow-hidden rounded-lg border border-neutral-200 bg-neutral-50">
+      <summary className="flex cursor-pointer items-center justify-between px-4 py-3 font-medium text-neutral-700 transition-colors hover:bg-neutral-100">
         <span>{title}</span>
-        <ChevronDown className="size-4 text-neutral-400 group-open:rotate-180 transition-transform" />
+        <ChevronDown className="size-4 text-neutral-400 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="px-4 py-3 border-t border-neutral-200 text-neutral-600 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-2 [&_li]:pl-1 [&_p]:mb-4 [&_ul+p]:mt-6 [&_p+p]:mt-4">
+      <div className="border-t border-neutral-200 px-4 py-3 text-neutral-600 [&_li]:pl-1 [&_p]:mb-4 [&_p+p]:mt-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&_ul+p]:mt-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
         {children}
       </div>
     </details>
+  );
+}
+
+export function FAQItem({
+  question,
+  children,
+}: {
+  question: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group last:border-b-0">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 pr-8 font-medium text-neutral-800 transition-colors hover:text-neutral-600 [&::-webkit-details-marker]:hidden">
+        <span>{question}</span>
+        <ChevronDown className="mt-1 size-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="pb-4 text-neutral-600 [&_li]:pl-1 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+export function FAQ({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-neutral-50 px-4">
+      {children}
+    </div>
   );
 }
 
@@ -277,7 +309,7 @@ export function CompanyStats() {
         href="https://www.ycombinator.com/companies/hyprnote"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Y Combinator
       </a>
@@ -286,7 +318,7 @@ export function CompanyStats() {
         href="https://www.pioneerfund.vc"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Pioneer
       </a>
@@ -295,7 +327,7 @@ export function CompanyStats() {
         href="https://www.trac.vc"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         TRAC
       </a>
@@ -304,7 +336,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/tobiaslutke/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Tobi Lütke (Shopify)
       </a>
@@ -313,7 +345,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/zachlloyd/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Zach Lloyd (Warp)
       </a>
@@ -322,7 +354,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/henri-stern/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Henri Stern (Privy)
       </a>
@@ -331,7 +363,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/thom-wolf/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Thomas Wolf (Hugging Face)
       </a>
@@ -340,7 +372,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/j-hawkins/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         James Hawkins (PostHog)
       </a>
@@ -349,7 +381,7 @@ export function CompanyStats() {
         href="https://www.linkedin.com/in/dknecht/"
         target="_blank"
         rel="noopener noreferrer"
-        className="underline underline-offset-2 decoration-neutral-400 hover:decoration-neutral-600 transition-colors"
+        className="underline decoration-neutral-400 underline-offset-2 transition-colors hover:decoration-neutral-600"
       >
         Dane Knecht (Cloudflare)
       </a>
@@ -367,8 +399,11 @@ export const jobsMdxComponents = {
   GitToolStack,
   AnimatedJobText,
   GitHubMention,
+  CharIcon,
   HyprnoteIcon,
   ChevronIcon,
   Collapsible,
+  FAQ,
+  FAQItem,
   CompanyStats,
 };

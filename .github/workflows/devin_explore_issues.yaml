@@ -1,0 +1,59 @@
+name: devin_explore_issues
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+jobs:
+  run:
+    if: github.event.issue.user.login == 'hyper-charlie[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: |
+            A user has submitted an issue via the Hyprnote app. Please explore the codebase and provide helpful context on this issue.
+
+            ## Issue Details
+            - **Title**: {{ title }}
+            - **Number**: {{ number }}
+            - **URL**: {{ url }}
+            - **Body**:
+            {{ body }}
+
+            ## Your Task
+            1. **Understand the Issue**
+               - Read and understand what the user is reporting or requesting
+               - Identify the relevant area of the codebase
+
+            2. **Explore the Codebase**
+               - Search for relevant code files, functions, and components related to the issue
+               - Check git history for recent changes in the relevant area
+               - Identify any related issues or PRs
+
+            3. **Comment on the Issue**
+               - Post a comment on the GitHub issue (fastrepl/hyprnote#{{ number }}) with your findings:
+                 * Which files and components are relevant
+                 * Any recent changes that may be related
+                 * Potential approaches or considerations for addressing the issue
+                 * Any additional context that would help the team understand the scope
+
+            ## Important Notes
+            - Do NOT create any PRs for this task
+            - Do NOT attempt to fix the issue, only explore and provide context
+            - Be concise and focus on actionable information
+            - If the issue is unclear, note what additional information would be helpful
+          vars: |
+            {
+              "title": ${{ toJSON(github.event.issue.title) }},
+              "number": "${{ github.event.issue.number }}",
+              "url": "${{ github.event.issue.html_url }}",
+              "body": ${{ toJSON(github.event.issue.body) }}
+            }
+          title: ${{ github.run_id }}-explore-issue-${{ github.event.issue.number }}
+          tags: '["explore_issues"]'

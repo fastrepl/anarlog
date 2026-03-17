@@ -15,6 +15,9 @@ class NotificationManager {
   var localMouseMonitor: Any?
   var hoverStates: [String: Bool] = [:]
   var displayChangeObserver: Any?
+  var nativeNotificationMonitor: Timer?
+  var lastNativeNotificationOffset: CGFloat = 0
+  var nextCreationIndex: Int = 0
 
   func show(payload: NotificationPayload) {
     DispatchQueue.main.async { [weak self] in
@@ -25,9 +28,8 @@ class NotificationManager {
   }
 
   func dismiss() {
-    if let mostRecent = activeNotifications.values.max(by: {
-      $0.panel.frame.minY < $1.panel.frame.minY
-    }) {
+    if let mostRecent = activeNotifications.values.max(by: { $0.creationIndex < $1.creationIndex })
+    {
       mostRecent.dismiss()
     }
   }
@@ -41,6 +43,7 @@ class NotificationManager {
     hoverStates.removeValue(forKey: notification.key)
     repositionNotifications()
     stopMouseMonitorsIfNeeded()
+    stopNativeNotificationMonitorIfNeeded()
   }
 
   func setupApplicationIfNeeded() {
@@ -52,9 +55,7 @@ class NotificationManager {
 
   func manageNotificationLimit() {
     while activeNotifications.count >= maxNotifications {
-      if let oldest = activeNotifications.values.min(by: {
-        $0.panel.frame.minY > $1.panel.frame.minY
-      }) {
+      if let oldest = activeNotifications.values.min(by: { $0.creationIndex < $1.creationIndex }) {
         oldest.dismiss()
       }
     }
@@ -70,5 +71,6 @@ class NotificationManager {
     if let monitor = localMouseMonitor {
       NSEvent.removeMonitor(monitor)
     }
+    nativeNotificationMonitor?.invalidate()
   }
 }

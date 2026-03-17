@@ -17,10 +17,10 @@ export function GithubStars() {
     <a href={`https://github.com/${GITHUB_ORG_REPO}`} target="_blank">
       <button
         className={cn([
-          "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-          "bg-linear-to-t from-neutral-800 to-neutral-700 text-white rounded-full",
-          "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
-          "transition-all cursor-pointer",
+          "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+          "rounded-full bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
+          "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+          "cursor-pointer transition-all",
         ])}
       >
         <Icon icon="mdi:github" className="text-xl" />

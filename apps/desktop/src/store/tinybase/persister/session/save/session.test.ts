@@ -1,7 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { createTestMainStore } from "../../testing/mocks";
 import { buildSessionSaveOps, tablesToSessionMetaMap } from "./session";
+
+import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
 
 vi.mock("@tauri-apps/api/path", () => ({
   sep: () => "/",
@@ -15,7 +16,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "event-1",
+      event_json: "event-1",
       raw_md: "",
     });
 
@@ -27,7 +28,7 @@ describe("tablesToSessionMetaMap", () => {
         user_id: "user-1",
         created_at: "2024-01-01T00:00:00Z",
         title: "Test Session",
-        event_id: "event-1",
+        event: undefined,
         participants: [],
         tags: undefined,
       },
@@ -42,7 +43,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("mapping_session_participant", "participant-1", {
@@ -78,7 +79,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("tags", "tag-1", {
@@ -114,7 +115,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
 
@@ -130,7 +131,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Session 1",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("sessions", "session-2", {
@@ -138,7 +139,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-02T00:00:00Z",
       title: "Session 2",
       folder_id: "/sessions/work",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("mapping_session_participant", "participant-1", {
@@ -162,7 +163,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("mapping_session_participant", "orphan-participant", {
@@ -184,7 +185,7 @@ describe("tablesToSessionMetaMap", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("tags", "tag-1", {
@@ -213,7 +214,7 @@ describe("buildSessionSaveOps", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
 
@@ -233,7 +234,7 @@ describe("buildSessionSaveOps", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Session 1",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
     store.setRow("sessions", "session-2", {
@@ -241,7 +242,7 @@ describe("buildSessionSaveOps", () => {
       created_at: "2024-01-02T00:00:00Z",
       title: "Session 2",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
 
@@ -263,7 +264,7 @@ describe("buildSessionSaveOps", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
 
@@ -284,7 +285,7 @@ describe("buildSessionSaveOps", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "work/meetings",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     });
 

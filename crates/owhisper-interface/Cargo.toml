@@ -3,6 +3,9 @@ name = "owhisper-interface"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+openapi = ["dep:utoipa"]
+
 [dev-dependencies]
 deepgram = { workspace = true, default-features = false, features = ["listen"] }
 
@@ -17,5 +20,5 @@ chrono = { workspace = true, features = ["serde"] }
 codes-iso-639 = { workspace = true }
 schemars = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
-strum = { workspace = true, features = ["derive"] }
+utoipa = { workspace = true, optional = true }
 uuid = { workspace = true, features = ["v4"] }

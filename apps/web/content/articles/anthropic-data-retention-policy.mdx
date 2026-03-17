@@ -1,0 +1,81 @@
+---
+meta_title: "Anthropic Claude Data Retention Policy: What You Need to Know"
+meta_description: "Anthropic was supposed to be the privacy-first AI company. Then September 2025 happened. A full breakdown of what Claude keeps and how to control it."
+author: "Harshika"
+published: true
+date: "2026-03-13"
+---
+
+Anthropic built its reputation as the privacy-conscious alternative to OpenAI. Constitutional AI, safety-first research, no training on customer data. For a while, that reputation was earned.
+
+Then in August 2025, Anthropic quietly announced a policy change: consumer users would need to actively opt out if they didn't want their Claude conversations used to train future models. The deadline was September 28. If you missed it, your data was in.
+
+If you're evaluating AI providers right now, this is the context you need.
+
+## What Does Claude Store by Default?
+
+For consumer accounts — Claude Free, Pro, and Max — conversations are saved to your account until you delete them. Once deleted, they're removed from your chat history immediately but remain on Anthropic's back-end systems for up to 30 days before being permanently deleted.
+
+That's the standard case. A few exceptions matter:
+
+**Policy violations.** If a conversation is flagged for violating Anthropic's usage policy, the inputs and outputs are kept for 2 years. Trust and safety classification scores from that conversation are retained for 7 years.
+
+**Feedback you submit.** Thumbs up/down ratings and bug reports are kept for 5 years.
+
+**Incognito mode.** Conversations in Claude's incognito mode are never used for model training, regardless of your other settings.
+
+## The September 2025 Training Policy Change
+
+This is the part most people missed.
+
+Anthropic's previous stance was clean: consumer chats would not be used for training. That was the explicit promise. In August 2025, that changed. [According to Anthropic's own announcement](https://www.anthropic.com/news/updates-to-our-consumer-terms), they introduced an opt-in toggle — "You can help improve Claude" — and gave users until September 28 to make their choice.
+
+If you opted in, Anthropic could retain your conversations in de-identified form for up to 5 years and use them for model training. If you opted out, nothing changed. There's still a 30-day retention, no training use.
+
+The reaction was immediate. Security researchers and privacy advocates flagged it as a "privacy pivot." The opt-in training setting extends data retention from 30 days to 5 years, a 60x increase in how long your conversations can sit in Anthropic's training pipeline.
+
+## How to Check and Change Your Settings?
+
+To see where your account stands: Claude.ai → Settings → Privacy → "Improve Claude for everyone."
+
+If the toggle is on, your new conversations are eligible for training and retained for up to 5 years. Turning it off returns you to the 30-day retention standard.
+
+Turning it off does not retroactively remove data already used for training. Like OpenAI, Anthropic doesn't unlearn from data once it's been incorporated.
+
+## How Is the Anthropic API Different and Better for Privacy-conscious Users?
+
+The consumer product and the API have meaningfully different data policies, and the API is notably stronger.
+
+As of September 14, 2025, Anthropic reduced API log retention from 30 days to 7 days. API inputs and outputs are automatically deleted after 7 days. They are never used for model training — no opt-in, no opt-out, just a flat policy.
+
+If your organization needs longer retention for auditing purposes, you can opt in to the 30-day window via your Data Processing Addendum. But the default is 7 days, which is stricter than most providers.
+
+For enterprise API customers who qualify, Anthropic also offers a Zero Data Retention agreement. Under ZDR, inputs and outputs are not stored at all beyond what's needed to screen for abuse. One caveat: Anthropic still retains User Safety classifier results even under ZDR, to enforce their usage policy.
+
+## Claude for Work, Enterprise, Edu, and Gov
+
+Commercial customers were explicitly excluded from the September 2025 consumer policy changes. If you're using Claude for Work, Claude Enterprise, Claude for Education, or Claude Gov, your data is not used for model training — that's covered under Anthropic's commercial terms and is not subject to opt-in or opt-out toggles.
+
+Deleted conversations are purged within 30 days unless legally required otherwise.
+
+## What About HIPAA and GDPR?
+
+**HIPAA:** Anthropic offers HIPAA-eligible services for qualifying healthcare customers, including a Business Associate Agreement. Under the BAA, certain features, including web search, are disabled. Standard consumer Claude is not HIPAA-compliant and should not be used with Protected Health Information.
+
+**GDPR:** Anthropic supports GDPR compliance for commercial customers through a Data Processing Addendum. For EU-based consumer users, standard GDPR rights apply, including access, deletion, portability, and can be exercised through Anthropic's [Privacy Center](https://privacy.claude.com). Consumer accounts don't automatically come with a DPA.
+
+## The Reddit Lawsuit Worth Knowing About
+
+In June 2025, Reddit [filed a lawsuit against Anthropic](https://ppc.land/reddit-files-lawsuit-against-anthropic-over-unauthorized-claude-ai-training/) alleging that Anthropic scraped more than 100,000 Reddit posts and comments without authorization to train Claude. Reddit presented evidence that Claude reproduced deleted Reddit posts with near-perfect accuracy.
+
+This isn't about your personal data directly. But it's relevant context for how Anthropic has approached training data acquisition, and it matters when evaluating whether a company's stated privacy values match their actual behavior.
+
+## Using Claude's API Through Char
+
+[Char](https://char.com) is an open-source AI notepad for meetings that lets you bring your own Anthropic API key. When you connect it, your meeting data goes through the API i.e. 7-day retention, never used for training, rather than through the consumer Claude.ai product where training opt-ins and longer retention windows apply.
+
+And if Anthropic's policy trajectory gives you pause, you're not locked in. Char supports OpenAI, Mistral, Google Gemini, and local models via Ollama. Your notes stay as plain markdown files on your device regardless of which AI processes them. Switching providers doesn't mean starting over.
+
+That's what actual control looks like. It's not just a privacy toggle that defaults to whatever Anthropic decides next quarter.
+
+<CtaCard/>

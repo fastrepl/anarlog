@@ -12,23 +12,26 @@ swift!(fn _dismiss_all_notifications() -> Bool);
 
 macro_rules! define_notification_callback {
     ($static_name:ident, $setup_fn:ident, $extern_fn:ident) => {
-        static $static_name: Mutex<Option<Box<dyn Fn(String) + Send + Sync>>> = Mutex::new(None);
+        static $static_name: Mutex<Option<Box<dyn Fn(String, i32) + Send + Sync>>> =
+            Mutex::new(None);
 
         pub fn $setup_fn<F>(f: F)
         where
-            F: Fn(String) + Send + Sync + 'static,
+            F: Fn(String, i32) + Send + Sync + 'static,
         {
             *$static_name.lock().unwrap() = Some(Box::new(f));
         }
 
+        /// # Safety
+        /// `key_ptr` must be a valid, non-null pointer to a null-terminated C string.
         #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn $extern_fn(key_ptr: *const c_char) {
+        pub unsafe extern "C" fn $extern_fn(key_ptr: *const c_char, tag: i32) {
             if let Some(cb) = $static_name.lock().unwrap().as_ref() {
                 let key = unsafe { CStr::from_ptr(key_ptr) }
                     .to_str()
                     .unwrap()
                     .to_string();
-                cb(key);
+                cb(key, tag);
             }
         }
     };
@@ -55,6 +58,11 @@ define_notification_callback!(
     setup_expanded_start_time_reached_handler,
     rust_on_expanded_start_time_reached
 );
+define_notification_callback!(
+    OPTION_SELECTED_CB,
+    setup_option_selected_handler,
+    rust_on_option_selected
+);
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,6 +75,7 @@ struct NotificationPayload<'a> {
     participants: Option<&'a [Participant]>,
     event_details: Option<&'a EventDetails>,
     action_label: Option<&'a str>,
+    options: Option<&'a [String]>,
 }
 
 pub fn show(notification: &hypr_notification_interface::Notification) {
@@ -74,7 +83,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
         .key
         .as_deref()
         .unwrap_or(notification.title.as_str());
-    let timeout_seconds = notification.timeout.map(|d| d.as_secs_f64()).unwrap_or(5.0);
+    let timeout_seconds = notification.timeout.map(|d| d.as_secs_f64()).unwrap_or(0.0);
 
     let payload = NotificationPayload {
         key,
@@ -85,6 +94,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
         participants: notification.participants.as_deref(),
         event_details: notification.event_details.as_ref(),
         action_label: notification.action_label.as_deref(),
+        options: notification.options.as_deref(),
     };
 
     let json = serde_json::to_string(&payload).unwrap();

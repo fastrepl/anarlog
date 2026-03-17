@@ -52,8 +52,8 @@ export function BottomSheet({
             role="dialog"
             aria-modal="true"
             className={cn([
-              "fixed bottom-0 left-0 right-0 z-50",
-              "rounded-t-lg shadow-lg border-t overflow-clip",
+              "fixed right-0 bottom-0 left-0 z-50",
+              "overflow-clip rounded-t-lg border-t shadow-lg",
               className,
             ])}
             initial={{ y: "100%" }}

@@ -1,11 +1,11 @@
 use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::SonioxAdapter;
 use crate::adapter::RealtimeSttAdapter;
-use crate::adapter::parsing::{WordBuilder, ms_to_secs_opt};
+use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs_opt};
 
 // https://soniox.com/docs/stt/rt/real-time-transcription
 // https://soniox.com/docs/stt/api-reference/websocket-api
@@ -56,13 +56,7 @@ impl RealtimeSttAdapter for SonioxAdapter {
     ) -> Option<Message> {
         let api_key = api_key.unwrap_or("");
 
-        let default = crate::providers::Provider::Soniox.default_live_model();
-        let model = match params.model.as_deref() {
-            Some(m) if crate::providers::is_meta_model(m) => default,
-            Some("stt-v3") => default,
-            Some(m) => m,
-            None => default,
-        };
+        let model = SonioxAdapter::resolve_model(params.model.as_deref()).live_model();
 
         let context = if params.keywords.is_empty() {
             None
@@ -97,16 +91,24 @@ impl RealtimeSttAdapter for SonioxAdapter {
     }
 
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
-        let msg: SonioxMessage = match serde_json::from_str(raw) {
+        let msg: soniox::StreamMessage = match serde_json::from_str(raw) {
             Ok(m) => m,
             Err(e) => {
-                tracing::warn!(error = ?e, raw = raw, "soniox_json_parse_failed");
+                tracing::warn!(
+                    error = ?e,
+                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    "soniox_json_parse_failed"
+                );
                 return vec![];
             }
         };
 
         if let Some(error_msg) = &msg.error_message {
-            tracing::error!(error_code = ?msg.error_code, error_message = %error_msg, "soniox_error");
+            tracing::error!(
+                error.code = ?msg.error_code,
+                error = %error_msg,
+                "soniox_error"
+            );
             return vec![StreamResponse::ErrorResponse {
                 error_code: msg.error_code,
                 error_message: error_msg.clone(),
@@ -114,29 +116,17 @@ impl RealtimeSttAdapter for SonioxAdapter {
             }];
         }
 
-        let has_fin_token = msg.tokens.iter().any(Token::is_fin_marker);
-        let has_end_token = msg.tokens.iter().any(|t| t.text == "<end>");
-        let is_finished = msg.finished.unwrap_or(false) || has_fin_token || has_end_token;
+        let has_fin_token = msg.tokens.iter().any(|t| t.is_fin());
+        let is_finished =
+            msg.finished.unwrap_or(false) || msg.tokens.iter().any(|t| t.is_fin() || t.is_end());
 
-        let content_tokens: Vec<_> = msg
-            .tokens
-            .into_iter()
-            .filter(|t| t.text != "<fin>" && t.text != "<end>")
-            .collect();
+        let content_tokens: Vec<_> = msg.tokens.into_iter().filter(|t| !t.is_control()).collect();
 
         if content_tokens.is_empty() && !is_finished {
             return vec![];
         }
 
-        let final_tokens: Vec<_> = content_tokens
-            .iter()
-            .filter(|t| t.is_final.unwrap_or(true))
-            .collect();
-
-        let non_final_tokens: Vec<_> = content_tokens
-            .iter()
-            .filter(|t| !t.is_final.unwrap_or(true))
-            .collect();
+        let (final_tokens, non_final_tokens) = partition_tokens_by_word_finality(&content_tokens);
 
         let mut responses = Vec::new();
 
@@ -203,98 +193,19 @@ struct SonioxConfig<'a> {
     context: Option<Context>,
 }
 
-#[derive(Debug, Deserialize)]
-struct Token {
-    text: String,
-    #[serde(default)]
-    start_ms: Option<u64>,
-    #[serde(default)]
-    end_ms: Option<u64>,
-    #[serde(default)]
-    confidence: Option<f64>,
-    #[serde(default)]
-    is_final: Option<bool>,
-    #[serde(default)]
-    speaker: Option<SpeakerId>,
-}
-
-impl Token {
-    // https://soniox.com/docs/stt/rt/manual-finalization
-    fn is_fin_marker(&self) -> bool {
-        self.text == "<fin>" && self.is_final == Some(true)
-    }
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(untagged)]
-enum SpeakerId {
-    Num(i32),
-    Str(String),
-}
-
-impl SpeakerId {
-    fn as_i32(&self) -> Option<i32> {
-        match self {
-            SpeakerId::Num(n) => Some(*n),
-            SpeakerId::Str(s) => s
-                .trim_start_matches(|c: char| !c.is_ascii_digit())
-                .parse()
-                .ok(),
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct SonioxMessage {
-    #[serde(default)]
-    tokens: Vec<Token>,
-    #[serde(default)]
-    finished: Option<bool>,
-    #[serde(default)]
-    error_code: Option<i32>,
-    #[serde(default)]
-    error_message: Option<String>,
-}
-
 impl SonioxAdapter {
     fn build_response(
-        tokens: &[&Token],
+        tokens: &[&soniox::Token],
         is_final: bool,
         speech_final: bool,
         from_finalize: bool,
     ) -> StreamResponse {
-        let mut words = Vec::with_capacity(tokens.len());
-        let mut transcript = String::new();
-
-        for t in tokens {
-            if t.text.trim().is_empty() {
-                transcript.push_str(&t.text);
-                continue;
-            }
-
-            transcript.push_str(&t.text);
-
-            let start_secs = ms_to_secs_opt(t.start_ms);
-            let end_secs = ms_to_secs_opt(t.end_ms);
-            let speaker = t.speaker.as_ref().and_then(|s| s.as_i32());
-
-            words.push(
-                WordBuilder::new(&t.text)
-                    .start(start_secs)
-                    .end(end_secs)
-                    .confidence(t.confidence.unwrap_or(1.0))
-                    .speaker(speaker)
-                    .build(),
-            );
-        }
-
-        let (start, duration) = if let (Some(first), Some(last)) = (tokens.first(), tokens.last()) {
-            let start_secs = ms_to_secs_opt(first.start_ms);
-            let end_secs = ms_to_secs_opt(last.end_ms);
-            (start_secs, end_secs - start_secs)
-        } else {
-            (0.0, 0.0)
-        };
+        let transcript = tokens
+            .iter()
+            .map(|token| token.text.as_str())
+            .collect::<String>();
+        let words = build_words(tokens);
+        let (start, duration) = calculate_time_span(&words);
 
         let channel = Channel {
             alternatives: vec![Alternatives {
@@ -318,10 +229,147 @@ impl SonioxAdapter {
     }
 }
 
+fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Word> {
+    #[derive(Default)]
+    struct PendingWord {
+        text: String,
+        start_ms: Option<u64>,
+        end_ms: Option<u64>,
+        speaker: Option<i32>,
+        confidence_sum: f64,
+        confidence_count: u32,
+    }
+
+    impl PendingWord {
+        fn push_token(&mut self, token: &soniox::Token, text: &str) {
+            if self.start_ms.is_none() {
+                self.start_ms = token.start_ms;
+            }
+            self.end_ms = token.end_ms.or(self.end_ms);
+            self.text.push_str(text);
+
+            if self.speaker.is_none() {
+                self.speaker = token.speaker.as_ref().and_then(|speaker| speaker.as_i32());
+            }
+
+            self.confidence_sum += token.confidence.unwrap_or(1.0);
+            self.confidence_count += 1;
+        }
+
+        fn build(self) -> Option<owhisper_interface::stream::Word> {
+            if self.text.is_empty() {
+                return None;
+            }
+
+            let confidence = if self.confidence_count == 0 {
+                1.0
+            } else {
+                self.confidence_sum / f64::from(self.confidence_count)
+            };
+
+            Some(
+                WordBuilder::new(self.text)
+                    .start(ms_to_secs_opt(self.start_ms))
+                    .end(ms_to_secs_opt(self.end_ms))
+                    .confidence(confidence)
+                    .speaker(self.speaker)
+                    .build(),
+            )
+        }
+    }
+
+    token_groups_from_refs(tokens)
+        .into_iter()
+        .filter_map(|group| {
+            let mut pending = PendingWord::default();
+            for token in group {
+                let trimmed = token.text.trim();
+                if !trimmed.is_empty() {
+                    pending.push_token(token, trimmed);
+                }
+            }
+            pending.build()
+        })
+        .collect()
+}
+
+fn partition_tokens_by_word_finality<'a>(
+    tokens: &'a [soniox::Token],
+) -> (Vec<&'a soniox::Token>, Vec<&'a soniox::Token>) {
+    let mut final_tokens = Vec::new();
+    let mut non_final_tokens = Vec::new();
+    for group in token_groups_from_values(tokens) {
+        if group.iter().all(|token| token.is_final.unwrap_or(true)) {
+            final_tokens.extend(group);
+        } else {
+            non_final_tokens.extend(group);
+        }
+    }
+
+    (final_tokens, non_final_tokens)
+}
+
+fn token_groups_from_refs<'a>(tokens: &[&'a soniox::Token]) -> Vec<Vec<&'a soniox::Token>> {
+    let mut groups = Vec::new();
+    let mut current = Vec::new();
+    let mut current_has_content = false;
+
+    let flush = |groups: &mut Vec<Vec<&'a soniox::Token>>, current: &mut Vec<&'a soniox::Token>| {
+        if !current.is_empty() {
+            groups.push(std::mem::take(current));
+        }
+    };
+
+    for token in tokens {
+        let has_content = !token.text.trim().is_empty();
+        let starts_with_ws = token.text.chars().next().is_some_and(char::is_whitespace);
+
+        if starts_with_ws && current_has_content {
+            flush(&mut groups, &mut current);
+            current_has_content = false;
+        }
+
+        current.push(*token);
+        current_has_content |= has_content;
+    }
+
+    flush(&mut groups, &mut current);
+    groups
+}
+
+fn token_groups_from_values<'a>(tokens: &'a [soniox::Token]) -> Vec<Vec<&'a soniox::Token>> {
+    let mut groups = Vec::new();
+    let mut current = Vec::new();
+    let mut current_has_content = false;
+
+    let flush = |groups: &mut Vec<Vec<&'a soniox::Token>>, current: &mut Vec<&'a soniox::Token>| {
+        if !current.is_empty() {
+            groups.push(std::mem::take(current));
+        }
+    };
+
+    for token in tokens {
+        let has_content = !token.text.trim().is_empty();
+        let starts_with_ws = token.text.chars().next().is_some_and(char::is_whitespace);
+
+        if starts_with_ws && current_has_content {
+            flush(&mut groups, &mut current);
+            current_has_content = false;
+        }
+
+        current.push(token);
+        current_has_content |= has_content;
+    }
+
+    flush(&mut groups, &mut current);
+    groups
+}
+
 #[cfg(test)]
 mod tests {
     use hypr_language::ISO639;
     use hypr_ws_client::client::Message;
+    use owhisper_interface::stream::StreamResponse;
 
     use super::SonioxAdapter;
     use crate::ListenClient;
@@ -514,5 +562,214 @@ mod tests {
             .await;
 
         run_dual_test(client, "soniox").await;
+    }
+
+    #[test]
+    fn parse_response_keeps_split_word_partial_until_complete() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": " hundreds", "start_ms": 0, "end_ms": 100, "is_final": true },
+                    { "text": " of", "start_ms": 100, "end_ms": 200, "is_final": true },
+                    { "text": " mill", "start_ms": 200, "end_ms": 300, "is_final": true },
+                    { "text": "ions.", "start_ms": 300, "end_ms": 450, "is_final": false }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 2);
+
+        let final_words = match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(*is_final);
+                &channel.alternatives[0].words
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(final_words.len(), 2);
+        assert_eq!(final_words[0].word, "hundreds");
+        assert_eq!(final_words[1].word, "of");
+
+        let partial_words = match &responses[1] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(!*is_final);
+                &channel.alternatives[0].words
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(partial_words.len(), 1);
+        assert_eq!(partial_words[0].word, "millions.");
+    }
+
+    #[test]
+    fn parse_response_merges_subword_tokens_into_single_word() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": " mill", "start_ms": 0, "end_ms": 50, "is_final": true },
+                    { "text": "ions", "start_ms": 50, "end_ms": 120, "is_final": true },
+                    { "text": ".", "start_ms": 120, "end_ms": 150, "is_final": true },
+                    { "text": "<end>", "is_final": true }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 1);
+
+        let words = match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel,
+                is_final,
+                speech_final,
+                ..
+            } => {
+                assert!(*is_final);
+                assert!(*speech_final);
+                &channel.alternatives[0].words
+            }
+            _ => panic!("expected transcript response"),
+        };
+
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].word, "millions.");
+        assert_eq!(words[0].start, 0.0);
+        assert_eq!(words[0].end, 0.15);
+    }
+
+    #[test]
+    fn parse_response_keeps_korean_eojeol_partial_when_finality_splits_mid_word() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": "입", "start_ms": 480, "end_ms": 540, "is_final": true, "speaker": "1" },
+                    { "text": "니", "start_ms": 660, "end_ms": 720, "is_final": true, "speaker": "1" },
+                    { "text": "다.", "start_ms": 720, "end_ms": 780, "is_final": true, "speaker": "1" },
+                    { "text": " 단", "start_ms": 1440, "end_ms": 1500, "is_final": true, "speaker": "1" },
+                    { "text": "서", "start_ms": 1620, "end_ms": 1680, "is_final": false, "speaker": "1" },
+                    { "text": "는", "start_ms": 1740, "end_ms": 1800, "is_final": false, "speaker": "1" }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 2);
+
+        let final_alt = match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(final_alt.transcript, "입니다.");
+        assert_eq!(final_alt.words.len(), 1);
+        assert_eq!(final_alt.words[0].word, "입니다.");
+
+        let partial_alt = match &responses[1] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(!*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(partial_alt.transcript, " 단서는");
+        assert_eq!(partial_alt.words.len(), 1);
+        assert_eq!(partial_alt.words[0].word, "단서는");
+    }
+
+    #[test]
+    fn parse_response_keeps_korean_partial_prefix_out_of_final_chunk() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": " 정치", "start_ms": 3720, "end_ms": 3780, "is_final": true, "speaker": "1" },
+                    { "text": "적", "start_ms": 3960, "end_ms": 4020, "is_final": true, "speaker": "1" },
+                    { "text": " 분", "start_ms": 4140, "end_ms": 4200, "is_final": true, "speaker": "1" },
+                    { "text": "열", "start_ms": 4260, "end_ms": 4320, "is_final": true, "speaker": "1" },
+                    { "text": " 속", "start_ms": 4380, "end_ms": 4440, "is_final": true, "speaker": "1" },
+                    { "text": "에서", "start_ms": 4560, "end_ms": 4620, "is_final": true, "speaker": "1" },
+                    { "text": " 매", "start_ms": 5100, "end_ms": 5160, "is_final": true, "speaker": "1" },
+                    { "text": "우", "start_ms": 5160, "end_ms": 5220, "is_final": true, "speaker": "1" },
+                    { "text": " 불", "start_ms": 5520, "end_ms": 5580, "is_final": true, "speaker": "1" },
+                    { "text": "안", "start_ms": 5700, "end_ms": 5760, "is_final": false, "speaker": "1" },
+                    { "text": "정", "start_ms": 5820, "end_ms": 5880, "is_final": false, "speaker": "1" },
+                    { "text": "한", "start_ms": 6000, "end_ms": 6060, "is_final": false, "speaker": "1" }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 2);
+
+        let final_alt = match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(final_alt.transcript, " 정치적 분열 속에서 매우");
+
+        let partial_alt = match &responses[1] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(!*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(partial_alt.transcript, " 불안정한");
+        assert_eq!(partial_alt.words.len(), 1);
+        assert_eq!(partial_alt.words[0].word, "불안정한");
+    }
+
+    #[test]
+    fn parse_response_preserves_standalone_whitespace_tokens_across_partitions() {
+        let responses = SonioxAdapter.parse_response(
+            r#"{
+                "tokens": [
+                    { "text": "hello", "start_ms": 0, "end_ms": 100, "is_final": true },
+                    { "text": " ", "start_ms": 100, "end_ms": 100, "is_final": false },
+                    { "text": "world", "start_ms": 100, "end_ms": 200, "is_final": false }
+                ]
+            }"#,
+        );
+
+        assert_eq!(responses.len(), 2);
+
+        let final_alt = match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(final_alt.transcript, "hello");
+        assert_eq!(final_alt.words.len(), 1);
+        assert_eq!(final_alt.words[0].word, "hello");
+
+        let partial_alt = match &responses[1] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(!*is_final);
+                &channel.alternatives[0]
+            }
+            _ => panic!("expected transcript response"),
+        };
+        assert_eq!(partial_alt.transcript, " world");
+        assert_eq!(partial_alt.words.len(), 1);
+        assert_eq!(partial_alt.words[0].word, "world");
     }
 }

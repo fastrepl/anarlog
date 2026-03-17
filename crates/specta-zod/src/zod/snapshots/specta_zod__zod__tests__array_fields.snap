@@ -1,0 +1,9 @@
+---
+source: crates/specta-zod/src/zod/tests.rs
+expression: output
+---
+export const withArraySchema = z.object({
+  tags: jsonObject(z.array(z.string())),
+  scores: jsonObject(z.array(z.number())),
+});
+export type WithArray = z.infer<typeof withArraySchema>;

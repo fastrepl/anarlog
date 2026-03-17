@@ -1,0 +1,15 @@
+[package]
+name = "export-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+specta = { workspace = true }
+thiserror = { workspace = true }
+
+pulldown-cmark = { version = "0.13.0", default-features = false }
+typst = "0.14.2"
+typst-assets = { version = "0.14.2", features = ["fonts"] }
+typst-pdf = "0.14.2"

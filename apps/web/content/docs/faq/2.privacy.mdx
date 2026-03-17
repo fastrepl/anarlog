@@ -1,17 +1,27 @@
 ---
 title: "Privacy"
 section: "FAQ"
-description: "Questions about data privacy and security in Hyprnote."
+description: "Questions about data privacy and security in Char."
 ---
 
 ## Where is my data stored?
 
-All your recordings and notes are stored locally on your device. Hyprnote doesn't send your audio or transcripts to external servers. Everything is processed on-device using local AI.
+All your recordings, transcripts, and notes are stored locally on your device in plain files (SQLite database, JSON, and Markdown). By default, nothing leaves your machine.
+
+If you enable cloud features (cloud transcription or cloud LLM), the relevant data (audio for transcription, text for AI processing) is sent to the provider you selected. See [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy) for the full list of what gets sent and to whom.
 
 ## Is my data encrypted?
 
-Yes, all your data is encrypted at rest on your device. Your recordings, transcripts, and notes are protected with industry-standard encryption.
+Char stores data as plain files on disk and does not add its own encryption layer. Your data is protected by your operating system's file permissions and any full-disk encryption you have enabled (such as FileVault on macOS or LUKS on Linux). We recommend enabling full-disk encryption for maximum protection.
 
-## Can my employer see my Hyprnote recordings?
+## What analytics does Char collect?
 
-No. Hyprnote stores everything locally on your device. Unless you explicitly share your notes or recordings, they remain private to you.
+Char collects anonymous usage analytics (event names, app version, device fingerprint) via PostHog and Outlit. No meeting content, audio, or transcripts are included in analytics. You can disable analytics entirely in Settings.
+
+Char also uses Sentry for crash reporting in release builds, which sends error messages and stack traces.
+
+## Can my employer see my Char recordings?
+
+No. Char stores everything locally on your device. Unless you explicitly share your notes or recordings, they remain private to you.
+
+For the complete breakdown of every data flow, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy). To learn more about our local-first approach, see [Why Local-First?](/docs/about/why-local-first).

@@ -10,8 +10,8 @@ pub enum Error {
     UnknownPath(String),
     #[error("url parse error: {0}")]
     UrlParse(#[from] url::ParseError),
-    #[error("missing query parameter: {0}")]
-    MissingQueryParam(String),
+    #[error("query decode error: {0}")]
+    QueryDecode(#[from] serde_qs::Error),
 }
 
 impl Serialize for Error {

@@ -6,26 +6,23 @@ export const Route = createFileRoute("/_view/legal/")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Legal - Hyprnote" },
+      { title: "Legal - Char" },
       {
         name: "description",
-        content:
-          "Terms, privacy policy, and other legal documents for Hyprnote",
+        content: "Terms, privacy policy, and other legal documents for Char",
       },
-      { property: "og:title", content: "Legal - Hyprnote" },
+      { property: "og:title", content: "Legal - Char" },
       {
         property: "og:description",
-        content:
-          "Terms, privacy policy, and other legal documents for Hyprnote",
+        content: "Terms, privacy policy, and other legal documents for Char",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://hyprnote.com/legal" },
+      { property: "og:url", content: "https://char.com/legal" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "Legal - Hyprnote" },
+      { name: "twitter:title", content: "Legal - Char" },
       {
         name: "twitter:description",
-        content:
-          "Terms, privacy policy, and other legal documents for Hyprnote",
+        content: "Terms, privacy policy, and other legal documents for Char",
       },
     ],
   }),
@@ -37,9 +34,9 @@ function Component() {
       className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white px-4 py-16 sm:px-6 lg:px-8">
         <header className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-serif text-stone-600 mb-4">
+          <h1 className="mb-4 font-serif text-4xl text-stone-700 sm:text-5xl">
             Legal
           </h1>
           <p className="text-lg text-neutral-600">
@@ -64,23 +61,23 @@ function LegalCard({ doc }: { doc: (typeof allLegals)[number] }) {
       params={{ slug: doc.slug }}
       className="group block"
     >
-      <article className="h-full border border-neutral-100 rounded-xs bg-white hover:shadow-md hover:border-neutral-200 transition-all duration-300 p-6">
-        <div className="flex items-start gap-3 mb-3">
+      <article className="h-full rounded-xs border border-neutral-100 bg-white p-6 transition-all duration-300 hover:border-neutral-200 hover:shadow-md">
+        <div className="mb-3 flex items-start gap-3">
           <Icon
             icon="mdi:file-document-outline"
-            className="text-xl text-stone-600 group-hover:text-stone-800 transition-colors shrink-0 mt-0.5"
+            className="mt-0.5 shrink-0 text-xl text-stone-700 transition-colors group-hover:text-stone-800"
           />
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-serif text-stone-600 group-hover:text-stone-800 transition-colors mb-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="mb-2 font-serif text-lg text-stone-700 transition-colors group-hover:text-stone-800">
               {doc.title}
             </h3>
-            <p className="text-sm text-neutral-500 line-clamp-2">
+            <p className="line-clamp-2 text-sm text-neutral-500">
               {doc.summary}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-sm text-neutral-500 mt-4 pt-4 border-t border-neutral-100">
+        <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4 text-sm text-neutral-500">
           <span className="text-xs">
             Updated{" "}
             {new Date(doc.date).toLocaleDateString("en-US", {
@@ -89,7 +86,7 @@ function LegalCard({ doc }: { doc: (typeof allLegals)[number] }) {
               year: "numeric",
             })}
           </span>
-          <span className="group-hover:text-stone-600 transition-colors font-medium">
+          <span className="font-medium transition-colors group-hover:text-stone-600">
             Read →
           </span>
         </div>

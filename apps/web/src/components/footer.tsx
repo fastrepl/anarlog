@@ -1,17 +1,10 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ExternalLinkIcon, MailIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Image } from "@/components/image";
+import { cn } from "@hypr/utils";
 
-function getNextRandomIndex(length: number, prevIndex: number): number {
-  if (length <= 1) return 0;
-  let next = prevIndex;
-  while (next === prevIndex) {
-    next = Math.floor(Math.random() * length);
-  }
-  return next;
-}
+import { EmailSubscribeField } from "@/components/email-subscribe-field";
 
 const vsList = [
   { slug: "otter", name: "Otter.ai" },
@@ -45,9 +38,9 @@ export function Footer() {
   return (
     <footer className="border-t border-neutral-100 bg-linear-to-b from-stone-50/30 to-stone-100">
       <div
-        className={`${maxWidthClass} mx-auto px-4 laptop:px-0 py-12 lg:py-16 border-x border-neutral-100`}
+        className={`${maxWidthClass} laptop:px-0 mx-auto border-x border-neutral-100 px-4 py-12 lg:py-16`}
       >
-        <div className="flex flex-col lg:flex-row gap-12">
+        <div className="flex flex-col gap-12 lg:flex-row">
           <BrandSection currentYear={currentYear} />
           <LinksGrid />
         </div>
@@ -59,28 +52,23 @@ export function Footer() {
 function BrandSection({ currentYear }: { currentYear: number }) {
   return (
     <div className="lg:flex-1">
-      <Link to="/" className="inline-block mb-4">
-        <Image
-          src="/api/images/hyprnote/logo.svg"
-          alt="Hyprnote"
-          className="h-6"
-        />
+      <Link
+        to="/"
+        className="mb-4 inline-block font-serif text-2xl font-semibold"
+      >
+        Char
       </Link>
-      <p className="text-sm text-neutral-500 mb-4">Fastrepl © {currentYear}</p>
-      <p className="text-sm text-neutral-600 mb-3">
-        Are you in back-to-back meetings?{" "}
-        <Link
-          to="/auth/"
-          className="text-neutral-600 hover:text-stone-600 transition-colors underline decoration-solid"
-        >
-          Get started
-        </Link>
-      </p>
+      <p className="mb-4 text-sm text-neutral-500">Fastrepl © {currentYear}</p>
+      <EmailSubscribeField
+        className="mb-4 max-w-72"
+        formClassName="laptop:border-l-0"
+      />
+
       <p className="text-sm text-neutral-500">
         <Link
           to="/legal/$slug/"
           params={{ slug: "terms" }}
-          className="hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+          className="no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
         >
           Terms
         </Link>
@@ -88,7 +76,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         <Link
           to="/legal/$slug/"
           params={{ slug: "privacy" }}
-          className="hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+          className="no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
         >
           Privacy
         </Link>
@@ -99,7 +87,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
 
 function LinksGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 lg:shrink-0">
+    <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:shrink-0 lg:grid-cols-5">
       <ProductLinks />
       <ResourcesLinks />
       <CompanyLinks />
@@ -112,14 +100,14 @@ function LinksGrid() {
 function ProductLinks() {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-4 font-serif">
+      <h3 className="mb-4 font-serif text-sm font-semibold text-neutral-900">
         Product
       </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/download/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Download
           </Link>
@@ -127,7 +115,7 @@ function ProductLinks() {
         <li>
           <Link
             to="/changelog/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Changelog
           </Link>
@@ -135,7 +123,7 @@ function ProductLinks() {
         <li>
           <Link
             to="/roadmap/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Roadmap
           </Link>
@@ -143,17 +131,17 @@ function ProductLinks() {
         <li>
           <Link
             to="/docs/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Docs
           </Link>
         </li>
         <li>
           <a
-            href="https://github.com/fastrepl/hyprnote"
+            href="https://github.com/fastrepl/char"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             GitHub
             <ExternalLinkIcon className="size-3" />
@@ -164,7 +152,7 @@ function ProductLinks() {
             href="https://status.hyprnote.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Status
             <ExternalLinkIcon className="size-3" />
@@ -175,28 +163,61 @@ function ProductLinks() {
   );
 }
 
-function ResourcesLinks() {
-  const [vsIndex, setVsIndex] = useState(0);
-  const [useCaseIndex, setUseCaseIndex] = useState(0);
+function useRotatingIndex(listLength: number, interval: number) {
+  const [index, setIndex] = useState(0);
+  const [fading, setFading] = useState(false);
+  const pausedRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setVsIndex(Math.floor(Math.random() * vsList.length));
-    setUseCaseIndex(Math.floor(Math.random() * useCasesList.length));
+    setIndex(Math.floor(Math.random() * listLength));
+  }, [listLength]);
+
+  const advance = useCallback(() => {
+    if (pausedRef.current) return;
+    setFading(true);
+    timeoutRef.current = setTimeout(() => {
+      if (pausedRef.current) return;
+      setIndex((prev) => (prev + 1) % listLength);
+      setFading(false);
+    }, 200);
+  }, [listLength]);
+
+  useEffect(() => {
+    const id = setInterval(advance, interval);
+    return () => {
+      clearInterval(id);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [advance, interval]);
+
+  const pause = useCallback(() => {
+    pausedRef.current = true;
+  }, []);
+  const resume = useCallback(() => {
+    pausedRef.current = false;
   }, []);
 
-  const currentVs = vsList[vsIndex];
-  const currentUseCase = useCasesList[useCaseIndex];
+  return { index, fading, pause, resume };
+}
+
+function ResourcesLinks() {
+  const vs = useRotatingIndex(vsList.length, 3000);
+  const useCase = useRotatingIndex(useCasesList.length, 4000);
+
+  const currentVs = vsList[vs.index];
+  const currentUseCase = useCasesList[useCase.index];
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-4 font-serif">
+      <h3 className="mb-4 font-serif text-sm font-semibold text-neutral-900">
         Resources
       </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/pricing/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Pricing
           </Link>
@@ -204,7 +225,7 @@ function ResourcesLinks() {
         <li>
           <a
             href="/docs/faq"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             FAQ
           </a>
@@ -212,7 +233,7 @@ function ResourcesLinks() {
         <li>
           <Link
             to="/company-handbook/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Company Handbook
           </Link>
@@ -220,17 +241,17 @@ function ResourcesLinks() {
         <li>
           <Link
             to="/gallery/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Prompt Gallery
           </Link>
         </li>
         <li>
           <a
-            href="https://github.com/fastrepl/hyprnote/discussions"
+            href="https://github.com/fastrepl/char/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Discussions
             <ExternalLinkIcon className="size-3" />
@@ -239,56 +260,56 @@ function ResourcesLinks() {
         <li>
           <a
             href="mailto:support@hyprnote.com"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Support
             <MailIcon className="size-3" />
           </a>
         </li>
-        <li>
+        <li onMouseEnter={useCase.pause} onMouseLeave={useCase.resume}>
           <Link
             to={currentUseCase.to}
-            className="group text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
-            aria-label={`Hyprnote for ${currentUseCase.label}`}
-            onMouseEnter={() => {
-              setUseCaseIndex((prev) =>
-                getNextRandomIndex(useCasesList.length, prev),
-              );
-            }}
-            onFocus={() => {
-              setUseCaseIndex((prev) =>
-                getNextRandomIndex(useCasesList.length, prev),
-              );
-            }}
+            className={cn(
+              "text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted",
+              "inline-flex items-center gap-1",
+            )}
+            aria-label={`Char for ${currentUseCase.label}`}
           >
             👍 for{" "}
-            <span className="blur-xs group-hover:blur-none group-focus:blur-none transition-all duration-150">
+            <span
+              className={cn(
+                "transition-opacity duration-200",
+                useCase.fading ? "opacity-0" : "opacity-100",
+              )}
+            >
               {currentUseCase.label}
             </span>
           </Link>
         </li>
-        <li>
+        <li onMouseEnter={vs.pause} onMouseLeave={vs.resume}>
           <Link
             to="/vs/$slug/"
             params={{ slug: currentVs.slug }}
-            className="group text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className={cn(
+              "text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted",
+              "inline-flex items-center gap-1",
+            )}
             aria-label={`Versus ${currentVs.name}`}
-            onMouseEnter={() => {
-              setVsIndex((prev) => getNextRandomIndex(vsList.length, prev));
-            }}
-            onFocus={() => {
-              setVsIndex((prev) => getNextRandomIndex(vsList.length, prev));
-            }}
           >
             <img
               src="/api/images/hyprnote/icon.png"
-              alt="Hyprnote"
+              alt="Char"
               width={12}
               height={12}
-              className="size-4 rounded border border-neutral-100 inline"
+              className="inline size-4 rounded border border-neutral-100"
             />{" "}
             vs{" "}
-            <span className="blur-xs group-hover:blur-none group-focus:blur-none transition-all duration-150">
+            <span
+              className={cn(
+                "transition-opacity duration-200",
+                vs.fading ? "opacity-0" : "opacity-100",
+              )}
+            >
               {currentVs.name}
             </span>
           </Link>
@@ -301,38 +322,48 @@ function ResourcesLinks() {
 function CompanyLinks() {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-4 font-serif">
+      <h3 className="mb-4 font-serif text-sm font-semibold text-neutral-900">
         Company
       </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/blog/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Blog
           </Link>
         </li>
         <li>
           <Link
+            to="/updates/"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
+          >
+            Updates
+          </Link>
+        </li>
+        <li>
+          <Link
             to="/about/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             About us
           </Link>
         </li>
-        <li>
-          <Link
-            to="/jobs/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
-          >
-            Jobs
-          </Link>
-        </li>
+        {import.meta.env.DEV ? (
+          <li>
+            <Link
+              to="/jobs/"
+              className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
+            >
+              Jobs
+            </Link>
+          </li>
+        ) : null}
         <li>
           <Link
             to="/brand/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Brand
           </Link>
@@ -340,7 +371,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/press-kit/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Press Kit
           </Link>
@@ -348,7 +379,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/opensource/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Open Source
           </Link>
@@ -361,14 +392,14 @@ function CompanyLinks() {
 function ToolsLinks() {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-4 font-serif">
+      <h3 className="mb-4 font-serif text-sm font-semibold text-neutral-900">
         Tools
       </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/eval/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             AI Eval
           </Link>
@@ -377,7 +408,7 @@ function ToolsLinks() {
           <Link
             to="/file-transcription/"
             search={{ id: undefined }}
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Audio Transcription
           </Link>
@@ -385,7 +416,7 @@ function ToolsLinks() {
         <li>
           <Link
             to="/oss-friends/"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors no-underline hover:underline hover:decoration-dotted"
+            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             OSS Navigator
           </Link>
@@ -398,7 +429,7 @@ function ToolsLinks() {
 function SocialLinks() {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-neutral-900 mb-4 font-serif">
+      <h3 className="mb-4 font-serif text-sm font-semibold text-neutral-900">
         Social
       </h3>
       <ul className="flex flex-col gap-3">
@@ -407,31 +438,9 @@ function SocialLinks() {
             href="/x"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Twitter
-            <ExternalLinkIcon className="size-3" />
-          </a>
-        </li>
-        <li>
-          <a
-            href="/bluesky"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
-          >
-            Bluesky
-            <ExternalLinkIcon className="size-3" />
-          </a>
-        </li>
-        <li>
-          <a
-            href="/reddit"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
-          >
-            Reddit
             <ExternalLinkIcon className="size-3" />
           </a>
         </li>
@@ -440,7 +449,7 @@ function SocialLinks() {
             href="/discord"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Discord
             <ExternalLinkIcon className="size-3" />
@@ -451,7 +460,7 @@ function SocialLinks() {
             href="/youtube"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             YouTube
             <ExternalLinkIcon className="size-3" />
@@ -462,7 +471,7 @@ function SocialLinks() {
             href="/linkedin"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-neutral-600 hover:text-stone-600 transition-colors inline-flex items-center gap-1 no-underline hover:underline hover:decoration-dotted"
+            className="inline-flex items-center gap-1 text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             LinkedIn
             <ExternalLinkIcon className="size-3" />

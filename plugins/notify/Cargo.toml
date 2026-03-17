@@ -21,6 +21,7 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 tauri-plugin-settings = { workspace = true }
 
+camino = { workspace = true }
 notify = "8"
 notify-debouncer-full = "0.5"
 

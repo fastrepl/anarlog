@@ -1,25 +1,8 @@
-#[cfg(test)]
-mod test_fixtures;
-
-mod audio;
-mod cleanup;
 mod commands;
-mod error;
 mod ext;
-mod folder;
-mod frontmatter;
-mod json;
-mod path;
-mod scan;
-mod session;
-mod types;
 
-pub use types::*;
-
-pub use error::{Error, Result};
 pub use ext::*;
-pub use path::is_uuid;
-pub use session::find_session_dir;
+pub use hypr_fs_sync_core::*;
 
 const PLUGIN_NAME: &str = "fs-sync";
 
@@ -42,6 +25,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::audio_import::<tauri::Wry>,
             commands::audio_path::<tauri::Wry>,
             commands::session_dir::<tauri::Wry>,
+            commands::load_session_content::<tauri::Wry>,
             commands::delete_session_folder::<tauri::Wry>,
             commands::scan_and_read::<tauri::Wry>,
             commands::chat_dir::<tauri::Wry>,
