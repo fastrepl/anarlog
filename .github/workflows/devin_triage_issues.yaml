@@ -16,10 +16,10 @@ jobs:
         with:
           api_key: ${{ secrets.DEVIN_API_KEY }}
           prompt: |
-            You are tasked with triaging open GitHub issues for Hyprnote to determine if they have already been addressed.
+            You are tasked with triaging open GitHub issues for Char to determine if they have already been addressed.
 
             ## Context
-            Hyprnote is a Tauri-based desktop app for AI meeting notes that prioritizes privacy.
+            Char is a Tauri-based desktop app for AI meeting notes that prioritizes privacy.
             Repository: fastrepl/hyprnote
 
             ## Your Task

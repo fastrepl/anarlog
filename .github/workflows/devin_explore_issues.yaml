@@ -17,7 +17,7 @@ jobs:
         with:
           api_key: ${{ secrets.DEVIN_API_KEY }}
           prompt: |
-            A user has submitted an issue via the Hyprnote app. Please explore the codebase and provide helpful context on this issue.
+            A user has submitted an issue via the Char app. Please explore the codebase and provide helpful context on this issue.
 
             ## Issue Details
             - **Title**: {{ title }}
