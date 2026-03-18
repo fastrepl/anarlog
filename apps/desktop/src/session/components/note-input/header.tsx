@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircleIcon, PlusIcon, RefreshCwIcon, XIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  AlertCircleIcon,
+  CheckIcon,
+  CopyIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  XIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import {
@@ -26,6 +33,10 @@ import {
 import { cn } from "@hypr/utils";
 
 import { EditingControls } from "./transcript/editing/controls";
+import {
+  buildTranscriptExportSegments,
+  formatTranscriptExportSegments,
+} from "./transcript/export-data";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
@@ -78,10 +89,35 @@ function HeaderTabTranscript({
     sessionMode !== "finalizing" &&
     sessionMode !== "running_batch";
   const store = main.UI.useStore(main.STORE_ID);
+  const transcriptIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.transcriptBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
   const runBatch = useRunBatch(sessionId);
   const [isRedoing, setIsRedoing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copiedResetTimeoutRef = useRef<number | null>(null);
 
   const isProcessing = isBatchProcessing || isRedoing;
+  const transcriptText = useMemo(() => {
+    if (!store || transcriptIds.length === 0) {
+      return "";
+    }
+
+    return formatTranscriptExportSegments(
+      buildTranscriptExportSegments(store, transcriptIds),
+    );
+  }, [store, transcriptIds]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimeoutRef.current !== null) {
+        window.clearTimeout(copiedResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleRefreshClick = useCallback(
     async (e: React.MouseEvent) => {
@@ -141,8 +177,32 @@ function HeaderTabTranscript({
     },
     [audioExists, isBatchProcessing, runBatch, sessionId, store],
   );
+  const handleCopyClick = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!transcriptText) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(transcriptText);
+        if (copiedResetTimeoutRef.current !== null) {
+          window.clearTimeout(copiedResetTimeoutRef.current);
+        }
+        setCopied(true);
+        copiedResetTimeoutRef.current = window.setTimeout(() => {
+          setCopied(false);
+          copiedResetTimeoutRef.current = null;
+        }, 2000);
+      } catch {}
+    },
+    [transcriptText],
+  );
 
   const showRefreshButton = audioExists && isActive && isSessionInactive;
+  const showCopyButton = isActive && transcriptText.length > 0;
   const showProgress = audioExists && isActive && isProcessing;
   const refreshButton = (
     <span
@@ -160,10 +220,35 @@ function HeaderTabTranscript({
       <RefreshCwIcon size={12} />
     </span>
   );
+  const copyButton = (
+    <span
+      onClick={(e) => {
+        void handleCopyClick(e);
+      }}
+      className={cn([
+        "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
+        copied
+          ? "text-green-500"
+          : ["hover:bg-neutral-200 focus-visible:bg-neutral-200"],
+      ])}
+      aria-label="Copy transcript"
+      role="button"
+    >
+      {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+    </span>
+  );
 
   return (
     <NoteTab isActive={isActive} onClick={onClick}>
       Transcript
+      {showCopyButton && (
+        <Tooltip>
+          <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
+          <TooltipContent>
+            {copied ? "Copied" : "Copy transcript"}
+          </TooltipContent>
+        </Tooltip>
+      )}
       {showRefreshButton &&
         (batchError ? (
           <Tooltip>
