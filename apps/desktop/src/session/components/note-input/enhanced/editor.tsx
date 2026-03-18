@@ -6,6 +6,10 @@ import NoteEditor from "@hypr/tiptap/editor";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 
 import { useSearchEngine } from "~/search/contexts/engine";
+import {
+  resolveClipboardImageSrc,
+  writeClipboardHtml,
+} from "~/shared/clipboard-images";
 import { useImageUpload } from "~/shared/hooks/useImageUpload";
 import * as main from "~/store/tinybase/store/main";
 
@@ -93,6 +97,8 @@ export const EnhancedEditor = forwardRef<
       onLinkOpen: (url: string) => {
         void openerCommands.openUrl(url, null);
       },
+      resolveClipboardImageSrc,
+      writeClipboardHtml,
     }),
     [],
   );

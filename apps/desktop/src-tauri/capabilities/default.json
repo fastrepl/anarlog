@@ -48,6 +48,7 @@
     "overlay:default",
     "notify:default",
     "tantivy:default",
+    "clipboard-manager:allow-write-html",
     "clipboard-manager:allow-write-image",
     "shell:allow-open",
     {
