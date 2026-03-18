@@ -25,6 +25,10 @@ type ConsentState = {
   updatedAt: string;
 };
 
+function isAdminPathname(pathname: string) {
+  return pathname.startsWith("/admin");
+}
+
 const PrivacyConsentContext = createContext<{
   analyticsEnabled: boolean;
   analyticsChoice: boolean | null;
@@ -103,6 +107,12 @@ export function usePrivacyConsent() {
 
 export function CookiePreferencesButton() {
   const { openPreferences } = usePrivacyConsentContext();
+  const isAdminRoute =
+    typeof window !== "undefined" && isAdminPathname(window.location.pathname);
+
+  if (isAdminRoute) {
+    return null;
+  }
 
   return (
     <button
@@ -220,18 +230,24 @@ export function PrivacyConsentProvider({
     rejectNonEssential,
     saveAnalyticsChoice,
   };
+  const isAdminRoute =
+    typeof window !== "undefined" && isAdminPathname(window.location.pathname);
 
   return (
     <PrivacyConsentContext.Provider value={contextValue}>
       {children}
-      <CookieConsentBanner isDialogOpen={isDialogOpen} />
-      <CookiePreferencesDialog
-        analyticsChoice={draftAnalytics}
-        isOpen={isDialogOpen}
-        isGpcEnabled={isGpcEnabled}
-        onAnalyticsChoiceChange={setDraftAnalytics}
-        onOpenChange={setDialogOpen}
-      />
+      {!isAdminRoute ? (
+        <CookieConsentBanner isDialogOpen={isDialogOpen} />
+      ) : null}
+      {!isAdminRoute ? (
+        <CookiePreferencesDialog
+          analyticsChoice={draftAnalytics}
+          isOpen={isDialogOpen}
+          isGpcEnabled={isGpcEnabled}
+          onAnalyticsChoiceChange={setDraftAnalytics}
+          onOpenChange={setDialogOpen}
+        />
+      ) : null}
     </PrivacyConsentContext.Provider>
   );
 }
