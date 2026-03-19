@@ -1,10 +1,17 @@
+use std::sync::{
+    Mutex,
+    atomic::{AtomicBool, Ordering},
+};
+
+use tauri::async_runtime::JoinHandle;
 use tauri::{
-    Result,
+    AppHandle, Result,
+    image::Image,
     menu::{Menu, MenuItemKind, PredefinedMenuItem, Submenu},
     tray::TrayIconBuilder,
 };
 
-use crate::tray_icon::TrayIconState;
+use crate::tray_icon::{RECORDING_FRAMES, TrayIconState};
 
 use crate::menu_items::{
     AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayOpen,
@@ -12,6 +19,10 @@ use crate::menu_items::{
 };
 
 const TRAY_ID: &str = "hypr-tray";
+
+static IS_RECORDING: AtomicBool = AtomicBool::new(false);
+static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
+static ANIMATION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 pub struct Tray<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -112,6 +123,63 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             .menu(&menu)
             .show_menu_on_left_click(true)
             .build(app)?;
+
+        Ok(())
+    }
+
+    pub fn set_recording(&self, recording: bool) -> Result<()> {
+        IS_RECORDING.store(recording, Ordering::SeqCst);
+        Self::refresh_icon(self.manager.app_handle())
+    }
+
+    pub fn set_update_available(&self, available: bool) -> Result<()> {
+        IS_UPDATE_AVAILABLE.store(available, Ordering::SeqCst);
+        Self::refresh_icon(self.manager.app_handle())
+    }
+
+    fn refresh_icon(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        {
+            let mut task = ANIMATION_TASK.lock().unwrap();
+            if let Some(handle) = task.take() {
+                handle.abort();
+            }
+
+            if IS_RECORDING.load(Ordering::SeqCst) {
+                let app = app.clone();
+                *task = Some(tauri::async_runtime::spawn(async move {
+                    let mut interval =
+                        tokio::time::interval(std::time::Duration::from_millis(150));
+                    let mut frame = 0usize;
+                    loop {
+                        interval.tick().await;
+                        if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                            if let Ok(image) = Image::from_bytes(RECORDING_FRAMES[frame]) {
+                                let _ = tray.set_icon(Some(image));
+                            }
+                        }
+                        let next = rand::random::<usize>() % RECORDING_FRAMES.len();
+                        frame = if next == frame {
+                            (frame + 1) % RECORDING_FRAMES.len()
+                        } else {
+                            next
+                        };
+                    }
+                }));
+                return Ok(());
+            }
+        }
+
+        let Some(tray) = app.tray_by_id(TRAY_ID) else {
+            return Ok(());
+        };
+
+        let state = if IS_UPDATE_AVAILABLE.load(Ordering::SeqCst) {
+            TrayIconState::UpdateAvailable
+        } else {
+            TrayIconState::Default
+        };
+
+        tray.set_icon(Some(state.to_image()?))?;
 
         Ok(())
     }

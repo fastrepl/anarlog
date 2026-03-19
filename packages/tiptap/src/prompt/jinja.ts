@@ -50,7 +50,7 @@ export function jinjaLanguage(
   }));
 
   const jinjaSupport = jinja({
-    variables: variableCompletions,
+    variables: variableCompletions as never,
   });
 
   const exts: Extension[] = [jinjaSupport, closePercentBrace];
