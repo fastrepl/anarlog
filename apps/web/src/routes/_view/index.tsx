@@ -1627,7 +1627,10 @@ function FAQSection() {
 
 function ManifestoSection() {
   return (
-    <section className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16">
+    <section
+      id="manifesto"
+      className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16"
+    >
       <div className="mx-auto max-w-4xl">
         <div
           className="border border-neutral-200 p-4"
