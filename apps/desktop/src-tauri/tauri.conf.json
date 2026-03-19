@@ -30,11 +30,11 @@
     "targets": "all",
     "externalBin": [],
     "icon": [
-      "icons/staging/32x32.png",
-      "icons/staging/128x128.png",
-      "icons/staging/128x128@2x.png",
-      "icons/staging/icon.icns",
-      "icons/staging/icon.ico"
+      "icons/stable/32x32.png",
+      "icons/stable/128x128.png",
+      "icons/stable/128x128@2x.png",
+      "icons/stable/icon.icns",
+      "icons/stable/icon.ico"
     ],
     "resources": {
       "icons/stable/icon.icns": "icons/stable.icns",
@@ -62,7 +62,7 @@
         }
       },
       "files": {
-        "Resources/Assets.car": "resources/staging/Assets.car"
+        "Resources/Assets.car": "resources/stable/Assets.car"
       }
     }
   },
