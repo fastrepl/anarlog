@@ -152,21 +152,14 @@ const Placeholder: PlaceholderFunction = ({ node, pos }) => {
 
   if (pos === 0) {
     return (
-      <p>
-        <span className="text-neutral-400">
-          <span className="font-semibold">Take notes to guide Char</span>'s
-          meeting notes.
-        </span>{" "}
-        <span className="text-neutral-300">
+      <p className="text-neutral-400">
+        <span>Take notes to guide Char's meeting notes.</span>{" "}
+        <span>
           Press <kbd>/</kbd> for commands.
         </span>
       </p>
     );
   }
 
-  return (
-    <p className="text-neutral-300">
-      Press <kbd>/</kbd> for commands.
-    </p>
-  );
+  return "Press / for commands.";
 };
