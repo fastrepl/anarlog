@@ -14,19 +14,19 @@ When you access OpenAI's models through Microsoft Azure, your data stays within 
 
 Here is what that means in practice.
 
-**What Azure OpenAI Stores by Default**
+## What Azure OpenAI Stores by Default
 
 Your prompts and completions are retained for up to 30 days for abuse monitoring. This data is stored within your Azure region and is not accessible to other customers, to OpenAI, or to other Microsoft teams. It is isolated to your subscription.
 
 [Microsoft is explicit](https://learn.microsoft.com/en-us/legal/cognitive-services/openai/data-privacy) that customer prompts and completions are not used to train its models, OpenAI's models, or any third-party models. This is the default behavior, not an opt-out you need to configure.
 
-**Human Review**
+## Human Review
 
 Microsoft employs automated systems for abuse monitoring. Human reviewers can access flagged content, but only content that has been specifically flagged by the automated system, and only through Secure Access Workstations with Just-In-Time approval from team managers. It is not open-access review.
 
 This is a materially different setup from Google Gemini's human review policy, where reviewers can access conversations more broadly for quality evaluation.
 
-**Modified Abuse Monitoring and Zero Data Retention**
+## Modified Abuse Monitoring and Zero Data Retention
 
 Standard abuse monitoring retains your data for 30 days. If that does not meet your requirements, there are two paths forward.
 
@@ -36,19 +36,19 @@ Full Zero Data Retention goes further. Under ZDR, no prompts or completions are 
 
 To apply, submit a request through the Azure OpenAI Limited Access program. Approval timelines vary depending on your use case and compliance requirements.
 
-**HIPAA and GDPR**
+## HIPAA and GDPR
 
 Azure OpenAI is covered under Microsoft's HIPAA Business Associate Agreement. The BAA is incorporated through the Microsoft Data Protection Addendum, which applies to enterprise customers with qualifying licensing such as Enterprise Agreements, Microsoft 365, or CSP arrangements.
 
 For GDPR, Microsoft offers an EU Data Zone option that processes and stores your data entirely within the European Union. A Data Processing Addendum is available as part of Microsoft's standard enterprise agreements.
 
-**How Azure OpenAI Differs from OpenAI's API**
+## How Azure OpenAI Differs from OpenAI's API
 
 Both Azure OpenAI and OpenAI's direct API offer enterprise-grade data controls including ZDR. The practical differences come down to infrastructure and compliance coverage.
 
 Azure OpenAI sits inside your existing Azure environment, which means it integrates with your Azure Active Directory, your private virtual networks, your logging infrastructure, and your existing Microsoft compliance agreements. If your organization is already on Azure, adding Azure OpenAI does not introduce a new vendor relationship.
 
-**What This Means for Your Evaluation**
+## What This Means for Your Evaluation
 
 Consumer ChatGPT trains on your conversations by default and requires an opt-out. Azure OpenAI never trains on your conversations and requires an explicit request to even enable training data sharing. Consumer ChatGPT offers no HIPAA BAA. Azure OpenAI is covered under an existing Microsoft BAA.
 
