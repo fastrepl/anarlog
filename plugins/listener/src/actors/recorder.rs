@@ -275,9 +275,8 @@ fn sync_file(path: &std::path::Path) {
 }
 
 fn sync_dir(path: &std::path::Path) {
-    if let Some(parent) = path.parent() {
-        if let Ok(dir) = File::open(parent) {
+    if let Some(parent) = path.parent()
+        && let Ok(dir) = File::open(parent) {
             let _ = dir.sync_all();
         }
-    }
 }
