@@ -10,11 +10,12 @@ import {
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
 
-import { DeleteNote } from "./delete";
+import { DeleteNote, DeleteRecording } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
 import { Copy, Folder, ShowInFinder } from "./misc";
 
+import { useAudioPlayer } from "~/audio-player";
 import { useHasTranscript } from "~/session/components/shared";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
@@ -28,6 +29,7 @@ export function OverflowButton({
   const [open, setOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
   const openExportModal = () => {
     setOpen(false);
     requestAnimationFrame(() => setIsExportModalOpen(true));
@@ -59,7 +61,8 @@ export function OverflowButton({
           <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
           <DropdownMenuSeparator />
           <ShowInFinder sessionId={sessionId} />
-          <DropdownMenuSeparator />
+          {audioExists && <DropdownMenuSeparator />}
+          {audioExists && <DeleteRecording sessionId={sessionId} />}
           <DeleteNote sessionId={sessionId} />
         </DropdownMenuContent>
       </DropdownMenu>
