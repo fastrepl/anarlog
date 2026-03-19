@@ -48,7 +48,6 @@ import {
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
-import { useCloseActiveTabShortcut } from "@/hooks/use-close-active-tab-shortcut";
 import {
   fetchMediaItems,
   type MediaItem,
