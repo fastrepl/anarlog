@@ -1,8 +1,10 @@
 ---
 meta_title: "Google Gemini Data Retention Policy: What You Need to Know"
 meta_description: "Gemini doesn't just store your AI conversations. It can connect them to your Gmail, Calendar, and location history. Here's exactly what Google keeps and how to control it."
-author: "Harshika"
-published: true
+author:
+  - "Harshika"
+featured: false
+category: "Guides"
 date: "2026-03-13"
 ---
 
@@ -14,12 +16,14 @@ Here is the full picture.
 
 ## Quick Reference: Gemini Data Retention by Tier
 
-| Feature | Consumer Gemini | Gemini API | Workspace Enterprise |
-|---|---|---|---|
-| Default Retention | 18 months | 55 days (abuse monitoring only) | Admin-defined |
-| Human Review | Yes, up to 3 years | No | No (by default) |
-| Model Training | Yes (opt-out) | No | No |
-| Gmail Access | Default ON in US | No | Admin-controlled |
+
+| Feature           | Consumer Gemini    | Gemini API                      | Workspace Enterprise |
+| ----------------- | ------------------ | ------------------------------- | -------------------- |
+| Default Retention | 18 months          | 55 days (abuse monitoring only) | Admin-defined        |
+| Human Review      | Yes, up to 3 years | No                              | No (by default)      |
+| Model Training    | Yes (opt-out)      | No                              | No                   |
+| Gmail Access      | Default ON in US   | No                              | Admin-controlled     |
+
 
 ## What Gemini Stores by Default?
 
@@ -93,10 +97,10 @@ For personal productivity use, most of this will not matter day to day. For prof
 
 If you want to use Gemini without routing data through the consumer product, connecting your own Google AI API key through [Char](https://char.com) gives you API-level data handling: 55-day retention, no model training, no Gmail integration.
 
-Char is an open-source AI notepad for meetings that lets you bring your own API key for Gemini, OpenAI, Anthropic, Mistral, or others. Your meeting notes are stored as plain markdown files on your device. You choose which AI provider processes your data, and you can change that decision without rebuilding your workflow.
+Char is an open-source AI notepad for meetings that lets you bring your own API key for Gemini, OpenAI, Anthropic, Mistral, or others. Your meeting notes are stored on your device. You choose which AI provider processes your data, and you can change that decision without rebuilding your workflow.
 
 For teams that need to go further, Char supports fully local models via Ollama. Your conversations never leave your device at all.
 
 That is the practical difference between using a consumer AI product and choosing your own stack. The first gives you a privacy policy. The second gives you control.
 
-<CtaCard/>
+[Download Char for macOS](https://char.com/download/apple-silicon) and use the AI provider your security team actually trusts.
