@@ -199,6 +199,7 @@ describe("md2json", () => {
       expect(imageNode).toBeDefined();
       expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
       expect(imageNode?.attrs?.alt).toBe("alt text");
+      expect(imageNode?.attrs?.editorWidth).toBe(80);
     });
 
     test("converts image with title to JSON", () => {
@@ -221,6 +222,7 @@ describe("md2json", () => {
       expect(imageNode?.attrs?.src).toBe("https://example.com/image.png");
       expect(imageNode?.attrs?.alt).toBe("alt text");
       expect(imageNode?.attrs?.title).toBe("Image Title");
+      expect(imageNode?.attrs?.editorWidth).toBe(80);
     });
 
     test("converts image width metadata to JSON attributes", () => {
