@@ -304,53 +304,73 @@ function MediaLibrary() {
     });
   };
 
-  const openTab = useCallback(
-    (
-      type: "folder" | "file",
-      name: string,
-      path: string,
-      options: { pinned?: boolean; forceNewTab?: boolean } = {},
-    ) => {
-      const { pinned = false, forceNewTab = false } = options;
-      setTabs((prev) => {
-        // If opening the home/root folder, just activate the Home tab
-        if (type === "folder" && path === "") {
-          return prev.map((t) => ({ ...t, active: t.isHome === true }));
-        }
+  const openFileTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "file" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
 
-        const existingIndex = prev.findIndex(
-          (t) => t.type === type && t.path === path,
+      const newTab: Tab = {
+        id: `file-${path}-${Date.now()}`,
+        type: "file",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
+
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
+
+  const openFolderTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      if (path === "") {
+        return prev.map((tab) => ({ ...tab, active: tab.isHome === true }));
+      }
+
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "folder" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
+
+      const activeFolderTab = prev.find(
+        (tab) =>
+          tab.active && tab.type === "folder" && !tab.isHome && !tab.pinned,
+      );
+      if (activeFolderTab) {
+        return prev.map((tab) =>
+          tab.id === activeFolderTab.id
+            ? { ...tab, name, path, active: true }
+            : { ...tab, active: false },
         );
-        if (existingIndex !== -1) {
-          return prev.map((t, i) => ({ ...t, active: i === existingIndex }));
-        }
+      }
 
-        const newTab: Tab = {
-          id: `${type}-${path}-${Date.now()}`,
-          type,
-          name,
-          path,
-          pinned,
-          active: true,
-        };
+      const newTab: Tab = {
+        id: `folder-${path}-${Date.now()}`,
+        type: "folder",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
 
-        if (forceNewTab) {
-          return [...prev.map((t) => ({ ...t, active: false })), newTab];
-        }
-
-        const unpinnedIndex = prev.findIndex((t) => !t.pinned && !t.isHome);
-        if (unpinnedIndex !== -1 && prev.length > 0) {
-          return prev.map((t, i) =>
-            i === unpinnedIndex ? newTab : { ...t, active: false },
-          );
-        }
-
-        return [...prev.map((t) => ({ ...t, active: false })), newTab];
-      });
-      setSelectedItems(new Set());
-    },
-    [],
-  );
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs((prev) => {
@@ -400,9 +420,9 @@ function MediaLibrary() {
         setHistoryIndex((prev) => Math.min(prev + 1, 49));
       }
       isNavigatingRef.current = false;
-      openTab("folder", name || "Home", path);
+      openFolderTab(name || "Home", path);
     },
-    [historyIndex, openTab],
+    [historyIndex, openFolderTab],
   );
 
   const handleNavigateBack = useCallback(() => {
@@ -410,18 +430,18 @@ function MediaLibrary() {
       isNavigatingRef.current = true;
       const prevEntry = navigationHistory[historyIndex - 1];
       setHistoryIndex(historyIndex - 1);
-      openTab("folder", prevEntry.name, prevEntry.path);
+      openFolderTab(prevEntry.name, prevEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const handleNavigateForward = useCallback(() => {
     if (historyIndex < navigationHistory.length - 1) {
       isNavigatingRef.current = true;
       const nextEntry = navigationHistory[historyIndex + 1];
       setHistoryIndex(historyIndex + 1);
-      openTab("folder", nextEntry.name, nextEntry.path);
+      openFolderTab(nextEntry.name, nextEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const {
     uploadMutation,
@@ -596,8 +616,8 @@ function MediaLibrary() {
             onSearchChange={setSearchQuery}
             loadingPaths={loadingPaths}
             filteredTreeNodes={filteredTreeNodes}
-            onOpenFolder={(path, name) => openTab("folder", name, path)}
-            onOpenFile={(path, name) => openTab("file", name, path)}
+            onOpenFolder={navigateToFolder}
+            onOpenFile={openFileTab}
             onToggleNodeExpanded={toggleNodeExpanded}
             uploadPending={uploadMutation.isPending}
             fileInputRef={fileInputRef}
@@ -655,7 +675,7 @@ function MediaLibrary() {
             onDownload={handleDownload}
             onReplace={handleReplace}
             onDeleteSingle={handleDeleteSingle}
-            onOpenPreview={(path, name) => openTab("file", name, path)}
+            onOpenPreview={openFileTab}
             onOpenFolder={(path, name) => navigateToFolder(path, name)}
             onMove={openMoveModal}
             onRename={handleRename}
