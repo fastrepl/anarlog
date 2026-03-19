@@ -535,23 +535,34 @@ function MediaLibrary() {
     deleteMutation.mutate(Array.from(selectedItems));
   };
 
-  const handleDownload = (path: string, filename: string) => {
+  const handleDownload = async (path: string, filename: string) => {
+    const response = await fetch(getAdminMediaDownloadUrl(path), {
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download ${filename}`);
+    }
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = getAdminMediaDownloadUrl(path);
+    link.href = blobUrl;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     const currentItems = currentPathQuery.data || [];
-    selectedItems.forEach((path) => {
+    for (const path of selectedItems) {
       const item = currentItems.find((i) => i.path === path);
       if (item && item.type === "file") {
-        handleDownload(item.path, item.name);
+        await handleDownload(item.path, item.name);
       }
-    });
+    }
   };
 
   const handleReplace = (file: File, path: string) => {
