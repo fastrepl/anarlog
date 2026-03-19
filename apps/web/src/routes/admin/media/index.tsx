@@ -2355,16 +2355,20 @@ function MediaItemCard({
       onClick={onOpenPreview}
       onContextMenu={handleContextMenu}
     >
-      <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
+      <div
+        className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
+        style={{ backgroundImage: "url(/patterns/dots.svg)" }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
         {isImage && item.publicUrl ? (
           <img
             src={item.publicUrl}
             alt={item.name}
-            className="h-full w-full object-contain p-4"
+            className="relative z-10 h-full w-full object-contain p-4"
             loading="lazy"
           />
         ) : isVideo && item.thumbnailUrl ? (
-          <div className="relative h-full w-full">
+          <div className="relative z-10 h-full w-full">
             <img
               src={item.thumbnailUrl}
               alt={item.name}
@@ -2376,21 +2380,21 @@ function MediaItemCard({
             </span>
           </div>
         ) : isVideo ? (
-          <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
             <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Video
             </span>
           </div>
         ) : isAudio ? (
-          <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
             <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Audio
             </span>
           </div>
         ) : (
-          <FileIcon className="size-12 text-neutral-400" />
+          <FileIcon className="relative z-10 size-12 text-neutral-400" />
         )}
       </div>
 
@@ -2612,20 +2616,21 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
 
   return (
     <div
-      className="flex h-full flex-1 items-center justify-center overflow-hidden bg-neutral-50 p-4"
+      className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-white p-4"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
       {isImage && (
         <img
           src={item.publicUrl}
           alt={item.name}
-          className="max-h-full max-w-full object-scale-down"
+          className="relative z-10 max-h-full max-w-full object-scale-down"
         />
       )}
       {isVideo && (
         <>
           {item.playbackId ? (
-            <div className="w-full max-w-5xl overflow-hidden rounded-lg border border-neutral-200 bg-black">
+            <div className="relative z-10 w-full max-w-5xl overflow-hidden rounded-lg border border-neutral-200 bg-black">
               <MuxPlayer
                 playbackId={item.playbackId}
                 className="aspect-video w-full"
@@ -2635,16 +2640,20 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
             <video
               src={item.publicUrl}
               controls
-              className="max-h-full max-w-full object-contain"
+              className="relative z-10 max-h-full max-w-full object-contain"
             />
           )}
         </>
       )}
       {isAudio && (
-        <audio src={item.publicUrl} controls className="w-full max-w-md" />
+        <audio
+          src={item.publicUrl}
+          controls
+          className="relative z-10 w-full max-w-md"
+        />
       )}
       {!isImage && !isVideo && !isAudio && (
-        <div className="text-center">
+        <div className="relative z-10 text-center">
           <FileIcon className="mb-4 size-16 text-neutral-400" />
           <p className="text-sm text-neutral-600">{item.name}</p>
           <p className="mt-1 text-xs text-neutral-400">
