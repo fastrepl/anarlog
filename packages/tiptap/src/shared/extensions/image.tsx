@@ -1,4 +1,5 @@
 import Image from "@tiptap/extension-image";
+import { AllSelection, NodeSelection } from "@tiptap/pm/state";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -18,9 +19,12 @@ function ResizableImageNodeView({
   updateAttributes,
   selected,
   editor,
+  getPos,
 }: NodeViewProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isRangeSelected, setIsRangeSelected] = useState(false);
+  const [isAllSelected, setIsAllSelected] = useState(false);
   const [draftWidth, setDraftWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -31,6 +35,48 @@ function ResizableImageNodeView({
     startWidth: number;
     startX: number;
   } | null>(null);
+
+  useEffect(() => {
+    const updateSelectionState = () => {
+      if (typeof getPos !== "function") {
+        setIsRangeSelected(false);
+        setIsAllSelected(false);
+        return;
+      }
+
+      const { doc, selection } = editor.state;
+      const pos = getPos();
+
+      if (typeof pos !== "number") {
+        setIsRangeSelected(false);
+        setIsAllSelected(false);
+        return;
+      }
+
+      const nodeStart = pos;
+      const nodeEnd = pos + node.nodeSize;
+      const isNodeSelection =
+        selection instanceof NodeSelection && selection.from === nodeStart;
+      const includesNode =
+        !selection.empty &&
+        !isNodeSelection &&
+        selection.from <= nodeStart &&
+        selection.to >= nodeEnd;
+
+      setIsRangeSelected(includesNode);
+      setIsAllSelected(
+        selection instanceof AllSelection ||
+          (selection.from <= 1 && selection.to >= doc.content.size - 1),
+      );
+    };
+
+    updateSelectionState();
+    editor.on("selectionUpdate", updateSelectionState);
+
+    return () => {
+      editor.off("selectionUpdate", updateSelectionState);
+    };
+  }, [editor, getPos, node.nodeSize]);
 
   useEffect(() => {
     if (!isResizing) {
@@ -119,15 +165,18 @@ function ResizableImageNodeView({
     [],
   );
 
+  const isSelected = selected || isRangeSelected;
   const showControls =
-    editor.isEditable && (isHovered || selected || isResizing);
+    editor.isEditable &&
+    !isAllSelected &&
+    (isHovered || selected || isResizing);
   const editorWidth =
     normalizeEditorWidth(node.attrs.editorWidth) ?? DEFAULT_EDITOR_WIDTH;
   const imageWidth =
     draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
 
   return (
-    <NodeViewWrapper className="relative overflow-visible">
+    <NodeViewWrapper className="relative overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent">
       <div
         ref={containerRef}
         className="relative inline-block w-fit max-w-full overflow-visible"
@@ -141,8 +190,13 @@ function ResizableImageNodeView({
           alt={node.attrs.alt || ""}
           title={stripEditorWidthFromTitle(node.attrs.title)}
           className={cn([
-            "tiptap-image max-w-full",
-            selected ? "rounded-md bg-white ring-1 ring-neutral-200" : "",
+            "tiptap-image max-w-full rounded-md bg-white transition-[box-shadow,border-color] select-none",
+            isSelected
+              ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-white"
+              : "",
+            isHovered && !isSelected
+              ? "ring-1 ring-neutral-300 ring-offset-2 ring-offset-white"
+              : "",
             "w-full",
           ])}
           draggable={false}
