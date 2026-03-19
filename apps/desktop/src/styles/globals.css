@@ -215,8 +215,10 @@
 
   input,
   textarea,
-  [contenteditable="true"] {
+  [contenteditable="true"],
+  [contenteditable="true"] * {
     user-select: text;
+    -webkit-user-select: text;
   }
 }
 
