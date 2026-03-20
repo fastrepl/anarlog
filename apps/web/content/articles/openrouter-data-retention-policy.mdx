@@ -56,18 +56,18 @@ For compliance-sensitive deployments, the multi-provider nature of OpenRouter ad
 
 ## **When OpenRouter Works for Sensitive Work and When It Does Not**
 
-**OpenRouter's value is flexibility and cost optimization across providers. For non-sensitive workloads where you want access to a broad model catalog, routing optimization, and fallback handling, it is a practical tool.**
+OpenRouter's value is flexibility and cost optimization across providers. For non-sensitive workloads where you want access to a broad model catalog, routing optimization, and fallback handling, it is a practical tool.
 
-**For sensitive work, the two-layer data question requires more active management. You need to be specific about which provider your requests go to, verify that provider's data policy, confirm that OpenRouter ZDR is enabled, and ensure prompt logging is off. That is manageable, but it requires deliberate configuration rather than relying on defaults.**
+For sensitive work, the two-layer data question requires more active management. You need to be specific about which provider your requests go to, verify that provider's data policy, confirm that OpenRouter ZDR is enabled, and ensure prompt logging is off. That is manageable, but it requires deliberate configuration rather than relying on defaults.
 
-**The defaults at OpenRouter are reasonably privacy-conscious. Prompts are not logged out of the box. But the flexibility that makes OpenRouter useful also makes its data handling harder to audit than a direct provider relationship.**
+The defaults at OpenRouter are reasonably privacy-conscious. Prompts are not logged out of the box. But the flexibility that makes OpenRouter useful also makes its data handling harder to audit than a direct provider relationship.
 
-**Using OpenRouter Through Char**
+## Using OpenRouter Through Char
 
-**Char supports OpenRouter as an API provider option. When you bring your own OpenRouter API key, your meeting data routes through OpenRouter under your account settings.**
+Char supports OpenRouter as an API provider option. When you bring your own OpenRouter API key, your meeting data routes through OpenRouter under your account settings.
 
-**If you configure OpenRouter with ZDR enabled and prompt logging off, those settings apply to requests Char sends through your account. If you have locked routing to a specific provider within OpenRouter, requests from Char will follow that configuration.**
+If you configure OpenRouter with ZDR enabled and prompt logging off, those settings apply to requests Char sends through your account. If you have locked routing to a specific provider within OpenRouter, requests from Char will follow that configuration.
 
-**As with all Char integrations, your meeting notes are stored as plain markdown files on your device. The AI provider processes your data to generate a summary, but the output lives locally. Switching from OpenRouter to a direct provider relationship, or to a local model, does not require any changes to how your notes are organized.**
+As with all Char integrations, your meeting notes are stored on your device. The AI provider processes your data to generate a summary, but the output lives locally. Switching from OpenRouter to a direct provider relationship, or to a local model, does not require any changes to how your notes are organized.
 
-**[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.**
+[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.
