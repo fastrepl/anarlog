@@ -148,7 +148,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 let app = app.clone();
                 *task = Some(tauri::async_runtime::spawn(async move {
                     let mut interval =
-                        tokio::time::interval(std::time::Duration::from_millis(150));
+                        tokio::time::interval(std::time::Duration::from_millis(250));
                     let mut frame = 0usize;
                     loop {
                         interval.tick().await;
@@ -157,12 +157,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                                 let _ = tray.set_icon(Some(image));
                             }
                         }
-                        let next = rand::random::<usize>() % RECORDING_FRAMES.len();
-                        frame = if next == frame {
-                            (frame + 1) % RECORDING_FRAMES.len()
-                        } else {
-                            next
-                        };
+                        frame = (frame + 1) % RECORDING_FRAMES.len();
                     }
                 }));
                 return Ok(());

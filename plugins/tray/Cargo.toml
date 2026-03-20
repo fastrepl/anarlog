@@ -25,7 +25,6 @@ tauri-plugin-misc = { workspace = true }
 tauri-plugin-updater2 = { workspace = true }
 tauri-plugin-windows = { workspace = true }
 
-rand = "0.8"
 serde_json = { workspace = true }
 specta = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
