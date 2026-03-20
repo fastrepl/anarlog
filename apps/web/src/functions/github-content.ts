@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { getSupabaseServerClient } from "@/functions/supabase";
 
-const GITHUB_REPO = "fastrepl/hyprnote";
+const GITHUB_REPO = "fastrepl/char";
 const GITHUB_BRANCH = "main";
 const CONTENT_PATH = "apps/web/content";
 
@@ -42,6 +42,7 @@ interface CommitBody {
   message: string;
   content?: string;
   sha?: string;
+  branch?: string;
   author?: { name: string; email: string };
   committer?: { name: string; email: string };
 }
@@ -49,13 +50,14 @@ interface CommitBody {
 function buildCommitBody(
   message: string,
   author?: { name: string; email: string },
-  options?: { content?: string; sha?: string },
+  options?: { content?: string; sha?: string; branch?: string },
 ): CommitBody {
   const body: CommitBody = {
     message,
   };
   if (options?.content !== undefined) body.content = options.content;
   if (options?.sha) body.sha = options.sha;
+  if (options?.branch) body.branch = options.branch;
   if (author) {
     body.author = author;
     body.committer = author;
@@ -110,10 +112,10 @@ function getDefaultFrontmatter(folder: string): string {
 meta_title: ""
 display_title: ""
 meta_description: ""
-author: "John Jeong"
+author:
+- "John Jeong"
 featured: false
-published: false
-category: ""
+category: "Product"
 date: "${today}"
 ---
 
@@ -490,6 +492,7 @@ export async function renameContentFile(
 
 export async function deleteContentFile(
   filePath: string,
+  branchName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (isDev()) {
     try {
@@ -512,6 +515,7 @@ export async function deleteContentFile(
     return { success: false, error: "GitHub token not configured" };
   }
   const { token: githubToken, author } = credentials;
+  const targetBranch = branchName || GITHUB_BRANCH;
 
   const fullPath = filePath.startsWith("apps/web/content")
     ? filePath
@@ -519,7 +523,7 @@ export async function deleteContentFile(
 
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -548,7 +552,10 @@ export async function deleteContentFile(
           Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify(
-          buildCommitBody(`Delete ${filePath} via admin`, author, { sha }),
+          buildCommitBody(`Delete ${filePath} via admin`, author, {
+            sha,
+            branch: targetBranch,
+          }),
         ),
       },
     );
@@ -840,7 +847,18 @@ export async function getBranchSha(
     );
 
     if (!response.ok) {
-      return { success: false, error: `Branch not found: ${branchName}` };
+      let message = `GitHub API error: ${response.status}`;
+      try {
+        const error = await response.json();
+        if (typeof error?.message === "string" && error.message.length > 0) {
+          message = error.message;
+        }
+      } catch {}
+
+      return {
+        success: false,
+        error: `Failed to access branch ref "${branchName}" (${response.status}): ${message}`,
+      };
     }
 
     const data = await response.json();
@@ -998,53 +1016,6 @@ export async function createPullRequest(
     return {
       success: false,
       error: `Failed to create PR: ${(error as Error).message}`,
-    };
-  }
-}
-
-export async function convertDraftToReady(prNumber: number): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  if (isDev()) {
-    return { success: true };
-  }
-
-  const credentials = await getGitHubCredentials();
-  if (!credentials) {
-    return { success: false, error: "GitHub token not configured" };
-  }
-  const { token: githubToken } = credentials;
-
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/pulls/${prNumber}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${githubToken}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          draft: false,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.message || `GitHub API error: ${response.status}`,
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: `Failed to convert draft to ready: ${(error as Error).message}`,
     };
   }
 }
@@ -1341,22 +1312,20 @@ export async function getExistingEditPRForArticle(filePath: string): Promise<{
   return { success: true, hasPendingPR: false };
 }
 
-export async function savePublishedArticleWithPR(
+export async function savePublishedArticleToBranch(
   filePath: string,
   content: string,
-  metadata: {
+  _metadata: {
     meta_title?: string;
     display_title?: string;
-    author?: string;
+    author?: string | string[];
   },
-  options?: { isDraft?: boolean },
 ): Promise<{
   success: boolean;
   prNumber?: number;
   prUrl?: string;
   branchName?: string;
   isExistingPR?: boolean;
-  isDraft?: boolean;
   error?: string;
 }> {
   const slug = filePath.replace(/\.mdx$/, "").replace(/^articles\//, "");
@@ -1447,34 +1416,13 @@ export async function savePublishedArticleWithPR(
       };
     }
 
-    if (isExistingPR) {
-      return {
-        success: true,
-        prNumber: existingPR.prNumber,
-        prUrl: existingPR.prUrl,
-        branchName,
-        isExistingPR: true,
-      };
-    }
-
-    const title = `Update: ${metadata.display_title || metadata.meta_title || slug}`;
-    const body = `## Article Update
-
-**Title:** ${metadata.display_title || metadata.meta_title || "Untitled"}
-**Author:** ${metadata.author || "Unknown"}
-**File:** apps/web/content/${filePath}
-
----
-Auto-generated PR from admin panel.`;
-
-    const prResult = await createPullRequest(
+    return {
+      success: true,
       branchName,
-      GITHUB_BRANCH,
-      title,
-      body,
-      { isDraft: options?.isDraft ?? true },
-    );
-    return { ...prResult, branchName, isExistingPR: false };
+      isExistingPR,
+      prNumber: existingPR.prNumber,
+      prUrl: existingPR.prUrl,
+    };
   } catch (error) {
     return {
       success: false,
@@ -1488,7 +1436,7 @@ export async function publishArticle(
   branchName: string,
   metadata: {
     meta_title?: string;
-    author?: string;
+    author?: string | string[];
     date?: string;
     category?: string;
   },
@@ -1506,7 +1454,7 @@ export async function publishArticle(
   const body = `## Article ${statusText}
 
 **Title:** ${metadata.meta_title || "Untitled"}
-**Author:** ${metadata.author || "Unknown"}
+**Author:** ${Array.isArray(metadata.author) ? metadata.author.join(", ") : metadata.author || "Unknown"}
 **Date:** ${metadata.date || "Not set"}
 **Category:** ${metadata.category || "Uncategorized"}
 
@@ -1516,7 +1464,36 @@ export async function publishArticle(
 ---
 Auto-generated PR from admin panel.`;
 
-  return createPullRequest(branchName, GITHUB_BRANCH, title, body);
+  const prResult = await createPullRequest(
+    branchName,
+    GITHUB_BRANCH,
+    title,
+    body,
+  );
+
+  if (prResult.success && prResult.prNumber) {
+    const credentials = await getGitHubCredentials();
+    if (credentials?.token) {
+      try {
+        await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/pulls/${prResult.prNumber}/requested_reviewers`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${credentials.token}`,
+              Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reviewers: ["harshikaalagh-netizen"],
+            }),
+          },
+        );
+      } catch {}
+    }
+  }
+
+  return prResult;
 }
 
 export async function listBlogBranches(): Promise<{

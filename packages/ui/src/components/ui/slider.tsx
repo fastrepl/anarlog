@@ -5,7 +5,7 @@ import * as React from "react";
 import { cn } from "@hypr/utils";
 
 const sliderVariants = cva(
-  "relative flex w-full touch-none select-none items-center",
+  "relative flex w-full touch-none items-center select-none",
   {
     variants: {
       size: {
@@ -21,7 +21,7 @@ const sliderVariants = cva(
 );
 
 const trackVariants = cva(
-  "relative h-2 w-full grow overflow-hidden rounded-full bg-input",
+  "bg-input relative h-2 w-full grow overflow-hidden rounded-full",
   {
     variants: {
       size: {
@@ -36,10 +36,10 @@ const trackVariants = cva(
   },
 );
 
-const rangeVariants = cva("absolute h-full bg-primary");
+const rangeVariants = cva("bg-primary absolute h-full");
 
 const thumbVariants = cva(
-  "block rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "border-primary bg-background ring-offset-background focus-visible:ring-ring block rounded-full border-2 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       size: {

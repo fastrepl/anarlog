@@ -1,0 +1,15 @@
+[package]
+name = "audio-mock"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-audio = { workspace = true }
+hypr-data = { workspace = true }
+
+futures-util = { workspace = true }
+rodio = { workspace = true, features = ["symphonia-all"] }
+tokio = { workspace = true, features = ["rt", "macros", "sync", "time"] }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }

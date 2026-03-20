@@ -4,6 +4,11 @@ pub struct UpdateDownloadingEvent {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, tauri_specta::Event)]
+pub struct UpdateDownloadFailedEvent {
+    pub version: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, tauri_specta::Event)]
 pub struct UpdateReadyEvent {
     pub version: String,
 }

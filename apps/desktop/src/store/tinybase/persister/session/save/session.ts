@@ -1,19 +1,33 @@
 import { sep } from "@tauri-apps/api/path";
 
-import type { Store } from "../../../store/main";
+import type {
+  ParticipantData,
+  SessionMetaJson,
+} from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,
   iterateTableRows,
   SESSION_META_FILE,
   type TablesContent,
   type WriteOperation,
-} from "../../shared";
-import type { ParticipantData, SessionMetaJson } from "../types";
+} from "~/store/tinybase/persister/shared";
+import type { Store } from "~/store/tinybase/store/main";
 
 type SessionMetaWithFolder = {
   meta: SessionMetaJson;
   folderPath: string;
 };
+
+function tryParseJson(
+  value: string | undefined,
+): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
 
 type MetaItem = [SessionMetaJson, string];
 
@@ -40,7 +54,7 @@ export function tablesToSessionMetaMap(
         user_id: session.user_id ?? "",
         created_at: session.created_at ?? "",
         title: session.title ?? "",
-        event_id: session.event_id || undefined,
+        event: tryParseJson(session.event_json),
         participants: participantsBySession.get(session.id) ?? [],
         tags: tagsBySession.get(session.id),
       },
@@ -80,7 +94,7 @@ function collectSessionMetas(ctx: BuildContext): MetaItem[] {
         user_id: session.user_id ?? "",
         created_at: session.created_at ?? "",
         title: session.title ?? "",
-        event_id: session.event_id || undefined,
+        event: tryParseJson(session.event_json),
         participants: participantsBySession.get(session.id) ?? [],
         tags: tagsBySession.get(session.id),
       };

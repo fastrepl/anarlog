@@ -128,12 +128,13 @@ describe("processMetaFile", () => {
   });
 
   test("parses meta JSON and creates session entry", () => {
+    const eventObj = { tracking_id: "event-1", title: "Test" };
     const content = JSON.stringify({
       id: "session-1",
       user_id: "user-1",
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
-      event_id: "event-1",
+      event: eventObj,
       participants: [],
     });
 
@@ -144,7 +145,7 @@ describe("processMetaFile", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/data/sessions",
-      event_id: "event-1",
+      event_json: JSON.stringify(eventObj),
       raw_md: "",
     });
   });

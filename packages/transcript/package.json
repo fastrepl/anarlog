@@ -1,0 +1,27 @@
+{
+  "name": "@hypr/transcript",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/ui/index.tsx"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@hypr/ui": "workspace:^",
+    "@hypr/utils": "workspace:^",
+    "chroma-js": "^3.1.2",
+    "lucide-react": "^0.544.0"
+  },
+  "devDependencies": {
+    "@types/chroma-js": "^3.1.2",
+    "@types/react": "^19.2.13",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3"
+  }
+}

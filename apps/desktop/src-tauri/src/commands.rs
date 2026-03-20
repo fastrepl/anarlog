@@ -1,5 +1,22 @@
 use crate::AppExt;
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginManifestEntry {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub main_path: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct PluginManifestFile {
+    id: String,
+    name: String,
+    version: String,
+    main: String,
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_onboarding_needed<R: tauri::Runtime>(
@@ -36,23 +53,6 @@ pub async fn set_dismissed_toasts<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_onboarding_local<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-) -> Result<bool, String> {
-    app.get_onboarding_local().map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn set_onboarding_local<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    v: bool,
-) -> Result<(), String> {
-    app.set_onboarding_local(v).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn get_env<R: tauri::Runtime>(_app: tauri::AppHandle<R>, key: String) -> String {
     std::env::var(&key).unwrap_or_default()
 }
@@ -80,10 +80,25 @@ pub fn show_devtool() -> bool {
 pub async fn resize_window_for_chat<R: tauri::Runtime>(
     window: tauri::Window<R>,
 ) -> Result<(), String> {
+    const CHAT_PANEL_EXPANSION_WIDTH: u32 = 400;
+
     let outer_size = window.outer_size().map_err(|e| e.to_string())?;
+    let outer_position = window.outer_position().map_err(|e| e.to_string())?;
+    let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+
+    if let Some(monitor) = monitor {
+        let monitor_position = monitor.position();
+        let monitor_size = monitor.size();
+        let window_right = i64::from(outer_position.x) + i64::from(outer_size.width);
+        let monitor_right = i64::from(monitor_position.x) + i64::from(monitor_size.width);
+
+        if monitor_right - window_right < i64::from(CHAT_PANEL_EXPANSION_WIDTH) {
+            return Ok(());
+        }
+    }
 
     let new_size = tauri::PhysicalSize {
-        width: outer_size.width + 400,
+        width: outer_size.width + CHAT_PANEL_EXPANSION_WIDTH,
         height: outer_size.height,
     };
     window
@@ -128,4 +143,111 @@ pub async fn set_tinybase_values<R: tauri::Runtime>(
     v: String,
 ) -> Result<(), String> {
     app.set_tinybase_values(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_pinned_tabs<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Option<String>, String> {
+    app.get_pinned_tabs()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_pinned_tabs<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    v: String,
+) -> Result<(), String> {
+    app.set_pinned_tabs(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_recently_opened_sessions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Option<String>, String> {
+    app.get_recently_opened_sessions()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    v: String,
+) -> Result<(), String> {
+    app.set_recently_opened_sessions(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_plugins<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<PluginManifestEntry>, String> {
+    use tauri_plugin_settings::SettingsPluginExt;
+
+    let base = app.settings().vault_base().map_err(|e| e.to_string())?;
+    let plugins_dir = base.join("plugins").into_std_path_buf();
+
+    if !plugins_dir.exists() {
+        std::fs::create_dir_all(&plugins_dir).map_err(|e| e.to_string())?;
+        return Ok(Vec::new());
+    }
+
+    let mut plugins = Vec::new();
+
+    for entry in std::fs::read_dir(&plugins_dir).map_err(|e| e.to_string())? {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
+
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+
+        if !file_type.is_dir() {
+            continue;
+        }
+
+        let root = entry.path();
+        let manifest_path = root.join("plugin.json");
+
+        if !manifest_path.exists() {
+            continue;
+        }
+
+        let manifest: PluginManifestFile = match std::fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<PluginManifestFile>(&raw).ok())
+        {
+            Some(manifest) => manifest,
+            None => continue,
+        };
+
+        let main_relative = std::path::Path::new(&manifest.main);
+        if main_relative.is_absolute()
+            || main_relative
+                .components()
+                .any(|c| c == std::path::Component::ParentDir)
+        {
+            continue;
+        }
+
+        let main_path = root.join(main_relative);
+        if !main_path.exists() {
+            continue;
+        }
+
+        plugins.push(PluginManifestEntry {
+            id: manifest.id,
+            name: manifest.name,
+            version: manifest.version,
+            main_path: main_path.to_string_lossy().to_string(),
+        });
+    }
+
+    plugins.sort_by(|a, b| a.id.cmp(&b.id));
+
+    Ok(plugins)
 }

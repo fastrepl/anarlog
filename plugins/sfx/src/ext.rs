@@ -1,5 +1,4 @@
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 pub(crate) enum SoundControl {
     Stop,
@@ -10,8 +9,8 @@ struct SoundHandle {
     control_tx: std::sync::mpsc::Sender<SoundControl>,
 }
 
-static PLAYING_SOUNDS: Lazy<Mutex<std::collections::HashMap<AppSounds, SoundHandle>>> =
-    Lazy::new(|| Mutex::new(std::collections::HashMap::new()));
+static PLAYING_SOUNDS: LazyLock<Mutex<std::collections::HashMap<AppSounds, SoundHandle>>> =
+    LazyLock::new(|| Mutex::new(std::collections::HashMap::new()));
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type, Clone, PartialEq, Eq, Hash)]
 pub enum AppSounds {
@@ -25,11 +24,11 @@ pub(crate) fn to_speaker(
     looping: bool,
 ) -> std::sync::mpsc::Sender<SoundControl> {
     use rodio::source::Source;
-    use rodio::{Decoder, OutputStreamBuilder, Sink};
+    use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
     let (tx, rx) = std::sync::mpsc::channel();
 
     std::thread::spawn(move || {
-        let Ok(stream) = OutputStreamBuilder::open_default_stream() else {
+        let Ok(stream) = DeviceSinkBuilder::open_default_sink() else {
             return;
         };
 
@@ -38,25 +37,25 @@ pub(crate) fn to_speaker(
             return;
         };
 
-        let sink = Sink::connect_new(stream.mixer());
+        let player = Player::connect_new(stream.mixer());
 
         if looping {
-            sink.append(source.repeat_infinite());
+            player.append(source.repeat_infinite());
         } else {
-            sink.append(source);
+            player.append(source);
         }
 
         loop {
             match rx.recv_timeout(std::time::Duration::from_millis(100)) {
                 Ok(SoundControl::Stop) => {
-                    sink.stop();
+                    player.stop();
                     break;
                 }
                 Ok(SoundControl::SetVolume(volume)) => {
-                    sink.set_volume(volume);
+                    player.set_volume(volume);
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                    if !looping && sink.empty() {
+                    if !looping && player.empty() {
                         break;
                     }
                 }

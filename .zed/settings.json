@@ -1,6 +1,20 @@
 {
   "file_scan_exclusions": [],
   "formatter": "language_server",
+  "languages": {
+    "JavaScript": {
+      "formatter": "prettier"
+    },
+    "TypeScript": {
+      "formatter": "prettier"
+    },
+    "TSX": {
+      "formatter": "prettier"
+    },
+    "Swift": {
+      "tab_size": 2
+    }
+  },
   "lsp": {
     "rust-analyzer": {
       "initialization_options": {

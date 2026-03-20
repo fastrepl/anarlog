@@ -1,0 +1,49 @@
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/cli/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/cli_ci.yml"
+      - ".github/actions/install_cli_deps/**"
+
+jobs:
+  check:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            clippy: false
+          - os: windows-latest
+            platform: windows
+            clippy: false
+          - os: macos-latest
+            platform: macos
+            clippy: true
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install_cli_deps
+      - if: matrix.clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - if: ${{ !matrix.clippy }}
+        uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check -p cli
+      - if: matrix.clippy
+        run: cargo clippy -p cli -- -D warnings
+      - if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo check -p cli --target x86_64-apple-darwin

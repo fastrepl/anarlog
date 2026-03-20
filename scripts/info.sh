@@ -17,11 +17,15 @@ if [ -d "$HOME/Library/Application Support/hyprnote-nightly" ]; then
     fi
 fi
 
-if [ -d "/Applications/Hyprnote.app" ]; then
+if [ -d "/Applications/Char.app" ]; then
+    stable_version=$(defaults read /Applications/Char.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo "")
+elif [ -d "/Applications/Hyprnote.app" ]; then
     stable_version=$(defaults read /Applications/Hyprnote.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo "")
 fi
 
-if [ -d "/Applications/Hyprnote Nightly.app" ]; then
+if [ -d "/Applications/Char Nightly.app" ]; then
+    nightly_version=$(defaults read "/Applications/Char Nightly.app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "")
+elif [ -d "/Applications/Hyprnote Nightly.app" ]; then
     nightly_version=$(defaults read "/Applications/Hyprnote Nightly.app/Contents/Info.plist" CFBundleShortVersionString 2>/dev/null || echo "")
 fi
 

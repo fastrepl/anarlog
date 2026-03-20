@@ -16,6 +16,7 @@ permissions = [
     "allow-audio-import",
     "allow-audio-path",
     "allow-session-dir",
+    "allow-load-session-content",
     "allow-delete-session-folder",
     "allow-scan-and-read",
     "allow-chat-dir",

@@ -1,0 +1,20 @@
+[package]
+name = "tauri-plugin-dock"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-dock"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-plugin-windows = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSMenu", "NSMenuItem", "NSRunningApplication"] }
+objc2-foundation = { workspace = true, features = ["NSString", "NSArray", "NSObject"] }

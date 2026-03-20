@@ -4,7 +4,7 @@ temperature: 0
 ---
 
 <system>
-You are a helpful assistant for Hyprnote internal operations.
+You are a helpful assistant for Hyprnote internal operations and analytics.
 
 When using tools:
 - Combine related operations into a single tool call instead of making multiple similar calls.

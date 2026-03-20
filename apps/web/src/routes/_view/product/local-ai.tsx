@@ -11,14 +11,14 @@ export const Route = createFileRoute("/_view/product/local-ai")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Local AI - Hyprnote" },
+      { title: "Local AI - Char" },
       {
         name: "description",
         content:
           "Powerful AI processing that runs entirely on your device. Private, fast, and offline-capable meeting transcription and summarization with local Whisper and LLM models.",
       },
       { name: "robots", content: "noindex, nofollow" },
-      { property: "og:title", content: "Local AI - Hyprnote" },
+      { property: "og:title", content: "Local AI - Char" },
       {
         property: "og:description",
         content:
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/_view/product/local-ai")({
       { property: "og:type", content: "website" },
       {
         property: "og:url",
-        content: "https://hyprnote.com/product/local-ai",
+        content: "https://char.com/product/local-ai",
       },
     ],
   }),
@@ -38,10 +38,10 @@ function Component() {
 
   return (
     <main
-      className="flex-1 bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <WhyLocalAISection />
@@ -63,26 +63,26 @@ function Component() {
 function HeroSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center text-center gap-6 py-24 px-4">
-        <div className="flex flex-col gap-6 max-w-4xl">
-          <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600">
+      <div className="flex flex-col items-center gap-6 px-4 py-24 text-center">
+        <div className="flex max-w-4xl flex-col gap-6">
+          <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
             AI that runs
             <br />
             on your device
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600 max-w-3xl mx-auto">
-            Hyprnote uses powerful local AI models to process your meetings
-            entirely on your device. No cloud uploads, complete privacy, and
-            works offline.
+          <p className="mx-auto max-w-3xl text-lg text-neutral-600 sm:text-xl">
+            Char uses powerful local AI models to process your meetings entirely
+            on your device. No cloud uploads, complete privacy, and works
+            offline.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 pt-6">
+        <div className="flex flex-col gap-4 pt-6 sm:flex-row">
           <Link
             to="/download/"
             className={cn([
-              "px-8 py-3 text-base font-medium rounded-full",
+              "rounded-full px-8 py-3 text-base font-medium",
               "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-              "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+              "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
               "transition-all",
             ])}
           >
@@ -91,9 +91,9 @@ function HeroSection() {
           <Link
             to="/product/self-hosting/"
             className={cn([
-              "px-6 py-3 text-base font-medium rounded-full",
-              "border border-neutral-300 text-stone-600",
-              "hover:bg-stone-50 transition-colors",
+              "rounded-full px-6 py-3 text-base font-medium",
+              "border border-neutral-300 text-stone-700",
+              "transition-colors hover:bg-stone-50",
             ])}
           >
             Self-hosting options
@@ -107,18 +107,18 @@ function HeroSection() {
 function WhyLocalAISection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Why local AI
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-b border-neutral-100 md:border-b-0">
+        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:shield-lock"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Complete privacy
           </h3>
           <p className="text-neutral-600">
@@ -127,12 +127,12 @@ function WhyLocalAISection() {
             third-party AI services.
           </p>
         </div>
-        <div className="p-8 border-b border-neutral-100 md:border-b-0">
+        <div className="border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:lightning-bolt"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Lightning fast
           </h3>
           <p className="text-neutral-600">
@@ -140,9 +140,9 @@ function WhyLocalAISection() {
             on your device with optimized local models.
           </p>
         </div>
-        <div className="p-8 border-r border-neutral-100">
-          <Icon icon="mdi:wifi-off" className="text-3xl text-stone-600 mb-4" />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+        <div className="border-r border-neutral-100 p-8">
+          <Icon icon="mdi:wifi-off" className="mb-4 text-3xl text-stone-700" />
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             Works offline
           </h3>
           <p className="text-neutral-600">
@@ -153,9 +153,9 @@ function WhyLocalAISection() {
         <div className="p-8">
           <Icon
             icon="mdi:credit-card-off"
-            className="text-3xl text-stone-600 mb-4"
+            className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="text-xl font-serif text-stone-600 mb-2">
+          <h3 className="mb-2 font-serif text-xl text-stone-700">
             No usage limits
           </h3>
           <p className="text-neutral-600">
@@ -171,14 +171,14 @@ function WhyLocalAISection() {
 function ComparisonSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Local AI vs. Cloud AI
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-neutral-100">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="border-r border-neutral-100 p-8">
+          <div className="mb-6 flex items-center gap-2">
             <Icon
               icon="mdi:cloud-upload"
               className="text-2xl text-neutral-400"
@@ -191,94 +191,92 @@ function ComparisonSection() {
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Audio uploaded to third-party servers</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Requires internet connection</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Processing delays from uploads</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Monthly usage limits</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Data stored on company servers</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:close"
-                className="text-neutral-400 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-neutral-400"
               />
               <span>Compliance and audit risks</span>
             </li>
           </ul>
         </div>
-        <div className="p-8 bg-green-50/50">
-          <div className="flex items-center gap-2 mb-6">
+        <div className="bg-green-50/50 p-8">
+          <div className="mb-6 flex items-center gap-2">
             <Icon icon="mdi:laptop" className="text-2xl text-green-600" />
-            <h3 className="font-serif text-lg text-green-900">
-              Hyprnote Local AI
-            </h3>
+            <h3 className="font-serif text-lg text-green-900">Char Local AI</h3>
           </div>
           <ul className="flex flex-col gap-4 text-green-900">
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>All processing on your device</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Works completely offline</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Instant processing, no uploads</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Unlimited recordings</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Data never leaves your computer</span>
             </li>
             <li className="flex items-start gap-3">
               <Icon
                 icon="mdi:check"
-                className="text-green-600 shrink-0 mt-0.5"
+                className="mt-0.5 shrink-0 text-green-600"
               />
               <span>Full compliance control</span>
             </li>
@@ -292,53 +290,53 @@ function ComparisonSection() {
 function CapabilitiesSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Local AI capabilities
         </p>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3">
-        <div className="p-6 border-r border-b border-neutral-100">
-          <Icon icon="mdi:text" className="text-2xl text-stone-600 mb-3" />
-          <h3 className="font-medium text-stone-600 mb-2">Transcription</h3>
+        <div className="border-r border-b border-neutral-100 p-6">
+          <Icon icon="mdi:text" className="mb-3 text-2xl text-stone-700" />
+          <h3 className="mb-2 font-medium text-stone-700">Transcription</h3>
           <p className="text-sm text-neutral-600">
             High-quality speech-to-text powered by local Whisper models. Support
             for 100+ languages.
           </p>
         </div>
-        <div className="p-6 border-r border-b border-neutral-100 lg:border-r">
+        <div className="border-r border-b border-neutral-100 p-6 lg:border-r">
           <Icon
             icon="mdi:file-document"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Summarization</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Summarization</h3>
           <p className="text-sm text-neutral-600">
             AI-generated summaries with key points, decisions, and action items
             using local LLMs.
           </p>
         </div>
-        <div className="p-6 border-b border-neutral-100 sm:border-r lg:border-r-0">
+        <div className="border-b border-neutral-100 p-6 sm:border-r lg:border-r-0">
           <Icon
             icon="mdi:tag-multiple"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Classification</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Classification</h3>
           <p className="text-sm text-neutral-600">
             Automatic categorization and tagging of conversations by topic and
             meeting type.
           </p>
         </div>
-        <div className="p-6 border-r border-neutral-100 sm:border-b-0 border-b lg:border-b-0">
-          <Icon icon="mdi:magnify" className="text-2xl text-stone-600 mb-3" />
-          <h3 className="font-medium text-stone-600 mb-2">Semantic search</h3>
+        <div className="border-r border-b border-neutral-100 p-6 sm:border-b-0 lg:border-b-0">
+          <Icon icon="mdi:magnify" className="mb-3 text-2xl text-stone-700" />
+          <h3 className="mb-2 font-medium text-stone-700">Semantic search</h3>
           <p className="text-sm text-neutral-600">
             Find information across all meetings using natural language with
             local embedding models.
           </p>
         </div>
-        <div className="p-6 border-r border-neutral-100">
-          <Icon icon="mdi:lightbulb" className="text-2xl text-stone-600 mb-3" />
-          <h3 className="font-medium text-stone-600 mb-2">Key insights</h3>
+        <div className="border-r border-neutral-100 p-6">
+          <Icon icon="mdi:lightbulb" className="mb-3 text-2xl text-stone-700" />
+          <h3 className="mb-2 font-medium text-stone-700">Key insights</h3>
           <p className="text-sm text-neutral-600">
             Extract decisions, questions, and important moments automatically
             from transcripts.
@@ -347,9 +345,9 @@ function CapabilitiesSection() {
         <div className="p-6">
           <Icon
             icon="mdi:account-voice"
-            className="text-2xl text-stone-600 mb-3"
+            className="mb-3 text-2xl text-stone-700"
           />
-          <h3 className="font-medium text-stone-600 mb-2">Speaker detection</h3>
+          <h3 className="mb-2 font-medium text-stone-700">Speaker detection</h3>
           <p className="text-sm text-neutral-600">
             Identify different speakers and attribute quotes accurately with
             diarization.
@@ -363,19 +361,19 @@ function CapabilitiesSection() {
 function ModelsSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           AI models we use
         </p>
       </div>
       <div className="divide-y divide-neutral-100">
-        <div className="p-8 flex items-start gap-4">
+        <div className="flex items-start gap-4 p-8">
           <Icon
             icon="mdi:microphone"
-            className="text-3xl text-stone-600 shrink-0"
+            className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-700">
               Whisper for transcription
             </h3>
             <p className="text-neutral-600">
@@ -386,10 +384,10 @@ function ModelsSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 flex items-start gap-4">
-          <Icon icon="mdi:brain" className="text-3xl text-stone-600 shrink-0" />
+        <div className="flex items-start gap-4 p-8">
+          <Icon icon="mdi:brain" className="shrink-0 text-3xl text-stone-700" />
           <div>
-            <h3 className="text-xl font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-xl text-stone-700">
               Local LLMs for understanding
             </h3>
             <p className="text-neutral-600">
@@ -407,19 +405,19 @@ function ModelsSection() {
 function ComplianceSection() {
   return (
     <section>
-      <div className="text-center border-b border-neutral-100">
-        <p className="font-medium text-neutral-600 uppercase tracking-wide py-6 font-serif">
+      <div className="border-b border-neutral-100 text-center">
+        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
           Built for compliance
         </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-8 border-r border-b border-neutral-100 md:border-b-0 flex gap-4">
+        <div className="flex gap-4 border-r border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:shield-check"
-            className="text-3xl text-green-600 shrink-0"
+            className="shrink-0 text-3xl text-green-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               GDPR & HIPAA ready
             </h3>
             <p className="text-neutral-600">
@@ -428,13 +426,13 @@ function ComplianceSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 border-b border-neutral-100 md:border-b-0 flex gap-4">
+        <div className="flex gap-4 border-b border-neutral-100 p-8 md:border-b-0">
           <Icon
             icon="mdi:account-lock"
-            className="text-3xl text-blue-600 shrink-0"
+            className="shrink-0 text-3xl text-blue-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               Zero data leaks
             </h3>
             <p className="text-neutral-600">
@@ -443,13 +441,13 @@ function ComplianceSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 border-r border-neutral-100 flex gap-4">
+        <div className="flex gap-4 border-r border-neutral-100 p-8">
           <Icon
             icon="mdi:file-lock"
-            className="text-3xl text-purple-600 shrink-0"
+            className="shrink-0 text-3xl text-purple-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               Full data ownership
             </h3>
             <p className="text-neutral-600">
@@ -458,13 +456,13 @@ function ComplianceSection() {
             </p>
           </div>
         </div>
-        <div className="p-8 flex gap-4">
+        <div className="flex gap-4 p-8">
           <Icon
             icon="mdi:server-off"
-            className="text-3xl text-orange-600 shrink-0"
+            className="shrink-0 text-3xl text-orange-600"
           />
           <div>
-            <h3 className="text-lg font-serif text-stone-600 mb-2">
+            <h3 className="mb-2 font-serif text-lg text-stone-700">
               No vendor lock-in
             </h3>
             <p className="text-neutral-600">

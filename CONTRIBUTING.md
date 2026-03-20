@@ -1,1 +1,1 @@
-https://hyprnote.com/docs/developers
+https://char.com/docs/developers

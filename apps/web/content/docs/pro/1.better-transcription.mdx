@@ -6,11 +6,43 @@ description: "Pro users get access to higher-quality cloud transcription."
 
 Pro includes access to premium cloud transcription services that offer higher accuracy than local models, especially for accented speech, technical jargon, and noisy environments.
 
-## Pro Curated Models
+## Pro curated models
 
 Pro subscribers get access to curated cloud transcription models that work out of the box with no configuration required. These models are selected for quality and reliability, and API keys are managed automatically.
 
-## Bring Your Own Key (BYOK)
+### How provider selection works
+
+When you use Pro's curated transcription, you don't pick a specific provider — Char's server automatically selects the best one based on your configured languages. The routing logic evaluates each provider's language support quality and picks the highest-quality match.
+
+**Provider priority order:**
+
+| Priority | Provider | Default Model | Best For |
+|----------|----------|---------------|----------|
+| 1 | Deepgram | `nova-3` | English, general use |
+| 2 | Soniox | `stt-rt-v4` | Multilingual (e.g., Korean + English) |
+| 3 | AssemblyAI | `universal` | Speaker diarization |
+| 4 | Gladia | `solaria-1` | Code switching |
+| 5 | ElevenLabs | `scribe_v2_realtime` | Real-time quality |
+| 6 | Fireworks | `whisper-v3-turbo` | Whisper-based |
+| 7 | OpenAI | `gpt-4o-transcribe` | Final fallback |
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/hyprnote_routing.rs#L33-L41" />
+
+For example, when transcribing Korean + English, Soniox is selected over Deepgram because it has better multilingual support — even though Deepgram has higher base priority. The router sorts by language quality first, then falls back to priority order:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/hyprnote_routing.rs#L70-L111" />
+
+### How audio flows
+
+![Audio Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CWebSocket%7C%20B%5BChar%20API%20Server%3Cbr%2F%3Epro.hyprnote.com%5D%0A%20%20%20%20B%20--%3E%7CWebSocket%7C%20C%5BSTT%20Provider%3Cbr%2F%3Ee.g.%2C%20Deepgram%2C%20Soniox%5D)
+
+1. **Your device** opens a WebSocket to the Char API server, authenticated with your Supabase JWT token.
+2. **Char API server** validates your Pro subscription, selects a provider based on your language, and opens a WebSocket to that provider.
+3. **Your device** streams raw audio (16kHz, 16-bit PCM, mono or stereo) through the Char server to the STT provider.
+4. **The STT provider** returns real-time transcription results back through the same chain.
+5. If a provider fails, the server retries with the next provider in the chain (up to 2 retries with exponential backoff).
+
+## Bring your own key (BYOK)
 
 If you want to use a specific transcription provider, you can bring your own API key. Supported providers include:
 
@@ -20,21 +52,118 @@ If you want to use a specific transcription provider, you can bring your own API
 | AssemblyAI | Speaker diarization, streaming | 20+ |
 | Gladia | Code switching, multi-channel audio | 90+ |
 | OpenAI | Batch transcription, Whisper API | 50+ |
-| Soniox | High accuracy, enterprise features | 70+ |
+| Soniox | High accuracy, enterprise features (v4 and v3 models) | 70+ |
+| ElevenLabs | High-quality real-time transcription | 30+ |
+| DashScope | Qwen3-ASR real-time speech recognition | 10+ |
+| Mistral | Voxtral audio transcription | 10+ |
 
 To use BYOK, go to Settings > Transcription and enter your API key for your preferred provider.
 
-## How to Enable
+## How to enable
 
 1. Subscribe to Pro or start a free trial
 2. Go to Settings > Transcription
 3. Use the curated Pro models (default) or enter your own API key for a specific provider
 
-## Language Support
+## Language support
 
-Hyprnote checks if your selected provider supports your configured languages. If there's a mismatch, you'll see a warning with suggestions for compatible providers. Configure your languages in Settings > Language & Vocabulary.
+Char checks if your selected provider supports your configured languages. If there's a mismatch, you'll see a warning with suggestions for compatible providers. Configure your languages in Settings > Language & Vocabulary.
 
-## When to Use Cloud vs Local
+## How your audio data is handled
+
+When using cloud transcription, your recorded audio is sent to the selected provider for processing:
+
+- **Pro curated models:** Your audio is proxied through `pro.hyprnote.com` and forwarded to a curated STT provider. The proxy does not store your audio.
+- **BYOK:** Your audio is sent directly from your device to the provider you selected. Char acts only as the client.
+
+Here is how Char selects the correct adapter for your configured provider — each provider has its own adapter that handles the audio stream:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/listener/adapters.rs#L22-L102" />
+
+### What data is sent to the provider
+
+**Sent alongside your audio stream:**
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/listener-core/src/actors/session/supervisor.rs#L122-L134" />
+
+- Raw audio (Linear PCM, 16kHz sample rate, mono or stereo)
+- Configuration: model name, language codes, optional keyword boost list, sample rate, channel count
+
+**NOT sent to the provider:**
+- Your user ID, email, or name
+- Your device fingerprint or JWT token
+- Meeting metadata (title, participants, notes)
+
+Your audio files and transcripts are always stored locally on your device regardless of which transcription method you use. Cloud providers only receive the audio stream for processing and return the transcript.
+
+### What Char logs
+
+Char logs metadata about each STT session to PostHog for usage tracking. **No audio or transcription text is ever logged.**
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/analytics.rs#L26-L28" />
+
+**Logged:** provider name, session duration.
+**Not logged:** audio content, transcription text, meeting content.
+
+## Provider privacy policies
+
+All STT providers used by Pro have zero data retention for real-time/streaming transcription and are SOC 2 compliant.
+
+### Deepgram (primary)
+
+| Policy | Details |
+|--------|---------|
+| **Data retention** | Zero storage by default — no audio or transcript retained after processing |
+| **Training** | Does not train on customer data (acts as data processor) |
+| **Compliance** | SOC 2 Type 2, GDPR, HIPAA, PCI, CCPA |
+| **Encryption** | TLS 1.2+ (transit), AES-256 (rest) |
+| **Data location** | US (default), EU available (`api.eu.deepgram.com`) |
+
+> "Deepgram's default configuration meets the strictest requirements with zero retention after processing."
+>
+> — [Deepgram Compliance Guide](https://deepgram.com/learn/standard-compliance-speech-to-text)
+
+Official docs: [Privacy Policy](https://deepgram.com/privacy) · [Data Security](https://deepgram.com/data-security) · [Information Security & Privacy](https://developers.deepgram.com/trust-security/information-security-privacy)
+
+### Soniox (multilingual)
+
+| Policy | Details |
+|--------|---------|
+| **Data retention** | No retention for real-time API |
+| **Training** | Never uses customer audio or transcripts for model training |
+| **Compliance** | SOC 2 Type 2, GDPR, HIPAA |
+| **Encryption** | TLS 1.2+ (transit) |
+| **Data location** | US (default), EU (`api.eu.soniox.com`), Japan (`api.jp.soniox.com`) |
+
+> "No retention – Soniox does not store your audio or transcript data unless explicitly requested through a service that supports storage."
+>
+> "No model training – your audio and transcripts are never used to improve Soniox models or services."
+>
+> — [Soniox Security & Privacy](https://soniox.com/docs/stt/security-and-privacy)
+
+Official docs: [Privacy Policy](https://soniox.com/policies/privacy-policy) · [Security & Privacy](https://soniox.com/docs/stt/security-and-privacy) · [Data Residency](https://soniox.com/docs/stt/data-residency)
+
+### AssemblyAI (fallback)
+
+| Policy | Details |
+|--------|---------|
+| **Data retention** | Zero for streaming API (when opted out of model training) |
+| **Training** | Optional — can opt out |
+| **Compliance** | SOC 2 Type 2, GDPR, HIPAA, PCI-DSS 4.0 Level 1 |
+| **Encryption** | TLS 1.3 (transit), AES-256 (rest) |
+| **Data location** | US (default), EU (Dublin, Ireland) |
+
+> "If you are opted out of model training, we offer zero data retention of audio and transcripts for our Streaming product."
+>
+> — [AssemblyAI Data Retention FAQ](https://assemblyai.com/docs/faq/how-long-does-aai-retain-data)
+
+Official docs: [Privacy Policy](https://www.assemblyai.com/legal/privacy-policy) · [Security](https://www.assemblyai.com/security) · [Trust Center](https://app.vanta.com/assemblyai/trust/7n80syl8zln1bn1qm3x8eg)
+
+For the full details on every data flow, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).
+
+## When to use cloud vs local
 
 Use cloud transcription when you need maximum accuracy and have internet access. Use local transcription (Whisper models) when privacy is paramount or you're offline. Local models support 50+ languages and run entirely on your device.
+
+For local STT model details and manual download instructions, see [Local Models](/docs/developers/local-models).
 

@@ -70,5 +70,22 @@ common_derives! {
             #[serde(skip_serializing_if = "Option::is_none")]
             state: Option<AiState>,
         },
+        #[serde(rename = "search")]
+        Search {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            state: Option<SearchState>,
+        },
+        #[serde(rename = "chat_support")]
+        ChatSupport {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            state: Option<ChatState>,
+        },
+        #[serde(rename = "onboarding")]
+        Onboarding,
+        #[serde(rename = "edit")]
+        Edit {
+            #[serde(rename = "requestId")]
+            request_id: String,
+        },
     }
 }

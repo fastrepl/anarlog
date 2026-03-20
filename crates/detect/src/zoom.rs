@@ -1,5 +1,6 @@
-use std::process::Command;
 use std::time::{Duration, Instant};
+
+use cidre::{ax, ns};
 
 use crate::{BackgroundTask, DetectCallback, DetectEvent};
 
@@ -33,57 +34,55 @@ impl WatcherState {
     }
 }
 
+fn find_zoom_pid() -> Option<i32> {
+    let bundle_id = ns::String::with_str(ZOOM_BUNDLE_ID);
+    let apps = ns::RunningApp::with_bundle_id(&bundle_id);
+    let app = apps.get(0).ok()?;
+    Some(app.pid())
+}
+
+fn ax_element_title(elem: &ax::UiElement) -> Option<String> {
+    let value = elem.attr_value(ax::attr::title()).ok()?;
+    let s = value.try_as_string()?;
+    Some(s.to_string())
+}
+
 fn check_zoom_mute_state() -> Option<bool> {
-    let script = r#"
-tell application "System Events"
-    if (get name of every application process) contains "zoom.us" then
-        tell application process "zoom.us"
-            if exists (menu item "Mute audio" of menu 1 of menu bar item "Meeting" of menu bar 1) then
-                return "unmuted"
-            else if exists (menu item "Unmute audio" of menu 1 of menu bar item "Meeting" of menu bar 1) then
-                return "muted"
-            else
-                return "unknown"
-            end if
-        end tell
-    else
-        return "not_running"
-    end if
-end tell
-"#;
+    let pid = find_zoom_pid()?;
+    let app = ax::UiElement::with_app_pid(pid);
 
-    let output = Command::new("osascript")
-        .arg("-e")
-        .arg(script)
-        .output()
-        .ok()?;
+    let children = app.children().ok()?;
+    let menu_bar = children.iter().find(|child| {
+        child
+            .role()
+            .ok()
+            .map(|r| r.equal(ax::role::menu_bar()))
+            .unwrap_or(false)
+    })?;
 
-    if !output.status.success() {
-        tracing::warn!(
-            "osascript failed: {:?}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        return None;
-    }
+    let menu_bar_items = menu_bar.children().ok()?;
+    let meeting_item = menu_bar_items.iter().find(|item| {
+        ax_element_title(item)
+            .map(|t| t == "Meeting")
+            .unwrap_or(false)
+    })?;
 
-    let result = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let menu_children = meeting_item.children().ok()?;
+    let meeting_menu = menu_children.iter().next()?;
 
-    match result.as_str() {
-        "muted" => Some(true),
-        "unmuted" => Some(false),
-        "unknown" => {
-            tracing::debug!("zoom state unknown (likely not in meeting)");
-            None
-        }
-        "not_running" => {
-            tracing::debug!("zoom not running");
-            None
-        }
-        other => {
-            tracing::warn!("unexpected osascript output: {}", other);
-            None
+    let menu_items = meeting_menu.children().ok()?;
+    for item in menu_items.iter() {
+        if let Some(title) = ax_element_title(item) {
+            match title.as_str() {
+                "Mute Audio" | "Mute audio" => return Some(false),
+                "Unmute Audio" | "Unmute audio" => return Some(true),
+                _ => continue,
+            }
         }
     }
+
+    tracing::debug!("zoom mute state unknown (likely not in meeting)");
+    None
 }
 
 fn is_zoom_using_mic() -> bool {
@@ -149,18 +148,19 @@ impl crate::Observer for ZoomMuteWatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Observer, new_callback};
+    use std::time::Duration;
 
-    #[test]
+    // cargo test --package detect --lib --features mic,list,zoom -- zoom::tests::test_watcher --exact --nocapture --ignored
+    #[tokio::test]
     #[ignore]
-    fn test_check_zoom_mute_state() {
-        let state = check_zoom_mute_state();
-        println!("Zoom mute state: {:?}", state);
-    }
+    async fn test_watcher() {
+        let mut watcher = ZoomMuteWatcher::default();
+        watcher.start(new_callback(|v| {
+            println!("{:?}", v);
+        }));
 
-    #[test]
-    #[ignore]
-    fn test_is_zoom_using_mic() {
-        let result = is_zoom_using_mic();
-        println!("Is Zoom using mic: {}", result);
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        watcher.stop();
     }
 }

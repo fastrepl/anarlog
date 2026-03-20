@@ -11,11 +11,15 @@ use owhisper_interface::batch::{
 use serde::{Deserialize, Serialize};
 
 use super::GladiaAdapter;
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
+use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 use crate::polling::{PollingConfig, PollingResult, poll_until};
 
 impl BatchSttAdapter for GladiaAdapter {
+    fn provider_name(&self) -> &'static str {
+        "gladia"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -170,7 +174,8 @@ impl GladiaAdapter {
             _ => "application/octet-stream",
         };
 
-        let upload_url = format!("{}/upload", base_url);
+        let mut upload_url = base_url.clone();
+        append_path_if_missing(&mut upload_url, "upload");
         let form = reqwest::multipart::Form::new().part(
             "audio",
             reqwest::multipart::Part::bytes(file_bytes)
@@ -180,7 +185,7 @@ impl GladiaAdapter {
         );
 
         let upload_response = client
-            .post(&upload_url)
+            .post(upload_url.to_string())
             .header("x-gladia-key", api_key)
             .multipart(form)
             .send()
@@ -225,9 +230,10 @@ impl GladiaAdapter {
             name_consistency: Some(true),
         };
 
-        let transcript_url = format!("{}/pre-recorded", base_url);
+        let mut transcript_url = base_url.clone();
+        append_path_if_missing(&mut transcript_url, "pre-recorded");
         let create_response = client
-            .post(&transcript_url)
+            .post(transcript_url.to_string())
             .header("x-gladia-key", api_key)
             .header("Content-Type", "application/json")
             .json(&transcript_request)
@@ -245,7 +251,8 @@ impl GladiaAdapter {
         let create_result: InitResponse = create_response.json().await?;
         let transcript_id = create_result.id;
 
-        let poll_url = format!("{}/pre-recorded/{}", base_url, transcript_id);
+        let mut poll_url = base_url.clone();
+        append_path_if_missing(&mut poll_url, &format!("pre-recorded/{transcript_id}"));
 
         let config = PollingConfig::default()
             .with_interval(Duration::from_secs(3))
@@ -254,7 +261,7 @@ impl GladiaAdapter {
         poll_until(
             || async {
                 let poll_response = client
-                    .get(&poll_url)
+                    .get(poll_url.to_string())
                     .header("x-gladia-key", api_key)
                     .send()
                     .await?;
@@ -277,10 +284,10 @@ impl GladiaAdapter {
                         let error_msg = result
                             .error_code
                             .unwrap_or_else(|| "unknown error".to_string());
-                        Ok(PollingResult::Failed(format!(
-                            "transcription failed: {}",
-                            error_msg
-                        )))
+                        Ok(PollingResult::Failed {
+                            message: format!("transcription failed: {}", error_msg),
+                            retryable: false,
+                        })
                     }
                     _ => Ok(PollingResult::Continue),
                 }

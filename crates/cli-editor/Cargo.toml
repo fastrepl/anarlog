@@ -1,0 +1,11 @@
+[package]
+name = "cli-editor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ansi-to-tui = "8"
+crossterm = { workspace = true }
+pulldown-cmark = "0.13"
+ratatui = { workspace = true }
+syntect = { version = "5", default-features = false, features = ["default-fancy"] }

@@ -3,10 +3,82 @@ import * as Sentry from "@sentry/tanstackstart-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+import { useEffect } from "react";
 
+import {
+  PrivacyConsentProvider,
+  usePrivacyConsent,
+} from "./components/privacy-consent";
 import { env } from "./env";
 import { PostHogProvider } from "./providers/posthog";
 import { routeTree } from "./routeTree.gen";
+
+const ZENDESK_SNIPPET_ID = "ze-snippet";
+const ZENDESK_SNIPPET_SRC =
+  "https://static.zdassets.com/ekr/snippet.js?key=15949e47-ed5a-4e52-846e-200dd0b8f4b9";
+
+function MaybeOutlitProvider({
+  children,
+  enabled,
+}: {
+  children: React.ReactNode;
+  enabled: boolean;
+}) {
+  if (enabled && env.VITE_OUTLIT_PUBLIC_KEY) {
+    return (
+      <OutlitProvider publicKey={env.VITE_OUTLIT_PUBLIC_KEY} trackPageviews>
+        {children}
+      </OutlitProvider>
+    );
+  }
+  return <>{children}</>;
+}
+
+function MaybeZendeskWidget({ enabled }: { enabled: boolean }) {
+  useEffect(() => {
+    if (
+      typeof document === "undefined" ||
+      import.meta.env.DEV ||
+      !enabled ||
+      window.location.pathname.startsWith("/admin")
+    ) {
+      return;
+    }
+
+    if (document.getElementById(ZENDESK_SNIPPET_ID)) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = ZENDESK_SNIPPET_ID;
+    script.src = ZENDESK_SNIPPET_SRC;
+    script.async = true;
+    document.body.appendChild(script);
+  }, [enabled]);
+
+  return null;
+}
+
+function ConsentAwareProviders({
+  children,
+  queryClient,
+}: {
+  children: React.ReactNode;
+  queryClient: QueryClient;
+}) {
+  const { analyticsEnabled } = usePrivacyConsent();
+
+  return (
+    <PostHogProvider enabled={analyticsEnabled}>
+      <MaybeOutlitProvider enabled={analyticsEnabled}>
+        <QueryClientProvider client={queryClient}>
+          {children}
+          <MaybeZendeskWidget enabled={analyticsEnabled} />
+        </QueryClientProvider>
+      </MaybeOutlitProvider>
+    </PostHogProvider>
+  );
+}
 
 export function getRouter() {
   const queryClient = new QueryClient();
@@ -19,16 +91,11 @@ export function getRouter() {
     trailingSlash: "always",
     Wrap: (props: { children: React.ReactNode }) => {
       return (
-        <PostHogProvider>
-          <OutlitProvider
-            publicKey="pk_HnJUrK_kn5n9rGv5e8V5CtzyT3--j1lz"
-            trackPageviews
-          >
-            <QueryClientProvider client={queryClient}>
-              {props.children}
-            </QueryClientProvider>
-          </OutlitProvider>
-        </PostHogProvider>
+        <PrivacyConsentProvider>
+          <ConsentAwareProviders queryClient={queryClient}>
+            {props.children}
+          </ConsentAwareProviders>
+        </PrivacyConsentProvider>
       );
     },
   });
@@ -40,13 +107,7 @@ export function getRouter() {
         ? `hyprnote-web@${env.VITE_APP_VERSION}`
         : undefined,
       sendDefaultPii: true,
-      integrations: [
-        Sentry.tanstackRouterBrowserTracingIntegration(router),
-        Sentry.replayIntegration(),
-      ],
-      tracesSampleRate: 1.0,
-      replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1.0,
+      tracePropagationTargets: [],
     });
   }
 

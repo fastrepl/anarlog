@@ -12,6 +12,8 @@ pub enum Error {
     ShellError(#[from] tauri_plugin_shell::Error),
     #[error(transparent)]
     Sidecar2Error(#[from] tauri_plugin_sidecar2::Error),
+    #[error(transparent)]
+    ModelDownloaderError(#[from] hypr_model_downloader::Error),
     #[error("Model not downloaded")]
     ModelNotDownloaded,
     #[error("Server start failed {0}")]
@@ -26,6 +28,8 @@ pub enum Error {
     UnsupportedModelType,
     #[error("Model delete failed: {0}")]
     ModelDeleteFailed(String),
+    #[error("Model unpack failed: {0}")]
+    ModelUnpackFailed(String),
 }
 
 impl Serialize for Error {

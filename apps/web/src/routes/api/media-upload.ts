@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { getGitHubCredentials } from "@/functions/github-content";
 
-const GITHUB_REPO = "fastrepl/hyprnote";
+const GITHUB_REPO = "fastrepl/char";
 const GITHUB_BRANCH = "main";
 const ALLOWED_FOLDERS = [
   "apps/web/public/images",

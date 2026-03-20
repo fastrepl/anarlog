@@ -1,0 +1,6 @@
+# https://docs.netlify.com/build/configure-builds/overview/#definitions
+# We must set package="apps/meetingsucks" in the UI
+[build]
+command = "VITE_APP_VERSION=$COMMIT_REF pnpm -F @hypr/meetingsucks build"
+publish = "apps/meetingsucks/dist/client"
+ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF apps/meetingsucks package.json pnpm-lock.yaml"

@@ -73,6 +73,8 @@ user_common_derives! {
         pub auto: bool,
         #[serde(rename = "ignoredPlatforms")]
         pub ignored_platforms: Option<Vec<String>>,
+        #[serde(rename = "includedPlatforms")]
+        pub included_platforms: Option<Vec<String>>,
     }
 }
 
@@ -82,6 +84,7 @@ impl Default for ConfigNotification {
             before: true,
             auto: true,
             ignored_platforms: None,
+            included_platforms: None,
         }
     }
 }

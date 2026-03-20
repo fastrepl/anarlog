@@ -15,16 +15,15 @@ specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
+hypr-storage = { workspace = true, features = ["specta"] }
+
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+camino = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive", "serde_json"] }
 
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
-
-dirs = { workspace = true }
-shellexpand = { workspace = true }
-tempfile = { workspace = true }

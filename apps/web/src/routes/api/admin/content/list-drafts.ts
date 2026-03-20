@@ -15,9 +15,13 @@ interface DraftArticle {
   meta_title?: string;
   author?: string;
   date?: string;
-  published?: boolean;
   ready_for_review?: boolean;
 }
+
+const NO_STORE_HEADERS = {
+  "Content-Type": "application/json",
+  "Cache-Control": "no-store",
+};
 
 export const Route = createFileRoute("/api/admin/content/list-drafts")({
   server: {
@@ -29,7 +33,7 @@ export const Route = createFileRoute("/api/admin/content/list-drafts")({
           if (!user?.isAdmin) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), {
               status: 401,
-              headers: { "Content-Type": "application/json" },
+              headers: NO_STORE_HEADERS,
             });
           }
         }
@@ -43,7 +47,7 @@ export const Route = createFileRoute("/api/admin/content/list-drafts")({
               }),
               {
                 status: 500,
-                headers: { "Content-Type": "application/json" },
+                headers: NO_STORE_HEADERS,
               },
             );
           }
@@ -73,7 +77,6 @@ export const Route = createFileRoute("/api/admin/content/list-drafts")({
                 meta_title: frontmatter.meta_title as string | undefined,
                 author: frontmatter.author as string | undefined,
                 date: frontmatter.date as string | undefined,
-                published: frontmatter.published as boolean | undefined,
                 ready_for_review: frontmatter.ready_for_review as
                   | boolean
                   | undefined,
@@ -83,14 +86,14 @@ export const Route = createFileRoute("/api/admin/content/list-drafts")({
 
           return new Response(JSON.stringify({ drafts }), {
             status: 200,
-            headers: { "Content-Type": "application/json" },
+            headers: NO_STORE_HEADERS,
           });
         } catch (err) {
           return new Response(
             JSON.stringify({
               error: (err as Error).message,
             }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
+            { status: 500, headers: NO_STORE_HEADERS },
           );
         }
       },

@@ -23,6 +23,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_properties::<tauri::Wry>,
             commands::set_disabled::<tauri::Wry>,
             commands::is_disabled::<tauri::Wry>,
+            commands::identify::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

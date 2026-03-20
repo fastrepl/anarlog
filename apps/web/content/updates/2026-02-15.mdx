@@ -1,0 +1,30 @@
+---
+title: "Char Weekly: February 15, 2026"
+date: "2026-02-15"
+---
+
+Two stable releases went out this week: v1.0.6 and v1.0.7. Search is faster, chat is back in experimental form, Mistral transcription support landed, and live transcription is much more resilient when providers fail.
+
+## Search and chat
+
+Search now uses **Tantivy**, which makes indexing faster and results more accurate. The search bar also collapses to an icon by default and expands when you need it, and advanced filters now let you narrow by note type and date range.
+
+Chat also returned as an experimental feature. It now gets richer session context, and search results inside chat include the surrounding session context too, which makes the responses more useful.
+
+## AI and transcription
+
+`Mistral` is now available as a transcription provider, and summary generation can auto-run after transcript upload or batch transcription completes. We also made live transcription failures non-fatal, so the recorder keeps running and the session drops into a degraded mode instead of crashing outright.
+
+## Notes, calendar, and onboarding
+
+You can now right-click in the main area to create notes and tabs, bulk-delete sessions from the timeline with undo, and see event descriptions in session metadata chips. The onboarding flow also moved into the main app window, which makes first-run setup feel much more integrated.
+
+## Settings and fixes
+
+Settings got another pass with cleaner labels, better week-start and timezone controls, and a dynamic channel selector on the update download button. We also fixed a long list of stability issues around auth sessions, calendar timeline behavior, exports, and audio device handling.
+
+## What's next
+
+We're continuing to improve search, transcription reliability, and the chat experience. If you're on stable, v1.0.7 is available now.
+
+As always, you can download the latest version from our [changelog](/changelog) or let the app auto-update.

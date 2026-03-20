@@ -3,7 +3,7 @@ import { sep } from "@tauri-apps/api/path";
 import type { ParsedDocument } from "@hypr/plugin-fs-sync";
 import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 
-import type { Store } from "../../../store/main";
+import type { NoteFrontmatter } from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,
   iterateTableRows,
@@ -11,8 +11,8 @@ import {
   SESSION_MEMO_FILE,
   type TablesContent,
   type WriteOperation,
-} from "../../shared";
-import type { NoteFrontmatter } from "../types";
+} from "~/store/tinybase/persister/shared";
+import type { Store } from "~/store/tinybase/store/main";
 
 type DocumentItem = [ParsedDocument, string];
 

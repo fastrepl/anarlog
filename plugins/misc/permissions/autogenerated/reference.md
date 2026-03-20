@@ -6,8 +6,8 @@ Default permissions for the plugin
 
 - `allow-get-git-hash`
 - `allow-get-fingerprint`
+- `allow-get-device-info`
 - `allow-opinionated-md-to-html`
-- `allow-parse-meeting-link`
 
 ## Permission Table
 
@@ -177,6 +177,32 @@ Denies the delete_session_folder command without any pre-configured scope.
 <tr>
 <td>
 
+`misc:allow-get-device-info`
+
+</td>
+<td>
+
+Enables the get_device_info command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`misc:deny-get-device-info`
+
+</td>
+<td>
+
+Denies the get_device_info command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `misc:allow-get-fingerprint`
 
 </td>
@@ -248,32 +274,6 @@ Enables the opinionated_md_to_html command without any pre-configured scope.
 <td>
 
 Denies the opinionated_md_to_html command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`misc:allow-parse-meeting-link`
-
-</td>
-<td>
-
-Enables the parse_meeting_link command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`misc:deny-parse-meeting-link`
-
-</td>
-<td>
-
-Denies the parse_meeting_link command without any pre-configured scope.
 
 </td>
 </tr>

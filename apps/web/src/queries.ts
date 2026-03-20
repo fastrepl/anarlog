@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getGitHubStats, getStargazers } from "./functions/github";
 
-const ORG_REPO = "fastrepl/hyprnote";
+const ORG_REPO = "fastrepl/char";
 const LAST_SEEN_STARS = 7032;
 const LAST_SEEN_FORKS = 432;
 

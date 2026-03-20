@@ -10,6 +10,6 @@ rodio = { workspace = true }
 
 [dependencies]
 hypr-audio-utils = { workspace = true }
-hypr-vad-ext = { workspace = true }
+hypr-vad-masking = { workspace = true }
 
 dagc = "0.1.1"

@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { allJobs } from "content-collections";
 import { ArrowRight } from "lucide-react";
 
@@ -8,13 +8,18 @@ import { Image } from "@/components/image";
 import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/jobs/")({
+  beforeLoad: () => {
+    if (!import.meta.env.DEV) {
+      throw notFound();
+    }
+  },
   component: JobsPage,
   head: () => ({
     meta: [
-      { title: "Jobs - Hyprnote" },
+      { title: "Jobs - Char" },
       {
         name: "description",
-        content: "Join the Hyprnote team. View open positions and apply.",
+        content: "Join the Char team. View open positions and apply.",
       },
     ],
   }),
@@ -23,10 +28,10 @@ export const Route = createFileRoute("/_view/jobs/")({
 function JobsPage() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <JobsSection />
@@ -38,11 +43,11 @@ function JobsPage() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="text-center max-w-3xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <div className="mx-auto max-w-3xl text-center">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
           Jobs
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600">
+        <p className="text-lg text-neutral-600 sm:text-xl">
           Join us in building the future of note-taking. We're a small team with
           big ambitions.
         </p>
@@ -58,11 +63,19 @@ function JobsSection() {
 
   return (
     <section className="pb-16 lg:pb-24">
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        {jobs.map((job, index) => (
-          <JobCard key={job.slug} job={job} hasBorder={index === 0} />
-        ))}
-      </div>
+      {jobs.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {jobs.map((job, index) => (
+            <JobCard key={job.slug} job={job} hasBorder={index === 0} />
+          ))}
+        </div>
+      ) : (
+        <div className="px-6 py-16 text-center">
+          <p className="text-lg text-neutral-500">
+            There are no open positions at the moment.
+          </p>
+        </div>
+      )}
       <SlashSeparator />
       <CTASection />
     </section>
@@ -81,9 +94,9 @@ function JobCard({
       to="/jobs/$slug/"
       params={{ slug: job.slug }}
       className={cn([
-        "p-8 text-left relative overflow-hidden block group",
-        "hover:bg-stone-50/50 transition-colors",
-        hasBorder && "border-b md:border-b-0 md:border-r border-neutral-100",
+        "group relative block overflow-hidden p-8 text-left",
+        "transition-colors hover:bg-stone-50/50",
+        hasBorder && "border-b border-neutral-100 md:border-r md:border-b-0",
       ])}
     >
       <div
@@ -91,18 +104,18 @@ function JobCard({
         style={{ backgroundImage: `url(${job.backgroundImage})` }}
       />
       <div className="absolute inset-0 bg-linear-to-b from-white/95 via-white/90 to-white/95" />
-      <div className="relative z-10 h-full flex flex-col">
-        <h2 className="text-xl font-medium text-stone-600 mb-2">{job.title}</h2>
-        <div className="flex items-center gap-3 text-sm text-neutral-500 mb-4">
+      <div className="relative z-10 flex h-full flex-col">
+        <h2 className="mb-2 text-xl font-medium text-stone-700">{job.title}</h2>
+        <div className="mb-4 flex items-center gap-3 text-sm text-neutral-500">
           <span>Full-time</span>
           <span className="text-neutral-300">|</span>
           <span>Remote</span>
         </div>
-        <p className="text-neutral-600 leading-relaxed mb-6">
+        <p className="mb-6 leading-relaxed text-neutral-600">
           {job.cardDescription}
         </p>
         <div className="mt-auto">
-          <span className="inline-flex items-center gap-2 px-4 h-8 bg-linear-to-b from-white to-stone-50 border border-neutral-300 text-neutral-700 rounded-full shadow-xs group-hover:shadow-md group-hover:scale-[102%] group-active:scale-[98%] transition-all text-sm font-medium">
+          <span className="inline-flex h-8 items-center gap-2 rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm font-medium text-neutral-700 shadow-xs transition-all group-hover:scale-[102%] group-hover:shadow-md group-active:scale-[98%]">
             Interested?
             <ArrowRight className="size-4" />
           </span>
@@ -114,27 +127,27 @@ function JobCard({
 
 function CTASection() {
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 laptop:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="laptop:px-0 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
+        <h2 className="font-serif text-2xl sm:text-3xl">
           Don't see a role that fits?
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           We'd still love to hear from you!
         </p>
         <div className="pt-6">
           <a
-            href="mailto:founders@hyprnote.com"
-            className="px-6 h-12 flex items-center justify-center text-base sm:text-lg bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+            href="mailto:founders@char.com"
+            className="flex h-12 items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 text-base text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] sm:text-lg"
           >
             Contact us
           </a>

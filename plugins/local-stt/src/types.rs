@@ -1,7 +1,7 @@
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, tauri_specta::Event)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadProgressPayload {
-    pub model: crate::SupportedSttModel,
+    pub model: crate::LocalModel,
     pub progress: i8,
 }
 

@@ -1,19 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
-import type { ComponentRef } from "react";
 
 import {
+  type ImperativePanelHandle,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
 
-import { ChatView } from "../../../components/chat/view";
-import { Body } from "../../../components/main/body";
-import { LeftSidebar } from "../../../components/main/sidebar";
-import { useSearch } from "../../../contexts/search/ui";
-import { useShell } from "../../../contexts/shell";
-import { commands } from "../../../types/tauri.gen";
+import { PersistentChatPanel } from "~/chat/components/persistent-chat";
+import { useShell } from "~/contexts/shell";
+import { useSearch } from "~/search/contexts/ui";
+import { Body } from "~/shared/main";
+import { LeftSidebar } from "~/sidebar";
+import { useTabs } from "~/store/zustand/tabs";
+import { commands } from "~/types/tauri.gen";
 
 export const Route = createFileRoute("/app/main/_layout/")({
   component: Component,
@@ -24,11 +25,20 @@ const CHAT_MIN_WIDTH_PX = 280;
 function Component() {
   const { leftsidebar, chat } = useShell();
   const { query } = useSearch();
+  const currentTab = useTabs((state) => state.currentTab);
+  const isOnboarding = currentTab?.type === "onboarding";
   const previousModeRef = useRef(chat.mode);
   const previousQueryRef = useRef(query);
-  const bodyPanelRef = useRef<ComponentRef<typeof ResizablePanel>>(null);
+  const bodyPanelRef = useRef<ImperativePanelHandle>(null);
+  const chatPanelContainerRef = useRef<HTMLDivElement>(null);
 
   const isChatOpen = chat.mode === "RightPanelOpen";
+
+  useEffect(() => {
+    if (isOnboarding && leftsidebar.expanded) {
+      leftsidebar.setExpanded(false);
+    }
+  }, [isOnboarding, leftsidebar]);
 
   useEffect(() => {
     const isOpeningRightPanel =
@@ -38,7 +48,6 @@ function Component() {
     if (isOpeningRightPanel && bodyPanelRef.current) {
       const currentSize = bodyPanelRef.current.getSize();
       bodyPanelRef.current.resize(currentSize);
-      commands.resizeWindowForChat();
     }
 
     previousModeRef.current = chat.mode;
@@ -48,7 +57,7 @@ function Component() {
     const isStartingSearch =
       query.trim() !== "" && previousQueryRef.current.trim() === "";
 
-    if (isStartingSearch && !leftsidebar.expanded) {
+    if (isStartingSearch && !leftsidebar.expanded && !isOnboarding) {
       leftsidebar.setExpanded(true);
       commands.resizeWindowForSidebar().catch(console.error);
     }
@@ -58,14 +67,14 @@ function Component() {
 
   return (
     <div
-      className="flex h-full overflow-hidden gap-1 p-1"
+      className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
       data-testid="main-app-shell"
     >
-      {leftsidebar.expanded && <LeftSidebar />}
+      {leftsidebar.expanded && !isOnboarding && <LeftSidebar />}
 
       <ResizablePanelGroup
         direction="horizontal"
-        className="flex-1 overflow-hidden flex"
+        className="flex flex-1 overflow-hidden"
         autoSaveId="main-chat"
       >
         <ResizablePanel ref={bodyPanelRef} className="flex-1 overflow-hidden">
@@ -81,11 +90,13 @@ function Component() {
               className="pl-1"
               style={{ minWidth: CHAT_MIN_WIDTH_PX }}
             >
-              <ChatView />
+              <div ref={chatPanelContainerRef} className="h-full" />
             </ResizablePanel>
           </>
         )}
       </ResizablePanelGroup>
+
+      <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
     </div>
   );
 }

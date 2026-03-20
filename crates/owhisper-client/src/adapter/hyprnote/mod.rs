@@ -1,3 +1,4 @@
+mod batch;
 mod live;
 
 #[derive(Clone, Default)]

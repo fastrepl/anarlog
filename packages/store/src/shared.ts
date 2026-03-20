@@ -37,23 +37,19 @@ export type InferTinyBaseSchema<T> = T extends { _output: infer Output }
     }
   : never;
 
-type TransformForSchema<T> = T extends string | undefined
-  ? string | undefined
-  : T extends number | undefined
-    ? number | undefined
-    : T extends boolean | undefined
-      ? boolean | undefined
-      : T extends string
-        ? string
-        : T extends number
-          ? number
-          : T extends boolean
-            ? boolean
-            : T extends Array<any>
-              ? string
-              : T extends object
-                ? string
-                : T;
+type TransformForSchema<T> = T extends undefined
+  ? undefined
+  : T extends string
+    ? string | undefined
+    : T extends number
+      ? number | undefined
+      : T extends boolean
+        ? boolean | undefined
+        : T extends Array<any>
+          ? string
+          : T extends object
+            ? string
+            : T;
 
 export type ToStorageType<T> = T extends { _output: infer Output }
   ? {

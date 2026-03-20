@@ -1,0 +1,124 @@
+name: devin_update_docs
+
+on:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find existing docs update PR
+        id: existing_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_JSON=$(gh pr list \
+            --repo fastrepl/char \
+            --state open \
+            --author "app/devin-ai-integration" \
+            --search "docs" \
+            --json number,headRefName,title \
+            --limit 50)
+
+          DOCS_PR=$(echo "$PR_JSON" | jq -r '
+            [.[] | select(
+              (.title | test("docs\\(weekly\\)|docs.*update|update.*docs"; "i")) and
+              (.headRefName | startswith("devin/"))
+            )] | sort_by(.number) | last // empty
+          ')
+
+          if [ -n "$DOCS_PR" ] && [ "$DOCS_PR" != "null" ]; then
+            BRANCH=$(echo "$DOCS_PR" | jq -r '.headRefName')
+            NUMBER=$(echo "$DOCS_PR" | jq -r '.number')
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+            echo "Found existing docs update PR #$NUMBER on branch $BRANCH"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No existing docs update PR found"
+          fi
+
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          vars: |
+            {
+              "has_existing_pr": "${{ steps.existing_pr.outputs.found }}",
+              "existing_pr_branch": "${{ steps.existing_pr.outputs.branch }}",
+              "existing_pr_number": "${{ steps.existing_pr.outputs.number }}"
+            }
+          prompt: |
+            You are tasked with updating Char's technical documentation based on recent code changes.
+
+            ## Context
+            Char is an open-source AI notepad for meetings built for high-agency people who demand complete control over their data and AI stack.
+            Repository: fastrepl/char
+
+            {% if has_existing_pr == "true" %}
+            ## Stacked PR Instructions
+            There is an existing open docs update PR that you must stack on top of:
+            - PR: #{{ existing_pr_number }}
+            - Branch: `{{ existing_pr_branch }}`
+
+            You MUST:
+            1. Check out the existing branch: `git checkout {{ existing_pr_branch }}`
+            2. Create your new branch from it (not from main)
+            3. When creating your PR, set the base branch to `{{ existing_pr_branch }}` (not main)
+            4. Reference the parent PR #{{ existing_pr_number }} in your PR description
+            {% endif %}
+
+            Read and follow positioning guidelines in `apps/web/content/AGENTS.md`.
+
+            ## Your Task
+            1. **Analyze Recent Changes**
+               - Review git commits from the last 7 days using: `git log --since="7 days ago" --stat --oneline`
+               - Focus on changes in: crates/, apps/desktop/, apps/web/, packages/, plugins/
+               - Pay special attention to:
+                 * New features or API endpoints
+                 * Changes to analytics/telemetry (PostHog, feature flags)
+                 * New CLI commands or environment variables
+                 * Updates to hooks, extensions, or agents
+                 * Changes to local model support or LLM configuration
+                 * New keyboard shortcuts or settings
+
+            2. **Identify Documentation Gaps**
+               - Check if features mentioned in commits are documented in apps/web/content/docs/
+               - Look for outdated information (e.g., API changes not reflected in docs)
+               - Check for new environment variables not in developers/1.env.mdx
+               - Verify analytics documentation matches actual implementation
+
+            3. **Update Documentation**
+               Update the following files as needed:
+               - `apps/web/content/docs/developers/*.mdx` - Setup, API, analytics, CLI, hooks, etc.
+               - `apps/web/content/docs/faq/*.mdx` - Features, technical, troubleshooting, settings
+               - `apps/web/content/docs/guides/*.mdx` - Migration guides, data handling
+               - `apps/web/content/docs/getting-started/*.mdx` - If installation or onboarding changed
+
+               For each update:
+               - Ensure accuracy against current codebase
+               - Keep examples up-to-date
+               - Update version numbers if relevant
+               - Maintain existing tone and style
+
+            4. **Create a Summary**
+               After making changes, create a PR with:
+               - Title format: "docs(weekly): [brief description of updates]"
+               - A summary of what changed in the codebase
+               - Which docs were updated and why
+               - Any documentation gaps that need human attention
+
+            ## Important Notes
+            - Only update docs if there are actual relevant code changes
+            - Do not make stylistic changes or reformatting
+            - If no updates are needed, report that in a comment and exit
+            - To see detailed recent changes, use time-based diff: `git diff $(git log --since="7 days ago" --format="%H" | tail -1)..HEAD` or rely on the git log command above
+            - Test that MDX syntax is valid using dprint
+          title: ${{ github.run_id }}-docs-update
+          tags: '["docs_update"]'

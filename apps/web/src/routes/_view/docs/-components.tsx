@@ -1,10 +1,12 @@
 import { MDXContent } from "@content-collections/mdx/react";
+import { Link } from "@tanstack/react-router";
 import { allDocs } from "content-collections";
+import { useMemo } from "react";
 
-import { cn } from "@hypr/utils";
-
-import { SidebarDownloadCard } from "@/components/cta-card";
 import { defaultMDXComponents } from "@/components/mdx";
+import { TableOfContents } from "@/components/table-of-contents";
+
+import { docsStructure } from "./-structure";
 
 export function DocLayout({
   doc,
@@ -15,12 +17,12 @@ export function DocLayout({
 }) {
   return (
     <>
-      <main className="flex-1 min-w-0 px-4 py-6">
+      <main className="mx-auto max-w-200 px-4 py-6">
         <ArticleHeader doc={doc} showSectionTitle={showSectionTitle} />
         <ArticleContent doc={doc} />
+        <PageNavigation currentSlug={doc.slug} />
       </main>
-
-      <RightSidebar toc={doc.toc} />
+      <TableOfContents toc={doc.toc} />
     </>
   );
 }
@@ -43,15 +45,15 @@ function ArticleHeader({
   return (
     <header className="mb-8 lg:mb-12">
       {showSectionTitle && (
-        <div className="inline-flex items-center gap-2 text-sm text-neutral-500 mb-4">
+        <div className="mb-4 inline-flex items-center gap-2 text-sm text-neutral-500">
           <span>{sectionTitle}</span>
         </div>
       )}
-      <h1 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
+      <h1 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
         {doc.title}
       </h1>
       {doc.summary && (
-        <p className="text-lg lg:text-xl text-neutral-600 leading-relaxed mb-6">
+        <p className="mb-6 text-lg leading-relaxed text-neutral-600 lg:text-xl">
           {doc.summary}
         </p>
       )}
@@ -96,39 +98,67 @@ function ArticleContent({ doc }: { doc: any }) {
   );
 }
 
-function RightSidebar({
-  toc,
-}: {
-  toc: Array<{ id: string; text: string; level: number }>;
-}) {
-  return (
-    <aside className="hidden lg:block w-64 shrink-0">
-      <div className="sticky top-17.25 max-h-[calc(100vh-69px)] overflow-y-auto flex flex-col gap-6 px-4 py-6">
-        {toc.length > 0 && (
-          <nav className="flex flex-col gap-1">
-            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-3">
-              On this page
-            </p>
-            {toc.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className={cn([
-                  "block text-sm py-1 transition-colors border-l-2",
-                  item.level === 4 && "pl-6",
-                  item.level === 3 && "pl-4",
-                  item.level === 2 && "pl-2",
-                  "border-transparent text-neutral-600 hover:text-stone-600 hover:border-neutral-300",
-                ])}
-              >
-                {item.text}
-              </a>
-            ))}
-          </nav>
-        )}
+function PageNavigation({ currentSlug }: { currentSlug: string }) {
+  const { prev, next } = useMemo(() => {
+    const orderedPages = docsStructure.sections.flatMap((sectionId) => {
+      return allDocs
+        .filter(
+          (doc) =>
+            doc.section.toLowerCase() === sectionId.toLowerCase() &&
+            !doc.isIndex,
+        )
+        .sort((a, b) => a.order - b.order);
+    });
 
-        <SidebarDownloadCard />
-      </div>
-    </aside>
+    const currentIndex = orderedPages.findIndex(
+      (doc) => doc.slug === currentSlug,
+    );
+
+    return {
+      prev: currentIndex > 0 ? orderedPages[currentIndex - 1] : null,
+      next:
+        currentIndex < orderedPages.length - 1
+          ? orderedPages[currentIndex + 1]
+          : null,
+    };
+  }, [currentSlug]);
+
+  if (!prev && !next) return null;
+
+  return (
+    <nav className="mt-12 flex items-center justify-between gap-4 border-t border-neutral-200 pt-6">
+      {prev ? (
+        <Link
+          to="/docs/$/"
+          params={{ _splat: prev.slug }}
+          className="group flex flex-col items-start gap-1 text-sm"
+        >
+          <span className="text-neutral-400 transition-colors group-hover:text-neutral-500">
+            Previous
+          </span>
+          <span className="font-medium text-stone-600 transition-colors group-hover:text-stone-800">
+            {prev.title}
+          </span>
+        </Link>
+      ) : (
+        <div />
+      )}
+      {next ? (
+        <Link
+          to="/docs/$/"
+          params={{ _splat: next.slug }}
+          className="group flex flex-col items-end gap-1 text-right text-sm"
+        >
+          <span className="text-neutral-400 transition-colors group-hover:text-neutral-500">
+            Next
+          </span>
+          <span className="font-medium text-stone-600 transition-colors group-hover:text-stone-800">
+            {next.title}
+          </span>
+        </Link>
+      ) : (
+        <div />
+      )}
+    </nav>
   );
 }

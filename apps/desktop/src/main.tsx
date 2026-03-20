@@ -1,3 +1,5 @@
+import "./styles/globals.css";
+
 import * as Sentry from "@sentry/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
@@ -13,13 +15,13 @@ import {
 import { init as initWindowsPlugin } from "@hypr/plugin-windows";
 import "@hypr/ui/globals.css";
 
-import { ErrorComponent, NotFoundComponent } from "./components/control";
-import { EventListeners } from "./components/event-listeners";
-import { TaskManager } from "./components/task-manager";
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
-import { initExtensionGlobals } from "./extension-globals";
+import { initPluginGlobals } from "./plugins/globals";
 import { routeTree } from "./routeTree.gen";
+import { EventListeners } from "./services/event-listeners";
+import { TaskManager } from "./services/task-manager";
+import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import {
   type Store,
   STORE_ID,
@@ -32,7 +34,6 @@ import {
 } from "./store/tinybase/store/settings";
 import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
-import "./styles/globals.css";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient();
@@ -81,22 +82,15 @@ function App() {
   );
 }
 
-const isIframeContext =
-  typeof window !== "undefined" && window.self !== window.top;
-
-if (!isIframeContext && env.VITE_SENTRY_DSN) {
+if (env.VITE_SENTRY_DSN) {
   Sentry.init({
     dsn: env.VITE_SENTRY_DSN,
     release: env.VITE_APP_VERSION
       ? `hyprnote-desktop@${env.VITE_APP_VERSION}`
       : undefined,
     environment: import.meta.env.MODE,
-    tracePropagationTargets: [env.VITE_API_URL],
-    integrations: [
-      Sentry.tanstackRouterBrowserTracingIntegration(router),
-      Sentry.replayIntegration(),
-    ],
-    tracesSampleRate: 1.0,
+    tracePropagationTargets: [],
+    integrations: [Sentry.replayIntegration()],
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
   });
@@ -114,17 +108,16 @@ function AppWithTiny() {
           <StoreComponent />
           <SettingsStoreComponent />
           <App />
-          {!isIframeContext && <TaskManager />}
-          {!isIframeContext && <EventListeners />}
+          <TaskManager />
+          <EventListeners />
         </TinyBaseProvider>
       </TinyTickProvider>
     </QueryClientProvider>
   );
 }
 
-// Initialize plugins - the polyfill in index.html handles iframe context
 initWindowsPlugin();
-initExtensionGlobals();
+initPluginGlobals();
 
 const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {

@@ -1,0 +1,20 @@
+pub mod auth;
+pub mod bug;
+pub mod chat;
+pub mod configure;
+pub mod connect;
+pub mod desktop;
+pub mod entry;
+pub mod exit;
+pub mod export;
+pub mod hello;
+pub mod humans;
+pub mod meetings;
+pub mod model;
+pub mod orgs;
+pub mod timeline;
+pub mod transcribe;
+pub mod update;
+
+#[cfg(feature = "dev")]
+pub mod debug;

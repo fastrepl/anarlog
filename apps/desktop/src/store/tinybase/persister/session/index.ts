@@ -3,9 +3,10 @@ import * as _UI from "tinybase/ui-react/with-schemas";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 import type { Schemas } from "@hypr/store";
 
-import type { Store } from "../../store/main";
 import { initSessionOps } from "./ops";
 import { createSessionPersister } from "./persister";
+
+import type { Store } from "~/store/tinybase/store/main";
 
 const { useCreatePersister } = _UI as _UI.WithSchemas<Schemas>;
 
@@ -22,9 +23,6 @@ export function useSessionPersister(store: Store) {
 
       initSessionOps({
         store: store as Store,
-        reloadSessions: async () => {
-          await persister.load();
-        },
       });
 
       return persister;

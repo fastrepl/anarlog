@@ -1,6 +1,13 @@
 pub mod batch;
-
+pub mod batch_sse;
+#[cfg(feature = "openapi")]
+pub mod openapi;
+pub mod progress;
 pub mod stream;
+
+#[cfg(feature = "openapi")]
+pub use openapi::openapi;
+pub use progress::{InferencePhase, InferenceProgress};
 
 #[macro_export]
 macro_rules! common_derives {
@@ -14,6 +21,7 @@ macro_rules! common_derives {
             specta::Type,
             schemars::JsonSchema,
         )]
+        #[cfg_attr(feature = "openapi", derive(utoipa::ToSchema))]
         #[schemars(deny_unknown_fields)]
         $item
     };
@@ -72,6 +80,7 @@ common_derives! {
 common_derives! {
     #[derive(Default)]
     pub struct ListenOutputChunk {
+        #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub meta: Option<serde_json::Value>,
         pub words: Vec<Word2>,
     }
@@ -97,11 +106,19 @@ common_derives! {
     }
 }
 
-common_derives! {
-    pub enum MixedMessage<A, C> {
-        Audio(A),
-        Control(C),
-    }
+#[derive(
+    PartialEq,
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    specta::Type,
+    schemars::JsonSchema,
+)]
+#[schemars(deny_unknown_fields)]
+pub enum MixedMessage<A, C> {
+    Audio(A),
+    Control(C),
 }
 
 // https://github.com/deepgram/deepgram-rust-sdk/blob/d2f2723/src/listen/websocket.rs#L772-L778
@@ -115,44 +132,44 @@ common_derives! {
 }
 
 common_derives! {
-    #[derive(strum::AsRefStr)]
-    #[derive(Default)]
-    pub enum AudioMode {
-        #[serde(rename = "single")]
-        #[strum(serialize = "single")]
-        #[default]
-        Single,
-        #[serde(rename = "dual")]
-        #[strum(serialize = "dual")]
-        Dual,
-    }
-}
-
-common_derives! {
     pub struct ListenParams {
         #[serde(default)]
         pub model: Option<String>,
+        #[serde(default = "ListenParams::default_channels")]
         pub channels: u8,
+        #[serde(default = "ListenParams::default_sample_rate")]
         pub sample_rate: u32,
         // https://docs.rs/axum-extra/0.10.1/axum_extra/extract/struct.Query.html#example-1
         #[serde(default, alias = "language")]
+        #[cfg_attr(feature = "openapi", schema(value_type = Vec<String>))]
         pub languages: Vec<hypr_language::Language>,
         #[serde(default)]
         pub keywords: Vec<String>,
         #[serde(default)]
+        #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub custom_query: Option<std::collections::HashMap<String, String>>,
     }
 }
 
 impl Default for ListenParams {
     fn default() -> Self {
-        ListenParams {
+        Self {
             model: None,
-            channels: 1,
-            sample_rate: 16000,
-            languages: vec![],
-            keywords: vec![],
+            channels: Self::default_channels(),
+            sample_rate: Self::default_sample_rate(),
+            languages: Vec::new(),
+            keywords: Vec::new(),
             custom_query: None,
         }
+    }
+}
+
+impl ListenParams {
+    fn default_channels() -> u8 {
+        1
+    }
+
+    fn default_sample_rate() -> u32 {
+        16000
     }
 }

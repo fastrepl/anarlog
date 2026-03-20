@@ -1,0 +1,43 @@
+---
+title: "Automated Workflows"
+section: "How We Work"
+summary: "GitHub Actions cron jobs that keep the codebase healthy and content fresh using Devin AI"
+---
+
+We use GitHub Actions cron jobs to automate recurring tasks. These workflows run on a schedule and use Devin AI to handle the work.
+
+## Weekly blog post
+
+**Schedule:** Every Sunday at 12:00 UTC
+
+Analyzes git commits and changelogs from the past 7 days, then writes a "Char Weekly" blog post summarizing what shipped. Created as a PR for review before publishing.
+
+**Workflow:** `.github/workflows/devin_weekly_blog.yaml`
+
+## Daily documentation update
+
+**Schedule:** Every day at 00:00 UTC
+
+Reviews recent code changes and updates technical documentation to keep it in sync with the codebase. Checks for new features, API changes, and developer-facing updates.
+
+**Workflow:** `.github/workflows/devin_update_docs.yaml`
+
+## Daily Clippy fixes
+
+**Schedule:** Every day at 00:00 UTC
+
+Runs `cargo clippy --fix` to automatically apply Rust linting suggestions, then creates a PR with the fixes.
+
+**Workflow:** `.github/workflows/devin_cargo_clippy.yaml`
+
+## Monthly legal review
+
+**Schedule:** First day of every month at 00:00 UTC
+
+Reviews product changes from the past 30 days and flags anything with potential legal implications (data collection, third-party integrations, privacy changes). Creates a report for human review — never automatically modifies legal documents.
+
+**Workflow:** `.github/workflows/devin_review_legal.yaml`
+
+## Manual triggers
+
+All workflows can also be triggered manually via the GitHub Actions tab using `workflow_dispatch`.

@@ -5,14 +5,14 @@ use std::pin::Pin;
 
 use hypr_db_parser::{
     Collection, EnhancedNote, Human, Organization, Session, SessionParticipant, TagMapping,
-    Transcript,
 };
 use hypr_frontmatter::Document;
 use hypr_version::Version;
 
-use super::utils::{FileOp, apply_ops};
+use super::utils::{FileOp, apply_ops, build_transcript_json_multi, group_by_session_id};
 use super::version_from_name;
 use crate::Result;
+use crate::version::{DetectedVersion, InferredVersion};
 
 mod files {
     pub const META: &str = "_meta.json";
@@ -35,17 +35,6 @@ fn sanitize_filename(name: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string()
-}
-
-fn group_by_session_id<T, F>(items: &[T], get_id: F) -> HashMap<&str, Vec<&T>>
-where
-    F: Fn(&T) -> &str,
-{
-    let mut map: HashMap<&str, Vec<&T>> = HashMap::new();
-    for item in items {
-        map.entry(get_id(item)).or_default().push(item);
-    }
-    map
 }
 
 fn build_tag_names(data: &Collection) -> HashMap<&str, &str> {
@@ -79,6 +68,13 @@ pub struct Migrate;
 impl super::Migration for Migrate {
     fn introduced_in(&self) -> &'static Version {
         version_from_name!()
+    }
+
+    fn applies_to(&self, detected: &DetectedVersion) -> bool {
+        !matches!(
+            detected,
+            DetectedVersion::Inferred(InferredVersion::V0_0_84)
+        )
     }
 
     fn run<'a>(&self, base_dir: &'a Path) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'a>> {
@@ -135,16 +131,19 @@ fn collect_session_ops(base_dir: &Path, data: &Collection) -> Result<Vec<FileOp>
         ops.push(FileOp::Write {
             path: dir.join(files::META),
             content: build_meta_json(session, session_participants, &session_tags),
+            force: false,
         });
 
         // transcript.json (if exists)
         if let Some(transcripts) = transcripts.get(sid)
-            && let Some(t) = transcripts.first() {
-                ops.push(FileOp::Write {
-                    path: dir.join(files::TRANSCRIPT),
-                    content: build_transcript_json(t),
-                });
-            }
+            && !transcripts.is_empty()
+        {
+            ops.push(FileOp::Write {
+                path: dir.join(files::TRANSCRIPT),
+                content: build_transcript_json_multi(transcripts),
+                force: false,
+            });
+        }
 
         // _memo.md (if user has notes)
         ops.extend(build_memo_op(&dir, session));
@@ -169,6 +168,7 @@ fn collect_human_ops(base_dir: &Path, data: &Collection) -> Result<Vec<FileOp>> 
             FileOp::Write {
                 path: humans_dir.join(format!("{}.md", human.id)),
                 content: build_human_doc(human),
+                force: false,
             }
         })
         .collect();
@@ -187,6 +187,7 @@ fn collect_organization_ops(base_dir: &Path, data: &Collection) -> Result<Vec<Fi
             FileOp::Write {
                 path: orgs_dir.join(format!("{}.md", org.id)),
                 content: build_organization_doc(org),
+                force: false,
             }
         })
         .collect();
@@ -231,43 +232,12 @@ fn build_meta_json(
     serde_json::to_string_pretty(&meta).unwrap()
 }
 
-fn build_transcript_json(transcript: &Transcript) -> String {
-    let words: Vec<serde_json::Value> = transcript
-        .words
-        .iter()
-        .map(|w| {
-            serde_json::json!({
-                "id": w.id,
-                "text": w.text,
-                "start_ms": w.start_ms,
-                "end_ms": w.end_ms,
-                "channel": w.channel,
-                "speaker": w.speaker,
-            })
-        })
-        .collect();
-
-    let data = serde_json::json!({
-        "transcripts": [{
-            "id": transcript.id,
-            "user_id": transcript.user_id,
-            "created_at": transcript.created_at,
-            "session_id": transcript.session_id,
-            "started_at": transcript.started_at,
-            "ended_at": transcript.ended_at,
-            "words": words,
-            "speaker_hints": [],
-        }]
-    });
-
-    serde_json::to_string_pretty(&data).unwrap()
-}
-
 fn build_memo_op(dir: &Path, session: &Session) -> Option<FileOp> {
     let content = build_memo_content(session)?;
     Some(FileOp::Write {
         path: dir.join(files::MEMO),
         content,
+        force: false,
     })
 }
 
@@ -284,6 +254,7 @@ fn build_enhanced_note_ops(
             Some(FileOp::Write {
                 path: dir.join(filename),
                 content,
+                force: false,
             })
         })
         .collect()

@@ -9,7 +9,7 @@
   },
   "types": "./src/index.ts",
   "dependencies": {
-    "tinybase": "^7.3.1"
+    "tinybase": "^7.3.2"
   },
   "devDependencies": {
     "typescript": "~5.8.3",

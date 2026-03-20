@@ -1,130 +1,345 @@
 ---
 title: "Analytics"
 section: "Developers"
-description: "Learn about analytics in Hyprnote"
+description: "Learn about analytics in Char"
 ---
 
-## What are we tracking?
+## Scope
 
-We use PostHog for analytics in both the web and desktop applications. The web application also uses Outlit for pageview tracking. You can opt-out from the settings menu in the desktop app.
+This is a code-derived inventory of what Char sends to PostHog across:
 
-## User Journey Events
+- `apps/web` (browser events)
+- `apps/desktop` + `plugins/analytics` (desktop events)
+- `apps/api` + proxy/subscription crates (server-side events)
 
-### 1. Visiting the Website
+## Collection paths
 
-Events tracked on the web app (`apps/web`):
+### Web (`apps/web`)
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `download_clicked` | User clicks a download button | `platform`, `spec`, `source`, `timestamp` |
-| `reminder_requested` | User requests a mobile reminder | `platform`, `timestamp`, `email` |
-| `os_waitlist_joined` | User joins waitlist for Linux/Windows | `platform`, `timestamp`, `email` |
+- PostHog is initialized in `apps/web/src/providers/posthog.tsx` only when:
+  - `VITE_POSTHOG_API_KEY` is set
+  - build is not dev (`!import.meta.env.DEV`)
+- Enabled options:
+  - `autocapture: true`
+  - `capture_pageview: true`
 
-The web app also has PostHog autocapture and pageview tracking enabled.
+### Desktop (`apps/desktop` + `plugins/analytics`)
 
-### 2. Getting Started
+- Frontend calls `analyticsCommands.event`, `analyticsCommands.setProperties`, and `analyticsCommands.identify`.
+- Rust plugin forwards to `hypr_analytics::AnalyticsClient` in `plugins/analytics/src/ext.rs`.
+- Distinct ID for desktop telemetry is `hypr_host::fingerprint()` (hashed machine UID).
 
-Events tracked when users first launch the desktop app:
+### API/server (`apps/api` + crates)
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `show_main_window` | Main window is shown (fires on every app launch) | - |
-| `account_skipped` | User proceeds without account (local mode) | - |
-| `user_signed_in` | User signs in | - |
-| `ai_provider_configured` | User configures an AI provider | `provider` |
-| `data_imported` | User imports data from another app | `source` |
-| `trial_started` | User starts a trial | `plan` |
+- API builds a PostHog client in production in `apps/api/src/main.rs`.
+- Request middleware maps `x-device-fingerprint` and auth user ID into request extensions in `apps/api/src/auth.rs`.
+- LLM/STT/trial analytics emit from backend crates (details below).
 
-### 3. Before Meetings
+## Identity and distinct IDs
 
-Events tracked when preparing for meetings:
+| Surface | Distinct ID | Identify behavior |
+|--------|-------------|-------------------|
+| Desktop custom events | Machine fingerprint (`hypr_host::fingerprint()`) | `identify(userId, payload)` sends PostHog `$identify` with `$anon_distinct_id` = machine fingerprint. |
+| Web custom/autocapture events | PostHog browser distinct ID | Auth callback calls `posthog.identify(userId, { email })`. |
+| API `$ai_generation` | `x-device-fingerprint` if present, else `generation_id` | Optional `user_id` also included as event property. |
+| API `$stt_request` | `x-device-fingerprint` if present, else random UUID | Optional `user_id` also included as event property. |
+| API trial events | `x-device-fingerprint` if present (desktop), else authenticated `user_id` | `user_id` is included as an event property when distinct ID is fingerprint. No separate `$identify` call here. |
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `note_created` | User creates a new note | `has_event_id` (whether linked to calendar) |
-| `file_uploaded` | User uploads a file | `file_type` (audio/transcript), `token_count` |
+## Automatic desktop event enrichment
 
-### 4. During Meetings
+Every desktop `event(...)` call is enriched in `plugins/analytics/src/ext.rs` with:
 
-Events tracked during active sessions:
+| Property | Value |
+|----------|-------|
+| `app_version` | `env!("APP_VERSION")` |
+| `app_identifier` | Tauri app identifier |
+| `git_hash` | `tauri_plugin_misc::get_git_hash()` |
+| `bundle_id` | Tauri app identifier |
+| `$set.app_version` | user property update on each event |
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `session_started` | Listening session starts | `has_calendar_event` |
-| `tab_opened` | User opens a tab | `view` (tab type) |
-| `search_performed` | User performs a search | - |
+This enrichment applies to desktop frontend events and Rust plugin `event_fire_and_forget` events (for example notification/window events).
 
-### 5. After Meetings
+## Event catalog
 
-Events tracked when working with completed sessions:
+### Web custom events
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `note_edited` | User edits a note | `has_content` |
-| `note_enhanced` | AI enhancement is triggered | `is_auto`, `template_id` |
-| `message_sent` | User sends a chat message | - |
-| `session_exported` | User exports a session | `format` (pdf/vtt), `view_type`, `has_transcript`, `has_enhanced`, `has_memo`, `word_count` |
-| `session_deleted` | User deletes a session/note | `includes_recording` |
-| `recording_deleted` | User deletes a recording | - |
+| Event | Properties | Source |
+|------|------------|--------|
+| `hero_section_viewed` | `timestamp` | `apps/web/src/routes/_view/index.tsx` |
+| `download_clicked` | Homepage: `platform`, `timestamp` | `apps/web/src/components/download-button.tsx` |
+| `download_clicked` | Download page: `platform`, `spec`, `source` (`"download_page"`) | `apps/web/src/routes/_view/download/index.tsx` |
+| `reminder_requested` | `platform`, `timestamp`, `email` | `apps/web/src/routes/_view/index.tsx` |
+| `os_waitlist_joined` | `platform`, `timestamp`, `email` | `apps/web/src/routes/_view/index.tsx` |
 
-### 6. Settings & Account Management
+Notes:
 
-Events tracked when managing settings and account:
+- PostHog autocapture and pageview are also on (production only), so PostHog default browser events are collected in addition to the custom events above.
+- Web auth callback calls `identify(userId, { email })` in `apps/web/src/routes/_view/callback/auth.tsx`.
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `settings_changed` | User changes settings | `autostart`, `notification_detect`, `save_recordings`, `telemetry_consent` |
-| `upgrade_clicked` | User clicks upgrade button | `plan` |
-| `user_signed_out` | User signs out | - |
+### Desktop product events
 
-### 7. Notification Interactions
+| Event | Properties | Source |
+|------|------------|--------|
+| `show_main_window` | none (plus auto-enriched desktop props) | `plugins/windows/src/ext.rs` |
+| `onboarding_step_viewed` | `step`, `platform` | `apps/desktop/src/onboarding/index.tsx` |
+| `onboarding_completed` | none | `apps/desktop/src/onboarding/final.tsx` |
+| `user_signed_in` | none | `apps/desktop/src/auth/context.tsx` |
+| `trial_flow_client_error` | `properties.error` (nested object) | `apps/desktop/src/onboarding/account/trial.tsx` |
+| `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | `apps/desktop/src/onboarding/account/trial.tsx` |
+| `data_imported` | `source` | `apps/desktop/src/settings/data/index.tsx` |
+| `note_created` | `has_event_id` | `apps/desktop/src/store/tinybase/store/sessions.ts`, `apps/desktop/src/shared/main/useNewNote.ts` |
+| `file_uploaded` | Audio: `file_type = "audio"`; Transcript: `file_type = "transcript"`, `token_count` | `apps/desktop/src/session/components/floating/options-menu.tsx` |
+| `session_started` | `has_calendar_event`, `stt_provider`, `stt_model` | `apps/desktop/src/stt/useStartListening.ts` |
+| `tab_opened` | `view` | `apps/desktop/src/store/zustand/tabs/basic.ts` |
+| `search_performed` | none | `apps/desktop/src/search/contexts/ui.tsx` |
+| `note_edited` | `has_content` (currently emitted as `true`) | `apps/desktop/src/session/components/note-input/raw.tsx` |
+| `note_enhanced` | Variant A: `is_auto`; Variant B: `is_auto`, `llm_provider`, `llm_model`, `template_id` | `apps/desktop/src/session/components/note-input/header.tsx`, `apps/desktop/src/services/enhancer/index.ts` |
+| `message_sent` | none | `apps/desktop/src/chat/components/input/hooks.ts` |
+| `session_exported` | Modal export: `format`, `include_summary`, `include_transcript` | `apps/desktop/src/session/components/outer-header/overflow/export-modal.tsx` |
+| `session_exported` | PDF export: `format = "pdf"`, `view_type`, `has_transcript`, `has_enhanced`, `has_memo` | `apps/desktop/src/session/components/outer-header/overflow/export-pdf.tsx` |
+| `session_exported` | Transcript export: `format = "vtt"`, `word_count` | `apps/desktop/src/session/components/outer-header/overflow/export-transcript.tsx` |
+| `session_deleted` | `includes_recording` (currently always `true`) | `apps/desktop/src/session/components/outer-header/overflow/delete.tsx` |
+| `settings_changed` | `autostart`, `notification_detect`, `save_recordings`, `telemetry_consent` | `apps/desktop/src/settings/general/index.tsx` |
+| `ai_provider_configured` | `provider` | `apps/desktop/src/settings/ai/shared/index.tsx` |
+| `upgrade_clicked` | `plan` (`"pro"`) | `apps/desktop/src/settings/general/account.tsx` |
+| `user_signed_out` | none | `apps/desktop/src/settings/general/account.tsx` |
 
-Events tracked when users interact with system notifications:
+### Desktop notification events
 
-| Event | Description | Properties |
-|-------|-------------|------------|
-| `collapsed_confirm` | User clicks collapsed notification to open app | - |
-| `expanded_accept` | User accepts expanded notification | - |
-| `dismiss` | User dismisses notification | - |
-| `collapsed_timeout` | Collapsed notification times out | - |
+| Event | Properties | Source |
+|------|------------|--------|
+| `collapsed_confirm` | none | `plugins/notification/src/handler.rs` |
+| `expanded_accept` | none | `plugins/notification/src/handler.rs` |
+| `dismiss` | none | `plugins/notification/src/handler.rs` |
+| `collapsed_timeout` | none | `plugins/notification/src/handler.rs` |
+| `option_selected` | none | `plugins/notification/src/handler.rs` |
 
-## User Properties
+### API/server events
 
-Properties set to track user context and configuration:
+| Event | Properties | Source |
+|------|------------|--------|
+| `$stt_request` | `$stt_provider`, `$stt_duration`, optional `user_id` | `crates/transcribe-proxy/src/analytics.rs` |
+| `$ai_generation` | `$ai_provider`, `$ai_model`, `$ai_input_tokens`, `$ai_output_tokens`, `$ai_latency`, `$ai_trace_id`, `$ai_http_status`, `$ai_base_url`, optional `$ai_total_cost_usd`, optional `user_id` | `crates/llm-proxy/src/analytics.rs` |
+| `trial_started` | `plan`, `source` (`desktop` or `web`) | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
+| `trial_skipped` | `reason = "not_eligible"`, `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
+| `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 
-| Property | Description | Type |
-|----------|-------------|------|
-| `is_local_mode` | Whether user is in local-only mode | set |
-| `is_signed_up` | Whether user has signed up | set |
-| `platform` | Operating system (macos, linux, windows) | set |
-| `os_version` | Operating system version | set |
-| `app_version` | Application version | set |
-| `account_created_date` | When account was created | set_once |
-| `telemetry_opt_out` | Whether user opted out of telemetry | set |
-| `has_configured_ai` | Whether user has configured an AI provider | set |
-| `plan` | Current subscription plan | set |
-| `trial_end_date` | When trial ends | set |
+## User journey funnel
 
-## Analytics Commands
+The user lifecycle is divided into 8 stages. Each stage lists the PostHog events that measure it, how identity linking works at that point, and known gaps.
 
-Available methods for tracking events and properties:
+### Stage 1: Acquisition (website visits)
 
-- `event(name, properties?)` - Track a custom event with optional properties
-- `setProperties(properties)` - Set user properties (supports `set` and `set_once` types)
-- `setDisabled(disabled)` - Enable or disable analytics tracking
-- `isDisabled()` - Check if analytics is currently disabled
+Goal: measure traffic to the website.
 
-## Conversion Funnel Tracking
+| Event | Properties | Notes |
+|-------|------------|-------|
+| PostHog autocapture | automatic | Page clicks, form interactions. Production only. |
+| PostHog pageview | automatic | Every page load. Production only. |
+| `hero_section_viewed` | `timestamp` | Explicit signal that a visitor saw the main landing section. |
+| `reminder_requested` | `platform`, `timestamp`, `email` | Mobile app waitlist signup. |
+| `os_waitlist_joined` | `platform`, `timestamp`, `email` | Desktop waitlist signup. |
 
-To track the user journey from website visit to active usage, use PostHog's funnel analysis with these key events:
+Identity: anonymous PostHog browser distinct ID. No user identity yet.
 
-1. `download_clicked` (web) - User downloads the app
-2. `show_main_window` (desktop) - User launches the app
-3. `note_created` (desktop) - User creates their first note
-4. `note_enhanced` (desktop) - User uses AI enhancement
+### Stage 2: Converting visits to installs
 
-PostHog's anonymous ID tracking links web and desktop events for the same user, enabling conversion analysis without additional implementation.
+Goal: measure how many website visitors download and open the app.
 
-## How to make changes?
+| Event | Properties | Where |
+|-------|------------|-------|
+| `download_clicked` | Homepage: `platform`, `timestamp`; Download page: `platform`, `spec`, `source` | Web |
+| `show_main_window` | none (auto-enriched with `app_version`, `git_hash`, `bundle_id`) | Desktop |
 
-See `.cursor/commands/add-analytics.md` for detailed instructions.
+Identity linking: `download_clicked` fires with anonymous browser ID. `show_main_window` fires with machine fingerprint. These two IDs are **not linked** at this point — there is no mechanism to pass the browser identity into the desktop app at download time. Conversion rate between these two events can only be measured at cohort level (e.g., X downloads this week, Y first app opens this week), not per-user.
+
+Gap: no explicit install-complete event. Install is inferred from first `show_main_window`.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/web/src/components/download-button.tsx#L43-L48" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/windows/src/ext.rs#L76-L86" />
+
+### Stage 3: Onboarding
+
+Goal: measure onboarding progress and completion.
+
+| Event | Properties | Notes |
+|-------|------------|-------|
+| `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `final`. |
+| `user_signed_in` | none | Fires on auth state change. Also triggers `identify(supabaseUserId, { email, account_created_date, is_signed_up, app_version, os_version, platform })`. |
+| `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
+| `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
+| `trial_flow_client_error` | `properties.error` | Desktop. Error during trial activation. |
+| `onboarding_completed` | none | Fires when user clicks "Get Started" on the final onboarding screen. |
+
+Identity linking: desktop sign-in opens `char.com/auth` **in the user's default browser**. The web auth callback calls `posthog.identify(supabaseUserId)`, which merges the anonymous browser ID with the Supabase user ID. The desktop then calls `identify(supabaseUserId)` with `$anon_distinct_id` = machine fingerprint. This links browser → Supabase user ID → machine fingerprint. Because the login opens in the same browser where the user may have previously clicked download, PostHog can retroactively merge `download_clicked` with the authenticated user — **but only if the same browser is used for both download and login**.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/auth/context.tsx#L114-L145" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/auth/context.tsx#L273-L276" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/analytics/src/ext.rs#L109-L126" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/onboarding/index.tsx#L94-L100" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/onboarding/final.tsx#L58-L65" />
+
+### Stage 4: Activation (first summary)
+
+Goal: measure whether a user gets value from the product by generating their first AI summary.
+
+| Event | Properties | Where | Signal |
+|-------|------------|-------|--------|
+| `note_created` | `has_event_id` | Desktop | User created a note (standalone or calendar-backed). |
+| `session_started` | `has_calendar_event`, `stt_provider`, `stt_model` | Desktop | User started transcription. This is intent. |
+| `$stt_request` | `$stt_provider`, `$stt_duration` | Server | Transcription actually happened. Stronger signal than `session_started`. |
+| `note_enhanced` | `is_auto`, `llm_provider`, `llm_model`, `template_id` | Desktop | Summary generated. `is_auto` distinguishes automatic vs manual trigger. |
+| `$ai_generation` | `$ai_provider`, `$ai_model`, `$ai_input_tokens`, `$ai_output_tokens`, `$ai_latency` | Server | LLM call actually happened. Stronger signal than `note_enhanced`. |
+
+Activation funnel sequence: `note_created` → `session_started` → `$stt_request` → `note_enhanced` / `$ai_generation`.
+
+For the activation milestone, `$ai_generation` (server-side) is the strongest "user got value" signal because it confirms the summary was actually produced, not just requested.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/store/tinybase/store/sessions.ts#L19-L32" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/stt/useStartListening.ts#L56-L61" />
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/services/enhancer/index.ts#L202-L209" />
+
+### Stage 5: Building habits (multiple meeting notes)
+
+Goal: measure whether a user moves from first use to repeated use.
+
+| Event | What to measure |
+|-------|-----------------|
+| `note_created` | Count per user over time. Look for users with 2+, 5+, 10+ notes. |
+| `session_started` / `$stt_request` | Repeated transcription sessions. |
+| `note_enhanced` / `$ai_generation` | Repeated summary generation. |
+| `file_uploaded` | `file_type` (`audio` or `transcript`). Importing recordings shows deepening usage. |
+| `message_sent` | Chat engagement with notes. |
+| `search_performed` | Searching past notes indicates accumulated value. |
+| `session_exported` | `format`. Exporting notes means the output is useful outside the app. |
+| `ai_provider_configured` | `provider`. Configuring a custom AI provider shows investment in the tool. |
+| `data_imported` | `source`. Importing data from other tools. |
+
+Habit signals: look for users who fire `note_created` or `$stt_request` on 3+ distinct days within their first 14 days.
+
+### Stage 6: Retention (coming back)
+
+Goal: measure whether users return to the app over time.
+
+| Event | What to measure |
+|-------|-----------------|
+| `show_main_window` | Fires every time the main window is shown (not just first launch). Count distinct days per user. |
+| `tab_opened` | `view`. Indicates active navigation within the app. |
+| `note_edited` | Revisiting and editing past notes. |
+| `search_performed` | Searching past content means the user has accumulated value worth returning to. |
+
+Retention measurement: count distinct days with `show_main_window` per user per week/month. A retained user has `show_main_window` on multiple distinct days across weeks.
+
+### Stage 7: Conversion (trial to pro)
+
+Goal: measure monetization.
+
+| Event | Properties | Where | Notes |
+|-------|------------|-------|-------|
+| `trial_started` | `plan`, `source` | Server | Trial begins. `trial_end_date` user property is set to UTC now + 14 days. |
+| `trial_skipped` | `reason = "not_eligible"`, `source` | Server | User was not eligible for trial. |
+| `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | Server | Trial creation failed. |
+| `upgrade_clicked` | `plan` (`"pro"`) | Desktop | User clicked upgrade button. This is intent, not completion. |
+
+User properties for segmentation: `plan` (set on trial start), `trial_end_date` (set on trial start).
+
+Gap: no explicit `subscription_started` or `payment_completed` event. Conversion from trial to paid is currently inferred from the `plan` user property or Stripe data, not a PostHog event.
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/api-subscription/src/trial.rs#L69-L77" />
+
+### Stage 8: Retention (keep paying)
+
+Goal: measure ongoing engagement from paying users.
+
+No stage-specific events. Use the same product events from stages 4-6 filtered to users where `plan = "pro"`:
+
+| Signal | How to measure |
+|--------|----------------|
+| Continued usage | `$stt_request` and `$ai_generation` events per week for pro users. |
+| Feature depth | `template_id` on `note_enhanced` (using templates), `message_sent` (chat), `session_exported` (export). |
+| Settings engagement | `settings_changed`, `ai_provider_configured`. |
+| Churn risk | Absence of `show_main_window` for 7+ days. `user_signed_out` event. |
+
+Gap: no explicit `subscription_cancelled` or `payment_failed` event in PostHog. Churn detection relies on usage drop-off or Stripe webhooks outside PostHog.
+
+### Suggested PostHog funnel definition
+
+For a single end-to-end activation funnel in PostHog:
+
+1. `download_clicked` (web)
+2. `show_main_window` (desktop)
+3. `user_signed_in` (desktop)
+4. `onboarding_completed` (desktop)
+5. `note_created` (desktop)
+6. `$stt_request` (server, optionally filter `$stt_duration >= 300`)
+7. `$ai_generation` (server)
+
+Note: steps 1→2 cannot be linked at per-user level without sign-in (see Stage 2 identity notes). Steps 2→7 are linked via machine fingerprint and Supabase user ID after sign-in.
+
+## User property catalog
+
+PostHog user properties are set via `$set`, `$set_once`, and `$identify` payloads.
+
+| Property | How it is set | Source |
+|----------|---------------|--------|
+| `email` | `identify(..., { email })` (desktop and web) | `apps/desktop/src/auth/context.tsx`, `apps/web/src/routes/_view/callback/auth.tsx` |
+| `account_created_date` | `identify(..., { set: { ... } })` | `apps/desktop/src/auth/context.tsx` |
+| `is_signed_up` | `true` on sign-in identify, `false` on sign-out `setProperties` | `apps/desktop/src/auth/context.tsx`, `apps/desktop/src/settings/general/account.tsx` |
+| `platform` | `identify(..., set.platform)` | `apps/desktop/src/auth/context.tsx` |
+| `os_version` | `identify(..., set.os_version)` | `apps/desktop/src/auth/context.tsx` |
+| `app_version` | `identify(..., set.app_version)` and per-event `$set.app_version` enrichment | `apps/desktop/src/auth/context.tsx`, `plugins/analytics/src/ext.rs` |
+| `telemetry_opt_out` | `setProperties({ set: { telemetry_opt_out } })` | `apps/desktop/src/settings/general/index.tsx` |
+| `has_configured_ai` | `setProperties({ set: { has_configured_ai: true } })` | `apps/desktop/src/settings/ai/shared/index.tsx` |
+| `spoken_languages` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
+| `current_stt_provider` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
+| `current_stt_model` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
+| `current_llm_provider` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
+| `current_llm_model` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
+| `plan` | server `set_properties` on successful trial start | `crates/api-subscription/src/trial.rs` |
+| `trial_end_date` | server `set_properties` on successful trial start (`UTC now + 14 days`) | `crates/api-subscription/src/trial.rs` |
+
+## Telemetry controls and environment behavior
+
+- Desktop opt-out:
+  - `telemetry_consent` config side effect calls `analyticsCommands.setDisabled(!value)`.
+  - When disabled, desktop plugin drops `event`, `setProperties`, and `identify` calls.
+  - Source: `apps/desktop/src/shared/config/registry.ts`, `plugins/analytics/src/ext.rs`.
+- Desktop PostHog initialization:
+  - Release builds require `POSTHOG_API_KEY` at compile time.
+  - Debug builds use `option_env!("POSTHOG_API_KEY")`; if missing, events are not sent to PostHog (they only hit local tracing fallback).
+  - Source: `plugins/analytics/src/lib.rs`, `crates/analytics/src/lib.rs`.
+- Web:
+  - PostHog is not initialized in dev mode.
+  - Source: `apps/web/src/providers/posthog.tsx`.
+- API:
+  - PostHog client is active only in non-debug builds (production requires `POSTHOG_API_KEY`).
+  - Source: `apps/api/src/main.rs`.
+- Note on scope:
+  - Desktop `telemetry_consent` only controls the desktop plugin path. No code path currently applies that toggle to server-side `$stt_request` / `$ai_generation` / trial events.
+
+## Feature flags
+
+Feature flag checks are wired through PostHog capability in `hypr_analytics`, but current desktop feature strategy is hardcoded:
+
+- `Feature::Chat => FlagStrategy::Hardcoded(true)`
+- Source: `plugins/flag/src/feature.rs`.
+
+If a feature uses `FlagStrategy::Posthog(key)`, the check resolves via `is_feature_enabled(flag_key, distinct_id)` with desktop machine fingerprint as distinct ID.
+
+## How to update this document
+
+1. Search for all emitters:
+   - `analyticsCommands.event(`
+   - `analyticsCommands.setProperties(`
+   - `analyticsCommands.identify(`
+   - `AnalyticsPayload::builder("...`)`
+   - `posthog.capture(` / `posthog.identify(`
+2. Verify payload keys at each callsite (watch for nested objects like `properties: {...}`).
+3. Re-run this inventory after any analytics refactor in `plugins/analytics`, `crates/analytics`, `crates/llm-proxy`, `crates/transcribe-proxy`, or `crates/api-subscription`.

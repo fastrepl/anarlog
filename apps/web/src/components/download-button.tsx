@@ -20,14 +20,14 @@ export function DownloadButton() {
       case "windows":
         return {
           icon: "mdi:microsoft-windows",
-          label: "Download for Windows",
-          href: "/download/windows",
+          label: "Download Char",
+          href: "/download/",
         };
       case "linux":
         return {
-          icon: "mdi:linux",
-          label: "Download for Linux",
-          href: "/download/linux",
+          icon: "mdi:apple",
+          label: "Download Char",
+          href: "/download/",
         };
       default:
         return {
@@ -53,13 +53,13 @@ export function DownloadButton() {
       download
       onClick={handleClick}
       className={cn([
-        "group px-6 h-12 flex items-center justify-center",
-        "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-        "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+        "group flex h-12 items-center justify-center px-6",
+        "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+        "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
         "transition-all",
       ])}
     >
-      <Icon icon={icon} className="text-xl mr-2" />
+      <Icon icon={icon} className="mr-2 text-xl" />
       {label}
     </a>
   );
