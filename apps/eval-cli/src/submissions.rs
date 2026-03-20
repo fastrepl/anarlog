@@ -1,6 +1,6 @@
 use hypr_eval::{
-    ChatMessage, CheckResult, EvalCase, GraderSpec, RubricSpec, find_headings, find_lists, grade,
-    is_non_empty,
+    find_headings, find_lists, grade, is_non_empty, ChatMessage, CheckResult, EvalCase, GraderSpec,
+    RubricSpec,
 };
 use hypr_template_eval::{MdgenSystem, Template};
 
