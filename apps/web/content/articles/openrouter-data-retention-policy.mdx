@@ -1,8 +1,11 @@
 ---
+meta_title: "OpenRouter Data Retention Policy: What You Need to Know"
+meta_description: "OpenRouter routes your requests across dozens of AI providers. That means two data retention questions, not one. Here's how to think about both."
 author:
   - "John Jeong"
+  - "Harshika"
 featured: false
-category: "Product"
+category: "Guides"
 date: "2026-03-20"
 ---
 
@@ -36,7 +39,7 @@ This gives you granular control if you need it. For most use cases, simply not e
 
 This is where OpenRouter's data policy gets more complicated.
 
-When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, OpenAI's 30-day abuse monitoring window applies. If it goes to Anthropic's API, Anthropic's 7-day window applies.
+When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, [OpenAI's 30-day abuse monitoring window](https://char.com/blog/chatgpt-data-retention-policy/) applies. If it goes to Anthropic's API, [Anthropic's 7-day window](https://char.com/blog/anthropic-data-retention-policy/) applies.
 
 OpenRouter displays the data retention policy for each provider endpoint in its interface. Before routing sensitive data through a model, check the provider policy shown for that endpoint.
 
