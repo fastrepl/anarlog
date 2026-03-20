@@ -34,7 +34,19 @@ import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 
-const LISTEN_BUTTON_WIDTH = "w-[160px]";
+function useIsNarrow(threshold = 720) {
+  const [isNarrow, setIsNarrow] = useState(() => window.innerWidth < threshold);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsNarrow(window.innerWidth < threshold);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [threshold]);
+
+  return isNarrow;
+}
 
 export function HeaderListenButton() {
   const visible = useHeaderListenVisible();
@@ -107,9 +119,11 @@ function HeaderListenButtonInner() {
     muted: state.live.muted,
   }));
   const [open, setOpen] = useState(false);
+  const isNarrow = useIsNarrow();
   const isActive = status === "active";
   const isFinalizing = status === "finalizing";
   const isRecording = isActive || isFinalizing;
+  const effectivelyDisabled = isFinalizing || (!isRecording && isDisabled);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -164,28 +178,16 @@ function HeaderListenButtonInner() {
 
   const handleButtonClick = isActive ? stop : handleClick;
 
-  const button = (
+  const mainButton = (
     <button
       type="button"
       onClick={handleButtonClick}
       onMouseDown={isRecording ? undefined : handleMenuMouseDown}
       onContextMenu={isRecording ? undefined : handleOpenMenu}
-      disabled={isFinalizing || (!isRecording && isDisabled)}
+      disabled={effectivelyDisabled}
       className={cn([
-        "group relative inline-flex h-9 items-center justify-center rounded-full text-sm font-medium select-none",
-        LISTEN_BUTTON_WIDTH,
-        "px-3",
-        "border-2",
-        isRecording
-          ? "border-red-400 bg-red-50 text-red-600"
-          : "border-stone-600 bg-stone-800 text-white",
-        "transition-all duration-200 ease-out",
-        !isFinalizing &&
-          (isRecording
-            ? "hover:bg-red-50 hover:text-red-700"
-            : "hover:bg-stone-700"),
-        isFinalizing && "cursor-wait",
-        "disabled:opacity-50",
+        "flex h-full items-center justify-center",
+        isRecording ? "px-3" : "pl-3",
       ])}
       aria-label={
         isFinalizing
@@ -196,61 +198,50 @@ function HeaderListenButtonInner() {
       }
     >
       {isRecording ? (
-        <div className="relative flex w-full items-center justify-center">
+        <div
+          className={cn([
+            "items-center justify-items-center",
+            isFinalizing
+              ? "flex gap-2"
+              : "grid [&>*]:col-start-1 [&>*]:row-start-1",
+          ])}
+        >
           {isFinalizing ? (
-            <div className="flex items-center gap-2">
+            <>
               <span className="size-2 animate-pulse rounded-full bg-yellow-400" />
-              <span className="whitespace-nowrap">Finalizing</span>
-            </div>
+              {!isNarrow && (
+                <span className="whitespace-nowrap">Finalizing</span>
+              )}
+            </>
           ) : (
             <>
-              <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover:opacity-0">
-                <span className="flex items-center gap-2">
-                  {muted && <MicOff className="size-3.5 text-red-500" />}
-                  <DancingSticks
-                    amplitude={Math.min(
-                      Math.hypot(amplitude.mic, amplitude.speaker),
-                      1,
-                    )}
-                    color="#dc2626"
-                    height={20}
-                    width={72}
-                    stickWidth={3}
-                    gap={2}
-                  />
-                </span>
+              <span className="flex items-center gap-2 transition-opacity duration-150 group-hover:opacity-0">
+                {muted && <MicOff className="size-3.5 text-red-500" />}
+                <DancingSticks
+                  amplitude={Math.min(
+                    Math.hypot(amplitude.mic, amplitude.speaker),
+                    1,
+                  )}
+                  color="#dc2626"
+                  height={20}
+                  width={isNarrow ? 24 : 72}
+                  stickWidth={3}
+                  gap={2}
+                />
               </span>
-              <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                <span className="inline-flex items-center gap-2 whitespace-nowrap">
-                  <span className="size-2.5 rounded-xs bg-red-600" />
-                  <span>Stop listening</span>
-                </span>
+              <span className="inline-flex items-center gap-2 whitespace-nowrap opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <span className="size-2.5 rounded-xs bg-red-600" />
+                {!isNarrow && <span>Stop</span>}
               </span>
             </>
           )}
         </div>
       ) : (
-        <span className="flex w-full items-center justify-center px-7">
-          <span className="inline-flex shrink-0 items-center gap-2">
-            <RecordingIcon />
-            <span className="whitespace-nowrap">New meeting</span>
-          </span>
+        <span className="inline-flex shrink-0 items-center gap-2">
+          <RecordingIcon />
+          {!isNarrow && <span className="whitespace-nowrap">New meeting</span>}
         </span>
       )}
-    </button>
-  );
-
-  const chevron = (
-    <button
-      type="button"
-      className="absolute inset-y-0 right-0 z-10 inline-flex w-7 cursor-pointer items-center justify-center rounded-r-full bg-transparent text-white/70 transition-colors select-none hover:text-white"
-      onMouseDown={handleMenuMouseDown}
-      onClick={(event) => {
-        event.stopPropagation();
-      }}
-    >
-      <ChevronDown className="size-3.5" />
-      <span className="sr-only">More options</span>
     </button>
   );
 
@@ -259,14 +250,27 @@ function HeaderListenButtonInner() {
       <PopoverAnchor asChild>
         <div
           ref={containerRef}
-          className="relative flex items-center select-none"
+          className={cn([
+            "group inline-flex h-8 items-center rounded-full text-sm font-medium select-none",
+            "border-1",
+            isRecording
+              ? "border-red-400 bg-red-50 text-red-600"
+              : "border-stone-600 bg-stone-800 text-white",
+            "transition-all duration-200 ease-out",
+            !isFinalizing &&
+              (isRecording
+                ? "hover:bg-red-50 hover:text-red-700"
+                : "hover:bg-stone-700"),
+            isFinalizing && "cursor-wait",
+            effectivelyDisabled && "opacity-50",
+          ])}
           onMouseDownCapture={handleMenuMouseDown}
           onContextMenu={handleOpenMenu}
         >
           {warningMessage && !isRecording ? (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
-                <span className="inline-flex">{button}</span>
+                <span className="inline-flex h-full">{mainButton}</span>
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 <ActionableTooltipContent
@@ -279,9 +283,23 @@ function HeaderListenButtonInner() {
               </TooltipContent>
             </Tooltip>
           ) : (
-            button
+            mainButton
           )}
-          {!isRecording && <PopoverTrigger asChild>{chevron}</PopoverTrigger>}
+          {!isRecording && (
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="flex h-full w-7 shrink-0 cursor-pointer items-center justify-center rounded-r-full text-white/70 transition-colors select-none hover:text-white"
+                onMouseDown={handleMenuMouseDown}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+              >
+                <ChevronDown className="size-3" />
+                <span className="sr-only">More options</span>
+              </button>
+            </PopoverTrigger>
+          )}
         </div>
       </PopoverAnchor>
       {!isRecording && (
