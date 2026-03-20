@@ -1,7 +1,6 @@
 use crate::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, Error, TransportType};
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
-use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{
@@ -9,9 +8,10 @@ use windows::Win32::Media::Audio::{
     eConsole, eRender,
 };
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
+    CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize, STGM_READ,
 };
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
+use windows::core::{GUID, Interface, PCWSTR, PWSTR};
 
 pub struct WindowsBackend;
 
