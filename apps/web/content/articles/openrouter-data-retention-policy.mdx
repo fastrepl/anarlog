@@ -32,29 +32,29 @@ OpenRouter supports ZDR at the request level. You can pass the zdr parameter in 
 
 This gives you granular control if you need it. For most use cases, simply not enabling prompt logging achieves the same result for OpenRouter's own data handling.
 
-**The Part Most People Miss: What the Underlying Provider Stores**
+## What OpenRouter's Underlying Provider Stores
 
-**This is where OpenRouter's data policy gets more complicated.**
+This is where OpenRouter's data policy gets more complicated.
 
-**When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, OpenAI's 30-day abuse monitoring window applies. If it goes to Anthropic's API, Anthropic's 7-day window applies.**
+When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, OpenAI's 30-day abuse monitoring window applies. If it goes to Anthropic's API, Anthropic's 7-day window applies.
 
-**OpenRouter displays the data retention policy for each provider endpoint in its interface. Before routing sensitive data through a model, check the provider policy shown for that endpoint.**
+OpenRouter displays the data retention policy for each provider endpoint in its interface. Before routing sensitive data through a model, check the provider policy shown for that endpoint.
 
-**By default, OpenRouter does not guarantee which specific provider instance handles your request. It selects based on availability, price, and performance. You can specify a preferred provider using routing parameters in your API call, but unless you do, the selection is automatic.**
+By default, OpenRouter does not guarantee which specific provider instance handles your request. It selects based on availability, price, and performance. You can specify a preferred provider using routing parameters in your API call, but unless you do, the selection is automatic.
 
-**How to Keep Your Data in the EU**
+## How to Keep Your Data in the EU
 
-**For enterprise customers, OpenRouter supports EU in-region routing. When enabled, your prompts and completions are processed within the European Union and do not leave the EU. This is relevant for organizations operating under GDPR or with contractual data residency requirements.**
+For enterprise customers, OpenRouter supports EU in-region routing. When enabled, your prompts and completions are processed within the European Union and do not leave the EU. This is relevant for organizations operating under GDPR or with contractual data residency requirements.
 
-**EU routing is not enabled by default and requires an enterprise account configuration. Contact OpenRouter's team to enable it.**
+EU routing is not enabled by default and requires an enterprise account configuration. Contact OpenRouter's team to enable it.
 
-**Is OpenRouter Safe for Regulated Industries?**
+## Is OpenRouter Safe for Regulated Industries?
 
-**OpenRouter does not publish a HIPAA Business Associate Agreement. If your use case involves protected health information, OpenRouter is not the right routing layer without a BAA in place. The same applies to other regulated data categories.**
+OpenRouter does not publish a HIPAA Business Associate Agreement. If your use case involves protected health information, OpenRouter is not the right routing layer without a BAA in place. The same applies to other regulated data categories.
 
-**For compliance-sensitive deployments, the multi-provider nature of OpenRouter adds complexity. You are not just evaluating OpenRouter's compliance posture but also the compliance posture of every provider your requests might be routed to. Unless you lock routing to a specific provider with known compliance certifications, the compliance surface is difficult to bound.**
+For compliance-sensitive deployments, the multi-provider nature of OpenRouter adds complexity. You are not just evaluating OpenRouter's compliance posture but also the compliance posture of every provider your requests might be routed to. Unless you lock routing to a specific provider with known compliance certifications, the compliance surface is difficult to bound.
 
-**When OpenRouter Works for Sensitive Work and When It Does Not**
+## **When OpenRouter Works for Sensitive Work and When It Does Not**
 
 **OpenRouter's value is flexibility and cost optimization across providers. For non-sensitive workloads where you want access to a broad model catalog, routing optimization, and fallback handling, it is a practical tool.**
 
