@@ -230,11 +230,12 @@ function HeaderListenButtonInner() {
           )}
         </div>
       ) : (
-        <span className="flex w-full items-center justify-center px-7">
+        <span className="flex w-full items-center justify-between pr-8 pl-5">
           <span className="inline-flex shrink-0 items-center gap-2">
             <RecordingIcon />
             <span className="whitespace-nowrap">New meeting</span>
           </span>
+          <span aria-hidden className="size-3.5 shrink-0" />
         </span>
       )}
     </button>
