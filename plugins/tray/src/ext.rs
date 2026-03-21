@@ -147,8 +147,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             if IS_RECORDING.load(Ordering::SeqCst) {
                 let app = app.clone();
                 *task = Some(tauri::async_runtime::spawn(async move {
-                    let mut interval =
-                        tokio::time::interval(std::time::Duration::from_millis(250));
+                    let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
                     let mut frame = 0usize;
                     loop {
                         interval.tick().await;
