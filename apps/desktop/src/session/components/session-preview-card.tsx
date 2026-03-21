@@ -68,6 +68,7 @@ const previewCardRehypePlugins = [
   defaultRehypePlugins.raw,
   defaultRehypePlugins.sanitize,
 ];
+
 const MAX_PREVIEW_LENGTH = 200;
 const FOLLOW_RANGE = 16;
 const SPRING_CONFIG = { stiffness: 300, damping: 30, mass: 0.5 };
