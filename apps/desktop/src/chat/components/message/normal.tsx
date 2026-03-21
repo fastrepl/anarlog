@@ -60,7 +60,7 @@ export function NormalMessage({
 
   return (
     <MessageContainer align={isUser ? "end" : "start"}>
-      <div className="group flex max-w-[80%] flex-col">
+      <div className="group flex w-full min-w-0 flex-col">
         <MessageBubble variant={isUser ? "user" : "assistant"}>
           {message.parts.map((part, i) => (
             <Part key={i} part={part as Part} />
