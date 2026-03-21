@@ -95,11 +95,10 @@ fn determine_key(
     segments: &[ProtoSegment],
     last_segment_by_channel: &HashMap<ChannelProfile, usize>,
 ) -> SegmentKey {
-    if !frame.word.is_final {
-        if let Some(&index) = last_segment_by_channel.get(&frame.word.channel) {
+    if !frame.word.is_final
+        && let Some(&index) = last_segment_by_channel.get(&frame.word.channel) {
             return segments[index].key.clone();
         }
-    }
 
     create_segment_key(frame.word.channel, frame.identity.as_ref())
 }
