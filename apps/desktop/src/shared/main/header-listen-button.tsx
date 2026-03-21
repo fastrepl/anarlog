@@ -213,7 +213,7 @@ function HeaderListenButtonInner() {
                       1,
                     )}
                     color="#dc2626"
-                    height={20}
+                    height={28}
                     width={72}
                     stickWidth={3}
                     gap={2}
