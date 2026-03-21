@@ -59,9 +59,8 @@ export function ChatView() {
   return (
     <div
       className={cn([
-        "flex h-full min-h-0 flex-col overflow-hidden bg-white",
-        chat.mode === "RightPanelOpen" &&
-          "overflow-hidden rounded-xl border border-neutral-200",
+        "flex h-full min-h-0 flex-col overflow-hidden",
+        chat.mode !== "RightPanelOpen" && "bg-white",
       ])}
     >
       <ChatHeader
