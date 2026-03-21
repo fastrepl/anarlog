@@ -10,10 +10,12 @@ import { parseTranscriptHints, updateTranscriptHints } from "~/stt/utils";
 
 export function ParticipantChip({ mappingId }: { mappingId: string }) {
   const details = useParticipantDetails(mappingId);
+  const currentUserId = main.UI.useValue("user_id", main.STORE_ID);
 
   const assignedHumanId = details?.humanId;
   const sessionId = details?.sessionId;
   const source = details?.source;
+  const isCurrentUser = assignedHumanId === currentUserId;
 
   const handleRemove = useRemoveParticipant({
     mappingId,
@@ -35,7 +37,13 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
     return null;
   }
 
-  const { humanName } = details;
+  const { humanEmail, humanName } = details;
+  const baseLabel =
+    humanName || humanEmail || (isCurrentUser ? "You" : "Unknown");
+  const label =
+    isCurrentUser && baseLabel !== "You" && !baseLabel.endsWith(" (You)")
+      ? `${baseLabel} (You)`
+      : baseLabel;
 
   return (
     <Badge
@@ -43,7 +51,7 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
       className="bg-muted hover:bg-muted/80 flex cursor-pointer items-center gap-1 px-2 py-0.5 text-xs"
       onClick={handleClick}
     >
-      {humanName || "Unknown"}
+      {label}
       <Button
         type="button"
         variant="ghost"

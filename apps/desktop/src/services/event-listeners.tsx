@@ -10,7 +10,7 @@ import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
 import * as main from "~/store/tinybase/store/main";
 import {
-  createSession,
+  createAdHocSession,
   getOrCreateSessionForEventId,
 } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";
@@ -61,7 +61,7 @@ function useNotificationEvents() {
       pendingAutoStart.current = null;
       const sessionId = eventId
         ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
+        : createAdHocSession(store);
       openNew({
         type: "sessions",
         id: sessionId,
@@ -95,7 +95,7 @@ function useNotificationEvents() {
           }
           const sessionId = eventId
             ? getOrCreateSessionForEventId(currentStore, eventId)
-            : createSession(currentStore);
+            : createAdHocSession(currentStore);
           openNewRef.current({
             type: "sessions",
             id: sessionId,
@@ -117,7 +117,7 @@ function useNotificationEvents() {
                   currentStore,
                   eventIds[selectedIndex],
                 )
-              : createSession(currentStore);
+              : createAdHocSession(currentStore);
 
           openNewRef.current({
             type: "sessions",

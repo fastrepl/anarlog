@@ -7,6 +7,7 @@ import { useShallow } from "zustand/shallow";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { id } from "~/shared/utils";
+import { createAdHocSession } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { setPendingUpload } from "~/stt/pending-upload";
@@ -53,7 +54,7 @@ export function useNewNoteAndListen({
 }: {
   behavior?: "new" | "current";
 } = {}) {
-  const { persistedStore, internalStore } = useRouteContext({
+  const { persistedStore } = useRouteContext({
     from: "__root__",
   });
   const { openNew, openCurrent } = useTabs(
@@ -74,19 +75,9 @@ export function useNewNoteAndListen({
       return;
     }
 
-    const user_id = internalStore?.getValue("user_id");
-    const sessionId = id();
-
-    persistedStore?.setRow("sessions", sessionId, {
-      user_id,
-      created_at: new Date().toISOString(),
-      title: "",
-    });
-
-    void analyticsCommands.event({
-      event: "note_created",
-      has_event_id: false,
-    });
+    const sessionId = persistedStore
+      ? createAdHocSession(persistedStore)
+      : id();
 
     const ff = behavior === "new" ? openNew : openCurrent;
     ff({
@@ -94,15 +85,7 @@ export function useNewNoteAndListen({
       id: sessionId,
       state: { view: null, autoStart: true },
     });
-  }, [
-    status,
-    liveSessionId,
-    persistedStore,
-    internalStore,
-    openNew,
-    openCurrent,
-    behavior,
-  ]);
+  }, [status, liveSessionId, persistedStore, openNew, openCurrent, behavior]);
 
   return handler;
 }

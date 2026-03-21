@@ -31,6 +31,52 @@ export function createSession(store: Store, title?: string): string {
   return sessionId;
 }
 
+export function createAdHocSession(store: Store, title?: string): string {
+  const sessionId = createSession(store, title);
+  const userId = store.getValue("user_id");
+  if (typeof userId !== "string" || !userId) {
+    return sessionId;
+  }
+
+  if (!store.hasRow("humans", userId)) {
+    store.setRow("humans", userId, {
+      user_id: userId,
+      name: "",
+      email: "",
+      org_id: "",
+      job_title: "",
+      linkedin_username: "",
+      memo: "",
+      pinned: false,
+    } satisfies HumanStorage);
+  }
+
+  let hasParticipant = false;
+  store.forEachRow("mapping_session_participant", (mappingId, _forEachCell) => {
+    const mapping = store.getRow("mapping_session_participant", mappingId);
+    if (
+      mapping?.session_id === sessionId &&
+      mapping.human_id === userId &&
+      mapping.source !== "excluded"
+    ) {
+      hasParticipant = true;
+    }
+  });
+
+  if (hasParticipant) {
+    return sessionId;
+  }
+
+  store.setRow("mapping_session_participant", id(), {
+    user_id: userId,
+    session_id: sessionId,
+    human_id: userId,
+    source: "manual",
+  } satisfies MappingSessionParticipantStorage);
+
+  return sessionId;
+}
+
 export function getOrCreateSessionForEventId(
   store: Store,
   eventId: string,
