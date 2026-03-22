@@ -150,7 +150,7 @@ export function PersistentChatPanel({
         className={cn([
           "pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden",
           isFloating && [
-            "overflow-hidden rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
+            "overflow-hidden rounded-t-xl rounded-b-2xl bg-stone-50 shadow-2xl",
             "border border-neutral-200",
           ],
           isPanel && "h-full w-full",
