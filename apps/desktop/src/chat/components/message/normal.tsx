@@ -2,6 +2,8 @@ import { BrainIcon, CheckIcon, CopyIcon, RotateCcwIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
+import { cn } from "@hypr/utils";
+
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
 import { Tool } from "./tool";
 import type { Part } from "./types";
@@ -60,7 +62,12 @@ export function NormalMessage({
 
   return (
     <MessageContainer align={isUser ? "end" : "start"}>
-      <div className="group flex w-full min-w-0 flex-col">
+      <div
+        className={cn([
+          "flex min-w-0 flex-col",
+          isUser ? "max-w-[85%] items-end" : "group w-full",
+        ])}
+      >
         <MessageBubble variant={isUser ? "user" : "assistant"}>
           {message.parts.map((part, i) => (
             <Part key={i} part={part as Part} />
