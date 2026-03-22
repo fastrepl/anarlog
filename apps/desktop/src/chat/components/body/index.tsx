@@ -2,12 +2,14 @@ import type { ChatStatus } from "ai";
 import { ChevronDownIcon } from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
+import { cn } from "@hypr/utils";
 
 import { ChatBodyEmpty } from "./empty";
 import { ChatBodyNonEmpty } from "./non-empty";
 import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
 import type { HyprUIMessage } from "~/chat/types";
+import { useShell } from "~/contexts/shell";
 
 export function ChatBody({
   messages,
@@ -29,6 +31,7 @@ export function ChatBody({
     parts: Array<{ type: "text"; text: string }>,
   ) => void;
 }) {
+  const { chat } = useShell();
   const {
     contentRef,
     isAtBottom,
@@ -47,7 +50,13 @@ export function ChatBody({
         onWheel={handleWheel}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto"
       >
-        <div ref={contentRef} className="flex min-h-full flex-1 flex-col">
+        <div
+          ref={contentRef}
+          className={cn([
+            "flex min-h-full flex-1 flex-col py-3",
+            chat.mode !== "RightPanelOpen" && "px-2",
+          ])}
+        >
           <div className="flex-1" />
           {messages.length === 0 ? (
             <ChatBodyEmpty

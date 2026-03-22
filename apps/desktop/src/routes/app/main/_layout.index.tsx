@@ -87,10 +87,9 @@ function Component() {
               defaultSize={30}
               minSize={20}
               maxSize={50}
-              className="pl-1"
               style={{ minWidth: CHAT_MIN_WIDTH_PX }}
             >
-              <div ref={chatPanelContainerRef} className="h-full" />
+              <div ref={chatPanelContainerRef} className="ml-3 h-full" />
             </ResizablePanel>
           </>
         )}

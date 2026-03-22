@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   MessageCircle,
+  PanelRightCloseIcon,
   PanelRightIcon,
   PictureInPicture2Icon,
   Plus,
@@ -35,19 +36,24 @@ export function ChatHeader({
   return (
     <div
       data-tauri-drag-region={chat.mode === "RightPanelOpen"}
-      className="flex h-9 items-center justify-between border-b border-neutral-200 px-1"
+      className={cn([
+        "flex h-9 items-center justify-between",
+        chat.mode !== "RightPanelOpen" && "px-1",
+      ])}
     >
       <div className="flex min-w-0 flex-1 items-center">
         <div className="min-w-0 flex-1">
           <ChatGroups
             currentChatGroupId={currentChatGroupId}
             onSelectChat={onSelectChat}
+            isRightPanel={chat.mode === "RightPanelOpen"}
           />
         </div>
         <ChatActionButton
           icon={<Plus size={16} />}
           onClick={onNewChat}
           title="New chat"
+          isRightPanel={chat.mode === "RightPanelOpen"}
         />
       </div>
 
@@ -62,11 +68,19 @@ export function ChatHeader({
           }
           onClick={() => chat.sendEvent({ type: "SHIFT" })}
           title="Toggle"
+          isRightPanel={chat.mode === "RightPanelOpen"}
         />
         <ChatActionButton
-          icon={<X size={16} />}
+          icon={
+            chat.mode === "RightPanelOpen" ? (
+              <PanelRightCloseIcon className="h-4 w-4" />
+            ) : (
+              <X size={16} />
+            )
+          }
           onClick={handleClose}
           title="Close"
+          isRightPanel={chat.mode === "RightPanelOpen"}
         />
       </div>
     </div>
@@ -77,13 +91,21 @@ function ChatActionButton({
   icon,
   title,
   onClick,
+  isRightPanel = false,
 }: {
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
+  isRightPanel?: boolean;
 }) {
   return (
-    <Button onClick={onClick} title={title} size="icon" variant="ghost">
+    <Button
+      onClick={onClick}
+      title={title}
+      size="icon"
+      variant="ghost"
+      className={cn([isRightPanel && "rounded-none"])}
+    >
       {icon}
     </Button>
   );
@@ -92,9 +114,11 @@ function ChatActionButton({
 function ChatGroups({
   currentChatGroupId,
   onSelectChat,
+  isRightPanel = false,
 }: {
   currentChatGroupId: string | undefined;
   onSelectChat: (chatGroupId: string) => void;
+  isRightPanel?: boolean;
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -118,7 +142,10 @@ function ChatGroups({
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="group flex h-auto max-w-full min-w-0 justify-start gap-2 px-2 py-1.5"
+          className={cn([
+            "group flex h-auto max-w-full min-w-0 justify-start gap-2 py-1.5",
+            isRightPanel ? "rounded-none px-0" : "px-2",
+          ])}
         >
           <img
             src="/assets/char-logo-icon-black.svg"

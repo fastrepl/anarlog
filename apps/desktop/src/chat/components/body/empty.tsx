@@ -8,6 +8,7 @@ import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useShell } from "~/contexts/shell";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
@@ -41,6 +42,8 @@ export function ChatBodyEmpty({
   ) => void;
 }) {
   const openNew = useTabs((state) => state.openNew);
+  const { chat } = useShell();
+  const isRightPanel = chat.mode === "RightPanelOpen";
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "ai", state: { tab: "intelligence" } });
@@ -55,8 +58,13 @@ export function ChatBodyEmpty({
 
   if (!isModelConfigured) {
     return (
-      <div className="flex justify-start px-3 py-2 pb-4">
-        <div className="flex max-w-[80%] min-w-[240px] flex-col">
+      <div className="flex justify-start py-2 pb-4">
+        <div
+          className={cn([
+            "flex flex-col",
+            isRightPanel ? "w-full" : "max-w-[80%] min-w-[240px]",
+          ])}
+        >
           <div className="mb-2 flex items-center gap-2">
             <img
               src="/assets/char-logo-icon-black.svg"
@@ -85,8 +93,13 @@ export function ChatBodyEmpty({
   }
 
   return (
-    <div className="flex justify-start px-3 pb-4">
-      <div className="flex max-w-[80%] min-w-[240px] flex-col">
+    <div className="flex justify-start pb-4">
+      <div
+        className={cn([
+          "flex flex-col",
+          isRightPanel ? "w-full" : "max-w-[80%] min-w-[240px]",
+        ])}
+      >
         <div className="mb-2 flex items-center gap-2">
           <img
             src="/assets/char-logo-icon-black.svg"

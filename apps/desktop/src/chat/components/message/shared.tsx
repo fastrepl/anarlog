@@ -13,7 +13,7 @@ export function MessageContainer({
   return (
     <div
       className={cn([
-        "flex px-3 py-2",
+        "flex py-2",
         align === "end" ? "justify-end" : "justify-start",
       ])}
     >
