@@ -64,13 +64,12 @@ export function ChatBodyEmpty({
               className="size-4 object-contain"
             />
             <span className="text-sm font-medium text-neutral-800">
-              Char AI
+              Charlie
             </span>
             <BetaChip />
           </div>
           <p className="mb-2 text-sm text-neutral-700">
-            Hey! I need you to configure a language model to start chatting with
-            me!
+            Hi, I'm Charlie. Set up a language model and I'll be ready to help.
           </p>
           <button
             onClick={handleGoToSettings}
