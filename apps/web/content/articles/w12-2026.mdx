@@ -1,0 +1,48 @@
+---
+meta_title: "Char Weekly: Meet Charlie, New Icons, and Smoother Onboarding"
+display_title: "Char Weekly: March 22, 2026"
+meta_description: "Three releases this week: the AI assistant is now named Charlie, fresh app icons ship across all platforms, and onboarding no longer requires sign-in."
+author: "John Jeong"
+category: "Char Weekly"
+published: true
+date: "2026-03-22"
+---
+
+Three stable releases shipped this week — v1.0.15, v1.0.16, and v1.0.17. The AI assistant got a name, the app got new icons, and onboarding got out of the way.
+
+## Meet Charlie
+
+The AI chat assistant is now called Charlie. Beyond the name, the chat panel received a visual overhaul: messages use the full thread width instead of being capped at 80%, and the right-side panel blends into the background so your notes stay front and center. A stale auth token bug that could silently break chat after session expiry was also fixed.
+
+## New app icons
+
+Char has a fresh set of icons across macOS, Windows, Linux, iOS, and Android. The in-app chat icon was also updated — the wobbling head is gone, replaced by the new Char mark.
+
+## Onboarding without sign-in
+
+You can now skip sign-in entirely and start using Char immediately. The microphone permission prompt is clearer, system restarts are deferred until onboarding completes, and the unnecessary system audio restart that used to interrupt setup is gone. The auth callback input also shows an example placeholder so you know what to paste.
+
+## Audio uploads are back
+
+Drag or pick audio files directly from the note input area to transcribe existing recordings. Upload progress is shown while the file converts. On the playback side, the audio player now has a native right-click context menu with play/pause and seek controls, and text selection no longer interferes with the timeline. Recordings can also be deleted from both the audio player and the session overflow menu.
+
+## Better image handling
+
+Images got a proper right-click context menu with copy and reveal-in-Finder actions. Resize handles stay visible inside the image frame, images without a stored width default to 80% of the editor, and selected images show a clean blue border instead of a text-selection highlight. Images from notes also now appear in session preview cards.
+
+## Transcript and notes
+
+You can now copy speaker-labeled transcript text directly from the Transcript tab. Session preview cards prefer the AI summary over raw memo content, and a reverted save guard fixes an issue where some sessions weren't persisting. The recording waveform in the header is taller and easier to read at a glance.
+
+## Other improvements
+
+- Toast notifications moved to the top of the screen
+- Left sidebar layout and session preview cards refined
+- Language preference now persists correctly across restarts
+- Calendar sync no longer fails when one provider is unreachable
+- `Cmd+Q` now uses a double-press to quit instead of hold-to-quit
+- Migrated to Vite 8
+- Simplified placeholder styling in raw note view
+- Tab indentation fixed across split task lists
+
+Full version details on the [changelog](/changelog).
