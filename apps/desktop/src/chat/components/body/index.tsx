@@ -9,7 +9,6 @@ import { ChatBodyNonEmpty } from "./non-empty";
 import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
 import type { HyprUIMessage } from "~/chat/types";
-import { useShell } from "~/contexts/shell";
 
 export function ChatBody({
   messages,
@@ -31,7 +30,6 @@ export function ChatBody({
     parts: Array<{ type: "text"; text: string }>,
   ) => void;
 }) {
-  const { chat } = useShell();
   const {
     contentRef,
     isAtBottom,
@@ -52,10 +50,7 @@ export function ChatBody({
       >
         <div
           ref={contentRef}
-          className={cn([
-            "flex min-h-full flex-1 flex-col py-3",
-            chat.mode !== "RightPanelOpen" && "px-2",
-          ])}
+          className={cn(["flex min-h-full flex-1 flex-col py-3", "px-2"])}
         >
           <div className="flex-1" />
           {messages.length === 0 ? (
