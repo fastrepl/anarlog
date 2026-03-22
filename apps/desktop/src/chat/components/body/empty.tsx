@@ -55,7 +55,7 @@ export function ChatBodyEmpty({
 
   if (!isModelConfigured) {
     return (
-      <div className="flex justify-start py-2 pb-4">
+      <div className="flex justify-start py-2 pb-1">
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
             <img
@@ -84,7 +84,7 @@ export function ChatBodyEmpty({
   }
 
   return (
-    <div className="flex justify-start pb-4">
+    <div className="flex justify-start pb-1">
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
           <img

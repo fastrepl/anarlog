@@ -51,12 +51,24 @@ export function PersistentChatPanel({
     "esc",
     () => chat.sendEvent({ type: "CLOSE" }),
     {
-      enabled: isFloating,
+      enabled: isVisible,
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [chat, isFloating],
+    [chat, isVisible],
+  );
+
+  useHotkeys(
+    "mod+r",
+    () => chat.sendEvent({ type: "SHIFT" }),
+    {
+      enabled: isVisible,
+      preventDefault: true,
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+    },
+    [chat, isVisible],
   );
 
   useLayoutEffect(() => {

@@ -15,6 +15,12 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
+import { Kbd } from "@hypr/ui/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
@@ -67,7 +73,12 @@ export function ChatHeader({
             )
           }
           onClick={() => chat.sendEvent({ type: "SHIFT" })}
-          title="Toggle"
+          title={
+            chat.mode === "RightPanelOpen"
+              ? "Move to floating chat"
+              : "Dock to right panel"
+          }
+          shortcut="⌘ R"
           isRightPanel={chat.mode === "RightPanelOpen"}
         />
         <ChatActionButton
@@ -91,23 +102,33 @@ function ChatActionButton({
   icon,
   title,
   onClick,
+  shortcut,
   isRightPanel = false,
 }: {
   icon: React.ReactNode;
   title: string;
   onClick: () => void;
+  shortcut?: string;
   isRightPanel?: boolean;
 }) {
   return (
-    <Button
-      onClick={onClick}
-      title={title}
-      size="icon"
-      variant="ghost"
-      className={cn([isRightPanel && "rounded-none"])}
-    >
-      {icon}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={onClick}
+          title={title}
+          size="icon"
+          variant="ghost"
+          className={cn([isRightPanel && "rounded-none"])}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="flex items-center gap-2">
+        <span>{title}</span>
+        {shortcut && <Kbd>{shortcut}</Kbd>}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
