@@ -29,6 +29,7 @@ export interface SlashCommandConfig {
 interface ChatEditorProps {
   initialContent?: JSONContent;
   editable?: boolean;
+  className?: string;
   placeholderComponent?: PlaceholderFunction;
   slashCommandConfig?: SlashCommandConfig;
   onUpdate?: (json: JSONContent) => void;
@@ -40,6 +41,7 @@ const ChatEditor = forwardRef<{ editor: TiptapEditor | null }, ChatEditorProps>(
     {
       initialContent,
       editable = true,
+      className,
       placeholderComponent,
       slashCommandConfig,
       onUpdate,
@@ -159,7 +161,11 @@ const ChatEditor = forwardRef<{ editor: TiptapEditor | null }, ChatEditorProps>(
     }, []);
 
     return (
-      <EditorContent editor={editor} className="tiptap-root" role="textbox" />
+      <EditorContent
+        editor={editor}
+        className={["tiptap-root", className].filter(Boolean).join(" ")}
+        role="textbox"
+      />
     );
   },
 );

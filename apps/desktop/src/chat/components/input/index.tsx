@@ -66,6 +66,7 @@ export function ChatMessageInput({
         <div className="mb-1 flex-1">
           <ChatEditor
             ref={editorRef}
+            className="max-h-[40vh] overflow-y-auto overscroll-contain"
             editable={!disabled}
             initialContent={initialContent}
             placeholderComponent={ChatPlaceholder}
@@ -75,7 +76,7 @@ export function ChatMessageInput({
           />
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           {mcpIndicator ? (
             <McpIndicatorBadge indicator={mcpIndicator} />
           ) : (
