@@ -1,0 +1,444 @@
+{
+  "name": "char",
+  "about": "Live transcription and audio tools",
+  "synopsis": "char [--base-url] [--api-key] [-m] [-l] [--no-color] [--base] [-v] [-q] [-h] [-V] <command>",
+  "global_options": [
+    {
+      "flags": "--base-url",
+      "value_name": "BASE_URL",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "--api-key",
+      "value_name": "API_KEY",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "-m, --model",
+      "value_name": "MODEL",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "-l, --language",
+      "value_name": "LANGUAGE",
+      "default": "en",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "--no-color",
+      "required": false,
+      "is_flag": true
+    },
+    {
+      "flags": "--base",
+      "value_name": "DIR",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "-v, --verbose",
+      "help": "Increase logging verbosity",
+      "required": false,
+      "is_flag": true
+    },
+    {
+      "flags": "-q, --quiet",
+      "help": "Decrease logging verbosity",
+      "required": false,
+      "is_flag": true
+    }
+  ],
+  "options": [
+    {
+      "flags": "-h, --help",
+      "help": "Print help",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "-V, --version",
+      "help": "Print version",
+      "required": false,
+      "is_flag": false
+    }
+  ],
+  "subcommands": [
+    {
+      "name": "char transcribe",
+      "about": "Transcribe an audio file",
+      "synopsis": "char transcribe <--input> <-p> [-k] [-o] [-f] [-h] [-V]",
+      "options": [
+        {
+          "flags": "--input",
+          "value_name": "FILE",
+          "required": true,
+          "is_flag": false
+        },
+        {
+          "flags": "-p, --provider",
+          "value_name": "PROVIDER",
+          "required": true,
+          "is_flag": false
+        },
+        {
+          "flags": "-k, --keyword",
+          "value_name": "KEYWORD",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-o, --output",
+          "value_name": "FILE",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-f, --format",
+          "value_name": "FORMAT",
+          "default": "pretty",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    },
+    {
+      "name": "char models",
+      "about": "Manage local models",
+      "synopsis": "char models [-h] [-V] <command>",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "subcommands": [
+        {
+          "name": "char models paths",
+          "about": "Show resolved paths for settings and model storage",
+          "synopsis": "char models paths [-h] [-V]",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ]
+        },
+        {
+          "name": "char models list",
+          "about": "List available models and their download status",
+          "synopsis": "char models list [--kind] [--supported] [-f] [-h] [-V]",
+          "options": [
+            {
+              "flags": "--kind",
+              "value_name": "KIND",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "--supported",
+              "required": false,
+              "is_flag": true
+            },
+            {
+              "flags": "-f, --format",
+              "value_name": "FORMAT",
+              "default": "pretty",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ]
+        },
+        {
+          "name": "char models cactus",
+          "about": "Manage downloadable Cactus models",
+          "synopsis": "char models cactus [-h] [-V] <command>",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ],
+          "subcommands": [
+            {
+              "name": "char models cactus list",
+              "about": "List available Cactus models",
+              "synopsis": "char models cactus list [-f] [-h] [-V]",
+              "options": [
+                {
+                  "flags": "-f, --format",
+                  "value_name": "FORMAT",
+                  "default": "pretty",
+                  "required": false,
+                  "is_flag": false
+                },
+                {
+                  "flags": "-h, --help",
+                  "help": "Print help",
+                  "required": false,
+                  "is_flag": false
+                },
+                {
+                  "flags": "-V, --version",
+                  "help": "Print version",
+                  "required": false,
+                  "is_flag": false
+                }
+              ]
+            },
+            {
+              "name": "char models cactus download",
+              "about": "Download a Cactus model by name",
+              "synopsis": "char models cactus download [-h] [-V] <name>",
+              "options": [
+                {
+                  "flags": "-h, --help",
+                  "help": "Print help",
+                  "required": false,
+                  "is_flag": false
+                },
+                {
+                  "flags": "-V, --version",
+                  "help": "Print version",
+                  "required": false,
+                  "is_flag": false
+                }
+              ],
+              "arguments": [
+                {
+                  "name": "NAME",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "name": "char models cactus delete",
+              "about": "Delete a downloaded Cactus model",
+              "synopsis": "char models cactus delete [-f] [-h] [-V] <name>",
+              "options": [
+                {
+                  "flags": "-f, --force",
+                  "required": false,
+                  "is_flag": true
+                },
+                {
+                  "flags": "-h, --help",
+                  "help": "Print help",
+                  "required": false,
+                  "is_flag": false
+                },
+                {
+                  "flags": "-V, --version",
+                  "help": "Print version",
+                  "required": false,
+                  "is_flag": false
+                }
+              ],
+              "arguments": [
+                {
+                  "name": "NAME",
+                  "required": true
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "char models download",
+          "about": "Download a model by name",
+          "synopsis": "char models download [-h] [-V] <name>",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ],
+          "arguments": [
+            {
+              "name": "NAME",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "char models delete",
+          "about": "Delete a downloaded model",
+          "synopsis": "char models delete [-f] [-h] [-V] <name>",
+          "options": [
+            {
+              "flags": "-f, --force",
+              "required": false,
+              "is_flag": true
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ],
+          "arguments": [
+            {
+              "name": "NAME",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "char completions",
+      "about": "Generate shell completions",
+      "synopsis": "char completions [-h] [-V] <shell>",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "arguments": [
+        {
+          "name": "SHELL",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "char record",
+      "about": "Record audio to a WAV file",
+      "synopsis": "char record [--audio] [-o] [--sample-rate] [--events] [-h] [-V]",
+      "options": [
+        {
+          "flags": "--audio",
+          "value_name": "AUDIO",
+          "default": "input",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-o, --output",
+          "value_name": "FILE",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--sample-rate",
+          "value_name": "SAMPLE_RATE",
+          "default": "16000",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--events",
+          "value_name": "EVENTS",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    },
+    {
+      "name": "char desktop",
+      "about": "Open the desktop app or download page",
+      "synopsis": "char desktop [-h] [-V]",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    }
+  ]
+}

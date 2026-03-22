@@ -55,8 +55,8 @@ export function ChatBodyEmpty({
 
   if (!isModelConfigured) {
     return (
-      <div className="flex justify-start px-3 py-2 pb-4">
-        <div className="flex max-w-[80%] min-w-[240px] flex-col">
+      <div className="flex justify-start py-2 pb-4">
+        <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
             <img
               src="/assets/char-logo-icon-black.svg"
@@ -64,13 +64,12 @@ export function ChatBodyEmpty({
               className="size-4 object-contain"
             />
             <span className="text-sm font-medium text-neutral-800">
-              Char AI
+              Charlie
             </span>
             <BetaChip />
           </div>
           <p className="mb-2 text-sm text-neutral-700">
-            Hey! I need you to configure a language model to start chatting with
-            me!
+            Hi, I'm Charlie. Set up a language model and I'll be ready to help.
           </p>
           <button
             onClick={handleGoToSettings}
@@ -85,19 +84,20 @@ export function ChatBodyEmpty({
   }
 
   return (
-    <div className="flex justify-start px-3 pb-4">
-      <div className="flex max-w-[80%] min-w-[240px] flex-col">
+    <div className="flex justify-start pb-4">
+      <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
           <img
             src="/assets/char-logo-icon-black.svg"
             alt="Char"
             className="size-4 object-contain"
           />
-          <span className="text-sm font-medium text-neutral-800">Char AI</span>
+          <span className="text-sm font-medium text-neutral-800">Charlie</span>
           <BetaChip />
         </div>
         <p className="mb-2 text-sm text-neutral-700">
-          Hey! I can help you with a lot of cool stuff :)
+          Hi, I'm Charlie. I can help you pull context from your notes, find key
+          decisions, and draft what comes next.
         </p>
         {hasContext && (
           <div className="flex flex-wrap gap-1.5">

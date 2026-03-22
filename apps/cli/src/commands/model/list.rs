@@ -51,8 +51,38 @@ pub(super) async fn write_model_output(
         OutputFormat::Json => {
             crate::output::write_json(None, &rows).await?;
         }
-        OutputFormat::Text | OutputFormat::Pretty => {
-            println!("models_base={}", models_base.display());
+        OutputFormat::Pretty => {
+            if rows.is_empty() {
+                eprintln!("No models found.");
+                return Ok(());
+            }
+
+            let name_w = rows.iter().map(|r| r.name.len()).max().unwrap_or(4).max(4);
+            let kind_w = rows.iter().map(|r| r.kind.len()).max().unwrap_or(4).max(4);
+            let status_w = rows
+                .iter()
+                .map(|r| r.status.len())
+                .max()
+                .unwrap_or(6)
+                .max(6);
+
+            println!(
+                "{:<name_w$}  {:<kind_w$}  {:<status_w$}  DISPLAY NAME",
+                "NAME", "KIND", "STATUS",
+            );
+            for row in rows {
+                let label = if row.description.is_empty() {
+                    row.display_name.clone()
+                } else {
+                    format!("{} ({})", row.display_name, row.description)
+                };
+                println!(
+                    "{:<name_w$}  {:<kind_w$}  {:<status_w$}  {}",
+                    row.name, row.kind, row.status, label,
+                );
+            }
+        }
+        OutputFormat::Text => {
             for row in rows {
                 if row.description.is_empty() {
                     println!(

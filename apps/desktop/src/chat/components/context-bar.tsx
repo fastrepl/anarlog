@@ -16,6 +16,7 @@ import { cn } from "@hypr/utils";
 import type { ContextRef } from "~/chat/context/entities";
 import { type ContextChipProps, renderChip } from "~/chat/context/registry";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
+import { useShell } from "~/contexts/shell";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -262,6 +263,7 @@ export function ContextBar({
   onRemoveEntity?: (key: string) => void;
   onAddEntity?: (ref: ContextRef) => void;
 }) {
+  const { chat } = useShell();
   const chips = useMemo(
     () =>
       entities
@@ -281,7 +283,12 @@ export function ContextBar({
   }
 
   return (
-    <div className="mx-2 shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-white">
+    <div
+      className={cn([
+        "shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-white",
+        chat.mode !== "RightPanelOpen" && "mx-2",
+      ])}
+    >
       <div className="flex items-start gap-1.5 px-2.5 py-2">
         <div className="min-w-0 flex-1">
           <ChipList chips={chips} onRemove={onRemoveEntity} />

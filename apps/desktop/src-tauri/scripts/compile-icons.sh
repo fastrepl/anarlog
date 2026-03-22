@@ -27,6 +27,11 @@ for variant in "${VARIANTS[@]}"; do
 
   mkdir -p "$output_dir"
 
+  if [[ -f "$output_dir/Assets.car" ]]; then
+    echo "Skipping $variant (Assets.car already exists)"
+    continue
+  fi
+
   echo "Compiling $variant icon..."
   actool "$icon_path" \
     --compile "$output_dir" \

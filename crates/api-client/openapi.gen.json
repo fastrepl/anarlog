@@ -2973,6 +2973,10 @@
       "name": "mail"
     },
     {
+      "description": "Ticket management",
+      "name": "ticket"
+    },
+    {
       "description": "Integration management via Nango",
       "name": "nango"
     },

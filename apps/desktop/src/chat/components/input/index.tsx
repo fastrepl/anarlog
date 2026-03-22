@@ -15,6 +15,8 @@ import {
 } from "./hooks";
 import { type McpIndicator, McpIndicatorBadge } from "./mcp";
 
+import { useShell } from "~/contexts/shell";
+
 export type { McpIndicator } from "./mcp";
 
 export function ChatMessageInput({
@@ -37,6 +39,7 @@ export function ChatMessageInput({
   onStop?: () => void;
   mcpIndicator?: McpIndicator;
 }) {
+  const { chat } = useShell();
   const editorRef = useRef<{ editor: TiptapEditor | null }>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
@@ -55,7 +58,10 @@ export function ChatMessageInput({
   const slashCommandConfig = useSlashCommandConfig();
 
   return (
-    <Container hasContextBar={hasContextBar}>
+    <Container
+      hasContextBar={hasContextBar}
+      isRightPanel={chat.mode === "RightPanelOpen"}
+    >
       <div className="flex flex-col px-3 pt-3 pb-2">
         <div className="mb-1 flex-1">
           <ChatEditor
@@ -121,12 +127,14 @@ export function ChatMessageInput({
 function Container({
   children,
   hasContextBar,
+  isRightPanel = false,
 }: {
   children: React.ReactNode;
   hasContextBar?: boolean;
+  isRightPanel?: boolean;
 }) {
   return (
-    <div className={cn(["relative shrink-0", "px-2 pb-2"])}>
+    <div className={cn(["relative shrink-0", !isRightPanel && "px-2 pb-2"])}>
       <div
         className={cn([
           "flex flex-col rounded-b-xl border border-neutral-200 bg-white",

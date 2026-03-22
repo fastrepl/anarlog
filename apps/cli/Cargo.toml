@@ -34,10 +34,11 @@ clap-verbosity-flag = { version = "3", features = ["tracing"] }
 clap_complete = { workspace = true }
 clio = { version = "0.3", features = ["clap-parse"] }
 colored = "3"
+crossterm = { workspace = true, optional = true }
 dirs = { workspace = true }
 hound = { workspace = true, optional = true }
-indicatif = { version = "0.17", optional = true }
 open = { workspace = true }
+ratatui = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -83,6 +84,7 @@ standalone = [
   "dep:hound",
   "dep:hypr-local-stt-core",
   "dep:hypr-model-downloader",
-  "dep:indicatif",
+  "dep:ratatui",
+  "dep:crossterm",
   "dep:tokio-stream",
 ]

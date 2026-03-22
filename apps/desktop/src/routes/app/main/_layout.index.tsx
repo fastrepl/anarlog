@@ -74,10 +74,13 @@ function Component() {
 
       <ResizablePanelGroup
         direction="horizontal"
-        className="flex flex-1 overflow-hidden"
+        className="flex min-h-0 flex-1 overflow-hidden"
         autoSaveId="main-chat"
       >
-        <ResizablePanel ref={bodyPanelRef} className="flex-1 overflow-hidden">
+        <ResizablePanel
+          ref={bodyPanelRef}
+          className="min-h-0 flex-1 overflow-hidden"
+        >
           <Body />
         </ResizablePanel>
         {isChatOpen && (
@@ -87,10 +90,13 @@ function Component() {
               defaultSize={30}
               minSize={20}
               maxSize={50}
-              className="pl-1"
+              className="min-h-0 overflow-hidden"
               style={{ minWidth: CHAT_MIN_WIDTH_PX }}
             >
-              <div ref={chatPanelContainerRef} className="h-full" />
+              <div
+                ref={chatPanelContainerRef}
+                className="mr-2 ml-3 h-full min-h-0 overflow-hidden"
+              />
             </ResizablePanel>
           </>
         )}

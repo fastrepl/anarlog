@@ -3,7 +3,12 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 
 /// Live transcription and audio tools
 #[derive(Parser)]
-#[command(name = "char", version, propagate_version = true)]
+#[command(
+    name = "char",
+    version,
+    propagate_version = true,
+    after_help = "Docs:  https://char.com/docs/cli\nBugs:  https://github.com/fastrepl/char/issues"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
@@ -89,9 +94,11 @@ pub enum Commands {
     Desktop,
     #[cfg(feature = "standalone")]
     /// Report a bug on GitHub
+    #[command(hide = true)]
     Bug,
     #[cfg(feature = "standalone")]
     /// Open char.com
+    #[command(hide = true)]
     Hello,
 
     #[cfg(feature = "desktop")]
@@ -135,7 +142,20 @@ mod tests {
     }
 
     #[test]
-    fn generate_docs() {
+    #[cfg(feature = "standalone")]
+    fn generate_docs_standalone() {
+        let cmd = Cli::command();
+        let json = cli_docs::generate_json(&cmd);
+
+        let json_path =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../cli-web/src/data/cli.json");
+        std::fs::create_dir_all(json_path.parent().unwrap()).unwrap();
+        std::fs::write(&json_path, json).unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "desktop")]
+    fn generate_docs_desktop() {
         let cmd = Cli::command();
         let md = cli_docs::generate(&cmd);
 

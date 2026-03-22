@@ -6,6 +6,7 @@ import {
   chatGroupSchema,
   chatMessageSchema,
   chatShortcutSchema,
+  dailyNoteSchema,
   enhancedNoteSchema,
   eventSchema,
   generalSchema,
@@ -158,6 +159,11 @@ export const tableSchemaForTinybase = {
     text: { type: "string" },
     created_at: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof memorySchema>,
+  daily_notes: {
+    user_id: { type: "string" },
+    date: { type: "string" },
+    content: { type: "string" },
+  } as const satisfies InferTinyBaseSchema<typeof dailyNoteSchema>,
 } as const satisfies TablesSchema;
 
 export const valueSchemaForTinybase = {

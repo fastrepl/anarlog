@@ -19,7 +19,7 @@ pub struct Args {
     pub keywords: Vec<String>,
     #[arg(short = 'o', long, value_name = "FILE")]
     pub output: Option<std::path::PathBuf>,
-    #[arg(short = 'f', long, value_enum, default_value = "json")]
+    #[arg(short = 'f', long, value_enum, default_value = "pretty")]
     pub format: OutputFormat,
 }
 

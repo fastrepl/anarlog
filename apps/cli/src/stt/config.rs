@@ -203,14 +203,14 @@ fn resolve_provider_from_settings(
     let Some(settings) = settings else {
         return Err(CliError::required_argument_with_hint(
             "STT provider",
-            "Run `char connect` to configure your STT provider, or pass --provider explicitly",
+            "Pass --provider explicitly",
         ));
     };
 
     let Some(provider_id) = settings.current_stt_provider.as_deref() else {
         return Err(CliError::required_argument_with_hint(
             "STT provider",
-            "Run `char connect` to configure your STT provider, or pass --provider explicitly",
+            "Pass --provider explicitly",
         ));
     };
 
@@ -225,7 +225,7 @@ fn resolve_provider_from_settings(
 
     let provider = SttProvider::from_id(provider_id).ok_or_else(|| {
         CliError::msg(format!(
-            "Configured STT provider `{provider_id}` is not supported by CLI. Run `char connect` to choose a supported provider."
+            "Configured STT provider `{provider_id}` is not supported by CLI. Pass --provider explicitly."
         ))
     })?;
 
@@ -239,7 +239,7 @@ fn resolve_hyprnote_provider(_model: Option<&str>) -> CliResult<(SttProvider, Op
     }
 
     Err(CliError::msg(
-        "Configured STT provider `hyprnote` is not supported by CLI. Run `char connect` to choose a supported provider.",
+        "Configured STT provider `hyprnote` is not supported by CLI. Pass --provider explicitly.",
     ))
 }
 

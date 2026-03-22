@@ -42,8 +42,10 @@ fn init_tracing(level: tracing_subscriber::filter::LevelFilter) {
 
 fn analytics_client() -> hypr_analytics::AnalyticsClient {
     let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
-    if let Some(key) = option_env!("POSTHOG_API_KEY") {
-        builder = builder.with_posthog(key);
+    if std::env::var_os("DO_NOT_TRACK").is_none() {
+        if let Some(key) = option_env!("POSTHOG_API_KEY") {
+            builder = builder.with_posthog(key);
+        }
     }
     builder.build()
 }
@@ -104,6 +106,7 @@ async fn run(cli: Cli) -> CliResult<()> {
         track_command(&analytics, subcommand);
     }
 
+    let quiet = cli.verbose.is_silent();
     let Cli {
         command,
         global,
@@ -118,7 +121,7 @@ async fn run(cli: Cli) -> CliResult<()> {
         #[cfg(feature = "standalone")]
         Some(Commands::Models { command }) => commands::model::run(command).await,
         #[cfg(feature = "standalone")]
-        Some(Commands::Record { args }) => commands::record::run(args).await,
+        Some(Commands::Record { args }) => commands::record::run(args, quiet).await,
         Some(Commands::Completions { shell }) => {
             cli::generate_completions(shell);
             Ok(())

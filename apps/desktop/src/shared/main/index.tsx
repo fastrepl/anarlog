@@ -37,6 +37,7 @@ import { TabContentContact, TabItemContact } from "~/contacts";
 import { TabContentHuman, TabItemHuman } from "~/contacts/humans";
 import { useNotifications } from "~/contexts/notifications";
 import { useShell } from "~/contexts/shell";
+import { TabContentDaily, TabItemDaily } from "~/daily";
 import { TabContentEdit, TabItemEdit } from "~/edit";
 import { TabContentFolder, TabItemFolder } from "~/folders";
 import { TabContentOnboarding, TabItemOnboarding } from "~/onboarding";
@@ -558,6 +559,20 @@ function TabItem({
       />
     );
   }
+  if (tab.type === "daily") {
+    return (
+      <TabItemDaily
+        tab={tab}
+        tabIndex={tabIndex}
+        handleCloseThis={handleClose}
+        handleSelectThis={handleSelect}
+        handleCloseOthers={handleCloseOthers}
+        handleCloseAll={handleCloseAll}
+        handlePinThis={handlePinThis}
+        handleUnpinThis={handleUnpinThis}
+      />
+    );
+  }
   if (tab.type === "edit") {
     return (
       <TabItemEdit
@@ -621,6 +636,9 @@ function ContentWrapper({ tab }: { tab: Tab }) {
   }
   if (tab.type === "onboarding") {
     return <TabContentOnboarding tab={tab} />;
+  }
+  if (tab.type === "daily") {
+    return <TabContentDaily />;
   }
   if (tab.type === "edit") {
     return <TabContentEdit tab={tab} />;

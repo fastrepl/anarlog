@@ -2,6 +2,7 @@ import type { ChatStatus } from "ai";
 import { ChevronDownIcon } from "lucide-react";
 
 import { Button } from "@hypr/ui/components/ui/button";
+import { cn } from "@hypr/utils";
 
 import { ChatBodyEmpty } from "./empty";
 import { ChatBodyNonEmpty } from "./non-empty";
@@ -47,7 +48,10 @@ export function ChatBody({
         onWheel={handleWheel}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto"
       >
-        <div ref={contentRef} className="flex min-h-full flex-1 flex-col">
+        <div
+          ref={contentRef}
+          className={cn(["flex min-h-full flex-1 flex-col py-3", "px-2"])}
+        >
           <div className="flex-1" />
           {messages.length === 0 ? (
             <ChatBodyEmpty
