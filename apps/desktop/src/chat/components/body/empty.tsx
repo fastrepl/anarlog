@@ -8,7 +8,6 @@ import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { useShell } from "~/contexts/shell";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
@@ -42,8 +41,6 @@ export function ChatBodyEmpty({
   ) => void;
 }) {
   const openNew = useTabs((state) => state.openNew);
-  const { chat } = useShell();
-  const isRightPanel = chat.mode === "RightPanelOpen";
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "ai", state: { tab: "intelligence" } });
@@ -59,12 +56,7 @@ export function ChatBodyEmpty({
   if (!isModelConfigured) {
     return (
       <div className="flex justify-start py-2 pb-4">
-        <div
-          className={cn([
-            "flex flex-col",
-            isRightPanel ? "w-full" : "max-w-[80%] min-w-[240px]",
-          ])}
-        >
+        <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
             <img
               src="/assets/char-logo-icon-black.svg"
@@ -94,23 +86,19 @@ export function ChatBodyEmpty({
 
   return (
     <div className="flex justify-start pb-4">
-      <div
-        className={cn([
-          "flex flex-col",
-          isRightPanel ? "w-full" : "max-w-[80%] min-w-[240px]",
-        ])}
-      >
+      <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
           <img
             src="/assets/char-logo-icon-black.svg"
             alt="Char"
             className="size-4 object-contain"
           />
-          <span className="text-sm font-medium text-neutral-800">Char AI</span>
+          <span className="text-sm font-medium text-neutral-800">Charlie</span>
           <BetaChip />
         </div>
         <p className="mb-2 text-sm text-neutral-700">
-          Hey! I can help you with a lot of cool stuff :)
+          Hi, I'm Charlie. I can help you pull context from your notes, find key
+          decisions, and draft what comes next.
         </p>
         {hasContext && (
           <div className="flex flex-wrap gap-1.5">
