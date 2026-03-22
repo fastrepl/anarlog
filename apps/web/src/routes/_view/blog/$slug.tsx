@@ -9,7 +9,6 @@ import { cn } from "@hypr/utils";
 import { DownloadButton } from "@/components/download-button";
 import { Image } from "@/components/image";
 import { defaultMDXComponents } from "@/components/mdx";
-import { SlashSeparator } from "@/components/slash-separator";
 import { useBlogToc } from "@/hooks/use-blog-toc";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 import { AUTHOR_AVATARS } from "@/lib/team";
@@ -105,12 +104,10 @@ function Component() {
       <TableOfContents toc={article.toc} />
       <div className="mx-auto">
         <HeroSection article={article} />
-        <SlashSeparator />
         <div className="mx-auto max-w-200 px-4 py-8">
           <ArticleContent article={article} />
           <RelatedArticlesSection relatedArticles={relatedArticles} />
         </div>
-        <SlashSeparator />
         <CTASection />
       </div>
     </main>

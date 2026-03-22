@@ -5,7 +5,6 @@ import { useRef } from "react";
 import { cn } from "@hypr/utils";
 
 import { GithubStars } from "@/components/github-stars";
-import { SlashSeparator } from "@/components/slash-separator";
 import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/product/self-hosting")({
@@ -41,19 +40,12 @@ function Component() {
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <WhySelfHostSection />
-        <SlashSeparator />
         <ComparisonSection />
-        <SlashSeparator />
         <DeploymentOptionsSection />
-        <SlashSeparator />
         <WhatYouCanHostSection />
-        <SlashSeparator />
         <EnterpriseSection />
-        <SlashSeparator />
         <OpenSourceSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </main>

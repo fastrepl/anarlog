@@ -13,6 +13,12 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useScroll,
+} from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
@@ -176,6 +182,21 @@ export function Sidebar() {
   const activeSection = useActiveHomeSection(isHomePage);
   const activeSubItem = isHomePage ? null : findActiveSubItem(pathname);
 
+  const { scrollY } = useScroll();
+  const [showCTA, setShowCTA] = useState(!isHomePage);
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    if (!isHomePage) {
+      setShowCTA(true);
+      return;
+    }
+    setShowCTA(latest > window.innerHeight);
+  });
+
+  useEffect(() => {
+    setShowCTA(!isHomePage);
+  }, [isHomePage]);
+
   useEffect(() => {
     setIsMobileOpen(false);
   }, [pathname]);
@@ -209,11 +230,28 @@ export function Sidebar() {
         <div className="sticky top-0 flex h-screen flex-col">
           <div className="px-12 pt-16 pb-10">
             <Link to="/">
-              <CharLogo className="h-8 w-auto text-stone-950 transition-colors hover:scale-105" />
+              <CharLogo className="text-fg h-8 w-auto transition-colors hover:scale-105" />
             </Link>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1 px-12">
+          <AnimatePresence initial={false}>
+            {isHomePage && (
+              <motion.div
+                key="home-section-nav"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="px-12 pb-4">
+                  <HomeSectionNav activeId={activeSection} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <nav className="flex flex-col gap-1 px-12 pt-4">
             {navLinks.map((link) =>
               "hasSubmenu" in link && link.hasSubmenu ? (
                 <SidebarFlyout
@@ -233,8 +271,8 @@ export function Sidebar() {
                     ["py-1.5 text-base transition-colors"],
                     [
                       pathname.startsWith(link.to.replace(/\/$/, ""))
-                        ? "-mx-2 rounded bg-stone-100 px-2 text-stone-800"
-                        : "text-stone-950 hover:underline",
+                        ? "text-fg -mx-2 rounded-full px-2 underline"
+                        : "text-fg hover:underline",
                     ],
                   )}
                 >
@@ -242,18 +280,14 @@ export function Sidebar() {
                 </Link>
               ),
             )}
-
-            {isHomePage && (
-              <div className="mt-3 border-t border-stone-200 pt-4">
-                <HomeSectionNav activeId={activeSection} />
-              </div>
-            )}
           </nav>
+
+          <div className="flex-1" />
 
           <div className="shrink-0 px-12 pb-8">
             <div className="flex flex-col gap-3">
               <SearchTrigger variant="header" />
-              <SidebarCTA platformCTA={platformCTA} />
+              <SidebarCTA platformCTA={platformCTA} visible={showCTA} />
             </div>
           </div>
         </div>
@@ -286,7 +320,7 @@ export function Sidebar() {
                   ["py-2.5 text-base transition-colors"],
                   [
                     pathname.startsWith(link.to.replace(/\/$/, ""))
-                      ? "text-neutral-200"
+                      ? "-mx-2 rounded-lg px-2 text-neutral-200"
                       : "text-neutral-500 hover:text-neutral-300",
                   ],
                 )}
@@ -306,6 +340,8 @@ export function Sidebar() {
 }
 
 function HomeSectionNav({ activeId }: { activeId: string | null }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({
       behavior: "smooth",
@@ -314,22 +350,38 @@ function HomeSectionNav({ activeId }: { activeId: string | null }) {
   };
 
   return (
-    <nav className="flex flex-col gap-3">
-      {homeSections.map((s) => (
-        <button
-          key={s.id}
-          onClick={() => scrollTo(s.id)}
-          className="flex h-4 cursor-pointer items-center text-left"
-        >
-          {activeId === s.id ? (
-            <span className="text-xs text-stone-600 transition-all">
-              {s.label}
-            </span>
-          ) : (
-            <div className="h-px w-5 bg-stone-300 transition-all" />
-          )}
-        </button>
-      ))}
+    <nav
+      className="border-brand-bright flex flex-col gap-1.5 border-b pb-4"
+      onMouseLeave={() => setHoveredId(null)}
+    >
+      {homeSections.map((s) => {
+        const showLabel = activeId === s.id || hoveredId === s.id;
+        return (
+          <button
+            key={s.id}
+            onClick={() => scrollTo(s.id)}
+            onMouseEnter={() => setHoveredId(s.id)}
+            className="flex h-5 cursor-pointer items-center text-left"
+          >
+            {showLabel ? (
+              <motion.span
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.15 }}
+                style={{ originX: 0, originY: "50%" }}
+                className={cn(
+                  ["text-sm"],
+                  [activeId === s.id ? "text-stone-600" : "text-stone-400"],
+                )}
+              >
+                {s.label}
+              </motion.span>
+            ) : (
+              <div className="h-px w-5 bg-stone-600" />
+            )}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -342,13 +394,13 @@ function MobileTopBar({
   setIsMobileOpen: (open: boolean) => void;
 }) {
   return (
-    <div className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center justify-between border-b border-neutral-800 bg-neutral-950 px-4 md:hidden">
+    <div className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center justify-between bg-neutral-950 px-4 md:hidden">
       <Link to="/">
         <CharLogo className="h-5 w-auto text-neutral-500" />
       </Link>
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-neutral-200"
+        className="text-fg-subtle hover:text-fg flex size-9 cursor-pointer items-center justify-center rounded-lg transition-colors"
         aria-label={isMobileOpen ? "Close menu" : "Open menu"}
       >
         {isMobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -377,7 +429,8 @@ function SidebarFlyout({
   };
 
   const close = () => {
-    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(false);
   };
 
   useEffect(() => {
@@ -392,46 +445,46 @@ function SidebarFlyout({
         to={to}
         className={cn(
           [
-            "flex items-center justify-between py-1.5 text-base transition-colors",
+            "flex items-center justify-between py-1 text-base transition-colors",
           ],
           [
             isActive
-              ? "-mx-2 rounded bg-stone-100 px-2 text-stone-800"
-              : "text-stone-950 hover:underline",
+              ? "text-fg -mx-2 rounded-xl px-2 underline"
+              : "text-fg hover:underline",
           ],
         )}
       >
         {label}
-        <ChevronRight
-          size={14}
-          className={cn([
-            "transition-opacity",
-            isOpen ? "opacity-100" : "opacity-0",
-          ])}
-        />
+        <ChevronRight size={14} className="opacity-50" />
       </Link>
 
       {activeSubItem && (
         <Link
           to={activeSubItem.to}
-          className="block py-0.5 pl-2 text-xs text-stone-500 transition-colors hover:text-stone-800"
+          className="block pl-2 text-xs text-stone-500 transition-colors hover:text-stone-800"
         >
           {activeSubItem.label}
         </Link>
       )}
 
-      {isOpen && (
-        <div
-          className="absolute top-0 left-full z-[9999] pl-2"
-          onMouseEnter={open}
-          onMouseLeave={close}
-        >
-          <div className="w-56 rounded-lg border border-stone-200 bg-white py-2 shadow-lg">
-            {label === "Product" && <ProductFlyoutContent />}
-            {label === "Resources" && <ResourcesFlyoutContent />}
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="absolute top-0 left-full z-[9999] pl-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
+            onMouseEnter={open}
+            onMouseLeave={close}
+          >
+            <div className="border-brand-color surface w-56 rounded-lg border py-2 shadow-lg">
+              {label === "Product" && <ProductFlyoutContent />}
+              {label === "Resources" && <ResourcesFlyoutContent />}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -453,7 +506,7 @@ function ProductFlyoutContent() {
           {item.label}
         </Link>
       ))}
-      <div className="my-1.5 border-t border-stone-100" />
+      <div className="border-brand-color my-1.5 border-t" />
       <div className="px-3 pb-1">
         <span className="text-xs font-medium tracking-wide text-stone-400 uppercase">
           Solutions
@@ -526,7 +579,7 @@ function MobileSubmenu({
           ],
           [
             isActive
-              ? "text-neutral-200"
+              ? "-mx-2 rounded-lg px-2 text-neutral-200"
               : "text-neutral-500 hover:text-neutral-300",
           ],
         )}
@@ -613,23 +666,34 @@ function MobileSubmenu({
 
 function SidebarCTA({
   platformCTA,
+  visible = true,
 }: {
   platformCTA: ReturnType<typeof getPlatformCTA>;
+  visible?: boolean;
 }) {
   const baseClass =
     "flex h-9 items-center justify-center rounded-lg bg-neutral-800 text-sm text-neutral-300 transition-colors hover:bg-neutral-700 hover:text-neutral-100";
 
-  if (platformCTA.action === "download") {
-    return (
-      <a href="/download/apple-silicon" download className={baseClass}>
-        {platformCTA.label}
-      </a>
-    );
-  }
-
   return (
-    <Link to="/" className={baseClass}>
-      {platformCTA.label}
-    </Link>
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 8 }}
+          transition={{ duration: 0.2 }}
+        >
+          {platformCTA.action === "download" ? (
+            <a href="/download/apple-silicon" download className={baseClass}>
+              {platformCTA.label}
+            </a>
+          ) : (
+            <Link to="/" className={baseClass}>
+              {platformCTA.label}
+            </Link>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

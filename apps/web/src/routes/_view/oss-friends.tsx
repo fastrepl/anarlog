@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/oss-friends")({
   component: Component,
@@ -71,13 +70,11 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection search={search} onSearchChange={setSearch} />
-        <SlashSeparator />
         <FriendsSection
           friends={displayedFriends}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
         />
-        <SlashSeparator />
         <JoinSection />
       </div>
     </div>

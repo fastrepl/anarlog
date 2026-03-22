@@ -5,8 +5,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/product/mini-apps")({
   component: Component,
   head: () => ({
@@ -27,17 +25,11 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <ContactsSection />
-        <SlashSeparator />
         <CalendarSection />
-        <SlashSeparator />
         <DailyNotesSection />
-        <SlashSeparator />
         <FoldersSection />
-        <SlashSeparator />
         <AdvancedSearchSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>

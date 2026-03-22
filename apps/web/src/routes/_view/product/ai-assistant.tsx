@@ -18,7 +18,6 @@ import {
 } from "@/components/ai-feature-panel";
 import { MockChatInput } from "@/components/mock-chat-input";
 import { MockWindow } from "@/components/mock-window";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/product/ai-assistant")({
   component: Component,
@@ -73,15 +72,10 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <ScrollFeatureSection />
-        <SlashSeparator />
         <ExtensionsSection />
-        <SlashSeparator />
         <TemplatesSection />
-        <SlashSeparator />
         <HowItWorksSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>

@@ -5,9 +5,7 @@ import { useRef, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { GitHubOpenSource } from "@/components/github-open-source";
-import { SlashSeparator } from "@/components/slash-separator";
 import {
-  CoolStuffSection,
   CTASection,
   HowItWorksSection,
   MainFeaturesSection,
@@ -76,22 +74,15 @@ function Component() {
           headline={doc.headline}
           description={doc.description}
         />
-        <SlashSeparator />
         <HowItWorksSection />
-        <SlashSeparator />
-        <CoolStuffSection />
-        <SlashSeparator />
         <MainFeaturesSection
           featuresScrollRef={featuresScrollRef}
           selectedFeature={selectedFeature}
           setSelectedFeature={setSelectedFeature}
           scrollToFeature={scrollToFeature}
         />
-        <SlashSeparator />
         <TemplatesSection />
-        <SlashSeparator />
         <GitHubOpenSource />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </div>

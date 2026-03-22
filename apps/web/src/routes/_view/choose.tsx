@@ -4,8 +4,6 @@ import { useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/choose")({
   component: Component,
   head: () => ({
@@ -492,7 +490,6 @@ function RevealSection({
           </div>
         </div>
       </section>
-      <SlashSeparator />
       <section>
         <div className="grid md:grid-cols-3">
           <div className="border-b border-neutral-100 p-8 md:border-r md:border-b-0">

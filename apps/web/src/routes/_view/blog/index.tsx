@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 const CATEGORIES = [
@@ -101,7 +100,6 @@ function Component() {
         {featuredArticles.length > 0 && (
           <FeaturedSection articles={featuredArticles} />
         )}
-        <SlashSeparator />
         <MobileCategoriesSection
           categories={categoriesWithCount}
           selectedCategory={selectedCategory}

@@ -42,12 +42,12 @@ function Component() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto">
-        <div className="px-6 py-16 lg:py-24">
+        <div className="px-4 py-16 lg:py-24">
           <div className="mx-auto max-w-3xl text-left">
-            <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+            <h1 className="text-color mb-6 font-mono text-4xl tracking-tight sm:text-5xl">
               Press Kit
             </h1>
-            <p className="text-lg text-neutral-600 sm:text-xl">
+            <p className="text-fg-muted text-lg sm:text-xl">
               Download press materials, logos, screenshots, and learn more about
               Char. For press inquiries, contact us at{" "}
               <a
@@ -60,7 +60,7 @@ function Component() {
           </div>
         </div>
 
-        <section className="px-6 pb-16 lg:pb-24">
+        <section className="px-4 pb-16 lg:pb-24">
           <div className="mx-auto max-w-4xl">
             <MockWindow className="w-full max-w-none rounded-lg">
               <div className="p-8">

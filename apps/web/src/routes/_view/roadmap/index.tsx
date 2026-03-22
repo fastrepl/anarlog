@@ -79,12 +79,12 @@ function Component() {
   return (
     <div className="min-h-screen">
       <div className="mx-auto">
-        <div className="px-6 py-12 lg:py-20">
+        <div className="px-4 py-16 lg:py-24">
           <header className="mb-12 text-left">
-            <h1 className="mb-6 font-mono text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
+            <h1 className="text-color mb-6 font-mono text-4xl tracking-tight sm:text-5xl">
               Product Roadmap
             </h1>
-            <p className="mx-auto max-w-2xl text-xl text-neutral-600">
+            <p className="text-fg-muted mx-auto max-w-2xl text-lg sm:text-xl">
               See what we're building and what's coming next. We're always
               listening to feedback from our community.
             </p>
@@ -142,7 +142,7 @@ const statusConfig: Record<
 
 function TableView({ items }: { items: RoadmapItem[] }) {
   return (
-    <div className="-mx-6 overflow-x-auto">
+    <div className="-mx-4 overflow-x-auto">
       <table className="w-full border-collapse">
         <thead>
           <tr className="bg-neutral-50">
@@ -249,7 +249,7 @@ function CTASection({
   };
 
   return (
-    <section className="-mx-6 mt-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-6 py-16">
+    <section className="-mx-4 mt-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
       <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
@@ -260,11 +260,11 @@ function CTASection({
             className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="font-mono text-2xl sm:text-3xl">
+        <h2 className="text-color font-mono text-2xl sm:text-3xl">
           Where conversations
           <br className="sm:hidden" /> stay yours
         </h2>
-        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
           Start using Char today and bring clarity to your back-to-back meetings
         </p>
         <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">

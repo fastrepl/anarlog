@@ -3,7 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/why-char")({
@@ -42,15 +41,13 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <WhyWereDifferentSection />
-        <SlashSeparator />
+
         <WhoThisIsForSection />
-        <SlashSeparator />
+
         <WhatWereBuildingTowardSection />
-        <SlashSeparator />
+
         <HereForTheLongHaulSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </div>
@@ -59,21 +56,26 @@ function Component() {
 
 function HeroSection() {
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="px-6 py-16 lg:py-24">
-        <div className="mx-auto max-w-3xl text-left">
-          <h1 className="mb-8 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
-            Why Char exists
-          </h1>
-          <p className="mb-6 text-lg leading-relaxed text-neutral-600 sm:text-xl">
-            Most AI note-takers lock your data in their database, force you to
-            use their AI stack, and make you lose everything if you leave.
-          </p>
-          <p className="text-lg leading-relaxed font-medium text-neutral-600 sm:text-xl">
-            We thought that was bullshit.
-          </p>
+    <div className="flex w-full min-w-0 flex-col text-left">
+      <section className="laptop:px-4 isolate flex w-full min-w-0 overflow-visible pt-10 text-left">
+        <div className="border-brand-bright relative z-10 flex w-full min-w-0 flex-col content-between rounded-lg border md:min-h-[60vh] md:flex-row">
+          <div className="flex flex-col justify-center pt-12 pr-8 pb-12 pl-12">
+            <div className="flex flex-col gap-6">
+              <h1 className="text-color text-2xl break-words sm:text-6xl">
+                Why Char exists
+              </h1>
+              <p className="text-fg-muted text-2xl leading-relaxed break-words">
+                Most AI note-takers lock your data in their database, force you
+                to use their AI stack, and make you lose everything if you
+                leave.
+              </p>
+              <p className="text-fg-muted text-2xl leading-relaxed font-medium break-words">
+                We thought that was bullshit.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
@@ -111,49 +113,24 @@ const differentiators = [
 
 function WhyWereDifferentSection() {
   return (
-    <section className="bg-stone-50/30 px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-4xl">
-        <h2 className="mb-12 text-left font-mono text-3xl text-stone-700 sm:text-4xl">
+    <section className="px-4 py-16 lg:py-24">
+      <div className="mx-auto">
+        <h2 className="text-color mb-12 text-left font-mono text-3xl sm:text-4xl">
           So we built Char to give you back control.
         </h2>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {differentiators.slice(0, 3).map((item) => (
+        <div className="flex flex-col gap-6 md:flex-row md:flex-nowrap">
+          {differentiators.map((item) => (
             <div
               key={item.title}
-              className="rounded-lg border border-neutral-100 bg-white p-6"
+              className="border-brand-color bg-surface flex min-w-0 flex-1 flex-col gap-4 rounded-lg border p-6"
             >
-              <div className="flex items-start gap-4">
-                <div className="shrink-0 rounded-lg bg-stone-100 p-2">
-                  <Icon icon={item.icon} className="text-2xl text-stone-600" />
-                </div>
-                <div>
-                  <h3 className="mb-1 font-semibold text-stone-700">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-neutral-600">{item.description}</p>
-                </div>
+              <div className="w-fit p-2">
+                <Icon icon={item.icon} className="text-fg-muted text-2xl" />
               </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mx-auto mt-6 grid max-w-2xl grid-cols-1 gap-6 md:grid-cols-2 lg:flex lg:max-w-none lg:justify-center lg:gap-6">
-          {differentiators.slice(3).map((item) => (
-            <div
-              key={item.title}
-              className="rounded-lg border border-neutral-100 bg-white p-6 lg:w-[calc(33.333%-1rem)]"
-            >
-              <div className="flex items-start gap-4">
-                <div className="shrink-0 rounded-lg bg-stone-100 p-2">
-                  <Icon icon={item.icon} className="text-2xl text-stone-600" />
-                </div>
-                <div>
-                  <h3 className="mb-1 font-semibold text-stone-700">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-neutral-600">{item.description}</p>
-                </div>
+              <div className="min-w-0">
+                <h3 className="text-color mb-1 font-semibold">{item.title}</h3>
+                <p className="text-fg-muted text-sm">{item.description}</p>
               </div>
             </div>
           ))}
@@ -198,9 +175,9 @@ const audiences = [
 
 function WhoThisIsForSection() {
   return (
-    <section className="px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700 sm:text-4xl">
+    <section className="px-4 py-16 lg:py-24">
+      <div className="mx-auto">
+        <h2 className="text-color mb-8 text-left font-mono text-3xl sm:text-4xl">
           Char's for you, if
         </h2>
 
@@ -208,16 +185,14 @@ function WhoThisIsForSection() {
           {audiences.map((item) => (
             <div
               key={item.title}
-              className="flex gap-4 rounded-lg border border-neutral-100 bg-stone-50/50 p-6"
+              className="border-brand-color surface flex gap-4 rounded-lg border p-6"
             >
               <div className="flex size-10 h-fit shrink-0 items-center justify-center rounded-lg border border-neutral-100 bg-white p-2">
-                <Icon icon={item.icon} className="text-2xl text-stone-600" />
+                <Icon icon={item.icon} className="text-fg-muted text-2xl" />
               </div>
               <div>
-                <h3 className="mb-2 font-semibold text-stone-700">
-                  {item.title}
-                </h3>
-                <p className="leading-relaxed text-neutral-600">
+                <h3 className="text-color mb-4 font-semibold">{item.title}</h3>
+                <p className="text-fg-muted leading-relaxed">
                   {item.description}
                 </p>
               </div>
@@ -232,24 +207,19 @@ function WhoThisIsForSection() {
 function WhatWereBuildingTowardSection() {
   return (
     <section className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16">
-      <div className="mx-auto max-w-4xl">
-        <div
-          className="border border-neutral-200 p-4"
-          style={{
-            backgroundImage: "url(/api/images/texture/white-leather.png)",
-          }}
-        >
+      <div className="mx-auto">
+        <div className="border-brand-color surface rounded-lg border p-4">
           <div
-            className="rounded-xs border border-neutral-200 bg-stone-50 p-8 sm:p-12"
+            className="border-brand-color bg-surface rounded-xs border p-8 sm:p-12"
             style={{
               backgroundImage: "url(/api/images/texture/paper.png)",
             }}
           >
-            <h2 className="mb-4 font-mono text-2xl text-stone-700 sm:text-3xl">
+            <h2 className="text-color mb-4 font-mono text-2xl sm:text-3xl">
               What we're building toward
             </h2>
 
-            <div className="flex flex-col gap-4 leading-relaxed text-neutral-700">
+            <div className="text-color flex max-w-2xl flex-col gap-4 leading-relaxed">
               <p>
                 We're not betting on GPT-5 or Claude Opus 7 or whatever comes
                 next.
@@ -291,12 +261,10 @@ function WhatWereBuildingTowardSection() {
 
             <div className="flex flex-col gap-4">
               <div>
-                <p className="font-mono text-base font-medium text-neutral-600 italic">
+                <p className="text-fg-muted font-mono text-base font-medium italic">
                   Char
                 </p>
-                <p className="text-sm text-neutral-500">
-                  John Jeong, Yujong Lee
-                </p>
+                <p className="text-fg-muted text-sm">John Jeong, Yujong Lee</p>
               </div>
 
               <div>
@@ -327,20 +295,20 @@ const commitments = [
 
 function HereForTheLongHaulSection() {
   return (
-    <section className="px-6 py-16 lg:py-24">
+    <section className="px-4 py-16 lg:py-24">
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-8 text-left font-mono text-3xl text-stone-700 sm:text-4xl">
+        <h2 className="text-color mb-8 text-left font-mono text-3xl sm:text-4xl">
           Here for the long haul
         </h2>
 
-        <div className="flex flex-col gap-6 leading-relaxed text-neutral-700">
+        <div className="text-color flex flex-col gap-6 leading-relaxed">
           <p>
             This isn't a bait-and-switch. We're not looking to get acquired and
             cash out.
           </p>
 
           <p>
-            <span className="font-semibold text-stone-700">
+            <span className="text-color font-semibold">
               We're building the company we want to work for
             </span>
             —one that treats users the way we'd want to be treated.
@@ -352,7 +320,7 @@ function HereForTheLongHaulSection() {
             {commitments.map((commitment) => (
               <li key={commitment} className="flex items-center gap-3">
                 <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-stone-100 p-1">
-                  <Icon icon="mdi:check" className="text-lg text-stone-600" />
+                  <Icon icon="mdi:check" className="text-fg-muted text-lg" />
                 </div>
                 <span>{commitment}</span>
               </li>
@@ -364,14 +332,14 @@ function HereForTheLongHaulSection() {
             <Link
               to="/"
               hash="hero"
-              className="font-semibold text-stone-700 decoration-dotted hover:underline"
+              className="text-color font-semibold decoration-dotted hover:underline"
             >
               download Char and try it
             </Link>
             .
           </p>
 
-          <p className="text-lg font-medium text-stone-700">
+          <p className="text-color text-lg font-medium">
             If we screw this up, you can export everything and walk away. That's
             the deal.
           </p>

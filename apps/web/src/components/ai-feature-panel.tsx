@@ -82,7 +82,7 @@ export function JiraToolCall({ loopKey }: { loopKey: number }) {
   }, [loopKey]);
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-gradient-to-r from-blue-50 to-stone-50 p-3">
+    <div className="border-brand-color rounded-xl border bg-gradient-to-r from-blue-50 to-stone-50 p-3 shadow-lg">
       <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500">
         <Icon icon="logos:jira" className="text-sm" />
         <AnimatePresence mode="wait">
@@ -145,10 +145,17 @@ export function JiraToolCall({ loopKey }: { loopKey: number }) {
   );
 }
 
-export function TranscriptToolCall({ loopKey }: { loopKey: number }) {
-  const [phase, setPhase] = useState(0);
+export function TranscriptToolCall({
+  loopKey,
+  static: isStatic,
+}: {
+  loopKey: number;
+  static?: boolean;
+}) {
+  const [phase, setPhase] = useState(isStatic ? 2 : 0);
 
   useEffect(() => {
+    if (isStatic) return;
     setPhase(0);
     const t1 = setTimeout(() => setPhase(1), 500);
     const t2 = setTimeout(() => setPhase(2), 1200);
@@ -156,20 +163,20 @@ export function TranscriptToolCall({ loopKey }: { loopKey: number }) {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [loopKey]);
+  }, [loopKey, isStatic]);
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white px-3 py-2.5">
+    <div className="border-brand-color surface rounded-xl border px-3 py-2.5">
       <div className="flex flex-col gap-2 text-sm">
         <AnimatePresence>
           {phase >= 1 && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={isStatic ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
             >
-              <span className="font-medium text-stone-700">Sarah: </span>
-              <span className="text-neutral-600">
+              <span className="text-green-600">Sarah: </span>
+              <span className="text-fg">
                 The API changes will need at least two sprints...
               </span>
             </motion.div>
@@ -178,12 +185,12 @@ export function TranscriptToolCall({ loopKey }: { loopKey: number }) {
         <AnimatePresence>
           {phase >= 2 && (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
+              initial={isStatic ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
             >
-              <span className="font-medium text-stone-700">Ben: </span>
-              <span className="text-neutral-600">
+              <span className="text-blue-600">Ben: </span>
+              <span className="text-fg">
                 I can start on the auth module this week.
               </span>
             </motion.div>

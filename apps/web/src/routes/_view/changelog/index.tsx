@@ -40,13 +40,13 @@ function Component() {
   return (
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
-        <div className="px-6 py-16 lg:py-24">
+        <div className="px-4 py-16 lg:py-24">
           <HeroSection />
         </div>
         <div className="mt-16">
           {changelogs.map((changelog, index) => (
             <div key={changelog.slug}>
-              <div className="mx-auto max-w-4xl px-6">
+              <div className="mx-auto max-w-4xl px-4">
                 <ChangelogSection changelog={changelog} />
               </div>
               {index < changelogs.length - 1 && (
@@ -55,7 +55,7 @@ function Component() {
             </div>
           ))}
         </div>
-        <div className="px-6 pb-16 lg:pb-24"></div>
+        <div className="px-4 pb-16 lg:pb-24"></div>
       </div>
     </main>
   );
@@ -64,10 +64,10 @@ function Component() {
 function HeroSection() {
   return (
     <div className="text-left">
-      <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+      <h1 className="text-color mb-6 font-mono text-4xl tracking-tight sm:text-5xl">
         Changelog
       </h1>
-      <p className="text-lg text-neutral-600 sm:text-xl">
+      <p className="text-fg-muted text-lg sm:text-xl">
         Track every update, improvement, and fix to Char
       </p>
     </div>

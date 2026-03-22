@@ -4,7 +4,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { cn } from "@hypr/utils";
 
 import { FAQ, FAQItem } from "@/components/mdx-jobs";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/product/flexible-ai")({
   component: Component,
@@ -26,15 +25,10 @@ function Component() {
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <AISetupSection />
-        <SlashSeparator />
         <LocalFeaturesSection />
-        <SlashSeparator />
         <SwitchSection />
-        <SlashSeparator />
         <BenchmarkSection />
-        <SlashSeparator />
         <FAQSection />
       </div>
     </main>

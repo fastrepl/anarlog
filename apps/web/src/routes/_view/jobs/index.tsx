@@ -5,7 +5,6 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/jobs/")({
   beforeLoad: () => {
@@ -30,7 +29,6 @@ function JobsPage() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <JobsSection />
       </div>
     </div>
@@ -39,12 +37,12 @@ function JobsPage() {
 
 function HeroSection() {
   return (
-    <div className="px-6 py-16 lg:py-24">
+    <div className="px-4 py-16 lg:py-24">
       <div className="mx-auto max-w-3xl text-left">
-        <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+        <h1 className="text-color mb-6 font-mono text-4xl tracking-tight sm:text-5xl">
           Jobs
         </h1>
-        <p className="text-lg text-neutral-600 sm:text-xl">
+        <p className="text-fg-muted text-lg sm:text-xl">
           Join us in building the future of note-taking. We're a small team with
           big ambitions.
         </p>
@@ -67,13 +65,12 @@ function JobsSection() {
           ))}
         </div>
       ) : (
-        <div className="px-6 py-16 text-left">
-          <p className="text-lg text-neutral-500">
+        <div className="px-4 py-16 text-left">
+          <p className="text-fg-muted text-lg">
             There are no open positions at the moment.
           </p>
         </div>
       )}
-      <SlashSeparator />
       <CTASection />
     </section>
   );
@@ -135,10 +132,10 @@ function CTASection() {
             className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="font-mono text-2xl sm:text-3xl">
+        <h2 className="text-color font-mono text-2xl sm:text-3xl">
           Don't see a role that fits?
         </h2>
-        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
           We'd still love to hear from you!
         </p>
         <div className="pt-6">

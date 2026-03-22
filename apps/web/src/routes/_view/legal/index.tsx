@@ -31,12 +31,12 @@ export const Route = createFileRoute("/_view/legal/")({
 function Component() {
   return (
     <div className="min-h-screen">
-      <div className="mx-auto px-4 py-16 sm:px-6 lg:px-8">
+      <div className="mx-auto px-4 py-16 lg:py-24">
         <header className="mb-12">
-          <h1 className="mb-4 font-mono text-4xl text-stone-700 sm:text-5xl">
+          <h1 className="text-color mb-4 font-mono text-4xl tracking-tight sm:text-5xl">
             Legal
           </h1>
-          <p className="text-lg text-neutral-600">
+          <p className="text-fg-muted text-lg sm:text-xl">
             Terms, privacy policy, and other legal documents
           </p>
         </header>

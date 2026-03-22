@@ -48,19 +48,19 @@ export function DownloadButton() {
   };
 
   return (
-    <a
-      href={href}
-      download
-      onClick={handleClick}
-      className={cn([
-        "group flex h-12 items-center justify-center px-6",
-        "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-        "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-        "transition-all",
-      ])}
-    >
-      <Icon icon={icon} className="mr-2 text-xl" />
-      {label}
-    </a>
+    <div className="flex flex-col gap-2 rounded-full bg-gradient-to-b from-gray-100 to-gray-700 p-0.5 shadow-md transition-all hover:scale-[102%] hover:shadow-xl active:scale-[98%]">
+      <a
+        href={href}
+        download
+        onClick={handleClick}
+        className={cn([
+          "group flex h-14 items-center justify-center px-8",
+          "surface-dark rounded-full text-white",
+        ])}
+      >
+        <Icon icon={icon} className="mr-2 mb-0.5 text-xl" />
+        {label}
+      </a>
+    </div>
   );
 }

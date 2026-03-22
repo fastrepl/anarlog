@@ -4,7 +4,6 @@ import { CheckCircle2, MinusCircle, XCircle } from "lucide-react";
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/pricing")({
   component: Component,
@@ -98,11 +97,8 @@ function Component() {
       <div className="mx-auto">
         <TeamPricingBanner />
         <HeroSection />
-        <SlashSeparator />
         <PricingCardsSection />
-        <SlashSeparator />
         <FAQSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </main>
@@ -127,7 +123,6 @@ function TeamPricingBanner() {
     </div>
   );
 }
-
 
 function HeroSection() {
   return (

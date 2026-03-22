@@ -9,8 +9,6 @@ import {
 } from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/solution/engineering")({
   component: Component,
   head: () => ({
@@ -249,21 +247,13 @@ function Component() {
     <div className="min-h-screen overflow-x-hidden">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <TechnicalSpecsSection />
-        <SlashSeparator />
         <BYOKSection />
-        <SlashSeparator />
         <AutomationHooksSection />
-        <SlashSeparator />
         <ExtensibilitySection />
-        <SlashSeparator />
         <CLISection />
-        <SlashSeparator />
         <APISection />
-        <SlashSeparator />
         <FAQSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>

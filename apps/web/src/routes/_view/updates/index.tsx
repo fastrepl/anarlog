@@ -42,14 +42,14 @@ function Component() {
   return (
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
-        <div className="px-6 py-16 lg:py-24">
+        <div className="px-4 py-16 lg:py-24">
           <HeroSection />
         </div>
         <div className="border-t border-neutral-100" />
         <div className="py-8">
           {sortedUpdates.map((update, index) => (
             <div key={update.slug}>
-              <div className="mx-auto max-w-4xl px-6">
+              <div className="mx-auto max-w-4xl px-4">
                 <UpdateSection update={update} />
               </div>
               {index < sortedUpdates.length - 1 && (
@@ -59,7 +59,7 @@ function Component() {
           ))}
         </div>
         <div className="border-t border-neutral-100" />
-        <div className="mx-auto max-w-3xl px-6 py-16 lg:py-24">
+        <div className="mx-auto max-w-3xl px-4 py-16 lg:py-24">
           <SubscribeSection />
         </div>
       </div>
@@ -70,10 +70,10 @@ function Component() {
 function HeroSection() {
   return (
     <div className="flex flex-col items-center gap-6 text-left">
-      <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+      <h1 className="text-color font-mono text-4xl tracking-tight sm:text-5xl">
         Updates
       </h1>
-      <p className="text-lg text-neutral-600 sm:text-xl">
+      <p className="text-fg-muted text-lg sm:text-xl">
         Weekly updates from the Char team
       </p>
       <EmailSubscribeField
@@ -88,10 +88,10 @@ function HeroSection() {
 function SubscribeSection() {
   return (
     <div className="flex flex-col items-center gap-4 text-left">
-      <h2 className="font-mono text-3xl text-stone-700">
+      <h2 className="text-color font-mono text-3xl">
         Get updates in your inbox
       </h2>
-      <p className="text-neutral-600">
+      <p className="text-fg-muted">
         Subscribe to get weekly updates from the Char team.
       </p>
       <EmailSubscribeField

@@ -7,7 +7,6 @@ import { cn } from "@hypr/utils";
 
 import { DownloadButton } from "@/components/download-button";
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 import {
   GITHUB_LAST_SEEN_FORKS,
   GITHUB_LAST_SEEN_STARS,
@@ -61,17 +60,11 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <LetterSection />
-        <SlashSeparator />
         <TechStackSection />
-        <SlashSeparator />
         <SponsorsSection />
-        <SlashSeparator />
         <ProgressSection />
-        <SlashSeparator />
         <JoinMovementSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </div>

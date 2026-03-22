@@ -4,7 +4,6 @@ import { useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
 import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/product/local-ai")({
@@ -40,17 +39,11 @@ function Component() {
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <WhyLocalAISection />
-        <SlashSeparator />
         <ComparisonSection />
-        <SlashSeparator />
         <CapabilitiesSection />
-        <SlashSeparator />
         <ModelsSection />
-        <SlashSeparator />
         <ComplianceSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </main>

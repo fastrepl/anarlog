@@ -7,7 +7,6 @@ import { AnimatedTitle } from "@/components/animated-title";
 import { Image } from "@/components/image";
 import { MDXLink } from "@/components/mdx";
 import { jobsMdxComponents } from "@/components/mdx-jobs";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/jobs/$slug")({
   beforeLoad: () => {
@@ -68,7 +67,6 @@ function JobPage() {
       <div className="mx-auto">
         <HeroSection job={job} />
         <JobDetailsSection job={job} />
-        <SlashSeparator />
         <CTASection job={job} />
       </div>
     </div>

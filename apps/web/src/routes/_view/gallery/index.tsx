@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { DownloadButton } from "@/components/download-button";
-import { SlashSeparator } from "@/components/slash-separator";
 
 type GalleryType = "template" | "shortcut";
 
@@ -178,7 +177,6 @@ function Component() {
           itemsByCategory={filteredItemsByCategory}
           filteredItems={filteredItems}
         />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -224,12 +222,12 @@ function HeroSection({
 }) {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <section className="laptop:px-0 flex flex-col items-center gap-8 px-4 py-24 text-left">
+      <section className="laptop:px-0 flex flex-col items-center gap-8 px-4 py-16 text-left lg:py-24">
         <div className="flex max-w-3xl flex-col gap-6">
-          <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="text-color font-mono text-4xl tracking-tight sm:text-5xl">
             Gallery
           </h1>
-          <p className="text-lg text-neutral-600 sm:text-xl">
+          <p className="text-fg-muted text-lg sm:text-xl">
             Browse and discover templates and shortcuts for your workflow
           </p>
         </div>
@@ -352,7 +350,7 @@ function GallerySection({
   filteredItems: GalleryItem[];
 }) {
   return (
-    <div className="px-6 pt-8 pb-12 lg:pt-12 lg:pb-20">
+    <div className="px-4 pt-8 pb-12 lg:pt-12 lg:pb-20">
       <div className="flex gap-8">
         <DesktopSidebar
           categories={categories}
@@ -466,7 +464,9 @@ function ItemCard({ item }: { item: GalleryItem }) {
           <span className="font-medium">
             {isTemplate ? "Template" : "Shortcut"}
           </span>
-          <span className="mx-1">/</span>
+          <span className="mx-1.5 text-neutral-400" aria-hidden>
+            ·
+          </span>
           <span>{item.item.category}</span>
         </p>
         <h3 className="mb-1 font-mono text-lg text-stone-700 transition-colors group-hover:text-stone-800">
@@ -519,12 +519,12 @@ function ContributeCard() {
 
 function CTASection() {
   return (
-    <section className="px-6 py-16 text-left">
+    <section className="px-4 py-16 text-left">
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <h2 className="font-mono text-3xl text-stone-700 sm:text-4xl">
+        <h2 className="text-color font-mono text-3xl sm:text-4xl">
           Ready to transform your meetings?
         </h2>
-        <p className="text-lg text-neutral-600">
+        <p className="text-fg-muted text-lg">
           Download Char and start using these templates and shortcuts to capture
           perfect meeting notes with AI.
         </p>

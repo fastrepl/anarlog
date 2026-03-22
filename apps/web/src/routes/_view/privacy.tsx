@@ -3,8 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/privacy")({
   component: Component,
   head: () => ({
@@ -39,17 +37,11 @@ function Component() {
     <div className="min-h-screen">
       <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <PrivacyPromiseSection />
-        <SlashSeparator />
         <DataOwnershipSection />
-        <SlashSeparator />
         <NoTrackingSection />
-        <SlashSeparator />
         <TransparencySection />
-        <SlashSeparator />
         <PrivacyComparisonSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>

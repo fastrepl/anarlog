@@ -59,12 +59,12 @@ export function MockChatInput({
   return (
     <div
       className={cn([
-        "flex flex-col overflow-hidden border border-neutral-200 bg-linear-to-t from-stone-100 to-white shadow-lg transition-all duration-300 hover:shadow-2xl",
-        "min-h-32 w-full max-w-lg rounded-xl p-4",
+        "border-brand-color surface flex flex-col overflow-hidden border shadow-lg transition-all duration-300 hover:shadow-2xl",
+        "max-h-32 min-h-32 w-full max-w-lg rounded-xl p-3",
         className,
       ])}
     >
-      <div className="text-md flex min-h-[24px] flex-1 justify-start text-stone-600">
+      <div className="text-md flex min-h-[24px] flex-1 justify-start pt-2 pl-2 text-stone-600">
         {displayText}
         {isTyping && (
           <span className="ml-[1px] inline-block h-[24px] w-[2px] animate-pulse bg-blue-400 align-middle" />
@@ -74,7 +74,7 @@ export function MockChatInput({
       <div className="flex w-full justify-end">
         <div
           className={cn([
-            "flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors",
+            "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
             displayText
               ? "bg-stone-600 text-white"
               : "bg-neutral-100 text-neutral-300",

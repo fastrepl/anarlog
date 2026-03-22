@@ -13,7 +13,7 @@ function CellPattern() {
           cy={56}
           r={r}
           fill="none"
-          stroke="#CBC8BD"
+          stroke="var(--color-border-bright)"
           opacity={1}
           strokeWidth={1}
         />
@@ -66,7 +66,7 @@ export function NotebookGrid() {
       currentCellIdx.current = idx;
       setRotations((prev) => {
         const next = [...prev];
-        next[idx] = ((next[idx] ?? 0) + 90) % 360;
+        next[idx] = (next[idx] ?? 0) + 90;
         return next;
       });
     },
@@ -80,7 +80,7 @@ export function NotebookGrid() {
   return (
     <div
       ref={containerRef}
-      className="border-shadow h-full w-full overflow-hidden"
+      className="border-brand-bright h-full w-full overflow-hidden border"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{
@@ -93,7 +93,7 @@ export function NotebookGrid() {
           key={i}
           className="relative overflow-hidden"
           style={{
-            boxShadow: "0px 0px 0px 0.5px #CBC8BD",
+            boxShadow: "0px 0px 0px 0.5px var(--color-border-bright)",
           }}
         >
           <div

@@ -16,6 +16,7 @@ import { BlogTocContext } from "@/hooks/use-blog-toc";
 import { DocsDrawerContext } from "@/hooks/use-docs-drawer";
 import { HandbookDrawerContext } from "@/hooks/use-handbook-drawer";
 import { HeroContext } from "@/hooks/use-hero-context";
+import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
 
 import { handbookStructure } from "./company-handbook/-structure";
 import { getDocsBySection } from "./docs/-structure";
@@ -77,23 +78,37 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
-                {isHomePage && (
+                <>
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh]"
                     style={{
                       background:
-                        "linear-gradient(to bottom,rgb(255, 246, 220), transparent)",
+                        "linear-gradient(to bottom, var(--brand-yellow), transparent)",
                     }}
                   />
-                )}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh] opacity-30"
+                    style={{
+                      backgroundImage: brandPageNoiseBackgroundImage,
+                      backgroundRepeat: "repeat",
+                      maskImage:
+                        "linear-gradient(to bottom, black, transparent)",
+                      WebkitMaskImage:
+                        "linear-gradient(to bottom, black, transparent)",
+                    }}
+                  />
+                </>
 
                 {/* Mobile top bar spacer */}
                 <div className="h-14 md:hidden" />
 
                 {/* Sidebar + content in a centered container */}
                 <div className="relative z-10 mx-auto flex w-full max-w-[1600px]">
-                  {!isChoosePage && <Sidebar />}
+                  {!isChoosePage && !isDocsPage && !isHandbookPage && (
+                    <Sidebar />
+                  )}
                   <main className="min-w-0 flex-1">
                     <Outlet />
                   </main>

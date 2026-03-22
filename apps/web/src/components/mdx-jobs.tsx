@@ -274,11 +274,11 @@ export function FAQItem({
 }) {
   return (
     <details className="group last:border-b-0">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 py-4 pr-8 font-medium text-neutral-800 transition-colors hover:text-neutral-600 [&::-webkit-details-marker]:hidden">
+      <summary className="text-color flex cursor-pointer list-none items-start justify-between gap-4 py-6 pr-4 text-lg transition-colors hover:text-neutral-600 [&::-webkit-details-marker]:hidden">
         <span>{question}</span>
-        <ChevronDown className="mt-1 size-4 shrink-0 text-neutral-400 transition-transform group-open:rotate-180" />
+        <ChevronDown className="text-color-muted mt-1 size-4 shrink-0 transition-transform group-open:rotate-180" />
       </summary>
-      <div className="pb-4 text-neutral-600 [&_li]:pl-1 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <div className="text-color [&_ul:list-disc pb-4 [&_li]:pl-1 [&_p]:mb-3 [&_p:last-child]:mb-0 [&_ul]:space-y-2 [&_ul]:pl-5 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
         {children}
       </div>
     </details>
@@ -287,7 +287,7 @@ export function FAQItem({
 
 export function FAQ({ children }: { children: React.ReactNode }) {
   return (
-    <div className="w-full divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-neutral-50 px-4">
+    <div className="border-brand-color bg-surface w-full divide-y divide-neutral-200 rounded-lg border px-4">
       {children}
     </div>
   );
