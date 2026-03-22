@@ -70,3 +70,67 @@ char completions [-h] [-V] <shell>
 
 - `<SHELL>`
 
+---
+
+## Standalone commands
+
+The standalone CLI build (installed via `npm` or direct download) includes additional commands.
+
+### char models
+
+Manage local models
+
+```
+char models [-h] [-V] <command>
+```
+
+**Subcommands:**
+
+- `paths` — Show resolved paths for settings and model storage
+- `list` — List available models and their download status
+- `cactus` — Manage downloadable Cactus models (Apple Silicon only)
+- `download` — Download a model by name
+- `delete` — Delete a downloaded model
+
+### char models list
+
+```
+char models list [--kind] [--supported] [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `--kind <KIND>` — Filter by model kind (`stt` or `llm`)
+- `--supported` — Only show supported models (requires `--kind stt`)
+- `-f, --format <FORMAT>` (default: `json`)
+
+### char record
+
+Record audio to a WAV file
+
+```
+char record [--audio] [-o] [--sample-rate] [-h] [-V]
+```
+
+**Options:**
+
+- `--audio <AUDIO>` — Audio source: `input` (mic), `output` (system audio), or `dual` (default: `input`)
+- `-o, --output <FILE>` — Output file path (default: auto-generated with timestamp)
+- `--sample-rate <RATE>` (default: `16000`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+Press Ctrl+C to stop recording.
+
+### char desktop
+
+Open the desktop app or download page.
+
+### char bug
+
+Report a bug on GitHub.
+
+### char hello
+
+Open char.com.
+
