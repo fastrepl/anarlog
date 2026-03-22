@@ -19,7 +19,7 @@ export type SchemaValidationResult =
 
 export function validateJsonContent(json: JSONContent): SchemaValidationResult {
   try {
-    getCachedSchema().nodeFromJSON(json);
+    getCachedSchema().nodeFromJSON(json).check();
     return { valid: true };
   } catch (error) {
     return {

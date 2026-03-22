@@ -3,7 +3,12 @@ import type { JSONContent } from "@tiptap/react";
 import { describe, expect, test } from "vitest";
 
 import { getExtensions } from "./extensions";
-import { isValidTiptapContent, json2md, md2json } from "./utils";
+import {
+  isValidTiptapContent,
+  json2md,
+  md2json,
+  parseJsonContent,
+} from "./utils";
 
 describe("json2md", () => {
   test("renders underline as html tags", () => {
@@ -276,19 +281,19 @@ describe("md2json", () => {
         "Check out this image: ![cat](https://example.com/cat.png) and more text";
       const json = md2json(markdown);
 
-      const paragraph = json.content![0];
-      expect(paragraph.type).toBe("paragraph");
+      expect(json.content).toHaveLength(3);
+      expect(json.content![0].type).toBe("paragraph");
+      expect(json.content![1].type).toBe("image");
+      expect(json.content![2].type).toBe("paragraph");
 
-      const imageNode = paragraph.content!.find(
-        (node) => node.type === "image",
-      );
-      expect(imageNode).toBeDefined();
+      const imageNode = json.content![1];
       expect(imageNode?.attrs?.src).toBe("https://example.com/cat.png");
       expect(imageNode?.attrs?.alt).toBe("cat");
 
-      const textNodes = paragraph.content!.filter(
-        (node) => node.type === "text",
-      );
+      const textNodes = json
+        .content!.filter((node) => node.type === "paragraph")
+        .flatMap((node) => node.content ?? [])
+        .filter((node) => node.type === "text");
       expect(textNodes.length).toBeGreaterThan(0);
     });
   });
@@ -447,7 +452,7 @@ describe("md2json mark sanitization", () => {
     error?: string;
   } {
     try {
-      schema.nodeFromJSON(json);
+      schema.nodeFromJSON(json).check();
       return { valid: true };
     } catch (error) {
       return {
@@ -510,7 +515,7 @@ describe("schema validation", () => {
     error?: string;
   } {
     try {
-      schema.nodeFromJSON(json);
+      schema.nodeFromJSON(json).check();
       return { valid: true };
     } catch (error) {
       return {
@@ -614,6 +619,9 @@ More text.`;
       if (!validation.valid) {
         throw new Error(`Schema validation failed: ${validation.error}`);
       }
+
+      expect(json.content).toHaveLength(3);
+      expect(json.content![1].type).toBe("image");
     });
 
     test("task list produces schema-valid JSON", () => {
@@ -655,6 +663,72 @@ More text.`;
         throw new Error(`Schema validation failed: ${validation.error}`);
       }
     });
+
+    test("heading-first list items are normalized into paragraph-first list items", () => {
+      const json = md2json("- ## Heading");
+
+      const validation = validateJsonContent(json);
+      expect(validation.valid).toBe(true);
+      if (!validation.valid) {
+        throw new Error(`Schema validation failed: ${validation.error}`);
+      }
+
+      expect(json.content?.[0]?.type).toBe("bulletList");
+      expect(json.content?.[0]?.content?.[0]?.type).toBe("listItem");
+      expect(json.content?.[0]?.content?.[0]?.content?.[0]?.type).toBe(
+        "paragraph",
+      );
+    });
+
+    test("nested-list-only list items are normalized with a leading paragraph", () => {
+      const json = md2json("-\n  1. Child");
+
+      const validation = validateJsonContent(json);
+      expect(validation.valid).toBe(true);
+      if (!validation.valid) {
+        throw new Error(`Schema validation failed: ${validation.error}`);
+      }
+
+      const listItem = json.content?.[0]?.content?.[0];
+      expect(listItem?.type).toBe("listItem");
+      expect(listItem?.content?.[0]?.type).toBe("paragraph");
+      expect(listItem?.content?.[1]?.type).toBe("orderedList");
+    });
+
+    test("stored invalid content is repaired on load", () => {
+      const raw = JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "bulletList",
+            content: [
+              {
+                type: "listItem",
+                content: [
+                  {
+                    type: "heading",
+                    attrs: { level: 2 },
+                    content: [{ type: "text", text: "Heading" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      } satisfies JSONContent);
+
+      const json = parseJsonContent(raw);
+
+      const validation = validateJsonContent(json);
+      expect(validation.valid).toBe(true);
+      if (!validation.valid) {
+        throw new Error(`Schema validation failed: ${validation.error}`);
+      }
+
+      expect(json.content?.[0]?.content?.[0]?.content?.[0]?.type).toBe(
+        "paragraph",
+      );
+    });
   });
 
   describe("invalid content detection", () => {
@@ -679,7 +753,7 @@ More text.`;
       } as JSONContent;
 
       const validation = validateJsonContent(invalidJson);
-      expect(validation.valid).toBe(true);
+      expect(validation.valid).toBe(false);
     });
 
     test("validates image with src attribute (block-level)", () => {
@@ -778,5 +852,24 @@ describe("isValidTiptapContent", () => {
     expect(isValidTiptapContent({ type: "doc", content: "string" })).toBe(
       false,
     );
+  });
+
+  test("returns false for schema-invalid content", () => {
+    expect(
+      isValidTiptapContent({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "image",
+                attrs: { src: "https://example.com/image.png" },
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 });

@@ -44,6 +44,14 @@ export function useCaretPosition() {
 
 const BOTTOM_THRESHOLD = 70;
 
+function getMountedEditorView(editor: TiptapEditor) {
+  const view = (
+    editor as unknown as { editorView?: TiptapEditor["view"] | null }
+  ).editorView;
+
+  return view?.dom?.isConnected ? view : null;
+}
+
 export function useCaretNearBottom({
   editor,
   container,
@@ -70,7 +78,12 @@ export function useCaretNearBottom({
         return;
       }
 
-      const { view } = editor;
+      const view = getMountedEditorView(editor);
+      if (!view) {
+        setCaretNearBottom(false);
+        return;
+      }
+
       const { from } = view.state.selection;
       const coords = view.coordsAtPos(from);
 
