@@ -233,6 +233,7 @@ tauri-plugin-tracing = { path = "plugins/tracing" }
 tauri-plugin-tray = { path = "plugins/tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
 tauri-plugin-webhook = { path = "plugins/webhook" }
+tauri-plugin-reactive-db = { path = "plugins/reactive-db" }
 tauri-plugin-windows = { path = "plugins/windows" }
 
 async-stream = "0.3.6"

@@ -223,9 +223,6 @@ importers:
       '@hypr/plugin-calendar':
         specifier: workspace:*
         version: link:../../plugins/calendar
-      '@hypr/plugin-db2':
-        specifier: workspace:*
-        version: link:../../plugins/db2
       '@hypr/plugin-deeplink2':
         specifier: workspace:*
         version: link:../../plugins/deeplink2
@@ -298,6 +295,9 @@ importers:
       '@hypr/plugin-permissions':
         specifier: workspace:*
         version: link:../../plugins/permissions
+      '@hypr/plugin-reactive-db':
+        specifier: workspace:*
+        version: link:../../plugins/reactive-db
       '@hypr/plugin-relay':
         specifier: workspace:*
         version: link:../../plugins/relay
@@ -1786,12 +1786,6 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
-  plugins/db2:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
   plugins/deeplink2:
     dependencies:
       '@tauri-apps/api':
@@ -1940,6 +1934,12 @@ importers:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/reactive-db:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.0.0
         version: 2.10.1
 
   plugins/relay: {}

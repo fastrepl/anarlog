@@ -83,6 +83,7 @@
     "autostart:default",
     "js:default",
     "flag:default",
+    "reactive-db:default",
     "relay:default",
     {
       "identifier": "http:default",

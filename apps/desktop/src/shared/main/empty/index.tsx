@@ -77,6 +77,10 @@ function EmptyView() {
     () => openCurrent({ type: "search" }),
     [openCurrent],
   );
+  const openSample = useCallback(
+    () => openCurrent({ type: "sample" }),
+    [openCurrent],
+  );
 
   useHotkeys(
     "mod+o",
@@ -110,6 +114,7 @@ function EmptyView() {
           shortcut={["⌘", "⇧", "F"]}
           onClick={openAdvancedSearch}
         />
+        <ActionItem label="Sample (Reactive DB)" onClick={openSample} />
         <div className="my-1 h-px bg-neutral-200" />
         <ActionItem
           label="AI Settings"

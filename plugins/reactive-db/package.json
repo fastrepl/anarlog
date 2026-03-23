@@ -1,0 +1,11 @@
+{
+  "name": "@hypr/plugin-reactive-db",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./js/index.ts"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  }
+}

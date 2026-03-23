@@ -157,7 +157,8 @@ pub async fn main() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--background"]),
         ))
-        .plugin(tauri_plugin_updater2::init());
+        .plugin(tauri_plugin_updater2::init())
+        .plugin(tauri_plugin_reactive_db::init());
 
     if let Some(client) = sentry_client.as_ref() {
         builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));
@@ -222,6 +223,14 @@ pub async fn main() {
             }
 
             // control::setup(&app_handle);
+
+            {
+                use tauri_plugin_reactive_db::ReactiveDbExt;
+                let handle = app_handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    handle.reactive_db().init_memory().await.unwrap();
+                });
+            }
 
             Ok(())
         })

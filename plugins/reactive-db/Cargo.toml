@@ -1,0 +1,27 @@
+[package]
+name = "tauri-plugin-reactive-db"
+version = "0.1.0"
+edition = "2024"
+links = "tauri-plugin-reactive-db"
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+tauri = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+libsqlite3-sys = "0.30"
+
+tokio = { workspace = true, features = ["sync"] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["serde_json"] }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }

@@ -89,5 +89,7 @@ common_derives! {
             #[serde(rename = "requestId")]
             request_id: String,
         },
+        #[serde(rename = "sample")]
+        Sample,
     }
 }

@@ -57,6 +57,7 @@ tauri-plugin-opener = { workspace = true }
 tauri-plugin-opener2 = { workspace = true }
 tauri-plugin-os = { workspace = true }
 tauri-plugin-overlay = { workspace = true }
+tauri-plugin-reactive-db = { workspace = true }
 tauri-plugin-path2 = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-plugin-prevent-default = { workspace = true }

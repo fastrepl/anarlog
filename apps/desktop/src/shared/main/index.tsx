@@ -53,6 +53,7 @@ import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { Update } from "~/sidebar/update";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { TabContentSample, TabItemSample } from "~/sample";
 import { TabContentTemplate, TabItemTemplate } from "~/templates";
 
 export function Body() {
@@ -587,6 +588,20 @@ function TabItem({
       />
     );
   }
+  if (tab.type === "sample") {
+    return (
+      <TabItemSample
+        tab={tab}
+        tabIndex={tabIndex}
+        handleCloseThis={handleClose}
+        handleSelectThis={handleSelect}
+        handleCloseOthers={handleCloseOthers}
+        handleCloseAll={handleCloseAll}
+        handlePinThis={handlePinThis}
+        handleUnpinThis={handleUnpinThis}
+      />
+    );
+  }
   return null;
 }
 
@@ -642,6 +657,9 @@ function ContentWrapper({ tab }: { tab: Tab }) {
   }
   if (tab.type === "edit") {
     return <TabContentEdit tab={tab} />;
+  }
+  if (tab.type === "sample") {
+    return <TabContentSample tab={tab} />;
   }
   return null;
 }

@@ -119,7 +119,8 @@ export type Tab =
     })
   | (BaseTab & { type: "onboarding" })
   | (BaseTab & { type: "daily" })
-  | (BaseTab & { type: "edit"; requestId: string });
+  | (BaseTab & { type: "edit"; requestId: string })
+  | (BaseTab & { type: "sample" });
 
 export const getDefaultState = (tab: TabInput): Tab => {
   const base = { active: false, slotId: "", pinned: false };
@@ -227,6 +228,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return { ...base, type: "daily" };
     case "edit":
       return { ...base, type: "edit", requestId: tab.requestId };
+    case "sample":
+      return { ...base, type: "sample" };
     default:
       const _exhaustive: never = tab;
       return _exhaustive;
@@ -275,6 +278,8 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `daily`;
     case "edit":
       return `edit-${tab.requestId}`;
+    case "sample":
+      return "sample";
   }
 };
 

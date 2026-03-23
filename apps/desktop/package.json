@@ -63,6 +63,7 @@
     "@hypr/plugin-notify": "workspace:*",
     "@hypr/plugin-opener2": "workspace:*",
     "@hypr/plugin-overlay": "workspace:*",
+    "@hypr/plugin-reactive-db": "workspace:*",
     "@hypr/plugin-path2": "workspace:*",
     "@hypr/plugin-permissions": "workspace:*",
     "@hypr/plugin-relay": "workspace:*",

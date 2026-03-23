@@ -4768,6 +4768,7 @@ dependencies = [
  "tauri-plugin-permissions",
  "tauri-plugin-prevent-default",
  "tauri-plugin-process",
+ "tauri-plugin-reactive-db",
  "tauri-plugin-relay",
  "tauri-plugin-screen",
  "tauri-plugin-sentry",
@@ -18595,6 +18596,25 @@ checksum = "d55511a7bf6cd70c8767b02c97bf8134fa434daf3926cfc1be0a0f94132d165a"
 dependencies = [
  "tauri",
  "tauri-plugin",
+]
+
+[[package]]
+name = "tauri-plugin-reactive-db"
+version = "0.1.0"
+dependencies = [
+ "libsqlite3-sys",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "sqlx",
+ "tauri",
+ "tauri-plugin",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
