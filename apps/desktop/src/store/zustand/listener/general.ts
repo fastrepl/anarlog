@@ -17,14 +17,22 @@ import {
   markLiveStartRequested,
   setLiveState,
 } from "./general-shared";
-import type { HandlePersistCallback, TranscriptActions } from "./transcript";
+import type {
+  HandlePersistCallback,
+  OnStoppedCallback,
+  TranscriptActions,
+  TranscriptState,
+} from "./transcript";
 
 export type { GeneralState, SessionMode } from "./general-shared";
 
 export type GeneralActions = {
   start: (
     params: SessionParams,
-    options?: { handlePersist?: HandlePersistCallback },
+    options?: {
+      handlePersist?: HandlePersistCallback;
+      onStopped?: OnStoppedCallback;
+    },
   ) => Promise<boolean>;
   stop: () => void;
   setMuted: (value: boolean) => void;
@@ -38,6 +46,7 @@ export type GeneralActions = {
 export const createGeneralSlice = <
   T extends GeneralState &
     GeneralActions &
+    TranscriptState &
     TranscriptActions &
     BatchActions &
     BatchState,
@@ -82,10 +91,18 @@ export const createGeneralSlice = <
     if (options?.handlePersist) {
       get().setTranscriptPersist(options.handlePersist);
     }
+    if (options?.onStopped) {
+      get().setOnStopped(options.onStopped);
+    }
 
     const started = await startLiveSession(set, get, targetSessionId, params);
-    if (!started && options?.handlePersist) {
-      get().setTranscriptPersist(undefined);
+    if (!started) {
+      if (options?.handlePersist) {
+        get().setTranscriptPersist(undefined);
+      }
+      if (options?.onStopped) {
+        get().setOnStopped(undefined);
+      }
     }
 
     return started;

@@ -14,15 +14,22 @@ export type HandlePersistCallback = (
   hints: RuntimeSpeakerHint[],
 ) => void;
 
+export type OnStoppedCallback = (
+  sessionId: string,
+  durationSeconds: number,
+) => void;
+
 export type TranscriptState = {
   finalWordsMaxEndMsByChannel: Record<number, number>;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   handlePersist?: HandlePersistCallback;
+  onStopped?: OnStoppedCallback;
 };
 
 export type TranscriptActions = {
   setTranscriptPersist: (callback?: HandlePersistCallback) => void;
+  setOnStopped: (callback?: OnStoppedCallback) => void;
   handleTranscriptResponse: (response: StreamResponse) => void;
   resetTranscript: () => void;
 };
@@ -32,6 +39,7 @@ const initialState: TranscriptState = {
   partialWordsByChannel: {},
   partialHintsByChannel: {},
   handlePersist: undefined,
+  onStopped: undefined,
 };
 
 export const createTranscriptSlice = <
@@ -154,6 +162,13 @@ export const createTranscriptSlice = <
         }),
       );
     },
+    setOnStopped: (callback) => {
+      set((state) =>
+        mutate(state, (draft) => {
+          draft.onStopped = callback;
+        }),
+      );
+    },
     handleTranscriptResponse: (response) => {
       if (response.type !== "Results") {
         return;
@@ -219,6 +234,7 @@ export const createTranscriptSlice = <
           draft.partialHintsByChannel = {};
           draft.finalWordsMaxEndMsByChannel = {};
           draft.handlePersist = undefined;
+          draft.onStopped = undefined;
         }),
       );
     },

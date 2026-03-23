@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { RecordingMode, TranscriptionMode } from "@hypr/plugin-listener";
 import type { TranscriptStorage } from "@hypr/store";
 
@@ -12,7 +13,10 @@ import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
+import type {
+  HandlePersistCallback,
+  OnStoppedCallback,
+} from "~/store/zustand/listener/transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -20,6 +24,9 @@ import {
   updateTranscriptHints,
   updateTranscriptWords,
 } from "~/stt/utils";
+
+const MIN_DURATION_SECONDS = 10;
+const MIN_WORD_COUNT = 5;
 
 export function useStartListening(
   sessionId: string,
@@ -30,6 +37,7 @@ export function useStartListening(
 ) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
 
   const record_enabled = useConfigValue("save_recordings");
   const languages = useConfigValue("spoken_languages");
@@ -62,6 +70,33 @@ export function useStartListening(
     } satisfies TranscriptStorage;
 
     store.setRow("transcripts", transcriptId, transcriptRow);
+
+    const onStopped: OnStoppedCallback = (_sessionId, durationSeconds) => {
+      if (durationSeconds >= MIN_DURATION_SECONDS) {
+        return;
+      }
+
+      const words = parseTranscriptWords(store, transcriptId);
+      if (words.length >= MIN_WORD_COUNT) {
+        return;
+      }
+
+      store.transaction(() => {
+        store.delRow("transcripts", transcriptId);
+
+        if (indexes) {
+          const enhancedNoteIds = indexes.getSliceRowIds(
+            main.INDEXES.enhancedNotesBySession,
+            sessionId,
+          );
+          for (const noteId of enhancedNoteIds) {
+            store.delRow("enhanced_notes", noteId);
+          }
+        }
+      });
+
+      void fsSyncCommands.audioDelete(sessionId);
+    };
 
     const handlePersist: HandlePersistCallback = (words, hints) => {
       if (words.length === 0) {
@@ -141,6 +176,7 @@ export function useStartListening(
       },
       {
         handlePersist,
+        onStopped,
       },
     );
 
@@ -158,6 +194,7 @@ export function useStartListening(
   }, [
     conn,
     store,
+    indexes,
     sessionId,
     start,
     keywords,
