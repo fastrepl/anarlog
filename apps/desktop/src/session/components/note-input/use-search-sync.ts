@@ -1,26 +1,23 @@
 import { type MutableRefObject, useEffect } from "react";
 
-import type { TiptapEditor } from "@hypr/tiptap/editor";
-
 import { handleEditorReplace, handleTranscriptReplace } from "./search-replace";
 import {
   type SearchReplaceDetail,
   useTranscriptSearch,
 } from "./transcript/search/context";
 
+import type { NoteEditorRef } from "~/editor";
 import * as main from "~/store/tinybase/store/main";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 
 export function useSearchSync({
-  editor,
+  editorRef,
   currentTab,
   sessionId,
-  editorRef,
 }: {
-  editor: TiptapEditor | null;
+  editorRef: MutableRefObject<NoteEditorRef | null>;
   currentTab: EditorView;
   sessionId: string;
-  editorRef: MutableRefObject<{ editor: TiptapEditor | null } | null>;
 }) {
   const search = useTranscriptSearch();
   const showSearchBar = search?.isVisible ?? false;
@@ -30,32 +27,32 @@ export function useSearchSync({
   }, [currentTab]);
 
   useEffect(() => {
-    if (!editor?.storage?.searchAndReplace) return;
+    const noteRef = editorRef.current;
+    if (!noteRef?.view) return;
+    const { searchStorage } = noteRef;
 
     const isEditorTab =
       currentTab.type !== "transcript" && currentTab.type !== "attachments";
     const query = isEditorTab && search?.isVisible ? (search.query ?? "") : "";
 
-    editor.storage.searchAndReplace.searchTerm = query;
-    editor.storage.searchAndReplace.caseSensitive =
-      search?.caseSensitive ?? false;
-    editor.storage.searchAndReplace.resultIndex =
-      search?.currentMatchIndex ?? 0;
+    searchStorage.searchTerm = query;
+    searchStorage.caseSensitive = search?.caseSensitive ?? false;
+    searchStorage.resultIndex = search?.currentMatchIndex ?? 0;
 
     try {
-      editor.view.dispatch(editor.state.tr);
+      noteRef.view.dispatch(noteRef.view.state.tr);
     } catch {
       return;
     }
 
     if (query) {
       requestAnimationFrame(() => {
-        const el = editor.view.dom.querySelector(".search-result-current");
+        const el = noteRef.view?.dom.querySelector(".search-result-current");
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
     }
   }, [
-    editor,
+    editorRef,
     currentTab.type,
     search?.isVisible,
     search?.query,
@@ -73,7 +70,7 @@ export function useSearchSync({
       if (currentTab.type === "transcript") {
         handleTranscriptReplace(detail, store, indexes, checkpoints, sessionId);
       } else {
-        handleEditorReplace(detail, editorRef.current?.editor ?? null);
+        handleEditorReplace(detail, editorRef.current?.view ?? null);
       }
     };
     window.addEventListener("search-replace", handler);

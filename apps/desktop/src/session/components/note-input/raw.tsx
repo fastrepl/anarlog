@@ -1,22 +1,19 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { parseJsonContent } from "@hypr/tiptap/shared";
+
 import NoteEditor, {
   type JSONContent,
-  type TiptapEditor,
-} from "@hypr/tiptap/editor";
-import {
-  parseJsonContent,
+  type NoteEditorRef,
   type PlaceholderFunction,
-} from "@hypr/tiptap/shared";
-
+} from "~/editor";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { useImageUpload } from "~/shared/hooks/useImageUpload";
 import * as main from "~/store/tinybase/store/main";
 
 export const RawEditor = forwardRef<
-  { editor: TiptapEditor | null },
+  NoteEditorRef,
   { sessionId: string; onNavigateToTitle?: () => void }
 >(({ sessionId, onNavigateToTitle }, ref) => {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
@@ -120,15 +117,6 @@ export const RawEditor = forwardRef<
 
   const fileHandlerConfig = useMemo(() => ({ onImageUpload }), [onImageUpload]);
 
-  const extensionOptions = useMemo(
-    () => ({
-      onLinkOpen: (url: string) => {
-        void openerCommands.openUrl(url, null);
-      },
-    }),
-    [],
-  );
-
   return (
     <NoteEditor
       ref={ref}
@@ -139,26 +127,17 @@ export const RawEditor = forwardRef<
       placeholderComponent={Placeholder}
       onNavigateToTitle={onNavigateToTitle}
       fileHandlerConfig={fileHandlerConfig}
-      extensionOptions={extensionOptions}
     />
   );
 });
 
 const Placeholder: PlaceholderFunction = ({ node, pos }) => {
-  "use no memo";
   if (node.type.name !== "paragraph") {
     return "";
   }
 
   if (pos === 0) {
-    return (
-      <p className="text-neutral-400">
-        <span>Take notes to guide Char's meeting notes.</span>{" "}
-        <span>
-          Press <kbd>/</kbd> for commands.
-        </span>
-      </p>
-    );
+    return "Take notes to guide Char's meeting notes. Press / for commands.";
   }
 
   return "Press / for commands.";

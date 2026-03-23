@@ -1,7 +1,5 @@
 import { forwardRef } from "react";
 
-import { type TiptapEditor } from "@hypr/tiptap/editor";
-
 import { ConfigError } from "./config-error";
 import { EnhancedEditor } from "./editor";
 import { EnhanceError } from "./enhance-error";
@@ -9,11 +7,12 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
+import type { NoteEditorRef } from "~/editor";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export const Enhanced = forwardRef<
-  { editor: TiptapEditor | null },
+  NoteEditorRef,
   { sessionId: string; enhancedNoteId: string; onNavigateToTitle?: () => void }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const taskId = createTaskId(enhancedNoteId, "enhance");

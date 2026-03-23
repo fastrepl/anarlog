@@ -25,6 +25,10 @@
   "pnpm": {
     "patchedDependencies": {
       "@tiptap/extension-paragraph@3.20.1": "patches/@tiptap__extension-paragraph@3.20.1.patch"
+    },
+    "overrides": {
+      "prosemirror-view": "1.41.6",
+      "prosemirror-gapcursor": "1.4.0"
     }
   },
   "packageManager": "pnpm@10.32.1",

@@ -1,4 +1,4 @@
-import type { TiptapEditor } from "@hypr/tiptap/editor";
+import type { EditorView } from "prosemirror-view";
 
 import type { SearchReplaceDetail } from "./transcript/search/context";
 
@@ -223,11 +223,11 @@ export function handleTranscriptReplace(
 
 export function handleEditorReplace(
   detail: SearchReplaceDetail,
-  editor: TiptapEditor | null,
+  view: EditorView | null,
 ) {
-  if (!editor) return;
+  if (!view) return;
 
-  const doc = editor.state.doc;
+  const doc = view.state.doc;
   const searchQuery = detail.caseSensitive
     ? detail.query
     : detail.query.toLowerCase();
@@ -291,7 +291,7 @@ export function handleEditorReplace(
   if (!toReplace[0]) return;
 
   let offset = 0;
-  const tr = editor.state.tr;
+  const tr = view.state.tr;
 
   for (const hit of toReplace) {
     const adjustedFrom = hit.from + offset;
@@ -300,7 +300,7 @@ export function handleEditorReplace(
       tr.replaceWith(
         adjustedFrom,
         adjustedTo,
-        editor.state.schema.text(detail.replacement),
+        view.state.schema.text(detail.replacement),
       );
     } else {
       tr.delete(adjustedFrom, adjustedTo);
@@ -308,5 +308,5 @@ export function handleEditorReplace(
     offset += detail.replacement.length - detail.query.length;
   }
 
-  editor.view.dispatch(tr);
+  view.dispatch(tr);
 }

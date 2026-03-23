@@ -1,4 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { TextSelection } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
   useCallback,
@@ -11,7 +13,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import type { TiptapEditor } from "@hypr/tiptap/editor";
 import {
   ScrollFadeOverlay,
   useScrollFade,
@@ -26,15 +27,16 @@ import { Transcript } from "./transcript";
 import { SearchBar } from "./transcript/search/bar";
 import { useSearchSync } from "./use-search-sync";
 
+import type { NoteEditorRef } from "~/editor";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { type EditorView } from "~/store/zustand/tabs/schema";
+import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export const NoteInput = forwardRef<
-  { editor: TiptapEditor | null },
+  NoteEditorRef,
   {
     tab: Extract<Tab, { type: "sessions" }>;
     onNavigateToTitle?: () => void;
@@ -42,18 +44,33 @@ export const NoteInput = forwardRef<
 >(({ tab, onNavigateToTitle }, ref) => {
   const editorTabs = useEditorTabs({ sessionId: tab.id });
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const internalEditorRef = useRef<{ editor: TiptapEditor | null }>(null);
+  const internalEditorRef = useRef<NoteEditorRef>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const [editor, setEditor] = useState<TiptapEditor | null>(null);
+  const [view, setView] = useState<EditorView | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
   const sessionId = tab.id;
 
   const tabRef = useRef(tab);
   tabRef.current = tab;
 
-  const currentTab: EditorView = useCurrentNoteTab(tab);
+  const currentTab: TabEditorView = useCurrentNoteTab(tab);
   useImperativeHandle(
     ref,
-    () => internalEditorRef.current ?? { editor: null },
+    () =>
+      internalEditorRef.current ?? {
+        view: null,
+        searchStorage: {
+          searchTerm: "",
+          replaceTerm: "",
+          results: [],
+          lastSearchTerm: "",
+          caseSensitive: false,
+          lastCaseSensitive: false,
+          resultIndex: 0,
+          lastResultIndex: 0,
+        },
+      },
     [currentTab],
   );
 
@@ -76,11 +93,11 @@ export const NoteInput = forwardRef<
   const { atStart, atEnd } = useScrollFade(fadeRef, "vertical", [currentTab]);
 
   const handleTabChange = useCallback(
-    (view: EditorView) => {
+    (tabView: TabEditorView) => {
       onBeforeTabChange();
       updateSessionTabState(tabRef.current, {
         ...tabRef.current.state,
-        view,
+        view: tabView,
       });
     },
     [onBeforeTabChange, updateSessionTabState],
@@ -94,19 +111,18 @@ export const NoteInput = forwardRef<
 
   useEffect(() => {
     if (currentTab.type === "transcript" || currentTab.type === "attachments") {
-      internalEditorRef.current = { editor: null };
-      setEditor(null);
+      setView(null);
     } else if (currentTab.type === "raw" && isMeetingInProgress) {
       requestAnimationFrame(() => {
-        internalEditorRef.current?.editor?.commands.focus();
+        internalEditorRef.current?.view?.focus();
       });
     }
   }, [currentTab, isMeetingInProgress]);
 
   useEffect(() => {
-    const editorInstance = internalEditorRef.current?.editor ?? null;
-    if (editorInstance !== editor) {
-      setEditor(editorInstance);
+    const editorView = internalEditorRef.current?.view ?? null;
+    if (editorView !== view) {
+      setView(editorView);
     }
   });
 
@@ -114,31 +130,33 @@ export const NoteInput = forwardRef<
     const handleContentTransfer = (e: Event) => {
       const customEvent = e as CustomEvent<{ content: string }>;
       const content = customEvent.detail.content;
-      const editorInstance = internalEditorRef.current?.editor;
+      const v = internalEditorRef.current?.view;
 
-      if (editorInstance && content) {
-        editorInstance.commands.insertContentAt(0, content);
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
+      if (v && content) {
+        const tr = v.state.tr.insertText(content, 0);
+        tr.setSelection(TextSelection.create(tr.doc, 0));
+        v.dispatch(tr);
+        v.focus();
       }
     };
 
     const handleMoveToEditorStart = () => {
-      const editorInstance = internalEditorRef.current?.editor;
-      if (editorInstance) {
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
+      const v = internalEditorRef.current?.view;
+      if (v) {
+        v.dispatch(
+          v.state.tr.setSelection(TextSelection.create(v.state.doc, 0)),
+        );
+        v.focus();
       }
     };
 
     const handleMoveToEditorPosition = (e: Event) => {
       const customEvent = e as CustomEvent<{ pixelWidth: number }>;
       const pixelWidth = customEvent.detail.pixelWidth;
-      const editorInstance = internalEditorRef.current?.editor;
+      const v = internalEditorRef.current?.view;
 
-      if (editorInstance) {
-        const editorDom = editorInstance.view.dom;
-        const firstTextNode = editorDom.querySelector(".ProseMirror > *");
+      if (v) {
+        const firstTextNode = v.dom.querySelector(".ProseMirror > *");
 
         if (firstTextNode) {
           const editorStyle = window.getComputedStyle(firstTextNode);
@@ -148,7 +166,7 @@ export const NoteInput = forwardRef<
           if (ctx) {
             ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
 
-            const firstBlock = editorInstance.state.doc.firstChild;
+            const firstBlock = v.state.doc.firstChild;
             if (firstBlock && firstBlock.textContent) {
               const text = firstBlock.textContent;
               let charPos = 0;
@@ -162,19 +180,22 @@ export const NoteInput = forwardRef<
                 charPos = i;
               }
 
-              const targetPos = Math.min(
-                charPos,
-                editorInstance.state.doc.content.size - 1,
+              const targetPos = Math.min(charPos, v.state.doc.content.size - 1);
+              v.dispatch(
+                v.state.tr.setSelection(
+                  TextSelection.create(v.state.doc, targetPos),
+                ),
               );
-              editorInstance.commands.setTextSelection(targetPos);
-              editorInstance.commands.focus();
+              v.focus();
               return;
             }
           }
         }
 
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
+        v.dispatch(
+          v.state.tr.setSelection(TextSelection.create(v.state.doc, 0)),
+        );
+        v.focus();
       }
     };
 
@@ -204,22 +225,21 @@ export const NoteInput = forwardRef<
   }, []);
 
   useCaretNearBottom({
-    editor,
+    view,
     container,
     enabled:
       currentTab.type !== "transcript" && currentTab.type !== "attachments",
   });
 
   const { showSearchBar } = useSearchSync({
-    editor,
+    editorRef: internalEditorRef,
     currentTab,
     sessionId,
-    editorRef: internalEditorRef,
   });
 
   const handleContainerClick = () => {
     if (currentTab.type !== "transcript" && currentTab.type !== "attachments") {
-      internalEditorRef.current?.editor?.commands.focus();
+      internalEditorRef.current?.view?.focus();
     }
   };
 
@@ -297,9 +317,9 @@ function useTabShortcuts({
   currentTab,
   handleTabChange,
 }: {
-  editorTabs: EditorView[];
-  currentTab: EditorView;
-  handleTabChange: (view: EditorView) => void;
+  editorTabs: TabEditorView[];
+  currentTab: TabEditorView;
+  handleTabChange: (view: TabEditorView) => void;
 }) {
   useHotkeys(
     "alt+s",

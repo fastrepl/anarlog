@@ -200,9 +200,7 @@ function TabContentNoteInner({
   showTimeline: boolean;
 }) {
   const titleInputRef = React.useRef<HTMLInputElement>(null);
-  const noteInputRef = React.useRef<{
-    editor: import("@hypr/tiptap/editor").TiptapEditor | null;
-  }>(null);
+  const noteInputRef = React.useRef<import("~/editor").NoteEditorRef>(null);
 
   const currentView = useCurrentNoteTab(tab);
   const { generateTitle } = useTitleGeneration(tab);
@@ -249,7 +247,7 @@ function TabContentNoteInner({
   }, []);
 
   const focusEditor = React.useCallback(() => {
-    noteInputRef.current?.editor?.commands.focus();
+    noteInputRef.current?.view?.focus();
   }, []);
 
   return (
