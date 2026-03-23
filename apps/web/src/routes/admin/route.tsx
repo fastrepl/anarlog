@@ -78,7 +78,7 @@ function AdminHeader({ user }: { user: { email: string } }) {
               className="relative py-1 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 [&.active]:text-neutral-900 [&.active]:after:absolute [&.active]:after:bottom-0 [&.active]:after:left-1/2 [&.active]:after:h-0.5 [&.active]:after:w-7 [&.active]:after:-translate-x-1/2 [&.active]:after:rounded-full [&.active]:after:bg-neutral-900"
               activeProps={{ className: "active" }}
             >
-              Articles
+              Content
             </Link>
             <Link
               to="/admin/media/"

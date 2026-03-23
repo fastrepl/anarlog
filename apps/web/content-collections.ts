@@ -244,6 +244,7 @@ const docs = defineCollection({
   schema: z.object({
     title: z.string(),
     section: z.string(),
+    description: z.string().optional(),
     summary: z.string().optional(),
   }),
   transform: async (document, context) => {
@@ -288,6 +289,8 @@ const docs = defineCollection({
 
     return {
       ...document,
+      description: document.description || document.summary,
+      summary: document.summary || document.description,
       mdx,
       slug,
       sectionFolder,

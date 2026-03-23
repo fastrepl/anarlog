@@ -1,7 +1,7 @@
 import { MDXContent } from "@content-collections/mdx/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { allArticles } from "content-collections";
+import { allArticles, allDocs, allHandbooks } from "content-collections";
 import {
   AlertTriangleIcon,
   ChevronDownIcon,
@@ -74,15 +74,23 @@ import {
 } from "@/functions/media-upload";
 import { fetchAdminJson, isAdminSignInRedirectError } from "@/lib/admin-auth";
 import { AUTHORS } from "@/lib/team";
+import { handbookStructure } from "@/routes/_view/company-handbook/-structure";
+import { docsStructure } from "@/routes/_view/docs/-structure";
+
+type AdminCollectionName = "articles" | "docs" | "handbook";
 
 interface ContentItem {
   name: string;
   path: string;
   slug: string;
   type: "file";
-  collection: string;
+  collection: AdminCollectionName;
   branch?: string;
   isDraft?: boolean;
+  sectionFolder?: string;
+  sectionLabel?: string;
+  order?: number;
+  isIndex?: boolean;
 }
 
 interface DraftArticle {
@@ -96,9 +104,10 @@ interface DraftArticle {
 }
 
 interface CollectionInfo {
-  name: string;
+  name: AdminCollectionName;
   label: string;
   items: ContentItem[];
+  createLabel: string;
 }
 
 const DRAFT_ARTICLES_QUERY_KEY = ["draftArticles"];
@@ -119,7 +128,7 @@ interface ClipboardItem {
 }
 
 interface EditingItem {
-  collectionName: string;
+  collectionName: AdminCollectionName;
   type: "new-file" | "new-folder" | "rename";
   itemPath?: string;
   itemName?: string;
@@ -127,14 +136,21 @@ interface EditingItem {
 
 interface DeleteConfirmation {
   item: ContentItem;
-  collectionName: string;
+  collectionName: AdminCollectionName;
 }
 
 interface FileContent {
   content: string;
   mdx: string;
-  collection: string;
+  collection: AdminCollectionName;
   slug: string;
+  title?: string;
+  section?: string;
+  description?: string;
+  summary?: string;
+  sectionFolder?: string;
+  order?: number;
+  isIndex?: boolean;
   meta_title?: string;
   display_title?: string;
   meta_description?: string;
@@ -156,9 +172,21 @@ interface ArticleMetadata {
   category: string;
 }
 
+interface DocsMetadata {
+  title: string;
+  section: string;
+  description: string;
+}
+
+interface HandbookMetadata {
+  title: string;
+  section: string;
+  summary: string;
+}
+
 interface EditorData {
   content: string;
-  metadata: ArticleMetadata;
+  metadata: Record<string, unknown>;
   hasUnsavedChanges?: boolean;
   autoSaveCountdown?: number | null;
 }
@@ -175,31 +203,197 @@ function getEditorMarkdown(editor: TiptapEditor | null, fallback = "") {
   return editor.markdown?.serialize(editor.getJSON()) ?? fallback;
 }
 
+function getCollectionLabel(collection: AdminCollectionName): string {
+  switch (collection) {
+    case "articles":
+      return "Articles";
+    case "docs":
+      return "Documentation";
+    case "handbook":
+      return "Company Handbook";
+  }
+}
+
+const DOCS_SECTION_TITLES: Record<string, string> = {
+  about: "About",
+  "getting-started": "Getting Started",
+  guides: "Guides",
+  calendar: "Calendar",
+  cli: "CLI",
+  developers: "Developers",
+  pro: "Pro",
+  faq: "FAQ",
+};
+
+function getSectionLabel(
+  collection: AdminCollectionName,
+  sectionFolder?: string,
+): string | undefined {
+  if (!sectionFolder) return undefined;
+
+  if (collection === "docs") {
+    return (
+      DOCS_SECTION_TITLES[sectionFolder] ||
+      sectionFolder
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    );
+  }
+
+  if (collection === "handbook") {
+    return handbookStructure.sectionTitles[sectionFolder] || sectionFolder;
+  }
+
+  return undefined;
+}
+
+function getCollectionSortRank(item: ContentItem): number {
+  if (item.collection === "articles") {
+    return 0;
+  }
+
+  if (item.collection === "docs") {
+    const index = docsStructure.sections.findIndex((section) => {
+      return section.replace(/\s+/g, "-") === item.sectionFolder;
+    });
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  }
+
+  const index = handbookStructure.sections.findIndex(
+    (section) => section === item.sectionFolder,
+  );
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function getPathName(path: string): string {
+  return path.split("/").pop() || path;
+}
+
+function stripFileExtension(name: string): string {
+  return name.replace(/\.mdx$/, "");
+}
+
+function stripOrderPrefix(name: string): string {
+  return name.replace(/^\d+\./, "");
+}
+
+function getStructuredSlugFromPath(path: string): string {
+  const [, ...rest] = path.split("/");
+  const fileName = rest.pop() || "";
+  const cleanFileName = stripOrderPrefix(stripFileExtension(fileName));
+
+  return rest.length > 0 ? `${rest.join("/")}/${cleanFileName}` : cleanFileName;
+}
+
+function getDraftItemFromPath(path: string, branch: string): ContentItem {
+  const [collection, ...rest] = path.split("/");
+  const name = getPathName(path);
+  const fileName = stripFileExtension(name);
+  const sectionFolder = rest.length > 1 ? rest[0] : undefined;
+  const orderMatch = fileName.match(/^(\d+)\./);
+
+  return {
+    name,
+    path,
+    slug:
+      collection === "articles"
+        ? stripFileExtension(name)
+        : getStructuredSlugFromPath(path),
+    type: "file",
+    collection: collection as AdminCollectionName,
+    branch,
+    isDraft: true,
+    sectionFolder,
+    sectionLabel: getSectionLabel(
+      collection as AdminCollectionName,
+      sectionFolder,
+    ),
+    order: orderMatch ? Number(orderMatch[1]) : undefined,
+    isIndex: name === "index.mdx",
+  };
+}
+
+function getStructuredPageFields(path: string) {
+  const [, sectionFolder = "", fileName = ""] = path.split("/");
+  const baseName = stripFileExtension(fileName);
+  const orderMatch = baseName.match(/^(\d+)\.(.+)$/);
+
+  return {
+    sectionFolder,
+    order: orderMatch?.[1] || "",
+    slug: orderMatch?.[2] || baseName,
+    isIndex: fileName === "index.mdx",
+  };
+}
+
 function getFileContent(path: string): FileContent | undefined {
   const [collection, ...rest] = path.split("/");
   const filePath = rest.join("/");
 
-  if (collection !== "articles") return undefined;
+  if (collection === "articles") {
+    const a = allArticles.find(
+      (article) => article._meta.fileName === filePath,
+    );
+    if (!a) return undefined;
+    return {
+      content: a.content,
+      mdx: a.mdx,
+      collection: "articles",
+      slug: a.slug,
+      meta_title: a.meta_title,
+      display_title: a.display_title,
+      meta_description: a.meta_description,
+      author: a.author,
+      date: a.date,
+      coverImage: a.coverImage,
+      featured: a.featured,
+      category: a.category,
+    };
+  }
 
-  const a = allArticles.find((a) => a._meta.fileName === filePath);
-  if (!a) return undefined;
-  return {
-    content: a.content,
-    mdx: a.mdx,
-    collection: "articles",
-    slug: a.slug,
-    meta_title: a.meta_title,
-    display_title: a.display_title,
-    meta_description: a.meta_description,
-    author: a.author,
-    date: a.date,
-    coverImage: a.coverImage,
-    featured: a.featured,
-    category: a.category,
-  };
+  if (collection === "docs") {
+    const doc = allDocs.find((entry) => entry._meta.filePath === filePath);
+    if (!doc) return undefined;
+    return {
+      content: doc.content,
+      mdx: doc.mdx,
+      collection: "docs",
+      slug: doc.slug,
+      title: doc.title,
+      section: doc.section,
+      description: doc.description || doc.summary || "",
+      summary: doc.summary || doc.description || "",
+      sectionFolder: doc.sectionFolder,
+      order: doc.order,
+      isIndex: doc.isIndex,
+    };
+  }
+
+  if (collection === "handbook") {
+    const doc = allHandbooks.find((entry) => entry._meta.filePath === filePath);
+    if (!doc) return undefined;
+    return {
+      content: doc.content,
+      mdx: doc.mdx,
+      collection: "handbook",
+      slug: doc.slug,
+      title: doc.title,
+      section: doc.section,
+      summary: doc.summary || "",
+      sectionFolder: doc.sectionFolder,
+      order: doc.order,
+      isIndex: doc.isIndex,
+    };
+  }
+
+  return undefined;
 }
 
-function getCollections(draftArticles: DraftArticle[] = []): CollectionInfo[] {
+function getCollections(
+  draftArticles: DraftArticle[] = [],
+  localDraftItems: ContentItem[] = [],
+): CollectionInfo[] {
   const sortedArticles = [...allArticles].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
@@ -227,11 +421,106 @@ function getCollections(draftArticles: DraftArticle[] = []): CollectionInfo[] {
 
   const allItems = [...draftItems, ...publishedItems];
 
+  const docsItems: ContentItem[] = [...allDocs]
+    .sort((a, b) => {
+      const sectionDiff =
+        getCollectionSortRank({
+          name: a._meta.fileName,
+          path: "",
+          slug: a.slug,
+          type: "file",
+          collection: "docs",
+          sectionFolder: a.sectionFolder,
+        } as ContentItem) -
+        getCollectionSortRank({
+          name: b._meta.fileName,
+          path: "",
+          slug: b.slug,
+          type: "file",
+          collection: "docs",
+          sectionFolder: b.sectionFolder,
+        } as ContentItem);
+
+      if (sectionDiff !== 0) return sectionDiff;
+      return a.order - b.order;
+    })
+    .map((doc) => ({
+      name: doc._meta.fileName,
+      path: `docs/${doc._meta.filePath}`,
+      slug: doc.slug,
+      type: "file" as const,
+      collection: "docs" as const,
+      sectionFolder: doc.sectionFolder,
+      sectionLabel: getSectionLabel("docs", doc.sectionFolder),
+      order: doc.order,
+      isIndex: doc.isIndex,
+      isDraft: false,
+    }));
+
+  const handbookItems: ContentItem[] = [...allHandbooks]
+    .sort((a, b) => {
+      const sectionDiff =
+        getCollectionSortRank({
+          name: a._meta.fileName,
+          path: "",
+          slug: a.slug,
+          type: "file",
+          collection: "handbook",
+          sectionFolder: a.sectionFolder,
+        } as ContentItem) -
+        getCollectionSortRank({
+          name: b._meta.fileName,
+          path: "",
+          slug: b.slug,
+          type: "file",
+          collection: "handbook",
+          sectionFolder: b.sectionFolder,
+        } as ContentItem);
+
+      if (sectionDiff !== 0) return sectionDiff;
+      return a.order - b.order;
+    })
+    .map((doc) => ({
+      name: doc._meta.fileName,
+      path: `handbook/${doc._meta.filePath}`,
+      slug: doc.slug,
+      type: "file" as const,
+      collection: "handbook" as const,
+      sectionFolder: doc.sectionFolder,
+      sectionLabel: getSectionLabel("handbook", doc.sectionFolder),
+      order: doc.order,
+      isIndex: doc.isIndex,
+      isDraft: false,
+    }));
+
+  const draftItemsByCollection = localDraftItems.reduce<
+    Record<AdminCollectionName, ContentItem[]>
+  >(
+    (acc, item) => {
+      acc[item.collection].push(item);
+      return acc;
+    },
+    { articles: [], docs: [], handbook: [] },
+  );
+
   return [
     {
       name: "articles",
       label: "Articles",
-      items: allItems,
+      items: [...draftItemsByCollection.articles, ...allItems],
+      createLabel: "New Post",
+    },
+    {
+      name: "docs",
+      label: "Documentation",
+      items: [...draftItemsByCollection.docs, ...docsItems],
+      createLabel: "New Page",
+    },
+    {
+      name: "handbook",
+      label: "Company Handbook",
+      items: [...draftItemsByCollection.handbook, ...handbookItems],
+      createLabel: "New Page",
     },
   ];
 }
@@ -301,17 +590,29 @@ function CollectionsPage() {
     staleTime: 30000,
   });
 
+  const [selectedCollection, setSelectedCollection] =
+    useState<AdminCollectionName>("articles");
+  const [localDraftItems, setLocalDraftItems] = useState<ContentItem[]>([]);
   const collections = useMemo(
-    () => getCollections(draftArticles),
-    [draftArticles],
+    () => getCollections(draftArticles, localDraftItems),
+    [draftArticles, localDraftItems],
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
   const [isCreatingNewPost, setIsCreatingNewPost] = useState(false);
+  const [structuredCreateCollection, setStructuredCreateCollection] = useState<
+    "docs" | "handbook" | null
+  >(null);
+  const [structuredRenameItem, setStructuredRenameItem] =
+    useState<ContentItem | null>(null);
   const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] =
     useState<DeleteConfirmation | null>(null);
+
+  const activeCollection =
+    collections.find((collection) => collection.name === selectedCollection) ||
+    collections[0];
 
   const draftSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -345,23 +646,30 @@ function CollectionsPage() {
         const path = data.path || `${variables.folder}/${variables.name}`;
         const name = path.split("/").pop() || variables.name;
         const slug = name.replace(/\.mdx$/, "");
-        queryClient.setQueryData(
-          DRAFT_ARTICLES_QUERY_KEY,
-          (old: DraftArticle[] = []) => [
-            ...old.filter(
-              (draft) =>
-                draft.branch !== data.branch &&
-                draft.path !== path &&
-                draft.slug !== slug,
-            ),
-            {
-              name,
-              path,
-              slug,
-              branch: data.branch,
-            },
-          ],
-        );
+        if (variables.folder === "articles") {
+          queryClient.setQueryData(
+            DRAFT_ARTICLES_QUERY_KEY,
+            (old: DraftArticle[] = []) => [
+              ...old.filter(
+                (draft) =>
+                  draft.branch !== data.branch &&
+                  draft.path !== path &&
+                  draft.slug !== slug,
+              ),
+              {
+                name,
+                path,
+                slug,
+                branch: data.branch,
+              },
+            ],
+          );
+        } else {
+          setLocalDraftItems((prev) => [
+            ...prev.filter((item) => item.path !== path),
+            getDraftItemFromPath(path, data.branch),
+          ]);
+        }
         openTab("file", name, path, data.branch);
         setIsCreatingNewPost(false);
         scheduleDraftSync();
@@ -384,14 +692,46 @@ function CollectionsPage() {
   });
 
   const renameMutation = useMutation({
-    mutationFn: async (params: { fromPath: string; toPath: string }) =>
+    mutationFn: async (params: {
+      fromPath: string;
+      toPath: string;
+      branch?: string;
+    }) =>
       postAdminJson<any>(
         "/api/admin/content/rename",
         params,
         "Failed to rename",
       ),
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       setEditingItem(null);
+      const nextPath = (data.newPath as string | undefined) || variables.toPath;
+      const collection = getFileCollection(nextPath);
+
+      if (data.branch && collection !== "articles") {
+        setLocalDraftItems((prev) => [
+          ...prev.filter(
+            (item) =>
+              item.path !== variables.fromPath && item.path !== nextPath,
+          ),
+          getDraftItemFromPath(nextPath, data.branch as string),
+        ]);
+      }
+
+      setTabs((prev) =>
+        prev.map((tab) =>
+          tab.path === variables.fromPath
+            ? {
+                ...tab,
+                path: nextPath,
+                name: getPathName(nextPath),
+                branch:
+                  (data.branch as string | undefined) ||
+                  tab.branch ||
+                  variables.branch,
+              }
+            : tab,
+        ),
+      );
     },
   });
 
@@ -414,6 +754,9 @@ function CollectionsPage() {
         }
         return filtered;
       });
+      setLocalDraftItems((prev) =>
+        prev.filter((item) => item.path !== deletedPath),
+      );
       void queryClient.invalidateQueries({
         queryKey: DRAFT_ARTICLES_QUERY_KEY,
       });
@@ -430,15 +773,41 @@ function CollectionsPage() {
   });
 
   const duplicateMutation = useMutation({
-    mutationFn: async (params: { sourcePath: string; newFilename?: string }) =>
+    mutationFn: async (params: {
+      sourcePath: string;
+      newFilename?: string;
+      branch?: string;
+    }) =>
       postAdminJson<any>(
         "/api/admin/content/duplicate",
         params,
         "Failed to duplicate",
       ),
+    onSuccess: (data) => {
+      if (data.branch && data.path) {
+        setLocalDraftItems((prev) => [
+          ...prev.filter((item) => item.path !== data.path),
+          getDraftItemFromPath(data.path as string, data.branch as string),
+        ]);
+        openTab(
+          "file",
+          getPathName(data.path as string),
+          data.path as string,
+          data.branch as string,
+        );
+      }
+    },
   });
 
   const currentTab = tabs.find((t) => t.active);
+
+  useEffect(() => {
+    if (currentTab?.type === "file") {
+      setSelectedCollection(
+        currentTab.path.split("/")[0] as AdminCollectionName,
+      );
+    }
+  }, [currentTab]);
 
   const openTab = useCallback(
     (
@@ -521,41 +890,27 @@ function CollectionsPage() {
     setTabs(newTabs);
   }, []);
 
-  const filterCollections = (
-    items: CollectionInfo[],
-    query: string,
-  ): CollectionInfo[] => {
-    if (!query) return items;
-    const lowerQuery = query.toLowerCase();
+  const filteredItems = activeCollection.items.filter((item) => {
+    if (searchQuery === "") {
+      return true;
+    }
 
-    return items.filter(
-      (item) =>
-        item.label.toLowerCase().includes(lowerQuery) ||
-        item.name.toLowerCase().includes(lowerQuery) ||
-        item.items.some((i) => i.name.toLowerCase().includes(lowerQuery)),
+    const normalizedQuery = searchQuery.toLowerCase();
+    return (
+      item.name.toLowerCase().includes(normalizedQuery) ||
+      item.path.toLowerCase().includes(normalizedQuery) ||
+      item.slug.toLowerCase().includes(normalizedQuery) ||
+      item.sectionLabel?.toLowerCase().includes(normalizedQuery)
     );
-  };
-
-  const filteredCollections = filterCollections(collections, searchQuery);
-
-  const currentCollection =
-    currentTab?.type === "collection"
-      ? collections.find((c) => c.name === currentTab.path)
-      : null;
-
-  const filteredItems =
-    currentCollection?.items.filter((item) => {
-      return (
-        searchQuery === "" ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }) || [];
+  });
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
       <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
         <Sidebar
-          collections={filteredCollections}
+          collections={collections}
+          activeCollection={activeCollection}
+          onCollectionChange={setSelectedCollection}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           onFileClick={(item) =>
@@ -563,7 +918,13 @@ function CollectionsPage() {
           }
           clipboard={clipboard}
           onClipboardChange={setClipboard}
-          onNewPostClick={() => setIsCreatingNewPost(true)}
+          onNewPostClick={() => {
+            if (activeCollection.name === "articles") {
+              setIsCreatingNewPost(true);
+            } else {
+              setStructuredCreateCollection(activeCollection.name);
+            }
+          }}
           isCreatingNewPost={isCreatingNewPost}
           onCreateNewPost={(slug) => {
             createMutation.mutate({
@@ -575,14 +936,24 @@ function CollectionsPage() {
           onCancelNewPost={() => setIsCreatingNewPost(false)}
           editingItem={editingItem}
           onEditingItemChange={setEditingItem}
-          onRenameItem={(fromPath, toPath) =>
-            renameMutation.mutate({ fromPath, toPath })
-          }
+          onRenameItem={(fromPath, toPath) => {
+            if (fromPath.startsWith("articles/")) {
+              renameMutation.mutate({ fromPath, toPath });
+              return;
+            }
+
+            const item = activeCollection.items.find(
+              (entry) => entry.path === fromPath,
+            );
+            if (item) {
+              setStructuredRenameItem(item);
+            }
+          }}
           onDeleteItem={(item, collectionName) =>
             setDeleteConfirmation({ item, collectionName })
           }
-          onDuplicateItem={(sourcePath) =>
-            duplicateMutation.mutate({ sourcePath })
+          onDuplicateItem={(sourcePath, branch) =>
+            duplicateMutation.mutate({ sourcePath, branch })
           }
           isLoading={
             createMutation.isPending ||
@@ -619,11 +990,11 @@ function CollectionsPage() {
                   path,
                   slug: (path.split("/").pop() || "").replace(/\.mdx$/, ""),
                   type: "file",
-                  collection: path.split("/")[0] || "articles",
+                  collection: getFileCollection(path),
                   branch:
                     currentTab?.type === "file" ? currentTab.branch : undefined,
                 },
-                collectionName: path.split("/")[0] || "articles",
+                collectionName: getFileCollection(path),
               })
             }
             isDeleting={deleteMutation.isPending}
@@ -676,12 +1047,74 @@ function CollectionsPage() {
           </div>
         </DialogContent>
       </Dialog>
+      {structuredCreateCollection && (
+        <StructuredPageDialog
+          open={structuredCreateCollection !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setStructuredCreateCollection(null);
+            }
+          }}
+          collection={structuredCreateCollection}
+          mode="create"
+          existingPaths={
+            collections
+              .find(
+                (collection) => collection.name === structuredCreateCollection,
+              )
+              ?.items.map((item) => item.path) || []
+          }
+          onSubmit={(nextPath) => {
+            createMutation.mutate({
+              folder: structuredCreateCollection,
+              name: nextPath.replace(`${structuredCreateCollection}/`, ""),
+              type: "file",
+            });
+            setStructuredCreateCollection(null);
+          }}
+          isLoading={createMutation.isPending}
+        />
+      )}
+      {structuredRenameItem &&
+        (structuredRenameItem.collection === "docs" ||
+          structuredRenameItem.collection === "handbook") && (
+          <StructuredPageDialog
+            open={structuredRenameItem !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setStructuredRenameItem(null);
+              }
+            }}
+            collection={structuredRenameItem.collection}
+            mode="rename"
+            existingPaths={
+              collections
+                .find(
+                  (collection) =>
+                    collection.name === structuredRenameItem.collection,
+                )
+                ?.items.map((item) => item.path) || []
+            }
+            initialPath={structuredRenameItem.path}
+            onSubmit={(nextPath) => {
+              renameMutation.mutate({
+                fromPath: structuredRenameItem.path,
+                toPath: nextPath,
+                branch: structuredRenameItem.branch,
+              });
+              setStructuredRenameItem(null);
+            }}
+            isLoading={renameMutation.isPending}
+          />
+        )}
     </ResizablePanelGroup>
   );
 }
 
 function Sidebar({
   collections,
+  activeCollection,
+  onCollectionChange,
   searchQuery,
   onSearchChange,
   onFileClick,
@@ -700,6 +1133,8 @@ function Sidebar({
   selectedPath,
 }: {
   collections: CollectionInfo[];
+  activeCollection: CollectionInfo;
+  onCollectionChange: (collection: AdminCollectionName) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onFileClick: (item: ContentItem) => void;
@@ -712,15 +1147,38 @@ function Sidebar({
   editingItem: EditingItem | null;
   onEditingItemChange: (item: EditingItem | null) => void;
   onRenameItem: (fromPath: string, toPath: string) => void;
-  onDeleteItem: (item: ContentItem, collectionName: string) => void;
-  onDuplicateItem: (sourcePath: string) => void;
+  onDeleteItem: (
+    item: ContentItem,
+    collectionName: AdminCollectionName,
+  ) => void;
+  onDuplicateItem: (sourcePath: string, branch?: string) => void;
   isLoading: boolean;
   selectedPath: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { atStart, atEnd } = useScrollFade(scrollRef, "vertical", [
-    collections,
+    activeCollection,
   ]);
+  const groupedItems = useMemo(() => {
+    if (activeCollection.name === "articles") {
+      return [
+        {
+          label: activeCollection.label,
+          items: activeCollection.items,
+        },
+      ];
+    }
+
+    const groups = new Map<string, ContentItem[]>();
+    for (const item of activeCollection.items) {
+      const label = item.sectionLabel || "Other";
+      const existing = groups.get(label) || [];
+      existing.push(item);
+      groups.set(label, existing);
+    }
+
+    return [...groups.entries()].map(([label, items]) => ({ label, items }));
+  }, [activeCollection]);
 
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
@@ -741,37 +1199,63 @@ function Sidebar({
           />
         </div>
       </div>
+      <div className="flex gap-1 border-b border-neutral-200 p-2">
+        {collections.map((collection) => (
+          <button
+            key={collection.name}
+            type="button"
+            onClick={() => onCollectionChange(collection.name)}
+            className={cn([
+              "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+              activeCollection.name === collection.name
+                ? "bg-neutral-900 text-white"
+                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200",
+            ])}
+          >
+            {collection.label}
+          </button>
+        ))}
+      </div>
 
       <div className="relative min-h-0 flex-1">
         {!atStart && <ScrollFadeOverlay position="top" />}
         {!atEnd && <ScrollFadeOverlay position="bottom" />}
         <div ref={scrollRef} className="h-full overflow-y-auto">
-          {isCreatingNewPost && (
+          {isCreatingNewPost && activeCollection.name === "articles" && (
             <NewPostInlineInput
               existingSlugs={
-                collections[0]?.items.map((item) => item.slug) || []
+                activeCollection.items.map((item) => item.slug) || []
               }
               onSubmit={onCreateNewPost}
               onCancel={onCancelNewPost}
               isLoading={isLoading}
             />
           )}
-          {collections[0]?.items.map((item) => (
-            <FileItemSidebar
-              key={item.path}
-              item={item}
-              onClick={() => onFileClick(item)}
-              clipboard={clipboard}
-              onClipboardChange={onClipboardChange}
-              editingItem={editingItem}
-              onEditingItemChange={onEditingItemChange}
-              onRenameItem={onRenameItem}
-              onDeleteItem={onDeleteItem}
-              onDuplicateItem={onDuplicateItem}
-              collectionName="articles"
-              isLoading={isLoading}
-              isSelected={selectedPath === item.path}
-            />
+          {groupedItems.map((group) => (
+            <div key={group.label}>
+              {activeCollection.name !== "articles" && (
+                <div className="px-4 pt-3 pb-1 text-[11px] font-semibold tracking-wide text-neutral-400 uppercase">
+                  {group.label}
+                </div>
+              )}
+              {group.items.map((item) => (
+                <FileItemSidebar
+                  key={`${item.path}-${item.branch || "main"}`}
+                  item={item}
+                  onClick={() => onFileClick(item)}
+                  clipboard={clipboard}
+                  onClipboardChange={onClipboardChange}
+                  editingItem={editingItem}
+                  onEditingItemChange={onEditingItemChange}
+                  onRenameItem={onRenameItem}
+                  onDeleteItem={onDeleteItem}
+                  onDuplicateItem={onDuplicateItem}
+                  collectionName={activeCollection.name}
+                  isLoading={isLoading}
+                  isSelected={selectedPath === item.path}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>
@@ -788,7 +1272,7 @@ function Sidebar({
           ])}
         >
           <PlusIcon className="size-4" />
-          New Post
+          {activeCollection.createLabel}
         </button>
       </div>
     </div>
@@ -816,9 +1300,12 @@ function FileItemSidebar({
   editingItem: EditingItem | null;
   onEditingItemChange: (item: EditingItem | null) => void;
   onRenameItem: (fromPath: string, toPath: string) => void;
-  onDeleteItem: (item: ContentItem, collectionName: string) => void;
-  onDuplicateItem: (sourcePath: string) => void;
-  collectionName: string;
+  onDeleteItem: (
+    item: ContentItem,
+    collectionName: AdminCollectionName,
+  ) => void;
+  onDuplicateItem: (sourcePath: string, branch?: string) => void;
+  collectionName: AdminCollectionName;
   isLoading: boolean;
   isSelected: boolean;
 }) {
@@ -835,16 +1322,25 @@ function FileItemSidebar({
   const closeContextMenu = () => setContextMenu(null);
 
   const isRenaming =
-    editingItem?.type === "rename" && editingItem?.itemPath === item.path;
+    item.collection === "articles" &&
+    !item.branch &&
+    editingItem?.type === "rename" &&
+    editingItem?.itemPath === item.path;
 
   const isCut =
     clipboard?.operation === "cut" && clipboard?.item.path === item.path;
+  const displayName =
+    item.collection === "articles"
+      ? stripFileExtension(item.name)
+      : item.isIndex
+        ? "index"
+        : stripOrderPrefix(stripFileExtension(item.name));
 
   if (isRenaming) {
     return (
       <InlineInput
         type="file"
-        defaultValue={item.name.replace(/\.mdx$/, "")}
+        defaultValue={displayName}
         onSubmit={(newName) => {
           const newPath = `${collectionName}/${newName}.mdx`;
           onRenameItem(item.path, newPath);
@@ -867,9 +1363,7 @@ function FileItemSidebar({
       onContextMenu={handleContextMenu}
     >
       <FileTextIcon className="size-4 shrink-0 text-neutral-400" />
-      <span className="truncate text-neutral-600">
-        {item.name.replace(/\.mdx$/, "")}
-      </span>
+      <span className="truncate text-neutral-600">{displayName}</span>
 
       {item.isDraft && (
         <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
@@ -896,19 +1390,29 @@ function FileItemSidebar({
             onClipboardChange({ item, operation: "copy" });
             closeContextMenu();
           }}
-          onDuplicate={() => {
-            onDuplicateItem(item.path);
-            closeContextMenu();
-          }}
-          onRename={() => {
-            onEditingItemChange({
-              collectionName,
-              type: "rename",
-              itemPath: item.path,
-              itemName: item.name,
-            });
-            closeContextMenu();
-          }}
+          onDuplicate={
+            item.isIndex && item.collection !== "articles"
+              ? undefined
+              : () => {
+                  onDuplicateItem(item.path, item.branch);
+                  closeContextMenu();
+                }
+          }
+          onRename={
+            item.collection === "articles" && item.branch
+              ? undefined
+              : item.isIndex && item.collection !== "articles"
+                ? undefined
+                : () => {
+                    onEditingItemChange({
+                      collectionName,
+                      type: "rename",
+                      itemPath: item.path,
+                      itemName: item.name,
+                    });
+                    closeContextMenu();
+                  }
+          }
           onDelete={() => {
             onDeleteItem(item, collectionName);
             closeContextMenu();
@@ -1104,6 +1608,154 @@ function NewPostInlineInput({
         <div className="bg-red-50 px-4 py-1 text-xs text-red-600">{error}</div>
       )}
     </div>
+  );
+}
+
+function StructuredPageDialog({
+  open,
+  onOpenChange,
+  collection,
+  mode,
+  existingPaths,
+  initialPath,
+  onSubmit,
+  isLoading,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  collection: "docs" | "handbook";
+  mode: "create" | "rename";
+  existingPaths: string[];
+  initialPath?: string;
+  onSubmit: (path: string) => void;
+  isLoading: boolean;
+}) {
+  const initialFields = initialPath
+    ? getStructuredPageFields(initialPath)
+    : { sectionFolder: "", order: "", slug: "", isIndex: false };
+  const [sectionFolder, setSectionFolder] = useState(
+    initialFields.sectionFolder,
+  );
+  const [order, setOrder] = useState(initialFields.order);
+  const [slug, setSlug] = useState(initialFields.slug);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setSectionFolder(initialFields.sectionFolder);
+      setOrder(initialFields.order);
+      setSlug(initialFields.slug);
+      setError(null);
+    }
+  }, [
+    initialFields.order,
+    initialFields.sectionFolder,
+    initialFields.slug,
+    open,
+  ]);
+
+  const sections =
+    collection === "docs"
+      ? docsStructure.sections.map((section) => section.replace(/\s+/g, "-"))
+      : handbookStructure.sections;
+
+  const handleSubmit = () => {
+    if (!sectionFolder || !order.trim() || !slug.trim()) {
+      setError("Section, order, and slug are required");
+      return;
+    }
+
+    const normalizedSlug = slug.trim().toLowerCase();
+    const normalizedOrder = order.trim();
+
+    if (normalizedSlug === "index") {
+      setError("Index pages cannot be created or renamed here");
+      return;
+    }
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedSlug)) {
+      setError("Slug must be lowercase, alphanumeric, and hyphenated");
+      return;
+    }
+
+    const nextPath = `${collection}/${sectionFolder}/${normalizedOrder}.${normalizedSlug}.mdx`;
+
+    if (
+      existingPaths.includes(nextPath) &&
+      (!initialPath || nextPath !== initialPath)
+    ) {
+      setError("A page with this path already exists");
+      return;
+    }
+
+    onSubmit(nextPath);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "create" ? "Create page" : "Move or rename page"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1 text-sm text-neutral-700">
+            Section
+            <select
+              value={sectionFolder}
+              onChange={(e) => setSectionFolder(e.target.value)}
+              className="rounded border border-neutral-200 px-3 py-2 outline-hidden"
+            >
+              <option value="">Select a section</option>
+              {sections.map((section) => (
+                <option key={section} value={section}>
+                  {getSectionLabel(collection, section) || section}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-neutral-700">
+            Order
+            <input
+              type="number"
+              min="0"
+              value={order}
+              onChange={(e) => setOrder(e.target.value)}
+              className="rounded border border-neutral-200 px-3 py-2 outline-hidden"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-neutral-700">
+            Slug
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              className="rounded border border-neutral-200 px-3 py-2 outline-hidden"
+              placeholder="page-slug"
+            />
+          </label>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="rounded bg-neutral-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >
+              {isLoading ? "Saving..." : mode === "create" ? "Create" : "Save"}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1318,11 +1970,16 @@ function ContentPanel({
     [editorData],
   );
 
-  const saveArticle = useCallback(
+  const currentCollection =
+    currentTab?.type === "file"
+      ? (currentTab.path.split("/")[0] as AdminCollectionName)
+      : undefined;
+
+  const saveFile = useCallback(
     async (params: {
       path: string;
       content: string;
-      metadata: ArticleMetadata;
+      metadata: Record<string, unknown>;
       branch?: string;
       isAutoSave?: boolean;
     }) => {
@@ -1344,7 +2001,7 @@ function ContentPanel({
   );
 
   const { mutate: saveContent, isPending: isSaving } = useMutation({
-    mutationFn: saveArticle,
+    mutationFn: saveFile,
     onSuccess: (data, variables) => {
       if (data.branchName) {
         queryClient.invalidateQueries({
@@ -1403,10 +2060,7 @@ function ContentPanel({
         return { hasPendingPR: false };
       }
     },
-    enabled:
-      !!currentTab?.path &&
-      currentTab?.type === "file" &&
-      currentTab.path.startsWith("articles/"),
+    enabled: !!currentTab?.path && currentTab?.type === "file",
     staleTime: 60000,
   });
 
@@ -1414,10 +2068,10 @@ function ContentPanel({
     mutationFn: async (params: {
       path: string;
       content: string;
-      metadata: ArticleMetadata;
+      metadata: Record<string, unknown>;
       branch?: string;
     }) => {
-      const saveResult = await saveArticle(params);
+      const saveResult = await saveFile(params);
 
       if (saveResult.prUrl) {
         return { prUrl: saveResult.prUrl as string };
@@ -1534,6 +2188,7 @@ function ContentPanel({
             onPublish={handlePublish}
             isPublishing={isPublishing}
             hasPendingPR={pendingPRData?.hasPendingPR}
+            collection={currentCollection}
             onRenameFile={(newSlug) => {
               const pathParts = currentTab.path.split("/");
               pathParts[pathParts.length - 1] = `${newSlug}.mdx`;
@@ -1588,6 +2243,7 @@ function EditorHeader({
   onPublish,
   isPublishing,
   hasPendingPR,
+  collection,
   onRenameFile,
   onDelete,
   isDeleting,
@@ -1609,6 +2265,7 @@ function EditorHeader({
   onPublish?: () => void;
   isPublishing?: boolean;
   hasPendingPR?: boolean;
+  collection?: AdminCollectionName;
   onRenameFile?: (newSlug: string) => void;
   onDelete?: () => void;
   isDeleting?: boolean;
@@ -1621,9 +2278,21 @@ function EditorHeader({
   const breadcrumbs = currentTab.path.split("/");
   const currentSlug =
     breadcrumbs[breadcrumbs.length - 1]?.replace(/\.mdx$/, "") || "";
+  const currentSlugLabel =
+    collection === "articles" ? currentSlug : stripOrderPrefix(currentSlug);
+  const publishLabel = hasPendingPR
+    ? "View PR"
+    : collection === "articles"
+      ? "Publish"
+      : "Create PR";
 
   const handleSlugClick = () => {
-    if (currentTab.type === "file" && onRenameFile) {
+    if (
+      currentTab.type === "file" &&
+      onRenameFile &&
+      collection === "articles" &&
+      !currentTab.branch
+    ) {
       setSlugValue(currentSlug);
       setIsEditingSlug(true);
       setTimeout(() => slugInputRef.current?.focus(), 0);
@@ -1685,7 +2354,9 @@ function EditorHeader({
                     onClick={handleSlugClick}
                     className="cursor-text font-medium text-neutral-700 hover:text-neutral-900"
                   >
-                    {crumb.replace(/\.mdx$/, "")}
+                    {index === breadcrumbs.length - 1
+                      ? currentSlugLabel
+                      : crumb.replace(/\.mdx$/, "")}
                   </span>
                 )
               ) : (
@@ -1787,7 +2458,7 @@ function EditorHeader({
                 ) : (
                   <SquareArrowOutUpRightIcon className="size-4" />
                 )}
-                {hasPendingPR ? "View PR" : "Publish"}
+                {publishLabel}
               </button>
             )}
           </div>
@@ -2648,10 +3319,86 @@ function MetadataSidePanel({
   );
 }
 
+function StructuredContentMetadataPanel({
+  filePath,
+  collection,
+  title,
+  section,
+  description,
+  summary,
+  onTitleChange,
+  onDescriptionChange,
+  onSummaryChange,
+}: {
+  filePath: string;
+  collection: "docs" | "handbook";
+  title: string;
+  section: string;
+  description: string;
+  summary: string;
+  onTitleChange: (value: string) => void;
+  onDescriptionChange: (value: string) => void;
+  onSummaryChange: (value: string) => void;
+}) {
+  const detailLabel = collection === "docs" ? "Description" : "Summary";
+  const detailValue = collection === "docs" ? description : summary;
+  const onDetailChange =
+    collection === "docs" ? onDescriptionChange : onSummaryChange;
+
+  return (
+    <div className="text-sm" key={filePath}>
+      <MetadataRow label="Title" required>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          placeholder="Page title"
+          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
+        />
+      </MetadataRow>
+      <MetadataRow label="Section" required>
+        <input
+          type="text"
+          value={section}
+          readOnly
+          className="min-w-0 flex-1 bg-transparent px-2 py-2 text-neutral-500 outline-hidden"
+        />
+      </MetadataRow>
+      <MetadataRow label={detailLabel} noBorder>
+        <textarea
+          ref={(el) => {
+            if (el) {
+              el.style.height = "auto";
+              el.style.height = `${el.scrollHeight}px`;
+            }
+          }}
+          value={detailValue}
+          onChange={(e) => onDetailChange(e.target.value)}
+          placeholder={
+            collection === "docs" ? "Page description" : "Page summary"
+          }
+          rows={1}
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = "auto";
+            target.style.height = `${target.scrollHeight}px`;
+          }}
+          className="min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-neutral-900 outline-hidden placeholder:text-neutral-300"
+        />
+      </MetadataRow>
+      <GitHistory filePath={filePath} />
+    </div>
+  );
+}
+
 interface BranchFileResponse {
   success: boolean;
   content: string;
   frontmatter: {
+    title?: string;
+    section?: string;
+    description?: string;
+    summary?: string;
     meta_title?: string;
     display_title?: string;
     meta_description?: string;
@@ -2662,6 +3409,55 @@ interface BranchFileResponse {
     category?: string;
   };
   sha: string;
+}
+
+function getFileCollection(path: string): AdminCollectionName {
+  return path.split("/")[0] as AdminCollectionName;
+}
+
+function buildBranchFileContent(
+  filePath: string,
+  content: string,
+  frontmatter: BranchFileResponse["frontmatter"],
+): FileContent {
+  const collection = getFileCollection(filePath);
+
+  if (collection === "articles") {
+    return {
+      content,
+      mdx: "",
+      collection,
+      slug: filePath.replace(/\.mdx$/, "").replace(/^articles\//, ""),
+      meta_title: frontmatter.meta_title,
+      display_title: frontmatter.display_title,
+      meta_description: frontmatter.meta_description,
+      author: Array.isArray(frontmatter.author)
+        ? frontmatter.author
+        : frontmatter.author
+          ? [frontmatter.author]
+          : undefined,
+      date: frontmatter.date,
+      coverImage: frontmatter.coverImage,
+      featured: frontmatter.featured,
+      category: frontmatter.category,
+    };
+  }
+
+  const structuredFields = getStructuredPageFields(filePath);
+
+  return {
+    content,
+    mdx: "",
+    collection,
+    slug: getStructuredSlugFromPath(filePath),
+    title: frontmatter.title,
+    section: frontmatter.section,
+    description: frontmatter.description || frontmatter.summary,
+    summary: frontmatter.summary || frontmatter.description,
+    sectionFolder: structuredFields.sectionFolder,
+    order: structuredFields.order ? Number(structuredFields.order) : undefined,
+    isIndex: structuredFields.isIndex,
+  };
 }
 
 const FileEditor = React.forwardRef<
@@ -2678,6 +3474,7 @@ const FileEditor = React.forwardRef<
   { filePath, branch, isPreviewMode, onDataChange, onSave },
   _ref,
 ) {
+  const collection = getFileCollection(filePath);
   const {
     data: branchFileData,
     isLoading: isBranchLoading,
@@ -2722,7 +3519,7 @@ const FileEditor = React.forwardRef<
         return { hasPendingPR: false };
       }
     },
-    enabled: !branch && filePath.startsWith("articles/"),
+    enabled: !branch,
     staleTime: 60000,
   });
 
@@ -2750,44 +3547,18 @@ const FileEditor = React.forwardRef<
 
   const fileContent: FileContent | undefined = useMemo(() => {
     if (branch && branchFileData) {
-      return {
-        content: branchFileData.content,
-        mdx: "",
-        collection: "articles",
-        slug: filePath.replace(/\.mdx$/, "").replace(/^articles\//, ""),
-        meta_title: branchFileData.frontmatter.meta_title,
-        display_title: branchFileData.frontmatter.display_title,
-        meta_description: branchFileData.frontmatter.meta_description,
-        author: Array.isArray(branchFileData.frontmatter.author)
-          ? branchFileData.frontmatter.author
-          : branchFileData.frontmatter.author
-            ? [branchFileData.frontmatter.author]
-            : undefined,
-        date: branchFileData.frontmatter.date,
-        coverImage: branchFileData.frontmatter.coverImage,
-        featured: branchFileData.frontmatter.featured,
-        category: branchFileData.frontmatter.category,
-      };
+      return buildBranchFileContent(
+        filePath,
+        branchFileData.content,
+        branchFileData.frontmatter,
+      );
     }
     if (pendingPRData?.hasPendingPR && pendingPRFileData) {
-      return {
-        content: pendingPRFileData.content,
-        mdx: "",
-        collection: "articles",
-        slug: filePath.replace(/\.mdx$/, "").replace(/^articles\//, ""),
-        meta_title: pendingPRFileData.frontmatter.meta_title,
-        display_title: pendingPRFileData.frontmatter.display_title,
-        meta_description: pendingPRFileData.frontmatter.meta_description,
-        author: Array.isArray(pendingPRFileData.frontmatter.author)
-          ? pendingPRFileData.frontmatter.author
-          : pendingPRFileData.frontmatter.author
-            ? [pendingPRFileData.frontmatter.author]
-            : undefined,
-        date: pendingPRFileData.frontmatter.date,
-        coverImage: pendingPRFileData.frontmatter.coverImage,
-        featured: pendingPRFileData.frontmatter.featured,
-        category: pendingPRFileData.frontmatter.category,
-      };
+      return buildBranchFileContent(
+        filePath,
+        pendingPRFileData.content,
+        pendingPRFileData.frontmatter,
+      );
     }
     return publishedFileContent;
   }, [
@@ -2800,6 +3571,12 @@ const FileEditor = React.forwardRef<
   ]);
 
   const [content, setContent] = useState(fileContent?.content || "");
+  const [title, setTitle] = useState(fileContent?.title || "");
+  const [section, setSection] = useState(fileContent?.section || "");
+  const [description, setDescription] = useState(
+    fileContent?.description || "",
+  );
+  const [summary, setSummary] = useState(fileContent?.summary || "");
   const [metaTitle, setMetaTitle] = useState(fileContent?.meta_title || "");
   const [displayTitle, setDisplayTitle] = useState(
     fileContent?.display_title || "",
@@ -2839,7 +3616,7 @@ const FileEditor = React.forwardRef<
     onImageUpload: handleImageUpload,
   });
 
-  const slug = filePath.replace(/\.mdx$/, "").replace(/^articles\//, "");
+  const slug = filePath.replace(/\.mdx$/, "").replace(/^[^/]+\//, "");
 
   const { mutate: importFromDocs, isPending: isImporting } = useMutation({
     mutationFn: async (params: {
@@ -2860,16 +3637,28 @@ const FileEditor = React.forwardRef<
         editor?.commands.setContent(data.md, { contentType: "markdown" });
       }
       if (data.frontmatter) {
-        if (data.frontmatter.meta_title)
+        if (collection === "articles" && data.frontmatter.meta_title)
           setMetaTitle(data.frontmatter.meta_title);
-        if (data.frontmatter.display_title)
+        if (collection === "articles" && data.frontmatter.display_title)
           setDisplayTitle(data.frontmatter.display_title);
-        if (data.frontmatter.meta_description)
+        if (collection === "articles" && data.frontmatter.meta_description)
           setMetaDescription(data.frontmatter.meta_description);
-        if (data.frontmatter.author) setAuthor(data.frontmatter.author);
-        if (data.frontmatter.date) setDate(data.frontmatter.date);
-        if (data.frontmatter.coverImage)
+        if (collection === "articles" && data.frontmatter.author)
+          setAuthor(data.frontmatter.author);
+        if (collection === "articles" && data.frontmatter.date)
+          setDate(data.frontmatter.date);
+        if (collection === "articles" && data.frontmatter.coverImage)
           setCoverImage(data.frontmatter.coverImage);
+        if (collection !== "articles" && data.frontmatter.meta_title) {
+          setTitle(data.frontmatter.meta_title);
+        }
+        if (collection !== "articles" && data.frontmatter.meta_description) {
+          if (collection === "docs") {
+            setDescription(data.frontmatter.meta_description);
+          } else {
+            setSummary(data.frontmatter.meta_description);
+          }
+        }
       }
       setHasUnsavedChanges(true);
     },
@@ -2880,13 +3669,23 @@ const FileEditor = React.forwardRef<
       importFromDocs({
         url,
         slug,
-        title: metaTitle,
+        title: collection === "articles" ? metaTitle : title,
         author,
-        description: metaDescription,
+        description: collection === "articles" ? metaDescription : description,
         coverImage,
       });
     },
-    [importFromDocs, slug, metaTitle, author, metaDescription, coverImage],
+    [
+      importFromDocs,
+      slug,
+      metaTitle,
+      author,
+      metaDescription,
+      coverImage,
+      collection,
+      title,
+      description,
+    ],
   );
 
   const handleMediaLibrarySelect = useCallback(
@@ -2908,28 +3707,48 @@ const FileEditor = React.forwardRef<
     [content, editor],
   );
 
-  const getMetadata = useCallback(
-    (): ArticleMetadata => ({
-      meta_title: metaTitle,
-      display_title: displayTitle,
-      meta_description: metaDescription,
-      author,
-      date,
-      coverImage,
-      featured,
-      category,
-    }),
-    [
-      metaTitle,
-      displayTitle,
-      metaDescription,
-      author,
-      date,
-      coverImage,
-      featured,
-      category,
-    ],
-  );
+  const getMetadata = useCallback((): Record<string, unknown> => {
+    if (collection === "articles") {
+      return {
+        meta_title: metaTitle,
+        display_title: displayTitle,
+        meta_description: metaDescription,
+        author,
+        date,
+        coverImage,
+        featured,
+        category,
+      } satisfies ArticleMetadata;
+    }
+
+    if (collection === "docs") {
+      return {
+        title,
+        section,
+        description,
+      } satisfies DocsMetadata;
+    }
+
+    return {
+      title,
+      section,
+      summary,
+    } satisfies HandbookMetadata;
+  }, [
+    category,
+    collection,
+    coverImage,
+    date,
+    description,
+    displayTitle,
+    featured,
+    metaDescription,
+    metaTitle,
+    author,
+    section,
+    summary,
+    title,
+  ]);
 
   const getCurrentData = useCallback((): EditorData | null => {
     return {
@@ -2951,6 +3770,10 @@ const FileEditor = React.forwardRef<
   useEffect(() => {
     const newContent = fileContent?.content || "";
     setContent(newContent);
+    setTitle(fileContent?.title || "");
+    setSection(fileContent?.section || "");
+    setDescription(fileContent?.description || "");
+    setSummary(fileContent?.summary || "");
     setMetaTitle(fileContent?.meta_title || "");
     setDisplayTitle(fileContent?.display_title || "");
     setMetaDescription(fileContent?.meta_description || "");
@@ -2977,6 +3800,10 @@ const FileEditor = React.forwardRef<
     });
   }, [
     content,
+    title,
+    section,
+    description,
+    summary,
     metaTitle,
     displayTitle,
     metaDescription,
@@ -3130,13 +3957,38 @@ const FileEditor = React.forwardRef<
     onCategoryChange: dirty(setCategory),
   };
 
+  const structuredMetadataPanel = (
+    <StructuredContentMetadataPanel
+      filePath={filePath}
+      collection={collection === "docs" ? "docs" : "handbook"}
+      title={title}
+      section={section}
+      description={description}
+      summary={summary}
+      onTitleChange={(value) => {
+        setTitle(value);
+        setHasUnsavedChanges(true);
+      }}
+      onDescriptionChange={(value) => {
+        setDescription(value);
+        setHasUnsavedChanges(true);
+      }}
+      onSummaryChange={(value) => {
+        setSummary(value);
+        setHasUnsavedChanges(true);
+      }}
+    />
+  );
+
   const renderPreview = () => (
     <div className="h-full overflow-y-auto bg-white">
       <header className="mx-auto max-w-3xl px-6 py-12 text-center">
         <h1 className="mb-6 font-serif text-3xl text-stone-600">
-          {fileContent.display_title || fileContent.meta_title || "Untitled"}
+          {collection === "articles"
+            ? displayTitle || metaTitle || "Untitled"
+            : title || "Untitled"}
         </h1>
-        {author.length > 0 && (
+        {collection === "articles" && author.length > 0 && (
           <div className="mb-2 flex items-center justify-center gap-3">
             {selectedAuthors.map((a) => (
               <div key={a.name} className="flex items-center gap-2">
@@ -3150,14 +4002,19 @@ const FileEditor = React.forwardRef<
             ))}
           </div>
         )}
-        {fileContent.date && (
+        {collection === "articles" && date && (
           <time className="font-mono text-xs text-neutral-500">
-            {new Date(fileContent.date).toLocaleDateString("en-US", {
+            {new Date(date).toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
             })}
           </time>
+        )}
+        {collection !== "articles" && (description || summary) && (
+          <p className="mx-auto max-w-2xl text-lg leading-relaxed text-neutral-600">
+            {collection === "docs" ? description : summary}
+          </p>
         )}
       </header>
       <div className="mx-auto max-w-3xl px-6 pb-8">
@@ -3180,7 +4037,8 @@ const FileEditor = React.forwardRef<
       <div className="flex items-center gap-2 text-sm text-amber-800">
         <AlertTriangleIcon className="size-4" />
         <span>
-          This article has a pending edit PR. Your changes will be added to{" "}
+          This {getCollectionLabel(collection).toLowerCase()} page has a pending
+          edit PR. Your changes will be added to{" "}
           <a
             href={pendingPRData.prUrl}
             target="_blank"
@@ -3209,14 +4067,18 @@ const FileEditor = React.forwardRef<
         <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
           <ResizablePanel defaultSize={50} minSize={30}>
             <div className="flex h-full flex-col">
-              <MetadataPanel
-                isExpanded={isMetadataExpanded}
-                onToggleExpanded={() =>
-                  setIsMetadataExpanded(!isMetadataExpanded)
-                }
-                filePath={filePath}
-                handlers={metadataHandlers}
-              />
+              {collection === "articles" ? (
+                <MetadataPanel
+                  isExpanded={isMetadataExpanded}
+                  onToggleExpanded={() =>
+                    setIsMetadataExpanded(!isMetadataExpanded)
+                  }
+                  filePath={filePath}
+                  handlers={metadataHandlers}
+                />
+              ) : (
+                structuredMetadataPanel
+              )}
               <BlogEditor
                 editor={editor}
                 onGoogleDocsImport={handleGoogleDocsImport}
@@ -3256,10 +4118,14 @@ const FileEditor = React.forwardRef<
         <ResizableHandle className="w-px bg-neutral-200" />
         <ResizablePanel defaultSize={30} minSize={20}>
           <div className="h-full overflow-y-auto">
-            <MetadataSidePanel
-              filePath={filePath}
-              handlers={metadataHandlers}
-            />
+            {collection === "articles" ? (
+              <MetadataSidePanel
+                filePath={filePath}
+                handlers={metadataHandlers}
+              />
+            ) : (
+              structuredMetadataPanel
+            )}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
