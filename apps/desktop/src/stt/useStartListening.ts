@@ -18,6 +18,7 @@ import type {
   HandlePersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
+import { type Tab, useTabs } from "~/store/zustand/tabs";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -94,6 +95,18 @@ export function useStartListening(
         });
 
         void fsSyncCommands.audioDelete(sessionId);
+
+        const tabsState = useTabs.getState();
+        const sessionTab = tabsState.tabs.find(
+          (t): t is Extract<Tab, { type: "sessions" }> =>
+            t.type === "sessions" && t.id === sessionId,
+        );
+        if (sessionTab) {
+          tabsState.updateSessionTabState(sessionTab, {
+            ...sessionTab.state,
+            view: null,
+          });
+        }
         return;
       }
 
