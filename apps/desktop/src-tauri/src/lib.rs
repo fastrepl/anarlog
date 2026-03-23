@@ -8,6 +8,7 @@ mod supervisor;
 use ext::*;
 use store::*;
 
+use tauri::Manager;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
