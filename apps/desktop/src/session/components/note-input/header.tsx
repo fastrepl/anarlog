@@ -163,6 +163,8 @@ function HeaderTabTranscript({
             });
           });
         }
+
+        getEnhancerService()?.queueAutoEnhance(sessionId);
       } catch (error) {
         const message =
           error instanceof Error

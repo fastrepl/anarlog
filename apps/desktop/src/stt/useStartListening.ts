@@ -9,6 +9,7 @@ import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
@@ -72,30 +73,31 @@ export function useStartListening(
     store.setRow("transcripts", transcriptId, transcriptRow);
 
     const onStopped: OnStoppedCallback = (_sessionId, durationSeconds) => {
-      if (durationSeconds >= MIN_DURATION_SECONDS) {
-        return;
-      }
-
       const words = parseTranscriptWords(store, transcriptId);
-      if (words.length >= MIN_WORD_COUNT) {
+
+      if (
+        durationSeconds < MIN_DURATION_SECONDS &&
+        words.length < MIN_WORD_COUNT
+      ) {
+        store.transaction(() => {
+          store.delRow("transcripts", transcriptId);
+
+          if (indexes) {
+            const enhancedNoteIds = indexes.getSliceRowIds(
+              main.INDEXES.enhancedNotesBySession,
+              sessionId,
+            );
+            for (const noteId of enhancedNoteIds) {
+              store.delRow("enhanced_notes", noteId);
+            }
+          }
+        });
+
+        void fsSyncCommands.audioDelete(sessionId);
         return;
       }
 
-      store.transaction(() => {
-        store.delRow("transcripts", transcriptId);
-
-        if (indexes) {
-          const enhancedNoteIds = indexes.getSliceRowIds(
-            main.INDEXES.enhancedNotesBySession,
-            sessionId,
-          );
-          for (const noteId of enhancedNoteIds) {
-            store.delRow("enhanced_notes", noteId);
-          }
-        }
-      });
-
-      void fsSyncCommands.audioDelete(sessionId);
+      getEnhancerService()?.queueAutoEnhance(sessionId);
     };
 
     const handlePersist: HandlePersistCallback = (words, hints) => {
