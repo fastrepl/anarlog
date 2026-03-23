@@ -95,7 +95,7 @@ function Component() {
             >
               <div
                 ref={chatPanelContainerRef}
-                className="mr-2 ml-3 h-full min-h-0 overflow-hidden"
+                className="mx-2 -mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden"
               />
             </ResizablePanel>
           </>

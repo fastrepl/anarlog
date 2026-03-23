@@ -64,7 +64,12 @@ export function ChatMessageInput({
       hasContextBar={hasContextBar}
       isRightPanel={chat.mode === "RightPanelOpen"}
     >
-      <div className="flex flex-col px-3 pt-3 pb-2">
+      <div
+        className={cn([
+          "flex flex-col pt-3 pb-2",
+          chat.mode === "RightPanelOpen" ? "px-2" : "px-2",
+        ])}
+      >
         <div className="mb-1 flex-1">
           <ChatEditor
             ref={editorRef}
@@ -140,7 +145,8 @@ function Container({
     <div className={cn(["relative shrink-0", !isRightPanel && "px-2 pb-2"])}>
       <div
         className={cn([
-          "flex flex-col rounded-b-xl border border-neutral-200 bg-white",
+          "flex flex-col border border-neutral-200 bg-white",
+          isRightPanel ? "rounded-t-xl rounded-b-none" : "rounded-b-xl",
           hasContextBar && "rounded-t-none border-t-0",
         ])}
       >
