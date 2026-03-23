@@ -23,7 +23,6 @@
     "calendar:default",
     "audio-priority:default",
     "auth:default",
-    "db2:default",
     "windows:default",
     "tracing:default",
     "tray:default",

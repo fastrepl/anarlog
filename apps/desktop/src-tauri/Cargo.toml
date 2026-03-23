@@ -29,7 +29,6 @@ tauri-plugin-autostart = { workspace = true }
 tauri-plugin-bedrock = { workspace = true }
 tauri-plugin-calendar = { workspace = true }
 tauri-plugin-clipboard-manager = { workspace = true }
-tauri-plugin-db2 = { workspace = true }
 tauri-plugin-deep-link = { workspace = true }
 tauri-plugin-deeplink2 = { workspace = true }
 tauri-plugin-detect = { workspace = true }

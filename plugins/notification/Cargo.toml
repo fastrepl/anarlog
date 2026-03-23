@@ -14,7 +14,6 @@ tauri-plugin = { workspace = true, features = ["build"] }
 specta-typescript = { workspace = true }
 
 [dependencies]
-hypr-db-user = { workspace = true }
 hypr-detect = { workspace = true }
 hypr-host = { workspace = true }
 hypr-intercept = { workspace = true }
