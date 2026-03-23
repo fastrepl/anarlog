@@ -43,6 +43,8 @@ export function ChatMessageInput({
   const editorRef = useRef<{ editor: TiptapEditor | null }>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
+  const shouldFocus =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
@@ -54,7 +56,7 @@ export function ChatMessageInput({
     isStreaming,
     onSendMessage,
   });
-  useAutoFocusEditor({ editorRef, disabled });
+  useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const slashCommandConfig = useSlashCommandConfig();
 
   return (

@@ -67,12 +67,14 @@ export function useSubmit({
 export function useAutoFocusEditor({
   editorRef,
   disabled,
+  shouldFocus = true,
 }: {
   editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
   disabled?: boolean;
+  shouldFocus?: boolean;
 }) {
   useEffect(() => {
-    if (disabled) {
+    if (disabled || !shouldFocus) {
       return;
     }
 
@@ -103,7 +105,7 @@ export function useAutoFocusEditor({
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [editorRef, disabled]);
+  }, [editorRef, disabled, shouldFocus]);
 }
 
 export function useSlashCommandConfig(): SlashCommandConfig {
