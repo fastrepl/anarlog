@@ -1,41 +1,32 @@
 import { Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 
 import { Footer } from "./footer";
 import { Header } from "./header";
 
 export function NotFoundContent() {
   return (
-    <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-[60vh]"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white min-h-full flex items-center justify-center px-4 py-20">
+    <div className="flex min-h-[80vh] items-center justify-center">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-center border-x border-neutral-100 bg-white px-4 py-32">
         <div className="text-center">
-          <h1 className="text-3xl font-medium text-neutral-700 mb-4 font-serif">
-            Page Not Found
+          <p className="mb-6 text-sm font-medium tracking-widest text-neutral-400 uppercase">
+            404
+          </p>
+
+          <h1 className="mb-4 font-serif text-4xl text-neutral-900 sm:text-5xl">
+            Page not found
           </h1>
 
-          <div className="text-[200px] leading-none font-serif text-neutral-800 mb-8">
-            404
-          </div>
-
-          <p className="text-base text-neutral-600 max-w-md mx-auto mb-8">
-            We couldn't find the page you were looking for. If you think this is
-            an error, you can{" "}
-            <a
-              href="mailto:support@hyprnote.com"
-              className="text-stone-700 underline hover:text-stone-900 transition-colors"
-            >
-              let us know
-            </a>
-            .
+          <p className="mx-auto mb-10 max-w-sm text-base text-neutral-500">
+            The page you're looking for doesn't exist or has been moved.
           </p>
 
           <Link
             to="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%] transition-all"
+            className="inline-flex items-center gap-2 rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-5 py-2.5 text-sm font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
           >
-            Go back home
+            <ArrowLeft size={14} />
+            Back to home
           </Link>
         </div>
       </div>
@@ -45,7 +36,7 @@ export function NotFoundContent() {
 
 export function NotFoundDocument() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col">
       <Header />
       <main className="flex-1">
         <NotFoundContent />

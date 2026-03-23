@@ -29,10 +29,10 @@ export const Route = createFileRoute("/_view/press-kit/app")({
   },
   head: () => ({
     meta: [
-      { title: "App Screenshots - Hyprnote Press Kit" },
+      { title: "App Screenshots - Char Press Kit" },
       {
         name: "description",
-        content: "Download Hyprnote app screenshots and UI assets.",
+        content: "Download Char app screenshots and UI assets.",
       },
     ],
   }),
@@ -127,10 +127,10 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <AppContentSection
           selectedItem={selectedItem}
@@ -144,12 +144,12 @@ function Component() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="text-center max-w-3xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <div className="mx-auto max-w-3xl text-center">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
           App Screenshots
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600">
-          Download high-quality screenshots of Hyprnote for press and marketing
+        <p className="text-lg text-neutral-600 sm:text-xl">
+          Download high-quality screenshots of Char for press and marketing
           materials.
         </p>
       </div>
@@ -169,24 +169,24 @@ function AppContentSection({
 
   return (
     <section className="px-6 pb-16 lg:pb-24">
-      <div className="max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl">
         <MockWindow
           title="App Screenshots"
-          className="rounded-lg w-full max-w-none"
+          className="w-full max-w-none rounded-lg"
           prefixIcons={
             isMobile &&
             selectedItem && (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Open navigation"
               >
-                <Menu className="w-4 h-4 text-neutral-600" />
+                <Menu className="h-4 w-4 text-neutral-600" />
               </button>
             )
           }
         >
-          <div className="h-[480px] relative">
+          <div className="relative h-[480px]">
             {!selectedItem ? (
               <AppGridView setSelectedItem={setSelectedItem} />
             ) : isMobile ? (
@@ -223,7 +223,7 @@ function AppGridView({
   setSelectedItem: (item: SelectedItem) => void;
 }) {
   return (
-    <div className="p-8 overflow-y-auto h-[480px]">
+    <div className="h-[480px] overflow-y-auto p-8">
       <ScreenshotsGrid setSelectedItem={setSelectedItem} />
     </div>
   );
@@ -236,10 +236,10 @@ function ScreenshotsGrid({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Screenshots
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {screenshots.map((screenshot) => (
           <button
             key={screenshot.id}
@@ -249,18 +249,18 @@ function ScreenshotsGrid({
                 data: screenshot,
               })
             }
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
-            <div className="mb-3 w-16 h-16">
+            <div className="mb-3 h-16 w-16">
               <Image
                 src={screenshot.url}
                 alt={screenshot.name}
                 width={64}
                 height={64}
-                className="w-16 h-16 rounded-lg border border-neutral-200 object-cover group-hover:scale-110 transition-transform"
+                className="h-16 w-16 rounded-lg border border-neutral-200 object-cover transition-transform group-hover:scale-110"
               />
             </div>
-            <div className="font-medium text-stone-600 text-sm truncate w-full">
+            <div className="w-full truncate text-sm font-medium text-stone-700">
               {screenshot.name}
             </div>
           </button>
@@ -301,7 +301,7 @@ function AppDetailView({
         setSelectedItem={setSelectedItem}
         scrollRef={sidebarScrollRef}
       />
-      <ResizableHandle withHandle className="bg-neutral-200 w-px" />
+      <ResizableHandle withHandle className="w-px bg-neutral-200" />
       <AppDetailPanel
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
@@ -334,7 +334,7 @@ function MobileSidebarDrawer({
             transition={{ duration: 0.2 }}
           />
           <motion.div
-            className="absolute left-0 top-0 bottom-0 z-50 w-72 bg-white border-r border-neutral-200 shadow-lg"
+            className="absolute top-0 bottom-0 left-0 z-50 w-72 border-r border-neutral-200 bg-white shadow-lg"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -344,16 +344,16 @@ function MobileSidebarDrawer({
               stiffness: 300,
             }}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-stone-50">
-              <span className="text-sm font-medium text-stone-600">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-stone-50 px-4 py-3">
+              <span className="text-sm font-medium text-stone-700">
                 Navigation
               </span>
               <button
                 onClick={onClose}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Close drawer"
               >
-                <X className="w-4 h-4 text-neutral-600" />
+                <X className="h-4 w-4 text-neutral-600" />
               </button>
             </div>
             <div className="h-[calc(100%-49px)] overflow-y-auto p-4">
@@ -380,7 +380,7 @@ function AppDetailContent({
   setSelectedItem: (item: SelectedItem | null) => void;
 }) {
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {selectedItem?.type === "screenshot" && (
         <ScreenshotDetail
           screenshot={selectedItem.data}
@@ -402,7 +402,7 @@ function AppSidebar({
 }) {
   return (
     <ResizablePanel defaultSize={35} minSize={25} maxSize={45}>
-      <div ref={scrollRef} className="p-4 h-full overflow-y-auto">
+      <div ref={scrollRef} className="h-full overflow-y-auto p-4">
         <ScreenshotsSidebar
           selectedItem={selectedItem}
           setSelectedItem={setSelectedItem}
@@ -421,7 +421,7 @@ function ScreenshotsSidebar({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Screenshots
       </div>
       <div className="flex flex-col gap-3">
@@ -435,24 +435,24 @@ function ScreenshotsSidebar({
               })
             }
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "screenshot" &&
               selectedItem.data.id === screenshot.id
                 ? "border-stone-600 bg-stone-100"
                 : "border-neutral-200",
             ])}
           >
-            <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden border border-neutral-200">
+            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-neutral-200">
               <Image
                 src={screenshot.url}
                 alt={screenshot.name}
                 width={48}
                 height={48}
-                className="w-full h-full object-cover"
+                className="h-full w-full object-cover"
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-600 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-stone-700">
                 {screenshot.name}
               </p>
             </div>
@@ -472,7 +472,7 @@ function AppDetailPanel({
 }) {
   return (
     <ResizablePanel defaultSize={65}>
-      <div className="h-full flex flex-col">
+      <div className="flex h-full flex-col">
         {selectedItem?.type === "screenshot" && (
           <ScreenshotDetail
             screenshot={selectedItem.data}
@@ -501,30 +501,30 @@ function ScreenshotDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{screenshot.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{screenshot.name}</h2>
         <div className="flex items-center gap-2">
           <a
             href={screenshot.url}
             download={screenshot.name}
-            className="px-4 h-8 flex items-center text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
           >
             Download
           </a>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+            className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
           >
             <XIcon size={16} />
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <Image
           src={screenshot.url}
           alt={screenshot.name}
-          className="w-full object-cover mb-6 rounded-lg"
+          className="mb-6 w-full rounded-lg object-cover"
         />
 
         <p className="text-sm text-neutral-600">{screenshot.description}</p>
@@ -535,7 +535,7 @@ function ScreenshotDetail({
 
 function AppStatusBar({ selectedItem }: { selectedItem: SelectedItem | null }) {
   return (
-    <div className="bg-stone-50 border-t border-neutral-200 px-4 py-2">
+    <div className="border-t border-neutral-200 bg-stone-50 px-4 py-2">
       <span className="text-xs text-neutral-500">
         {selectedItem
           ? `Viewing ${selectedItem.data.name}`

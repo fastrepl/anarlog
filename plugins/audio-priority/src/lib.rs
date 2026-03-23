@@ -41,7 +41,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
             let base = app.settings().global_base().unwrap();
-            let state = AudioPriorityState::new(base);
+            let state = AudioPriorityState::new(base.into_std_path_buf());
             assert!(app.manage(state));
             Ok(())
         })

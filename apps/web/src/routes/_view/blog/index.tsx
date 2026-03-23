@@ -8,10 +8,12 @@ import { SlashSeparator } from "@/components/slash-separator";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 const CATEGORIES = [
-  "Case Study",
-  "Hyprnote Weekly",
-  "Productivity Hack",
+  "Product",
+  "Comparisons",
   "Engineering",
+  "Founders' notes",
+  "Guides",
+  "Char Weekly",
 ] as const;
 
 type BlogSearch = {
@@ -28,18 +30,18 @@ export const Route = createFileRoute("/_view/blog/")({
   },
   head: () => ({
     meta: [
-      { title: "Blog - Hyprnote Blog" },
+      { title: "Blog - Char Blog" },
       {
         name: "description",
-        content: "Insights, updates, and stories from the Hyprnote team",
+        content: "Insights, updates, and stories from the Char team",
       },
-      { property: "og:title", content: "Blog - Hyprnote Blog" },
+      { property: "og:title", content: "Blog - Char Blog" },
       {
         property: "og:description",
-        content: "Insights, updates, and stories from the Hyprnote team",
+        content: "Insights, updates, and stories from the Char team",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://hyprnote.com/blog" },
+      { property: "og:url", content: "https://char.com/blog" },
     ],
   }),
 });
@@ -48,10 +50,7 @@ function Component() {
   const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
 
-  const publishedArticles = allArticles.filter(
-    (a) => import.meta.env.DEV || a.published === true,
-  );
-  const sortedArticles = [...publishedArticles].sort((a, b) => {
+  const sortedArticles = [...allArticles].sort((a, b) => {
     const aDate = a.date;
     const bDate = b.date;
     return new Date(bDate).getTime() - new Date(aDate).getTime();
@@ -100,7 +99,7 @@ function Component() {
       className="bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white min-h-screen">
+      <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
         <Header />
         {featuredArticles.length > 0 && (
           <FeaturedSection articles={featuredArticles} />
@@ -112,7 +111,7 @@ function Component() {
           setSelectedCategory={setSelectedCategory}
           hasFeatured={featuredArticles.length > 0}
         />
-        <div className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+        <div className="px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
           <div className="flex gap-8">
             <DesktopSidebar
               categories={categoriesWithCount}
@@ -122,7 +121,7 @@ function Component() {
               featuredCount={featuredArticles.length}
               totalArticles={sortedArticles.length}
             />
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <AllArticlesSection
                 articles={filteredArticles}
                 selectedCategory={selectedCategory}
@@ -137,12 +136,12 @@ function Component() {
 
 function Header() {
   return (
-    <header className="py-16 text-center border-b border-neutral-100 bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <h1 className="text-4xl sm:text-5xl font-serif text-stone-600 mb-4">
+    <header className="border-b border-neutral-100 bg-linear-to-b from-stone-50/30 to-stone-100/30 py-16 text-center">
+      <h1 className="mb-4 font-serif text-4xl text-stone-600 sm:text-5xl">
         Blog
       </h1>
-      <p className="text-lg text-neutral-600 max-w-2xl mx-auto px-4">
-        Insights, updates, and stories from the Hyprnote team
+      <p className="mx-auto max-w-2xl px-4 text-lg text-neutral-600">
+        Insights, updates, and stories from the Char team
       </p>
     </header>
   );
@@ -160,12 +159,12 @@ function MobileCategoriesSection({
   hasFeatured: boolean;
 }) {
   return (
-    <div className="lg:hidden border-b border-neutral-100 bg-stone-50">
-      <div className="flex overflow-x-auto scrollbar-hide">
+    <div className="border-b border-neutral-100 bg-stone-50 lg:hidden">
+      <div className="scrollbar-hide flex overflow-x-auto">
         <button
           onClick={() => setSelectedCategory(null)}
           className={cn([
-            "px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap shrink-0 border-r border-neutral-100 cursor-pointer",
+            "shrink-0 cursor-pointer border-r border-neutral-100 px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors",
             selectedCategory === null
               ? "bg-stone-600 text-white"
               : "text-stone-600 hover:bg-stone-100",
@@ -177,7 +176,7 @@ function MobileCategoriesSection({
           <button
             onClick={() => setSelectedCategory("featured")}
             className={cn([
-              "px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap shrink-0 border-r border-neutral-100 cursor-pointer",
+              "shrink-0 cursor-pointer border-r border-neutral-100 px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors",
               selectedCategory === "featured"
                 ? "bg-stone-600 text-white"
                 : "text-stone-600 hover:bg-stone-100",
@@ -191,7 +190,7 @@ function MobileCategoriesSection({
             key={category}
             onClick={() => setSelectedCategory(category)}
             className={cn([
-              "px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap shrink-0 border-r border-neutral-100 last:border-r-0 cursor-pointer",
+              "shrink-0 cursor-pointer border-r border-neutral-100 px-5 py-3 text-sm font-medium whitespace-nowrap transition-colors last:border-r-0",
               selectedCategory === category
                 ? "bg-stone-600 text-white"
                 : "text-stone-600 hover:bg-stone-100",
@@ -221,16 +220,16 @@ function DesktopSidebar({
   totalArticles: number;
 }) {
   return (
-    <aside className="hidden lg:block w-56 shrink-0">
+    <aside className="hidden w-56 shrink-0 lg:block">
       <div className="sticky top-21.25">
-        <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+        <h3 className="mb-4 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
           Categories
         </h3>
         <nav className="flex flex-col gap-1">
           <button
             onClick={() => setSelectedCategory(null)}
             className={cn([
-              "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+              "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
               selectedCategory === null
                 ? "bg-stone-100 text-stone-800"
                 : "text-stone-600 hover:bg-stone-50",
@@ -245,7 +244,7 @@ function DesktopSidebar({
             <button
               onClick={() => setSelectedCategory("featured")}
               className={cn([
-                "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
                 selectedCategory === "featured"
                   ? "bg-stone-100 text-stone-800"
                   : "text-stone-600 hover:bg-stone-50",
@@ -262,7 +261,7 @@ function DesktopSidebar({
               key={category}
               onClick={() => setSelectedCategory(category)}
               className={cn([
-                "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
+                "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
                 selectedCategory === category
                   ? "bg-stone-100 text-stone-800"
                   : "text-stone-600 hover:bg-stone-50",
@@ -289,7 +288,7 @@ function FeaturedSection({ articles }: { articles: Article[] }) {
   const displayedOthers = others.slice(0, 4);
 
   return (
-    <section className="px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+    <section className="px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
       <div
         className={cn([
           "flex flex-col gap-3",
@@ -329,7 +328,7 @@ function AllArticlesSection({
 }) {
   if (articles.length === 0) {
     return (
-      <div className="text-center py-16">
+      <div className="py-16 text-center">
         <p className="text-neutral-500">No articles yet. Check back soon!</p>
       </div>
     );
@@ -352,8 +351,8 @@ function AllArticlesSection({
 
 function SectionHeader({ title }: { title: string }) {
   return (
-    <div className="flex items-center gap-3 mb-8">
-      <h2 className="text-2xl font-serif text-stone-600">{title}</h2>
+    <div className="mb-8 flex items-center gap-3">
+      <h2 className="font-serif text-2xl text-stone-600">{title}</h2>
       <div className="h-px flex-1 bg-neutral-200" />
     </div>
   );
@@ -364,7 +363,10 @@ function MostRecentFeaturedCard({ article }: { article: Article }) {
   const [coverImageLoaded, setCoverImageLoaded] = useState(false);
   const hasCoverImage = !coverImageError;
   const displayDate = article.date;
-  const avatarUrl = AUTHOR_AVATARS[article.author];
+  const avatarUrl =
+    Array.isArray(article.author) && article.author.length > 0
+      ? AUTHOR_AVATARS[article.author[0]]
+      : undefined;
 
   return (
     <Link
@@ -374,14 +376,14 @@ function MostRecentFeaturedCard({ article }: { article: Article }) {
     >
       <article
         className={cn([
-          "h-full border border-neutral-100 rounded-xs overflow-hidden bg-white",
-          "hover:shadow-xl transition-all duration-300",
+          "h-full overflow-hidden rounded-xs border border-neutral-100 bg-white",
+          "transition-all duration-300 hover:shadow-xl",
         ])}
       >
         {hasCoverImage && (
           <ArticleImage
             src={article.coverImage}
-            alt={article.title}
+            alt={article.title ?? "Article"}
             isLoaded={coverImageLoaded}
             onLoad={() => setCoverImageLoaded(true)}
             onError={() => setCoverImageError(true)}
@@ -391,21 +393,21 @@ function MostRecentFeaturedCard({ article }: { article: Article }) {
 
         <div className="p-6 md:p-8">
           {article.category && (
-            <span className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-2 block">
+            <span className="mb-2 block text-xs font-medium tracking-wider text-stone-500 uppercase">
               {article.category}
             </span>
           )}
           <h3
             className={cn([
-              "text-xl font-serif text-stone-600 mb-2",
-              "group-hover:text-stone-800 transition-colors line-clamp-2",
-              "md:text-2xl md:mb-3",
+              "mb-2 font-serif text-xl text-stone-600",
+              "line-clamp-2 transition-colors group-hover:text-stone-800",
+              "md:mb-3 md:text-2xl",
             ])}
           >
-            {article.display_title}
+            {article.title}
           </h3>
 
-          <p className="text-neutral-600 leading-relaxed mb-4 line-clamp-2 md:line-clamp-3">
+          <p className="mb-4 line-clamp-2 leading-relaxed text-neutral-600 md:line-clamp-3">
             {article.meta_description}
           </p>
 
@@ -413,11 +415,19 @@ function MostRecentFeaturedCard({ article }: { article: Article }) {
             {avatarUrl && (
               <img
                 src={avatarUrl}
-                alt={article.author}
-                className="w-6 h-6 rounded-full object-cover"
+                alt={
+                  Array.isArray(article.author)
+                    ? article.author.join(", ")
+                    : article.author
+                }
+                className="h-6 w-6 rounded-full object-cover"
               />
             )}
-            <span>{article.author}</span>
+            <span>
+              {Array.isArray(article.author)
+                ? article.author.join(", ")
+                : article.author}
+            </span>
             <span>·</span>
             <time dateTime={displayDate}>
               {new Date(displayDate).toLocaleDateString("en-US", {
@@ -444,21 +454,24 @@ function OtherFeaturedCard({
   const [coverImageLoaded, setCoverImageLoaded] = useState(false);
   const hasCoverImage = !coverImageError;
   const displayDate = article.date;
-  const avatarUrl = AUTHOR_AVATARS[article.author];
+  const avatarUrl =
+    Array.isArray(article.author) && article.author.length > 0
+      ? AUTHOR_AVATARS[article.author[0]]
+      : undefined;
 
   return (
     <Link
       to="/blog/$slug/"
       params={{ slug: article.slug }}
       className={cn([
-        "group block md:flex-1 md:min-w-0 lg:flex-auto",
+        "group block md:min-w-0 md:flex-1 lg:flex-auto",
         className,
       ])}
     >
       <article
         className={cn([
-          "h-full border border-neutral-100 rounded-xs overflow-hidden bg-white",
-          "hover:shadow-xl transition-all duration-300",
+          "h-full overflow-hidden rounded-xs border border-neutral-100 bg-white",
+          "transition-all duration-300 hover:shadow-xl",
           "flex flex-col",
           "lg:flex-row",
         ])}
@@ -468,15 +481,15 @@ function OtherFeaturedCard({
             className={cn([
               "aspect-40/21 shrink-0 overflow-hidden bg-stone-50",
               "border-b border-neutral-100",
-              "lg:aspect-auto lg:w-32 lg:border-b-0 lg:border-r",
+              "lg:aspect-auto lg:w-32 lg:border-r lg:border-b-0",
             ])}
           >
             <img
               src={article.coverImage}
-              alt={article.title}
+              alt={article.title ?? "Article"}
               className={cn([
-                "w-full h-full object-cover",
-                "group-hover:scale-105 transition-all duration-500",
+                "h-full w-full object-cover",
+                "transition-all duration-500 group-hover:scale-105",
                 coverImageLoaded ? "opacity-100" : "opacity-0",
               ])}
               onLoad={() => setCoverImageLoaded(true)}
@@ -488,33 +501,41 @@ function OtherFeaturedCard({
 
         <div
           className={cn([
-            "flex-1 min-w-0 p-4 flex flex-col justify-center",
+            "flex min-w-0 flex-1 flex-col justify-center p-4",
             "lg:p-4",
           ])}
         >
           {article.category && (
-            <span className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+            <span className="mb-1 text-xs font-medium tracking-wider text-stone-500 uppercase">
               {article.category}
             </span>
           )}
           <h3
             className={cn([
-              "text-base font-serif text-stone-600 mb-2",
-              "group-hover:text-stone-800 transition-colors line-clamp-2",
+              "mb-2 font-serif text-base text-stone-600",
+              "line-clamp-2 transition-colors group-hover:text-stone-800",
             ])}
           >
-            {article.display_title}
+            {article.title}
           </h3>
 
           <div className="flex items-center gap-2 text-xs text-neutral-500">
             {avatarUrl && (
               <img
                 src={avatarUrl}
-                alt={article.author}
-                className="w-5 h-5 rounded-full object-cover"
+                alt={
+                  Array.isArray(article.author)
+                    ? article.author.join(", ")
+                    : article.author
+                }
+                className="h-5 w-5 rounded-full object-cover"
               />
             )}
-            <span className="truncate">{article.author}</span>
+            <span className="truncate">
+              {Array.isArray(article.author)
+                ? article.author.join(", ")
+                : article.author}
+            </span>
             <span>·</span>
             <time dateTime={displayDate} className="shrink-0">
               {new Date(displayDate).toLocaleDateString("en-US", {
@@ -531,7 +552,10 @@ function OtherFeaturedCard({
 
 function ArticleListItem({ article }: { article: Article }) {
   const displayDate = article.date;
-  const avatarUrl = AUTHOR_AVATARS[article.author];
+  const avatarUrl =
+    Array.isArray(article.author) && article.author.length > 0
+      ? AUTHOR_AVATARS[article.author[0]]
+      : undefined;
 
   return (
     <Link
@@ -539,49 +563,59 @@ function ArticleListItem({ article }: { article: Article }) {
       params={{ slug: article.slug }}
       className="group block"
     >
-      <article className="py-4 hover:bg-stone-50/50 transition-colors duration-200">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-3 min-w-0 sm:max-w-2xl">
+      <article className="py-4 transition-colors duration-200 hover:bg-stone-50/50">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex min-w-0 items-center gap-3 sm:max-w-2xl">
             {article.category && (
-              <span className="text-xs font-medium text-stone-500 uppercase tracking-wider shrink-0 hidden sm:inline">
+              <span className="hidden shrink-0 text-xs font-medium tracking-wider text-stone-500 uppercase sm:inline">
                 {article.category}
               </span>
             )}
-            <span className="text-base font-serif text-stone-600 group-hover:text-stone-800 transition-colors truncate">
+            <span className="truncate font-serif text-base text-stone-600 transition-colors group-hover:text-stone-800">
               {article.title}
             </span>
-            <div className="hidden sm:flex items-center gap-3 shrink-0">
+            <div className="hidden shrink-0 items-center gap-3 sm:flex">
               {avatarUrl && (
                 <img
                   src={avatarUrl}
-                  alt={article.author}
-                  className="w-5 h-5 rounded-full object-cover"
+                  alt={
+                    Array.isArray(article.author)
+                      ? article.author.join(", ")
+                      : article.author
+                  }
+                  className="h-5 w-5 rounded-full object-cover"
                 />
               )}
-              <span className="text-sm text-neutral-500 whitespace-nowrap">
-                {article.author}
+              <span className="text-sm whitespace-nowrap text-neutral-500">
+                {Array.isArray(article.author)
+                  ? article.author.join(", ")
+                  : article.author}
               </span>
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 sm:hidden">
             <div className="flex items-center gap-3">
               {article.category && (
-                <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                <span className="text-xs font-medium tracking-wider text-stone-500 uppercase">
                   {article.category}
                 </span>
               )}
               {avatarUrl && (
                 <img
                   src={avatarUrl}
-                  alt={article.author}
-                  className="w-5 h-5 rounded-full object-cover"
+                  alt={
+                    Array.isArray(article.author)
+                      ? article.author.join(", ")
+                      : article.author
+                  }
+                  className="h-5 w-5 rounded-full object-cover"
                 />
               )}
               <span className="text-sm text-neutral-500">{article.author}</span>
             </div>
             <time
               dateTime={displayDate}
-              className="text-sm text-neutral-500 shrink-0 font-mono"
+              className="shrink-0 font-mono text-sm text-neutral-500"
             >
               {new Date(displayDate).toLocaleDateString("en-US", {
                 month: "short",
@@ -590,10 +624,10 @@ function ArticleListItem({ article }: { article: Article }) {
               })}
             </time>
           </div>
-          <div className="h-px flex-1 bg-neutral-200 hidden sm:block" />
+          <div className="hidden h-px flex-1 bg-neutral-200 sm:block" />
           <time
             dateTime={displayDate}
-            className="text-sm text-neutral-500 shrink-0 hidden sm:block whitespace-nowrap font-mono"
+            className="hidden shrink-0 font-mono text-sm whitespace-nowrap text-neutral-500 sm:block"
           >
             {new Date(displayDate).toLocaleDateString("en-US", {
               month: "short",
@@ -632,7 +666,7 @@ function ArticleImage({
         src={src}
         alt={alt}
         className={cn([
-          "w-full h-full object-cover group-hover:scale-105 transition-all duration-500",
+          "h-full w-full object-cover transition-all duration-500 group-hover:scale-105",
           isLoaded ? "opacity-100" : "opacity-0",
         ])}
         onLoad={onLoad}

@@ -1,0 +1,74 @@
+---
+title: "Growth"
+section: "Teams"
+summary: "Product-led, bottoms-up — reduce friction everywhere in the user journey"
+---
+
+## Mindset
+
+Growth at Char is product-led. We don't cold-call people. We build something great, make it easy to try, and let the product speak for itself.
+
+## North Star
+
+**Active user** = a user who creates a summary after transcribing at least 5 minutes of meeting audio.
+
+Operationally (with current analytics), this means:
+
+- `$stt_request` with `$stt_duration >= 300` seconds
+- followed by `note_enhanced`
+
+`note_enhanced` is our current summary-creation proxy event.
+See [Analytics](/docs/developers/analytics) for event/property definitions.
+
+This is the core value loop we care about, not downloads or signups alone.
+
+## Principles
+
+**Reduce friction everywhere** — Every step of the user journey should be scrutinized for unnecessary friction. Can someone get value from Char in under 5 minutes? If not, something is broken.
+
+**Awareness → Acquisition → Activation → Retention** — These aren't separate departments. They're a unified flow that every team member should understand. Growth touches everything.
+
+**Bottoms-up adoption** — End users advocate for the product inside their companies. The best way into organizations is through individuals who love it and champion it internally.
+
+**Measure what matters** — Focus on activation and retention over vanity metrics. A thousand active daily users who love the product beats a million downloads that churn. See [Analytics](/docs/developers/analytics) for exactly what we track today.
+
+## Metrics That Matter
+
+**1) Activation**
+
+- **Activation rate (7d):** % of new users who become active within 7 days.
+- **Time to activation:** median time from first real usage to first active event.
+
+**2) Retention**
+
+- **W1/W4 retention:** % of users who are still active in week 1 and week 4.
+- **Active user frequency:** active days per user per week.
+
+**3) Growth funnel**
+
+- **Website to install intent:** `download_clicked`
+- **Install to first use:** `show_main_window` → `session_started`
+- **Use to value:** `session_started` + `$stt_request >= 300s` → `note_enhanced`
+
+**4) Revenue linkage**
+
+- **Activation to paid intent:** active user → `upgrade_clicked` / `trial_started`
+- **Trial outcome quality:** `trial_started`, `trial_skipped`, `trial_failed`
+
+## Leading vs. lagging signals
+
+- **Leading signals:** `hero_section_viewed`, `download_clicked`, onboarding progress
+- **Value signals:** `$stt_request` duration + `note_enhanced`
+- **Lagging signals:** W4 retention, trial-to-paid conversion
+
+We optimize leading signals only if they improve value and retention downstream.
+
+## Cadence
+
+- Weekly: funnel review (drop-off by step and platform)
+- Bi-weekly: activation and retention deep dive
+- Monthly: bets review (what moved active users, what did not)
+
+## Cross-functional
+
+Growth is everyone's job. Engineers should think about onboarding friction. Designers should think about first-run experience. Marketers should think about what happens after someone lands on the website. The user journey is one continuous thread.

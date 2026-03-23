@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the event command without any pre-configured scope."
         },
         {
+          "description": "Enables the identify command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-identify",
+          "markdownDescription": "Enables the identify command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the identify command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-identify",
+          "markdownDescription": "Denies the identify command without any pre-configured scope."
+        },
+        {
           "description": "Enables the is_disabled command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-disabled",
@@ -343,10 +355,10 @@
           "markdownDescription": "Denies the set_properties command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-event`\n- `allow-set-properties`\n- `allow-set-disabled`\n- `allow-is-disabled`\n- `allow-identify`"
         }
       ]
     }

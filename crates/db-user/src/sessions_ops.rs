@@ -29,14 +29,6 @@ impl UserDatabase {
         Ok(())
     }
 
-    pub async fn get_words_onboarding(
-        &self,
-    ) -> Result<Vec<owhisper_interface::Word2>, crate::Error> {
-        let words: Vec<owhisper_interface::Word2> =
-            serde_json::from_str(hypr_data::english_7::WORDS_JSON).unwrap();
-        Ok(words)
-    }
-
     pub async fn get_words(
         &self,
         session_id: impl Into<String>,

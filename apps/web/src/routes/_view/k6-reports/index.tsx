@@ -27,13 +27,13 @@ function Component() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
-        <div className="animate-pulse flex flex-col gap-4">
-          <div className="h-8 bg-neutral-200 rounded w-1/3" />
-          <div className="h-4 bg-neutral-200 rounded w-1/2" />
-          <div className="flex flex-col gap-2 mt-8">
+      <div className="mx-auto max-w-4xl px-4 py-16">
+        <div className="flex animate-pulse flex-col gap-4">
+          <div className="h-8 w-1/3 rounded bg-neutral-200" />
+          <div className="h-4 w-1/2 rounded bg-neutral-200" />
+          <div className="mt-8 flex flex-col gap-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-16 bg-neutral-100 rounded" />
+              <div key={i} className="h-16 rounded bg-neutral-100" />
             ))}
           </div>
         </div>
@@ -43,9 +43,9 @@ function Component() {
 
   if (error) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16">
+      <div className="mx-auto max-w-4xl px-4 py-16">
         <h1 className="text-2xl font-bold text-red-600">Error</h1>
-        <p className="text-neutral-600 mt-2">{(error as Error).message}</p>
+        <p className="mt-2 text-neutral-600">{(error as Error).message}</p>
       </div>
     );
   }
@@ -53,14 +53,14 @@ function Component() {
   const reports = data?.reports || [];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
+    <div className="mx-auto max-w-4xl px-4 py-16">
       <h1 className="text-3xl font-bold">K6 Load Test Reports</h1>
-      <p className="text-neutral-600 mt-2">
+      <p className="mt-2 text-neutral-600">
         WebSocket stability test results from CI
       </p>
 
       {reports.length === 0 ? (
-        <div className="mt-8 p-8 bg-neutral-50 rounded-lg text-center">
+        <div className="mt-8 rounded-lg bg-neutral-50 p-8 text-center">
           <p className="text-neutral-500">No reports available</p>
         </div>
       ) : (
@@ -70,7 +70,7 @@ function Component() {
               key={report.id}
               to="/k6-reports/$id/"
               params={{ id: String(report.id) }}
-              className="block p-4 bg-white border border-neutral-200 rounded-lg hover:border-neutral-300 hover:shadow-xs transition-all"
+              className="block rounded-lg border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-xs"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -81,7 +81,7 @@ function Component() {
                 </div>
                 {report.run_id && (
                   <a
-                    href={`https://github.com/fastrepl/hyprnote/actions/runs/${report.run_id}`}
+                    href={`https://github.com/fastrepl/char/actions/runs/${report.run_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}

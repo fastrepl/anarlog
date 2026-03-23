@@ -1,0 +1,26 @@
+---
+import "../styles.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>Char CLI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif&display=swap"
+      rel="stylesheet"
+    />
+    <style>html { background: #0a0a0a }</style>
+  </head>
+  <body>
+    <div class="min-h-screen bg-neutral-950 font-mono text-neutral-100">
+      <main class="mx-auto max-w-2xl px-6 py-20 sm:py-28">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

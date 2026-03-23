@@ -25,11 +25,11 @@ export function CustomToast(props: CustomToastProps) {
   const { id, title, content, buttons = [], dismissible, children } = props;
 
   return (
-    <div className="flex flex-col gap-2 p-4 relative">
+    <div className="relative flex flex-col gap-2 p-4">
       {dismissible && (
         <button
           onClick={() => sonnerToast.dismiss(id)}
-          className="cursor-pointer absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-neutral-100 transition-opacity"
+          className="absolute top-2 right-2 cursor-pointer rounded-full p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-neutral-100"
           aria-label="Dismiss"
         >
           <X size={16} />
@@ -43,7 +43,7 @@ export function CustomToast(props: CustomToastProps) {
       {children}
 
       {buttons.length > 0 && (
-        <div className="flex gap-2 mt-2">
+        <div className="mt-2 flex gap-2">
           {buttons.map((button, index) => (
             <button
               key={index}
@@ -53,8 +53,8 @@ export function CustomToast(props: CustomToastProps) {
               }}
               className={
                 button.primary
-                  ? "px-3 py-1.5 text-sm bg-neutral-800 text-white rounded-md hover:bg-neutral-700"
-                  : "px-3 py-1.5 text-sm bg-neutral-200 text-neutral-800 rounded-md hover:bg-neutral-300"
+                  ? "rounded-md bg-neutral-800 px-3 py-1.5 text-sm text-white hover:bg-neutral-700"
+                  : "rounded-md bg-neutral-200 px-3 py-1.5 text-sm text-neutral-800 hover:bg-neutral-300"
               }
             >
               {button.label}

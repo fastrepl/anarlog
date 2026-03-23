@@ -1,31 +1,118 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
-import { env } from "@/env";
-
-const BUCKET_NAME = "blog";
-
-export interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
+import { env, requireEnv } from "@/env";
+import { listCatalogMediaItems } from "@/functions/media-catalog";
+import {
+  getMimeTypeFromExtension,
+  MEDIA_BUCKET_NAME,
+  parseMediaFilename,
+} from "@/lib/media";
+import type { MediaItem } from "@/lib/media-library";
 
 function getSupabaseClient() {
-  const key = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
-  return createClient(env.SUPABASE_URL, key);
+  const key =
+    env.SUPABASE_SERVICE_ROLE_KEY ||
+    requireEnv(env.SUPABASE_ANON_KEY, "SUPABASE_ANON_KEY");
+  return createClient(requireEnv(env.SUPABASE_URL, "SUPABASE_URL"), key);
 }
 
 function getPublicUrl(path: string): string {
   const supabase = getSupabaseClient();
-  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+  const { data } = supabase.storage.from(MEDIA_BUCKET_NAME).getPublicUrl(path);
   return data.publicUrl;
+}
+
+function normalizePath(path: string): string {
+  return path.split("/").filter(Boolean).join("/");
+}
+
+async function resolveUploadPath(
+  supabase: SupabaseClient,
+  params: {
+    filename?: string;
+    folder?: string;
+    path?: string;
+    upsert?: boolean;
+  },
+): Promise<
+  | {
+      success: true;
+      path: string;
+      contentType: string;
+    }
+  | {
+      success: false;
+      error: string;
+    }
+> {
+  if (params.path) {
+    const path = normalizePath(params.path);
+    const filename = path.split("/").pop();
+    if (!filename) {
+      return {
+        success: false,
+        error: "Invalid file path",
+      };
+    }
+
+    const parsed = parseMediaFilename(filename);
+    if (!parsed) {
+      return {
+        success: false,
+        error: "Invalid file type. Only images and videos are allowed.",
+      };
+    }
+
+    return {
+      success: true,
+      path,
+      contentType: getMimeTypeFromExtension(parsed.extension),
+    };
+  }
+
+  if (!params.filename) {
+    return {
+      success: false,
+      error: "Missing filename",
+    };
+  }
+
+  const parsed = parseMediaFilename(params.filename);
+  if (!parsed) {
+    return {
+      success: false,
+      error: "Invalid file type. Only images and videos are allowed.",
+    };
+  }
+
+  const folder = normalizePath(params.folder || "");
+  let filename = parsed.filename;
+  let path = folder ? `${folder}/${filename}` : filename;
+
+  if (!params.upsert) {
+    const { data: existingFiles } = await supabase.storage
+      .from(MEDIA_BUCKET_NAME)
+      .list(folder || undefined, { limit: 1000 });
+
+    if (existingFiles) {
+      const existingNames = new Set(existingFiles.map((file) => file.name));
+      let counter = 1;
+
+      while (existingNames.has(filename)) {
+        filename = `${parsed.baseName}-${counter}.${parsed.extension}`;
+        counter++;
+      }
+
+      path = folder ? `${folder}/${filename}` : filename;
+    }
+  }
+
+  return {
+    success: true,
+    path,
+    contentType: getMimeTypeFromExtension(parsed.extension),
+  };
 }
 
 export async function listMediaFiles(
@@ -35,7 +122,7 @@ export async function listMediaFiles(
 
   try {
     const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(MEDIA_BUCKET_NAME)
       .list(path, {
         limit: 1000,
         sortBy: { column: "name", order: "asc" },
@@ -49,7 +136,7 @@ export async function listMediaFiles(
       return { items: [] };
     }
 
-    const items: MediaItem[] = data
+    const storageItems: MediaItem[] = data
       .filter(
         (item) =>
           item.name !== ".emptyFolderPlaceholder" && item.name !== ".folder",
@@ -71,8 +158,21 @@ export async function listMediaFiles(
         };
       });
 
-    const folders = items.filter((item) => item.type === "dir");
-    const files = items.filter((item) => item.type === "file");
+    const folders = storageItems.filter((item) => item.type === "dir");
+    const storageFiles = storageItems.filter((item) => item.type === "file");
+    const catalog = await listCatalogMediaItems(supabase, path);
+    const fileMap = new Map(
+      (catalog.supported ? catalog.items : []).map((item) => [item.path, item]),
+    );
+
+    for (const file of storageFiles) {
+      if (!fileMap.has(file.path)) {
+        fileMap.set(file.path, file);
+      }
+    }
+
+    const files = [...fileMap.values()];
+
     folders.sort((a, b) => a.name.localeCompare(b.name));
     files.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -96,69 +196,21 @@ export async function uploadMediaFile(
   publicUrl?: string;
   error?: string;
 }> {
-  const allowedExtensions = [
-    "jpg",
-    "jpeg",
-    "png",
-    "gif",
-    "svg",
-    "webp",
-    "avif",
-    "mp4",
-    "webm",
-    "mov",
-  ];
-
-  const parts = filename.split(".");
-  const ext = parts.pop()?.toLowerCase();
-  const baseName = parts.join(".").replace(/[^a-zA-Z0-9.-]/g, "-") || "file";
-
-  if (!ext || !allowedExtensions.includes(ext)) {
+  const resolvedPath = await resolveUploadPath(supabase, { filename, folder });
+  if (!resolvedPath.success) {
     return {
       success: false,
-      error: "Invalid file type. Only images and videos are allowed.",
+      error: resolvedPath.error,
     };
-  }
-
-  let finalFilename = `${baseName}.${ext}`;
-  let path = folder ? `${folder}/${finalFilename}` : finalFilename;
-
-  const { data: existingFiles } = await supabase.storage
-    .from(BUCKET_NAME)
-    .list(folder || undefined, { limit: 1000 });
-
-  if (existingFiles) {
-    const existingNames = new Set(existingFiles.map((f) => f.name));
-    let counter = 1;
-
-    while (existingNames.has(finalFilename)) {
-      finalFilename = `${baseName}-${counter}.${ext}`;
-      counter++;
-    }
-
-    path = folder ? `${folder}/${finalFilename}` : finalFilename;
   }
 
   try {
     const fileBuffer = Buffer.from(content, "base64");
 
-    const mimeTypes: Record<string, string> = {
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      gif: "image/gif",
-      svg: "image/svg+xml",
-      webp: "image/webp",
-      avif: "image/avif",
-      mp4: "video/mp4",
-      webm: "video/webm",
-      mov: "video/quicktime",
-    };
-
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(path, fileBuffer, {
-        contentType: mimeTypes[ext] || "application/octet-stream",
+      .from(MEDIA_BUCKET_NAME)
+      .upload(resolvedPath.path, fileBuffer, {
+        contentType: resolvedPath.contentType,
         upsert: false,
       });
 
@@ -166,10 +218,12 @@ export async function uploadMediaFile(
       return { success: false, error: error.message };
     }
 
-    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+    const { data } = supabase.storage
+      .from(MEDIA_BUCKET_NAME)
+      .getPublicUrl(resolvedPath.path);
     return {
       success: true,
-      path,
+      path: resolvedPath.path,
       publicUrl: data.publicUrl,
     };
   } catch (error) {
@@ -180,6 +234,52 @@ export async function uploadMediaFile(
   }
 }
 
+export async function createSignedMediaUpload(
+  supabase: SupabaseClient,
+  params: {
+    filename?: string;
+    folder?: string;
+    path?: string;
+    upsert?: boolean;
+  },
+): Promise<{
+  success: boolean;
+  path?: string;
+  publicUrl?: string;
+  token?: string;
+  signedUrl?: string;
+  error?: string;
+}> {
+  const resolvedPath = await resolveUploadPath(supabase, params);
+  if (!resolvedPath.success) {
+    return {
+      success: false,
+      error: resolvedPath.error,
+    };
+  }
+
+  const { data, error } = await supabase.storage
+    .from(MEDIA_BUCKET_NAME)
+    .createSignedUploadUrl(resolvedPath.path, {
+      upsert: params.upsert ?? false,
+    });
+
+  if (error) {
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+
+  return {
+    success: true,
+    path: resolvedPath.path,
+    publicUrl: getPublicUrl(resolvedPath.path),
+    token: data.token,
+    signedUrl: data.signedUrl,
+  };
+}
+
 async function listAllFilesInFolder(
   supabase: SupabaseClient,
   folderPath: string,
@@ -187,7 +287,7 @@ async function listAllFilesInFolder(
   const allFiles: string[] = [];
 
   const { data } = await supabase.storage
-    .from(BUCKET_NAME)
+    .from(MEDIA_BUCKET_NAME)
     .list(folderPath, { limit: 1000 });
 
   if (!data) return allFiles;
@@ -217,7 +317,7 @@ export async function deleteMediaFiles(
   try {
     for (const path of paths) {
       const { data: folderContents } = await supabase.storage
-        .from(BUCKET_NAME)
+        .from(MEDIA_BUCKET_NAME)
         .list(path, { limit: 1 });
 
       const isFolder = folderContents && folderContents.length > 0;
@@ -227,7 +327,7 @@ export async function deleteMediaFiles(
 
         if (allFiles.length > 0) {
           const { error } = await supabase.storage
-            .from(BUCKET_NAME)
+            .from(MEDIA_BUCKET_NAME)
             .remove(allFiles);
 
           if (error) {
@@ -240,7 +340,7 @@ export async function deleteMediaFiles(
         }
       } else {
         const { data, error } = await supabase.storage
-          .from(BUCKET_NAME)
+          .from(MEDIA_BUCKET_NAME)
           .remove([path]);
 
         if (error) {
@@ -286,7 +386,7 @@ export async function createMediaFolder(
 
   try {
     const { data: existing } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(MEDIA_BUCKET_NAME)
       .list(folderPath, { limit: 1 });
 
     if (existing && existing.length > 0) {
@@ -294,7 +394,7 @@ export async function createMediaFolder(
     }
 
     const { error } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(MEDIA_BUCKET_NAME)
       .upload(placeholderPath, new Uint8Array(0), {
         contentType: "application/x-empty",
         upsert: false,
@@ -323,7 +423,7 @@ export async function moveMediaFile(
 ): Promise<{ success: boolean; newPath?: string; error?: string }> {
   try {
     const { data: folderContents } = await supabase.storage
-      .from(BUCKET_NAME)
+      .from(MEDIA_BUCKET_NAME)
       .list(fromPath, { limit: 1 });
 
     const isFolder = folderContents && folderContents.length > 0;
@@ -337,14 +437,14 @@ export async function moveMediaFile(
         const newFilePath = toPath + relativePath;
 
         const { error } = await supabase.storage
-          .from(BUCKET_NAME)
+          .from(MEDIA_BUCKET_NAME)
           .move(filePath, newFilePath);
 
         if (error) {
           if (movedFiles.length > 0) {
             for (const moved of movedFiles) {
               const { error: rollbackError } = await supabase.storage
-                .from(BUCKET_NAME)
+                .from(MEDIA_BUCKET_NAME)
                 .move(moved.to, moved.from);
               if (rollbackError) {
                 // Log or handle rollback failure
@@ -370,7 +470,7 @@ export async function moveMediaFile(
       };
     } else {
       const { error } = await supabase.storage
-        .from(BUCKET_NAME)
+        .from(MEDIA_BUCKET_NAME)
         .move(fromPath, toPath);
 
       if (error) {

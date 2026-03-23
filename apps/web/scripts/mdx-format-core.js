@@ -9,7 +9,6 @@ export const ARTICLE_FIELD_ORDER = [
   "updated",
   "coverImage",
   "featured",
-  "published",
   "category",
 ];
 

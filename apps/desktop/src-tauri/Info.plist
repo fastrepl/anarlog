@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-  <key>NSMicrophoneUsageDescription</key>
-  <string>This app requires access to your microphone to record your voice during the meeting.</string>
-  <key>NSAudioCaptureUsageDescription</key>
-  <string>This app requires access to the system audio to record voice from other participants in the meeting.</string>
-  <key>NSContactsUsageDescription</key>
-  <string>This app requires contacts access to function properly.</string>
-  <key>NSCalendarsFullAccessUsageDescription</key>
-  <string>This app requires access to your calendar to read events.</string>
-  <key>NSLocalNetworkUsageDescription</key>
-  <string>This app requires access to your local network to function properly.</string>
-</dict>
+  <dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app requires access to your microphone to record your voice during the meeting.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>This app requires access to the system audio to record voice from other participants in the meeting.</string>
+    <key>NSContactsUsageDescription</key>
+    <string>This app requires contacts access to function properly.</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>This app requires access to your calendar to read events.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>This app requires access to your local network to function properly.</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
+  </dict>
 </plist>

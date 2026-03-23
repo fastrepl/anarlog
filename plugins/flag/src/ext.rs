@@ -1,4 +1,4 @@
-use crate::Feature;
+use crate::{Feature, FlagStrategy, ManagedState};
 
 pub struct Flag<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -6,8 +6,21 @@ pub struct Flag<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 }
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Flag<'a, R, M> {
-    pub fn is_enabled(&self, feature: Feature) -> bool {
-        feature.is_enabled(self.manager)
+    pub async fn is_enabled(&self, feature: Feature) -> bool {
+        match feature.strategy() {
+            FlagStrategy::Debug => cfg!(debug_assertions),
+            FlagStrategy::Hardcoded(v) => v,
+            FlagStrategy::Posthog(key) => self.get_posthog_flag(key).await,
+        }
+    }
+
+    async fn get_posthog_flag(&self, flag_key: &str) -> bool {
+        let client = self.manager.state::<ManagedState>();
+        let distinct_id = hypr_host::fingerprint();
+        client
+            .is_feature_enabled(flag_key, &distinct_id)
+            .await
+            .unwrap_or(false)
     }
 }
 

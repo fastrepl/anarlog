@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the add_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-add-document",
+          "markdownDescription": "Enables the add_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-add-document",
+          "markdownDescription": "Denies the add_document command without any pre-configured scope."
+        },
+        {
           "description": "Enables the reindex command without any pre-configured scope.",
           "type": "string",
           "const": "allow-reindex",
@@ -305,6 +317,18 @@
           "type": "string",
           "const": "deny-reindex",
           "markdownDescription": "Denies the reindex command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the remove_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-remove-document",
+          "markdownDescription": "Enables the remove_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the remove_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-remove-document",
+          "markdownDescription": "Denies the remove_document command without any pre-configured scope."
         },
         {
           "description": "Enables the search command without any pre-configured scope.",
@@ -319,10 +343,34 @@
           "markdownDescription": "Denies the search command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-search`\n- `allow-reindex`",
+          "description": "Enables the update_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-document",
+          "markdownDescription": "Enables the update_document command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_document command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-document",
+          "markdownDescription": "Denies the update_document command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_documents command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-update-documents",
+          "markdownDescription": "Enables the update_documents command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_documents command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-update-documents",
+          "markdownDescription": "Denies the update_documents command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-search`\n- `allow-reindex`\n- `allow-add-document`\n- `allow-update-document`\n- `allow-update-documents`\n- `allow-remove-document`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-search`\n- `allow-reindex`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-search`\n- `allow-reindex`\n- `allow-add-document`\n- `allow-update-document`\n- `allow-update-documents`\n- `allow-remove-document`"
         }
       ]
     }

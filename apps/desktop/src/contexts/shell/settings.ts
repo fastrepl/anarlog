@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { useTabs } from "../../store/zustand/tabs";
+import { useTabs } from "~/store/zustand/tabs";
 
 export function useSettings() {
   const openNew = useTabs((state) => state.openNew);

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::naming::cli_flag;
+use hypr_hooks::cli_flag;
 use serde::{Deserialize, Serialize};
 
 use hypr_docs::{

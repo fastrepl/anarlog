@@ -1,8 +1,8 @@
 on:
   workflow_dispatch:
     inputs:
-      cn_url:
-        description: "CrabNebula release URL (e.g., https://web.crabnebula.cloud/org/fastrepl/hyprnote2/releases/01KG4HJGJN7YW7TGD6QBDSJYY9)"
+      version:
+        description: "Version to publish (e.g., 1.0.2 or 1.0.2-nightly.15)"
         required: true
         type: string
 
@@ -16,21 +16,14 @@ jobs:
       version: ${{ steps.parse.outputs.version }}
       channel: ${{ steps.parse.outputs.channel }}
     steps:
-      - uses: actions/checkout@v4
-      - id: release-id
-        run: |
-          RELEASE_ID=$(echo "${{ inputs.cn_url }}" | sed 's|.*/releases/||')
-          echo "id=$RELEASE_ID" >> $GITHUB_OUTPUT
-      - id: cn-show
-        uses: ./.github/actions/cn_release
-        with:
-          raw: release show ${{ env.CN_APPLICATION }} ${{ steps.release-id.outputs.id }}
-          key: ${{ secrets.CN_API_KEY }}
       - id: parse
         run: |
-          OUTPUT="${{ steps.cn-show.outputs.raw }}"
-          VERSION=$(echo "$OUTPUT" | grep -oP 'version:\s*\K[^\s]+' || echo "$OUTPUT" | grep -oP '"version":\s*"\K[^"]+')
-          CHANNEL=$(echo "$OUTPUT" | grep -oP 'channel:\s*\K[^\s]+' || echo "$OUTPUT" | grep -oP '"channel":\s*"\K[^"]+')
+          VERSION="${{ inputs.version }}"
+          if [[ "$VERSION" == *"-nightly"* ]]; then
+            CHANNEL="nightly"
+          else
+            CHANNEL="stable"
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
 
@@ -40,7 +33,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.parse.outputs.version }}"
+      - id: existing-release
+        continue-on-error: true
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show ${{ env.CN_APPLICATION }} ${{ needs.parse.outputs.version }}
+            --channel ${{ needs.parse.outputs.channel }}
+          key: ${{ secrets.CN_API_KEY }}
+      - id: publish-decision
+        env:
+          ASSETS: ${{ steps.existing-release.outputs.raw }}
+        run: |
+          if [[ "${{ steps.existing-release.outcome }}" != "success" ]]; then
+            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          EXPECTED_PLATFORMS=(
+            "dmg-aarch64"
+            "dmg-x86_64"
+          )
+
+          MISSING_PLATFORMS=()
+          for platform in "${EXPECTED_PLATFORMS[@]}"; do
+            if ! echo "$ASSETS" | jq -e --arg platform "$platform" '.assets[] | select(.publicPlatform == $platform)' > /dev/null; then
+              MISSING_PLATFORMS+=("$platform")
+            fi
+          done
+
+          if [[ "${#MISSING_PLATFORMS[@]}" -gt 0 ]]; then
+            echo "publish_needed=true" >> "$GITHUB_OUTPUT"
+            echo "missing_platforms=${MISSING_PLATFORMS[*]}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "publish_needed=false" >> "$GITHUB_OUTPUT"
       - uses: ./.github/actions/cn_release
+        if: ${{ steps.publish-decision.outputs.publish_needed == 'true' }}
         with:
           cmd: publish
           app: ${{ env.CN_APPLICATION }}
@@ -49,86 +79,84 @@ jobs:
           framework: tauri
           working-directory: ./apps/desktop
 
-  release:
+  gh-release:
     needs: [parse, cn-publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - id: download-macos
-        continue-on-error: true
-        run: |
-          aws s3 cp \
-            "s3://hyprnote-build/desktop/${{ needs.parse.outputs.version }}/hyprnote-macos-aarch64.dmg" \
-            "hyprnote-macos-aarch64.dmg" \
-            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
-            --region auto
-          aws s3 cp \
-            "s3://hyprnote-build/desktop/${{ needs.parse.outputs.version }}/hyprnote-macos-x86_64.dmg" \
-            "hyprnote-macos-x86_64.dmg" \
-            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
-            --region auto
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-      - id: download-linux
-        continue-on-error: true
-        run: |
-          aws s3 cp \
-            "s3://hyprnote-build/desktop/${{ needs.parse.outputs.version }}/hyprnote-linux-x86_64.AppImage" \
-            "hyprnote-linux-x86_64.AppImage" \
-            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
-            --region auto
-          aws s3 cp \
-            "s3://hyprnote-build/desktop/${{ needs.parse.outputs.version }}/hyprnote-linux-x86_64.deb" \
-            "hyprnote-linux-x86_64.deb" \
-            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
-            --region auto
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-      - if: ${{ steps.download-macos.outcome == 'failure' && steps.download-linux.outcome == 'failure' }}
-        run: |
-          echo "No artifacts found for version ${{ needs.parse.outputs.version }}"
-          exit 1
-      - uses: mathieudutour/github-tag-action@v6.2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          custom_tag: desktop_v${{ needs.parse.outputs.version }}
-          tag_prefix: ""
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+      - id: download-macos-aarch64
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: dmg-aarch64
+          output: char-macos-aarch64.dmg
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-macos-x86_64
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.parse.outputs.version }}
+          channel: ${{ needs.parse.outputs.channel }}
+          platform: dmg-x86_64
+          output: char-macos-x86_64.dmg
+          key: ${{ secrets.CN_API_KEY }}
       - id: checksums
         uses: ./.github/actions/generate_checksums
         with:
           files: |
-            ${{ steps.download-macos.outcome == 'success' && 'hyprnote-macos-aarch64.dmg' || '' }}
-            ${{ steps.download-macos.outcome == 'success' && 'hyprnote-macos-x86_64.dmg' || '' }}
-            ${{ steps.download-linux.outcome == 'success' && 'hyprnote-linux-x86_64.AppImage' || '' }}
-            ${{ steps.download-linux.outcome == 'success' && 'hyprnote-linux-x86_64.deb' || '' }}
-      - id: artifacts
+            char-macos-aarch64.dmg
+            char-macos-x86_64.dmg
+      - id: release-body
+        env:
+          CHANNEL: ${{ needs.parse.outputs.channel }}
+          VERSION: ${{ needs.parse.outputs.version }}
         run: |
-          ARTIFACTS=""
-          if [[ "${{ steps.download-macos.outcome }}" == "success" ]]; then
-            ARTIFACTS="hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg"
+          if [[ "$CHANNEL" != "nightly" ]]; then
+            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          if [[ "${{ steps.download-linux.outcome }}" == "success" ]]; then
-            if [[ -n "$ARTIFACTS" ]]; then
-              ARTIFACTS="$ARTIFACTS,hyprnote-linux-x86_64.AppImage,hyprnote-linux-x86_64.deb"
-            else
-              ARTIFACTS="hyprnote-linux-x86_64.AppImage,hyprnote-linux-x86_64.deb"
+
+          CURRENT_TAG="desktop_v$VERSION"
+          PREV_TAG=""
+          LAST_TAG=""
+          LAST_NIGHTLY_TAG=""
+
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$CURRENT_TAG" ]]; then
+              PREV_TAG="$LAST_NIGHTLY_TAG"
+              if [[ -z "$PREV_TAG" ]]; then
+                PREV_TAG="$LAST_TAG"
+              fi
+              break
             fi
+
+            if [[ "$tag" == *"-nightly."* ]]; then
+              LAST_NIGHTLY_TAG="$tag"
+            fi
+
+            LAST_TAG="$tag"
+          done < <(git tag -l 'desktop_v*' --sort=v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
           fi
-          if [[ -z "$ARTIFACTS" ]]; then
-            echo "No artifacts to release" >&2
-            exit 1
-          fi
-          if [[ -n "${{ steps.checksums.outputs.checksum_files }}" ]]; then
-            ARTIFACTS="$ARTIFACTS,${{ steps.checksums.outputs.checksum_files }}"
-          fi
-          echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
       - uses: ncipollo/release-action@v1
         with:
           tag: desktop_v${{ needs.parse.outputs.version }}
           name: desktop_v${{ needs.parse.outputs.version }}
-          body: "https://hyprnote.com/changelog/${{ needs.parse.outputs.version }}"
-          artifacts: ${{ steps.artifacts.outputs.list }}
+          body: ${{ steps.release-body.outputs.value }}
+          prerelease: ${{ needs.parse.outputs.channel == 'nightly' }}
+          artifacts: char-macos-aarch64.dmg,char-macos-x86_64.dmg,${{ steps.checksums.outputs.checksum_files }}
+          allowUpdates: true
+          makeLatest: ${{ needs.parse.outputs.channel == 'nightly' && 'false' || 'true' }}
+          replacesArtifacts: true

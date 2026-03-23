@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-serif: "Instrument Serif", Georgia, serif;
+}
+
+/* ---- Entrance animations ---- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-1 {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0s both;
+}
+.stagger-2 {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+.stagger-3 {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+.stagger-4 {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+}
+.stagger-5 {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.7s both;
+}
+
+/* ---- Content headings ---- */
+
+main h2 {
+  margin-top: 3rem;
+  margin-bottom: 2rem;
+  font-size: 1.125rem;
+  color: #e5e5e5;
+}
+
+main h2::before {
+  content: "##";
+  margin-right: 0.5rem;
+  color: #525252;
+}
+
+main h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  color: #a3a3a3;
+}
+
+main h3::before {
+  content: "###";
+  margin-right: 0.5rem;
+  color: #525252;
+}
+
+/* ---- Blinking cursor ---- */
+
+@keyframes blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background: #525252;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1.1s step-end infinite;
+}
+
+/* ---- Misc ---- */
+
+::selection {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #404040;
+}

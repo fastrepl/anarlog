@@ -64,7 +64,7 @@ pub fn resolve_model_for_languages<'a>(
     default: &'a str,
 ) -> &'a str {
     match model {
-        Some(m) if !is_meta_model(m) => m,
+        Some(m) if !m.is_empty() && !is_meta_model(m) => m,
         _ => DeepgramAdapter::find_model(languages)
             .map(|m| match m {
                 DeepgramModel::Nova3General => "nova-3",

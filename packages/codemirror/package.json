@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^22.19.7",
-    "@types/react": "^19.2.8",
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "typescript": "^5.9.3"
   },

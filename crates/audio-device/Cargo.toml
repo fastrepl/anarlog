@@ -17,7 +17,8 @@ cidre = { workspace = true, features = ["av"] }
 libpulse-binding = "2.30.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.58", features = ["Win32_Media_Audio", "Win32_System_Com", "Win32_UI_Shell_PropertiesSystem", "Win32_Devices_FunctionDiscovery"] }
+windows = { version = "0.62.2", features = ["Win32_Media_Audio", "Win32_Media_Audio_Endpoints", "Win32_System_Com", "Win32_UI_Shell_PropertiesSystem", "Win32_Devices_FunctionDiscovery"] }
+windows-core = "0.62.2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

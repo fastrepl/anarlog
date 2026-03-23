@@ -8,18 +8,93 @@ description: "Managed cloud services for Pro users"
   If you've [subscribed to the Pro plan](/pricing) or started a free trial, you automatically get access to these services.
 </Tip>
 
-## Included Services
+## Included services
 
 Pro users get access to managed cloud services that work out of the box:
 
 | Service | Description | Status |
 |---------|-------------|--------|
-| `/chat/completions` | LLM endpoint for AI features (summaries, notes) | Available |
+| `/chat/completions` | LLM endpoint for AI features (summaries, notes, chat) | Available |
 | `/mcp` | MCP server with web search and URL reading tools | Available |
 
 Pro includes curated AI models that work out of the box. Your requests are proxied through our servers with automatic API key management. If you want to use a specific LLM provider, you can bring your own API key (BYOK) in Settings > Intelligence.
 
-## MCP Tools
+### Which LLM models are used
+
+When you use Pro's curated intelligence, Char's server selects from these models automatically. You don't choose a specific model — the server decides which pool of models to use based on the type of request, then OpenRouter picks the fastest available model from that pool.
+
+There are two pools of models, and the server picks one based on a single condition: **does your request need tool calling?**
+
+#### When tool calling is needed
+
+If the desktop app sends tool definitions with the request (e.g., for web search or URL reading during note generation) and `tool_choice` is not set to `"none"`, the server uses the **tool-calling** model pool. This happens when:
+
+- You have MCP tools enabled and AI is generating notes that may need to look things up online
+- The chat feature invokes a function like `exa-search` or `read-url`
+
+| Model | Provider |
+|-------|----------|
+| `anthropic/claude-haiku-4.5` | Anthropic (via OpenRouter) |
+| `openai/gpt-oss-120b:exacto` | OpenAI (via OpenRouter) |
+| `moonshotai/kimi-k2-0905:exacto` | Moonshot AI (via OpenRouter) |
+
+#### When tool calling is not needed
+
+For standard requests without tools — such as generating summaries, enhancing notes, or regular chat completions — the server uses the **default** model pool:
+
+| Model | Provider |
+|-------|----------|
+| `anthropic/claude-sonnet-4.5` | Anthropic (via OpenRouter) |
+| `openai/gpt-5.2-chat` | OpenAI (via OpenRouter) |
+| `moonshotai/kimi-k2-0905` | Moonshot AI (via OpenRouter) |
+
+#### How the specific model is chosen
+
+Within each pool, **you don't get a fixed model**. All models in the pool are sent to OpenRouter, which picks the one with the lowest latency at that moment. This means the actual model serving your request can vary between calls — if Anthropic's endpoint is fastest right now, you'll get Claude; if OpenAI responds faster, you'll get GPT.
+
+Here is the routing condition in the server — it checks whether the request includes tool definitions:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/llm-proxy/src/handler/mod.rs#L177-L184" />
+
+And here are the two model pools defined in the server config:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/llm-proxy/src/config.rs#L43-L52" />
+
+### How the request flows
+
+![Request Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CHTTPS%7C%20B%5BChar%20API%20Server%3Cbr%3Epro.hyprnote.com%5D%0A%20%20%20%20B%20--%3E%7CHTTPS%7C%20C%5BOpenRouter%3Cbr%3Eopenrouter.ai%5D%0A%20%20%20%20C%20--%3E%20D%5BModel%20Provider%3Cbr%3EOpenAI%2FAnthropic%2FMoonshot%5D)
+
+1. **Your device** sends a chat completion request to the Char API server, authenticated with your Supabase JWT token.
+2. **Char API server** validates your Pro subscription, then forwards the request to [OpenRouter](https://openrouter.ai).
+3. **OpenRouter** routes to the fastest available model from the configured list (sorted by latency).
+4. **The model provider** processes your request and streams the response back through the same chain.
+
+The server sends your request to OpenRouter with `provider.sort = "latency"` to pick the fastest available model:
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/llm-proxy/src/provider/openrouter.rs#L47-L65" />
+
+### What data is sent
+
+**Sent to OpenRouter / model provider:**
+- Your conversation messages (system prompt, user messages, assistant responses)
+- Tool definitions and tool call results (if applicable)
+- Parameters: `temperature`, `max_tokens`, `stream`
+
+**NOT sent to OpenRouter / model provider:**
+- Your user ID, email, or name
+- Your device fingerprint
+- Your JWT token (used only for Char API authentication — not forwarded)
+
+### What Char logs (analytics)
+
+Char logs metadata about each LLM request to PostHog for usage tracking and billing. **No message content is ever logged.**
+
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/llm-proxy/src/analytics.rs#L31-L39" />
+
+**Logged:** provider name, model name, token counts, latency, cost, HTTP status.
+**Not logged:** message content, conversation history, user prompts.
+
+## MCP tools
 
 The MCP server provides two built-in tools:
 
@@ -27,20 +102,42 @@ The MCP server provides two built-in tools:
 
 **read-url** - Visit any URL and return the content as markdown. Great for pulling in context from links shared during meetings.
 
-## Why Use Cloud Services?
+## Why use cloud services?
 
-While Hyprnote aims to be fully transparent and controllable, cloud services help in two ways:
+While Char aims to be fully transparent and controllable, cloud services help in two ways:
 
 1. **Faster time-to-value** - Start using AI features immediately without configuring API keys or running local models.
 2. **Managed complexity** - Get the benefits of multiple AI providers without managing each one yourself.
 
-## Privacy & Security
+## Privacy & security
 
 The cloud server (`pro.hyprnote.com`) is [open-source](https://github.com/fastrepl/hyprnote/tree/main/apps/pro) and deployed in our Kubernetes cluster on AWS via GitHub Actions.
 
 **Data handling:**
-- Nothing is stored by us
-- Only required data is sent to third-party services
-- Current providers: Curated LLM models, Exa (web search), Jina AI (URL reading)
+- Nothing is stored by us — the server proxies requests and discards them
+- Your user identity (email, name) is never sent to external AI providers
+- Only the content needed for processing (messages, tools, parameters) is forwarded
+- Current providers: OpenRouter (LLM routing), Exa (web search), Jina AI (URL reading)
 
 All requests are rate-limited and authenticated using your Pro subscription.
+
+### OpenRouter privacy policy
+
+All Pro LLM requests go through [OpenRouter](https://openrouter.ai), which routes to the actual model provider (OpenAI, Anthropic, Moonshot AI).
+
+**We have enabled [Zero Data Retention (ZDR)](https://openrouter.ai/docs/guides/features/zdr) on our OpenRouter account.** This means all Pro requests are routed exclusively to endpoints that have a Zero Data Retention policy — model providers cannot store your prompts or completions, even temporarily.
+
+| Policy | Details |
+|--------|---------|
+| **Data retention** | Zero — ZDR is enforced on our account, so only ZDR-compliant endpoints are used |
+| **Training** | Does not train on API data |
+| **Compliance** | SOC 2 |
+| **Data location** | US (default) |
+
+> "OpenRouter does not store your prompts or responses, unless you have explicitly opted in to prompt logging in your account settings."
+>
+> — [OpenRouter Data Collection Policy](https://openrouter.ai/docs/guides/privacy/data-collection)
+
+Official docs: [Privacy Policy](https://openrouter.ai/privacy) · [Data Collection](https://openrouter.ai/docs/guides/privacy/data-collection) · [Logging Policies](https://openrouter.ai/docs/guides/privacy/logging) · [Zero Data Retention Guide](https://openrouter.ai/docs/guides/features/zdr)
+
+If you prefer to run AI locally instead, see [Local LLM Setup](/docs/faq/local-llm-setup) for LLMs and [Local Models](/docs/developers/local-models) for speech-to-text.

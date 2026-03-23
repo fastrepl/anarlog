@@ -1,10 +1,8 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 import { TooltipProvider } from "@hypr/ui/components/ui/tooltip";
 
-import { useConfigSideEffects } from "../../config/use-config";
-import { ListenerProvider } from "../../contexts/listener";
-import { isExtHostPath } from "../../utils/ext-host";
+import { ListenerProvider } from "~/stt/contexts";
 
 export const Route = createFileRoute("/app")({
   component: Component,
@@ -15,29 +13,12 @@ export const Route = createFileRoute("/app")({
 
 function Component() {
   const { listenerStore } = Route.useLoaderData();
-  const location = useLocation();
-  const isExtHost = isExtHostPath(location.pathname);
-
-  if (isExtHost) {
-    return (
-      <TooltipProvider>
-        <Outlet />
-      </TooltipProvider>
-    );
-  }
 
   return (
     <TooltipProvider>
       <ListenerProvider store={listenerStore}>
         <Outlet />
-        <SideEffects />
       </ListenerProvider>
     </TooltipProvider>
   );
-}
-
-function SideEffects() {
-  useConfigSideEffects();
-
-  return null;
 }

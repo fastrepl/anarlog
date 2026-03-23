@@ -52,7 +52,8 @@ const TooltipContent = React.forwardRef<
             ease: [0.16, 1, 0.3, 1],
           }}
           className={cn([
-            "z-50 overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground",
+            "z-50 overflow-hidden rounded-md px-3 py-1.5 text-xs",
+            "border border-neutral-200/50 bg-white/80 text-neutral-700 shadow-lg backdrop-blur-sm",
             "origin-(--radix-tooltip-content-transform-origin)",
             className,
           ])}

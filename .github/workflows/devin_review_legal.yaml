@@ -1,0 +1,63 @@
+name: devin_review_legal
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/devin
+        with:
+          api_key: ${{ secrets.DEVIN_API_KEY }}
+          prompt: |
+            You are tasked with reviewing Char's legal documentation for potential updates based on product changes.
+
+            ## Context
+            Char is an open-source AI notepad for meetings built for high-agency people who demand complete control over their data and AI stack. Legal compliance is critical.
+            Repository: fastrepl/char
+
+            ## Your Task
+            1. **Analyze Product Changes (Last 30 Days)**
+               - Review commits: `git log --since="30 days ago" --stat --oneline`
+               - Identify changes that may have legal implications:
+                 * Data collection or analytics changes (PostHog, telemetry)
+                 * New third-party integrations or services
+                 * Changes to data storage or encryption
+                 * New features that collect user data
+                 * Changes to payment or subscription handling
+                 * Updates to cloud services or API usage
+                 * Cookie usage or tracking changes
+
+            2. **Review Current Legal Documents**
+               Read and understand:
+               - `apps/web/content/legal/privacy.mdx` - Privacy Policy
+               - `apps/web/content/legal/terms.mdx` - Terms of Service
+               - `apps/web/content/legal/cookies.mdx` - Cookie Policy
+               - `apps/web/content/legal/dpa.mdx` - Data Processing Agreement
+
+            3. **Create Review Report**
+               If potential issues are found, create a PR titled "legal(monthly): [brief description]" with a summary of:
+               - **Changes Detected**: List product changes with potential legal impact
+               - **Current Documentation Status**: What the legal docs currently state
+               - **Recommended Updates**: Specific sections that may need updates
+               - **Risk Assessment**: High/Medium/Low priority for each finding
+
+               **IMPORTANT**: Do NOT automatically update legal documents. Only create the report.
+
+            4. **Flag for Human Review**
+               - If potential issues are found, create a PR with the report
+               - If no significant changes detected, report that and exit
+
+            ## Critical Notes
+            - NEVER automatically modify legal documents without human approval
+            - Focus on flagging potential issues, not making legal judgments
+            - When in doubt, flag it for review
+            - Privacy and data handling changes are HIGH priority
+          title: ${{ github.run_id }}-legal-review
+          tags: '["legal_review"]'

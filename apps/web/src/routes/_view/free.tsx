@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_view/free")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Free AI Meeting Notes - Hyprnote" },
+      { title: "Free AI Meeting Notes - Char" },
       {
         name: "description",
         content:
@@ -15,15 +15,15 @@ export const Route = createFileRoute("/_view/free")({
       },
       {
         property: "og:title",
-        content: "Free AI Meeting Notes - Hyprnote",
+        content: "Free AI Meeting Notes - Char",
       },
       {
         property: "og:description",
         content:
-          "Hyprnote offers free AI-powered meeting transcription and notes. Local processing, unlimited recordings, and no usage limits. Download now.",
+          "Char offers free AI-powered meeting transcription and notes. Local processing, unlimited recordings, and no usage limits. Download now.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://hyprnote.com/free" },
+      { property: "og:url", content: "https://char.com/free" },
     ],
   }),
 });
@@ -122,10 +122,10 @@ const useCases = [
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <FeaturesSection />
         <ComparisonSection />
@@ -140,27 +140,27 @@ function Component() {
 function HeroSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-16 lg:py-24">
-      <div className="max-w-4xl mx-auto text-center">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-full text-green-700 text-sm font-medium mb-6">
+      <div className="mx-auto max-w-4xl text-center">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
           <Icon icon="mdi:gift" className="text-lg" />
           <span>100% Free Forever</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif tracking-tight text-stone-600 mb-6">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
           AI meeting notes
           <br />
           <span className="text-stone-400">without the price tag</span>
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
+        <p className="mx-auto mb-8 max-w-2xl text-lg text-neutral-600 sm:text-xl">
           Record meetings, get AI transcriptions, and generate smart summaries.
           All for free, with no usage limits and complete privacy.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col justify-center gap-4 sm:flex-row">
           <Link
             to="/download/"
             className={cn([
-              "inline-flex items-center justify-center gap-2 px-8 py-3 text-base font-medium rounded-full",
+              "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-medium",
               "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-              "hover:scale-105 active:scale-95 transition-transform",
+              "transition-transform hover:scale-105 active:scale-95",
             ])}
           >
             <Icon icon="mdi:download" className="text-xl" />
@@ -169,9 +169,9 @@ function HeroSection() {
           <Link
             to="/product/ai-notetaking/"
             className={cn([
-              "inline-flex items-center justify-center gap-2 px-8 py-3 text-base font-medium rounded-full",
+              "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-medium",
               "border border-neutral-300 text-neutral-700",
-              "hover:bg-neutral-50 transition-colors",
+              "transition-colors hover:bg-neutral-50",
             ])}
           >
             See Features
@@ -187,30 +187,30 @@ function HeroSection() {
 
 function FeaturesSection() {
   return (
-    <section className="px-6 py-16 lg:py-20 border-t border-neutral-100">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
+    <section className="border-t border-neutral-100 px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
             Everything you need, free
           </h2>
           <p className="text-lg text-neutral-600">
             No hidden costs, no premium tiers for essential features
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {freeFeatures.map((feature) => (
             <div
               key={feature.title}
-              className="p-6 border border-neutral-200 rounded-lg hover:border-neutral-300 transition-colors"
+              className="rounded-lg border border-neutral-200 p-6 transition-colors hover:border-neutral-300"
             >
               <Icon
                 icon={feature.icon}
-                className="text-3xl text-stone-600 mb-4"
+                className="mb-4 text-3xl text-stone-700"
               />
-              <h3 className="text-lg font-medium text-stone-700 mb-2">
+              <h3 className="mb-2 text-lg font-medium text-stone-700">
                 {feature.title}
               </h3>
-              <p className="text-neutral-600 text-sm leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-600">
                 {feature.description}
               </p>
             </div>
@@ -223,26 +223,26 @@ function FeaturesSection() {
 
 function ComparisonSection() {
   return (
-    <section className="px-6 py-16 lg:py-20 bg-stone-50/50 border-t border-neutral-100">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
+    <section className="border-t border-neutral-100 bg-stone-50/50 px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
             More value than paid alternatives
           </h2>
           <p className="text-lg text-neutral-600">
-            See how Hyprnote compares to other meeting note tools
+            See how Char compares to other meeting note tools
           </p>
         </div>
-        <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
-          <div className="grid grid-cols-3 bg-stone-100 border-b border-neutral-200">
+        <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
+          <div className="grid grid-cols-3 border-b border-neutral-200 bg-stone-100">
             <div className="p-4 font-medium text-stone-700">Feature</div>
-            <div className="p-4 font-medium text-stone-700 text-center border-x border-neutral-200">
-              <span className="text-stone-600">Hyprnote</span>
-              <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+            <div className="border-x border-neutral-200 p-4 text-center font-medium text-stone-700">
+              <span className="text-stone-700">Char</span>
+              <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                 Free
               </span>
             </div>
-            <div className="p-4 font-medium text-neutral-500 text-center">
+            <div className="p-4 text-center font-medium text-neutral-500">
               Others
             </div>
           </div>
@@ -255,8 +255,8 @@ function ComparisonSection() {
                   "border-b border-neutral-100",
               ])}
             >
-              <div className="p-4 text-neutral-700 text-sm">{row.feature}</div>
-              <div className="p-4 text-center border-x border-neutral-100">
+              <div className="p-4 text-sm text-neutral-700">{row.feature}</div>
+              <div className="border-x border-neutral-100 p-4 text-center">
                 {row.hyprnote === true ? (
                   <Icon
                     icon="mdi:check-circle"
@@ -293,30 +293,30 @@ function ComparisonSection() {
 
 function UseCasesSection() {
   return (
-    <section className="px-6 py-16 lg:py-20 border-t border-neutral-100">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
+    <section className="border-t border-neutral-100 px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-12 text-center">
+          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
             Built for every conversation
           </h2>
           <p className="text-lg text-neutral-600">
-            From sales calls to lectures, Hyprnote adapts to your needs
+            From sales calls to lectures, Char adapts to your needs
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {useCases.map((useCase) => (
             <div
               key={useCase.title}
-              className="p-6 bg-stone-50/50 rounded-lg hover:bg-stone-50 transition-colors"
+              className="rounded-lg bg-stone-50/50 p-6 transition-colors hover:bg-stone-50"
             >
               <Icon
                 icon={useCase.icon}
-                className="text-3xl text-stone-500 mb-4"
+                className="mb-4 text-3xl text-stone-500"
               />
-              <h3 className="text-lg font-medium text-stone-700 mb-2">
+              <h3 className="mb-2 text-lg font-medium text-stone-700">
                 {useCase.title}
               </h3>
-              <p className="text-neutral-600 text-sm leading-relaxed">
+              <p className="text-sm leading-relaxed text-neutral-600">
                 {useCase.description}
               </p>
             </div>
@@ -329,31 +329,31 @@ function UseCasesSection() {
 
 function OpenSourceSection() {
   return (
-    <section className="px-6 py-16 lg:py-20 bg-stone-50/50 border-t border-neutral-100">
-      <div className="max-w-4xl mx-auto">
-        <div className="grid md:grid-cols-2 gap-8 items-center">
+    <section className="border-t border-neutral-100 bg-stone-50/50 px-6 py-16 lg:py-20">
+      <div className="mx-auto max-w-4xl">
+        <div className="grid items-center gap-8 md:grid-cols-2">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-stone-100 rounded-full text-stone-600 text-sm font-medium mb-4">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-stone-100 px-3 py-1 text-sm font-medium text-stone-700">
               <Icon icon="mdi:github" className="text-lg" />
               <span>Open Source</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
+            <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
               Transparent by design
             </h2>
-            <p className="text-neutral-600 mb-6 leading-relaxed">
-              Hyprnote is fully open source. Inspect the code, contribute
+            <p className="mb-6 leading-relaxed text-neutral-600">
+              Char is fully open source. Inspect the code, contribute
               improvements, or self-host on your own infrastructure. No vendor
               lock-in, no hidden data collection.
             </p>
             <div className="flex flex-wrap gap-4">
               <a
-                href="https://github.com/fastrepl/hyprnote"
+                href="https://github.com/fastrepl/char"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn([
-                  "inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-full",
+                  "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium",
                   "bg-stone-800 text-white",
-                  "hover:bg-stone-700 transition-colors",
+                  "transition-colors hover:bg-stone-700",
                 ])}
               >
                 <Icon icon="mdi:github" className="text-lg" />
@@ -362,9 +362,9 @@ function OpenSourceSection() {
               <Link
                 to="/product/self-hosting/"
                 className={cn([
-                  "inline-flex items-center gap-2 px-6 py-2.5 text-sm font-medium rounded-full",
+                  "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium",
                   "border border-neutral-300 text-neutral-700",
-                  "hover:bg-neutral-50 transition-colors",
+                  "transition-colors hover:bg-neutral-50",
                 ])}
               >
                 Self-hosting Guide
@@ -372,24 +372,24 @@ function OpenSourceSection() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-6 bg-white border border-neutral-200 rounded-lg text-center">
-              <div className="text-3xl font-serif text-stone-600 mb-1">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
+              <div className="mb-1 font-serif text-3xl text-stone-700">
                 100%
               </div>
               <div className="text-sm text-neutral-600">Open Source</div>
             </div>
-            <div className="p-6 bg-white border border-neutral-200 rounded-lg text-center">
-              <div className="text-3xl font-serif text-stone-600 mb-1">0</div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
+              <div className="mb-1 font-serif text-3xl text-stone-700">0</div>
               <div className="text-sm text-neutral-600">Data Collection</div>
             </div>
-            <div className="p-6 bg-white border border-neutral-200 rounded-lg text-center">
-              <div className="text-3xl font-serif text-stone-600 mb-1">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
+              <div className="mb-1 font-serif text-3xl text-stone-700">
                 Local
               </div>
               <div className="text-sm text-neutral-600">AI Processing</div>
             </div>
-            <div className="p-6 bg-white border border-neutral-200 rounded-lg text-center">
-              <div className="text-3xl font-serif text-stone-600 mb-1">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
+              <div className="mb-1 font-serif text-3xl text-stone-700">
                 Free
               </div>
               <div className="text-sm text-neutral-600">Forever</div>
@@ -403,21 +403,21 @@ function OpenSourceSection() {
 
 function CTASection() {
   return (
-    <section className="px-6 py-16 lg:py-24 border-t border-neutral-100">
-      <div className="max-w-2xl mx-auto text-center">
-        <h2 className="text-3xl sm:text-4xl font-serif text-stone-600 mb-4">
-          Ready to try Hyprnote?
+    <section className="border-t border-neutral-100 px-6 py-16 lg:py-24">
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+          Ready to try Char?
         </h2>
-        <p className="text-lg text-neutral-600 mb-8">
+        <p className="mb-8 text-lg text-neutral-600">
           Download now and start capturing better meeting notes in minutes. No
           signup required.
         </p>
         <Link
           to="/download/"
           className={cn([
-            "inline-flex items-center justify-center gap-2 px-8 py-3 text-base font-medium rounded-full",
+            "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-base font-medium",
             "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-            "hover:scale-105 active:scale-95 transition-transform",
+            "transition-transform hover:scale-105 active:scale-95",
           ])}
         >
           <Icon icon="mdi:download" className="text-xl" />

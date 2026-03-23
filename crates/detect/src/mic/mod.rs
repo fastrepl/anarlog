@@ -26,3 +26,23 @@ impl crate::Observer for MicDetector {
         self.inner.stop();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Observer, new_callback};
+    use std::time::Duration;
+
+    // cargo test --package detect --lib --features mic,list -- mic::tests::test_detector --exact --nocapture --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn test_detector() {
+        let mut detector = MicDetector::default();
+        detector.start(new_callback(|v| {
+            println!("{:?}", v);
+        }));
+
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        detector.stop();
+    }
+}

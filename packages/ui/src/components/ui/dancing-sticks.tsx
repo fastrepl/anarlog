@@ -1,57 +1,15 @@
-import { motion, useMotionValue, useTransform } from "motion/react";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useMemo, type CSSProperties } from "react";
 
-const getRandomValues = (max: number, length: number, baseLength: number) => {
-  const values: number[] = [];
-  for (let i = 0; i < length - 1; i++) {
-    values.push(Math.random() * max - max / 2 + (baseLength / 100) * max);
-  }
-  values.push(values[0]);
-  return values;
-};
-
-type EqualizerStickProps = {
-  baseLength: number;
-  amplitudeMotionValue: ReturnType<typeof useMotionValue<number>>;
-  color: string;
-  height: number;
-  stickWidth: number;
-};
-
-const EqualizerStick = memo(function EqualizerStick({
-  baseLength,
-  amplitudeMotionValue,
-  color,
-  height,
-  stickWidth,
-}: EqualizerStickProps) {
-  const animationHeights = useMemo(
-    () => getRandomValues(height, 6, baseLength),
-    [height, baseLength],
-  );
-
-  const scaleY = useTransform(amplitudeMotionValue, [0, 1], [0.2, 1]);
-
-  return (
-    <motion.div
-      className="rounded-full origin-center"
-      style={{
-        width: stickWidth,
-        backgroundColor: color,
-        scaleY,
-      }}
-      animate={{
-        height: animationHeights,
-      }}
-      transition={{
-        duration: 1.1,
-        ease: "easeInOut",
-        times: [0.2, 0.3, 0.5, 0.7, 1.1, 1.3, 1.7],
-        repeat: Infinity,
-      }}
-    />
-  );
-});
+function mulberry32(seed: number): () => number {
+  let value = seed;
+  return () => {
+    value += 0x6d2b79f5;
+    let t = value;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
 type DancingSticksProps = {
   color?: string;
@@ -63,6 +21,10 @@ type DancingSticksProps = {
 };
 
 function generatePattern(count: number): number[] {
+  if (count <= 1) {
+    return [100];
+  }
+
   const pattern: number[] = [];
   const mid = (count - 1) / 2;
   for (let i = 0; i < count; i++) {
@@ -93,15 +55,36 @@ export const DancingSticks = memo(function DancingSticks({
   const isFlat = amplitude === 0;
   const pattern = useMemo(() => generatePattern(stickCount), [stickCount]);
 
-  const amplitudeMotionValue = useMotionValue(amplitude);
-  const prevAmplitudeRef = useRef(amplitude);
+  const amplitudeScale = useMemo(() => {
+    const clamped = Math.max(0, Math.min(1, amplitude));
+    return 0.2 + 0.8 * clamped;
+  }, [amplitude]);
 
-  useEffect(() => {
-    if (prevAmplitudeRef.current !== amplitude) {
-      amplitudeMotionValue.set(Math.max(amplitude, 0.1));
-      prevAmplitudeRef.current = amplitude;
-    }
-  }, [amplitude, amplitudeMotionValue]);
+  const containerStyle = useMemo(
+    () =>
+      ({
+        height: resolvedHeight,
+        width: resolvedWidth,
+        gap: resolvedGap,
+        transform: `scaleY(${amplitudeScale})`,
+        transformOrigin: "center",
+      }) as CSSProperties,
+    [amplitudeScale, resolvedGap, resolvedHeight, resolvedWidth],
+  );
+
+  const stickParams = useMemo(
+    () =>
+      pattern.map((baseLength, index) => {
+        const maxScaleY = Math.max(0.25, Math.min(1, baseLength / 100));
+        const rng = mulberry32((index + 1) * 10007);
+        const speed = 4 + rng() * 3;
+        const phase = rng() * Math.PI * 2;
+        const durationSeconds = (Math.PI * 2) / speed;
+        const delaySeconds = -(phase / (Math.PI * 2)) * durationSeconds;
+        return { maxScaleY, durationSeconds, delaySeconds };
+      }),
+    [pattern],
+  );
 
   if (isFlat) {
     return (
@@ -123,23 +106,32 @@ export const DancingSticks = memo(function DancingSticks({
 
   return (
     <div
-      className="flex items-center justify-center"
-      style={{
-        height: resolvedHeight,
-        width: resolvedWidth,
-        gap: resolvedGap,
-      }}
+      className="flex origin-center items-center justify-center"
+      style={containerStyle}
     >
-      {pattern.map((baseLength, index) => (
-        <EqualizerStick
-          key={index}
-          baseLength={baseLength}
-          amplitudeMotionValue={amplitudeMotionValue}
-          color={color}
-          height={resolvedHeight}
-          stickWidth={resolvedStickWidth}
-        />
-      ))}
+      {stickParams.map(
+        ({ maxScaleY, durationSeconds, delaySeconds }, index) => (
+          <div
+            key={index}
+            className="flex origin-center items-center justify-center"
+            style={{
+              width: resolvedStickWidth,
+              height: resolvedHeight,
+              transform: `scaleY(${maxScaleY})`,
+            }}
+          >
+            <div
+              className="animate-hypr-dancing-stick w-full origin-center rounded-full"
+              style={{
+                height: resolvedHeight,
+                backgroundColor: color,
+                animationDuration: `${durationSeconds}s`,
+                animationDelay: `${delaySeconds}s`,
+              }}
+            />
+          </div>
+        ),
+      )}
     </div>
   );
 });

@@ -1,0 +1,10 @@
+---
+source: crates/specta-zod/src/zod/tests.rs
+expression: output
+---
+export const optionalFieldsSchema = z.object({
+  required: z.string(),
+  optional: z.preprocess((val) => val ?? undefined, z.string().optional()),
+  optional_num: z.preprocess((val) => val ?? undefined, z.number().optional()),
+});
+export type OptionalFields = z.infer<typeof optionalFieldsSchema>;

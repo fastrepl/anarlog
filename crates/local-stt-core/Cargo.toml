@@ -1,0 +1,13 @@
+[package]
+name = "local-stt-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+hypr-local-model = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true, optional = true }

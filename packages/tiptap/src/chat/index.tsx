@@ -1,3 +1,6 @@
+import "../../styles.css";
+
+import { Extension } from "@tiptap/core";
 import {
   EditorContent,
   type JSONContent,
@@ -6,8 +9,11 @@ import {
 } from "@tiptap/react";
 import { forwardRef, useEffect, useMemo, useRef } from "react";
 
-import "../../styles.css";
-import { mention, type MentionConfig } from "../editor/mention";
+import {
+  isMentionActive,
+  mention,
+  type MentionConfig,
+} from "../editor/mention";
 import * as shared from "../shared";
 import type { PlaceholderFunction } from "../shared/extensions/placeholder";
 
@@ -25,6 +31,8 @@ interface ChatEditorProps {
   editable?: boolean;
   placeholderComponent?: PlaceholderFunction;
   slashCommandConfig?: SlashCommandConfig;
+  onUpdate?: (json: JSONContent) => void;
+  onSubmit?: () => void;
 }
 
 const ChatEditor = forwardRef<{ editor: TiptapEditor | null }, ChatEditorProps>(
@@ -34,30 +42,59 @@ const ChatEditor = forwardRef<{ editor: TiptapEditor | null }, ChatEditorProps>(
       editable = true,
       placeholderComponent,
       slashCommandConfig,
+      onUpdate,
+      onSubmit,
     },
     ref,
   ) => {
     const previousContentRef = useRef<JSONContent>(initialContent);
+    const slashCommandConfigRef = useRef(slashCommandConfig);
+    slashCommandConfigRef.current = slashCommandConfig;
+    const onUpdateRef = useRef(onUpdate);
+    onUpdateRef.current = onUpdate;
+    const onSubmitRef = useRef(onSubmit);
+    onSubmitRef.current = onSubmit;
 
     const mentionConfigs = useMemo(() => {
       const configs: MentionConfig[] = [];
 
-      if (slashCommandConfig) {
+      if (slashCommandConfigRef.current) {
         configs.push({
-          trigger: "/",
-          handleSearch: slashCommandConfig.handleSearch,
+          trigger: "@",
+          handleSearch: (query) =>
+            slashCommandConfigRef.current!.handleSearch(query),
         });
       }
 
       return configs;
-    }, [slashCommandConfig]);
+    }, []);
+
+    const submitOnEnter = useMemo(
+      () =>
+        Extension.create({
+          name: "submitOnEnter",
+          addKeyboardShortcuts() {
+            return {
+              "Mod-Enter": ({ editor }) => {
+                if (isMentionActive(editor.state)) {
+                  return false;
+                }
+                onSubmitRef.current?.();
+                return true;
+              },
+            };
+          },
+        }),
+      [],
+    );
 
     const extensions = useMemo(
       () => [
         ...shared.getExtensions(placeholderComponent),
         ...mentionConfigs.map((config) => mention(config)),
+        submitOnEnter,
       ],
-      [mentionConfigs, placeholderComponent],
+      [mentionConfigs, placeholderComponent, submitOnEnter],
     );
 
     const editor = useEditor(
@@ -72,6 +109,9 @@ const ChatEditor = forwardRef<{ editor: TiptapEditor | null }, ChatEditorProps>(
           editor.view.dom.setAttribute("autocomplete", "off");
           editor.view.dom.setAttribute("autocorrect", "off");
           editor.view.dom.setAttribute("autocapitalize", "off");
+        },
+        onUpdate: ({ editor }) => {
+          onUpdateRef.current?.(editor.getJSON());
         },
         immediatelyRender: false,
         shouldRerenderOnTransaction: false,

@@ -1,0 +1,43 @@
+[package]
+name = "api-support"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-api-auth = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-chatwoot = { workspace = true }
+hypr-llm-proxy = { workspace = true }
+hypr-mcp = { workspace = true }
+hypr-openrouter = { workspace = true }
+hypr-template-support = { workspace = true }
+reqwest = { workspace = true }
+urlencoding = { workspace = true }
+
+utoipa = { workspace = true }
+
+axum = { workspace = true }
+sentry = { workspace = true }
+tracing = { workspace = true }
+
+jsonwebtoken = { workspace = true }
+octocrab = "0.49"
+sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "postgres", "json"] }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+async-stream = { workspace = true }
+futures-util = { workspace = true }
+rmcp = { workspace = true, features = ["server", "elicitation", "schemars"] }
+tokio = { workspace = true, features = ["rt", "time", "sync"] }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+
+async-stripe = { workspace = true }
+async-stripe-billing = { workspace = true, features = ["billing_portal_session", "subscription"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

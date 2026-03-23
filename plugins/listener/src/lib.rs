@@ -1,18 +1,20 @@
+use std::sync::Arc;
+
 use ractor::Actor;
 use tauri::Manager;
 
-mod actors;
 mod commands;
 mod error;
-mod events;
 mod ext;
-pub mod fsm;
+mod runtime;
 
-pub use error::*;
-pub use events::*;
+pub use error::{DegradedError, Error, Result};
 pub use ext::*;
+pub use hypr_listener_core::*;
 
-use actors::{RootActor, RootArgs};
+use hypr_audio::AudioProvider;
+use hypr_listener_core::actors::{RootActor, RootArgs};
+use runtime::TauriRuntime;
 
 const PLUGIN_NAME: &str = "listener";
 
@@ -49,12 +51,17 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             specta_builder.mount_events(app);
 
             let app_handle = app.app_handle().clone();
+            let audio = app.state::<Arc<dyn AudioProvider>>().inner().clone();
+
+            let runtime = Arc::new(TauriRuntime {
+                app: app_handle.clone(),
+            });
 
             tauri::async_runtime::spawn(async move {
                 Actor::spawn(
                     Some(RootActor::name()),
                     RootActor,
-                    RootArgs { app: app_handle },
+                    RootArgs { runtime, audio },
                 )
                 .await
                 .map(|_| tracing::info!("root_actor_spawned"))

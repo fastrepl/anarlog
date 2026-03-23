@@ -1,7 +1,7 @@
 import type { ParsedDocument } from "@hypr/plugin-fs-sync";
 import { SCHEMA } from "@hypr/store";
 
-import type { Store } from "../../store/main";
+import type { Store } from "~/store/tinybase/store/main";
 
 export type BatchItem<T> = [T, string];
 

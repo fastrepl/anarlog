@@ -1,13 +1,11 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
-
 use tantivy::collector::{Count, TopDocs};
 use tantivy::query::{
-    BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, QueryParser, TermQuery,
+    AllQuery, BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, QueryParser,
+    TermQuery,
 };
 use tantivy::schema::{Facet, IndexRecordOption};
 use tantivy::snippet::SnippetGenerator;
-use tantivy::{Index, ReloadPolicy, TantivyDocument, Term};
+use tantivy::{DateTime, Index, ReloadPolicy, TantivyDocument, Term};
 use tauri_plugin_settings::SettingsPluginExt;
 
 use crate::query::build_created_at_range_query;
@@ -79,8 +77,8 @@ pub struct Tantivy<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
     pub async fn register_collection(&self, config: CollectionConfig) -> Result<(), crate::Error> {
-        let base = self.manager.app_handle().settings().global_base()?;
-        let index_path = base.join(&config.path);
+        let vault_base = self.manager.app_handle().settings().vault_base()?;
+        let index_path = vault_base.join(&config.path).into_std_path_buf();
         let version_path = index_path.join("schema_version");
 
         std::fs::create_dir_all(&index_path)?;
@@ -135,10 +133,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             index,
             reader,
             writer,
-            auto_commit: config.auto_commit,
-            commit_interval_ms: config.commit_interval_ms,
-            pending_writes: AtomicU64::new(0),
-            last_commit: std::sync::Mutex::new(Instant::now()),
         };
 
         guard
@@ -177,11 +171,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         let use_fuzzy = request.options.fuzzy.unwrap_or(false);
         let phrase_slop = request.options.phrase_slop.unwrap_or(0);
+        let has_query = !request.query.trim().is_empty();
 
         // Title boost factor (3x) to match Orama's title:3, content:1 behavior
         const TITLE_BOOST: f32 = 3.0;
 
-        let mut combined_query: Box<dyn Query> = if use_fuzzy {
+        let mut combined_query: Box<dyn Query> = if !has_query {
+            Box::new(AllQuery)
+        } else if use_fuzzy {
             let distance = request.options.distance.unwrap_or(1);
 
             // Parse query to extract phrases (quoted) and regular terms
@@ -401,9 +398,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         writer.commit()?;
 
-        collection_index.pending_writes.store(0, Ordering::SeqCst);
-        *collection_index.last_commit.lock().unwrap() = Instant::now();
-
         tracing::info!(
             "Reindex completed for collection '{}'. Index cleared and ready for new documents. Fields: {:?}",
             collection_name,
@@ -437,7 +431,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
         doc.add_text(fields.title, &document.title);
         doc.add_text(fields.content, &document.content);
-        doc.add_i64(fields.created_at, document.created_at);
+        doc.add_date(
+            fields.created_at,
+            DateTime::from_timestamp_millis(document.created_at),
+        );
 
         for facet_path in &document.facets {
             if let Ok(facet) = Facet::from_text(facet_path) {
@@ -446,23 +443,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         }
 
         writer.add_document(doc)?;
-
-        collection_index
-            .pending_writes
-            .fetch_add(1, Ordering::SeqCst);
-
-        let should_commit = if collection_index.auto_commit {
-            let last_commit = collection_index.last_commit.lock().unwrap();
-            last_commit.elapsed() >= Duration::from_millis(collection_index.commit_interval_ms)
-        } else {
-            true
-        };
-
-        if should_commit {
-            writer.commit()?;
-            collection_index.pending_writes.store(0, Ordering::SeqCst);
-            *collection_index.last_commit.lock().unwrap() = Instant::now();
-        }
+        writer.commit()?;
 
         tracing::debug!(
             "Added document '{}' to collection '{}'",
@@ -500,7 +481,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
         doc.add_text(fields.title, &document.title);
         doc.add_text(fields.content, &document.content);
-        doc.add_i64(fields.created_at, document.created_at);
+        doc.add_date(
+            fields.created_at,
+            DateTime::from_timestamp_millis(document.created_at),
+        );
 
         for facet_path in &document.facets {
             if let Ok(facet) = Facet::from_text(facet_path) {
@@ -509,27 +493,66 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         }
 
         writer.add_document(doc)?;
-
-        collection_index
-            .pending_writes
-            .fetch_add(1, Ordering::SeqCst);
-
-        let should_commit = if collection_index.auto_commit {
-            let last_commit = collection_index.last_commit.lock().unwrap();
-            last_commit.elapsed() >= Duration::from_millis(collection_index.commit_interval_ms)
-        } else {
-            true
-        };
-
-        if should_commit {
-            writer.commit()?;
-            collection_index.pending_writes.store(0, Ordering::SeqCst);
-            *collection_index.last_commit.lock().unwrap() = Instant::now();
-        }
+        writer.commit()?;
 
         tracing::debug!(
             "Updated document '{}' in collection '{}'",
             document.id,
+            collection_name
+        );
+
+        Ok(())
+    }
+
+    pub async fn update_documents(
+        &self,
+        collection: Option<String>,
+        documents: Vec<SearchDocument>,
+    ) -> Result<(), crate::Error> {
+        let collection_name = Self::get_collection_name(collection);
+        let state = self.manager.state::<IndexState>();
+        let mut guard = state.inner.write().await;
+
+        let collection_index = guard
+            .collections
+            .get_mut(&collection_name)
+            .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
+
+        let schema = &collection_index.schema;
+        let writer = &mut collection_index.writer;
+        let fields = get_fields(schema);
+
+        let count = documents.len();
+
+        for document in documents {
+            let id_term = Term::from_field_text(fields.id, &document.id);
+            writer.delete_term(id_term);
+
+            let mut doc = TantivyDocument::new();
+            doc.add_text(fields.id, &document.id);
+            doc.add_text(fields.doc_type, &document.doc_type);
+            doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
+            doc.add_text(fields.title, &document.title);
+            doc.add_text(fields.content, &document.content);
+            doc.add_date(
+                fields.created_at,
+                DateTime::from_timestamp_millis(document.created_at),
+            );
+
+            for facet_path in &document.facets {
+                if let Ok(facet) = Facet::from_text(facet_path) {
+                    doc.add_facet(fields.facets, facet);
+                }
+            }
+
+            writer.add_document(doc)?;
+        }
+
+        writer.commit()?;
+
+        tracing::debug!(
+            "Updated {} documents in collection '{}'",
+            count,
             collection_name
         );
 
@@ -556,54 +579,13 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         let id_term = Term::from_field_text(fields.id, &id);
         writer.delete_term(id_term);
-
-        collection_index
-            .pending_writes
-            .fetch_add(1, Ordering::SeqCst);
-
-        let should_commit = if collection_index.auto_commit {
-            let last_commit = collection_index.last_commit.lock().unwrap();
-            last_commit.elapsed() >= Duration::from_millis(collection_index.commit_interval_ms)
-        } else {
-            true
-        };
-
-        if should_commit {
-            writer.commit()?;
-            collection_index.pending_writes.store(0, Ordering::SeqCst);
-            *collection_index.last_commit.lock().unwrap() = Instant::now();
-        }
+        writer.commit()?;
 
         tracing::debug!(
             "Removed document '{}' from collection '{}'",
             id,
             collection_name
         );
-
-        Ok(())
-    }
-
-    pub async fn flush(&self, collection: Option<String>) -> Result<(), crate::Error> {
-        let collection_name = Self::get_collection_name(collection);
-        let state = self.manager.state::<IndexState>();
-        let mut guard = state.inner.write().await;
-
-        let collection_index = guard
-            .collections
-            .get_mut(&collection_name)
-            .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
-
-        let pending = collection_index.pending_writes.load(Ordering::SeqCst);
-        if pending > 0 {
-            collection_index.writer.commit()?;
-            collection_index.pending_writes.store(0, Ordering::SeqCst);
-            *collection_index.last_commit.lock().unwrap() = Instant::now();
-            tracing::debug!(
-                "Flushed {} pending writes for collection '{}'",
-                pending,
-                collection_name
-            );
-        }
 
         Ok(())
     }

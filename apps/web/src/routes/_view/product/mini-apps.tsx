@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_view/product/mini-apps")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Mini Apps - Hyprnote" },
+      { title: "Mini Apps - Char" },
       {
         name: "description",
         content:
@@ -25,10 +25,10 @@ export const Route = createFileRoute("/_view/product/mini-apps")({
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <ContactsSection />
@@ -50,11 +50,11 @@ function Component() {
 function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-12 lg:py-20">
-      <header className="mb-12 text-center max-w-4xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <header className="mx-auto mb-12 max-w-4xl text-center">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
           Everything in one place
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600">
+        <p className="text-lg text-neutral-600 sm:text-xl">
           Built-in mini apps for contacts, calendar, daily notes, and your
           personal knowledge base.
         </p>
@@ -62,9 +62,9 @@ function HeroSection() {
           <Link
             to="/download/"
             className={cn([
-              "inline-block px-8 py-3 text-base font-medium rounded-full",
+              "inline-block rounded-full px-8 py-3 text-base font-medium",
               "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-              "hover:scale-105 active:scale-95 transition-transform",
+              "transition-transform hover:scale-105 active:scale-95",
             ])}
           >
             Download for free
@@ -95,11 +95,11 @@ function ContactsSection() {
     <section id="contacts" className="bg-stone-50/30">
       <div>
         <div className="text-center">
-          <div className="py-12 px-6">
-            <h2 className="text-3xl font-serif text-stone-600 mb-4">
+          <div className="px-6 py-12">
+            <h2 className="mb-4 font-serif text-3xl text-stone-700">
               Contacts
             </h2>
-            <p className="text-base text-neutral-600 max-w-2xl mx-auto">
+            <p className="mx-auto max-w-2xl text-base text-neutral-600">
               A relationship-focused CRM that builds itself from your meetings.
               Import contacts and watch them come alive with context once you
               actually meet.
@@ -113,10 +113,10 @@ function ContactsSection() {
                 src={image}
                 alt="Contacts interface"
                 className={cn([
-                  "w-full h-auto object-cover transition-opacity duration-1000",
+                  "h-auto w-full object-cover transition-opacity duration-1000",
                   index === currentImage
                     ? "opacity-100"
-                    : "opacity-0 absolute inset-0",
+                    : "absolute inset-0 opacity-0",
                 ])}
               />
             ))}
@@ -133,26 +133,26 @@ function CalendarSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-3xl font-serif text-stone-600">Calendar</h2>
-            <p className="text-base text-neutral-600 leading-relaxed">
+            <h2 className="font-serif text-3xl text-stone-700">Calendar</h2>
+            <p className="text-base leading-relaxed text-neutral-600">
               Connect your calendar for intelligent meeting preparation and
               automatic note organization.
             </p>
             <ul className="flex flex-col gap-3">
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Automatic meeting linking
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Pre-meeting context and preparation
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Timeline view with notes
                 </span>
@@ -160,32 +160,32 @@ function CalendarSection() {
             </ul>
           </div>
         </div>
-        <div className="flex items-center justify-center px-8 py-8 bg-stone-50 overflow-hidden">
-          <div className="max-w-lg w-full bg-white border-2 border-stone-200 rounded-lg p-6 shadow-lg">
-            <div className="flex items-start gap-4 mb-4">
+        <div className="flex items-center justify-center overflow-hidden bg-stone-50 px-8 py-8">
+          <div className="w-full max-w-lg rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-start gap-4">
               <Icon
                 icon="mdi:calendar"
-                className="text-2xl text-stone-700 shrink-0 mt-1"
+                className="mt-1 shrink-0 text-2xl text-stone-700"
               />
               <div className="flex-1">
-                <h4 className="text-lg font-serif text-stone-600 mb-1">
+                <h4 className="mb-1 font-serif text-lg text-stone-700">
                   Weekly Team Sync
                 </h4>
                 <p className="text-sm text-neutral-600">
                   Today at 10:00 AM · 30 minutes
                 </p>
               </div>
-              <button className="px-3 py-1 text-xs bg-stone-600 text-white rounded-full">
+              <button className="rounded-full bg-stone-600 px-3 py-1 text-xs text-white">
                 Start Recording
               </button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
-                <h5 className="text-sm font-medium text-stone-600 mb-2">
+                <h5 className="mb-2 text-sm font-medium text-stone-700">
                   Last meeting context
                 </h5>
-                <div className="p-3 bg-stone-50 border border-stone-300 rounded text-xs">
-                  <div className="font-medium text-stone-900 mb-1">
+                <div className="rounded border border-stone-300 bg-stone-50 p-3 text-xs">
+                  <div className="mb-1 font-medium text-stone-900">
                     Jan 8, 2025 - Weekly Team Sync
                   </div>
                   <p className="text-stone-800">
@@ -200,59 +200,59 @@ function CalendarSection() {
       </div>
 
       <div className="sm:hidden">
-        <div className="p-6 border-b border-neutral-100">
-          <h2 className="text-2xl font-serif text-stone-600 mb-3">Calendar</h2>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-4">
+        <div className="border-b border-neutral-100 p-6">
+          <h2 className="mb-3 font-serif text-2xl text-stone-700">Calendar</h2>
+          <p className="mb-4 text-sm leading-relaxed text-neutral-600">
             Connect your calendar for intelligent meeting preparation and
             automatic note organization.
           </p>
           <ul className="flex flex-col gap-3">
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Automatic meeting linking
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Pre-meeting context and preparation
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Timeline view with notes
               </span>
             </li>
           </ul>
         </div>
-        <div className="px-6 pb-0 bg-stone-50 overflow-clip">
-          <div className="bg-white border-2 border-stone-200 rounded-lg p-6 shadow-lg">
-            <div className="flex items-start gap-4 mb-4">
+        <div className="overflow-clip bg-stone-50 px-6 pb-0">
+          <div className="rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
+            <div className="mb-4 flex items-start gap-4">
               <Icon
                 icon="mdi:calendar"
-                className="text-2xl text-stone-700 shrink-0 mt-1"
+                className="mt-1 shrink-0 text-2xl text-stone-700"
               />
               <div className="flex-1">
-                <h4 className="text-lg font-serif text-stone-600 mb-1">
+                <h4 className="mb-1 font-serif text-lg text-stone-700">
                   Weekly Team Sync
                 </h4>
                 <p className="text-sm text-neutral-600">
                   Today at 10:00 AM · 30 minutes
                 </p>
               </div>
-              <button className="px-3 py-1 text-xs bg-stone-600 text-white rounded-full shrink-0">
+              <button className="shrink-0 rounded-full bg-stone-600 px-3 py-1 text-xs text-white">
                 Start Recording
               </button>
             </div>
             <div className="flex flex-col gap-3">
               <div>
-                <h5 className="text-sm font-medium text-stone-600 mb-2">
+                <h5 className="mb-2 text-sm font-medium text-stone-700">
                   Last meeting context
                 </h5>
-                <div className="p-3 bg-stone-50 border border-stone-300 rounded text-xs">
-                  <div className="font-medium text-stone-900 mb-1">
+                <div className="rounded border border-stone-300 bg-stone-50 p-3 text-xs">
+                  <div className="mb-1 font-medium text-stone-900">
                     Jan 8, 2025 - Weekly Team Sync
                   </div>
                   <p className="text-stone-800">
@@ -275,91 +275,91 @@ function DailyNotesSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-3xl font-serif text-stone-600">Daily Notes</h2>
-            <p className="text-base text-neutral-600 leading-relaxed">
+            <h2 className="font-serif text-3xl text-stone-700">Daily Notes</h2>
+            <p className="text-base leading-relaxed text-neutral-600">
               Consolidate all your meetings, action items, and insights in one
               place.
             </p>
             <ul className="flex flex-col gap-3">
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Automatic aggregation of meetings
                 </span>
-                <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full">
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                   Coming soon
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Chronological timeline view
                 </span>
-                <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full">
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                   Coming soon
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   AI-generated daily summary
                 </span>
-                <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full">
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                   Coming soon
                 </span>
               </li>
             </ul>
           </div>
         </div>
-        <div className="flex items-center justify-center px-8 py-8 bg-stone-50 overflow-hidden">
-          <div className="max-w-lg w-full bg-white border-2 border-stone-200 rounded-lg p-6 shadow-lg">
-            <p className="text-neutral-600 text-center italic">Coming soon</p>
+        <div className="flex items-center justify-center overflow-hidden bg-stone-50 px-8 py-8">
+          <div className="w-full max-w-lg rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
+            <p className="text-center text-neutral-600 italic">Coming soon</p>
           </div>
         </div>
       </div>
 
       <div className="sm:hidden">
-        <div className="p-6 border-b border-neutral-100">
-          <h2 className="text-2xl font-serif text-stone-600 mb-3">
+        <div className="border-b border-neutral-100 p-6">
+          <h2 className="mb-3 font-serif text-2xl text-stone-700">
             Daily Notes
           </h2>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-4">
+          <p className="mb-4 text-sm leading-relaxed text-neutral-600">
             Consolidate all your meetings, action items, and insights in one
             place.
           </p>
           <ul className="flex flex-col gap-3">
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Automatic aggregation of meetings
               </span>
-              <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full shrink-0">
+              <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                 Coming soon
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Chronological timeline view
               </span>
-              <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full shrink-0">
+              <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                 Coming soon
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 AI-generated daily summary
               </span>
-              <span className="px-2 py-0.5 text-xs bg-stone-100 text-stone-600 rounded-full shrink-0">
+              <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-700">
                 Coming soon
               </span>
             </li>
           </ul>
         </div>
-        <div className="px-6 pb-0 bg-stone-50 overflow-clip">
-          <div className="bg-white border-2 border-stone-200 rounded-lg p-6 shadow-lg">
-            <p className="text-neutral-600 text-center italic">Coming soon</p>
+        <div className="overflow-clip bg-stone-50 px-6 pb-0">
+          <div className="rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
+            <p className="text-center text-neutral-600 italic">Coming soon</p>
           </div>
         </div>
       </div>
@@ -373,26 +373,26 @@ function FoldersSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="text-3xl font-serif text-stone-600">Folders</h2>
-            <p className="text-base text-neutral-600 leading-relaxed">
+            <h2 className="font-serif text-3xl text-stone-700">Folders</h2>
+            <p className="text-base leading-relaxed text-neutral-600">
               Organize your meetings and notes into folders for easy access and
               better structure.
             </p>
             <ul className="flex flex-col gap-3">
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Group related meetings together
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Organize by project, client, or topic
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
+                <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
                 <span className="text-neutral-600">
                   Quick navigation and filtering
                 </span>
@@ -400,48 +400,48 @@ function FoldersSection() {
             </ul>
           </div>
         </div>
-        <div className="bg-stone-50 overflow-hidden aspect-4/3">
+        <div className="aspect-4/3 overflow-hidden bg-stone-50">
           <img
             src="/api/images/hyprnote/mini-apps/folders.jpg"
             alt="Folders interface"
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
         </div>
       </div>
 
       <div className="sm:hidden">
-        <div className="p-6 border-b border-neutral-100">
-          <h2 className="text-2xl font-serif text-stone-600 mb-3">Folders</h2>
-          <p className="text-sm text-neutral-600 leading-relaxed mb-4">
+        <div className="border-b border-neutral-100 p-6">
+          <h2 className="mb-3 font-serif text-2xl text-stone-700">Folders</h2>
+          <p className="mb-4 text-sm leading-relaxed text-neutral-600">
             Organize your meetings and notes into folders for easy access and
             better structure.
           </p>
           <ul className="flex flex-col gap-3">
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Group related meetings together
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Organize by project, client, or topic
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <CheckIcon className="text-green-600 shrink-0 mt-0.5 size-5" />
-              <span className="text-neutral-600 text-sm">
+              <CheckIcon className="mt-0.5 size-5 shrink-0 text-green-600" />
+              <span className="text-sm text-neutral-600">
                 Quick navigation and filtering
               </span>
             </li>
           </ul>
         </div>
-        <div className="bg-stone-50 overflow-hidden aspect-4/3">
+        <div className="aspect-4/3 overflow-hidden bg-stone-50">
           <img
             src="/api/images/hyprnote/mini-apps/folders.jpg"
             alt="Folders interface"
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
           />
         </div>
       </div>
@@ -523,11 +523,11 @@ function AdvancedSearchSection() {
     <section id="advanced-search" className="bg-stone-50/30">
       <div>
         <div className="text-center">
-          <div className="py-12 px-6">
-            <div className="inline-block px-4 py-1.5 rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white opacity-50 text-xs font-medium mb-4">
+          <div className="px-6 py-12">
+            <div className="mb-4 inline-block rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 py-1.5 text-xs font-medium text-white opacity-50">
               Coming Soon
             </div>
-            <h2 className="text-3xl font-serif text-stone-600 mb-4">
+            <h2 className="mb-4 font-serif text-3xl text-stone-700">
               Advanced Search
             </h2>
             <p className="text-base text-neutral-600">
@@ -535,12 +535,12 @@ function AdvancedSearchSection() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 border-y border-neutral-100">
+          <div className="grid border-y border-neutral-100 md:grid-cols-3">
             {advancedSearchImages.map((image, index) => (
               <button
                 key={image.id}
                 className={cn([
-                  "text-center cursor-pointer transition-colors relative overflow-hidden",
+                  "relative cursor-pointer overflow-hidden text-center transition-colors",
                   index < advancedSearchImages.length - 1 &&
                     "border-r border-neutral-100",
                 ])}
@@ -558,8 +558,8 @@ function AdvancedSearchSection() {
                     style={{ width: `${progress}%` }}
                   />
                 )}
-                <div className="p-6 relative">
-                  <h3 className="text-lg font-serif text-stone-600 mb-2">
+                <div className="relative p-6">
+                  <h3 className="mb-2 font-serif text-lg text-stone-700">
                     {image.title}
                   </h3>
                   <p className="text-sm text-neutral-600">
@@ -575,7 +575,7 @@ function AdvancedSearchSection() {
               advancedSearchImages.find((img) => img.id === selectedImage)?.url
             }
             alt="Advanced search interface"
-            className="w-full h-auto object-cover"
+            className="h-auto w-full object-cover"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
           />
@@ -587,31 +587,31 @@ function AdvancedSearchSection() {
 
 function CTASection() {
   return (
-    <section className="py-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 lg:px-0">
-      <div className="flex flex-col gap-6 items-center text-center">
-        <div className="mb-4 size-40 shadow-2xl border border-neutral-100 flex justify-center items-center rounded-[48px] bg-transparent">
+    <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16 lg:px-0">
+      <div className="flex flex-col items-center gap-6 text-center">
+        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <img
             src="/api/images/hyprnote/icon.png"
-            alt="Hyprnote"
+            alt="Char"
             width={144}
             height={144}
-            className="size-36 mx-auto rounded-[40px] border border-neutral-100"
+            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-serif">
+        <h2 className="font-serif text-2xl sm:text-3xl">
           Get the complete experience
         </h2>
-        <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
-          Download Hyprnote to start using contacts, calendar, and folders
-          today. Daily notes coming soon
+        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+          Download Char to start using contacts, calendar, and folders today.
+          Daily notes coming soon
         </p>
-        <div className="pt-6 flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
           <Link
             to="/download/"
             className={cn([
-              "group px-6 h-12 flex items-center justify-center text-base sm:text-lg",
-              "bg-linear-to-t from-stone-600 to-stone-500 text-white rounded-full",
-              "shadow-md hover:shadow-lg hover:scale-[102%] active:scale-[98%]",
+              "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
+              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
+              "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
               "transition-all",
             ])}
           >
@@ -622,7 +622,7 @@ function CTASection() {
               viewBox="0 0 24 24"
               strokeWidth="1.5"
               stroke="currentColor"
-              className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform"
+              className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
             >
               <path
                 strokeLinecap="round"

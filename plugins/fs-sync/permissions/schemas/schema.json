@@ -475,6 +475,18 @@
           "markdownDescription": "Denies the list_folders command without any pre-configured scope."
         },
         {
+          "description": "Enables the load_session_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-load-session-content",
+          "markdownDescription": "Enables the load_session_content command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the load_session_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-load-session-content",
+          "markdownDescription": "Denies the load_session_content command without any pre-configured scope."
+        },
+        {
           "description": "Enables the move_session command without any pre-configured scope.",
           "type": "string",
           "const": "allow-move-session",
@@ -559,10 +571,10 @@
           "markdownDescription": "Denies the write_json_batch command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`",
+          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`"
+          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`"
         }
       ]
     }

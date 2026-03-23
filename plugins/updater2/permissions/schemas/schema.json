@@ -343,10 +343,22 @@
           "markdownDescription": "Denies the maybe_emit_updated command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-maybe-emit-updated`",
+          "description": "Enables the postinstall command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-postinstall",
+          "markdownDescription": "Enables the postinstall command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the postinstall command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-postinstall",
+          "markdownDescription": "Denies the postinstall command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-maybe-emit-updated`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`"
         }
       ]
     }

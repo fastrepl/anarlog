@@ -1,13 +1,33 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 
-use tauri_plugin_settings::SettingsPluginExt;
+static SCOPE_LOCKS: LazyLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn get_scope_lock(scope: &str) -> Arc<Mutex<()>> {
+    let mut locks = SCOPE_LOCKS.lock().unwrap();
+    locks
+        .entry(scope.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
 
 pub const FILENAME: &str = "store.json";
 
+fn resolve_store_dir<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> Result<PathBuf, crate::Error> {
+    let bundle_id: &str = app.config().identifier.as_ref();
+    let global_base = hypr_storage::global::compute_default_base(bundle_id)
+        .ok_or(hypr_storage::Error::DataDirUnavailable)?;
+    std::fs::create_dir_all(&global_base)?;
+
+    Ok(hypr_storage::vault::resolve_custom(&global_base, &global_base).unwrap_or(global_base))
+}
+
 pub fn store_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf, crate::Error> {
-    let store_dir = app.settings().global_base()?;
-    Ok(store_dir.join(FILENAME))
+    Ok(resolve_store_dir(app)?.join(FILENAME))
 }
 
 pub struct Store2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
@@ -102,6 +122,9 @@ impl<R: tauri::Runtime, K: ScopedStoreKey> ScopedStore<R, K> {
     }
 
     pub fn set<T: serde::Serialize>(&self, key: K, value: T) -> Result<(), crate::Error> {
+        let lock = get_scope_lock(&self.scope);
+        let _guard = lock.lock().unwrap();
+
         let mut sub_store = match self.store.get(&self.scope) {
             Some(v) => match v.as_str() {
                 Some(s) => serde_json::from_str::<serde_json::Value>(s)?,
@@ -114,6 +137,35 @@ impl<R: tauri::Runtime, K: ScopedStoreKey> ScopedStore<R, K> {
 
         let json_string = serde_json::to_string(&sub_store)?;
         self.store.set(&self.scope, json_string);
+        Ok(())
+    }
+
+    pub fn delete(&self, key: K) -> Result<(), crate::Error> {
+        let lock = get_scope_lock(&self.scope);
+        let _guard = lock.lock().unwrap();
+
+        let mut sub_store = match self.store.get(&self.scope) {
+            Some(v) => match v.as_str() {
+                Some(s) => serde_json::from_str::<serde_json::Value>(s)?,
+                None => return Ok(()),
+            },
+            None => return Ok(()),
+        };
+
+        if let Some(obj) = sub_store.as_object_mut() {
+            obj.remove(key.to_string().as_str());
+        }
+
+        let json_string = serde_json::to_string(&sub_store)?;
+        self.store.set(&self.scope, json_string);
+        Ok(())
+    }
+
+    pub fn clear(&self) -> Result<(), crate::Error> {
+        let lock = get_scope_lock(&self.scope);
+        let _guard = lock.lock().unwrap();
+
+        self.store.delete(&self.scope);
         Ok(())
     }
 }

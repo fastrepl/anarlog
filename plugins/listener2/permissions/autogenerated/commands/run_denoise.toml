@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-run-denoise"
+description = "Enables the run_denoise command without any pre-configured scope."
+commands.allow = ["run_denoise"]
+
+[[permission]]
+identifier = "deny-run-denoise"
+description = "Denies the run_denoise command without any pre-configured scope."
+commands.deny = ["run_denoise"]

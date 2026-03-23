@@ -23,11 +23,11 @@ export const Route = createFileRoute("/_view/roadmap/$slug")({
     }
 
     const { item } = loaderData;
-    const url = `https://hyprnote.com/roadmap/${item.slug}`;
+    const url = `https://char.com/roadmap/${item.slug}`;
 
     return {
       meta: [
-        { title: `${item.title} - Roadmap - Hyprnote` },
+        { title: `${item.title} - Roadmap - Char` },
         {
           name: "description",
           content: `Roadmap item: ${item.title}`,
@@ -79,10 +79,10 @@ function Component() {
       className="bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white px-4 py-8 sm:px-6 lg:px-8">
         <Link
           to="/roadmap/"
-          className="inline-flex items-center gap-2 text-sm text-neutral-600 hover:text-stone-600 transition-colors mb-8 font-serif"
+          className="mb-8 inline-flex items-center gap-2 font-serif text-sm text-neutral-600 transition-colors hover:text-stone-600"
         >
           <Icon icon="mdi:arrow-left" className="text-base" />
           <span>Back to roadmap</span>
@@ -90,14 +90,14 @@ function Component() {
 
         <article>
           <header className="mb-8">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-stone-600 mb-4">
+            <h1 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl lg:text-5xl">
               {item.title}
             </h1>
 
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
               <span
                 className={cn([
-                  "inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
                   status.className,
                 ])}
               >
@@ -110,14 +110,14 @@ function Component() {
                 item.labels.map((label) => (
                   <span
                     key={label}
-                    className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full capitalize"
+                    className="inline-flex items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-900 capitalize"
                   >
                     {label}
                   </span>
                 ))}
             </div>
 
-            <div className="text-xs text-neutral-500 font-mono">
+            <div className="font-mono text-xs text-neutral-500">
               <time dateTime={item.date}>
                 {new Date(item.date).toLocaleDateString("en-US", {
                   year: "numeric",
@@ -128,7 +128,7 @@ function Component() {
             </div>
           </header>
 
-          <div className="prose prose-stone prose-lg max-w-none prose-headings:font-serif prose-headings:font-semibold prose-h1:text-3xl prose-h1:mt-12 prose-h1:mb-6 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-5 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-h4:text-lg prose-h4:mt-6 prose-h4:mb-3 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-xs prose-img:border prose-img:border-neutral-200 prose-img:my-8">
+          <div className="prose prose-stone prose-lg prose-headings:font-serif prose-headings:font-semibold prose-h1:text-3xl prose-h1:mt-12 prose-h1:mb-6 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-5 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-h4:text-lg prose-h4:mt-6 prose-h4:mb-3 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-xs prose-img:border prose-img:border-neutral-200 prose-img:my-8 max-w-none">
             <MDXContent
               code={item.mdx}
               components={{
@@ -142,18 +142,18 @@ function Component() {
             />
           </div>
 
-          <div className="mt-12 pt-8 border-t border-neutral-100">
-            <h3 className="text-xl font-serif text-stone-600 mb-6">
+          <div className="mt-12 border-t border-neutral-100 pt-8">
+            <h3 className="mb-6 font-serif text-xl text-stone-700">
               Related GitHub Issues
             </h3>
             {item.githubIssues && item.githubIssues.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {item.githubIssues.map((url) => (
                   <GitHubIssuePreview key={url} url={url} />
                 ))}
               </div>
             ) : (
-              <p className="text-neutral-400 text-sm">
+              <p className="text-sm text-neutral-400">
                 No related GitHub issues yet
               </p>
             )}
@@ -171,8 +171,8 @@ function GitHubIssuePreview({ url }: { url: string }) {
       target="_blank"
       rel="noopener noreferrer"
       className={cn([
-        "flex items-center gap-2 px-4 py-3 border border-neutral-200 rounded-lg bg-white",
-        "text-sm text-stone-600 hover:text-stone-800 hover:border-neutral-300 transition-colors",
+        "flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3",
+        "text-sm text-stone-600 transition-colors hover:border-neutral-300 hover:text-stone-800",
       ])}
     >
       <Icon icon="mdi:github" className="text-lg" />

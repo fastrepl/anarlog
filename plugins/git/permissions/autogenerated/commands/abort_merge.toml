@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-abort-merge"
+description = "Enables the abort_merge command without any pre-configured scope."
+commands.allow = ["abort_merge"]
+
+[[permission]]
+identifier = "deny-abort-merge"
+description = "Denies the abort_merge command without any pre-configured scope."
+commands.deny = ["abort_merge"]

@@ -15,7 +15,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Database2<'a, R, M> {
             } else {
                 use tauri_plugin_settings::SettingsPluginExt;
                 let dir_path = self.manager.settings().global_base()?;
-                let file_path = dir_path.join("db.sqlite");
+                let file_path = dir_path.join("db.sqlite").into_std_path_buf();
 
                 hypr_db_core::DatabaseBuilder::default()
                     .local(file_path)

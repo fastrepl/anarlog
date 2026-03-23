@@ -1,0 +1,49 @@
+inputs:
+  app:
+    description: "Fully qualified application slug (e.g., fastrepl/hyprnote2)"
+    required: true
+  version:
+    description: "Version to download"
+    required: true
+  channel:
+    description: "Release channel (stable, nightly)"
+    required: true
+  platform:
+    description: "Public platform (dmg-aarch64, dmg-x86_64, appimage-x86_64, debian-x86_64, appimage-aarch64, debian-aarch64)"
+    required: true
+  output:
+    description: "Output filename"
+    required: true
+  key:
+    description: "CrabNebula API key"
+    required: true
+
+outputs:
+  success:
+    description: "Whether the download succeeded"
+    value: ${{ steps.download.outputs.success }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: get-assets
+      uses: crabnebula-dev/cloud-release@v0
+      with:
+        command: release show ${{ inputs.app }} ${{ inputs.version }} --channel ${{ inputs.channel }}
+        api-key: ${{ inputs.key }}
+    - id: download
+      shell: bash
+      env:
+        ASSETS: ${{ steps.get-assets.outputs.stdout }}
+        PLATFORM: ${{ inputs.platform }}
+        OUTPUT: ${{ inputs.output }}
+      run: |
+        ASSET_ID=$(echo "$ASSETS" | jq -r --arg platform "$PLATFORM" '.assets[] | select(.publicPlatform == $platform) | .id')
+        if [[ -z "$ASSET_ID" || "$ASSET_ID" == "null" ]]; then
+          echo "Asset not found for platform $PLATFORM"
+          echo "success=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        echo "Downloading asset $ASSET_ID to $OUTPUT"
+        curl -L "https://cdn.crabnebula.app/asset/$ASSET_ID" -o "$OUTPUT"
+        echo "success=true" >> $GITHUB_OUTPUT

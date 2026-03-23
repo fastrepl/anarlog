@@ -1,0 +1,12 @@
+[package]
+name = "specta-zod"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+specta = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = "1.42"
+serde = { workspace = true, features = ["derive"] }

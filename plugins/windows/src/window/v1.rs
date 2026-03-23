@@ -3,8 +3,6 @@ use crate::WindowImpl;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq, Hash)]
 #[serde(tag = "type", content = "value")]
 pub enum AppWindow {
-    #[serde(rename = "onboarding")]
-    Onboarding,
     #[serde(rename = "main")]
     Main,
     #[serde(rename = "control")]
@@ -14,7 +12,6 @@ pub enum AppWindow {
 impl std::fmt::Display for AppWindow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Onboarding => write!(f, "onboarding"),
             Self::Main => write!(f, "main"),
             Self::Control => write!(f, "control"),
         }
@@ -26,7 +23,6 @@ impl std::str::FromStr for AppWindow {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "onboarding" => return Ok(Self::Onboarding),
             "main" => return Ok(Self::Main),
             "control" => return Ok(Self::Control),
             _ => {}
@@ -44,9 +40,18 @@ impl AppWindow {
     ) -> tauri::WebviewWindowBuilder<'a, tauri::Wry, tauri::AppHandle<tauri::Wry>> {
         use tauri::{WebviewUrl, WebviewWindow};
 
+        let title = match self {
+            Self::Main => app
+                .config()
+                .product_name
+                .clone()
+                .unwrap_or_else(|| self.title()),
+            _ => self.title(),
+        };
+
         #[allow(unused_mut)]
         let mut builder = WebviewWindow::builder(app, self.label(), WebviewUrl::App(url.into()))
-            .title(self.title())
+            .title(title)
             .disable_drag_drop_handler();
 
         #[cfg(target_os = "macos")]
@@ -96,8 +101,7 @@ impl AppWindow {
 impl WindowImpl for AppWindow {
     fn title(&self) -> String {
         match self {
-            Self::Onboarding => "Onboarding".into(),
-            Self::Main => "Main".into(),
+            Self::Main => "Char".into(),
             Self::Control => "Control".into(),
         }
     }
@@ -109,15 +113,6 @@ impl WindowImpl for AppWindow {
         use tauri::LogicalSize;
 
         let window = match self {
-            Self::Onboarding => {
-                let builder = self
-                    .window_builder(app, "/app/onboarding")
-                    .resizable(false)
-                    .min_inner_size(400.0, 600.0);
-                let window = builder.build()?;
-                window.set_size(LogicalSize::new(400.0, 600.0))?;
-                window
-            }
             Self::Main => {
                 let builder = self
                     .window_builder(app, "/app/main")

@@ -10,25 +10,25 @@ import type {
   OptionalSchemas,
 } from "tinybase/with-schemas";
 
-import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import {
   commands as fsSyncCommands,
   type ParsedDocument,
 } from "@hypr/plugin-fs-sync";
+import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import { extractChangedTables } from "@hypr/tinybase-utils";
 
-import { StoreOrMergeableStore } from "../../store/shared";
 import {
   createFileListener,
   type NotifyListenerHandle,
-} from "../shared/listener";
-import { getDataDir } from "../shared/paths";
+} from "~/store/tinybase/persister/shared/listener";
+import { getDataDir } from "~/store/tinybase/persister/shared/paths";
 import {
   type ChangedTables,
   type JsonValue,
   type SaveResult,
   type TablesContent,
-} from "../shared/types";
+} from "~/store/tinybase/persister/shared/types";
+import { StoreOrMergeableStore } from "~/store/tinybase/store/shared";
 
 const CLEANUP_SAFEGUARD_MIN_DISK_COUNT = 5;
 const CLEANUP_SAFEGUARD_MIN_KEEP_RATIO = 0.5;

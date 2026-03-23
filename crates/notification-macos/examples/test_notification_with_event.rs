@@ -10,16 +10,16 @@ fn main() {
         std::thread::sleep(Duration::from_millis(200));
         let timeout = Duration::from_secs(5);
 
-        setup_expanded_accept_handler(|id| {
+        setup_expanded_accept_handler(|id, _tag| {
             println!("expanded_accept: {}", id);
         });
-        setup_collapsed_confirm_handler(|id| {
+        setup_collapsed_confirm_handler(|id, _tag| {
             println!("collapsed_confirm: {}", id);
         });
-        setup_dismiss_handler(|id| {
+        setup_dismiss_handler(|id, _tag| {
             println!("dismiss: {}", id);
         });
-        setup_collapsed_timeout_handler(|id| {
+        setup_collapsed_timeout_handler(|id, _tag| {
             println!("collapsed_timeout: {}", id);
         });
 

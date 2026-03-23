@@ -1,6 +1,6 @@
 import { SCHEMA } from "@hypr/store";
 
-import type { TablesContent } from "../../shared";
+import type { TablesContent } from "~/store/tinybase/persister/shared";
 
 export const SESSION_TABLES = [
   "sessions",

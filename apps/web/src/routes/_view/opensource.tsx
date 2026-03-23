@@ -21,13 +21,13 @@ export const Route = createFileRoute("/_view/opensource")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Open Source - Hyprnote" },
+      { title: "Open Source - Char" },
       {
         name: "description",
         content:
-          "Hyprnote is fully open source under GPL-3.0. Inspect every line of code, contribute to development, and build on a transparent foundation. No black boxes, no hidden data collection.",
+          "Char is fully open source under GPL-3.0. Inspect every line of code, contribute to development, and build on a transparent foundation. No black boxes, no hidden data collection.",
       },
-      { property: "og:title", content: "Open Source - Hyprnote" },
+      { property: "og:title", content: "Open Source - Char" },
       {
         property: "og:description",
         content:
@@ -36,10 +36,10 @@ export const Route = createFileRoute("/_view/opensource")({
       { property: "og:type", content: "website" },
       {
         property: "og:url",
-        content: "https://hyprnote.com/opensource",
+        content: "https://char.com/opensource",
       },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Open Source - Hyprnote" },
+      { name: "twitter:title", content: "Open Source - Char" },
       {
         name: "twitter:description",
         content:
@@ -59,10 +59,10 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
         <LetterSection />
@@ -87,12 +87,12 @@ function StargazerAvatar({ stargazer }: { stargazer: Stargazer }) {
       href={`https://github.com/${stargazer.username}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="block size-14 rounded-xs overflow-hidden border border-neutral-100/50 bg-neutral-100 shrink-0 hover:scale-110 hover:border-neutral-400 hover:opacity-100 transition-all"
+      className="block size-14 shrink-0 overflow-hidden rounded-xs border border-neutral-100/50 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400 hover:opacity-100"
     >
       <img
         src={stargazer.avatar}
         alt={`${stargazer.username}'s avatar`}
-        className="w-full h-full object-cover"
+        className="h-full w-full object-cover"
         loading="lazy"
       />
     </a>
@@ -104,10 +104,10 @@ function StargazersGrid({ stargazers }: { stargazers: Stargazer[] }) {
   const cols = 20;
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute inset-0 flex flex-col justify-center gap-1 opacity-40 px-4">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 flex flex-col justify-center gap-1 px-4 opacity-40">
         {Array.from({ length: rows }).map((_, rowIndex) => (
-          <div key={rowIndex} className="flex gap-1 justify-center">
+          <div key={rowIndex} className="flex justify-center gap-1">
             {Array.from({ length: cols }).map((_, colIndex) => {
               const index = (rowIndex * cols + colIndex) % stargazers.length;
               const stargazer = stargazers[index];
@@ -116,7 +116,7 @@ function StargazersGrid({ stargazers }: { stargazers: Stargazer[] }) {
               return (
                 <div
                   key={`${rowIndex}-${colIndex}`}
-                  className="pointer-events-auto animate-fade-in-out"
+                  className="animate-fade-in-out pointer-events-auto"
                   style={{
                     animationDelay: `${delay}s`,
                     animationDuration: "3s",
@@ -137,30 +137,30 @@ function HeroSection() {
   const { data: stargazers = [] } = useGitHubStargazers();
 
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 relative overflow-hidden">
+    <div className="relative overflow-hidden bg-linear-to-b from-stone-50/30 to-stone-100/30">
       {stargazers.length > 0 && <StargazersGrid stargazers={stargazers} />}
-      <div className="px-6 py-12 lg:py-20 relative z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)] pointer-events-none" />
-        <header className="py-6 text-center max-w-4xl mx-auto relative">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif text-stone-600 mb-6">
+      <div className="relative z-10 px-6 py-12 lg:py-20">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
+        <header className="relative mx-auto max-w-4xl py-6 text-center">
+          <h1 className="mb-6 font-serif text-4xl text-stone-700 sm:text-5xl lg:text-6xl">
             Built in the open,
             <br />
             for everyone
           </h1>
-          <p className="text-lg sm:text-xl text-neutral-600 leading-relaxed max-w-3xl mx-auto">
-            Hyprnote is fully open source under GPL-3.0. Every line of code is
+          <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
+            Char is fully open source under GPL-3.0. Every line of code is
             auditable, every decision is transparent, and every user has the
             freedom to inspect, modify, and contribute.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
             <a
-              href="https://github.com/fastrepl/hyprnote"
+              href="https://github.com/fastrepl/char"
               target="_blank"
               rel="noopener noreferrer"
               className={cn([
-                "inline-flex items-center justify-center gap-2 px-8 py-3 font-medium rounded-full",
+                "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 font-medium",
                 "bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
-                "hover:scale-105 active:scale-95 transition-transform",
+                "transition-transform hover:scale-105 active:scale-95",
               ])}
             >
               <Icon icon="mdi:github" className="text-lg" />
@@ -176,22 +176,22 @@ function HeroSection() {
 
 function LetterSection() {
   return (
-    <section className="px-6 py-16 lg:py-24 bg-[linear-gradient(to_right,#fafafa_1px,transparent_1px),linear-gradient(to_bottom,#fafafa_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px]">
-      <div className="max-w-3xl mx-auto">
+    <section className="bg-[linear-gradient(to_right,#fafafa_1px,transparent_1px),linear-gradient(to_bottom,#fafafa_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-6 py-16 lg:py-24">
+      <div className="mx-auto max-w-3xl">
         <div className="mb-8 text-center">
-          <span className="text-sm font-mono uppercase tracking-widest text-neutral-500 font-medium">
+          <span className="font-mono text-sm font-medium tracking-widest text-neutral-500 uppercase">
             A letter from our team
           </span>
         </div>
 
         <article>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-stone-600 text-center mb-12">
+          <h1 className="mb-12 text-center font-serif text-3xl text-stone-700 sm:text-4xl lg:text-5xl">
             Why Open Source is Inevitable
             <br />
             in the Age of AI
           </h1>
 
-          <div className="flex flex-col gap-6 text-neutral-700 leading-relaxed">
+          <div className="flex flex-col gap-6 leading-relaxed text-neutral-700">
             <p className="text-lg">Hey friends,</p>
 
             <p>
@@ -225,14 +225,14 @@ function LetterSection() {
 
             <p>Open source flips the power dynamic:</p>
 
-            <ul className="flex flex-col gap-2 list-disc pl-6">
+            <ul className="flex list-disc flex-col gap-2 pl-6">
               <li>You can verify claims instead of believing them.</li>
               <li>Security researchers can inspect, not speculate.</li>
               <li>Teams can self-host, extend, or fork when needed.</li>
               <li>The product outlives the company that built it.</li>
             </ul>
 
-            <p>That's why we built Hyprnote in the open.</p>
+            <p>That's why we built Char in the open.</p>
 
             <p>
               We don't want you to trust us more. We want you to need to trust
@@ -268,14 +268,14 @@ function LetterSection() {
                   alt="John Jeong"
                   width={32}
                   height={32}
-                  className="rounded-full object-cover border border-neutral-100"
+                  className="rounded-full border border-neutral-100 object-cover"
                 />
                 <Image
                   src="/api/images/team/yujong.png"
                   alt="Yujong Lee"
                   width={32}
                   height={32}
-                  className="rounded-full object-cover border border-neutral-100"
+                  className="rounded-full border border-neutral-100 object-cover"
                 />
               </div>
 
@@ -287,12 +287,12 @@ function LetterSection() {
 
                 <div>
                   <Image
-                    src="/api/images/hyprnote/signature-dark.svg"
-                    alt="Hyprnote Signature"
+                    src="/char-signature.svg"
+                    alt="Char Signature"
                     width={124}
                     height={60}
                     layout="constrained"
-                    className="opacity-80 object-contain"
+                    className="object-contain opacity-80"
                   />
                 </div>
               </div>
@@ -425,10 +425,10 @@ function TechStackSection() {
     <section>
       <div>
         <div className="py-12 lg:py-16">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4 text-center">
+          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
             Our Tech Stack
           </h2>
-          <p className="text-neutral-600 text-center max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-center text-neutral-600">
             Built with modern, privacy-respecting technologies that run locally
             on your device.
           </p>
@@ -438,8 +438,8 @@ function TechStackSection() {
           {techStack.map((section) => {
             return (
               <Fragment key={section.category}>
-                <div className="col-span-6 p-6 border-t border-b border-neutral-100 bg-stone-50/50">
-                  <h3 className="text-xl font-serif text-stone-600">
+                <div className="col-span-6 border-t border-b border-neutral-100 bg-stone-50/50 p-6">
+                  <h3 className="font-serif text-xl text-stone-700">
                     {section.category}
                   </h3>
                 </div>
@@ -469,8 +469,8 @@ function TechStackSection() {
                       rel="noopener noreferrer"
                       className={cn([
                         "col-span-6 sm:col-span-3 lg:col-span-2",
-                        "p-6 border-neutral-100",
-                        "hover:bg-stone-50/30 transition-all group",
+                        "border-neutral-100 p-6",
+                        "group transition-all hover:bg-stone-50/30",
                         hasBorderBMobile && "border-b",
                         hasBorderRSm && "sm:border-r",
                         !hasBorderBSm && "sm:border-b-0",
@@ -481,20 +481,20 @@ function TechStackSection() {
                         hasBorderBLg && "lg:border-b",
                       ])}
                     >
-                      <div className="flex items-center gap-3 mb-3">
+                      <div className="mb-3 flex items-center gap-3">
                         {"imageUrl" in tech ? (
                           <img
                             src={tech.imageUrl}
                             alt={`${tech.name} logo`}
-                            className="w-6 h-6 rounded object-cover"
+                            className="h-6 w-6 rounded object-cover"
                           />
                         ) : (
                           <Icon
                             icon={tech.icon}
-                            className="text-2xl text-stone-600 group-hover:text-stone-800 transition-colors"
+                            className="text-2xl text-stone-700 transition-colors group-hover:text-stone-800"
                           />
                         )}
-                        <h4 className="font-medium text-stone-600 group-hover:text-stone-800 transition-colors">
+                        <h4 className="font-medium text-stone-700 transition-colors group-hover:text-stone-800">
                           {tech.name}
                         </h4>
                       </div>
@@ -518,18 +518,18 @@ function SponsorsSection() {
     <section>
       <div>
         <div className="py-12 lg:py-16">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4 text-center">
+          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
             Paying It Forward
           </h2>
-          <p className="text-neutral-600 text-center max-w-2xl mx-auto">
-            We love giving back to the community that makes Hyprnote possible.
-            As we grow, we hope to sponsor even more projects and creators.
+          <p className="mx-auto max-w-2xl text-center text-neutral-600">
+            We love giving back to the community that makes Char possible. As we
+            grow, we hope to sponsor even more projects and creators.
           </p>
         </div>
 
         <div className="grid grid-cols-6">
-          <div className="col-span-6 p-6 border-t border-b border-neutral-100 bg-stone-50/50">
-            <h3 className="text-xl font-serif text-stone-600">
+          <div className="col-span-6 border-t border-b border-neutral-100 bg-stone-50/50 p-6">
+            <h3 className="font-serif text-xl text-stone-700">
               Projects We Sponsor
             </h3>
           </div>
@@ -544,27 +544,27 @@ function SponsorsSection() {
                 rel="noopener noreferrer"
                 className={cn([
                   "col-span-6 sm:col-span-3 lg:col-span-2",
-                  "p-6 border-neutral-100",
-                  "hover:bg-stone-50/30 transition-all group",
+                  "border-neutral-100 p-6",
+                  "group transition-all hover:bg-stone-50/30",
                   index % 2 === 0 && "sm:border-r",
                   index > 0 && "border-t sm:border-t-0",
                   hasBorderR && "lg:border-r",
                 ])}
               >
-                <div className="flex items-center gap-3 mb-3">
+                <div className="mb-3 flex items-center gap-3">
                   {"imageUrl" in sponsor ? (
                     <img
                       src={sponsor.imageUrl}
                       alt={`${sponsor.name} avatar`}
-                      className="w-6 h-6 rounded-full object-cover"
+                      className="h-6 w-6 rounded-full object-cover"
                     />
                   ) : (
                     <Icon
                       icon={sponsor.icon}
-                      className="text-2xl text-stone-600 group-hover:text-stone-800 transition-colors"
+                      className="text-2xl text-stone-700 transition-colors group-hover:text-stone-800"
                     />
                   )}
-                  <h4 className="font-medium text-stone-600 group-hover:text-stone-800 transition-colors">
+                  <h4 className="font-medium text-stone-700 transition-colors group-hover:text-stone-800">
                     {sponsor.name}
                   </h4>
                 </div>
@@ -574,14 +574,14 @@ function SponsorsSection() {
               </a>
             );
           })}
-          <div className="col-span-6 p-6 border-t border-neutral-100 bg-stone-50/50 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="col-span-6 flex flex-col gap-4 border-t border-neutral-100 bg-stone-50/50 p-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h3 className="text-xl font-serif text-stone-600">
+              <h3 className="font-serif text-xl text-stone-700">
                 We Appreciate Your Support
               </h3>
-              <p className="text-sm text-neutral-600 mt-2">
-                Your sponsorship keeps Hyprnote free, open source, and
-                independent for everyone.
+              <p className="mt-2 text-sm text-neutral-600">
+                Your sponsorship keeps Char free, open source, and independent
+                for everyone.
               </p>
             </div>
             <a
@@ -589,10 +589,10 @@ function SponsorsSection() {
               target="_blank"
               rel="noopener noreferrer"
               className={cn([
-                "inline-flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-full shrink-0",
+                "inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 font-medium",
                 "bg-linear-to-t from-pink-100 to-white text-stone-700",
                 "border border-pink-200",
-                "hover:scale-105 active:scale-95 transition-transform",
+                "transition-transform hover:scale-105 active:scale-95",
               ])}
             >
               <Icon icon="mdi:heart" className="text-lg text-red-400" />
@@ -627,7 +627,7 @@ function ConfettiIcons({
   }));
 
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <AnimatePresence>
         {icons.map((item) => (
           <motion.div
@@ -656,7 +656,7 @@ function ConfettiIcons({
             style={{ left: `${item.x}%` }}
           >
             {imageUrl ? (
-              <img src={imageUrl} alt="" className="w-5 h-5 rounded" />
+              <img src={imageUrl} alt="" className="h-5 w-5 rounded" />
             ) : icon ? (
               <Icon icon={icon} className={cn(["text-xl", color])} />
             ) : null}
@@ -689,7 +689,7 @@ function StatCard({
   return (
     <div
       className={cn([
-        "p-6 text-center border-neutral-100 relative flex flex-col justify-between gap-3 h-32",
+        "relative flex h-32 flex-col justify-between gap-3 border-neutral-100 p-6 text-center",
         hasBorder && "border-r",
       ])}
       onMouseEnter={() => setIsHovered(true)}
@@ -698,7 +698,7 @@ function StatCard({
       {isHovered && (confettiIcon || imageUrl) && (
         <ConfettiIcons icon={confettiIcon} imageUrl={imageUrl} color={color} />
       )}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -712,7 +712,7 @@ function StatCard({
         ) : null}
       </div>
       <div>
-        <p className="text-2xl font-bold text-stone-600">{value}</p>
+        <p className="text-2xl font-bold text-stone-700">{value}</p>
         <p className="text-sm text-neutral-500">{label}</p>
       </div>
     </div>
@@ -761,10 +761,10 @@ function ProgressSection() {
     <section>
       <div>
         <div className="py-12 lg:py-16">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4 text-center">
+          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
             How We're Doing
           </h2>
-          <p className="text-neutral-600 text-center max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-center text-neutral-600">
             Our progress is measured by the community we're building together.
           </p>
         </div>
@@ -790,44 +790,44 @@ function ProgressSection() {
 const contributions = [
   {
     title: "Star Repository",
-    description: "Show your support and help others discover Hyprnote",
+    description: "Show your support and help others discover Char",
     icon: "mdi:star",
-    link: "https://github.com/fastrepl/hyprnote",
+    link: "https://github.com/fastrepl/char",
     linkText: "Star on GitHub",
   },
   {
     title: "Contribute Code",
     description: "Fix bugs, add features, or improve documentation",
     icon: "mdi:code-braces",
-    link: "https://github.com/fastrepl/hyprnote/contribute",
+    link: "https://github.com/fastrepl/char/contribute",
     linkText: "View Issues",
   },
   {
     title: "Report Issues",
     description: "Help us improve by reporting bugs and suggesting features",
     icon: "mdi:bug",
-    link: "https://github.com/fastrepl/hyprnote/issues",
+    link: "https://github.com/fastrepl/char/issues",
     linkText: "Open Issue",
   },
   {
     title: "Help Translate",
-    description: "Make Hyprnote accessible in your language",
+    description: "Make Char accessible in your language",
     icon: "mdi:translate",
-    link: "https://github.com/fastrepl/hyprnote",
+    link: "https://github.com/fastrepl/char",
     linkText: "Contribute Translations",
   },
   {
     title: "Spread the Word",
-    description: "Share Hyprnote with your network and community",
+    description: "Share Char with your network and community",
     icon: "mdi:share-variant",
-    link: "https://twitter.com/intent/tweet?text=Check%20out%20Hyprnote%20-%20open%20source%20AI%20meeting%20notes%20that%20run%20locally!%20https://hyprnote.com",
+    link: "https://twitter.com/intent/tweet?text=Check%20out%Char%20-%20open%20source%20AI%20meeting%20notes%20that%20run%20locally!%20https://char.com",
     linkText: "Share on X",
   },
   {
     title: "Join Community",
     description: "Connect with other users and contributors",
     icon: "mdi:forum",
-    link: "https://discord.gg/Hyprnote",
+    link: "/discord",
     linkText: "Join Discord",
   },
 ];
@@ -836,17 +836,17 @@ function JoinMovementSection() {
   return (
     <section className="bg-stone-50/30">
       <div>
-        <div className="py-12 lg:py-16 px-6">
-          <h2 className="text-3xl font-serif text-stone-600 mb-4 text-center">
+        <div className="px-6 py-12 lg:py-16">
+          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
             Be Part of the Movement
           </h2>
-          <p className="text-neutral-600 text-center max-w-2xl mx-auto">
+          <p className="mx-auto max-w-2xl text-center text-neutral-600">
             Every contribution, no matter how small, helps build a more private
             future for AI.
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 border-t border-neutral-100">
+        <div className="grid border-t border-neutral-100 sm:grid-cols-2 lg:grid-cols-3">
           {contributions.map((item, index) => {
             const isLastMobile = index === contributions.length - 1;
             const isLastRowSm =
@@ -858,7 +858,7 @@ function JoinMovementSection() {
               <div
                 key={item.title}
                 className={cn([
-                  "p-6 border-neutral-100 flex flex-col justify-between",
+                  "flex flex-col justify-between border-neutral-100 p-6",
                   !isLastMobile && "border-b",
                   !isLastRowSm && "sm:border-b",
                   isLastRowSm && "sm:border-b-0",
@@ -870,7 +870,7 @@ function JoinMovementSection() {
                 ])}
               >
                 <div>
-                  <h3 className="font-medium text-stone-600 mb-2">
+                  <h3 className="mb-2 font-medium text-stone-700">
                     {item.title}
                   </h3>
                   <p className="text-sm text-neutral-600">{item.description}</p>
@@ -881,10 +881,10 @@ function JoinMovementSection() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn([
-                      "inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-full",
+                      "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium",
                       "bg-linear-to-t from-neutral-100 to-white text-stone-700",
                       "border border-neutral-200",
-                      "hover:scale-105 active:scale-95 transition-transform",
+                      "transition-transform hover:scale-105 active:scale-95",
                     ])}
                   >
                     <Icon icon={item.icon} className="text-base" />

@@ -23,9 +23,9 @@ pub enum ProcessMatcher {
 }
 
 pub fn kill_processes_by_matcher(matcher: ProcessMatcher) -> u16 {
-    let target = match matcher {
-        ProcessMatcher::Name(name) => name,
-        ProcessMatcher::Sidecar => "hyprnote-sidecar".to_string(),
+    let targets = match matcher {
+        ProcessMatcher::Name(name) => vec![name],
+        ProcessMatcher::Sidecar => vec!["char-sidecar".to_string(), "hyprnote-sidecar".to_string()],
     };
 
     let mut sys = sysinfo::System::new();
@@ -36,7 +36,7 @@ pub fn kill_processes_by_matcher(matcher: ProcessMatcher) -> u16 {
     for process in sys.processes().values() {
         let process_name = process.name().to_string_lossy();
 
-        if process_name.contains(&target) && process.kill() {
+        if targets.iter().any(|t| process_name.contains(t)) && process.kill() {
             killed_count += 1;
         }
     }
