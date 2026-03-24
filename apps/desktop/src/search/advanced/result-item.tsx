@@ -1,4 +1,6 @@
+import DOMPurify from "dompurify";
 import { Building2Icon, FileTextIcon, UserIcon } from "lucide-react";
+import { useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -18,6 +20,21 @@ interface ResultItemProps {
 
 export function ResultItem({ result, onClick, isSelected }: ResultItemProps) {
   const Icon = TYPE_ICONS[result.type] || FileTextIcon;
+  const sanitizedTitle = useMemo(
+    () =>
+      DOMPurify.sanitize(result.titleHighlighted, {
+        ALLOWED_TAGS: ["mark"],
+      }),
+    [result.titleHighlighted],
+  );
+
+  const sanitizedContent = useMemo(
+    () =>
+      DOMPurify.sanitize(result.contentHighlighted, {
+        ALLOWED_TAGS: ["mark"],
+      }),
+    [result.contentHighlighted],
+  );
 
   return (
     <button
@@ -36,12 +53,12 @@ export function ResultItem({ result, onClick, isSelected }: ResultItemProps) {
       <div className="min-w-0 flex-1">
         <div
           className="truncate font-medium text-neutral-900"
-          dangerouslySetInnerHTML={{ __html: result.titleHighlighted }}
+          dangerouslySetInnerHTML={{ __html: sanitizedTitle }}
         />
         {result.content && (
           <div
             className="mt-0.5 truncate text-sm text-neutral-500"
-            dangerouslySetInnerHTML={{ __html: result.contentHighlighted }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
         )}
       </div>
