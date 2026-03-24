@@ -148,8 +148,12 @@ function Container({
       <div
         className={cn([
           "flex max-h-full flex-col border border-neutral-200 bg-white",
-          isRightPanel ? "rounded-t-xl rounded-b-none" : "rounded-b-xl",
-          hasContextBar && "rounded-t-none border-t-0",
+          isRightPanel
+            ? "rounded-t-xl rounded-b-none"
+            : hasContextBar
+              ? "rounded-t-none rounded-b-xl"
+              : "rounded-xl",
+          hasContextBar && "border-t-0",
         ])}
       >
         {children}
