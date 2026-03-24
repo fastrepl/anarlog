@@ -52,7 +52,11 @@ pub(super) fn format_pretty(response: &owhisper_interface::batch::Response) -> S
             });
         }
     }
-    all_words.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
+    all_words.sort_by(|a, b| {
+        a.start
+            .partial_cmp(&b.start)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     for word in &all_words {
         let should_split = segments
