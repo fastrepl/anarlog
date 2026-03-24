@@ -11,6 +11,7 @@ import { cn } from "@hypr/utils";
 
 import {
   ActionableTooltipContent,
+  RecordingIcon,
   useHasTranscript,
   useListenButtonState,
 } from "~/session/components/shared";
@@ -56,7 +57,10 @@ function StartButton({ sessionId }: { sessionId: string }) {
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
     >
-      <span className="whitespace-nowrap">Resume listening</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap">
+        <RecordingIcon />
+        <span>Resume listening</span>
+      </span>
     </button>
   );
 
