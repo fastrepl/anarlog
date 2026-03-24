@@ -25,17 +25,16 @@ export function useDraftState({
   const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_TIPTAP_DOC);
 
   useEffect(() => {
-    onContextRefsChange?.(
-      extractContextRefsFromTiptapJson(initialContent.current),
-    );
+    onContextRefsChange?.(serializeDraftMessage(initialContent.current).refs);
   }, [onContextRefsChange]);
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
-      const text = tiptapJsonToText(json).trim();
+      const draft = serializeDraftMessage(json);
+      const text = draft.text.trim();
       setHasContent(text.length > 0);
       draftsByKey.set(draftKey, json);
-      onContextRefsChange?.(extractContextRefsFromTiptapJson(json));
+      onContextRefsChange?.(draft.refs);
     },
     [draftKey, onContextRefsChange],
   );
@@ -68,15 +67,15 @@ export function useSubmit({
 }) {
   return useCallback(() => {
     const json = editorRef.current?.editor?.getJSON();
-    const text = tiptapJsonToText(json).trim();
-    const mentionRefs = extractContextRefsFromTiptapJson(json);
+    const draft = serializeDraftMessage(json);
+    const text = draft.text.trim();
 
     if (!text || disabled || isStreaming) {
       return;
     }
 
     void analyticsCommands.event({ event: "message_sent" });
-    onSendMessage(text, [{ type: "text", text }], mentionRefs);
+    onSendMessage(text, [{ type: "text", text }], draft.refs);
     editorRef.current?.editor?.commands.clearContent();
     draftsByKey.delete(draftKey);
     onContextRefsChange?.([]);
@@ -196,33 +195,11 @@ export function useSlashCommandConfig(): SlashCommandConfig {
   );
 }
 
-function tiptapJsonToText(json: any): string {
-  if (!json || typeof json !== "object") {
-    return "";
-  }
-
-  if (json.type === "text") {
-    return json.text || "";
-  }
-
-  if (json.type === "hardBreak") {
-    return "\n";
-  }
-
-  if (isMentionNode(json)) {
-    return mentionNodeToPlainText(json);
-  }
-
-  if (json.content && Array.isArray(json.content)) {
-    return json.content.map(tiptapJsonToText).join("");
-  }
-
-  return "";
-}
-
-function extractContextRefsFromTiptapJson(
-  json: JSONContent | undefined,
-): ContextRef[] {
+export function serializeDraftMessage(json: JSONContent | undefined): {
+  text: string;
+  refs: ContextRef[];
+} {
+  const textParts: string[] = [];
   const refs: ContextRef[] = [];
   const seen = new Set<string>();
 
@@ -231,7 +208,19 @@ function extractContextRefsFromTiptapJson(
       return;
     }
 
+    if (node.type === "text") {
+      textParts.push(node.text || "");
+      return;
+    }
+
+    if (node.type === "hardBreak") {
+      textParts.push("\n");
+      return;
+    }
+
     if (isMentionNode(node)) {
+      textParts.push(mentionNodeToPlainText(node));
+
       const mentionType =
         typeof node.attrs?.type === "string" ? node.attrs.type : null;
       const mentionId =
@@ -246,21 +235,21 @@ function extractContextRefsFromTiptapJson(
         ref = {
           kind: "session",
           key: `session:manual:${mentionId}`,
-          source: "manual",
+          source: "draft",
           sessionId: mentionId,
         };
       } else if (mentionType === "human") {
         ref = {
           kind: "human",
           key: `human:manual:${mentionId}`,
-          source: "manual",
+          source: "draft",
           humanId: mentionId,
         };
       } else if (mentionType === "organization") {
         ref = {
           kind: "organization",
           key: `organization:manual:${mentionId}`,
-          source: "manual",
+          source: "draft",
           organizationId: mentionId,
         };
       }
@@ -269,6 +258,8 @@ function extractContextRefsFromTiptapJson(
         seen.add(ref.key);
         refs.push(ref);
       }
+
+      return;
     }
 
     if (Array.isArray(node.content)) {
@@ -279,7 +270,7 @@ function extractContextRefsFromTiptapJson(
   };
 
   visit(json);
-  return refs;
+  return { text: textParts.join(""), refs };
 }
 
 function isMentionNode(

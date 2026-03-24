@@ -74,7 +74,6 @@ export function ChatSession({
 
   const onRemoveContextEntity = useCallback((key: string) => {
     setPendingManualRefs((prev) => prev.filter((r) => r.key !== key));
-    setPendingDraftRefs((prev) => prev.filter((r) => r.key !== key));
   }, []);
 
   const onDraftContextRefsChange = useCallback((refs: ContextRef[]) => {
