@@ -98,7 +98,7 @@ pub async fn resolve_config(
         None => None,
     };
     #[cfg(not(feature = "desktop"))]
-    let settings: Option<()> = None;
+    let _settings: Option<()> = None;
 
     let (provider, saved_model) = match overrides.provider {
         Some(p) => (p, None),
@@ -122,9 +122,9 @@ pub async fn resolve_config(
         .as_ref()
         .and_then(|s| s.stt_providers.get(provider.id()));
     #[cfg(not(feature = "desktop"))]
-    let saved: Option<&()> = None;
+    let _saved: Option<&()> = None;
 
-    let base_url = overrides.base_url.or_else(|| {
+    let base_url = overrides.base_url.or({
         #[cfg(feature = "desktop")]
         {
             saved.and_then(|s| s.base_url.clone())
@@ -134,7 +134,7 @@ pub async fn resolve_config(
             None
         }
     });
-    let api_key = overrides.api_key.or_else(|| {
+    let api_key = overrides.api_key.or({
         #[cfg(feature = "desktop")]
         {
             saved.and_then(|s| s.api_key.clone())

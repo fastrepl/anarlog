@@ -1,17 +1,17 @@
 use crate::{AudioDevice, AudioDeviceBackend, AudioDirection, DeviceId, Error, TransportType};
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
+use windows::core::{Interface, GUID, PCWSTR, PWSTR};
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
 use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
 use windows::Win32::Media::Audio::{
-    DEVICE_STATE_ACTIVE, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eAll, eCapture,
-    eConsole, eRender,
+    eAll, eCapture, eConsole, eRender, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator,
+    DEVICE_STATE_ACTIVE,
 };
 use windows::Win32::System::Com::{
-    CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, CoUninitialize, STGM_READ,
+    CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
 };
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
-use windows::core::{GUID, Interface, PCWSTR, PWSTR};
 
 pub struct WindowsBackend;
 

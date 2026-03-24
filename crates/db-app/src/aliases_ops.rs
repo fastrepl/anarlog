@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 
 use crate::{AliasRow, insert_human};
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_alias(
     pool: &SqlitePool,
     id: &str,

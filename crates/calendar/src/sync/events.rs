@@ -190,16 +190,15 @@ pub fn normalize_calendar_event(
         if attendee.role == hypr_calendar_interface::AttendeeRole::NonParticipant {
             continue;
         }
-        if let Some(ref org_email) = organizer_email {
-            if attendee
+        if let Some(ref org_email) = organizer_email
+            && attendee
                 .email
                 .as_deref()
                 .map(|e| e.to_lowercase())
                 .as_deref()
                 == Some(org_email)
-            {
-                continue;
-            }
+        {
+            continue;
         }
         participants.push(EventParticipant {
             name: attendee.name.clone(),

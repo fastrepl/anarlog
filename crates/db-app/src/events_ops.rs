@@ -2,6 +2,7 @@ use sqlx::{Row, SqlitePool};
 
 use crate::{EventParticipantRow, EventRow};
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_event(
     pool: &SqlitePool,
     id: &str,
@@ -165,6 +166,7 @@ fn map_event_row(row: &sqlx::sqlite::SqliteRow) -> EventRow {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_event_participant(
     pool: &SqlitePool,
     id: &str,

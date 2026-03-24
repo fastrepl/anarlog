@@ -10,6 +10,7 @@ pub async fn has_calendars(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
     Ok(has_any)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn upsert_calendar(
     pool: &SqlitePool,
     id: &str,

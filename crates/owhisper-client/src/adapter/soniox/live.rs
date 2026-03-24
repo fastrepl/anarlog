@@ -298,9 +298,9 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
         .collect()
 }
 
-fn partition_tokens_by_word_finality<'a>(
-    tokens: &'a [soniox::Token],
-) -> (Vec<&'a soniox::Token>, Vec<&'a soniox::Token>) {
+fn partition_tokens_by_word_finality(
+    tokens: &[soniox::Token],
+) -> (Vec<&soniox::Token>, Vec<&soniox::Token>) {
     let mut final_tokens = Vec::new();
     let mut non_final_tokens = Vec::new();
     for group in token_groups_from_values(tokens) {

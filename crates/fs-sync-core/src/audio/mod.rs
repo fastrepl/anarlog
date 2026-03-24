@@ -134,27 +134,10 @@ fn with_afconvert_fallback<F, T>(
 where
     F: FnMut(&Path, Option<&mut dyn FnMut(f64)>) -> Result<T, AudioProcessingError>,
 {
-    match try_fn(
+    try_fn(
         source_path,
         on_progress.as_mut().map(|p| p as &mut dyn FnMut(f64)),
-    ) {
-        Ok(val) => Ok(val),
-        Err(_first_err) => {
-            #[cfg(target_os = "macos")]
-            {
-                let wav_path = hypr_afconvert::to_wav(source_path)
-                    .map_err(|e| AudioProcessingError::AfconvertFailed(e.to_string()))?;
-                let result = try_fn(
-                    &wav_path,
-                    on_progress.as_mut().map(|p| p as &mut dyn FnMut(f64)),
-                );
-                let _ = std::fs::remove_file(&wav_path);
-                result
-            }
-            #[cfg(not(target_os = "macos"))]
-            Err(_first_err)
-        }
-    }
+    )
 }
 
 fn decode_with_rodio<W: Write>(

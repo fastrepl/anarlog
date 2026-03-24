@@ -80,7 +80,7 @@ async fn sync_calendars_for_provider(
 ) -> Result<(), SyncError> {
     let mut per_connection = Vec::new();
     for connection_id in connection_ids {
-        match list_calendars(api_base_url, access_token, provider.clone(), connection_id).await {
+        match list_calendars(api_base_url, access_token, *provider, connection_id).await {
             Ok(cals) => per_connection.push((connection_id.clone(), cals)),
             Err(e) => {
                 tracing::warn!(
@@ -176,11 +176,11 @@ async fn sync_events_for_connection(
         .map(|cal| {
             let api_base_url = api_base_url.to_owned();
             let access_token = access_token.to_owned();
-            let provider = provider.clone();
+            let provider = *provider;
             let connection_id = connection_id.to_owned();
             let filter = EventFilter {
-                from: from.into(),
-                to: to.into(),
+                from,
+                to,
                 calendar_tracking_id: cal.tracking_id.clone(),
             };
             let tracking_id = cal.tracking_id.clone();

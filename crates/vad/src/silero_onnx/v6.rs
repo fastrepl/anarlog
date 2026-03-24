@@ -98,9 +98,8 @@ impl SileroVad {
         let prob = out_data.first().copied().unwrap_or(0.0);
 
         let (_, state_data) = outputs[1].try_extract_tensor::<f32>()?;
-        self.state =
-            Array3::from_shape_vec((2, 1, STATE_SIZE), state_data.iter().copied().collect())
-                .map_err(|e| Error::InvalidInput(e.to_string()))?;
+        self.state = Array3::from_shape_vec((2, 1, STATE_SIZE), state_data.to_vec())
+            .map_err(|e| Error::InvalidInput(e.to_string()))?;
 
         Ok(prob)
     }

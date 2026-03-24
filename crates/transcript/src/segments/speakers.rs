@@ -118,28 +118,29 @@ fn apply_identity_rules(
 ) -> SpeakerIdentity {
     let mut identity = assignment.cloned().unwrap_or_default();
 
-    if identity.speaker_index.is_some() && identity.human_id.is_none() {
-        if let Some(speaker_index) = identity.speaker_index {
-            if let Some(human_id) = state.human_id_by_speaker_index.get(&speaker_index) {
-                identity.human_id = Some(human_id.clone());
-            }
-        }
+    if identity.speaker_index.is_some()
+        && identity.human_id.is_none()
+        && let Some(speaker_index) = identity.speaker_index
+        && let Some(human_id) = state.human_id_by_speaker_index.get(&speaker_index)
+    {
+        identity.human_id = Some(human_id.clone());
     }
 
-    if identity.human_id.is_none() && state.complete_channels.contains(&word.channel) {
-        if let Some(human_id) = state.human_id_by_channel.get(&word.channel) {
-            identity.human_id = Some(human_id.clone());
-        }
+    if identity.human_id.is_none()
+        && state.complete_channels.contains(&word.channel)
+        && let Some(human_id) = state.human_id_by_channel.get(&word.channel)
+    {
+        identity.human_id = Some(human_id.clone());
     }
 
-    if !word.is_final && !(identity.speaker_index.is_some() && identity.human_id.is_some()) {
-        if let Some(last) = state.last_speaker_by_channel.get(&word.channel) {
-            if identity.speaker_index.is_none() {
-                identity.speaker_index = last.speaker_index;
-            }
-            if identity.human_id.is_none() {
-                identity.human_id = last.human_id.clone();
-            }
+    if !(word.is_final || identity.speaker_index.is_some() && identity.human_id.is_some())
+        && let Some(last) = state.last_speaker_by_channel.get(&word.channel)
+    {
+        if identity.speaker_index.is_none() {
+            identity.speaker_index = last.speaker_index;
+        }
+        if identity.human_id.is_none() {
+            identity.human_id = last.human_id.clone();
         }
     }
 
@@ -165,10 +166,9 @@ fn remember_identity(
     if state.complete_channels.contains(&word.channel)
         && identity.human_id.is_some()
         && identity.speaker_index.is_none()
+        && let Some(human_id) = identity.human_id.clone()
     {
-        if let Some(human_id) = identity.human_id.clone() {
-            state.human_id_by_channel.insert(word.channel, human_id);
-        }
+        state.human_id_by_channel.insert(word.channel, human_id);
     }
 
     if (!word.is_final || identity.speaker_index.is_some() || has_explicit_assignment)

@@ -153,6 +153,7 @@ pub async fn get_slack_thread(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_slack_message(
     pool: &SqlitePool,
     id: &str,

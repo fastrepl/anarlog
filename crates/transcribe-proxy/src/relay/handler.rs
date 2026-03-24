@@ -35,6 +35,7 @@ pub struct WebSocketProxy {
 }
 
 impl WebSocketProxy {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         upstream_request: ClientRequestBuilder,
         control_message_types: Option<ControlMessageTypes>,
@@ -140,6 +141,7 @@ impl WebSocketProxy {
         .into_response()
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_proxy_loop(
         client_socket: WebSocket,
         upstream_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
@@ -246,6 +248,7 @@ impl WebSocketProxy {
         false
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_client_to_upstream(
         mut client_receiver: ClientReceiver,
         mut upstream_sender: UpstreamSender,
@@ -275,11 +278,10 @@ impl WebSocketProxy {
                 biased;
 
                 result = shutdown_rx.recv() => {
-                    if let Ok(signal) = result {
-                        if let ShutdownSignal::Close { code, reason } = signal {
+                    if let Ok(signal) = result
+                        && let ShutdownSignal::Close { code, reason } = signal {
                             let _ = upstream_sender.send(convert::to_tungstenite_close(code, reason)).await;
                         }
-                    }
                     break;
                 }
 
@@ -390,11 +392,10 @@ impl WebSocketProxy {
                 biased;
 
                 result = shutdown_rx.recv() => {
-                    if let Ok(signal) = result {
-                        if let ShutdownSignal::Close { code, reason } = signal {
+                    if let Ok(signal) = result
+                        && let ShutdownSignal::Close { code, reason } = signal {
                             let _ = client_sender.send(convert::to_axum_close(code, reason)).await;
                         }
-                    }
                     break;
                 }
 

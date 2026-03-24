@@ -70,10 +70,10 @@ fn github_state(issue: &hypr_github_issues::Issue) -> (TicketState, Option<Strin
     match issue.state.as_str() {
         "open" => (TicketState::Open, Some("open".to_string())),
         "closed" => {
-            if let Some(ref pr) = issue.pull_request {
-                if pr.merged_at.is_some() {
-                    return (TicketState::Done, Some("merged".to_string()));
-                }
+            if let Some(ref pr) = issue.pull_request
+                && pr.merged_at.is_some()
+            {
+                return (TicketState::Done, Some("merged".to_string()));
             }
             match issue.state_reason.as_deref() {
                 Some("completed") => (TicketState::Done, Some("completed".to_string())),

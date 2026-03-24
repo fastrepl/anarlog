@@ -104,10 +104,10 @@ where
                     )?;
                 }
 
-                if let Some(total) = total_frames {
-                    if let Some(ref mut cb) = on_progress {
-                        cb(processed_frames as f64 / total as f64);
-                    }
+                if let Some(total) = total_frames
+                    && let Some(ref mut cb) = on_progress
+                {
+                    cb(processed_frames as f64 / total as f64);
                 }
             }
 
@@ -184,10 +184,10 @@ where
                 left_chunk.clear();
                 right_chunk.clear();
 
-                if let Some(total) = total_frames {
-                    if let Some(ref mut cb) = on_progress {
-                        cb(processed_frames as f64 / total as f64);
-                    }
+                if let Some(total) = total_frames
+                    && let Some(ref mut cb) = on_progress
+                {
+                    cb(processed_frames as f64 / total as f64);
                 }
             }
 
@@ -241,10 +241,10 @@ where
 
                 state.encode_chunk(&mut encoder, &mut output, None)?;
 
-                if let Some(total) = total_frames {
-                    if let Some(ref mut cb) = on_progress {
-                        cb(processed_frames as f64 / total as f64);
-                    }
+                if let Some(total) = total_frames
+                    && let Some(ref mut cb) = on_progress
+                {
+                    cb(processed_frames as f64 / total as f64);
                 }
             }
 
@@ -284,10 +284,10 @@ where
                 encode_mono_chunk(&mut encoder, &mono_chunk, &mut mono_pcm, &mut output)?;
                 mono_chunk.clear();
 
-                if let Some(total) = total_frames {
-                    if let Some(ref mut cb) = on_progress {
-                        cb(processed_frames as f64 / total as f64);
-                    }
+                if let Some(total) = total_frames
+                    && let Some(ref mut cb) = on_progress
+                {
+                    cb(processed_frames as f64 / total as f64);
                 }
             }
 

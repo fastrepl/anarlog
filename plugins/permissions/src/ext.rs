@@ -45,8 +45,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     fn require_audio(&self) -> Result<Arc<dyn hypr_audio::AudioProvider>, crate::Error> {
-        self.audio_provider()
-            .ok_or(crate::Error::NoAudioProvider)
+        self.audio_provider().ok_or(crate::Error::NoAudioProvider)
     }
 
     pub async fn open(&self, permission: Permission) -> Result<(), crate::Error> {

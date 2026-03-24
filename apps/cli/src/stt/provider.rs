@@ -71,7 +71,7 @@ impl SttProvider {
         }
     }
 
-    pub(crate) fn to_batch_provider(&self) -> BatchProvider {
+    pub(crate) fn to_batch_provider(self) -> BatchProvider {
         match self {
             SttProvider::Deepgram => BatchProvider::Deepgram,
             SttProvider::Soniox => BatchProvider::Soniox,
