@@ -5,7 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { useNewNote } from "../useNewNote";
+import { useNewNote, useNewNoteAndListen } from "../useNewNote";
 import { OpenNoteDialog } from "./open-note-dialog";
 
 import { StandardTabWrapper } from "~/shared/main";
@@ -54,6 +54,7 @@ export function TabContentEmpty({
 
 function EmptyView() {
   const newNote = useNewNote({ behavior: "current" });
+  const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
 
@@ -89,6 +90,11 @@ function EmptyView() {
     <div className="mb-12 flex h-full flex-col items-center justify-center gap-6 text-neutral-600">
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem label="New Note" shortcut={["⌘", "N"]} onClick={newNote} />
+        <ActionItem
+          label="Start Recording"
+          shortcut={["⌘", "⇧", "N"]}
+          onClick={newNoteAndListen}
+        />
         <ActionItem
           label="Open Note"
           shortcut={["⌘", "O"]}
