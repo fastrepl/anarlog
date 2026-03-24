@@ -215,6 +215,7 @@ fn e2e_websocket_with_handoff() {
             // Well below model defaults (Whisper=0.4, Moonshine=0.35) to trigger aggressively
             cloud: CloudConfig {
                 api_key: Some(api_key),
+                base_url: None,
                 threshold: Some(0.05),
             },
             ..Default::default()
