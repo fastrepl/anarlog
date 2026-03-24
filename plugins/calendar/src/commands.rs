@@ -3,6 +3,7 @@ use hypr_calendar_interface::{
 };
 use tauri::Manager;
 use tauri_plugin_auth::AuthPluginExt;
+use tauri_plugin_permissions::PermissionsPluginExt;
 
 use crate::error::Error;
 
