@@ -23,7 +23,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
-import { useNewNoteAndListen } from "./useNewNote";
+import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
 import { TabContentAI, TabItemAI } from "~/ai";
 import { TabContentCalendar, TabItemCalendar } from "~/calendar";
@@ -82,7 +82,8 @@ export function Body() {
 
 function Header({ tabs }: { tabs: Tab[] }) {
   const { leftsidebar } = useShell();
-  const isLinux = platform() === "linux";
+  const currentPlatform = platform();
+  const isLinux = currentPlatform === "linux";
   const notifications = useNotifications();
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
@@ -140,10 +141,21 @@ function Header({ tabs }: { tabs: Tab[] }) {
 
   const tabsScrollContainerRef = useRef<HTMLDivElement>(null);
   const handleNewEmptyTab = useNewEmptyTab();
+  const handleNewNote = useNewNote();
   const handleNewNoteAndListen = useNewNoteAndListen();
+  const newNoteAccelerator = currentPlatform === "macos" ? "Cmd+N" : "Ctrl+N";
   const showNewTabMenu = useNativeContextMenu([
-    { id: "empty-tab", text: "Open Empty Tab", action: handleNewEmptyTab },
-    { id: "new-note", text: "Create New Note", action: handleNewNoteAndListen },
+    {
+      id: "new-note",
+      text: "Create Empty Note",
+      accelerator: newNoteAccelerator,
+      action: handleNewNote,
+    },
+    {
+      id: "new-meeting",
+      text: "Start New Meeting",
+      action: handleNewNoteAndListen,
+    },
   ]);
 
   const scrollState = useScrollState(
@@ -841,17 +853,17 @@ function useTabsShortcuts() {
   const isListening = liveStatus === "active" || liveStatus === "finalizing";
   const { chat } = useShell();
 
-  const newNoteAndListen = useNewNoteAndListen();
-  const newNoteAndListenCurrent = useNewNoteAndListen({ behavior: "current" });
+  const newNote = useNewNote();
+  const newNoteCurrent = useNewNote({ behavior: "current" });
   const newEmptyTab = useNewEmptyTab();
 
   useHotkeys(
     "mod+n",
     () => {
       if (currentTab?.type === "empty") {
-        newNoteAndListenCurrent();
+        newNoteCurrent();
       } else {
-        newNoteAndListen();
+        newNote();
       }
     },
     {
@@ -859,7 +871,7 @@ function useTabsShortcuts() {
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [currentTab, newNoteAndListen, newNoteAndListenCurrent],
+    [currentTab, newNote, newNoteCurrent],
   );
 
   useHotkeys(

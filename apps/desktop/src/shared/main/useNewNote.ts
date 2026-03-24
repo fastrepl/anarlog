@@ -15,7 +15,7 @@ export function useNewNote({
   behavior = "new",
 }: {
   behavior?: "new" | "current";
-}) {
+} = {}) {
   const { persistedStore, internalStore } = useRouteContext({
     from: "__root__",
   });

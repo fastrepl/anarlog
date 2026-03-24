@@ -7,6 +7,7 @@ export type MenuItemDef =
       text: string;
       action: () => void;
       disabled?: boolean;
+      accelerator?: string;
     }
   | { separator: true };
 
@@ -24,6 +25,7 @@ export function useNativeContextMenu(items: MenuItemDef[]) {
                 id: item.id,
                 text: item.text,
                 enabled: !item.disabled,
+                accelerator: item.accelerator,
                 action: item.action,
               }),
         ),
