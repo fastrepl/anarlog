@@ -14,17 +14,45 @@ export const CONTEXT_ENTITY_SOURCES = [
 ] as const;
 export type ContextEntitySource = (typeof CONTEXT_ENTITY_SOURCES)[number];
 
-export type ContextRef = {
-  kind: "session";
+type BaseContextRef = {
   key: string;
   source?: ContextEntitySource;
+};
+
+export type SessionContextRef = BaseContextRef & {
+  kind: "session";
   sessionId: string;
 };
 
+export type HumanContextRef = BaseContextRef & {
+  kind: "human";
+  humanId: string;
+};
+
+export type OrganizationContextRef = BaseContextRef & {
+  kind: "organization";
+  organizationId: string;
+};
+
+export type ContextRef =
+  | SessionContextRef
+  | HumanContextRef
+  | OrganizationContextRef;
+
 export type ContextEntity =
-  | (ContextRef & {
+  | (SessionContextRef & {
       title?: string | null;
       date?: string | null;
+      removable?: boolean;
+    })
+  | (HumanContextRef & {
+      name?: string | null;
+      email?: string | null;
+      organizationName?: string | null;
+      removable?: boolean;
+    })
+  | (OrganizationContextRef & {
+      name?: string | null;
       removable?: boolean;
     })
   | ({

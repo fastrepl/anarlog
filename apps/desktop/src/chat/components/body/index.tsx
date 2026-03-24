@@ -8,6 +8,7 @@ import { ChatBodyEmpty } from "./empty";
 import { ChatBodyNonEmpty } from "./non-empty";
 import { useChatAutoScroll } from "./use-chat-auto-scroll";
 
+import type { ContextRef } from "~/chat/context/entities";
 import type { HyprUIMessage } from "~/chat/types";
 import { useShell } from "~/contexts/shell";
 
@@ -29,6 +30,7 @@ export function ChatBody({
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
+    contextRefs?: ContextRef[],
   ) => void;
 }) {
   const { chat } = useShell();

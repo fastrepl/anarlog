@@ -15,6 +15,7 @@ import {
 } from "./hooks";
 import { type McpIndicator, McpIndicatorBadge } from "./mcp";
 
+import type { ContextRef } from "~/chat/context/entities";
 import { useShell } from "~/contexts/shell";
 
 export type { McpIndicator } from "./mcp";
@@ -27,17 +28,20 @@ export function ChatMessageInput({
   isStreaming,
   onStop,
   mcpIndicator,
+  onContextRefsChange,
 }: {
   draftKey: string;
   onSendMessage: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
+    contextRefs?: ContextRef[],
   ) => void;
   disabled?: boolean | { disabled: boolean; message?: string };
   hasContextBar?: boolean;
   isStreaming?: boolean;
   onStop?: () => void;
   mcpIndicator?: McpIndicator;
+  onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const { chat } = useShell();
   const editorRef = useRef<{ editor: TiptapEditor | null }>(null);
@@ -48,6 +52,7 @@ export function ChatMessageInput({
 
   const { hasContent, initialContent, handleEditorUpdate } = useDraftState({
     draftKey,
+    onContextRefsChange,
   });
   const handleSubmit = useSubmit({
     draftKey,
@@ -55,6 +60,7 @@ export function ChatMessageInput({
     disabled,
     isStreaming,
     onSendMessage,
+    onContextRefsChange,
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
   const slashCommandConfig = useSlashCommandConfig();
