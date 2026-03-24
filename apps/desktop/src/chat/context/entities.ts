@@ -10,6 +10,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export const CONTEXT_ENTITY_SOURCES = [
   "tool",
   "manual",
+  "draft",
   "auto-current",
 ] as const;
 export type ContextEntitySource = (typeof CONTEXT_ENTITY_SOURCES)[number];

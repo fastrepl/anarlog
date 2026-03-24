@@ -147,7 +147,7 @@ export function useChatContextPipeline({
     [committedRefs, store],
   );
 
-  // Pending manual refs are removable; pending auto-current is not.
+  // Only explicit manual refs are removable; draft and auto-current refs are not.
   const pendingEntities = useMemo(
     () =>
       pendingRefs.map((ref) =>
