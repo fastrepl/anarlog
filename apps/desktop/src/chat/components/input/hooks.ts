@@ -205,8 +205,12 @@ function tiptapJsonToText(json: any): string {
     return json.text || "";
   }
 
-  if (typeof json.type === "string" && json.type.startsWith("mention-")) {
-    return `@${json.attrs?.label || json.attrs?.id || ""}`;
+  if (json.type === "hardBreak") {
+    return "\n";
+  }
+
+  if (isMentionNode(json)) {
+    return mentionNodeToPlainText(json);
   }
 
   if (json.content && Array.isArray(json.content)) {
@@ -227,7 +231,7 @@ function extractContextRefsFromTiptapJson(
       return;
     }
 
-    if (typeof node.type === "string" && node.type.startsWith("mention-")) {
+    if (isMentionNode(node)) {
       const mentionType =
         typeof node.attrs?.type === "string" ? node.attrs.type : null;
       const mentionId =
@@ -276,4 +280,24 @@ function extractContextRefsFromTiptapJson(
 
   visit(json);
   return refs;
+}
+
+function isMentionNode(
+  node: Pick<JSONContent, "type" | "attrs"> | Record<string, unknown>,
+): boolean {
+  return (
+    typeof node.type === "string" &&
+    (node.type === "mention" || node.type.startsWith("mention-"))
+  );
+}
+
+function mentionNodeToPlainText(node: JSONContent): string {
+  const label =
+    typeof node.attrs?.label === "string" && node.attrs.label.trim()
+      ? node.attrs.label.trim()
+      : typeof node.attrs?.id === "string" && node.attrs.id.trim()
+        ? node.attrs.id.trim()
+        : "";
+
+  return label ? `@${label}` : "";
 }
