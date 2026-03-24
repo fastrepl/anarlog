@@ -281,7 +281,7 @@ export function ContextBar({
     [entities],
   );
 
-  if (chips.length === 0 && !onAddEntity) {
+  if (chips.length === 0) {
     return null;
   }
 
