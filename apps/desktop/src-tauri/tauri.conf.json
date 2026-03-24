@@ -62,6 +62,7 @@
         }
       },
       "files": {
+        "Resources/AppIcon.incs": "resources/stable/AppIcon.icns",
         "Resources/Assets.car": "resources/stable/Assets.car"
       }
     }

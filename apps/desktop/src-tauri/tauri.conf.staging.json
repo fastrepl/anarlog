@@ -21,6 +21,7 @@
     ],
     "macOS": {
       "files": {
+        "Resources/AppIcon.incs": "resources/staging/AppIcon.icns",
         "Resources/Assets.car": "resources/staging/Assets.car"
       },
       "dmg": {

@@ -33,17 +33,29 @@ for variant in "${VARIANTS[@]}"; do
   fi
 
   echo "Compiling $variant icon..."
-  actool "$icon_path" \
-    --compile "$output_dir" \
+
+  tmp_dir=$(mktemp -d)
+  trap "rm -rf '$tmp_dir'" EXIT
+
+  cp -R "$icon_path" "$tmp_dir/AppIcon.icon"
+
+  actool "$tmp_dir/AppIcon.icon" \
+    --compile "$tmp_dir" \
     --output-format human-readable-text \
     --notices --warnings --errors \
-    --output-partial-info-plist "$output_dir/assetcatalog_generated_info.plist" \
+    --output-partial-info-plist "$tmp_dir/assetcatalog_generated_info.plist" \
     --app-icon AppIcon \
     --include-all-app-icons \
     --enable-on-demand-resources NO \
     --target-device mac \
     --minimum-deployment-target 10.13 \
     --platform macosx
+
+  cp "$tmp_dir/Assets.car" "$output_dir/Assets.car"
+  cp "$tmp_dir/AppIcon.icns" "$output_dir/AppIcon.icns"
+
+  rm -rf "$tmp_dir"
+  trap - EXIT
 done
 
 echo "Icon compilation complete"
