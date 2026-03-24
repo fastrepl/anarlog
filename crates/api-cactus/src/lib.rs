@@ -39,7 +39,12 @@ pub fn router(config: CactusProxyConfig) -> Router {
         .with_state(state)
 }
 
-async fn proxy(state: &AppState, path: &str, headers: &mut HeaderMap, body: bytes::Bytes) -> Response {
+async fn proxy(
+    state: &AppState,
+    path: &str,
+    headers: &mut HeaderMap,
+    body: bytes::Bytes,
+) -> Response {
     let fingerprint = headers
         .remove(DEVICE_FINGERPRINT_HEADER)
         .and_then(|v| v.to_str().ok().map(String::from));
