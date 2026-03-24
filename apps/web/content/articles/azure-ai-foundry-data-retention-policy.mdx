@@ -4,7 +4,7 @@ meta_description: "Azure AI Foundry gives you access to hundreds of AI models fr
 author:
   - "Harshika"
 featured: false
-category: "Product"
+category: "Guides"
 date: "2026-03-24"
 ---
 
@@ -56,18 +56,18 @@ For HIPAA, Azure AI Foundry is part of Microsoft's broader Azure compliance umbr
 
 ## Azure AI Foundry vs. Azure OpenAI: Which Should You Use?
 
-**Azure OpenAI is a specific service within Azure focused exclusively on OpenAI's models. Azure AI Foundry is a broader platform that includes Azure OpenAI as one option among many.**
+[Azure OpenAI](https://char.com/blog/azure-open-ai-data-retention-policy/) is a specific service within Azure focused exclusively on OpenAI's models. Azure AI Foundry is a broader platform that includes Azure OpenAI as one option among many.
 
-**For most enterprise teams, the practical difference is about model selection. If you need GPT-4o or o1, Azure OpenAI and Azure AI Foundry both give you access under effectively the same Microsoft data policy. If you need Meta's Llama, Mistral, Cohere, or other non-OpenAI models with enterprise-grade data isolation, Azure AI Foundry is the right surface.**
+For most enterprise teams, the practical difference is about model selection. If you need GPT-4o or o1, Azure OpenAI and Azure AI Foundry both give you access under effectively the same Microsoft data policy. If you need Meta's Llama, Mistral, Cohere, or other non-OpenAI models with enterprise-grade data isolation, Azure AI Foundry is the right surface.
 
-**The data policy for Azure Direct Models (the OpenAI models surfaced through Foundry) is documented [directly by Microsoft](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy) and matches the Azure OpenAI policy covered in our previous article in this series.**
+The data policy for Azure Direct Models (the OpenAI models surfaced through Foundry) is documented [directly by Microsoft](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy) and matches the Azure OpenAI policy covered in our previous article in this series.
 
-**Using Azure AI Foundry Through Char**
+## Using Azure AI Foundry Through Char
 
-**Char supports custom API endpoints, which means you can point it at your Azure AI Foundry deployment. Whichever model you have configured in Foundry, your meeting data routes through your Azure subscription under Microsoft's enterprise data policy.**
+Char supports custom API endpoints, which means you can point it at your Azure AI Foundry deployment. Whichever model you have configured in Foundry, your meeting data routes through your Azure subscription under Microsoft's enterprise data policy.
 
-**If you have a ZDR agreement in place, that applies to requests made through Char as well. If you have a geography-constrained deployment, requests stay within that region. The integration does not add any new data flows outside your Azure environment.**
+If you have a ZDR agreement in place, that applies to requests made through Char as well. If you have a geography-constrained deployment, requests stay within that region. The integration does not add any new data flows outside your Azure environment.
 
-**Your notes remain as plain markdown files on your device regardless of which model processes them through Foundry. Switching from one Foundry model to another, or from Foundry to a different provider entirely, does not change how your local data is stored.**
+Your notes are stored on your device regardless of which model processes them through Foundry. Switching from one Foundry model to another, or from Foundry to a different provider entirely, does not change how your local data is stored.
 
-**[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.**
+[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.
