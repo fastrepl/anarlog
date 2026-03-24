@@ -1,9 +1,9 @@
 import {
   type NodeViewComponentProps,
   useEditorEventCallback,
+  useEditorState,
 } from "@handlewithcare/react-prosemirror";
-import { AllSelection, NodeSelection } from "prosemirror-state";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, useCallback, useRef, useState } from "react";
 
 import {
   DEFAULT_EDITOR_WIDTH,
@@ -13,25 +13,15 @@ import {
 import { cn } from "@hypr/utils";
 
 export const ResizableImageView = forwardRef<
-  HTMLElement,
+  HTMLDivElement,
   NodeViewComponentProps
 >(({ nodeProps, ...htmlAttrs }, ref) => {
   const { node, getPos } = nodeProps;
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [isRangeSelected, setIsRangeSelected] = useState(false);
-  const [isAllSelected, setIsAllSelected] = useState(false);
   const [draftWidth, setDraftWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const draftWidthRef = useRef<number | null>(null);
-  const resizeStateRef = useRef<{
-    direction: "left" | "right";
-    editorWidth: number;
-    startWidth: number;
-    startX: number;
-  } | null>(null);
-
   const updateAttributes = useEditorEventCallback(
     (view, attrs: Record<string, unknown>) => {
       if (!view) return;
@@ -44,117 +34,66 @@ export const ResizableImageView = forwardRef<
     },
   );
 
-  const checkSelection = useEditorEventCallback((view) => {
-    if (!view) return;
-    const pos = getPos();
-    const { doc, selection } = view.state;
-    const nodeStart = pos;
-    const nodeEnd = pos + node.nodeSize;
-    const isNodeSel =
-      selection instanceof NodeSelection && selection.from === nodeStart;
-    const includesNode =
-      !selection.empty &&
-      !isNodeSel &&
-      selection.from <= nodeStart &&
-      selection.to >= nodeEnd;
+  // to detect whether a nodeview is selected:
+  // see: https://discuss.prosemirror.net/t/is-this-the-right-way-to-determine-if-a-nodeview-is-selected/2208/2
+  // also: https://github.com/handlewithcarecollective/react-prosemirror/issues/161
+  const pos = getPos();
+  const { selection } = useEditorState();
+  const isSelected =
+    pos >= selection.from && pos + node.nodeSize <= selection.to;
 
-    setIsRangeSelected(includesNode);
-    setIsAllSelected(
-      selection instanceof AllSelection ||
-        (selection.from <= 1 && selection.to >= doc.content.size - 1),
-    );
-  });
-
-  useEffect(() => {
-    checkSelection();
-  });
-
-  useEffect(() => {
-    if (!isResizing) return;
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const resizeState = resizeStateRef.current;
-      if (!resizeState) return;
-
-      const deltaX =
-        (event.clientX - resizeState.startX) *
-        (resizeState.direction === "left" ? -1 : 1);
-      const nextWidth = Math.min(
-        resizeState.editorWidth,
-        Math.max(120, resizeState.startWidth + deltaX),
-      );
-
-      draftWidthRef.current = nextWidth;
-      setDraftWidth(nextWidth);
-    };
-
-    const handlePointerUp = () => {
-      const resizeState = resizeStateRef.current;
-      if (!resizeState || !draftWidthRef.current) {
-        resizeStateRef.current = null;
-        draftWidthRef.current = null;
-        setIsResizing(false);
-        setDraftWidth(null);
-        return;
-      }
-
-      updateAttributes({
-        editorWidth: normalizeEditorWidth(
-          (draftWidthRef.current / resizeState.editorWidth) * 100,
-        ),
-      });
-
-      resizeStateRef.current = null;
-      draftWidthRef.current = null;
-      setIsResizing(false);
-      setDraftWidth(null);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-    };
-  }, [isResizing, updateAttributes]);
-
+  // we register all resize event handlers during resize start and unregister them on resize end.
+  // all drag state lives inside this callback scope.
+  // during a drag, draftWidth is a pixel value for immediate visual feedback.
+  // once the drag ends, draftWidth resets to null and we calculate and persist the percentage as attributes.
   const handleResizeStart = useCallback(
     (
       direction: "left" | "right",
       event: React.PointerEvent<HTMLButtonElement>,
     ) => {
-      const container = containerRef.current;
-      const image = imageRef.current;
-      if (!container || !image) return;
+      const containerEl = containerRef.current;
+      const imageEl = imageRef.current;
+      if (!containerEl || !imageEl) return;
 
       event.preventDefault();
       event.stopPropagation();
 
-      const editorElement = container.closest(".ProseMirror");
-      const editorWidth =
-        editorElement?.getBoundingClientRect().width ??
-        container.getBoundingClientRect().width;
+      const editorEl = containerEl.closest(".ProseMirror");
+      const maxWidth =
+        editorEl?.getBoundingClientRect().width ??
+        containerEl.getBoundingClientRect().width;
+      const startWidth = imageEl.getBoundingClientRect().width;
+      const startX = event.clientX;
 
-      resizeStateRef.current = {
-        direction,
-        editorWidth,
-        startWidth: image.getBoundingClientRect().width,
-        startX: event.clientX,
+      let currentWidth = startWidth;
+      setIsResizing(true);
+      setDraftWidth(startWidth);
+
+      const handlePointerMove = (e: PointerEvent) => {
+        const deltaX = (e.clientX - startX) * (direction === "left" ? -1 : 1);
+        currentWidth = Math.min(maxWidth, Math.max(120, startWidth + deltaX));
+        setDraftWidth(currentWidth);
       };
 
-      draftWidthRef.current = image.getBoundingClientRect().width;
-      setIsResizing(true);
-      setDraftWidth(image.getBoundingClientRect().width);
+      const handlePointerUp = () => {
+        window.removeEventListener("pointermove", handlePointerMove);
+        window.removeEventListener("pointerup", handlePointerUp);
+
+        updateAttributes({
+          editorWidth: normalizeEditorWidth((currentWidth / maxWidth) * 100),
+        });
+
+        setIsResizing(false);
+        setDraftWidth(null);
+      };
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerUp);
     },
-    [],
+    [updateAttributes],
   );
 
-  const selected = nodeProps.decorations.some(
-    (d) => (d as any).type?.name === "selected",
-  );
-
-  const isSelected = selected || isRangeSelected;
-  const showControls = !isAllSelected && (isHovered || selected || isResizing);
+  const showControls = isHovered || isSelected || isResizing;
   const editorWidth =
     normalizeEditorWidth(node.attrs.editorWidth) ?? DEFAULT_EDITOR_WIDTH;
   const imageWidth =
@@ -162,7 +101,7 @@ export const ResizableImageView = forwardRef<
 
   return (
     <div
-      ref={ref as any}
+      ref={ref}
       {...htmlAttrs}
       className="relative overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent"
     >

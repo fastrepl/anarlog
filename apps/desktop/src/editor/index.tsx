@@ -66,8 +66,6 @@ export interface NoteEditorRef {
 interface EditorProps {
   handleChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
-  editable?: boolean;
-  setContentFromOutside?: boolean;
   mentionConfig?: MentionConfig;
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
@@ -99,8 +97,6 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
   const {
     handleChange,
     initialContent,
-    editable = true,
-    setContentFromOutside = false,
     mentionConfig,
     placeholderComponent,
     fileHandlerConfig,
@@ -169,7 +165,7 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
 
     if (!initialContent || initialContent.type !== "doc") return;
 
-    if (setContentFromOutside || !view.hasFocus()) {
+    if (!view.hasFocus()) {
       try {
         const doc = PMNode.fromJSON(schema, initialContent);
         const state = EditorState.create({
@@ -181,10 +177,7 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
         // invalid content
       }
     }
-  }, [initialContent, setContentFromOutside]);
-
-  const editableRef = useRef(editable);
-  editableRef.current = editable;
+  }, [initialContent]);
 
   const onViewReady = useCallback(
     (view: EditorView) => {
@@ -197,7 +190,6 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
     <ProseMirror
       defaultState={defaultState}
       nodeViews={nodeViews}
-      editable={() => editableRef.current}
       dispatchTransaction={function (this: EditorView, tr: Transaction) {
         const newState = this.state.apply(tr);
         this.updateState(newState);
