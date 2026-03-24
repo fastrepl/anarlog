@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    ChatCompleter, ConfidenceInterval, aggregate_grader_responses,
-    generate_structured_grader_response, generate_structured_grader_response_multi,
+    aggregate_grader_responses, generate_structured_grader_response,
+    generate_structured_grader_response_multi, ChatCompleter, ConfidenceInterval,
 };
 
 /// Score represents the result of evaluating output against a rubric.

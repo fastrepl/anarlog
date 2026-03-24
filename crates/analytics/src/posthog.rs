@@ -42,7 +42,7 @@ impl PosthogClient {
         distinct_id: &str,
         payload: &PropertiesPayload,
     ) -> Result<(), Error> {
-        let mut e = Event::new("$set", &distinct_id.to_string());
+        let mut e = Event::new("$set", distinct_id);
         e.set_timestamp(chrono::Utc::now().naive_utc());
 
         if !payload.set.is_empty() {

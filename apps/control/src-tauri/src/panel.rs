@@ -1,5 +1,5 @@
 use tauri::{AppHandle, Listener, Manager, WebviewWindow};
-use tauri_nspanel::{ManagerExt, WebviewWindowExt, panel};
+use tauri_nspanel::{panel, ManagerExt, WebviewWindowExt};
 
 #[cfg(target_os = "macos")]
 use objc2::msg_send;
