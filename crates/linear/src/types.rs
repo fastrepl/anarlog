@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "specta")]
-use specta::Type;
-
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
@@ -76,7 +73,7 @@ pub struct TeamsData {
 // === Core types ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Issue {
@@ -108,7 +105,7 @@ pub struct Issue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowState {
@@ -119,7 +116,7 @@ pub struct WorkflowState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct LinearUser {
@@ -132,7 +129,7 @@ pub struct LinearUser {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct TeamRef {
@@ -142,7 +139,7 @@ pub struct TeamRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct LabelConnection {
@@ -150,7 +147,7 @@ pub struct LabelConnection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct LinearLabel {
@@ -161,7 +158,7 @@ pub struct LinearLabel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Team {

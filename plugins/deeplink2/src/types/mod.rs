@@ -7,13 +7,12 @@ pub use billing_refresh::*;
 pub use integration_callback::*;
 
 use serde::{Deserialize, Serialize};
-use specta::Type;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
 pub struct DeepLinkEvent(pub DeepLink);
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "to", content = "search")]
 pub enum DeepLink {
     #[serde(rename = "/auth/callback")]

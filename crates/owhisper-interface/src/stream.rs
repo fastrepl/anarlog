@@ -4,8 +4,7 @@ use crate::common_derives;
 // https://developers.deepgram.com/reference/speech-to-text-api/listen-streaming#receive.receiveTranscription
 
 common_derives! {
-    #[specta(rename = "StreamWord")]
-    #[cfg_attr(feature = "openapi", schema(as = StreamWord))]
+    #[serde(rename = "StreamWord")]
     pub struct Word {
         pub word: String,
         pub start: f64,
@@ -18,8 +17,7 @@ common_derives! {
 }
 
 common_derives! {
-    #[specta(rename = "StreamAlternatives")]
-    #[cfg_attr(feature = "openapi", schema(as = StreamAlternatives))]
+    #[serde(rename = "StreamAlternatives")]
     pub struct Alternatives {
         pub transcript: String,
         pub words: Vec<Word>,
@@ -30,16 +28,14 @@ common_derives! {
 }
 
 common_derives! {
-    #[specta(rename = "StreamChannel")]
-    #[cfg_attr(feature = "openapi", schema(as = StreamChannel))]
+    #[serde(rename = "StreamChannel")]
     pub struct Channel {
         pub alternatives: Vec<Alternatives>,
     }
 }
 
 common_derives! {
-    #[specta(rename = "StreamModelInfo")]
-    #[cfg_attr(feature = "openapi", schema(as = StreamModelInfo))]
+    #[serde(rename = "StreamModelInfo")]
     pub struct ModelInfo {
         pub name: String,
         pub version: String,
@@ -48,21 +44,20 @@ common_derives! {
 }
 
 common_derives! {
-    #[specta(rename = "StreamMetadata")]
-    #[cfg_attr(feature = "openapi", schema(as = StreamMetadata))]
+    #[serde(rename = "StreamMetadata")]
     pub struct Metadata {
         pub request_id: String,
         pub model_info: ModelInfo,
         pub model_uuid: String,
         #[serde(default)]
         #[specta(type = Extra)]
-        #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
+        #[cfg_attr(feature = "openapi", schema(value_type = Option::<Object>))]
         pub extra: Option<std::collections::HashMap<String, serde_json::Value>>,
     }
 }
 
 common_derives! {
-    #[specta(rename = "StreamExtra")]
+    #[serde(rename = "StreamExtra")]
     pub struct Extra {
         pub started_unix_millis: u64,
     }

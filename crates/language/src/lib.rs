@@ -80,8 +80,8 @@ fn extract_region(parts: &[&str]) -> Option<String> {
 }
 
 impl specta::Type for Language {
-    fn inline(_: &mut specta::TypeCollection, _: specta::Generics) -> specta::DataType {
-        specta::DataType::Primitive(specta::datatype::PrimitiveType::String)
+    fn definition(_: &mut specta::TypeCollection) -> specta::datatype::DataType {
+        specta::datatype::DataType::Primitive(specta::datatype::Primitive::String)
     }
 }
 

@@ -1,9 +1,8 @@
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
-use specta::Type;
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Serialize, Deserialize, specta::Type)]
 pub struct AuthCallbackSearch {
     pub access_token: String,
     pub refresh_token: String,

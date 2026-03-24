@@ -13,7 +13,7 @@ impl serde::Serialize for Error {
 }
 
 impl specta::Type for Error {
-    fn inline(_type_map: &mut specta::TypeMap, _generics: specta::Generics) -> specta::DataType {
-        specta::DataType::Primitive(specta::datatype::PrimitiveType::String)
+    fn definition(_: &mut specta::TypeCollection) -> specta::datatype::DataType {
+        specta::datatype::DataType::Primitive(specta::datatype::Primitive::String)
     }
 }

@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "specta")]
-use specta::Type;
-
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
@@ -50,7 +47,7 @@ impl IssueStateFilter {
 // === Response types ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Issue {
     pub id: u64,
@@ -94,7 +91,7 @@ impl Issue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct IssuePullRequest {
     #[serde(default)]
@@ -110,7 +107,7 @@ pub struct IssuePullRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct User {
     pub id: u64,
@@ -121,7 +118,7 @@ pub struct User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Label {
     pub id: u64,
@@ -133,7 +130,7 @@ pub struct Label {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Milestone {
     pub id: u64,
@@ -145,7 +142,7 @@ pub struct Milestone {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct Repository {
     pub id: u64,

@@ -349,9 +349,9 @@ tracing-test = "0.2"
 apalis = "1.0.0-rc.6"
 apalis-cron = "1.0.0-rc.6"
 
-specta = "2.0.0-rc.22"
-specta-typescript = "0.0.9"
-tauri-specta = "2.0.0-rc.21"
+specta = "2.0.0-rc.23"
+specta-typescript = "0.0.10"
+tauri-specta = { git = "https://github.com/specta-rs/tauri-specta", rev = "e6bf835" }
 
 cidre = "0.15"
 cpal = "0.17"

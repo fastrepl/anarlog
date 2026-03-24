@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use specta::Type;
 use strum::{EnumString, VariantNames};
 
 #[derive(Debug, Clone, Copy)]
@@ -10,7 +9,16 @@ pub enum FlagStrategy {
 }
 
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type, EnumString, VariantNames,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    specta::Type,
+    EnumString,
+    VariantNames,
 )]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]

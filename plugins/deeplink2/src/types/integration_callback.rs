@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use specta::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct IntegrationCallbackSearch {
     pub integration_id: String,
     pub status: String,

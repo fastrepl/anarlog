@@ -1,14 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "specta")]
-use specta::Type;
-
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum EventShowAs {
@@ -23,7 +20,7 @@ pub enum EventShowAs {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum Importance {
@@ -35,7 +32,7 @@ pub enum Importance {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum Sensitivity {
@@ -48,9 +45,9 @@ pub enum Sensitivity {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::EventType))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::EventType))]
 #[serde(rename_all = "camelCase")]
 pub enum EventType {
     SingleInstance,
@@ -62,7 +59,7 @@ pub enum EventType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum ResponseType {
@@ -77,7 +74,7 @@ pub enum ResponseType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum AttendeeType {
@@ -89,7 +86,7 @@ pub enum AttendeeType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum OnlineMeetingProviderType {
@@ -102,7 +99,7 @@ pub enum OnlineMeetingProviderType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum BodyType {
@@ -113,7 +110,7 @@ pub enum BodyType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum CalendarColor {
@@ -133,7 +130,7 @@ pub enum CalendarColor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum DayOfWeek {
@@ -149,7 +146,7 @@ pub enum DayOfWeek {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum WeekIndex {
@@ -163,7 +160,7 @@ pub enum WeekIndex {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum RecurrencePatternType {
@@ -178,7 +175,7 @@ pub enum RecurrencePatternType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum RecurrenceRangeType {
@@ -190,7 +187,7 @@ pub enum RecurrenceRangeType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum LocationType {
@@ -209,7 +206,7 @@ pub enum LocationType {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct DateTimeTimeZone {
@@ -219,7 +216,7 @@ pub struct DateTimeTimeZone {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct EmailAddress {
@@ -230,7 +227,7 @@ pub struct EmailAddress {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseStatus {
@@ -241,9 +238,9 @@ pub struct ResponseStatus {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::Attendee))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::Attendee))]
 #[serde(rename_all = "camelCase")]
 pub struct Attendee {
     #[serde(default, rename = "type")]
@@ -255,7 +252,7 @@ pub struct Attendee {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ItemBody {
@@ -266,7 +263,7 @@ pub struct ItemBody {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct PhysicalAddress {
@@ -283,7 +280,7 @@ pub struct PhysicalAddress {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct OutlookGeoCoordinates {
@@ -300,7 +297,7 @@ pub struct OutlookGeoCoordinates {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Location {
@@ -319,7 +316,7 @@ pub struct Location {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct OnlineMeetingInfo {
@@ -336,7 +333,7 @@ pub struct OnlineMeetingInfo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct RecurrencePattern {
@@ -357,7 +354,7 @@ pub struct RecurrencePattern {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct RecurrenceRange {
@@ -374,7 +371,7 @@ pub struct RecurrenceRange {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct PatternedRecurrence {
@@ -385,7 +382,7 @@ pub struct PatternedRecurrence {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Calendar {
@@ -419,9 +416,9 @@ pub struct Calendar {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::Event))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::Event))]
 #[serde(rename_all = "camelCase")]
 pub struct Event {
     pub id: String,
@@ -506,7 +503,7 @@ pub struct Event {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Recipient {
@@ -515,9 +512,9 @@ pub struct Recipient {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::ListCalendarsResponse))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::ListCalendarsResponse))]
 #[serde(rename_all = "camelCase")]
 pub struct ListCalendarsResponse {
     #[serde(default, rename = "@odata.context")]
@@ -529,9 +526,9 @@ pub struct ListCalendarsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::ListEventsResponse))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::ListEventsResponse))]
 #[serde(rename_all = "camelCase")]
 pub struct ListEventsResponse {
     #[serde(default, rename = "@odata.context")]
@@ -560,9 +557,9 @@ pub struct CreateEventRequest {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = outlook::CreateEventBody))]
+#[cfg_attr(all(feature = "utoipa", not(feature = "specta")), schema(as = outlook::CreateEventBody))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateEventBody {
     #[serde(default)]

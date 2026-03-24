@@ -1,15 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "specta")]
-use specta::Type;
-
 #[cfg(feature = "utoipa")]
 use utoipa::ToSchema;
 
 // === Enums ===
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum MessageFormat {
@@ -21,7 +18,7 @@ pub enum MessageFormat {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum LabelType {
@@ -32,7 +29,7 @@ pub enum LabelType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum LabelListVisibility {
@@ -44,7 +41,7 @@ pub enum LabelListVisibility {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum MessageListVisibility {
@@ -57,7 +54,7 @@ pub enum MessageListVisibility {
 // === Request types ===
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct ListMessagesRequest {
     #[serde(default)]
@@ -73,7 +70,7 @@ pub struct ListMessagesRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct GetMessageRequest {
     pub id: String,
@@ -86,7 +83,7 @@ pub struct GetMessageRequest {
 // === Response types ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ListLabelsResponse {
@@ -95,7 +92,7 @@ pub struct ListLabelsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Label {
@@ -120,7 +117,7 @@ pub struct Label {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct LabelColor {
@@ -131,7 +128,7 @@ pub struct LabelColor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ListMessagesResponse {
@@ -144,7 +141,7 @@ pub struct ListMessagesResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct MessageRef {
@@ -153,7 +150,7 @@ pub struct MessageRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
@@ -176,7 +173,7 @@ pub struct Message {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[cfg_attr(feature = "utoipa", schema(no_recursion))]
 #[serde(rename_all = "camelCase")]
@@ -193,7 +190,7 @@ pub struct MessagePart {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct MessagePartHeader {
@@ -202,7 +199,7 @@ pub struct MessagePartHeader {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct MessagePartBody {
@@ -215,7 +212,7 @@ pub struct MessagePartBody {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
@@ -228,7 +225,7 @@ pub struct Attachment {
 // === Profile ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
@@ -244,7 +241,7 @@ pub struct Profile {
 // === Thread types ===
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct ListThreadsRequest {
     #[serde(default)]
@@ -260,7 +257,7 @@ pub struct ListThreadsRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ListThreadsResponse {
@@ -273,7 +270,7 @@ pub struct ListThreadsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ThreadRef {
@@ -285,7 +282,7 @@ pub struct ThreadRef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct Thread {
@@ -299,7 +296,7 @@ pub struct Thread {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct GetThreadRequest {
     pub id: String,
@@ -312,7 +309,7 @@ pub struct GetThreadRequest {
 // === History types (incremental sync) ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum HistoryType {
@@ -323,7 +320,7 @@ pub enum HistoryType {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 pub struct ListHistoryRequest {
     pub start_history_id: String,
@@ -338,7 +335,7 @@ pub struct ListHistoryRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ListHistoryResponse {
@@ -351,7 +348,7 @@ pub struct ListHistoryResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct History {
@@ -369,7 +366,7 @@ pub struct History {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryMessageAdded {
@@ -377,7 +374,7 @@ pub struct HistoryMessageAdded {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryMessageDeleted {
@@ -385,7 +382,7 @@ pub struct HistoryMessageDeleted {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryLabelAdded {
@@ -395,7 +392,7 @@ pub struct HistoryLabelAdded {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(Type))]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
 #[cfg_attr(feature = "utoipa", derive(ToSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryLabelRemoved {
