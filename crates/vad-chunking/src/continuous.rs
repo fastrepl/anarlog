@@ -5,10 +5,12 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{Stream, StreamExt, future};
+use futures_util::{Stream, StreamExt, future, stream};
 use hypr_audio_interface::AsyncSource;
+use hypr_vad::silero_onnx::CHUNK_SIZE_16KHZ;
 use pin_project::pin_project;
-use silero_rs::{VadConfig, VadSession, VadTransition};
+
+use crate::session::{AdaptiveVadConfig, AdaptiveVadSession, VadTransition};
 
 #[derive(Debug, Clone)]
 pub(crate) enum VadStreamItem {
@@ -33,27 +35,46 @@ pub struct AudioChunk {
 #[pin_project]
 pub(crate) struct ContinuousVadStream<S: AsyncSource> {
     source: S,
-    vad_session: VadSession,
-    chunk_samples: usize,
+    vad_session: AdaptiveVadSession,
     buffer: Vec<f32>,
     pending_items: VecDeque<VadStreamItem>,
+    finalized: bool,
 }
 
 impl<S: AsyncSource> ContinuousVadStream<S> {
-    pub(crate) fn new(source: S, mut config: VadConfig) -> Result<Self, crate::Error> {
-        config.sample_rate = source.sample_rate() as usize;
-
-        let chunk_duration = Duration::from_millis(30);
-        let chunk_samples = (chunk_duration.as_secs_f64() * config.sample_rate as f64) as usize;
+    pub(crate) fn new(source: S, config: AdaptiveVadConfig) -> Result<Self, crate::Error> {
+        let sample_rate = source.sample_rate();
+        if sample_rate != 16000 {
+            return Err(crate::Error::UnsupportedSampleRate(sample_rate));
+        }
 
         Ok(Self {
             source,
-            vad_session: VadSession::new(config)
-                .map_err(|_| crate::Error::VadSessionCreationFailed)?,
-            chunk_samples,
-            buffer: Vec::with_capacity(chunk_samples),
+            vad_session: AdaptiveVadSession::new(config)?,
+            buffer: Vec::with_capacity(CHUNK_SIZE_16KHZ),
             pending_items: VecDeque::new(),
+            finalized: false,
         })
+    }
+}
+
+fn push_transitions(pending: &mut VecDeque<VadStreamItem>, transitions: Vec<VadTransition>) {
+    for transition in transitions {
+        let item = match transition {
+            VadTransition::SpeechStart { timestamp_ms } => {
+                VadStreamItem::SpeechStart { timestamp_ms }
+            }
+            VadTransition::SpeechEnd {
+                start_timestamp_ms,
+                end_timestamp_ms,
+                samples,
+            } => VadStreamItem::SpeechEnd {
+                start_timestamp_ms,
+                end_timestamp_ms,
+                samples,
+            },
+        };
+        pending.push_back(item);
     }
 }
 
@@ -67,10 +88,14 @@ impl<S: AsyncSource> Stream for ContinuousVadStream<S> {
             return Poll::Ready(Some(Ok(item)));
         }
 
+        if this.finalized {
+            return Poll::Ready(None);
+        }
+
         let stream = this.source.as_stream();
         let mut stream = std::pin::pin!(stream);
 
-        while this.buffer.len() < this.chunk_samples {
+        while this.buffer.len() < CHUNK_SIZE_16KHZ {
             match stream.as_mut().poll_next(cx) {
                 Poll::Pending => {
                     return Poll::Pending;
@@ -79,73 +104,40 @@ impl<S: AsyncSource> Stream for ContinuousVadStream<S> {
                     this.buffer.push(sample);
                 }
                 Poll::Ready(None) => {
-                    if !this.buffer.is_empty() {
-                        let chunk = std::mem::take(&mut this.buffer);
-
-                        match this.vad_session.process(&chunk) {
-                            Ok(transitions) => {
+                    let trailing_audio = std::mem::take(&mut this.buffer);
+                    match this.vad_session.finish(&trailing_audio) {
+                        Ok(transitions) => {
+                            if !trailing_audio.is_empty() {
                                 this.pending_items
-                                    .push_back(VadStreamItem::AudioSamples(chunk));
-
-                                for transition in transitions {
-                                    let item = match transition {
-                                        VadTransition::SpeechStart { timestamp_ms } => {
-                                            VadStreamItem::SpeechStart { timestamp_ms }
-                                        }
-                                        VadTransition::SpeechEnd {
-                                            start_timestamp_ms,
-                                            end_timestamp_ms,
-                                            samples,
-                                        } => VadStreamItem::SpeechEnd {
-                                            start_timestamp_ms,
-                                            end_timestamp_ms,
-                                            samples,
-                                        },
-                                    };
-                                    this.pending_items.push_back(item);
-                                }
-
-                                if let Some(item) = this.pending_items.pop_front() {
-                                    return Poll::Ready(Some(Ok(item)));
-                                }
+                                    .push_back(VadStreamItem::AudioSamples(trailing_audio));
                             }
-                            Err(e) => {
-                                return Poll::Ready(Some(Err(crate::Error::VadProcessingFailed(
-                                    e.to_string(),
-                                ))));
+                            push_transitions(&mut this.pending_items, transitions);
+                            this.finalized = true;
+
+                            if let Some(item) = this.pending_items.pop_front() {
+                                return Poll::Ready(Some(Ok(item)));
                             }
                         }
+                        Err(e) => {
+                            this.finalized = true;
+                            return Poll::Ready(Some(Err(e)));
+                        }
                     }
+
                     return Poll::Ready(None);
                 }
             }
         }
 
-        let mut chunk = Vec::with_capacity(this.chunk_samples);
-        chunk.extend(this.buffer.drain(..this.chunk_samples));
+        let mut chunk = Vec::with_capacity(CHUNK_SIZE_16KHZ);
+        chunk.extend(this.buffer.drain(..CHUNK_SIZE_16KHZ));
 
         match this.vad_session.process(&chunk) {
             Ok(transitions) => {
                 this.pending_items
                     .push_back(VadStreamItem::AudioSamples(chunk));
 
-                for transition in transitions {
-                    let item = match transition {
-                        VadTransition::SpeechStart { timestamp_ms } => {
-                            VadStreamItem::SpeechStart { timestamp_ms }
-                        }
-                        VadTransition::SpeechEnd {
-                            start_timestamp_ms,
-                            end_timestamp_ms,
-                            samples,
-                        } => VadStreamItem::SpeechEnd {
-                            start_timestamp_ms,
-                            end_timestamp_ms,
-                            samples,
-                        },
-                    };
-                    this.pending_items.push_back(item);
-                }
+                push_transitions(&mut this.pending_items, transitions);
 
                 if let Some(item) = this.pending_items.pop_front() {
                     Poll::Ready(Some(Ok(item)))
@@ -153,7 +145,7 @@ impl<S: AsyncSource> Stream for ContinuousVadStream<S> {
                     Poll::Pending
                 }
             }
-            Err(e) => Poll::Ready(Some(Err(crate::Error::VadProcessingFailed(e.to_string())))),
+            Err(e) => Poll::Ready(Some(Err(e))),
         }
     }
 }
@@ -166,31 +158,33 @@ pub trait VadExt: AsyncSource + Sized {
     where
         Self: 'static,
     {
-        let config = VadConfig {
+        let config = AdaptiveVadConfig {
             redemption_time,
             pre_speech_pad: redemption_time,
-            post_speech_pad: Duration::from_millis(0),
             min_speech_time: Duration::from_millis(50),
             ..Default::default()
         };
 
-        ContinuousVadStream::new(self, config)
-            .unwrap()
-            .filter_map(|item| {
-                future::ready(match item {
-                    Ok(VadStreamItem::SpeechEnd {
-                        samples,
-                        start_timestamp_ms,
-                        end_timestamp_ms,
-                    }) => Some(Ok(AudioChunk {
-                        samples,
-                        start_timestamp_ms,
-                        end_timestamp_ms,
-                    })),
-                    Ok(_) => None,
-                    Err(e) => Some(Err(e)),
+        match ContinuousVadStream::new(self, config) {
+            Ok(stream) => stream
+                .filter_map(|item| {
+                    future::ready(match item {
+                        Ok(VadStreamItem::SpeechEnd {
+                            samples,
+                            start_timestamp_ms,
+                            end_timestamp_ms,
+                        }) => Some(Ok(AudioChunk {
+                            samples,
+                            start_timestamp_ms,
+                            end_timestamp_ms,
+                        })),
+                        Ok(_) => None,
+                        Err(e) => Some(Err(e)),
+                    })
                 })
-            })
+                .left_stream(),
+            Err(e) => stream::once(future::ready(Err(e))).right_stream(),
+        }
     }
 }
 
@@ -198,9 +192,16 @@ impl<T: AsyncSource> VadExt for T {}
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZero;
+
     use futures_util::StreamExt;
+    use rodio::nz;
 
     use super::*;
+
+    fn sample_source(sample_rate: u32, samples: Vec<f32>) -> rodio::buffer::SamplesBuffer {
+        rodio::buffer::SamplesBuffer::new(nz!(1u16), NonZero::new(sample_rate).unwrap(), samples)
+    }
 
     #[tokio::test]
     async fn test_no_audio_drops_for_continuous_vad() {
@@ -215,7 +216,7 @@ mod tests {
                 std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
             ))
             .unwrap(),
-            silero_rs::VadConfig::default(),
+            AdaptiveVadConfig::default(),
         )
         .unwrap();
 
@@ -258,16 +259,39 @@ mod tests {
 
         let how_many_sec = (all_audio_from_vad.len() as f64 / 16.0) / 1000.0;
         assert!(how_many_sec > 100.0);
+    }
 
-        let wav = hound::WavSpec {
-            channels: 1,
-            sample_rate: 16000,
-            bits_per_sample: 32,
-            sample_format: hound::SampleFormat::Float,
-        };
-        let mut writer = hound::WavWriter::create("./test.wav", wav).unwrap();
-        for sample in all_audio_from_vad {
-            writer.write_sample(sample).unwrap();
+    #[tokio::test]
+    async fn test_invalid_sample_rate_returns_stream_error() {
+        let mut stream = sample_source(8_000, vec![0.0; CHUNK_SIZE_16KHZ])
+            .speech_chunks(std::time::Duration::from_millis(50));
+
+        let first = stream.next().await;
+        assert!(matches!(
+            first,
+            Some(Err(crate::Error::UnsupportedSampleRate(8_000)))
+        ));
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_vad_chunks_are_monotonic_and_non_overlapping() {
+        let chunks = rodio::Decoder::new(std::io::BufReader::new(
+            std::fs::File::open(hypr_data::english_1::AUDIO_PATH).unwrap(),
+        ))
+        .unwrap()
+        .speech_chunks(std::time::Duration::from_millis(50))
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+        let mut previous_end = 0usize;
+        for chunk in chunks {
+            assert!(chunk.start_timestamp_ms < chunk.end_timestamp_ms);
+            assert!(previous_end <= chunk.start_timestamp_ms);
+            previous_end = chunk.end_timestamp_ms;
         }
     }
 }

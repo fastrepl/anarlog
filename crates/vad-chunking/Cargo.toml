@@ -15,7 +15,8 @@ name = "chunking"
 
 [dependencies]
 hypr-audio-interface = { workspace = true }
-silero-rs = { git = "https://github.com/emotechlab/silero-rs", rev = "193542c", package = "silero" }
+hypr-onnx = { workspace = true }
+hypr-vad = { workspace = true, features = ["silero-onnx"] }
 
 futures-util = { workspace = true }
 pin-project = { workspace = true }

@@ -159,7 +159,6 @@ hypr-transcript = { path = "crates/transcript", package = "transcript" }
 hypr-updater-core = { path = "crates/updater-core", package = "updater-core" }
 hypr-vad = { path = "crates/vad", package = "vad" }
 hypr-vad-chunking = { path = "crates/vad-chunking", package = "vad-chunking" }
-hypr-vad-chunking2 = { path = "crates/vad-chunking2", package = "vad-chunking2" }
 hypr-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
 hypr-version = { path = "crates/version", package = "version" }
 hypr-whisper = { path = "crates/whisper", package = "whisper" }

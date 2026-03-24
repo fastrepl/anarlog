@@ -1,8 +1,8 @@
-/// cargo run -p vad-chunking --example chunking
+/// cargo run -p hypr_vad-chunking --example chunking
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use vad_chunking::VadExt;
+use hypr_vad_chunking::VadExt;
 
 #[tokio::main]
 async fn main() {

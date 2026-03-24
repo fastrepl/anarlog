@@ -26,8 +26,8 @@ impl Default for AdaptiveVadConfig {
             pre_speech_pad: Duration::from_millis(600),
             min_speech_time: Duration::from_millis(90),
             min_chunk_duration: Duration::from_secs(3),
-            target_chunk_duration: Duration::from_secs(15),
-            max_negative_threshold: 0.70,
+            target_chunk_duration: Duration::from_secs(20),
+            max_negative_threshold: 0.80,
         }
     }
 }
