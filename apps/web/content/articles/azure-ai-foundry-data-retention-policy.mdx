@@ -1,11 +1,73 @@
 ---
-meta_title: ""
-display_title: ""
-meta_description: ""
+meta_title: "Azure AI Foundry Data Retention Policy: What You Need to Know"
+meta_description: "Azure AI Foundry gives you access to hundreds of AI models from different providers. The data policy varies by model. Here's how to read it."
 author:
-- "John Jeong"
+  - "Harshika"
 featured: false
 category: "Product"
 date: "2026-03-24"
 ---
 
+Azure AI Foundry is not a single model. It is a catalog of hundreds of models from different providers, including OpenAI, Meta, Mistral, Cohere, and many others, all accessible through a unified Microsoft Azure interface.
+
+With OpenAI or Anthropic, you evaluate one policy. With Azure AI Foundry, the policy depends on which model you are using and how it is deployed. Getting clarity on this is worth the effort before you route sensitive data through the platform.
+
+**The One Thing That Changes Everything: Models Do Not Store Your Data**
+
+**For models deployed through serverless API in Azure AI Foundry, Microsoft's [official documentation](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/concept-data-privacy) states that models are stateless. They do not store your prompts or outputs between requests. Microsoft does not use those prompts and outputs to train or improve models, and they are not shared with the model provider.**
+
+**This applies to Microsoft's deployment infrastructure, not to any model-specific behavior. When you call a model through Azure AI Foundry's serverless API, your data is processed within Microsoft's infrastructure under Microsoft's data policies.**
+
+**Which Region Actually Processes Your Data**
+
+**Prompts and outputs are processed within the geography you specify during deployment. Cross-region processing within the same geography can occur for performance and capacity reasons, but your data does not leave the geography you selected.**
+
+**If EU-only processing is a requirement, you can configure your deployment to the Europe geography. If US-only processing is required, use the US geography. The geography selection is made at deployment time and applies to all requests routed to that resource.**
+
+**How Document Intelligence and Content Safety Handle Data Differently**
+
+**Some Azure AI Foundry tools operate differently from the model inference endpoints.**
+
+**Document Intelligence stores analysis results for 24 hours after a job completes so you can retrieve them. You can delete results at any time using the Delete Analyze Result API. After successful retrieval and deletion, results are permanently purged.**
+
+**Azure AI Content Safety does not store input text or images during detection. User inputs are not used to train or retrain Content Safety models.**
+
+**These are distinct from the model inference policy and apply only to those specific tools.**
+
+**Why the Model Catalog Requires Extra Attention**
+
+**The model catalog is where things require the most attention. Azure AI Foundry hosts models from many providers, and while Microsoft's infrastructure handles the data flow, the terms of using a specific model may include provisions from the original model provider.**
+
+**Microsoft's documentation is clear that for serverless API deployments, Microsoft does not share prompts and outputs with the model provider. The data stays within Microsoft's infrastructure. However, if you deploy a model in a managed compute setup rather than serverless, the data handling can differ depending on the configuration.**
+
+**Before routing sensitive data through a specific model in the catalog, review both Microsoft's data policy for the deployment type you are using and any model-specific terms that apply.**
+
+**How to Make Sure Nothing Gets Stored at All**
+
+**ZDR on Azure AI Foundry follows the same path as Azure OpenAI. It requires approval through Microsoft's Limited Access program and is available to enterprise customers on an Enterprise Agreement or Microsoft Customer Agreement. It is not a self-service portal toggle.**
+
+**Under ZDR, no prompts or completions are retained beyond in-memory processing. Combined with geography-constrained deployment, this gives enterprise customers a strong data isolation posture.**
+
+**Is Azure AI Foundry Compliant for Healthcare and EU Teams?**
+
+**For GDPR, Azure AI Foundry operates under Microsoft's Data Processing Addendum, and EU geography deployments keep data within the EU. Microsoft's Standard Contractual Clauses apply to any cross-border transfers where relevant.**
+
+**For HIPAA, Azure AI Foundry is part of Microsoft's broader Azure compliance umbrella. Customers with a Microsoft HIPAA BAA can use Azure AI Foundry for workloads involving protected health information, subject to proper configuration. Confirm with your Microsoft account team that your specific deployment type and region are covered under your BAA before routing PHI through the platform.**
+
+**Azure AI Foundry vs. Azure OpenAI: Which Should You Use?**
+
+**Azure OpenAI is a specific service within Azure focused exclusively on OpenAI's models. Azure AI Foundry is a broader platform that includes Azure OpenAI as one option among many.**
+
+**For most enterprise teams, the practical difference is about model selection. If you need GPT-4o or o1, Azure OpenAI and Azure AI Foundry both give you access under effectively the same Microsoft data policy. If you need Meta's Llama, Mistral, Cohere, or other non-OpenAI models with enterprise-grade data isolation, Azure AI Foundry is the right surface.**
+
+**The data policy for Azure Direct Models (the OpenAI models surfaced through Foundry) is documented [directly by Microsoft](https://learn.microsoft.com/en-us/azure/foundry/responsible-ai/openai/data-privacy) and matches the Azure OpenAI policy covered in our previous article in this series.**
+
+**Using Azure AI Foundry Through Char**
+
+**Char supports custom API endpoints, which means you can point it at your Azure AI Foundry deployment. Whichever model you have configured in Foundry, your meeting data routes through your Azure subscription under Microsoft's enterprise data policy.**
+
+**If you have a ZDR agreement in place, that applies to requests made through Char as well. If you have a geography-constrained deployment, requests stay within that region. The integration does not add any new data flows outside your Azure environment.**
+
+**Your notes remain as plain markdown files on your device regardless of which model processes them through Foundry. Switching from one Foundry model to another, or from Foundry to a different provider entirely, does not change how your local data is stored.**
+
+**[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.**
