@@ -23,7 +23,6 @@ import {
 import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
-import { HeaderListenButton } from "./header-listen-button";
 import { useNewNoteAndListen } from "./useNewNote";
 
 import { TabContentAI, TabItemAI } from "~/ai";
@@ -311,7 +310,6 @@ function Header({ tabs }: { tabs: Tab[] }) {
         </Button>
 
         <div className="ml-auto flex h-full items-center gap-1">
-          <HeaderListenButton />
           <Update />
         </div>
       </div>
