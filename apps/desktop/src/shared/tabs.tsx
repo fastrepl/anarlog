@@ -240,63 +240,64 @@ export function TabItemBase({
         ])}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <div className="relative h-4 w-4 shrink-0">
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+            {finalizing ? <Spinner size={16} /> : icon}
+          </div>
+          <span className="pointer-events-none truncate">{title}</span>
+        </div>
+        <div className="relative h-4 w-4 shrink-0">
+          <div
+            className={cn([
+              "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
+              showShortcut || ((isHovered || isConfirmationOpen) && allowClose)
+                ? "opacity-0"
+                : "opacity-100",
+            ])}
+          >
+            {pinned && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnpinThis();
+                }}
+                className={cn([
+                  "flex items-center justify-center transition-colors",
+                  colors.hover[selected ? "selected" : "unselected"],
+                ])}
+              >
+                <Pin size={14} />
+              </button>
+            )}
+          </div>
+          {allowClose && (
             <div
               className={cn([
                 "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-                (isHovered && allowClose) || isConfirmationOpen
+                showShortcut || !(isHovered || isConfirmationOpen)
                   ? "opacity-0"
                   : "opacity-100",
               ])}
             >
-              {finalizing ? (
-                <Spinner size={16} />
-              ) : pinned ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUnpinThis();
-                  }}
-                  className={cn([
-                    "flex items-center justify-center transition-colors",
-                    colors.hover[selected ? "selected" : "unselected"],
-                  ])}
-                >
-                  <Pin size={14} />
-                </button>
-              ) : (
-                icon
-              )}
-            </div>
-            {allowClose && (
-              <div
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAttemptClose();
+                }}
                 className={cn([
-                  "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-                  isHovered || isConfirmationOpen ? "opacity-100" : "opacity-0",
+                  "flex items-center justify-center transition-colors",
+                  colors.hover[selected ? "selected" : "unselected"],
                 ])}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAttemptClose();
-                  }}
-                  className={cn([
-                    "flex items-center justify-center transition-colors",
-                    colors.hover[selected ? "selected" : "unselected"],
-                  ])}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-          <span className="pointer-events-none truncate">{title}</span>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {showShortcut && (
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center">
+              <Kbd>⌘ {tabIndex}</Kbd>
+            </div>
+          )}
         </div>
-        {showShortcut && (
-          <div className="pointer-events-none absolute top-0.75 right-2">
-            <Kbd>⌘ {tabIndex}</Kbd>
-          </div>
-        )}
       </InteractiveButton>
       <Popover
         open={active && isConfirmationOpen}
