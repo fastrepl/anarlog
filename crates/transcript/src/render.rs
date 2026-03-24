@@ -1,8 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
-    ChannelProfile, FinalizedWord, SegmentBuilderOptions, SegmentKey, SegmentWord, SpeakerHintData,
-    SpeakerLabelContext, SpeakerLabeler, build_segments, render_speaker_label,
+    ChannelProfile, FinalizedWord, RuntimeSpeakerHint, SegmentBuilderOptions, SegmentKey,
+    SegmentWord, SpeakerHintData, SpeakerLabelContext, SpeakerLabeler, WordRef, build_segments,
+    render_speaker_label,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -62,7 +63,13 @@ pub fn render_transcript_segments(
         humans,
     } = request;
 
-    let (words, speaker_hints) = collect_render_words_and_hints(transcripts);
+    let (words, mut speaker_hints) = collect_render_words_and_hints(transcripts);
+    inject_channel_speaker_hints(
+        &words,
+        &participant_human_ids,
+        self_human_id.as_deref(),
+        &mut speaker_hints,
+    );
     let segment_options = render_segment_options(&participant_human_ids, self_human_id.as_deref());
     let segments = build_segments(&words, &[], &speaker_hints, Some(&segment_options));
     let ctx = SpeakerLabelContext {
@@ -232,6 +239,66 @@ pub fn stable_segment_id(key: &SegmentKey, words: &[SegmentWord]) -> String {
     )
 }
 
+fn inject_channel_speaker_hints(
+    words: &[FinalizedWord],
+    participant_human_ids: &[String],
+    self_human_id: Option<&str>,
+    hints: &mut Vec<RuntimeSpeakerHint>,
+) {
+    let self_id = match self_human_id {
+        Some(id) if !id.is_empty() => id,
+        _ => return,
+    };
+
+    let remote_id = unique_other_participant(participant_human_ids, self_id);
+    let remote_id = match remote_id {
+        Some(id) => id,
+        None => return,
+    };
+
+    let first_on_direct_mic = words
+        .iter()
+        .find(|w| w.channel == ChannelProfile::DirectMic as i32);
+    let first_on_remote = words
+        .iter()
+        .find(|w| w.channel == ChannelProfile::RemoteParty as i32);
+
+    if let Some(word) = first_on_direct_mic {
+        hints.push(RuntimeSpeakerHint {
+            target: WordRef::FinalWordId(word.id.clone()),
+            data: SpeakerHintData::UserSpeakerAssignment {
+                human_id: self_id.to_string(),
+            },
+        });
+    }
+
+    if let Some(word) = first_on_remote {
+        hints.push(RuntimeSpeakerHint {
+            target: WordRef::FinalWordId(word.id.clone()),
+            data: SpeakerHintData::UserSpeakerAssignment {
+                human_id: remote_id.to_string(),
+            },
+        });
+    }
+}
+
+fn unique_other_participant<'a>(
+    participant_human_ids: &'a [String],
+    self_human_id: &str,
+) -> Option<&'a str> {
+    let others: Vec<&str> = participant_human_ids
+        .iter()
+        .map(|s| s.as_str())
+        .filter(|&id| !id.is_empty() && id != self_human_id)
+        .collect();
+
+    if others.len() == 1 {
+        Some(others[0])
+    } else {
+        None
+    }
+}
+
 fn normalized_rendered_word_text(text: &str, is_first_word: bool) -> String {
     let trimmed_start = text.trim_start();
     if trimmed_start.is_empty() {
@@ -272,7 +339,7 @@ mod tests {
                     },
                     RenderTranscriptWordInput {
                         id: "w2".to_string(),
-                        text: " remote".to_string(),
+                        text: " world".to_string(),
                         start_ms: 120,
                         end_ms: 240,
                         channel: 1,
@@ -280,19 +347,25 @@ mod tests {
                 ],
                 speaker_hints: vec![],
             }],
-            participant_human_ids: vec!["self".to_string(), "remote".to_string()],
-            self_human_id: Some("self".to_string()),
-            humans: vec![RenderTranscriptHuman {
-                human_id: "self".to_string(),
-                name: "Me".to_string(),
-            }],
+            participant_human_ids: vec!["human-1".to_string(), "human-2".to_string()],
+            self_human_id: Some("human-1".to_string()),
+            humans: vec![
+                RenderTranscriptHuman {
+                    human_id: "human-1".to_string(),
+                    name: "Alice".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "human-2".to_string(),
+                    name: "Bob".to_string(),
+                },
+            ],
         });
 
         assert_eq!(segments.len(), 2);
-        assert_eq!(segments[0].speaker_label, "Me");
+        assert_eq!(segments[0].speaker_label, "Alice");
         assert_eq!(segments[0].text, "hello");
-        assert_eq!(segments[1].speaker_label, "Speaker 1");
-        assert_eq!(segments[1].text, "remote");
+        assert_eq!(segments[1].speaker_label, "Bob");
+        assert_eq!(segments[1].text, "world");
     }
 
     #[test]

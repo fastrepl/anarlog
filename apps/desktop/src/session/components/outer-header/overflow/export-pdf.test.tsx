@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ExportPDF } from "./export-pdf";
 
@@ -102,6 +102,10 @@ vi.mock("~/store/tinybase/store/main", () => ({
 }));
 
 describe("ExportPDF", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     useMutationMock.mockReturnValue({
       mutate: vi.fn(),

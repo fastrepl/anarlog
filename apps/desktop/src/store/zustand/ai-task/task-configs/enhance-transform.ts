@@ -252,21 +252,13 @@ async function getTranscriptSegmentsFromMeta(
 
   const segments = await renderTranscriptSegments(request);
 
-  const sessionStartCandidate = transcripts.reduce(
-    (min, transcript) => Math.min(min, transcript.startedAt),
-    Number.POSITIVE_INFINITY,
-  );
-  const sessionStartMs = Number.isFinite(sessionStartCandidate)
-    ? sessionStartCandidate
-    : 0;
-
   const normalizedSegments = segments.reduce<SegmentPayload[]>(
     (acc, segment) => {
       if (segment.words.length === 0) {
         return acc;
       }
 
-      acc.push(toSegmentPayload(segment, sessionStartMs));
+      acc.push(toSegmentPayload(segment));
       return acc;
     },
     [],
@@ -305,20 +297,16 @@ function collectTranscripts(
 
 function toSegmentPayload(
   segment: Awaited<ReturnType<typeof renderTranscriptSegments>>[number],
-  sessionStartMs: number,
 ): SegmentPayload {
-  const firstWord = segment.words[0];
-  const lastWord = segment.words[segment.words.length - 1];
-
   return {
     speaker_label: segment.speaker_label,
-    start_ms: firstWord.start_ms - sessionStartMs,
-    end_ms: lastWord.end_ms - sessionStartMs,
+    start_ms: segment.start_ms,
+    end_ms: segment.end_ms,
     text: segment.text,
     words: segment.words.map((word) => ({
       text: word.text,
-      start_ms: word.start_ms - sessionStartMs,
-      end_ms: word.end_ms - sessionStartMs,
+      start_ms: word.start_ms,
+      end_ms: word.end_ms,
     })),
   };
 }
