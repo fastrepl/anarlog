@@ -23,9 +23,9 @@ async fn main() {
         colored::control::set_override(false);
     }
 
-    init_tracing(&cli);
+    let trace_buffer = init_tracing(&cli);
 
-    if let Err(error) = run(cli, ()).await {
+    if let Err(error) = run(cli, trace_buffer).await {
         eprintln!("error: {error}");
         std::process::exit(1);
     }
@@ -73,7 +73,7 @@ fn init_tracing(cli: &Cli) -> OptTraceBuffer {
     #[cfg(feature = "standalone")]
     return None;
     #[cfg(not(feature = "standalone"))]
-    return;
+    return ();
 }
 
 fn init_tracing_stderr(level: tracing_subscriber::filter::LevelFilter) {
