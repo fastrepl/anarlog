@@ -89,8 +89,6 @@ To make this persist across terminal sessions, add that line to your `~/.bashrc`
 
 Test it with a curl call:
 
-bash
-
 ```bash
 curl https://api.anthropic.com/v1/messages \
   -H "x-api-key: $ANTHROPIC_API_KEY" \
@@ -109,8 +107,6 @@ If you get a JSON response with a `content` array back, the key is working. A 40
 
 For Python projects, use `python-dotenv` to load your key from a `.env` file:
 
-python
-
 ```python
 from dotenv import load_dotenv
 import os
@@ -125,12 +121,7 @@ Never paste your API key into code you commit to a repository. Leaked Anthropic 
 
 If it gets exposed, go to the console immediately, delete the key, and generate a new one. Then check your usage page for any calls you didn't make.
 
-Keep your key in a `.env` file at the project root and add `.env` to your `.gitignore`:
-
-```
-# .gitignore
-.env
-```
+Keep your key in a `.env` file at the project root and add `.env` to your `.gitignore`.
 
 For CI pipelines and server deployments, use your platform's secrets manager rather than a `.env` file. GitHub Actions, Railway, Render, and most platforms have one built in.
 
