@@ -1,6 +1,6 @@
+use crate::segment_types::{ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey};
 use crate::types::{
-    ChannelProfile, FinalizedWord, PartialWord, RuntimeSpeakerHint, Segment, SegmentBuilderOptions,
-    SegmentKey, SpeakerHintData, WordRef, WordState,
+    FinalizedWord, PartialWord, RuntimeSpeakerHint, SpeakerHintData, WordRef, WordState,
 };
 
 use super::build_segments;
@@ -145,6 +145,7 @@ fn does_not_merge_past_max_gap() {
     ];
     let opts = SegmentBuilderOptions {
         max_gap_ms: Some(2000),
+        min_segment_words: Some(0),
         ..Default::default()
     };
     let result = build_segments(&finals, &[], &[], Some(&opts));
@@ -401,4 +402,82 @@ fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(texts(&result[0]), vec!["0", "1"]);
+}
+
+#[test]
+fn consolidates_rapid_crosstalk_micro_segments() {
+    // Simulates the screenshot: rapid alternation during cross-talk
+    // Speaker1: "Alright." (long segment before) then "But" "yeah."
+    // You (ch0): "Mean," "look" "Everyone knows..."
+    let finals = vec![
+        fw("alright", 78000, 84000, 1),
+        fw("mean", 84000, 84500, 0),
+        fw("but", 85000, 85200, 1),
+        fw("look", 85200, 85400, 0),
+        fw("yeah", 85400, 85500, 1),
+        fw("everyone", 85500, 86000, 0),
+        fw("knows", 86000, 86500, 0),
+        fw("the", 86500, 87000, 0),
+        fw("truth", 87000, 105000, 0),
+    ];
+    let opts = SegmentBuilderOptions::default();
+    let result = build_segments(&finals, &[], &[], Some(&opts));
+    // micro segments absorbed: "mean" + "look" merge into the "everyone..." segment (ch0)
+    // "but" + "yeah" merge into "alright" segment (ch1)
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0].key, key(1));
+    assert_eq!(texts(&result[0]), vec!["alright", "but", "yeah"]);
+    assert_eq!(result[1].key, key(0));
+    assert_eq!(
+        texts(&result[1]),
+        vec!["mean", "look", "everyone", "knows", "the", "truth"]
+    );
+}
+
+#[test]
+fn no_consolidation_when_segment_duration_exceeds_threshold() {
+    let finals = vec![
+        fw("hello", 0, 2500, 0),
+        fw("ok", 3000, 3200, 1),
+        fw("world", 3300, 5800, 0),
+    ];
+    let opts = SegmentBuilderOptions::default();
+    let result = build_segments(&finals, &[], &[], Some(&opts));
+    // "ok" is micro (1 word, 200ms) but its ch0 neighbors have duration >= 2000ms
+    // so "ok" can't cross them — stays as its own segment
+    assert_eq!(result.len(), 3);
+}
+
+#[test]
+fn no_consolidation_when_disabled() {
+    let finals = vec![
+        fw("a", 0, 100, 0),
+        fw("b", 150, 200, 1),
+        fw("c", 250, 300, 0),
+    ];
+    let opts = SegmentBuilderOptions {
+        min_segment_words: Some(0),
+        ..Default::default()
+    };
+    let result = build_segments(&finals, &[], &[], Some(&opts));
+    assert_eq!(result.len(), 3);
+}
+
+#[test]
+fn micro_segment_not_absorbed_across_long_segment() {
+    // micro(ch0) - LONG(ch1) - micro(ch0): should NOT merge because LONG blocks the path
+    let finals = vec![
+        fw("hi", 0, 100, 0),
+        fw("this", 200, 300, 1),
+        fw("is", 300, 400, 1),
+        fw("a", 400, 500, 1),
+        fw("long", 500, 600, 1),
+        fw("turn", 600, 3000, 1),
+        fw("ok", 3100, 3200, 0),
+    ];
+    let opts = SegmentBuilderOptions::default();
+    let result = build_segments(&finals, &[], &[], Some(&opts));
+    assert_eq!(result.len(), 3);
+    assert_eq!(texts(&result[0]), vec!["hi"]);
+    assert_eq!(texts(&result[2]), vec!["ok"]);
 }

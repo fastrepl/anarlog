@@ -1,6 +1,4 @@
-use owhisper_interface::stream::StreamResponse;
-
-use crate::{DegradedError, LiveTranscriptDelta, TranscriptionMode};
+use crate::{DegradedError, LiveTranscriptDelta, LiveTranscriptSegmentDelta, TranscriptionMode};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -72,14 +70,14 @@ pub enum SessionDataEvent {
     },
     #[serde(rename = "mic_muted")]
     MicMuted { session_id: String, value: bool },
-    #[serde(rename = "stream_response")]
-    StreamResponse {
-        session_id: String,
-        response: Box<StreamResponse>,
-    },
     #[serde(rename = "transcript_delta")]
     TranscriptDelta {
         session_id: String,
         delta: Box<LiveTranscriptDelta>,
+    },
+    #[serde(rename = "transcript_segment_delta")]
+    TranscriptSegmentDelta {
+        session_id: String,
+        delta: Box<LiveTranscriptSegmentDelta>,
     },
 }

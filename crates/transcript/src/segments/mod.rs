@@ -6,11 +6,12 @@ mod speakers;
 #[cfg(test)]
 mod tests;
 
-use crate::types::{
-    FinalizedWord, PartialWord, RuntimeSpeakerHint, Segment, SegmentBuilderOptions,
-};
+use crate::segment_types::{Segment, SegmentBuilderOptions};
+use crate::types::{FinalizedWord, PartialWord, RuntimeSpeakerHint};
 
-use self::collect::{collect_segments, finalize_segments, propagate_identity};
+use self::collect::{
+    collect_segments, consolidate_micro_segments, finalize_segments, propagate_identity,
+};
 use self::normalize::normalize_words;
 use self::speakers::{create_speaker_state, resolve_identities};
 
@@ -30,6 +31,7 @@ pub fn build_segments(
     let frames = resolve_identities(&words, &mut speaker_state);
     let mut proto_segments = collect_segments(frames, options);
     propagate_identity(&mut proto_segments, &speaker_state);
+    consolidate_micro_segments(&mut proto_segments, options);
 
     finalize_segments(proto_segments)
 }

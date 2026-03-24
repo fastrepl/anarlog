@@ -3,6 +3,8 @@ import type { StoreApi } from "zustand";
 
 import type {
   LiveTranscriptDelta,
+  LiveTranscriptSegment,
+  LiveTranscriptSegmentDelta,
   PartialSpeakerHint,
   SpeakerHintData,
 } from "@hypr/plugin-listener";
@@ -26,6 +28,8 @@ export type OnStoppedCallback = (
 ) => void;
 
 export type TranscriptState = {
+  liveSegments: LiveTranscriptSegment[];
+  liveSegmentsById: Record<string, LiveTranscriptSegment>;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   handlePersist?: LiveTranscriptPersistCallback;
@@ -36,10 +40,13 @@ export type TranscriptActions = {
   setTranscriptPersist: (callback?: LiveTranscriptPersistCallback) => void;
   setOnStopped: (callback?: OnStoppedCallback) => void;
   handleTranscriptDelta: (delta: LiveTranscriptDelta) => void;
+  handleTranscriptSegmentDelta: (delta: LiveTranscriptSegmentDelta) => void;
   resetTranscript: () => void;
 };
 
 const initialState: TranscriptState = {
+  liveSegments: [],
+  liveSegmentsById: {},
   partialWordsByChannel: {},
   partialHintsByChannel: {},
   handlePersist: undefined,
@@ -91,9 +98,26 @@ export const createTranscriptSlice = <
 
     handlePersist?.(delta);
   },
+  handleTranscriptSegmentDelta: (delta) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        for (const removedId of delta.removed_ids) {
+          delete draft.liveSegmentsById[removedId];
+        }
+        for (const segment of delta.upserts) {
+          draft.liveSegmentsById[segment.id] = segment;
+        }
+        draft.liveSegments = Object.values(draft.liveSegmentsById).sort(
+          (a, b) => a.start_ms - b.start_ms,
+        );
+      }),
+    );
+  },
   resetTranscript: () => {
     set((state) =>
       mutate(state, (draft) => {
+        draft.liveSegments = [];
+        draft.liveSegmentsById = {};
         draft.partialWordsByChannel = {};
         draft.partialHintsByChannel = {};
         draft.handlePersist = undefined;

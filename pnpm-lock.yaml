@@ -343,9 +343,6 @@ importers:
       '@hypr/tiptap':
         specifier: workspace:^
         version: link:../../packages/tiptap
-      '@hypr/transcript':
-        specifier: workspace:^
-        version: link:../../packages/transcript
       '@hypr/ui':
         specifier: workspace:^
         version: link:../../packages/ui
@@ -787,9 +784,6 @@ importers:
       '@hypr/tiptap':
         specifier: workspace:*
         version: link:../../packages/tiptap
-      '@hypr/transcript':
-        specifier: workspace:*
-        version: link:../../packages/transcript
       '@hypr/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -1531,33 +1525,6 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(happy-dom@20.7.0)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/transcript:
-    dependencies:
-      '@hypr/ui':
-        specifier: workspace:^
-        version: link:../ui
-      '@hypr/utils':
-        specifier: workspace:^
-        version: link:../utils
-      chroma-js:
-        specifier: ^3.1.2
-        version: 3.2.0
-      lucide-react:
-        specifier: ^0.544.0
-        version: 0.544.0(react@19.2.4)
-      react:
-        specifier: ^19.2.3
-        version: 19.2.4
-    devDependencies:
-      '@types/chroma-js':
-        specifier: ^3.1.2
-        version: 3.1.2
-      '@types/react':
-        specifier: ^19.2.13
-        version: 19.2.13
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@25.2.3)(happy-dom@20.7.0)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/ui:
     dependencies:

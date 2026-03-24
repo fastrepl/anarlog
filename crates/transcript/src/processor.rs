@@ -5,7 +5,7 @@ use owhisper_interface::{
     stream::{StreamResponse, Word},
 };
 
-use super::accumulator::ChannelState;
+use super::channel_state::ChannelState;
 use super::types::{
     FinalizedWord, PartialWord, RuntimeSpeakerHint, TranscriptDelta, WordRef, WordState,
 };

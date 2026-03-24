@@ -1413,6 +1413,7 @@ dependencies = [
  "anyhow",
  "audio",
  "audio-interface",
+ "audio-sync",
  "audio-utils",
  "bytes",
  "cidre",
@@ -1505,7 +1506,11 @@ name = "audio-sync"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "dasp",
  "realfft",
+ "rodio",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

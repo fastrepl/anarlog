@@ -32,10 +32,9 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import { EditingControls } from "./transcript/editing/controls";
 import {
-  buildTranscriptExportSegments,
   formatTranscriptExportSegments,
+  useTranscriptExportSegments,
 } from "./transcript/export-data";
 
 import { useAITaskTask } from "~/ai/hooks";
@@ -89,27 +88,17 @@ function HeaderTabTranscript({
     sessionMode !== "finalizing" &&
     sessionMode !== "running_batch";
   const store = main.UI.useStore(main.STORE_ID);
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
   const runBatch = useRunBatch(sessionId);
   const [isRedoing, setIsRedoing] = useState(false);
   const [copied, setCopied] = useState(false);
   const copiedResetTimeoutRef = useRef<number | null>(null);
 
   const isProcessing = isBatchProcessing || isRedoing;
-  const transcriptText = useMemo(() => {
-    if (!store || transcriptIds.length === 0) {
-      return "";
-    }
-
-    return formatTranscriptExportSegments(
-      buildTranscriptExportSegments(store, transcriptIds),
-    );
-  }, [store, transcriptIds]);
+  const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
+  const transcriptText = useMemo(
+    () => formatTranscriptExportSegments(transcriptSegments),
+    [transcriptSegments],
+  );
 
   useEffect(() => {
     return () => {
@@ -204,7 +193,8 @@ function HeaderTabTranscript({
   );
 
   const showRefreshButton = audioExists && isActive && isSessionInactive;
-  const showCopyButton = isActive && transcriptText.length > 0;
+  const showCopyButton =
+    isActive && isSessionInactive && transcriptText.length > 0;
   const showProgress = audioExists && isActive && isProcessing;
   const refreshButton = (
     <span
@@ -486,15 +476,11 @@ export function Header({
   editorTabs,
   currentTab,
   handleTabChange,
-  isEditing,
-  setIsEditing,
 }: {
   sessionId: string;
   editorTabs: EditorView[];
   currentTab: EditorView;
   handleTabChange: (view: EditorView) => void;
-  isEditing: boolean;
-  setIsEditing: (isEditing: boolean) => void;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isLiveProcessing = sessionMode === "active";
@@ -507,9 +493,6 @@ export function Header({
   if (editorTabs.length === 1 && editorTabs[0].type === "raw") {
     return null;
   }
-
-  const showEditingControls =
-    currentTab.type === "transcript" && isLiveProcessing;
 
   return (
     <div className="flex flex-col">
@@ -566,9 +549,6 @@ export function Header({
           {!atStart && <ScrollFadeOverlay position="left" />}
           {!atEnd && <ScrollFadeOverlay position="right" />}
         </div>
-        {showEditingControls && (
-          <EditingControls isEditing={isEditing} setIsEditing={setIsEditing} />
-        )}
       </div>
     </div>
   );

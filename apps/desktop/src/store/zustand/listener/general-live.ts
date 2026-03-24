@@ -9,6 +9,7 @@ import {
   commands as listenerCommands,
   events as listenerEvents,
   type LiveTranscriptDelta,
+  type LiveTranscriptSegmentDelta,
   type SessionDataEvent,
   type SessionErrorEvent,
   type SessionLifecycleEvent,
@@ -192,7 +193,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
-    if (payload.type === "stream_response") {
+    if (payload.type === "transcript_segment_delta") {
+      get().handleTranscriptSegmentDelta(
+        payload.delta as unknown as LiveTranscriptSegmentDelta,
+      );
       return;
     }
 

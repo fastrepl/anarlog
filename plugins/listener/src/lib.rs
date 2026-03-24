@@ -32,6 +32,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::is_supported_languages_live::<tauri::Wry>,
             commands::suggest_providers_for_languages_live::<tauri::Wry>,
             commands::list_documented_language_codes_live::<tauri::Wry>,
+            commands::render_transcript_segments,
         ])
         .events(tauri_specta::collect_events![
             SessionLifecycleEvent,

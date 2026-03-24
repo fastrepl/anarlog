@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{FinalizedWord, WordState};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TranscriptPostprocessor {
     language: Option<String>,
 }
@@ -146,12 +146,6 @@ impl TranscriptPostprocessor {
     }
 }
 
-impl Default for TranscriptPostprocessor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl EditableTranscriptDocument {
     fn from_words(words: &[FinalizedWord]) -> Self {
         Self {
@@ -227,13 +221,20 @@ fn apply_patch_to_words(
     Ok(words
         .iter()
         .zip(patched.words)
-        .map(|(word, patched_word)| FinalizedWord {
-            id: word.id.clone(),
-            text: patched_word.text,
-            start_ms: word.start_ms,
-            end_ms: word.end_ms,
-            channel: word.channel,
-            state: WordState::Final,
+        .map(|(word, patched_word)| {
+            let text = if word.text.starts_with(' ') && !patched_word.text.starts_with(' ') {
+                format!(" {}", patched_word.text.trim_start())
+            } else {
+                patched_word.text
+            };
+            FinalizedWord {
+                id: word.id.clone(),
+                text,
+                start_ms: word.start_ms,
+                end_ms: word.end_ms,
+                channel: word.channel,
+                state: WordState::Final,
+            }
         })
         .collect())
 }
@@ -320,6 +321,36 @@ mod tests {
 
         let corrected = apply_patch_to_words(&sample_words(), &envelope.patch).unwrap();
         assert_eq!(corrected[0].text, "hello");
+    }
+
+    #[test]
+    fn preserves_leading_space_after_correction() {
+        let words = vec![
+            FinalizedWord {
+                id: "w1".to_string(),
+                text: " hello".to_string(),
+                start_ms: 0,
+                end_ms: 100,
+                channel: 0,
+                state: WordState::Pending,
+            },
+            FinalizedWord {
+                id: "w2".to_string(),
+                text: " wrld".to_string(),
+                start_ms: 100,
+                end_ms: 200,
+                channel: 0,
+                state: WordState::Pending,
+            },
+        ];
+        let patch: Patch =
+            serde_json::from_str(r#"[{"op":"replace","path":"/words/1/text","value":"world"}]"#)
+                .unwrap();
+
+        let corrected = apply_patch_to_words(&words, &patch).unwrap();
+
+        assert_eq!(corrected[0].text, " hello");
+        assert_eq!(corrected[1].text, " world");
     }
 
     #[test]

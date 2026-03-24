@@ -7,18 +7,18 @@ import type {
   SttStatusResponse,
 } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
+
+import { env } from "@/env";
+import { getAccessToken } from "@/functions/access-token";
+import { useAudioUppy } from "@/hooks/use-audio-uppy";
+import { useSummaryStream } from "@/hooks/use-summary-stream";
 import {
   buildSegments,
   ChannelProfile,
   type RuntimeSpeakerHint,
   type Segment,
   type WordLike,
-} from "@hypr/transcript";
-
-import { env } from "@/env";
-import { getAccessToken } from "@/functions/access-token";
-import { useAudioUppy } from "@/hooks/use-audio-uppy";
-import { useSummaryStream } from "@/hooks/use-summary-stream";
+} from "@/lib/transcript";
 import type { SessionCell, Store } from "@/store/tinybase";
 
 function createAuthClient(accessToken: string) {

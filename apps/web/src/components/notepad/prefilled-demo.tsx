@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
 import { md2json } from "@hypr/tiptap/shared";
-import { buildSegments, ChannelProfile } from "@hypr/transcript";
 
+import { buildSegments, ChannelProfile } from "@/lib/transcript";
 import { createSessionRow, type Store, STORE_ID, UI } from "@/store/tinybase";
 
 import { SessionPanel } from "./session-panel";

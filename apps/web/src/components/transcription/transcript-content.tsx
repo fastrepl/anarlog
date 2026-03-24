@@ -5,8 +5,8 @@ import {
   type SegmentKey,
   SegmentKey as SegmentKeyUtils,
   SpeakerLabelManager,
-} from "@hypr/transcript";
-import { getSegmentColor, SegmentsList } from "@hypr/transcript/ui";
+} from "@/lib/transcript";
+import { getSegmentColor, SegmentsList } from "@/lib/transcript/ui";
 
 export function TranscriptContent({
   transcript,

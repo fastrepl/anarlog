@@ -1,15 +1,12 @@
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import type { SessionContentData } from "@hypr/plugin-fs-sync";
 import type { SessionContext, Transcript } from "@hypr/plugin-template";
-import type { SpeakerHintStorage } from "@hypr/store";
 
 import type * as main from "~/store/tinybase/store/main";
-import { buildSegments, SegmentKey, type WordLike } from "~/stt/segment";
 import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
-import { convertStorageHintsToRuntime } from "~/stt/speaker-hints";
+  buildRenderTranscriptRequestFromFsTranscript,
+  renderTranscriptSegments,
+} from "~/stt/render-transcript";
 
 function extractEventName(event: unknown): string | null {
   if (!event || typeof event !== "object") {
@@ -27,71 +24,24 @@ function extractEventName(event: unknown): string | null {
   return null;
 }
 
-function buildTranscript(
+async function buildTranscript(
   transcriptData: SessionContentData["transcript"],
   store: ReturnType<typeof main.UI.useStore>,
-): Transcript | null {
+  sessionId: string,
+): Promise<Transcript | null> {
   const transcripts = transcriptData?.transcripts ?? [];
   if (transcripts.length === 0) {
     return null;
   }
-
-  const indexedWords = transcripts
-    .flatMap((transcript) =>
-      (transcript.words ?? []).map((word) => ({
-        id: word.id ?? null,
-        text: word.text,
-        start_ms: word.start_ms,
-        end_ms: word.end_ms,
-        channel: word.channel as WordLike["channel"],
-      })),
-    )
-    .sort((a, b) => a.start_ms - b.start_ms);
-
-  const words: WordLike[] = indexedWords.map((word) => ({
-    text: word.text,
-    start_ms: word.start_ms,
-    end_ms: word.end_ms,
-    channel: word.channel,
-  }));
-
-  if (words.length === 0) {
+  const request = buildRenderTranscriptRequestFromFsTranscript(
+    transcriptData,
+    store,
+    sessionId,
+  );
+  if (!request) {
     return null;
   }
-
-  const wordIdToIndex = new Map<string, number>();
-  indexedWords.forEach((word, index) => {
-    if (typeof word.id === "string" && word.id) {
-      wordIdToIndex.set(word.id, index);
-    }
-  });
-
-  const storageHints: SpeakerHintStorage[] = transcripts.flatMap((transcript) =>
-    (transcript.speaker_hints ?? []).flatMap((hint) => {
-      if (!hint.word_id) {
-        return [];
-      }
-      return [
-        {
-          word_id: hint.word_id,
-          type: hint.type,
-          value:
-            typeof hint.value === "string"
-              ? JSON.parse(hint.value)
-              : (hint.value ?? {}),
-        },
-      ];
-    }),
-  );
-
-  const runtimeHints = convertStorageHintsToRuntime(
-    storageHints,
-    wordIdToIndex,
-  );
-
-  const segments = buildSegments(words, [], runtimeHints);
-  const ctx = store ? defaultRenderLabelContext(store) : undefined;
-  const manager = SpeakerLabelManager.fromSegments(segments, ctx);
+  const segments = await renderTranscriptSegments(request);
 
   const startedAtCandidates = transcripts
     .map((t) => t.started_at)
@@ -102,8 +52,8 @@ function buildTranscript(
 
   return {
     segments: segments.map((segment) => ({
-      speaker: SegmentKey.renderLabel(segment.key, ctx, manager),
-      text: segment.words.map((word) => word.text).join(" "),
+      speaker: segment.speaker_label,
+      text: segment.text,
     })),
     startedAt:
       startedAtCandidates.length > 0 ? Math.min(...startedAtCandidates) : null,
@@ -152,7 +102,11 @@ export async function hydrateSessionContextFromFs(
     .filter((note): note is string => Boolean(note))
     .join("\n\n---\n\n");
 
-  const transcript = buildTranscript(payload.transcript, store);
+  const transcript = await buildTranscript(
+    payload.transcript,
+    store,
+    sessionId,
+  );
   const eventName = extractEventName(payload.meta?.event);
 
   return {

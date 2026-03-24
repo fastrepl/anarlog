@@ -1,6 +1,5 @@
 import { type RefObject, useEffect, useRef } from "react";
 
-import { useTranscriptOperations } from "./mutations";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
@@ -12,15 +11,12 @@ import { useUploadFile } from "~/stt/useUploadFile";
 
 export function Transcript({
   sessionId,
-  isEditing,
   scrollRef,
 }: {
   sessionId: string;
-  isEditing: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
-  const operations = useTranscriptOperations({ sessionId, isEditing });
-  const screen = useTranscriptScreen({ sessionId, operations });
+  const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio, uploadTranscript, processFile } =
     useUploadFile(sessionId);
 
@@ -64,11 +60,8 @@ export function Transcript({
       {screen.kind === "ready" && (
         <TranscriptViewer
           transcriptIds={screen.transcriptIds}
-          partialWords={screen.partialWords}
-          partialHints={screen.partialHints}
-          editable={screen.editable}
+          liveSegments={screen.liveSegments}
           currentActive={screen.currentActive}
-          operations={screen.operations}
           scrollRef={scrollRef}
         />
       )}

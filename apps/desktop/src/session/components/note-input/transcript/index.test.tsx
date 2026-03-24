@@ -83,6 +83,7 @@ describe("Transcript", () => {
       currentTranscriptionMode: "live";
       recordingMode: "disk";
     };
+    liveSegments: unknown[];
     partialWordsByChannel: Record<number, unknown[]>;
     partialHintsByChannel: Record<number, unknown[]>;
   };
@@ -106,6 +107,7 @@ describe("Transcript", () => {
         currentTranscriptionMode: "live",
         recordingMode: "disk",
       },
+      liveSegments: [],
       partialWordsByChannel: {},
       partialHintsByChannel: {},
     };
@@ -134,11 +136,7 @@ describe("Transcript", () => {
   it("switches to transcript viewer after transcript words persist", () => {
     const scrollRef = createRef<HTMLDivElement>();
     const view = render(
-      <Transcript
-        sessionId={sessionId}
-        isEditing={false}
-        scrollRef={scrollRef}
-      />,
+      <Transcript sessionId={sessionId} scrollRef={scrollRef} />,
     );
 
     expect(screen.getByTestId("listening-state").textContent).toBe("listening");
@@ -150,13 +148,7 @@ describe("Transcript", () => {
       },
     };
 
-    view.rerender(
-      <Transcript
-        sessionId={sessionId}
-        isEditing={false}
-        scrollRef={scrollRef}
-      />,
-    );
+    view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
     expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
   });

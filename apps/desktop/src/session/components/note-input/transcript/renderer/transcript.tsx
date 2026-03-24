@@ -1,17 +1,9 @@
 import { memo, useCallback, useEffect, useMemo } from "react";
 
-import type {
-  PartialWord,
-  RuntimeSpeakerHint,
-  Segment,
-  SegmentWord,
-} from "@hypr/transcript";
-import type { Operations } from "@hypr/transcript";
 import { cn } from "@hypr/utils";
 
 import {
-  useSessionSpeakerCount,
-  useTranscriptData,
+  useRenderedTranscriptSegments,
   useTranscriptOffset,
 } from "./data-hooks";
 import { SegmentRenderer } from "./segment";
@@ -22,6 +14,7 @@ import {
 } from "./segment-hooks";
 
 import * as main from "~/store/tinybase/store/main";
+import type { Segment, SegmentWord } from "~/stt/live-segment";
 import {
   defaultRenderLabelContext,
   SpeakerLabelManager,
@@ -32,9 +25,7 @@ export function RenderTranscript({
   isLastTranscript,
   isAtBottom,
   transcriptId,
-  partialWords,
-  partialHints,
-  operations,
+  liveSegments,
   currentMs,
   seek,
   startPlayback,
@@ -44,43 +35,16 @@ export function RenderTranscript({
   isLastTranscript: boolean;
   isAtBottom: boolean;
   transcriptId: string;
-  partialWords: PartialWord[];
-  partialHints: RuntimeSpeakerHint[];
-  operations?: Operations;
+  liveSegments: Segment[];
   currentMs: number;
   seek: (sec: number) => void;
   startPlayback: () => void;
   audioExists: boolean;
 }) {
-  const { words: finalWords, speakerHints: finalSpeakerHints } =
-    useTranscriptData(transcriptId);
-
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
-  ) as string | undefined;
-  const numSpeakers = useSessionSpeakerCount(sessionId);
-
-  const allSpeakerHints = useMemo(() => {
-    const finalWordsCount = finalWords.length;
-    const adjustedPartialHints = partialHints.map((hint) => ({
-      ...hint,
-      wordIndex: finalWordsCount + hint.wordIndex,
-    }));
-    return [...finalSpeakerHints, ...adjustedPartialHints];
-  }, [finalWords.length, finalSpeakerHints, partialHints]);
-
+  const storedSegments = useRenderedTranscriptSegments(transcriptId);
   const segments = useStableSegments(
-    finalWords,
-    partialWords,
-    allSpeakerHints,
-    {
-      numSpeakers,
-    },
+    liveSegments.length > 0 ? liveSegments : storedSegments,
   );
-
   const offsetMs = useTranscriptOffset(transcriptId);
 
   if (segments.length === 0) {
@@ -93,8 +57,6 @@ export function RenderTranscript({
       scrollElement={scrollElement}
       transcriptId={transcriptId}
       offsetMs={offsetMs}
-      operations={operations}
-      sessionId={sessionId}
       shouldScrollToEnd={isLastTranscript && isAtBottom}
       currentMs={currentMs}
       seek={seek}
@@ -110,8 +72,6 @@ const SegmentsList = memo(
     scrollElement,
     transcriptId,
     offsetMs,
-    operations,
-    sessionId,
     shouldScrollToEnd,
     currentMs,
     seek,
@@ -122,8 +82,6 @@ const SegmentsList = memo(
     scrollElement: HTMLDivElement | null;
     transcriptId: string;
     offsetMs: number;
-    operations?: Operations;
-    sessionId?: string;
     shouldScrollToEnd: boolean;
     currentMs: number;
     seek: (sec: number) => void;
@@ -160,7 +118,7 @@ const SegmentsList = memo(
         });
       });
       return () => cancelAnimationFrame(raf);
-    }, [scrollElement, shouldScrollToEnd, segments.length]);
+    }, [scrollElement, segments.length, shouldScrollToEnd]);
 
     return (
       <div>
@@ -172,8 +130,6 @@ const SegmentsList = memo(
             <SegmentRenderer
               segment={segment}
               offsetMs={offsetMs}
-              operations={operations}
-              sessionId={sessionId}
               speakerLabelManager={speakerLabelManager}
               currentMs={currentMs}
               seekAndPlay={seekAndPlay}
@@ -189,7 +145,6 @@ const SegmentsList = memo(
       prevProps.transcriptId === nextProps.transcriptId &&
       prevProps.scrollElement === nextProps.scrollElement &&
       prevProps.offsetMs === nextProps.offsetMs &&
-      prevProps.sessionId === nextProps.sessionId &&
       prevProps.shouldScrollToEnd === nextProps.shouldScrollToEnd &&
       prevProps.currentMs === nextProps.currentMs &&
       prevProps.audioExists === nextProps.audioExists &&

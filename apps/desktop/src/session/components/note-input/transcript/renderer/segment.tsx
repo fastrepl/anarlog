@@ -1,12 +1,13 @@
 import { memo, useMemo } from "react";
 
-import type { Operations, Segment, SegmentWord } from "@hypr/transcript";
-import { SpeakerLabelManager } from "@hypr/transcript";
-import { groupWordsIntoLines } from "@hypr/transcript/ui";
 import { cn } from "@hypr/utils";
 
 import { SegmentHeader } from "./segment-header";
+import { groupWordsIntoLines } from "./utils";
 import { WordSpan } from "./word-span";
+
+import type { Segment, SegmentWord } from "~/stt/live-segment";
+import { SpeakerLabelManager } from "~/stt/live-segment";
 
 function getSegmentTimeRange(
   segment: Segment,
@@ -24,8 +25,6 @@ export const SegmentRenderer = memo(
   ({
     segment,
     offsetMs,
-    operations,
-    sessionId,
     speakerLabelManager,
     currentMs,
     seekAndPlay,
@@ -33,8 +32,6 @@ export const SegmentRenderer = memo(
   }: {
     segment: Segment;
     offsetMs: number;
-    operations?: Operations;
-    sessionId?: string;
     speakerLabelManager?: SpeakerLabelManager;
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;
@@ -49,8 +46,6 @@ export const SegmentRenderer = memo(
       <section>
         <SegmentHeader
           segment={segment}
-          operations={operations}
-          sessionId={sessionId}
           speakerLabelManager={speakerLabelManager}
         />
 
@@ -82,8 +77,8 @@ export const SegmentRenderer = memo(
                   <WordSpan
                     key={word.id ?? `${word.start_ms}-${idx}`}
                     word={word}
+                    displayText={word.text}
                     audioExists={audioExists}
-                    operations={operations}
                     onClickWord={seekAndPlay}
                   />
                 ))}
@@ -98,8 +93,6 @@ export const SegmentRenderer = memo(
     if (
       prev.segment !== next.segment ||
       prev.offsetMs !== next.offsetMs ||
-      prev.operations !== next.operations ||
-      prev.sessionId !== next.sessionId ||
       prev.speakerLabelManager !== next.speakerLabelManager ||
       prev.audioExists !== next.audioExists ||
       prev.seekAndPlay !== next.seekAndPlay

@@ -1,9 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 
-import type { Segment } from "@hypr/transcript";
-
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+import type { Segment } from "@/lib/transcript";
 
 const SYSTEM_PROMPT = `You are an expert at creating structured, comprehensive meeting summaries.
 

@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
 use hypr_transcript::{
-    FinalizedWord, PartialWord, SpeakerHintData, TranscriptDelta, TranscriptProcessor, WordRef,
+    FinalizedWord, PartialWord, SegmentKey, SegmentWord, SpeakerHintData, TranscriptDelta,
+    TranscriptProcessor, WordRef, build_segments, normalize_rendered_segment_words,
+    stable_segment_id,
 };
 use owhisper_interface::stream::{StreamResponse, Word};
 
@@ -39,6 +41,31 @@ impl LiveTranscriptDelta {
             && self.partials.is_empty()
             && self.partial_hints.is_empty()
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct LiveTranscriptSegment {
+    pub id: String,
+    pub key: SegmentKey,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub text: String,
+    pub words: Vec<SegmentWord>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct LiveTranscriptSegmentDelta {
+    pub upserts: Vec<LiveTranscriptSegment>,
+    pub removed_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct LiveTranscriptUpdate {
+    pub transcript_delta: LiveTranscriptDelta,
+    pub segment_delta: Option<LiveTranscriptSegmentDelta>,
 }
 
 impl From<TranscriptDelta> for LiveTranscriptDelta {
@@ -81,6 +108,7 @@ impl From<TranscriptDelta> for LiveTranscriptDelta {
 pub struct LiveTranscriptEngine {
     processor: TranscriptProcessor,
     normalizer: TranscriptNormalizer,
+    rendered_segments: RenderedSegmentState,
 }
 
 impl LiveTranscriptEngine {
@@ -88,18 +116,107 @@ impl LiveTranscriptEngine {
         Self {
             processor: TranscriptProcessor::new(),
             normalizer: TranscriptNormalizer::for_provider(provider_name),
+            rendered_segments: RenderedSegmentState::default(),
         }
     }
 
-    pub fn process(&mut self, response: &StreamResponse) -> Option<LiveTranscriptDelta> {
+    pub fn process(&mut self, response: &StreamResponse) -> Option<LiveTranscriptUpdate> {
         let mut normalized = response.clone();
         self.normalizer.normalize(&mut normalized);
-        self.processor.process(&normalized).map(Into::into)
+        let transcript_delta: LiveTranscriptDelta = self.processor.process(&normalized)?.into();
+        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
+        Some(LiveTranscriptUpdate {
+            transcript_delta,
+            segment_delta,
+        })
     }
 
-    pub fn flush(&mut self) -> Option<LiveTranscriptDelta> {
-        let delta: LiveTranscriptDelta = self.processor.flush().into();
-        (!delta.is_empty()).then_some(delta)
+    pub fn flush(&mut self) -> Option<LiveTranscriptUpdate> {
+        let transcript_delta: LiveTranscriptDelta = self.processor.flush().into();
+        if transcript_delta.is_empty() {
+            return None;
+        }
+
+        let segment_delta = self.rendered_segments.apply_delta(&transcript_delta);
+        Some(LiveTranscriptUpdate {
+            transcript_delta,
+            segment_delta,
+        })
+    }
+}
+
+#[derive(Default)]
+struct RenderedSegmentState {
+    words: BTreeMap<String, FinalizedWord>,
+    hints: BTreeMap<String, PersistedSpeakerHint>,
+    partials: Vec<PartialWord>,
+    partial_hints: Vec<PartialSpeakerHint>,
+    segments: BTreeMap<String, LiveTranscriptSegment>,
+}
+
+impl RenderedSegmentState {
+    fn apply_delta(&mut self, delta: &LiveTranscriptDelta) -> Option<LiveTranscriptSegmentDelta> {
+        let replaced_ids = delta
+            .replaced_ids
+            .iter()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>();
+        let new_word_ids = delta
+            .new_words
+            .iter()
+            .map(|word| word.id.clone())
+            .collect::<std::collections::BTreeSet<_>>();
+
+        self.words.retain(|id, _| !replaced_ids.contains(id));
+        self.hints.retain(|word_id, _| {
+            !replaced_ids.contains(word_id) && !new_word_ids.contains(word_id)
+        });
+
+        for word in &delta.new_words {
+            self.words.insert(word.id.clone(), word.clone());
+        }
+        for hint in &delta.hints {
+            self.hints.insert(hint.word_id.clone(), hint.clone());
+        }
+
+        self.partials = delta.partials.clone();
+        self.partial_hints = delta.partial_hints.clone();
+
+        let next_segments = build_live_segments(
+            self.words.values().cloned().collect(),
+            self.hints.values().cloned().collect(),
+            self.partials.clone(),
+            self.partial_hints.clone(),
+        );
+        let next_map = next_segments
+            .into_iter()
+            .map(|segment| (segment.id.clone(), segment))
+            .collect::<BTreeMap<_, _>>();
+
+        let removed_ids = self
+            .segments
+            .keys()
+            .filter(|id| !next_map.contains_key(*id))
+            .cloned()
+            .collect::<Vec<_>>();
+        let upserts = next_map
+            .iter()
+            .filter_map(|(id, segment)| match self.segments.get(id) {
+                Some(existing) if existing == segment => None,
+                _ => Some(segment.clone()),
+            })
+            .collect::<Vec<_>>();
+
+        self.segments = next_map;
+
+        if upserts.is_empty() && removed_ids.is_empty() {
+            None
+        } else {
+            Some(LiveTranscriptSegmentDelta {
+                upserts,
+                removed_ids,
+            })
+        }
     }
 }
 
@@ -209,6 +326,57 @@ fn normalize_tokens_for_overlap(words: &[Word]) -> Vec<String> {
         .iter()
         .map(normalize_word_token)
         .filter(|token| !token.is_empty())
+        .collect()
+}
+
+fn build_live_segments(
+    final_words: Vec<FinalizedWord>,
+    persisted_hints: Vec<PersistedSpeakerHint>,
+    partials: Vec<PartialWord>,
+    partial_hints: Vec<PartialSpeakerHint>,
+) -> Vec<LiveTranscriptSegment> {
+    let final_count = final_words.len();
+    let runtime_hints = persisted_hints
+        .into_iter()
+        .map(|hint| hypr_transcript::RuntimeSpeakerHint {
+            target: WordRef::FinalWordId(hint.word_id),
+            data: hint.data,
+        })
+        .chain(
+            partial_hints
+                .into_iter()
+                .map(move |hint| hypr_transcript::RuntimeSpeakerHint {
+                    target: WordRef::RuntimeIndex(final_count + hint.word_index),
+                    data: hint.data,
+                }),
+        )
+        .collect::<Vec<_>>();
+
+    build_segments(&final_words, &partials, &runtime_hints, None)
+        .into_iter()
+        .filter_map(|segment| {
+            let words = normalize_rendered_segment_words(segment.words);
+            let first = words.first()?;
+            let last = words.last()?;
+            let text = words
+                .iter()
+                .map(|word| word.text.as_str())
+                .collect::<String>()
+                .trim()
+                .to_string();
+            if text.is_empty() {
+                return None;
+            }
+
+            Some(LiveTranscriptSegment {
+                id: stable_segment_id(&segment.key, &words),
+                key: segment.key,
+                start_ms: first.start_ms,
+                end_ms: last.end_ms,
+                text,
+                words,
+            })
+        })
         .collect()
 }
 

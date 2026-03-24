@@ -136,14 +136,23 @@ impl Actor for ListenerActor {
             let _ = (&mut state.rx_task).await;
         }
 
-        if let Some(delta) = state.transcript.flush() {
+        if let Some(update) = state.transcript.flush() {
             state
                 .args
                 .runtime
                 .emit_data(SessionDataEvent::TranscriptDelta {
                     session_id: state.args.session_id.clone(),
-                    delta: Box::new(delta),
+                    delta: Box::new(update.transcript_delta),
                 });
+            if let Some(segment_delta) = update.segment_delta {
+                state
+                    .args
+                    .runtime
+                    .emit_data(SessionDataEvent::TranscriptSegmentDelta {
+                        session_id: state.args.session_id.clone(),
+                        delta: Box::new(segment_delta),
+                    });
+            }
         }
 
         Ok(())
@@ -220,22 +229,23 @@ impl Actor for ListenerActor {
                     crate::actors::ChannelMode::MicAndSpeaker => {}
                 }
 
-                state
-                    .args
-                    .runtime
-                    .emit_data(SessionDataEvent::StreamResponse {
-                        session_id: state.args.session_id.clone(),
-                        response: Box::new(response.clone()),
-                    });
-
-                if let Some(delta) = state.transcript.process(&response) {
+                if let Some(update) = state.transcript.process(&response) {
                     state
                         .args
                         .runtime
                         .emit_data(SessionDataEvent::TranscriptDelta {
                             session_id: state.args.session_id.clone(),
-                            delta: Box::new(delta),
+                            delta: Box::new(update.transcript_delta),
                         });
+                    if let Some(segment_delta) = update.segment_delta {
+                        state
+                            .args
+                            .runtime
+                            .emit_data(SessionDataEvent::TranscriptSegmentDelta {
+                                session_id: state.args.session_id.clone(),
+                                delta: Box::new(segment_delta),
+                            });
+                    }
                 }
             }
 

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::types::{ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey, SegmentWord};
+use crate::segment_types::{
+    ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey, SegmentWord,
+};
 
 use super::model::{ProtoSegment, ResolvedWordFrame, SpeakerIdentity, SpeakerState};
 use super::speakers::assign_complete_channel_human_id;
@@ -102,6 +104,89 @@ fn determine_key(
     }
 
     create_segment_key(frame.word.channel, frame.identity.as_ref())
+}
+
+pub(super) fn consolidate_micro_segments(
+    segments: &mut Vec<ProtoSegment>,
+    options: Option<&SegmentBuilderOptions>,
+) {
+    let min_words = options.and_then(|o| o.min_segment_words).unwrap_or(0);
+    let min_ms = options.and_then(|o| o.min_segment_ms).unwrap_or(0);
+
+    if min_words == 0 || min_ms == 0 || segments.len() < 3 {
+        return;
+    }
+
+    let is_micro = |seg: &ProtoSegment| -> bool {
+        let word_count = seg.words.len();
+        if word_count >= min_words {
+            return false;
+        }
+        let duration = seg.words.last().map(|w| w.word.end_ms).unwrap_or(0)
+            - seg.words.first().map(|w| w.word.start_ms).unwrap_or(0);
+        duration < min_ms
+    };
+
+    let mut absorbed = vec![false; segments.len()];
+
+    for i in 0..segments.len() {
+        if absorbed[i] || !is_micro(&segments[i]) {
+            continue;
+        }
+
+        let mut target = None;
+
+        for j in (0..i).rev() {
+            if absorbed[j] {
+                continue;
+            }
+            if segments[j].key == segments[i].key {
+                target = Some(j);
+                break;
+            }
+            if !is_micro(&segments[j]) {
+                break;
+            }
+        }
+
+        if target.is_none() {
+            for j in (i + 1)..segments.len() {
+                if absorbed[j] {
+                    continue;
+                }
+                if segments[j].key == segments[i].key {
+                    target = Some(j);
+                    break;
+                }
+                if !is_micro(&segments[j]) {
+                    break;
+                }
+            }
+        }
+
+        if let Some(t) = target {
+            let words = std::mem::take(&mut segments[i].words);
+            if t > i {
+                let mut combined = words;
+                combined.append(&mut segments[t].words);
+                segments[t].words = combined;
+            } else {
+                segments[t].words.extend(words);
+            }
+            absorbed[i] = true;
+        }
+    }
+
+    let mut write = 0;
+    for read in 0..segments.len() {
+        if !absorbed[read] {
+            if write != read {
+                segments.swap(write, read);
+            }
+            write += 1;
+        }
+    }
+    segments.truncate(write);
 }
 
 fn create_segment_key(channel: ChannelProfile, identity: Option<&SpeakerIdentity>) -> SegmentKey {

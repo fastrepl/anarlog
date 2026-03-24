@@ -1,4 +1,3 @@
-import chroma from "chroma-js";
 import { useMemo } from "react";
 
 import type { Segment, SegmentKey, SegmentWord } from "../shared";
@@ -94,11 +93,7 @@ export function getSegmentColor(key: SegmentKey): string {
 
   const hues = channelPalettes[key.channel % 2];
   const hue = hues[speakerIndex % hues.length];
-
-  const light = 0.55;
-  const chromaVal = 0.15;
-
-  return chroma.oklch(light, chromaVal, hue).hex();
+  return `hsl(${hue} 70% 45%)`;
 }
 
 export function useSegmentColor(key: SegmentKey): string {

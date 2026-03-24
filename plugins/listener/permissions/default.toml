@@ -13,4 +13,5 @@ permissions = [
     "allow-is-supported-languages-live",
     "allow-suggest-providers-for-languages-live",
     "allow-list-documented-language-codes-live",
+    "allow-render-transcript-segments",
 ]

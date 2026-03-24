@@ -6,7 +6,7 @@ use crate::types::{
 
 pub(crate) fn to_partial(word: &RawWord) -> PartialWord {
     PartialWord {
-        text: ensure_space_prefix(word.text.clone()),
+        text: word.text.clone(),
         start_ms: word.start_ms,
         end_ms: word.end_ms,
         channel: word.channel,
@@ -39,7 +39,7 @@ pub(crate) fn finalize_words(
 
         finalized_words.push(FinalizedWord {
             id,
-            text: ensure_space_prefix(word.text),
+            text: word.text,
             start_ms: word.start_ms,
             end_ms: word.end_ms,
             channel: word.channel,
@@ -56,11 +56,4 @@ fn provider_speaker_hint(speaker_index: i32, channel: i32) -> SpeakerHintData {
         provider: None,
         channel: Some(channel),
     }
-}
-
-fn ensure_space_prefix(mut text: String) -> String {
-    if !text.starts_with(' ') {
-        text.insert(0, ' ');
-    }
-    text
 }

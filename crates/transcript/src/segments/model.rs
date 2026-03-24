@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::types::{ChannelProfile, SegmentKey};
+use crate::segment_types::{ChannelProfile, SegmentKey};
 
 #[derive(Debug, Clone)]
 pub(super) struct NormalizedWord {

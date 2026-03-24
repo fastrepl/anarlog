@@ -167,13 +167,15 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                         LocalModel::Cactus(m) => m,
                         _ => return Err(crate::Error::UnsupportedModelType),
                     };
-                    start_internal2_server(
-                        &supervisor,
-                        cache_dir,
-                        cactus_model,
-                        CactusConfig::default(),
-                    )
-                    .await
+                    let cactus_config = CactusConfig {
+                        cloud: hypr_transcribe_cactus::CloudConfig {
+                            base_url: option_env!("CACTUS_CLOUD_API_BASE").map(ToString::to_string),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    start_internal2_server(&supervisor, cache_dir, cactus_model, cactus_config)
+                        .await
                 }
                 #[cfg(not(target_arch = "aarch64"))]
                 Err(crate::Error::UnsupportedModelType)

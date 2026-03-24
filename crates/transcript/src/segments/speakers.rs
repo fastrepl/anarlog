@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-use crate::types::{
-    RuntimeSpeakerHint, SegmentBuilderOptions, SegmentKey, SpeakerHintData, WordRef,
-};
+use crate::segment_types::{SegmentBuilderOptions, SegmentKey};
+use crate::types::{RuntimeSpeakerHint, SpeakerHintData, WordRef};
 
 use super::model::{
     NormalizedWord, ProtoSegment, ResolvedWordFrame, SpeakerIdentity, SpeakerState,
@@ -118,11 +117,9 @@ fn apply_identity_rules(
 ) -> SpeakerIdentity {
     let mut identity = assignment.cloned().unwrap_or_default();
 
-    if identity.speaker_index.is_some() && identity.human_id.is_none() {
-        if let Some(speaker_index) = identity.speaker_index {
-            if let Some(human_id) = state.human_id_by_speaker_index.get(&speaker_index) {
-                identity.human_id = Some(human_id.clone());
-            }
+    if let (Some(speaker_index), None) = (identity.speaker_index, &identity.human_id) {
+        if let Some(human_id) = state.human_id_by_speaker_index.get(&speaker_index) {
+            identity.human_id = Some(human_id.clone());
         }
     }
 
@@ -162,10 +159,7 @@ fn remember_identity(
             .insert(speaker_index, human_id.clone());
     }
 
-    if state.complete_channels.contains(&word.channel)
-        && identity.human_id.is_some()
-        && identity.speaker_index.is_none()
-    {
+    if state.complete_channels.contains(&word.channel) && identity.speaker_index.is_none() {
         if let Some(human_id) = identity.human_id.clone() {
             state.human_id_by_channel.insert(word.channel, human_id);
         }

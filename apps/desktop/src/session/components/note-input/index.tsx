@@ -45,8 +45,6 @@ export const NoteInput = forwardRef<
   const internalEditorRef = useRef<{ editor: TiptapEditor | null }>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [editor, setEditor] = useState<TiptapEditor | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-
   const sessionId = tab.id;
 
   const tabRef = useRef(tab);
@@ -233,8 +231,6 @@ export const NoteInput = forwardRef<
           editorTabs={editorTabs}
           currentTab={currentTab}
           handleTabChange={handleTabChange}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
         />
       </div>
 
@@ -283,11 +279,7 @@ export const NoteInput = forwardRef<
             />
           )}
           {currentTab.type === "transcript" && (
-            <Transcript
-              sessionId={sessionId}
-              isEditing={isEditing}
-              scrollRef={scrollRef}
-            />
+            <Transcript sessionId={sessionId} scrollRef={scrollRef} />
           )}
           {currentTab.type === "attachments" && (
             <AttachmentsContent sessionId={sessionId} />

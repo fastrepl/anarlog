@@ -55,7 +55,7 @@
 
 @source "../../../packages/ui/src";
 @source "../../../packages/tiptap/src";
-@source "../../../packages/transcript/src";
+@source "./lib/transcript";
 
 @theme {
   --font-sans: "SF Pro", system-ui, -apple-system, sans-serif;

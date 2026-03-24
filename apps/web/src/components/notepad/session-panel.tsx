@@ -12,7 +12,6 @@ import {
 import type { JSONContent, TiptapEditor } from "@hypr/tiptap/editor";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 import "@hypr/tiptap/styles.css";
-import type { Segment } from "@hypr/transcript";
 
 import { EMPTY_MENTION_CONFIG } from "@/components/transcription/constants";
 import { FloatingCTA } from "@/components/transcription/floating-cta";
@@ -20,6 +19,7 @@ import { SummaryView } from "@/components/transcription/summary-view";
 import { TabButton } from "@/components/transcription/tab-button";
 import { TranscriptContent } from "@/components/transcription/transcript-content";
 import { useTranscriptionPipeline } from "@/hooks/use-transcription-pipeline";
+import type { Segment } from "@/lib/transcript";
 import { type Store, STORE_ID, UI } from "@/store/tinybase";
 
 const NoteEditor = lazy(() => import("@hypr/tiptap/editor"));

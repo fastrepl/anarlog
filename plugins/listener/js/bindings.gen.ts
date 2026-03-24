@@ -85,6 +85,14 @@ async listDocumentedLanguageCodesLive() : Promise<Result<string[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async renderTranscriptSegments(params: RenderTranscriptRequest) : Promise<Result<RenderedTranscriptSegment[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:listener|render_transcript_segments", { params }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -109,15 +117,26 @@ sessionProgressEvent: "plugin:listener:session-progress-event"
 
 /** user-defined types **/
 
+export type ChannelProfile = "DirectMic" | "RemoteParty" | "MixedCapture"
 export type DegradedError = { type: "authentication_failed"; provider: string } | { type: "upstream_unavailable"; message: string } | { type: "connection_timeout" } | { type: "stream_error"; message: string }
 export type FinalizedWord = { id: string; text: string; start_ms: number; end_ms: number; channel: number; state: WordState }
 export type InMemoryRecordingDisposition = "discard" | "persist"
 export type LiveTranscriptDelta = { new_words: FinalizedWord[]; hints: PersistedSpeakerHint[]; replaced_ids: string[]; partials: PartialWord[]; partial_hints: PartialSpeakerHint[] }
+export type LiveTranscriptSegment = { id: string; key: SegmentKey; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
+export type LiveTranscriptSegmentDelta = { upserts: LiveTranscriptSegment[]; removed_ids: string[] }
 export type PartialSpeakerHint = { word_index: number; data: SpeakerHintData }
 export type PartialWord = { text: string; start_ms: number; end_ms: number; channel: number }
 export type PersistedSpeakerHint = { word_id: string; data: SpeakerHintData }
 export type RecordingMode = "memory" | "disk"
-export type SessionDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "stream_response"; session_id: string; response: StreamResponse } | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta }
+export type RenderTranscriptHuman = { human_id: string; name: string }
+export type RenderTranscriptInput = { started_at: number | null; words: RenderTranscriptWordInput[]; speaker_hints: RenderTranscriptSpeakerHint[] }
+export type RenderTranscriptRequest = { transcripts: RenderTranscriptInput[]; participant_human_ids: string[]; self_human_id: string | null; humans: RenderTranscriptHuman[] }
+export type RenderTranscriptSpeakerHint = { word_id: string; data: SpeakerHintData }
+export type RenderTranscriptWordInput = { id: string; text: string; start_ms: number; end_ms: number; channel: number }
+export type RenderedTranscriptSegment = { id: string; key: SegmentKey; speaker_label: string; start_ms: number; end_ms: number; text: string; words: SegmentWord[] }
+export type SegmentKey = { channel: ChannelProfile; speaker_index?: number | null; speaker_human_id?: string | null }
+export type SegmentWord = { text: string; start_ms: number; end_ms: number; channel: ChannelProfile; is_final: boolean; id?: string | null }
+export type SessionDataEvent = { type: "audio_amplitude"; session_id: string; mic: number; speaker: number } | { type: "mic_muted"; session_id: string; value: boolean } | { type: "transcript_delta"; session_id: string; delta: LiveTranscriptDelta } | { type: "transcript_segment_delta"; session_id: string; delta: LiveTranscriptSegmentDelta }
 export type SessionErrorEvent = { type: "audio_error"; session_id: string; error: string; device: string | null; is_fatal: boolean } | { type: "connection_error"; session_id: string; error: string }
 export type SessionLifecycleEvent = { type: "inactive"; session_id: string; error: string | null } | { type: "active"; session_id: string; requestedTranscriptionMode: TranscriptionMode; currentTranscriptionMode: TranscriptionMode; error: DegradedError | null } | { type: "finalizing"; session_id: string }
 export type SessionParams = { session_id: string; languages: string[]; onboarding: boolean; transcription_mode: TranscriptionMode; recording_mode: RecordingMode; model: string; base_url: string; api_key: string; keywords: string[] }
@@ -125,13 +144,6 @@ export type SessionProgressEvent = { type: "audio_initializing"; session_id: str
 export type SpeakerHintData = { provider_speaker_index: { speaker_index: number; provider?: string | null; channel?: number | null } } | { user_speaker_assignment: { human_id: string } }
 export type State = "active" | "inactive" | "finalizing"
 export type StopSessionParams = { inMemoryRecording: InMemoryRecordingDisposition | null }
-export type StreamAlternatives = { transcript: string; words: StreamWord[]; confidence: number; languages?: string[] }
-export type StreamChannel = { alternatives: StreamAlternatives[] }
-export type StreamExtra = { started_unix_millis: number }
-export type StreamMetadata = { request_id: string; model_info: StreamModelInfo; model_uuid: string; extra?: StreamExtra }
-export type StreamModelInfo = { name: string; version: string; arch: string }
-export type StreamResponse = { type: "Results"; start: number; duration: number; is_final: boolean; speech_final: boolean; from_finalize: boolean; channel: StreamChannel; metadata: StreamMetadata; channel_index: number[] } | { type: "Metadata"; request_id: string; created: string; duration: number; channels: number } | { type: "SpeechStarted"; channel: number[]; timestamp: number } | { type: "UtteranceEnd"; channel: number[]; last_word_end: number } | { type: "Error"; error_code: number | null; error_message: string; provider: string }
-export type StreamWord = { word: string; start: number; end: number; confidence: number; speaker: number | null; punctuated_word: string | null; language: string | null }
 export type TranscriptionMode = "live" | "batch"
 /**
  * Whether a finalized word is stable or awaiting correction.

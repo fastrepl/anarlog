@@ -1,4 +1,5 @@
-use crate::types::{ChannelProfile, FinalizedWord, PartialWord};
+use crate::segment_types::ChannelProfile;
+use crate::types::{FinalizedWord, PartialWord};
 
 use super::model::NormalizedWord;
 
@@ -10,7 +11,7 @@ pub(super) fn normalize_words(
         Vec::with_capacity(final_words.len() + partial_words.len());
 
     combined.extend(final_words.iter().map(|word| NormalizedWord {
-        text: word.text.trim().to_string(),
+        text: word.text.clone(),
         start_ms: word.start_ms,
         end_ms: word.end_ms,
         channel: ChannelProfile::from(word.channel),
@@ -20,7 +21,7 @@ pub(super) fn normalize_words(
     }));
 
     combined.extend(partial_words.iter().map(|word| NormalizedWord {
-        text: word.text.trim().to_string(),
+        text: word.text.clone(),
         start_ms: word.start_ms,
         end_ms: word.end_ms,
         channel: ChannelProfile::from(word.channel),
