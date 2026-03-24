@@ -1,4 +1,10 @@
-import { CalendarIcon, MonitorIcon, SearchIcon, UserIcon } from "lucide-react";
+import {
+  Building2Icon,
+  CalendarIcon,
+  MonitorIcon,
+  SearchIcon,
+  UserIcon,
+} from "lucide-react";
 
 import type { ContextEntity, ContextEntityKind } from "./entities";
 
@@ -38,6 +44,39 @@ const renderers: RendererMap = {
         removable: entity.removable,
         entityKind: "session",
         entityId: entity.sessionId,
+      };
+    },
+  },
+
+  human: {
+    toChip: (entity) => {
+      const label = entity.name || entity.email || "Person";
+      const tooltip = [entity.name, entity.email, entity.organizationName]
+        .filter(Boolean)
+        .join(" • ");
+      return {
+        key: entity.key,
+        icon: UserIcon,
+        label,
+        tooltip: tooltip || label,
+        removable: entity.removable,
+        entityKind: "human",
+        entityId: entity.humanId,
+      };
+    },
+  },
+
+  organization: {
+    toChip: (entity) => {
+      const label = entity.name || "Organization";
+      return {
+        key: entity.key,
+        icon: Building2Icon,
+        label,
+        tooltip: label,
+        removable: entity.removable,
+        entityKind: "organization",
+        entityId: entity.organizationId,
       };
     },
   },

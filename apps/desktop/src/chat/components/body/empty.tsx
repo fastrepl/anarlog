@@ -8,6 +8,7 @@ import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
+import type { ContextRef } from "~/chat/context/entities";
 import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
@@ -38,6 +39,7 @@ export function ChatBodyEmpty({
   onSendMessage?: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
+    contextRefs?: ContextRef[],
   ) => void;
 }) {
   const openNew = useTabs((state) => state.openNew);

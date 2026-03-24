@@ -71,17 +71,33 @@ function ContextChip({
 }) {
   const Icon = chip.icon;
   const openNew = useTabs((state) => state.openNew);
-  const isClickable = chip.entityKind === "session" && chip.entityId;
+  const isClickable = !!chip.entityKind && !!chip.entityId;
+
+  const handleClick = () => {
+    if (!chip.entityKind || !chip.entityId) {
+      return;
+    }
+
+    if (chip.entityKind === "session") {
+      openNew({ type: "sessions", id: chip.entityId });
+      return;
+    }
+
+    if (chip.entityKind === "human") {
+      openNew({ type: "humans", id: chip.entityId });
+      return;
+    }
+
+    if (chip.entityKind === "organization") {
+      openNew({ type: "organizations", id: chip.entityId });
+    }
+  };
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          onClick={() => {
-            if (isClickable) {
-              openNew({ type: "sessions", id: chip.entityId! });
-            }
-          }}
+          onClick={handleClick}
           className={cn([
             "group max-w-48 min-w-0 rounded-md px-1.5 py-0.5 text-xs",
             pending

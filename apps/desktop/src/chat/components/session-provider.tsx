@@ -4,11 +4,12 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 
-import type { ContextRef } from "~/chat/context/entities";
+import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import {
   type DisplayEntity,
   useChatContextPipeline,
@@ -45,6 +46,7 @@ interface ChatSessionProps {
     pendingRefs: ContextRef[];
     onRemoveContextEntity: (key: string) => void;
     onAddContextEntity: (ref: ContextRef) => void;
+    onDraftContextRefsChange: (refs: ContextRef[]) => void;
     isSystemPromptReady: boolean;
   }) => ReactNode;
 }
@@ -62,6 +64,7 @@ export function ChatSession({
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
+  const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
 
   const onAddContextEntity = useCallback((ref: ContextRef) => {
     setPendingManualRefs((prev) =>
@@ -71,10 +74,16 @@ export function ChatSession({
 
   const onRemoveContextEntity = useCallback((key: string) => {
     setPendingManualRefs((prev) => prev.filter((r) => r.key !== key));
+    setPendingDraftRefs((prev) => prev.filter((r) => r.key !== key));
+  }, []);
+
+  const onDraftContextRefsChange = useCallback((refs: ContextRef[]) => {
+    setPendingDraftRefs(refs);
   }, []);
 
   useEffect(() => {
     setPendingManualRefs([]);
+    setPendingDraftRefs([]);
   }, [sessionId, chatGroupId]);
 
   const { transport, isSystemPromptReady } = useTransport(
@@ -156,14 +165,20 @@ export function ChatSession({
     const count = messages.filter((message) => message.role === "user").length;
     if (count > prevUserMsgCountRef.current) {
       setPendingManualRefs([]);
+      setPendingDraftRefs([]);
     }
     prevUserMsgCountRef.current = count;
   }, [messages]);
 
+  const pendingMessageRefs = useMemo(
+    () => dedupeByKey([pendingManualRefs, pendingDraftRefs]),
+    [pendingManualRefs, pendingDraftRefs],
+  );
+
   const { contextEntities, pendingRefs } = useChatContextPipeline({
     messages,
     currentSessionId,
-    pendingManualRefs,
+    pendingManualRefs: pendingMessageRefs,
     store,
   });
 
@@ -182,6 +197,7 @@ export function ChatSession({
         pendingRefs,
         onRemoveContextEntity,
         onAddContextEntity,
+        onDraftContextRefsChange,
         isSystemPromptReady,
       })}
     </div>

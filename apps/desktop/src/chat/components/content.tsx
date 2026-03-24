@@ -5,7 +5,7 @@ import { ContextBar } from "./context-bar";
 import { ChatMessageInput, type McpIndicator } from "./input";
 
 import type { useLanguageModel } from "~/ai/hooks";
-import type { ContextRef } from "~/chat/context/entities";
+import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import type { DisplayEntity } from "~/chat/context/use-chat-context-pipeline";
 import type { HyprUIMessage } from "~/chat/types";
 
@@ -23,6 +23,7 @@ export function ChatContent({
   pendingRefs,
   onRemoveContextEntity,
   onAddContextEntity,
+  onDraftContextRefsChange,
   isSystemPromptReady,
   mcpIndicator,
   children,
@@ -45,11 +46,14 @@ export function ChatContent({
   pendingRefs: ContextRef[];
   onRemoveContextEntity?: (key: string) => void;
   onAddContextEntity?: (ref: ContextRef) => void;
+  onDraftContextRefsChange?: (refs: ContextRef[]) => void;
   isSystemPromptReady: boolean;
   mcpIndicator?: McpIndicator;
   children?: React.ReactNode;
 }) {
   const disabled = !model || !isSystemPromptReady;
+  const mergeContextRefs = (contextRefs?: ContextRef[]) =>
+    contextRefs ? dedupeByKey([pendingRefs, contextRefs]) : pendingRefs;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -60,8 +64,13 @@ export function ChatContent({
           error={error}
           onReload={regenerate}
           isModelConfigured={!!model}
-          onSendMessage={(content, parts) => {
-            handleSendMessage(content, parts, sendMessage, pendingRefs);
+          onSendMessage={(content, parts, contextRefs) => {
+            handleSendMessage(
+              content,
+              parts,
+              sendMessage,
+              mergeContextRefs(contextRefs),
+            );
           }}
         />
       )}
@@ -74,9 +83,15 @@ export function ChatContent({
         draftKey={sessionId}
         disabled={disabled}
         hasContextBar={contextEntities.length > 0}
-        onSendMessage={(content, parts) => {
-          handleSendMessage(content, parts, sendMessage, pendingRefs);
+        onSendMessage={(content, parts, contextRefs) => {
+          handleSendMessage(
+            content,
+            parts,
+            sendMessage,
+            mergeContextRefs(contextRefs),
+          );
         }}
+        onContextRefsChange={onDraftContextRefsChange}
         isStreaming={status === "streaming" || status === "submitted"}
         onStop={stop}
         mcpIndicator={mcpIndicator}
