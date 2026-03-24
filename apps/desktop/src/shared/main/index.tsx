@@ -45,6 +45,7 @@ import { loadPlugins } from "~/plugins/loader";
 import { TabContentSearch, TabItemSearch } from "~/search/advanced";
 import { TabContentNote, TabItemNote } from "~/session";
 import { useCaretPosition } from "~/session/components/caret-position-context";
+import { useShouldShowListeningFab } from "~/session/components/floating";
 import { TabContentSettings, TabItemSettings } from "~/settings";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { NotificationBadge } from "~/shared/ui/notification-badge";
@@ -84,6 +85,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
   const { leftsidebar } = useShell();
   const currentPlatform = platform();
   const isLinux = currentPlatform === "linux";
+  const chatShortcutLabel = currentPlatform === "macos" ? "⌘ J" : "Ctrl J";
   const notifications = useNotifications();
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
@@ -323,6 +325,12 @@ function Header({ tabs }: { tabs: Tab[] }) {
 
         <div className="ml-auto flex h-full items-center gap-1">
           <Update />
+          {currentTab?.type === "sessions" && (
+            <HeaderTabChatButton
+              shortcutLabel={chatShortcutLabel}
+              tab={currentTab}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -659,9 +667,13 @@ function ContentWrapper({ tab }: { tab: Tab }) {
 function TabChatButton({
   isCaretNearBottom = false,
   showTimeline = false,
+  placement = "floating",
+  shortcutLabel,
 }: {
   isCaretNearBottom?: boolean;
   showTimeline?: boolean;
+  placement?: "floating" | "tabbar";
+  shortcutLabel?: string;
 }) {
   const { chat } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
@@ -696,12 +708,59 @@ function TabChatButton({
     return null;
   }
 
+  const handleOpen = () => chat.sendEvent({ type: "OPEN" });
+
+  if (placement === "tabbar") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleOpen}
+            variant="ghost"
+            size="icon"
+            className="text-neutral-600"
+            aria-label="Chat with notes"
+            title="Chat with notes"
+          >
+            <img
+              src="/assets/char-logo-icon-black.svg"
+              alt="Char"
+              className="size-[13px] shrink-0 object-contain"
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="flex items-center gap-2">
+          <span>Chat with notes</span>
+          {shortcutLabel && (
+            <Kbd className="animate-kbd-press">{shortcutLabel}</Kbd>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
   return (
     <ChatFloatingButton
       isCaretNearBottom={isCaretNearBottom}
       showTimeline={showTimeline}
     />
   );
+}
+
+function HeaderTabChatButton({
+  shortcutLabel,
+  tab,
+}: {
+  shortcutLabel: string;
+  tab: Extract<Tab, { type: "sessions" }>;
+}) {
+  const shouldShowListeningFab = useShouldShowListeningFab(tab);
+
+  if (!shouldShowListeningFab) {
+    return null;
+  }
+
+  return <TabChatButton placement="tabbar" shortcutLabel={shortcutLabel} />;
 }
 
 export function StandardTabWrapper({
@@ -734,6 +793,40 @@ function StandardTabChatButton({
 }) {
   const caretPosition = useCaretPosition();
   const isCaretNearBottom = caretPosition?.isCaretNearBottom ?? false;
+  const currentTab = useTabs((state) => state.currentTab);
+
+  if (currentTab?.type === "sessions") {
+    return (
+      <SessionTabFloatingChatButton
+        tab={currentTab}
+        isCaretNearBottom={isCaretNearBottom}
+        showTimeline={showTimeline}
+      />
+    );
+  }
+
+  return (
+    <TabChatButton
+      isCaretNearBottom={isCaretNearBottom}
+      showTimeline={showTimeline}
+    />
+  );
+}
+
+function SessionTabFloatingChatButton({
+  tab,
+  isCaretNearBottom,
+  showTimeline,
+}: {
+  tab: Extract<Tab, { type: "sessions" }>;
+  isCaretNearBottom: boolean;
+  showTimeline: boolean;
+}) {
+  const shouldShowListeningFab = useShouldShowListeningFab(tab);
+
+  if (shouldShowListeningFab) {
+    return null;
+  }
 
   return (
     <TabChatButton

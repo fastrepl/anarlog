@@ -11,10 +11,9 @@ export function FloatingActionButton({
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
-  const currentTab = useCurrentNoteTab(tab);
-  const hasTranscript = useHasTranscript(tab.id);
+  const shouldShow = useShouldShowListeningFab(tab);
 
-  if (!(currentTab.type === "raw" && !hasTranscript)) {
+  if (!shouldShow) {
     return null;
   }
 
@@ -23,4 +22,13 @@ export function FloatingActionButton({
       <ListenButton tab={tab} />
     </div>
   );
+}
+
+export function useShouldShowListeningFab(
+  tab: Extract<Tab, { type: "sessions" }>,
+) {
+  const currentTab = useCurrentNoteTab(tab);
+  const hasTranscript = useHasTranscript(tab.id);
+
+  return currentTab.type === "raw" && !hasTranscript;
 }
