@@ -33,6 +33,7 @@ import { DayCell } from "./day-cell";
 import { CalendarSidebarContent } from "./sidebar";
 
 import { useCalendarData, useNow, useWeekStartsOn } from "~/calendar/hooks";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const WEEKDAY_HEADERS_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_HEADERS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -74,6 +75,7 @@ export function CalendarView() {
 }
 
 function CalendarViewContent() {
+  const { scheduleSync } = useSync();
   const now = useNow();
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);
@@ -83,6 +85,10 @@ function CalendarViewContent() {
   const containerRef = useRef<HTMLDivElement>(null);
   const cols = useVisibleCols(containerRef);
   const calendarData = useCalendarData();
+
+  useMountEffect(() => {
+    scheduleSync();
+  });
 
   const isMonthView = cols === 7;
 

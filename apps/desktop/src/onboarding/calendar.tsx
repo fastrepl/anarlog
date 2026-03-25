@@ -5,12 +5,19 @@ import { OnboardingButton } from "./shared";
 import { useAppleCalendarSelection } from "~/calendar/components/apple/calendar-selection";
 import { TroubleShootingLink } from "~/calendar/components/apple/permission";
 import { CalendarSelection } from "~/calendar/components/calendar-selection";
-import { SyncProvider } from "~/calendar/components/context";
+import { SyncProvider, useSync } from "~/calendar/components/context";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import * as main from "~/store/tinybase/store/main";
 
 function AppleCalendarList() {
+  const { scheduleSync } = useSync();
   const { groups, handleToggle, isLoading } = useAppleCalendarSelection();
+
+  useMountEffect(() => {
+    scheduleSync();
+  });
+
   return (
     <CalendarSelection
       groups={groups}
