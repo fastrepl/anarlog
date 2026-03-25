@@ -245,7 +245,7 @@ function ConnectedContent({
   );
 }
 
-async function openIntegrationUrl(
+export async function openIntegrationUrl(
   nangoIntegrationId: string | undefined,
   connectionId: string | undefined,
   action: "connect" | "reconnect" | "disconnect",
