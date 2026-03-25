@@ -10,12 +10,12 @@ import { cn } from "@hypr/utils";
 
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
-import { NoteInput } from "./components/note-input";
+import { NoteInput, type NoteInputHandle } from "./components/note-input";
 import { SearchProvider } from "./components/note-input/transcript/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionPreviewCard } from "./components/session-preview-card";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
-import { TitleInput } from "./components/title-input";
+import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
 import { getSessionTabStatus } from "./tab-visual-state";
@@ -199,8 +199,8 @@ function TabContentNoteInner({
   tab: Extract<Tab, { type: "sessions" }>;
   showTimeline: boolean;
 }) {
-  const titleInputRef = React.useRef<HTMLInputElement>(null);
-  const noteInputRef = React.useRef<import("~/editor").NoteEditorRef>(null);
+  const titleInputRef = React.useRef<TitleInputHandle>(null);
+  const noteInputRef = React.useRef<NoteInputHandle>(null);
 
   const currentView = useCurrentNoteTab(tab);
   const { generateTitle } = useTitleGeneration(tab);
@@ -242,13 +242,28 @@ function TabContentNoteInner({
     return () => clearTimeout(timer);
   }, [showConsentBanner]);
 
-  const focusTitle = React.useCallback(() => {
-    titleInputRef.current?.focus();
+  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
+    if (pixelWidth !== undefined) {
+      titleInputRef.current?.focusAtPixelWidth(pixelWidth);
+    } else {
+      titleInputRef.current?.focusAtEnd();
+    }
   }, []);
 
-  const focusEditor = React.useCallback(() => {
-    noteInputRef.current?.view?.focus();
+  const handleTransferContentToEditor = React.useCallback((content: string) => {
+    noteInputRef.current?.insertAtStartAndFocus(content);
   }, []);
+
+  const handleFocusEditorAtStart = React.useCallback(() => {
+    noteInputRef.current?.focusAtStart();
+  }, []);
+
+  const handleFocusEditorAtPixelWidth = React.useCallback(
+    (pixelWidth: number) => {
+      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
+    },
+    [],
+  );
 
   return (
     <>
@@ -265,7 +280,9 @@ function TabContentNoteInner({
             <TitleInput
               ref={titleInputRef}
               tab={tab}
-              onNavigateToEditor={focusEditor}
+              onTransferContentToEditor={handleTransferContentToEditor}
+              onFocusEditorAtStart={handleFocusEditorAtStart}
+              onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
               onGenerateTitle={hasTranscript ? generateTitle : undefined}
             />
           </div>
@@ -273,7 +290,7 @@ function TabContentNoteInner({
             <NoteInput
               ref={noteInputRef}
               tab={tab}
-              onNavigateToTitle={focusTitle}
+              onNavigateToTitle={handleNavigateToTitle}
             />
           </div>
         </div>
@@ -375,7 +392,7 @@ function useAutoFocusTitle({
   titleInputRef,
 }: {
   sessionId: string;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
+  titleInputRef: React.RefObject<TitleInputHandle | null>;
 }) {
   // Prevent re-focusing when the user intentionally leaves the title empty.
   const didAutoFocus = useRef(false);

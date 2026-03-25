@@ -3,12 +3,18 @@ import {
   ProseMirrorDoc,
   reactKeys,
   useEditorEffect,
+  useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { history } from "prosemirror-history";
 import { Node as PMNode } from "prosemirror-model";
-import { EditorState, type Transaction } from "prosemirror-state";
+import {
+  EditorState,
+  Selection,
+  TextSelection,
+  type Transaction,
+} from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
@@ -58,9 +64,17 @@ export interface JSONContent {
   text?: string;
 }
 
+export interface EditorCommands {
+  focus: () => void;
+  focusAtStart: () => void;
+  focusAtPixelWidth: (pixelWidth: number) => void;
+  insertAtStartAndFocus: (content: string) => void;
+}
+
 export interface NoteEditorRef {
   view: EditorView | null;
   searchStorage: SearchAndReplaceStorage;
+  commands: EditorCommands;
 }
 
 interface EditorProps {
@@ -69,7 +83,7 @@ interface EditorProps {
   mentionConfig?: MentionConfig;
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
-  onNavigateToTitle?: () => void;
+  onNavigateToTitle?: (pixelWidth?: number) => void;
 }
 
 const nodeViews = {
@@ -93,6 +107,91 @@ function ViewCapture({
   return null;
 }
 
+const noopCommands: EditorCommands = {
+  focus: () => {},
+  focusAtStart: () => {},
+  focusAtPixelWidth: () => {},
+  insertAtStartAndFocus: () => {},
+};
+
+function EditorCommandsBridge({
+  commandsRef,
+}: {
+  commandsRef: React.RefObject<EditorCommands>;
+}) {
+  commandsRef.current.focus = useEditorEventCallback((view) => {
+    if (!view) return;
+    view.focus();
+  });
+
+  commandsRef.current.focusAtStart = useEditorEventCallback((view) => {
+    if (!view) return;
+    view.dispatch(
+      view.state.tr.setSelection(Selection.atStart(view.state.doc)),
+    );
+    view.focus();
+  });
+
+  commandsRef.current.focusAtPixelWidth = useEditorEventCallback(
+    (view, pixelWidth: number) => {
+      if (!view) return;
+
+      const blockStart = Selection.atStart(view.state.doc).from;
+      const firstTextNode = view.dom.querySelector(".ProseMirror > *");
+      if (firstTextNode) {
+        const editorStyle = window.getComputedStyle(firstTextNode);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
+          const firstBlock = view.state.doc.firstChild;
+          if (firstBlock && firstBlock.textContent) {
+            const text = firstBlock.textContent;
+            let charPos = 0;
+            for (let i = 0; i <= text.length; i++) {
+              const currentWidth = ctx.measureText(text.slice(0, i)).width;
+              if (currentWidth >= pixelWidth) {
+                charPos = i;
+                break;
+              }
+              charPos = i;
+            }
+            const targetPos = Math.min(
+              blockStart + charPos,
+              view.state.doc.content.size - 1,
+            );
+            view.dispatch(
+              view.state.tr.setSelection(
+                TextSelection.create(view.state.doc, targetPos),
+              ),
+            );
+            view.focus();
+            return;
+          }
+        }
+      }
+
+      view.dispatch(
+        view.state.tr.setSelection(Selection.atStart(view.state.doc)),
+      );
+      view.focus();
+    },
+  );
+
+  commandsRef.current.insertAtStartAndFocus = useEditorEventCallback(
+    (view, content: string) => {
+      if (!view || !content) return;
+      const pos = Selection.atStart(view.state.doc).from;
+      const tr = view.state.tr.insertText(content, pos);
+      tr.setSelection(TextSelection.create(tr.doc, pos));
+      view.dispatch(tr);
+      view.focus();
+    },
+  );
+
+  return null;
+}
+
 const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
   const {
     handleChange,
@@ -106,10 +205,21 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
   const previousContentRef = useRef<JSONContent | undefined>(initialContent);
   const searchStorage = useMemo(() => createSearchStorage(), []);
   const viewRef = useRef<EditorView | null>(null);
+  const commandsRef = useRef<EditorCommands>(noopCommands);
 
-  useImperativeHandle(ref, () => ({ view: viewRef.current, searchStorage }), [
-    searchStorage,
-  ]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      get view() {
+        return viewRef.current;
+      },
+      searchStorage,
+      get commands() {
+        return commandsRef.current;
+      },
+    }),
+    [searchStorage],
+  );
 
   const onUpdate = useDebounceCallback((view: EditorView) => {
     if (!handleChange) return;
@@ -208,6 +318,7 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
     >
       <ProseMirrorDoc />
       <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+      <EditorCommandsBridge commandsRef={commandsRef} />
       {mentionConfig && <MentionSuggestion config={mentionConfig} />}
     </ProseMirror>
   );

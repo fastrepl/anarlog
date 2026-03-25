@@ -13,7 +13,11 @@ import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export const Enhanced = forwardRef<
   NoteEditorRef,
-  { sessionId: string; enhancedNoteId: string; onNavigateToTitle?: () => void }
+  {
+    sessionId: string;
+    enhancedNoteId: string;
+    onNavigateToTitle?: (pixelWidth?: number) => void;
+  }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const llmStatus = useLLMConnectionStatus();

@@ -14,7 +14,7 @@ import * as main from "~/store/tinybase/store/main";
 
 export const RawEditor = forwardRef<
   NoteEditorRef,
-  { sessionId: string; onNavigateToTitle?: () => void }
+  { sessionId: string; onNavigateToTitle?: (pixelWidth?: number) => void }
 >(({ sessionId, onNavigateToTitle }, ref) => {
   const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
   const onImageUpload = useImageUpload(sessionId);

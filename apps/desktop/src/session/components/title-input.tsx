@@ -22,87 +22,110 @@ import * as main from "~/store/tinybase/store/main";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
+export interface TitleInputHandle {
+  focus: () => void;
+  focusAtEnd: () => void;
+  focusAtPixelWidth: (pixelWidth: number) => void;
+}
+
 export const TitleInput = forwardRef<
-  HTMLInputElement,
+  TitleInputHandle,
   {
     tab: Extract<Tab, { type: "sessions" }>;
-    onNavigateToEditor?: () => void;
+    onTransferContentToEditor?: (content: string) => void;
+    onFocusEditorAtStart?: () => void;
+    onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
     onGenerateTitle?: () => void;
   }
->(({ tab, onNavigateToEditor, onGenerateTitle }, ref) => {
-  const {
-    id: sessionId,
-    state: { view },
-  } = tab;
-  const store = main.UI.useStore(main.STORE_ID);
-  const isGenerating = useTitleGenerating(sessionId);
-  const wasGenerating = usePrevious(isGenerating);
-  const [showRevealAnimation, setShowRevealAnimation] = useState(false);
-  const [generatedTitle, setGeneratedTitle] = useState<string | null>(null);
+>(
+  (
+    {
+      tab,
+      onTransferContentToEditor,
+      onFocusEditorAtStart,
+      onFocusEditorAtPixelWidth,
+      onGenerateTitle,
+    },
+    ref,
+  ) => {
+    const {
+      id: sessionId,
+      state: { view },
+    } = tab;
+    const store = main.UI.useStore(main.STORE_ID);
+    const isGenerating = useTitleGenerating(sessionId);
+    const wasGenerating = usePrevious(isGenerating);
+    const [showRevealAnimation, setShowRevealAnimation] = useState(false);
+    const [generatedTitle, setGeneratedTitle] = useState<string | null>(null);
 
-  const editorId = view ? "active" : "inactive";
-  const inputRef = useRef<HTMLInputElement>(null);
+    const editorId = view ? "active" : "inactive";
+    const inputRef = useRef<TitleInputHandle>(null);
 
-  useImperativeHandle(ref, () => inputRef.current!, []);
+    useImperativeHandle(ref, () => inputRef.current!, []);
 
-  useEffect(() => {
-    if (wasGenerating && !isGenerating) {
-      const title = store?.getCell("sessions", sessionId, "title") as
-        | string
-        | undefined;
-      setGeneratedTitle(title ?? null);
-      setShowRevealAnimation(true);
-      const timer = setTimeout(() => {
-        setShowRevealAnimation(false);
-      }, 1000);
-      return () => clearTimeout(timer);
+    useEffect(() => {
+      if (wasGenerating && !isGenerating) {
+        const title = store?.getCell("sessions", sessionId, "title") as
+          | string
+          | undefined;
+        setGeneratedTitle(title ?? null);
+        setShowRevealAnimation(true);
+        const timer = setTimeout(() => {
+          setShowRevealAnimation(false);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }, [wasGenerating, isGenerating, store, sessionId]);
+
+    const getInitialTitle = useCallback(() => {
+      return (store?.getCell("sessions", sessionId, "title") as string) ?? "";
+    }, [store, sessionId]);
+
+    if (isGenerating) {
+      return (
+        <div className="flex h-[28px] w-full items-center">
+          <span className="text-muted-foreground animate-pulse text-xl font-semibold">
+            Generating title...
+          </span>
+        </div>
+      );
     }
-  }, [wasGenerating, isGenerating, store, sessionId]);
 
-  const getInitialTitle = useCallback(() => {
-    return (store?.getCell("sessions", sessionId, "title") as string) ?? "";
-  }, [store, sessionId]);
+    if (showRevealAnimation && generatedTitle) {
+      return (
+        <div className="flex h-[28px] w-full items-center overflow-hidden">
+          <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
+            {generatedTitle}
+          </span>
+        </div>
+      );
+    }
 
-  if (isGenerating) {
     return (
-      <div className="flex h-[28px] w-full items-center">
-        <span className="text-muted-foreground animate-pulse text-xl font-semibold">
-          Generating title...
-        </span>
-      </div>
+      <TitleInputInner
+        ref={inputRef}
+        sessionId={sessionId}
+        editorId={editorId}
+        getInitialTitle={getInitialTitle}
+        onTransferContentToEditor={onTransferContentToEditor}
+        onFocusEditorAtStart={onFocusEditorAtStart}
+        onFocusEditorAtPixelWidth={onFocusEditorAtPixelWidth}
+        onGenerateTitle={onGenerateTitle}
+      />
     );
-  }
-
-  if (showRevealAnimation && generatedTitle) {
-    return (
-      <div className="flex h-[28px] w-full items-center overflow-hidden">
-        <span className="animate-reveal-left text-xl font-semibold whitespace-nowrap">
-          {generatedTitle}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <TitleInputInner
-      ref={inputRef}
-      sessionId={sessionId}
-      editorId={editorId}
-      getInitialTitle={getInitialTitle}
-      onNavigateToEditor={onNavigateToEditor}
-      onGenerateTitle={onGenerateTitle}
-    />
-  );
-});
+  },
+);
 
 const TitleInputInner = memo(
   forwardRef<
-    HTMLInputElement,
+    TitleInputHandle,
     {
       sessionId: string;
       editorId: string;
       getInitialTitle: () => string;
-      onNavigateToEditor?: () => void;
+      onTransferContentToEditor?: (content: string) => void;
+      onFocusEditorAtStart?: () => void;
+      onFocusEditorAtPixelWidth?: (pixelWidth: number) => void;
       onGenerateTitle?: () => void;
     }
   >(
@@ -111,7 +134,9 @@ const TitleInputInner = memo(
         sessionId,
         editorId,
         getInitialTitle,
-        onNavigateToEditor,
+        onTransferContentToEditor,
+        onFocusEditorAtStart,
+        onFocusEditorAtPixelWidth,
         onGenerateTitle,
       },
       ref,
@@ -123,7 +148,46 @@ const TitleInputInner = memo(
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
 
-      useImperativeHandle(ref, () => internalRef.current!, []);
+      useImperativeHandle(
+        ref,
+        () => ({
+          focus: () => internalRef.current?.focus(),
+          focusAtEnd: () => {
+            const input = internalRef.current;
+            if (input) {
+              input.focus();
+              input.setSelectionRange(input.value.length, input.value.length);
+            }
+          },
+          focusAtPixelWidth: (pixelWidth: number) => {
+            const input = internalRef.current;
+            if (input && input.value) {
+              input.focus();
+              const titleStyle = window.getComputedStyle(input);
+              const canvas = document.createElement("canvas");
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.font = `${titleStyle.fontWeight} ${titleStyle.fontSize} ${titleStyle.fontFamily}`;
+                let charPos = 0;
+                for (let i = 0; i <= input.value.length; i++) {
+                  const currentWidth = ctx.measureText(
+                    input.value.slice(0, i),
+                  ).width;
+                  if (currentWidth >= pixelWidth) {
+                    charPos = i;
+                    break;
+                  }
+                  charPos = i;
+                }
+                input.setSelectionRange(charPos, charPos);
+              }
+            } else if (input) {
+              input.focus();
+            }
+          },
+        }),
+        [],
+      );
 
       useEffect(() => {
         if (!store) return;
@@ -152,49 +216,6 @@ const TitleInputInner = memo(
         main.STORE_ID,
       );
 
-      useEffect(() => {
-        const handleMoveToTitlePosition = (e: Event) => {
-          const customEvent = e as CustomEvent<{ pixelWidth: number }>;
-          const pixelWidth = customEvent.detail.pixelWidth;
-          const input = internalRef.current;
-
-          if (input && input.value) {
-            const titleStyle = window.getComputedStyle(input);
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-
-            if (ctx) {
-              ctx.font = `${titleStyle.fontWeight} ${titleStyle.fontSize} ${titleStyle.fontFamily}`;
-
-              let charPos = 0;
-              for (let i = 0; i <= input.value.length; i++) {
-                const currentWidth = ctx.measureText(
-                  input.value.slice(0, i),
-                ).width;
-                if (currentWidth >= pixelWidth) {
-                  charPos = i;
-                  break;
-                }
-                charPos = i;
-              }
-
-              input.setSelectionRange(charPos, charPos);
-            }
-          }
-        };
-
-        window.addEventListener(
-          "editor-move-to-title-position",
-          handleMoveToTitlePosition,
-        );
-        return () => {
-          window.removeEventListener(
-            "editor-move-to-title-position",
-            handleMoveToTitlePosition,
-          );
-        };
-      }, []);
-
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "ArrowUp") {
           e.preventDefault();
@@ -210,31 +231,29 @@ const TitleInputInner = memo(
           const beforeCursor = input.value.slice(0, cursorPos);
           const afterCursor = input.value.slice(cursorPos);
 
+          setLocalTitle(beforeCursor);
           setStoreTitle(beforeCursor);
           clearLiveTitle(sessionId);
 
           if (afterCursor) {
-            setTimeout(() => {
-              const event = new CustomEvent("title-content-transfer", {
-                detail: { content: afterCursor },
-              });
-              window.dispatchEvent(event);
-            }, 0);
+            setTimeout(() => onTransferContentToEditor?.(afterCursor), 0);
           } else {
-            setTimeout(() => {
-              const event = new CustomEvent("title-move-to-editor-start");
-              window.dispatchEvent(event);
-            }, 0);
+            setTimeout(() => onFocusEditorAtStart?.(), 0);
           }
-
-          onNavigateToEditor?.();
         } else if (e.key === "Tab") {
           e.preventDefault();
-          setTimeout(() => {
-            const event = new CustomEvent("title-move-to-editor-start");
-            window.dispatchEvent(event);
-          }, 0);
-          onNavigateToEditor?.();
+          setTimeout(() => onFocusEditorAtStart?.(), 0);
+        } else if (e.key === "ArrowRight") {
+          const input = internalRef.current;
+          if (!input) return;
+          const cursorPos = input.selectionStart ?? 0;
+          if (
+            cursorPos === input.value.length &&
+            input.selectionEnd === cursorPos
+          ) {
+            e.preventDefault();
+            setTimeout(() => onFocusEditorAtStart?.(), 0);
+          }
         } else if (e.key === "ArrowDown") {
           e.preventDefault();
           const input = internalRef.current;
@@ -249,16 +268,8 @@ const TitleInputInner = memo(
             const titleStyle = window.getComputedStyle(input);
             ctx.font = `${titleStyle.fontWeight} ${titleStyle.fontSize} ${titleStyle.fontFamily}`;
             const titleWidth = ctx.measureText(textBeforeCursor).width;
-
-            setTimeout(() => {
-              const event = new CustomEvent("title-move-to-editor-position", {
-                detail: { pixelWidth: titleWidth },
-              });
-              window.dispatchEvent(event);
-            }, 0);
+            setTimeout(() => onFocusEditorAtPixelWidth?.(titleWidth), 0);
           }
-
-          onNavigateToEditor?.();
         }
       };
 

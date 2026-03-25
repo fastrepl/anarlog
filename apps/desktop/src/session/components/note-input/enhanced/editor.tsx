@@ -9,7 +9,11 @@ import * as main from "~/store/tinybase/store/main";
 
 export const EnhancedEditor = forwardRef<
   NoteEditorRef,
-  { sessionId: string; enhancedNoteId: string; onNavigateToTitle?: () => void }
+  {
+    sessionId: string;
+    enhancedNoteId: string;
+    onNavigateToTitle?: (pixelWidth?: number) => void;
+  }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const onImageUpload = useImageUpload(sessionId);
   const content = main.UI.useCell(

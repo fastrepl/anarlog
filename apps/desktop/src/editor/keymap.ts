@@ -26,7 +26,7 @@ import {
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import type { Command, EditorState } from "prosemirror-state";
+import { Selection, type Command, type EditorState } from "prosemirror-state";
 
 import { schema } from "./schema";
 
@@ -118,7 +118,7 @@ const mac =
     ? /Mac|iP(hone|[oa]d)/.test(navigator.platform)
     : false;
 
-export function buildKeymap(onNavigateToTitle?: () => void) {
+export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   const hardBreak = schema.nodes.hardBreak;
 
   const keys: Record<string, Command> = {};
@@ -209,20 +209,45 @@ export function buildKeymap(onNavigateToTitle?: () => void) {
   };
 
   if (onNavigateToTitle) {
-    keys["ArrowUp"] = (state) => {
-      const { $head } = state.selection;
+    keys["ArrowLeft"] = (state) => {
+      const { $head, empty } = state.selection;
+      if (!empty) return false;
+      if ($head.pos !== Selection.atStart(state.doc).from) return false;
 
-      let node = state.doc.firstChild;
-      let firstTextBlockPos = 0;
-      while (node && !node.isTextblock) {
-        firstTextBlockPos += 1;
-        node = node.firstChild;
+      onNavigateToTitle();
+      return true;
+    };
+
+    keys["ArrowUp"] = (state, _dispatch, view) => {
+      const { $head } = state.selection;
+      const firstBlockStart = Selection.atStart(state.doc).from;
+      if (
+        $head.start($head.depth) !==
+        state.doc.resolve(firstBlockStart).start($head.depth)
+      ) {
+        return false;
       }
 
-      if (!node) return false;
-      const isInFirstBlock = $head.start($head.depth) === firstTextBlockPos + 1;
-
-      if (!isInFirstBlock) return false;
+      if (view) {
+        const firstBlock = state.doc.firstChild;
+        if (firstBlock && firstBlock.textContent) {
+          const text = firstBlock.textContent;
+          const posInBlock = $head.pos - $head.start();
+          const textBeforeCursor = text.slice(0, posInBlock);
+          const firstTextNode = view.dom.querySelector(".ProseMirror > *");
+          if (firstTextNode) {
+            const style = window.getComputedStyle(firstTextNode);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+              const pixelWidth = ctx.measureText(textBeforeCursor).width;
+              onNavigateToTitle(pixelWidth);
+              return true;
+            }
+          }
+        }
+      }
 
       onNavigateToTitle();
       return true;

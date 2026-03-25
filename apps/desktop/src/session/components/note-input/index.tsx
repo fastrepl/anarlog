@@ -1,5 +1,4 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
@@ -35,11 +34,19 @@ import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
+export interface NoteInputHandle {
+  searchStorage: NoteEditorRef["searchStorage"];
+  focus: () => void;
+  focusAtStart: () => void;
+  focusAtPixelWidth: (pixelWidth: number) => void;
+  insertAtStartAndFocus: (content: string) => void;
+}
+
 export const NoteInput = forwardRef<
-  NoteEditorRef,
+  NoteInputHandle,
   {
     tab: Extract<Tab, { type: "sessions" }>;
-    onNavigateToTitle?: () => void;
+    onNavigateToTitle?: (pixelWidth?: number) => void;
   }
 >(({ tab, onNavigateToTitle }, ref) => {
   const editorTabs = useEditorTabs({ sessionId: tab.id });
@@ -47,7 +54,6 @@ export const NoteInput = forwardRef<
   const internalEditorRef = useRef<NoteEditorRef>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [view, setView] = useState<EditorView | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
 
   const sessionId = tab.id;
 
@@ -55,22 +61,31 @@ export const NoteInput = forwardRef<
   tabRef.current = tab;
 
   const currentTab: TabEditorView = useCurrentNoteTab(tab);
+
+  const defaultSearchStorage: NoteEditorRef["searchStorage"] = {
+    searchTerm: "",
+    replaceTerm: "",
+    results: [],
+    lastSearchTerm: "",
+    caseSensitive: false,
+    lastCaseSensitive: false,
+    resultIndex: 0,
+    lastResultIndex: 0,
+  };
+
   useImperativeHandle(
     ref,
-    () =>
-      internalEditorRef.current ?? {
-        view: null,
-        searchStorage: {
-          searchTerm: "",
-          replaceTerm: "",
-          results: [],
-          lastSearchTerm: "",
-          caseSensitive: false,
-          lastCaseSensitive: false,
-          resultIndex: 0,
-          lastResultIndex: 0,
-        },
+    () => ({
+      get searchStorage() {
+        return internalEditorRef.current?.searchStorage ?? defaultSearchStorage;
       },
+      focus: () => internalEditorRef.current?.commands.focus(),
+      focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
+      focusAtPixelWidth: (px) =>
+        internalEditorRef.current?.commands.focusAtPixelWidth(px),
+      insertAtStartAndFocus: (content) =>
+        internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+    }),
     [currentTab],
   );
 
@@ -114,7 +129,7 @@ export const NoteInput = forwardRef<
       setView(null);
     } else if (currentTab.type === "raw" && isMeetingInProgress) {
       requestAnimationFrame(() => {
-        internalEditorRef.current?.view?.focus();
+        internalEditorRef.current?.commands.focus();
       });
     }
   }, [currentTab, isMeetingInProgress]);
@@ -125,104 +140,6 @@ export const NoteInput = forwardRef<
       setView(editorView);
     }
   });
-
-  useEffect(() => {
-    const handleContentTransfer = (e: Event) => {
-      const customEvent = e as CustomEvent<{ content: string }>;
-      const content = customEvent.detail.content;
-      const v = internalEditorRef.current?.view;
-
-      if (v && content) {
-        const tr = v.state.tr.insertText(content, 0);
-        tr.setSelection(TextSelection.create(tr.doc, 0));
-        v.dispatch(tr);
-        v.focus();
-      }
-    };
-
-    const handleMoveToEditorStart = () => {
-      const v = internalEditorRef.current?.view;
-      if (v) {
-        v.dispatch(
-          v.state.tr.setSelection(TextSelection.create(v.state.doc, 0)),
-        );
-        v.focus();
-      }
-    };
-
-    const handleMoveToEditorPosition = (e: Event) => {
-      const customEvent = e as CustomEvent<{ pixelWidth: number }>;
-      const pixelWidth = customEvent.detail.pixelWidth;
-      const v = internalEditorRef.current?.view;
-
-      if (v) {
-        const firstTextNode = v.dom.querySelector(".ProseMirror > *");
-
-        if (firstTextNode) {
-          const editorStyle = window.getComputedStyle(firstTextNode);
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-
-          if (ctx) {
-            ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
-
-            const firstBlock = v.state.doc.firstChild;
-            if (firstBlock && firstBlock.textContent) {
-              const text = firstBlock.textContent;
-              let charPos = 0;
-
-              for (let i = 0; i <= text.length; i++) {
-                const currentWidth = ctx.measureText(text.slice(0, i)).width;
-                if (currentWidth >= pixelWidth) {
-                  charPos = i;
-                  break;
-                }
-                charPos = i;
-              }
-
-              const targetPos = Math.min(charPos, v.state.doc.content.size - 1);
-              v.dispatch(
-                v.state.tr.setSelection(
-                  TextSelection.create(v.state.doc, targetPos),
-                ),
-              );
-              v.focus();
-              return;
-            }
-          }
-        }
-
-        v.dispatch(
-          v.state.tr.setSelection(TextSelection.create(v.state.doc, 0)),
-        );
-        v.focus();
-      }
-    };
-
-    window.addEventListener("title-content-transfer", handleContentTransfer);
-    window.addEventListener(
-      "title-move-to-editor-start",
-      handleMoveToEditorStart,
-    );
-    window.addEventListener(
-      "title-move-to-editor-position",
-      handleMoveToEditorPosition,
-    );
-    return () => {
-      window.removeEventListener(
-        "title-content-transfer",
-        handleContentTransfer,
-      );
-      window.removeEventListener(
-        "title-move-to-editor-start",
-        handleMoveToEditorStart,
-      );
-      window.removeEventListener(
-        "title-move-to-editor-position",
-        handleMoveToEditorPosition,
-      );
-    };
-  }, []);
 
   useCaretNearBottom({
     view,
@@ -239,7 +156,7 @@ export const NoteInput = forwardRef<
 
   const handleContainerClick = () => {
     if (currentTab.type !== "transcript" && currentTab.type !== "attachments") {
-      internalEditorRef.current?.view?.focus();
+      internalEditorRef.current?.commands.focus();
     }
   };
 
