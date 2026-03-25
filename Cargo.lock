@@ -2793,6 +2793,7 @@ dependencies = [
  "insta",
  "language",
  "llm-types",
+ "model-manager",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -10451,6 +10452,7 @@ dependencies = [
  "cactus",
  "futures-util",
  "llm-types",
+ "model-manager",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -11100,6 +11102,15 @@ dependencies = [
  "tracing",
  "wiremock",
  "zip 2.4.2",
+]
+
+[[package]]
+name = "model-manager"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -18416,6 +18427,7 @@ dependencies = [
  "axum 0.8.8",
  "axum-extra",
  "backon",
+ "cactus",
  "cactus-model",
  "data",
  "dirs 6.0.0",
@@ -18427,6 +18439,7 @@ dependencies = [
  "language",
  "local-model",
  "model-downloader",
+ "model-manager",
  "owhisper-client",
  "owhisper-interface",
  "port-killer",
@@ -20281,6 +20294,7 @@ dependencies = [
  "futures-util",
  "insta",
  "language",
+ "model-manager",
  "owhisper-client",
  "owhisper-interface",
  "pico-args",

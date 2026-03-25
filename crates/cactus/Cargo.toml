@@ -4,11 +4,16 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
+[features]
+default = []
+model-manager = ["dep:hypr-model-manager"]
+
 [dependencies]
 cactus-sys = { git = "https://github.com/cactus-compute/cactus", package = "cactus-sys", rev = "a5acad3" }
 
 hypr-language = { workspace = true }
 hypr-llm-types = { workspace = true }
+hypr-model-manager = { workspace = true, optional = true }
 
 futures-util = { workspace = true }
 tokio = { workspace = true, features = ["rt", "sync"] }

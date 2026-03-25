@@ -63,6 +63,7 @@ hypr-buffer = { path = "crates/buffer", package = "buffer" }
 hypr-bundle = { path = "crates/bundle", package = "bundle" }
 hypr-cactus = { path = "crates/cactus", package = "cactus" }
 hypr-cactus-model = { path = "crates/cactus-model", package = "cactus-model" }
+hypr-model-manager = { path = "crates/model-manager", package = "model-manager" }
 hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }

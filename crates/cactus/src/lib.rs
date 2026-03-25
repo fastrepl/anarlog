@@ -17,3 +17,12 @@ pub use stt::{
 pub use vad::{VadOptions, VadResult, VadSegment};
 
 pub use hypr_llm_types::{Response, StreamingParser};
+
+#[cfg(feature = "model-manager")]
+impl hypr_model_manager::ModelLoader for Model {
+    type Error = Error;
+
+    fn load(path: &std::path::Path) -> Result<Self, Self::Error> {
+        Model::new(path)
+    }
+}

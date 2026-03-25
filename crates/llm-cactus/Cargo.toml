@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-cactus = { workspace = true }
+hypr-cactus = { workspace = true, features = ["model-manager"] }
+hypr-model-manager = { workspace = true }
 hypr-llm-types = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
