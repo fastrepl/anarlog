@@ -81,6 +81,12 @@ export function DetailsColumn({
     "email",
     main.STORE_ID,
   ) as string | undefined;
+  const summary = main.UI.useCell(
+    "humans",
+    selectedHumanId ?? "",
+    "summary",
+    main.STORE_ID,
+  ) as string | undefined;
 
   const duplicateHumanIds = main.UI.useSliceRowIds(
     main.INDEXES.humansByEmail,
@@ -297,12 +303,18 @@ export function DetailsColumn({
                   Summary
                 </h3>
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                  <p className="text-sm leading-relaxed text-neutral-700">
-                    AI-generated summary of all interactions and notes with this
-                    contact will appear here. This will synthesize key
-                    discussion points, action items, and relationship context
-                    across all meetings and notes.
-                  </p>
+                  {summary?.trim() ? (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-neutral-700">
+                      {summary}
+                    </p>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-neutral-700">
+                      AI-generated summary of all interactions and notes with
+                      this contact will appear here. This will synthesize key
+                      discussion points, action items, and relationship context
+                      across all meetings and notes.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

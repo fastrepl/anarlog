@@ -13,6 +13,7 @@ export const humanSchema = z.object({
     (val) => val ?? undefined,
     z.string().optional(),
   ),
+  summary: z.preprocess((val) => val ?? undefined, z.string().optional()),
   memo: z.preprocess((val) => val ?? undefined, z.string().optional()),
   pinned: z.preprocess((val) => val ?? false, z.boolean()),
   pin_order: z.preprocess((val) => val ?? undefined, z.number().optional()),

@@ -31,6 +31,7 @@ function initializeStore(store: Store): void {
         name: "",
         email: "",
         org_id: "",
+        summary: "",
       });
     }
 

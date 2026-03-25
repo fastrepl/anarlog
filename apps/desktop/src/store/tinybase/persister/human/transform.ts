@@ -35,6 +35,7 @@ function frontmatterToStore(
     org_id: String(frontmatter.org_id ?? ""),
     job_title: String(frontmatter.job_title ?? ""),
     linkedin_username: String(frontmatter.linkedin_username ?? ""),
+    summary: String(frontmatter.summary ?? ""),
     pinned: Boolean(frontmatter.pinned ?? false),
     pin_order:
       frontmatter.pin_order != null ? Number(frontmatter.pin_order) : undefined,
@@ -52,6 +53,7 @@ function storeToFrontmatter(
     org_id: store.org_id ?? "",
     job_title: store.job_title ?? "",
     linkedin_username: store.linkedin_username ?? "",
+    summary: store.summary ?? "",
     pinned: store.pinned ?? false,
     pin_order: store.pin_order ?? 0,
   };

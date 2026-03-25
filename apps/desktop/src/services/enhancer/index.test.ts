@@ -5,6 +5,20 @@ import { EnhancerService } from ".";
 
 import { listenerStore } from "~/store/zustand/listener/instance";
 
+const aiMocks = vi.hoisted(() => ({
+  generateText: vi
+    .fn()
+    .mockResolvedValue({ text: "Generated contact summary" }),
+}));
+
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return {
+    ...actual,
+    generateText: aiMocks.generateText,
+  };
+});
+
 vi.mock("@hypr/plugin-analytics", () => ({
   commands: {
     event: vi.fn().mockResolvedValue(undefined),
@@ -25,21 +39,39 @@ type Tables = Record<string, Record<string, Record<string, any>>>;
 
 function createTables(data?: {
   transcripts?: Record<string, { session_id: string; words: string }>;
-  enhanced_notes?: Record<string, { session_id: string; template_id?: string }>;
-  sessions?: Record<string, { title: string }>;
+  enhanced_notes?: Record<
+    string,
+    { session_id: string; template_id?: string; content?: string }
+  >;
+  sessions?: Record<
+    string,
+    { title: string; raw_md?: string; created_at?: string }
+  >;
+  humans?: Record<string, { name?: string; email?: string; memo?: string }>;
+  mapping_session_participant?: Record<
+    string,
+    { session_id: string; human_id: string; source?: string }
+  >;
 }): Tables {
   return {
     transcripts: data?.transcripts ?? {},
     enhanced_notes: data?.enhanced_notes ?? {},
     sessions: data?.sessions ?? {},
+    humans: data?.humans ?? {},
+    mapping_session_participant: data?.mapping_session_participant ?? {},
     templates: {},
   };
 }
 
 function createMockStore(tables: Tables) {
+  let listenerCount = 0;
+
   return {
     getCell: vi.fn((table: string, rowId: string, cellId: string) => {
       return tables[table]?.[rowId]?.[cellId];
+    }),
+    getRow: vi.fn((table: string, rowId: string) => {
+      return tables[table]?.[rowId];
     }),
     getValue: vi.fn((valueId: string) => {
       if (valueId === "user_id") return "user-1";
@@ -49,7 +81,17 @@ function createMockStore(tables: Tables) {
       if (!tables[table]) tables[table] = {};
       tables[table][rowId] = row;
     }),
-    setPartialRow: vi.fn(),
+    setPartialRow: vi.fn(
+      (table: string, rowId: string, row: Record<string, any>) => {
+        if (!tables[table]) tables[table] = {};
+        tables[table][rowId] = {
+          ...(tables[table][rowId] ?? {}),
+          ...row,
+        };
+      },
+    ),
+    addRowListener: vi.fn(() => `listener-${++listenerCount}`),
+    delListener: vi.fn(),
   } as any;
 }
 
@@ -64,6 +106,17 @@ function createMockIndexes(tables: Tables) {
       if (indexId === "enhancedNotesBySession") {
         return Object.keys(tables.enhanced_notes ?? {}).filter(
           (id) => tables.enhanced_notes[id]?.session_id === sliceId,
+        );
+      }
+      if (indexId === "sessionsByHuman") {
+        return Object.keys(tables.mapping_session_participant ?? {}).filter(
+          (id) => tables.mapping_session_participant[id]?.human_id === sliceId,
+        );
+      }
+      if (indexId === "sessionParticipantsBySession") {
+        return Object.keys(tables.mapping_session_participant ?? {}).filter(
+          (id) =>
+            tables.mapping_session_participant[id]?.session_id === sliceId,
         );
       }
       return [];
@@ -452,6 +505,9 @@ describe("EnhancerService", () => {
     let subscriber: ((state: any) => void) | undefined;
 
     beforeEach(() => {
+      aiMocks.generateText.mockResolvedValue({
+        text: "Generated contact summary",
+      });
       vi.mocked(listenerStore.subscribe).mockImplementation((cb: any) => {
         subscriber = cb;
         return () => {
@@ -547,6 +603,62 @@ describe("EnhancerService", () => {
       service.dispose();
 
       expect((service as any).activeAutoEnhance.size).toBe(0);
+    });
+  });
+
+  describe("contact summaries", () => {
+    it("stores a generated summary for a participant with meeting notes", async () => {
+      const tables = createTables({
+        humans: {
+          "human-1": {
+            name: "Adhit",
+            email: "adhit@janet.ai",
+            memo: "Met through Janet.",
+          },
+        },
+        sessions: {
+          "session-1": {
+            title: "Breakfast at MKT",
+            raw_md: JSON.stringify({
+              type: "doc",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Discussed GTM plans and follow-ups.",
+                    },
+                  ],
+                },
+              ],
+            }),
+            created_at: "2026-03-23T10:00:00.000Z",
+          },
+        },
+        mapping_session_participant: {
+          "mapping-1": {
+            session_id: "session-1",
+            human_id: "human-1",
+            source: "auto",
+          },
+        },
+      });
+      const store = createMockStore(tables);
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+      });
+      const service = new EnhancerService(deps);
+
+      service.queueContactSummaryUpdate("human-1");
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(aiMocks.generateText).toHaveBeenCalled();
+      expect(store.setPartialRow).toHaveBeenCalledWith("humans", "human-1", {
+        summary: "Generated contact summary",
+      });
     });
   });
 });

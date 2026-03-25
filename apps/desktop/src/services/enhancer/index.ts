@@ -1,6 +1,7 @@
-import type { LanguageModel } from "ai";
+import { generateText, type LanguageModel } from "ai";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { json2md, parseJsonContent } from "@hypr/tiptap/shared";
 
 import { getEligibility } from "./eligibility";
 
@@ -51,9 +52,12 @@ export function initEnhancerService(deps: EnhancerDeps): EnhancerService {
 
 export class EnhancerService {
   private activeAutoEnhance = new Set<string>();
+  private activeContactSummary = new Set<string>();
+  private queuedContactSummary = new Set<string>();
   private pendingRetries = new Map<string, ReturnType<typeof setTimeout>>();
   private unsubscribe: (() => void) | null = null;
   private eventListeners = new Set<(event: EnhancerEvent) => void>();
+  private storeListenerIds: string[] = [];
 
   constructor(private deps: EnhancerDeps) {}
 
@@ -66,6 +70,92 @@ export class EnhancerService {
         this.clearRetry(sessionId);
       }
     });
+
+    const { mainStore } = this.deps;
+
+    this.storeListenerIds = [
+      mainStore.addRowListener(
+        "sessions",
+        null,
+        (_store, _tableId, rowId, getCellChange) => {
+          if (
+            !getCellChange ||
+            (!getCellChange("sessions", rowId, "raw_md")[0] &&
+              !getCellChange("sessions", rowId, "title")[0] &&
+              !getCellChange("sessions", rowId, "event_json")[0])
+          ) {
+            return;
+          }
+
+          this.queueContactSummariesForSession(rowId);
+        },
+      ),
+      mainStore.addRowListener(
+        "enhanced_notes",
+        null,
+        (store, _tableId, rowId, getCellChange) => {
+          if (!getCellChange) {
+            return;
+          }
+
+          const [contentChanged] = getCellChange(
+            "enhanced_notes",
+            rowId,
+            "content",
+          );
+          const [sessionChanged, previousSessionId, nextSessionId] =
+            getCellChange("enhanced_notes", rowId, "session_id");
+
+          if (!contentChanged && !sessionChanged) {
+            return;
+          }
+
+          if (typeof previousSessionId === "string" && previousSessionId) {
+            this.queueContactSummariesForSession(previousSessionId);
+          }
+          if (typeof nextSessionId === "string" && nextSessionId) {
+            this.queueContactSummariesForSession(nextSessionId);
+            return;
+          }
+
+          const sessionId = store.getCell(
+            "enhanced_notes",
+            rowId,
+            "session_id",
+          );
+          if (typeof sessionId === "string" && sessionId) {
+            this.queueContactSummariesForSession(sessionId);
+          }
+        },
+      ),
+      mainStore.addRowListener(
+        "mapping_session_participant",
+        null,
+        (_store, _tableId, rowId, getCellChange) => {
+          if (!getCellChange) {
+            return;
+          }
+
+          const candidateHumanIds = new Set<string>();
+          const [, previousHumanId, nextHumanId] = getCellChange(
+            "mapping_session_participant",
+            rowId,
+            "human_id",
+          );
+
+          if (typeof previousHumanId === "string" && previousHumanId) {
+            candidateHumanIds.add(previousHumanId);
+          }
+          if (typeof nextHumanId === "string" && nextHumanId) {
+            candidateHumanIds.add(nextHumanId);
+          }
+
+          for (const humanId of candidateHumanIds) {
+            this.queueContactSummaryUpdate(humanId);
+          }
+        },
+      ),
+    ];
   }
 
   dispose() {
@@ -74,7 +164,13 @@ export class EnhancerService {
     for (const timer of this.pendingRetries.values()) clearTimeout(timer);
     this.pendingRetries.clear();
     this.activeAutoEnhance.clear();
+    this.activeContactSummary.clear();
+    this.queuedContactSummary.clear();
     this.eventListeners.clear();
+    for (const listenerId of this.storeListenerIds) {
+      this.deps.mainStore.delListener(listenerId);
+    }
+    this.storeListenerIds = [];
     if (instance === this) instance = null;
   }
 
@@ -245,4 +341,285 @@ export class EnhancerService {
 
     return enhancedNoteId;
   }
+
+  queueContactSummariesForSession(sessionId: string) {
+    for (const humanId of this.getParticipantHumanIds(sessionId)) {
+      this.queueContactSummaryUpdate(humanId);
+    }
+  }
+
+  queueContactSummaryUpdate(humanId: string) {
+    if (!humanId) {
+      return;
+    }
+
+    if (this.activeContactSummary.has(humanId)) {
+      this.queuedContactSummary.add(humanId);
+      return;
+    }
+
+    this.activeContactSummary.add(humanId);
+
+    void this.generateContactSummary(humanId).finally(() => {
+      this.activeContactSummary.delete(humanId);
+
+      if (this.queuedContactSummary.delete(humanId)) {
+        this.queueContactSummaryUpdate(humanId);
+      }
+    });
+  }
+
+  private async generateContactSummary(humanId: string) {
+    const model = this.deps.getModel();
+    if (!model) {
+      return;
+    }
+
+    const store = this.deps.mainStore;
+    if (!store.getRow("humans", humanId)) {
+      return;
+    }
+
+    const summaryInput = this.buildContactSummaryInput(humanId);
+
+    if (!summaryInput) {
+      store.setPartialRow("humans", humanId, { summary: "" });
+      return;
+    }
+
+    try {
+      const result = await generateText({
+        model,
+        temperature: 0,
+        system: CONTACT_SUMMARY_SYSTEM_PROMPT,
+        prompt: buildContactSummaryPrompt(summaryInput),
+      });
+
+      store.setPartialRow("humans", humanId, {
+        summary: result.text.trim(),
+      });
+    } catch (error) {
+      console.error("Failed to generate contact summary:", error);
+    }
+  }
+
+  private buildContactSummaryInput(humanId: string) {
+    const store = this.deps.mainStore;
+    const human = store.getRow("humans", humanId);
+    if (!human) {
+      return null;
+    }
+
+    const sessionIds = this.getSessionIdsForHuman(humanId);
+    const sessions = sessionIds
+      .map((sessionId) => this.getSessionSummarySource(sessionId))
+      .filter(
+        (session): session is NonNullable<typeof session> => session !== null,
+      )
+      .slice(0, CONTACT_SUMMARY_SESSION_LIMIT);
+
+    const memo =
+      typeof human.memo === "string" && human.memo.trim()
+        ? human.memo.trim()
+        : "";
+    if (!memo && sessions.length === 0) {
+      return null;
+    }
+
+    return {
+      name:
+        (typeof human.name === "string" && human.name.trim()) ||
+        (typeof human.email === "string" && human.email.trim()) ||
+        "Unknown contact",
+      memo,
+      sessions,
+    };
+  }
+
+  private getSessionIdsForHuman(humanId: string): string[] {
+    const mappingIds = this.deps.indexes.getSliceRowIds(
+      INDEXES.sessionsByHuman,
+      humanId,
+    );
+    const sessionIds = new Set<string>();
+
+    for (const mappingId of mappingIds) {
+      const source = this.deps.mainStore.getCell(
+        "mapping_session_participant",
+        mappingId,
+        "source",
+      );
+      if (source === "excluded") {
+        continue;
+      }
+
+      const sessionId = this.deps.mainStore.getCell(
+        "mapping_session_participant",
+        mappingId,
+        "session_id",
+      );
+      if (typeof sessionId === "string" && sessionId) {
+        sessionIds.add(sessionId);
+      }
+    }
+
+    return Array.from(sessionIds).sort((a, b) => {
+      return this.getSessionSortKey(b) - this.getSessionSortKey(a);
+    });
+  }
+
+  private getParticipantHumanIds(sessionId: string): string[] {
+    const mappingIds = this.deps.indexes.getSliceRowIds(
+      INDEXES.sessionParticipantsBySession,
+      sessionId,
+    );
+    const humanIds = new Set<string>();
+
+    for (const mappingId of mappingIds) {
+      const source = this.deps.mainStore.getCell(
+        "mapping_session_participant",
+        mappingId,
+        "source",
+      );
+      if (source === "excluded") {
+        continue;
+      }
+
+      const humanId = this.deps.mainStore.getCell(
+        "mapping_session_participant",
+        mappingId,
+        "human_id",
+      );
+      if (typeof humanId === "string" && humanId) {
+        humanIds.add(humanId);
+      }
+    }
+
+    return Array.from(humanIds);
+  }
+
+  private getSessionSummarySource(sessionId: string) {
+    const session = this.deps.mainStore.getRow("sessions", sessionId);
+    if (!session) {
+      return null;
+    }
+
+    const sections: string[] = [];
+    const enhancedNotes = this.getEnhancedNoteIds(sessionId);
+    for (const noteId of enhancedNotes) {
+      const markdown = jsonToMarkdown(
+        this.deps.mainStore.getCell("enhanced_notes", noteId, "content"),
+      );
+      if (markdown) {
+        sections.push(`AI summary\n${truncatePromptChunk(markdown)}`);
+      }
+    }
+
+    const rawNotes = jsonToMarkdown(session.raw_md);
+    if (rawNotes) {
+      sections.push(`Manual notes\n${truncatePromptChunk(rawNotes)}`);
+    }
+
+    if (sections.length === 0) {
+      return null;
+    }
+
+    return {
+      title:
+        (typeof session.title === "string" && session.title.trim()) ||
+        "Untitled note",
+      happenedAt: this.getSessionDateLabel(sessionId),
+      content: sections.join("\n\n"),
+    };
+  }
+
+  private getSessionDateLabel(sessionId: string): string {
+    const eventJson = this.deps.mainStore.getCell(
+      "sessions",
+      sessionId,
+      "event_json",
+    );
+    if (typeof eventJson === "string" && eventJson.trim()) {
+      try {
+        const parsed = JSON.parse(eventJson) as { started_at?: string };
+        if (typeof parsed.started_at === "string" && parsed.started_at) {
+          return parsed.started_at;
+        }
+      } catch {
+        // Ignore invalid event JSON and fall back to created_at.
+      }
+    }
+
+    const createdAt = this.deps.mainStore.getCell(
+      "sessions",
+      sessionId,
+      "created_at",
+    );
+    return typeof createdAt === "string" ? createdAt : "";
+  }
+
+  private getSessionSortKey(sessionId: string): number {
+    const label = this.getSessionDateLabel(sessionId);
+    const parsed = Date.parse(label);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+}
+
+const CONTACT_SUMMARY_SESSION_LIMIT = 12;
+const CONTACT_SUMMARY_CHUNK_LIMIT = 1500;
+
+const CONTACT_SUMMARY_SYSTEM_PROMPT = `You write concise relationship summaries for a contacts view in a meeting notes app.
+
+Use only the provided notes.
+Keep the output under 140 words.
+Focus on the person's role, active workstreams, commitments, preferences, and follow-ups worth remembering.
+Prefer concrete facts over generic framing.
+Do not mention missing information or speculate.
+Return plain text only.`;
+
+function buildContactSummaryPrompt(input: {
+  name: string;
+  memo: string;
+  sessions: Array<{ title: string; happenedAt: string; content: string }>;
+}) {
+  const parts = [`Contact: ${input.name}`];
+
+  if (input.memo) {
+    parts.push(`Manual contact notes:\n${truncatePromptChunk(input.memo)}`);
+  }
+
+  const sessionBlocks = input.sessions.map((session, index) => {
+    const heading = [`Meeting ${index + 1}: ${session.title}`];
+    if (session.happenedAt) {
+      heading.push(`Date: ${session.happenedAt}`);
+    }
+
+    return `${heading.join("\n")}\n${session.content}`;
+  });
+
+  parts.push(`Meetings:\n${sessionBlocks.join("\n\n---\n\n")}`);
+
+  return `${parts.join("\n\n")}\n\nWrite one concise relationship summary for this contact.`;
+}
+
+function truncatePromptChunk(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= CONTACT_SUMMARY_CHUNK_LIMIT) {
+    return trimmed;
+  }
+
+  return `${trimmed.slice(0, CONTACT_SUMMARY_CHUNK_LIMIT).trimEnd()}...`;
+}
+
+function jsonToMarkdown(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{")) {
+    return trimmed;
+  }
+
+  return json2md(parseJsonContent(trimmed)).trim();
 }

@@ -50,6 +50,7 @@ export const tableSchemaForTinybase = {
     org_id: { type: "string" },
     job_title: { type: "string" },
     linkedin_username: { type: "string" },
+    summary: { type: "string" },
     memo: { type: "string" },
     pinned: { type: "boolean" },
     pin_order: { type: "number" },
