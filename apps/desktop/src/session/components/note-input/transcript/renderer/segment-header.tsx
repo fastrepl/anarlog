@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { SpeakerAssignPopover } from "./speaker-assign";
 import { getTimestampRange, useSegmentColor } from "./utils";
 
 import * as main from "~/store/tinybase/store/main";
@@ -11,9 +12,11 @@ import { defaultRenderLabelContext } from "~/stt/segment/shared";
 
 export function SegmentHeader({
   segment,
+  transcriptId,
   speakerLabelManager,
 }: {
   segment: Segment;
+  transcriptId: string;
   speakerLabelManager?: SpeakerLabelManager;
 }) {
   const color = useSegmentColor(segment.key);
@@ -29,7 +32,12 @@ export function SegmentHeader({
 
   return (
     <p className={headerClassName}>
-      <span style={{ color }}>{label}</span>
+      <SpeakerAssignPopover
+        segment={segment}
+        transcriptId={transcriptId}
+        color={color}
+        label={label}
+      />
       <span className="font-mono text-neutral-500">{timestamp}</span>
     </p>
   );

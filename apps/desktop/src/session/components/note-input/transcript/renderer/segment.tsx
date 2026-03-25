@@ -25,6 +25,7 @@ export const SegmentRenderer = memo(
   ({
     segment,
     offsetMs,
+    transcriptId,
     speakerLabelManager,
     currentMs,
     seekAndPlay,
@@ -32,6 +33,7 @@ export const SegmentRenderer = memo(
   }: {
     segment: Segment;
     offsetMs: number;
+    transcriptId: string;
     speakerLabelManager?: SpeakerLabelManager;
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;
@@ -46,6 +48,7 @@ export const SegmentRenderer = memo(
       <section>
         <SegmentHeader
           segment={segment}
+          transcriptId={transcriptId}
           speakerLabelManager={speakerLabelManager}
         />
 
@@ -93,6 +96,7 @@ export const SegmentRenderer = memo(
     if (
       prev.segment !== next.segment ||
       prev.offsetMs !== next.offsetMs ||
+      prev.transcriptId !== next.transcriptId ||
       prev.speakerLabelManager !== next.speakerLabelManager ||
       prev.audioExists !== next.audioExists ||
       prev.seekAndPlay !== next.seekAndPlay

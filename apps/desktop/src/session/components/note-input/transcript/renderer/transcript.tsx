@@ -130,6 +130,7 @@ const SegmentsList = memo(
             <SegmentRenderer
               segment={segment}
               offsetMs={offsetMs}
+              transcriptId={transcriptId}
               speakerLabelManager={speakerLabelManager}
               currentMs={currentMs}
               seekAndPlay={seekAndPlay}
