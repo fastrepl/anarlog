@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import type { JSONContent } from "@hypr/tiptap/chat";
 
-import { serializeDraftMessage } from "./hooks";
+import { serializeDraftMessage } from "./draft";
 
 describe("serializeDraftMessage", () => {
   test("serializes mention labels into plain text and draft refs", () => {

@@ -6,13 +6,17 @@ import type {
   SlashCommandConfig,
   TiptapEditor,
 } from "@hypr/tiptap/chat";
-import { EMPTY_TIPTAP_DOC } from "@hypr/tiptap/shared";
+
+import {
+  clearDraftContent,
+  getDraftContent,
+  serializeDraftMessage,
+  setDraftContent,
+} from "./draft";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useSearchEngine } from "~/search/contexts/engine";
 import * as main from "~/store/tinybase/store/main";
-
-const draftsByKey = new Map<string, JSONContent>();
 
 export function useDraftState({
   draftKey,
@@ -21,19 +25,18 @@ export function useDraftState({
   draftKey: string;
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
-  const [hasContent, setHasContent] = useState(false);
-  const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_TIPTAP_DOC);
-
-  useEffect(() => {
-    onContextRefsChange?.(serializeDraftMessage(initialContent.current).refs);
-  }, [onContextRefsChange]);
+  const initialContent = useRef(getDraftContent(draftKey));
+  const initialDraft = useRef(serializeDraftMessage(initialContent.current));
+  const [hasContent, setHasContent] = useState(
+    initialDraft.current.text.trim().length > 0,
+  );
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
       const draft = serializeDraftMessage(json);
       const text = draft.text.trim();
       setHasContent(text.length > 0);
-      draftsByKey.set(draftKey, json);
+      setDraftContent(draftKey, json);
       onContextRefsChange?.(draft.refs);
     },
     [draftKey, onContextRefsChange],
@@ -77,7 +80,7 @@ export function useSubmit({
     void analyticsCommands.event({ event: "message_sent" });
     onSendMessage(text, [{ type: "text", text }], draft.refs);
     editorRef.current?.editor?.commands.clearContent();
-    draftsByKey.delete(draftKey);
+    clearDraftContent(draftKey);
     onContextRefsChange?.([]);
   }, [
     draftKey,
@@ -193,102 +196,4 @@ export function useSlashCommandConfig(): SlashCommandConfig {
     }),
     [sessions, humans, organizations, search],
   );
-}
-
-export function serializeDraftMessage(json: JSONContent | undefined): {
-  text: string;
-  refs: ContextRef[];
-} {
-  const textParts: string[] = [];
-  const refs: ContextRef[] = [];
-  const seen = new Set<string>();
-
-  const visit = (node: JSONContent | undefined) => {
-    if (!node || typeof node !== "object") {
-      return;
-    }
-
-    if (node.type === "text") {
-      textParts.push(node.text || "");
-      return;
-    }
-
-    if (node.type === "hardBreak") {
-      textParts.push("\n");
-      return;
-    }
-
-    if (isMentionNode(node)) {
-      textParts.push(mentionNodeToPlainText(node));
-
-      const mentionType =
-        typeof node.attrs?.type === "string" ? node.attrs.type : null;
-      const mentionId =
-        typeof node.attrs?.id === "string" ? node.attrs.id : null;
-
-      if (!mentionType || !mentionId) {
-        return;
-      }
-
-      let ref: ContextRef | null = null;
-      if (mentionType === "session") {
-        ref = {
-          kind: "session",
-          key: `session:manual:${mentionId}`,
-          source: "draft",
-          sessionId: mentionId,
-        };
-      } else if (mentionType === "human") {
-        ref = {
-          kind: "human",
-          key: `human:manual:${mentionId}`,
-          source: "draft",
-          humanId: mentionId,
-        };
-      } else if (mentionType === "organization") {
-        ref = {
-          kind: "organization",
-          key: `organization:manual:${mentionId}`,
-          source: "draft",
-          organizationId: mentionId,
-        };
-      }
-
-      if (ref && !seen.has(ref.key)) {
-        seen.add(ref.key);
-        refs.push(ref);
-      }
-
-      return;
-    }
-
-    if (Array.isArray(node.content)) {
-      for (const child of node.content) {
-        visit(child);
-      }
-    }
-  };
-
-  visit(json);
-  return { text: textParts.join(""), refs };
-}
-
-function isMentionNode(
-  node: Pick<JSONContent, "type" | "attrs"> | Record<string, unknown>,
-): boolean {
-  return (
-    typeof node.type === "string" &&
-    (node.type === "mention" || node.type.startsWith("mention-"))
-  );
-}
-
-function mentionNodeToPlainText(node: JSONContent): string {
-  const label =
-    typeof node.attrs?.label === "string" && node.attrs.label.trim()
-      ? node.attrs.label.trim()
-      : typeof node.attrs?.id === "string" && node.attrs.id.trim()
-        ? node.attrs.id.trim()
-        : "";
-
-  return label ? `@${label}` : "";
 }
