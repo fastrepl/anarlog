@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
 import { Check, Loader2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { commands as listenerCommands } from "@hypr/plugin-listener";
 import {
@@ -22,6 +22,7 @@ import { cn } from "@hypr/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
+import { getPreferredProviderModel } from "./selection";
 import {
   displayModelId,
   type ProviderId,
@@ -88,23 +89,18 @@ export function SelectProviderAndModel() {
     [],
     settings.STORE_ID,
   );
+  const [lastSelectedModels, setLastSelectedModels] = useState<
+    Record<string, string>
+  >(
+    current_stt_provider && current_stt_model
+      ? { [current_stt_provider]: current_stt_model }
+      : {},
+  );
 
   const form = useForm({
     defaultValues: {
       provider: current_stt_provider || "",
       model: current_stt_model || "",
-    },
-    listeners: {
-      onChange: ({ formApi }) => {
-        const {
-          form: { errors },
-        } = formApi.getAllErrors();
-        if (errors.length > 0) {
-          console.log(errors);
-        }
-
-        void formApi.handleSubmit();
-      },
     },
     onSubmit: ({ value }) => {
       handleSelectProvider(value.provider);
@@ -122,7 +118,11 @@ export function SelectProviderAndModel() {
       form.setFieldValue("model", storeModel);
     }
   }, [current_stt_provider, current_stt_model, form]);
-
+  const submitSelection = (provider: string, model: string) => {
+    form.setFieldValue("provider", provider);
+    form.setFieldValue("model", model);
+    void form.handleSubmit();
+  };
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-md font-serif font-semibold">Model being used</h3>
@@ -138,19 +138,44 @@ export function SelectProviderAndModel() {
         ])}
       >
         <div className="flex flex-row items-center gap-4">
-          <form.Field
-            name="provider"
-            listeners={{
-              onChange: () => {
-                form.setFieldValue("model", "");
-              },
-            }}
-          >
+          <form.Field name="provider">
             {(field) => (
               <div className="min-w-0 flex-2" data-stt-provider-selector>
                 <Select
                   value={field.state.value}
-                  onValueChange={(value) => field.handleChange(value)}
+                  onValueChange={(value) => {
+                    const currentProvider = field.state.value;
+                    const currentModel = form.getFieldValue("model");
+
+                    if (currentProvider && currentModel) {
+                      setLastSelectedModels((previous) => ({
+                        ...previous,
+                        [currentProvider]: currentModel,
+                      }));
+                    }
+
+                    const nextModels =
+                      configuredProviders[value as ProviderId]?.models ?? [];
+                    const nextModel = getPreferredProviderModel(
+                      value,
+                      currentProvider && currentModel
+                        ? {
+                            ...lastSelectedModels,
+                            [currentProvider]: currentModel,
+                          }
+                        : lastSelectedModels,
+                      nextModels,
+                    );
+
+                    if (nextModel) {
+                      setLastSelectedModels((previous) => ({
+                        ...previous,
+                        [value]: nextModel,
+                      }));
+                    }
+
+                    submitSelection(value, nextModel);
+                  }}
                 >
                   <SelectTrigger className="bg-white shadow-none focus:ring-0">
                     <SelectValue placeholder="Select a provider" />
@@ -211,9 +236,15 @@ export function SelectProviderAndModel() {
                   <div className="min-w-0 flex-3">
                     <Input
                       value={field.state.value}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
+                      onChange={(event) => {
+                        const nextModel = event.target.value;
+                        const provider = field.form.getFieldValue("provider");
+                        setLastSelectedModels((previous) => ({
+                          ...previous,
+                          [provider]: nextModel,
+                        }));
+                        submitSelection(provider, nextModel);
+                      }}
                       className="text-xs"
                       placeholder="Enter a model identifier"
                     />
@@ -227,7 +258,14 @@ export function SelectProviderAndModel() {
                 <div className="min-w-0 flex-3">
                   <Select
                     value={field.state.value}
-                    onValueChange={(value) => field.handleChange(value)}
+                    onValueChange={(value) => {
+                      const provider = field.form.getFieldValue("provider");
+                      setLastSelectedModels((previous) => ({
+                        ...previous,
+                        [provider]: value,
+                      }));
+                      submitSelection(provider, value);
+                    }}
                     disabled={models.length === 0}
                   >
                     <SelectTrigger
