@@ -17,6 +17,7 @@ export type ContextEntitySource = (typeof CONTEXT_ENTITY_SOURCES)[number];
 
 type BaseContextRef = {
   key: string;
+  label?: string;
   source?: ContextEntitySource;
 };
 

@@ -13,6 +13,10 @@ export function isContextRef(value: unknown): value is ContextRef {
     return false;
   }
 
+  if (value.label !== undefined && typeof value.label !== "string") {
+    return false;
+  }
+
   if (
     value.source !== undefined &&
     (typeof value.source !== "string" || !validSources.has(value.source))

@@ -38,6 +38,7 @@ describe("serializeDraftMessage", () => {
         {
           kind: "human",
           key: "human:manual:human-1",
+          label: "john",
           source: "draft",
           humanId: "human-1",
         },
@@ -83,6 +84,7 @@ describe("serializeDraftMessage", () => {
         {
           kind: "organization",
           key: "organization:manual:org-1",
+          label: "Acme",
           source: "draft",
           organizationId: "org-1",
         },

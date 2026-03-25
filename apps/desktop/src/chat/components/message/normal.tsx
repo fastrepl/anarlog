@@ -7,6 +7,7 @@ import { cn } from "@hypr/utils";
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
 import { Tool } from "./tool";
 import type { Part } from "./types";
+import { UserMessageText } from "./user-text";
 
 import { hasRenderableContent } from "~/chat/components/shared";
 import type { HyprUIMessage } from "~/chat/types";
@@ -69,9 +70,11 @@ export function NormalMessage({
         ])}
       >
         <MessageBubble variant={isUser ? "user" : "assistant"}>
-          {message.parts.map((part, i) => (
-            <Part key={i} part={part as Part} />
-          ))}
+          {isUser ? (
+            <UserMessageText message={message} />
+          ) : (
+            message.parts.map((part, i) => <Part key={i} part={part as Part} />)
+          )}
         </MessageBubble>
         {!isUser && (
           <div className="mt-1 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
