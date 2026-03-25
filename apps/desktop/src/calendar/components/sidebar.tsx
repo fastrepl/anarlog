@@ -100,7 +100,7 @@ function ProviderAccordionItem({
   return (
     <AccordionItem value={provider.id} className="border-none">
       <AccordionTrigger
-        className="py-2 hover:no-underline"
+        className="py-2 hover:no-underline [&>svg]:opacity-0 [&>svg]:transition-opacity hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100"
         onClick={handleTriggerClick}
       >
         <div className="flex items-center gap-2">

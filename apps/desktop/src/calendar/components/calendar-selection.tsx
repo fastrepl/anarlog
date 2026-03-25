@@ -100,6 +100,7 @@ export function CalendarSelection({
             <AccordionTrigger
               className={cn([
                 "cursor-pointer py-2 hover:no-underline",
+                "[&>svg]:opacity-0 [&>svg]:transition-opacity hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100",
                 "-mx-2 rounded-md px-2",
                 !disableHoverTone && "hover:bg-neutral-50",
               ])}
