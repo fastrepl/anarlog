@@ -139,7 +139,7 @@ function CalendarViewContent() {
       >
         {showSettings && (
           <>
-            <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 px-2 pt-1 pb-1">
+            <div className="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-200 py-2 pr-1 pl-3">
               <Button
                 variant="ghost"
                 size="icon"
@@ -271,27 +271,26 @@ function CalendarSyncHeaderControls() {
         : null;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center">
       {statusText ? (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
-            <span className="flex size-4 items-center justify-center text-neutral-500">
+            <span className="flex size-6 items-center justify-center text-neutral-500">
               <Spinner size={12} />
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom">{statusText}</TooltipContent>
         </Tooltip>
-      ) : null}
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6"
-        onClick={handleRefresh}
-        disabled={status === "syncing"}
-      >
-        <RefreshCwIcon className="size-3.5" />
-      </Button>
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={handleRefresh}
+        >
+          <RefreshCwIcon className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
