@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use rayon::prelude::*;
 
 use crate::constants::DEFAULT_GRADER_MODEL;
-use crate::{ChatCompleter, ChatMessage, Score, Usage, parse_config};
+use crate::{parse_config, ChatCompleter, ChatMessage, Score, Usage};
 
 pub type ValidatorFn = fn(&str) -> (bool, String);
 pub type ValidatorFnWithMeta = fn(&str, &HashMap<String, serde_json::Value>) -> (bool, String);

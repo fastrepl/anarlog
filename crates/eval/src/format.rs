@@ -1,5 +1,5 @@
 use markdown::mdast::{Heading, List, ListItem, Node};
-use markdown::{ParseOptions, to_mdast};
+use markdown::{to_mdast, ParseOptions};
 
 #[derive(Debug, Clone)]
 pub struct CheckResult {

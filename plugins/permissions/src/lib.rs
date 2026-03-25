@@ -1,10 +1,10 @@
 mod commands;
 mod error;
-mod models;
 mod ext;
+mod models;
 
-pub use ext::*;
 pub use error::*;
+pub use ext::*;
 pub use models::*;
 
 const PLUGIN_NAME: &str = "permissions";

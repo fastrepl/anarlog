@@ -8,7 +8,7 @@ mod report;
 mod submissions;
 
 use hypr_eval::{
-    DEFAULT_MODELS, EvalResult, Executor, ExecutorProgress, OpenRouterClient, parse_config,
+    parse_config, EvalResult, Executor, ExecutorProgress, OpenRouterClient, DEFAULT_MODELS,
 };
 use report::{render_json, render_results};
 use submissions::{all_cases, filter_cases};
@@ -179,7 +179,7 @@ fn list_cases() {
 
 fn generate_completion(shell: Shell) {
     use clap::CommandFactory;
-    use clap_complete::{Shell as ClapShell, generate};
+    use clap_complete::{generate, Shell as ClapShell};
 
     let mut cmd = Cli::command();
     let shell = match shell {
