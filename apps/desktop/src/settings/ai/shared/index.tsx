@@ -48,6 +48,16 @@ type ProviderConfig = {
   };
 };
 
+export function CharProviderIcon() {
+  return (
+    <img
+      src="/assets/char-logo-icon-black.svg"
+      alt="Char"
+      className="size-4 object-contain"
+    />
+  );
+}
+
 export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }

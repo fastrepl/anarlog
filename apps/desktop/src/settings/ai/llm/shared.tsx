@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from "react";
 
 import { env } from "~/env";
+import { CharProviderIcon } from "~/settings/ai/shared";
 import {
   type ProviderRequirement,
   requiresConfigField,
@@ -38,7 +39,7 @@ const _PROVIDERS = [
     id: "hyprnote",
     displayName: "Char",
     badge: "Recommended",
-    icon: <img src="/assets/icon.png" alt="Char" className="size-5" />,
+    icon: <CharProviderIcon />,
     baseUrl: new URL("/llm", env.VITE_API_URL).toString(),
     requirements: [{ kind: "requires_auth" }],
   },
