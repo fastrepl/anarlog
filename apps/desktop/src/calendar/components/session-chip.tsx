@@ -38,7 +38,7 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
             "cursor-pointer hover:opacity-80",
           ])}
         >
-          <div className="w-[2.5px] shrink-0 self-stretch rounded-full bg-blue-500" />
+          <div className="w-[4px] shrink-0 self-stretch rounded-full border border-neutral-300 bg-transparent" />
           <span className="truncate">{session.title as string}</span>
           {createdAt && (
             <span className="ml-auto shrink-0 font-mono text-neutral-400">
