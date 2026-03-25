@@ -1,5 +1,6 @@
 import {
   BellIcon,
+  CalendarCogIcon,
   FlaskConical,
   MonitorIcon,
   SettingsIcon,
@@ -14,6 +15,7 @@ import {
 } from "@hypr/ui/components/ui/scroll-fade";
 import { cn } from "@hypr/utils";
 
+import { SettingsCalendar } from "./calendar";
 import { SettingsApp, SettingsNotifications, SettingsSystem } from "./general";
 import { SettingsLab } from "./lab";
 
@@ -67,6 +69,7 @@ const SECTIONS: {
 }[] = [
   { id: "app", label: "App", icon: SmartphoneIcon },
   { id: "notifications", label: "Notifications", icon: BellIcon },
+  { id: "calendar", label: "Calendar", icon: CalendarCogIcon },
   { id: "system", label: "System", icon: MonitorIcon },
   { id: "lab", label: "Lab", icon: FlaskConical },
 ];
@@ -93,6 +96,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsApp />;
       case "notifications":
         return <SettingsNotifications />;
+      case "calendar":
+        return <SettingsCalendar />;
       case "system":
         return <SettingsSystem />;
       case "lab":

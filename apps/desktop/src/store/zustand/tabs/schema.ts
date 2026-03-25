@@ -36,6 +36,7 @@ export type SettingsTab =
   | "account"
   | "app"
   | "notifications"
+  | "calendar"
   | "system"
   | "lab";
 
