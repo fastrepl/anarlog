@@ -15,9 +15,6 @@ import {
 
 import { ActionableTooltipContent } from "./shared";
 
-import { useTabs } from "~/store/zustand/tabs";
-import type { Tab } from "~/store/zustand/tabs/schema";
-import { useStartListening } from "~/stt/useStartListening";
 import { useUploadFile } from "~/stt/useUploadFile";
 
 export function OptionsMenu({
@@ -35,18 +32,6 @@ export function OptionsMenu({
 }) {
   const [open, setOpen] = useState(false);
   const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
-  const startBatchRecording = useStartListening(sessionId, {
-    transcriptionMode: "batch",
-  });
-
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const sessionTab = useTabs((state) => {
-    const found = state.tabs.find(
-      (tab): tab is Extract<Tab, { type: "sessions" }> =>
-        tab.type === "sessions" && tab.id === sessionId,
-    );
-    return found ?? null;
-  });
 
   const handleUploadAudio = useCallback(() => {
     if (disabled) {
@@ -63,29 +48,6 @@ export function OptionsMenu({
     setOpen(false);
     uploadTranscript();
   }, [disabled, uploadTranscript]);
-
-  const handleStartBatchRecording = useCallback(() => {
-    if (disabled) {
-      return;
-    }
-
-    setOpen(false);
-
-    if (sessionTab) {
-      updateSessionTabState(sessionTab, {
-        ...sessionTab.state,
-        view: { type: "transcript" },
-      });
-    }
-
-    startBatchRecording();
-  }, [
-    disabled,
-    sessionTab,
-    setOpen,
-    startBatchRecording,
-    updateSessionTabState,
-  ]);
 
   const moreButton = (
     <button
@@ -151,13 +113,6 @@ export function OptionsMenu({
         className="w-43 rounded-xl p-1.5"
       >
         <div className="flex flex-col gap-1">
-          <Button
-            variant="ghost"
-            className="h-9 justify-center px-3 whitespace-nowrap"
-            onClick={handleStartBatchRecording}
-          >
-            <span className="text-sm">Record only</span>
-          </Button>
           <Button
             variant="ghost"
             className="h-9 justify-center px-3 whitespace-nowrap"
