@@ -1,5 +1,5 @@
 use std::io::Write;
-use std::path::Path;
+use std::sync::Arc;
 
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch;
@@ -13,18 +13,17 @@ use super::response::{build_batch_words, build_segment_stream_response};
 use hypr_audio_utils::content_type_to_extension;
 
 #[tracing::instrument(
-    skip(audio_data, event_tx),
+    skip(audio_data, model, event_tx),
     fields(
         hyprnote.audio.size_bytes = audio_data.len(),
         hyprnote.file.mime_type = content_type,
-        hyprnote.model.path = %model_path.display()
     )
 )]
 pub(super) fn transcribe_batch(
     audio_data: &[u8],
     content_type: &str,
     params: &ListenParams,
-    model_path: &Path,
+    model: &Arc<hypr_cactus::Model>,
     event_tx: Option<mpsc::UnboundedSender<BatchSseMessage>>,
 ) -> Result<batch::Response, crate::Error> {
     let extension = content_type_to_extension(content_type);
@@ -45,17 +44,9 @@ pub(super) fn transcribe_batch(
         .map(|samples| channel_duration_sec(samples))
         .fold(0.0_f64, f64::max);
 
-    let model = match crate::service::build_model(model_path) {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::error!(error = %e, "failed_to_load_model");
-            return Err(e.into());
-        }
-    };
-
     let options = crate::service::build_transcribe_options(params, None);
 
-    let metadata = crate::service::build_metadata(model_path);
+    let metadata = owhisper_interface::stream::Metadata::default();
     let channel_durations = channel_samples
         .iter()
         .map(|samples| channel_duration_sec(samples))
@@ -378,8 +369,6 @@ impl ProgressTracker {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use hypr_language::ISO639;
     use owhisper_interface::ListenParams;
 
@@ -490,11 +479,16 @@ mod tests {
                 .to_string_lossy()
                 .into_owned()
         });
-        let model_path = Path::new(&model_path_str);
+        let model_path = std::path::Path::new(&model_path_str);
         assert!(
             model_path.exists(),
             "model path does not exist: {}",
             model_path.display()
+        );
+
+        let model = Arc::new(
+            crate::service::build_model(model_path)
+                .unwrap_or_else(|e| panic!("failed to build model: {e}")),
         );
 
         let wav_bytes = std::fs::read(hypr_data::english_1::AUDIO_PATH)
@@ -505,7 +499,7 @@ mod tests {
             ..Default::default()
         };
 
-        let response = transcribe_batch(&wav_bytes, "audio/wav", &params, model_path, None)
+        let response = transcribe_batch(&wav_bytes, "audio/wav", &params, &model, None)
             .unwrap_or_else(|e| panic!("real-model batch transcription failed: {e}"));
 
         let Some(channel) = response.results.channels.first() else {

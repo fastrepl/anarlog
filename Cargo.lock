@@ -12529,6 +12529,7 @@ version = "0.0.1"
 dependencies = [
  "am",
  "audio-utils",
+ "backon",
  "base64 0.22.1",
  "bytes",
  "cactus-model",
@@ -23247,6 +23248,7 @@ name = "ws-client"
 version = "0.1.0"
 dependencies = [
  "async-stream",
+ "backon",
  "bytes",
  "futures-util",
  "serde",

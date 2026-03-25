@@ -13,9 +13,9 @@ pub(crate) struct Segment<'a> {
     pub confidence: f64,
 }
 
-pub(crate) fn build_metadata(model_path: &Path) -> Metadata {
+pub(crate) fn build_metadata(model_path: Option<&Path>) -> Metadata {
     let model_name = model_path
-        .file_stem()
+        .and_then(|p| p.file_stem())
         .and_then(|s| s.to_str())
         .unwrap_or("cactus")
         .to_string();
@@ -31,6 +31,7 @@ pub(crate) fn build_metadata(model_path: &Path) -> Metadata {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn build_model(model_path: &Path) -> Result<hypr_cactus::Model, hypr_cactus::Error> {
     static LOG_INIT: std::sync::Once = std::sync::Once::new();
     LOG_INIT.call_once(hypr_cactus::log::init);

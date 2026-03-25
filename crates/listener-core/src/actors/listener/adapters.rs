@@ -30,79 +30,80 @@ pub(super) async fn spawn_rx_task(
     let adapter_kind =
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let is_dual = matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker);
+    let policy = connect_policy_for(adapter_kind);
 
     let result = match (adapter_kind, is_dual) {
         (AdapterKind::Argmax, false) => {
-            spawn_rx_task_single_with_adapter::<ArgmaxAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<ArgmaxAdapter>(args, myself, policy).await
         }
         (AdapterKind::Argmax, true) => {
-            spawn_rx_task_dual_with_adapter::<ArgmaxAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<ArgmaxAdapter>(args, myself, policy).await
         }
         (AdapterKind::Soniox, false) => {
-            spawn_rx_task_single_with_adapter::<SonioxAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<SonioxAdapter>(args, myself, policy).await
         }
         (AdapterKind::Soniox, true) => {
-            spawn_rx_task_dual_with_adapter::<SonioxAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<SonioxAdapter>(args, myself, policy).await
         }
         (AdapterKind::Fireworks, false) => {
-            spawn_rx_task_single_with_adapter::<FireworksAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<FireworksAdapter>(args, myself, policy).await
         }
         (AdapterKind::Fireworks, true) => {
-            spawn_rx_task_dual_with_adapter::<FireworksAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<FireworksAdapter>(args, myself, policy).await
         }
         (AdapterKind::Deepgram, false) => {
-            spawn_rx_task_single_with_adapter::<DeepgramAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<DeepgramAdapter>(args, myself, policy).await
         }
         (AdapterKind::Deepgram, true) => {
-            spawn_rx_task_dual_with_adapter::<DeepgramAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<DeepgramAdapter>(args, myself, policy).await
         }
         (AdapterKind::AssemblyAI, false) => {
-            spawn_rx_task_single_with_adapter::<AssemblyAIAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<AssemblyAIAdapter>(args, myself, policy).await
         }
         (AdapterKind::AssemblyAI, true) => {
-            spawn_rx_task_dual_with_adapter::<AssemblyAIAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<AssemblyAIAdapter>(args, myself, policy).await
         }
         (AdapterKind::OpenAI, false) => {
-            spawn_rx_task_single_with_adapter::<OpenAIAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<OpenAIAdapter>(args, myself, policy).await
         }
         (AdapterKind::OpenAI, true) => {
-            spawn_rx_task_dual_with_adapter::<OpenAIAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<OpenAIAdapter>(args, myself, policy).await
         }
         (AdapterKind::Gladia, false) => {
-            spawn_rx_task_single_with_adapter::<GladiaAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<GladiaAdapter>(args, myself, policy).await
         }
         (AdapterKind::Gladia, true) => {
-            spawn_rx_task_dual_with_adapter::<GladiaAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<GladiaAdapter>(args, myself, policy).await
         }
         (AdapterKind::ElevenLabs, false) => {
-            spawn_rx_task_single_with_adapter::<ElevenLabsAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<ElevenLabsAdapter>(args, myself, policy).await
         }
         (AdapterKind::ElevenLabs, true) => {
-            spawn_rx_task_dual_with_adapter::<ElevenLabsAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<ElevenLabsAdapter>(args, myself, policy).await
         }
         (AdapterKind::DashScope, false) => {
-            spawn_rx_task_single_with_adapter::<DashScopeAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<DashScopeAdapter>(args, myself, policy).await
         }
         (AdapterKind::DashScope, true) => {
-            spawn_rx_task_dual_with_adapter::<DashScopeAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<DashScopeAdapter>(args, myself, policy).await
         }
         (AdapterKind::Mistral, false) => {
-            spawn_rx_task_single_with_adapter::<MistralAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<MistralAdapter>(args, myself, policy).await
         }
         (AdapterKind::Mistral, true) => {
-            spawn_rx_task_dual_with_adapter::<MistralAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<MistralAdapter>(args, myself, policy).await
         }
         (AdapterKind::Hyprnote, false) => {
-            spawn_rx_task_single_with_adapter::<HyprnoteAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<HyprnoteAdapter>(args, myself, policy).await
         }
         (AdapterKind::Hyprnote, true) => {
-            spawn_rx_task_dual_with_adapter::<HyprnoteAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<HyprnoteAdapter>(args, myself, policy).await
         }
         (AdapterKind::Cactus, false) => {
-            spawn_rx_task_single_with_adapter::<CactusAdapter>(args, myself).await
+            spawn_rx_task_single_with_adapter::<CactusAdapter>(args, myself, policy).await
         }
         (AdapterKind::Cactus, true) => {
-            spawn_rx_task_dual_with_adapter::<CactusAdapter>(args, myself).await
+            spawn_rx_task_dual_with_adapter::<CactusAdapter>(args, myself, policy).await
         }
     }?;
 
@@ -148,9 +149,29 @@ fn desktop_connect_policy() -> hypr_ws_client::client::WebSocketConnectPolicy {
     }
 }
 
+fn local_model_connect_policy() -> hypr_ws_client::client::WebSocketConnectPolicy {
+    hypr_ws_client::client::WebSocketConnectPolicy {
+        connect_timeout: Duration::from_secs(10),
+        max_attempts: 15,
+        retry_delay: Duration::from_secs(5),
+    }
+}
+
+fn connect_policy_for(
+    kind: owhisper_client::AdapterKind,
+) -> hypr_ws_client::client::WebSocketConnectPolicy {
+    match kind {
+        owhisper_client::AdapterKind::Cactus | owhisper_client::AdapterKind::Argmax => {
+            local_model_connect_policy()
+        }
+        _ => desktop_connect_policy(),
+    }
+}
+
 async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
+    policy: hypr_ws_client::client::WebSocketConnectPolicy,
 ) -> Result<
     (
         ChannelSender,
@@ -169,7 +190,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
         .api_base(args.base_url.clone())
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
-        .connect_policy(desktop_connect_policy())
+        .connect_policy(policy)
         .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
         .build_single()
         .await;
@@ -211,6 +232,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
 async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
+    policy: hypr_ws_client::client::WebSocketConnectPolicy,
 ) -> Result<
     (
         ChannelSender,
@@ -229,7 +251,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
         .api_base(args.base_url.clone())
         .api_key(args.api_key.clone())
         .params(build_listen_params(&args))
-        .connect_policy(desktop_connect_policy())
+        .connect_policy(policy)
         .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
         .build_dual()
         .await;

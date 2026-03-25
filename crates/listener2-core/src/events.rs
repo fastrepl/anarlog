@@ -47,6 +47,8 @@ pub enum BatchEvent {
         code: BatchErrorCode,
         error: String,
     },
+    #[serde(rename = "modelLoading")]
+    ModelLoading { session_id: String },
 }
 
 #[derive(serde::Serialize, Clone)]

@@ -4,6 +4,7 @@ use std::{
 };
 
 use axum::{Router, error_handling::HandleError};
+use hypr_model_manager::{ModelManager, ModelStatus};
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort};
 use reqwest::StatusCode;
 use tower_http::cors::{self, CorsLayer};
@@ -26,6 +27,7 @@ pub struct Internal2STTArgs {
 pub struct Internal2STTState {
     base_url: String,
     model: CactusSttModel,
+    model_manager: ModelManager<hypr_cactus::Model>,
     shutdown: tokio::sync::watch::Sender<()>,
     server_task: tokio::task::JoinHandle<()>,
 }
@@ -59,16 +61,16 @@ impl Actor for Internal2STTActor {
 
         tracing::info!(model_path = %model_path.display(), "starting internal2 STT server");
 
-        let cactus_service = HandleError::new(
-            hypr_transcribe_cactus::TranscribeService::builder()
-                .model_path(model_path)
-                .cactus_config(cactus_config)
-                .build(),
-            move |err: String| async move {
-                let _ = myself.send_message(Internal2STTMessage::ServerError(err.clone()));
-                (StatusCode::INTERNAL_SERVER_ERROR, err)
-            },
-        );
+        let transcribe_service = hypr_transcribe_cactus::TranscribeService::builder()
+            .model_path(model_path)
+            .cactus_config(cactus_config)
+            .build();
+        let model_manager = transcribe_service.model_manager().clone();
+
+        let cactus_service = HandleError::new(transcribe_service, move |err: String| async move {
+            let _ = myself.send_message(Internal2STTMessage::ServerError(err.clone()));
+            (StatusCode::INTERNAL_SERVER_ERROR, err)
+        });
 
         let router = Router::new()
             .route_service("/v1/listen", cactus_service)
@@ -99,6 +101,7 @@ impl Actor for Internal2STTActor {
         Ok(Internal2STTState {
             base_url,
             model: model_type,
+            model_manager,
             shutdown: shutdown_tx,
             server_task,
         })
@@ -123,9 +126,17 @@ impl Actor for Internal2STTActor {
         match message {
             Internal2STTMessage::ServerError(e) => Err(e.into()),
             Internal2STTMessage::GetHealth(reply_port) => {
+                let status = match state.model_manager.status(None).await {
+                    ModelStatus::Ready(_) | ModelStatus::Idle => ServerStatus::Ready,
+                    ModelStatus::Loading => ServerStatus::Loading,
+                    ModelStatus::Failed(_) | ModelStatus::NotRegistered => {
+                        ServerStatus::Unreachable
+                    }
+                };
+
                 let info = ServerInfo {
                     url: Some(state.base_url.clone()),
-                    status: ServerStatus::Ready,
+                    status,
                     model: Some(crate::LocalModel::Cactus(state.model.clone())),
                 };
 

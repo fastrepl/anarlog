@@ -3,7 +3,7 @@ mod response;
 mod transcribe;
 
 use std::convert::Infallible;
-use std::path::Path;
+use std::sync::Arc;
 
 use axum::{
     Json,
@@ -24,15 +24,14 @@ pub async fn handle_batch(
     body: Bytes,
     content_type: &str,
     params: &ListenParams,
-    model_path: &Path,
+    model: Arc<hypr_cactus::Model>,
 ) -> Response {
-    let model_path = model_path.to_path_buf();
     let content_type = content_type.to_string();
     let params = params.clone();
 
     let result = tokio::task::spawn_blocking(move || {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            transcribe_batch(&body, &content_type, &params, &model_path, None)
+            transcribe_batch(&body, &content_type, &params, &model, None)
         }))
     })
     .await;
@@ -68,9 +67,8 @@ pub async fn handle_batch_sse(
     body: Bytes,
     content_type: &str,
     params: &ListenParams,
-    model_path: &Path,
+    model: Arc<hypr_cactus::Model>,
 ) -> Response {
-    let model_path = model_path.to_path_buf();
     let content_type = content_type.to_string();
     let params = params.clone();
 
@@ -82,7 +80,7 @@ pub async fn handle_batch_sse(
                 &body,
                 &content_type,
                 &params,
-                &model_path,
+                &model,
                 Some(event_tx.clone()),
             )
         })) {

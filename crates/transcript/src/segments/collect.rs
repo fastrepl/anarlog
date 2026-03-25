@@ -9,7 +9,7 @@ pub(super) fn collect_segments(
     frames: Vec<ResolvedWordFrame>,
     options: Option<&SegmentBuilderOptions>,
 ) -> Vec<ProtoSegment> {
-    let max_gap_ms = options.and_then(|opts| opts.max_gap_ms).unwrap_or(2000);
+    let max_gap_ms = options.and_then(|opts| opts.max_gap_ms).unwrap_or(3000);
     let mut segments: Vec<ProtoSegment> = Vec::new();
     let mut last_segment_by_channel: HashMap<ChannelProfile, usize> = HashMap::new();
 

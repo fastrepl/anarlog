@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 hypr-audio-utils = { workspace = true }
-hypr-cactus = { workspace = true }
+hypr-cactus = { workspace = true, features = ["model-manager"] }
 hypr-language = { workspace = true }
+hypr-model-manager = { workspace = true }
 hypr-vad-chunking = { workspace = true }
 hypr-ws-utils = { workspace = true }
 owhisper-interface = { workspace = true }

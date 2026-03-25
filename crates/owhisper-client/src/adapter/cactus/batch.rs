@@ -30,26 +30,10 @@ impl CactusAdapter {
                 .map_err(|e| Error::AudioProcessing(format!("task panicked: {:?}", e)))??;
 
         let url = build_cactus_batch_url(api_base, params);
-
         let client = reqwest::Client::new();
-        let response = client
-            .post(url)
-            .header("Content-Type", &content_type)
-            .header("Accept", "text/event-stream")
-            .body(audio_data)
-            .send()
-            .await?;
 
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!(
-                http.response.status_code = status.as_u16(),
-                hyprnote.http.response.body = %body,
-                "unexpected_response_status"
-            );
-            return Err(Error::UnexpectedStatus { status, body });
-        }
+        let response =
+            super::retry::post_with_retry(&client, url, &content_type, audio_data).await?;
 
         let byte_stream = response.bytes_stream();
 

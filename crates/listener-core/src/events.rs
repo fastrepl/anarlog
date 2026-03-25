@@ -39,6 +39,8 @@ pub enum SessionProgressEvent {
     Connecting { session_id: String },
     #[serde(rename = "connected")]
     Connected { session_id: String, adapter: String },
+    #[serde(rename = "model_loading")]
+    ModelLoading { session_id: String },
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]

@@ -15,7 +15,7 @@ pub use providers::{Auth, Provider, is_meta_model};
 
 use std::marker::PhantomData;
 
-#[cfg(feature = "argmax")]
+#[cfg(feature = "local")]
 pub use adapter::StreamingBatchConfig;
 pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{

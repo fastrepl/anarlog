@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 hypr-cactus = { workspace = true, features = ["model-manager"] }
-hypr-model-manager = { workspace = true }
 hypr-llm-types = { workspace = true }
+hypr-model-manager = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

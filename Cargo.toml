@@ -63,7 +63,6 @@ hypr-buffer = { path = "crates/buffer", package = "buffer" }
 hypr-bundle = { path = "crates/bundle", package = "bundle" }
 hypr-cactus = { path = "crates/cactus", package = "cactus" }
 hypr-cactus-model = { path = "crates/cactus-model", package = "cactus-model" }
-hypr-model-manager = { path = "crates/model-manager", package = "model-manager" }
 hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }
@@ -120,6 +119,7 @@ hypr-mac = { path = "crates/mac", package = "mac" }
 hypr-mcp = { path = "crates/mcp", package = "mcp" }
 hypr-mobile-bridge = { path = "crates/mobile-bridge", package = "mobile-bridge" }
 hypr-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
+hypr-model-manager = { path = "crates/model-manager", package = "model-manager" }
 hypr-mp3 = { path = "crates/mp3", package = "mp3" }
 hypr-nango = { path = "crates/nango", package = "nango" }
 hypr-notification = { path = "crates/notification", package = "notification" }

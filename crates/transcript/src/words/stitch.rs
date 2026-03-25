@@ -30,7 +30,19 @@ pub(crate) fn stitch(
 const STITCH_MAX_GAP_MS: i64 = 300;
 
 fn should_stitch(tail: &RawWord, head: &RawWord) -> bool {
-    !head.text.starts_with(' ') && (head.start_ms - tail.end_ms) <= STITCH_MAX_GAP_MS
+    !head.text.starts_with(' ')
+        && (head.start_ms - tail.end_ms) <= STITCH_MAX_GAP_MS
+        && !is_sentence_boundary(&tail.text, &head.text)
+}
+
+fn is_sentence_boundary(tail_text: &str, head_text: &str) -> bool {
+    let ends_with_terminal = tail_text
+        .trim_end()
+        .ends_with(|c: char| matches!(c, '.' | '!' | '?'));
+    let starts_with_upper = head_text
+        .trim_start()
+        .starts_with(|c: char| c.is_uppercase());
+    ends_with_terminal && starts_with_upper
 }
 
 fn merge_words(mut left: RawWord, right: RawWord) -> RawWord {
@@ -82,5 +94,33 @@ mod tests {
         let tail = word(" hello", 0, 100);
         let head = word(",", 500, 510);
         assert!(!should_stitch(&tail, &head));
+    }
+
+    #[test]
+    fn does_not_stitch_across_sentence_boundary() {
+        let tail = word(" you.", 0, 100);
+        let head = word("Ultimately", 100, 200);
+        assert!(!should_stitch(&tail, &head));
+    }
+
+    #[test]
+    fn does_not_stitch_across_exclamation_boundary() {
+        let tail = word(" great!", 0, 100);
+        let head = word("Thank", 100, 200);
+        assert!(!should_stitch(&tail, &head));
+    }
+
+    #[test]
+    fn still_stitches_abbreviation_continuation() {
+        let tail = word(" example.", 0, 100);
+        let head = word("com", 100, 200);
+        assert!(should_stitch(&tail, &head));
+    }
+
+    #[test]
+    fn still_stitches_decimal_after_period() {
+        let tail = word(" 3.", 0, 100);
+        let head = word("14", 100, 200);
+        assert!(should_stitch(&tail, &head));
     }
 }

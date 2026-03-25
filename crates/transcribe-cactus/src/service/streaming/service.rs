@@ -1,6 +1,5 @@
 use std::{
     future::Future,
-    path::PathBuf,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -8,11 +7,12 @@ use std::{
 use axum::{
     body::Body,
     extract::{FromRequestParts, ws::WebSocketUpgrade},
-    http::{Request, StatusCode},
+    http::{Request, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use tower::Service;
 
+use hypr_model_manager::{ModelManager, TryGetResult};
 use hypr_ws_utils::ConnectionManager;
 use owhisper_interface::ListenParams;
 
@@ -20,9 +20,11 @@ use super::super::batch;
 use super::session;
 use crate::CactusConfig;
 
+const MODEL_NAME: &str = "default";
+
 #[derive(Clone)]
 pub struct TranscribeService {
-    model_path: PathBuf,
+    model_manager: ModelManager<hypr_cactus::Model>,
     cactus_config: CactusConfig,
     connection_manager: ConnectionManager,
 }
@@ -31,19 +33,31 @@ impl TranscribeService {
     pub fn builder() -> TranscribeServiceBuilder {
         TranscribeServiceBuilder::default()
     }
+
+    pub fn model_manager(&self) -> &ModelManager<hypr_cactus::Model> {
+        &self.model_manager
+    }
 }
 
 #[derive(Default)]
 pub struct TranscribeServiceBuilder {
-    model_path: Option<PathBuf>,
+    model_manager: Option<ModelManager<hypr_cactus::Model>>,
     cactus_config: CactusConfig,
     connection_manager: Option<ConnectionManager>,
 }
 
 impl TranscribeServiceBuilder {
-    pub fn model_path(mut self, model_path: PathBuf) -> Self {
-        self.model_path = Some(model_path);
+    pub fn model_manager(mut self, model_manager: ModelManager<hypr_cactus::Model>) -> Self {
+        self.model_manager = Some(model_manager);
         self
+    }
+
+    pub fn model_path(self, model_path: std::path::PathBuf) -> Self {
+        let model_manager = ModelManager::<hypr_cactus::Model>::builder()
+            .register(MODEL_NAME, &model_path)
+            .default_model(MODEL_NAME)
+            .build();
+        self.model_manager(model_manager)
     }
 
     pub fn cactus_config(mut self, config: CactusConfig) -> Self {
@@ -53,9 +67,9 @@ impl TranscribeServiceBuilder {
 
     pub fn build(self) -> TranscribeService {
         TranscribeService {
-            model_path: self
-                .model_path
-                .expect("TranscribeServiceBuilder requires model_path"),
+            model_manager: self
+                .model_manager
+                .expect("TranscribeServiceBuilder requires model_manager"),
             cactus_config: self.cactus_config,
             connection_manager: self.connection_manager.unwrap_or_default(),
         }
@@ -72,7 +86,7 @@ impl Service<Request<Body>> for TranscribeService {
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
-        let model_path = self.model_path.clone();
+        let model_manager = self.model_manager.clone();
         let cactus_config = self.cactus_config.clone();
         let connection_manager = self.connection_manager.clone();
 
@@ -92,19 +106,37 @@ impl Service<Request<Body>> for TranscribeService {
                 }
             };
 
+            // Non-blocking model check — return 503 if still loading
+            let model = match model_manager.try_get(None).await {
+                TryGetResult::Ready(model) => model,
+                TryGetResult::Loading => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::SERVICE_UNAVAILABLE)
+                        .header(header::RETRY_AFTER, "1")
+                        .body(Body::from("model is loading"))
+                        .unwrap());
+                }
+                TryGetResult::Failed(msg) => {
+                    tracing::error!(error = %msg, "model_load_failed");
+                    return Ok((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        format!("failed to load model: {msg}"),
+                    )
+                        .into_response());
+                }
+                TryGetResult::NotRegistered => {
+                    return Ok((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "model not registered".to_string(),
+                    )
+                        .into_response());
+                }
+            };
+
+            let model_path = model_manager.get_default_path().await;
+            let metadata = crate::service::build_metadata(model_path.as_deref());
+
             if is_ws {
-                let model = match crate::service::build_model(&model_path) {
-                    Ok(model) => std::sync::Arc::new(model),
-                    Err(error) => {
-                        tracing::error!(error = %error, "failed_to_load_model");
-                        return Ok((
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            format!("failed to load model: {error}"),
-                        )
-                            .into_response());
-                    }
-                };
-                let metadata = crate::service::build_metadata(&model_path);
                 let (mut parts, _body) = req.into_parts();
                 let ws_upgrade = match WebSocketUpgrade::from_request_parts(&mut parts, &()).await {
                     Ok(ws) => ws,
@@ -156,12 +188,9 @@ impl Service<Request<Body>> for TranscribeService {
                 }
 
                 if accept.contains("text/event-stream") {
-                    Ok(
-                        batch::handle_batch_sse(body_bytes, &content_type, &params, &model_path)
-                            .await,
-                    )
+                    Ok(batch::handle_batch_sse(body_bytes, &content_type, &params, model).await)
                 } else {
-                    Ok(batch::handle_batch(body_bytes, &content_type, &params, &model_path).await)
+                    Ok(batch::handle_batch(body_bytes, &content_type, &params, model).await)
                 }
             }
         })
