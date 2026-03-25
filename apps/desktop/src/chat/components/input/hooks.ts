@@ -26,10 +26,9 @@ export function useDraftState({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const initialContent = useRef(getDraftContent(draftKey));
-  const initialDraft = useRef(serializeDraftMessage(initialContent.current));
-  const [hasContent, setHasContent] = useState(
-    initialDraft.current.text.trim().length > 0,
-  );
+  const [hasContent, setHasContent] = useState(() => {
+    return serializeDraftMessage(initialContent.current).text.trim().length > 0;
+  });
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {

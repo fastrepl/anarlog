@@ -9,7 +9,10 @@ import {
   useState,
 } from "react";
 
-import { getDraftContextRefs } from "~/chat/components/input/draft";
+import {
+  getDraftContent,
+  serializeDraftMessage,
+} from "~/chat/components/input/draft";
 import { dedupeByKey, type ContextRef } from "~/chat/context/entities";
 import {
   type DisplayEntity,
@@ -65,8 +68,8 @@ export function ChatSession({
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
-  const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>(() =>
-    getDraftContextRefs(sessionId),
+  const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>(
+    () => serializeDraftMessage(getDraftContent(sessionId)).refs,
   );
 
   const onAddContextEntity = useCallback((ref: ContextRef) => {

@@ -107,10 +107,6 @@ export function serializeDraftMessage(json: JSONContent | undefined): {
   return { text: textParts.join(""), refs };
 }
 
-export function getDraftContextRefs(draftKey: string): ContextRef[] {
-  return serializeDraftMessage(getDraftContent(draftKey)).refs;
-}
-
 function isMentionNode(
   node: Pick<JSONContent, "type" | "attrs"> | Record<string, unknown>,
 ): boolean {
