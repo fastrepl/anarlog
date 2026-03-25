@@ -31,8 +31,7 @@ export function OAuthCalendarSelection({
 export function useOAuthCalendarSelection(config: CalendarProvider) {
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
-  const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
-    useSync();
+  const { status, scheduleDebouncedSync } = useSync();
 
   const { groups, connectionSourceMap } = useMemo(() => {
     const providerCalendars = Object.entries(calendars).filter(
@@ -83,16 +82,10 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     [store, scheduleDebouncedSync],
   );
 
-  const handleRefresh = useCallback(async () => {
-    cancelDebouncedSync();
-    scheduleSync();
-  }, [scheduleSync, cancelDebouncedSync]);
-
   return {
     groups,
     connectionSourceMap,
     handleToggle,
-    handleRefresh,
     isLoading: status === "syncing",
   };
 }

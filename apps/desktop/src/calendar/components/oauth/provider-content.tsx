@@ -1,15 +1,13 @@
-import { PlusIcon, RefreshCwIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
 
 import {
   OAuthCalendarSelection,
@@ -189,13 +187,8 @@ function ConnectedContent({
   config: CalendarProvider;
   connections: ConnectionItem[];
 }) {
-  const {
-    groups,
-    connectionSourceMap,
-    handleToggle,
-    handleRefresh,
-    isLoading,
-  } = useOAuthCalendarSelection(config);
+  const { groups, connectionSourceMap, handleToggle, isLoading } =
+    useOAuthCalendarSelection(config);
 
   const connectionActions = useMemo(
     (): ConnectionAction[] =>
@@ -220,21 +213,7 @@ function ConnectedContent({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <ConnectionTroubleShootingLink connections={connectionActions} />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRefresh}
-          className="size-6"
-          disabled={isLoading}
-        >
-          <RefreshCwIcon
-            className={cn(["size-3.5", isLoading && "animate-spin"])}
-          />
-        </Button>
-      </div>
+      <ConnectionTroubleShootingLink connections={connectionActions} />
 
       <OAuthCalendarSelection
         groups={groups}

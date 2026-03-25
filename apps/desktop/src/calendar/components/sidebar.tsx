@@ -11,7 +11,6 @@ import { cn } from "@hypr/utils";
 
 import { AppleCalendarSelection } from "./apple/calendar-selection";
 import { AccessPermissionRow, TroubleShootingLink } from "./apple/permission";
-import { SyncProvider } from "./context";
 import {
   OAuthProviderContent,
   openIntegrationUrl,
@@ -41,34 +40,30 @@ export function CalendarSidebarContent() {
   );
 
   return (
-    <SyncProvider>
-      <Accordion type="multiple" defaultValue={["apple"]}>
-        {visibleProviders.map((provider) =>
-          provider.disabled ? (
-            <div
-              key={provider.id}
-              className="flex items-center gap-2 py-2 opacity-50"
-            >
-              {provider.icon}
-              <span className="text-sm font-medium">
-                {provider.displayName}
+    <Accordion type="multiple" defaultValue={["apple"]}>
+      {visibleProviders.map((provider) =>
+        provider.disabled ? (
+          <div
+            key={provider.id}
+            className="flex items-center gap-2 py-2 opacity-50"
+          >
+            {provider.icon}
+            <span className="text-sm font-medium">{provider.displayName}</span>
+            {provider.badge && (
+              <span className={getProviderBadgeClassName(provider.badge)}>
+                {provider.badge}
               </span>
-              {provider.badge && (
-                <span className={getProviderBadgeClassName(provider.badge)}>
-                  {provider.badge}
-                </span>
-              )}
-            </div>
-          ) : (
-            <ProviderAccordionItem
-              key={provider.id}
-              provider={provider}
-              calendar={calendar}
-            />
-          ),
-        )}
-      </Accordion>
-    </SyncProvider>
+            )}
+          </div>
+        ) : (
+          <ProviderAccordionItem
+            key={provider.id}
+            provider={provider}
+            calendar={calendar}
+          />
+        ),
+      )}
+    </Accordion>
   );
 }
 

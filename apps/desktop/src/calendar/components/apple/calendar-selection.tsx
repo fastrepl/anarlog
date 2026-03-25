@@ -1,11 +1,6 @@
-import { RefreshCwIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
-
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
+import { useCallback, useMemo } from "react";
 
 import { useSync } from "../context";
-import { SyncIndicator } from "./status";
 
 import {
   type CalendarGroup,
@@ -20,30 +15,11 @@ export function AppleCalendarSelection({
   calendarClassName,
   leftAction,
 }: { calendarClassName?: string; leftAction?: React.ReactNode } = {}) {
-  const { groups, handleToggle, handleRefresh, isLoading } =
-    useAppleCalendarSelection();
+  const { groups, handleToggle } = useAppleCalendarSelection();
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <div>{leftAction}</div>
-
-        <div className="flex items-center gap-2">
-          <SyncIndicator />
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            className="size-6"
-            disabled={isLoading}
-          >
-            <RefreshCwIcon
-              className={cn(["size-3.5", isLoading && "animate-spin"])}
-            />
-          </Button>
-        </div>
-      </div>
+      {leftAction ? <div>{leftAction}</div> : null}
 
       <CalendarSelection
         groups={groups}
@@ -55,15 +31,10 @@ export function AppleCalendarSelection({
 }
 
 export function useAppleCalendarSelection() {
-  const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
-    useSync();
+  const { status, scheduleDebouncedSync } = useSync();
 
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
-
-  useEffect(() => {
-    scheduleSync();
-  }, [scheduleSync]);
 
   const groups = useMemo((): CalendarGroup[] => {
     const appleCalendars = Object.entries(calendars).filter(
@@ -102,15 +73,9 @@ export function useAppleCalendarSelection() {
     [store, scheduleDebouncedSync],
   );
 
-  const handleRefresh = useCallback(() => {
-    cancelDebouncedSync();
-    scheduleSync();
-  }, [scheduleSync, cancelDebouncedSync]);
-
   return {
     groups,
     handleToggle,
-    handleRefresh,
     isLoading: status === "syncing",
   };
 }

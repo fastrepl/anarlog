@@ -69,6 +69,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }
   }, [scheduleEventSync]);
 
+  useEffect(() => {
+    scheduleSync();
+  }, [scheduleSync]);
+
   const scheduleDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {
       clearTimeout(toggleSyncTimeoutRef.current);

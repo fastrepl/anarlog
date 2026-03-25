@@ -14,13 +14,21 @@ import {
   CalendarCogIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { ButtonGroup } from "@hypr/ui/components/ui/button-group";
+import { Spinner } from "@hypr/ui/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
+import { SyncProvider, useSync } from "./context";
 import { DayCell } from "./day-cell";
 import { CalendarSidebarContent } from "./sidebar";
 
@@ -58,6 +66,14 @@ function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 export function CalendarView() {
+  return (
+    <SyncProvider>
+      <CalendarViewContent />
+    </SyncProvider>
+  );
+}
+
+function CalendarViewContent() {
   const now = useNow();
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);
@@ -166,6 +182,7 @@ export function CalendarView() {
                   ? format(days[0], "MMMM yyyy")
                   : ""}
             </h2>
+            <CalendarSyncHeaderControls />
           </div>
           <ButtonGroup>
             <Button
@@ -234,6 +251,47 @@ export function CalendarView() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+function CalendarSyncHeaderControls() {
+  const { status, cancelDebouncedSync, scheduleSync } = useSync();
+
+  const handleRefresh = useCallback(() => {
+    cancelDebouncedSync();
+    scheduleSync();
+  }, [cancelDebouncedSync, scheduleSync]);
+
+  const statusText =
+    status === "syncing"
+      ? "Syncing"
+      : status === "scheduled"
+        ? "Sync scheduled"
+        : null;
+
+  return (
+    <div className="flex items-center gap-1">
+      {statusText ? (
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <span className="flex size-4 items-center justify-center text-neutral-500">
+              <Spinner size={12} />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{statusText}</TooltipContent>
+        </Tooltip>
+      ) : null}
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-6"
+        onClick={handleRefresh}
+        disabled={status === "syncing"}
+      >
+        <RefreshCwIcon className="size-3.5" />
+      </Button>
     </div>
   );
 }
