@@ -113,13 +113,23 @@ function Part({ part }: { part: Part }) {
 }
 
 function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
-  const cleaned = part.text
+  const raw = part.text.trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const cleaned = raw
     .replace(/[\n`*#"]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   const streaming = part.state !== "done";
   const title = streaming ? cleaned.slice(-150) : cleaned;
+
+  if (!title) {
+    return null;
+  }
 
   return (
     <Disclosure
