@@ -11,7 +11,10 @@ export function useChatMode() {
   const transitionChatMode = useTabs((state) => state.transitionChatMode);
 
   const groupId = useChatContext((state) => state.groupId);
+  const sessionId = useChatContext((state) => state.sessionId);
   const setGroupId = useChatContext((state) => state.setGroupId);
+  const startNewChat = useChatContext((state) => state.startNewChat);
+  const selectChat = useChatContext((state) => state.selectChat);
 
   useHotkeys(
     "mod+j",
@@ -28,6 +31,9 @@ export function useChatMode() {
     mode,
     sendEvent: transitionChatMode,
     groupId,
+    sessionId,
     setGroupId,
+    startNewChat,
+    selectChat,
   };
 }
