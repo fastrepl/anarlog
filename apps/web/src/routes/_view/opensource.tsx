@@ -5,6 +5,7 @@ import { Fragment, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
 import { Image } from "@/components/image";
 import {
@@ -14,7 +15,6 @@ import {
   useGitHubStargazers,
   useGitHubStats,
 } from "@/queries";
-import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/opensource")({
   component: Component,

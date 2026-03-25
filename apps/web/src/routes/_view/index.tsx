@@ -10,23 +10,21 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
 
-import {
-  JiraToolCall,
-  TranscriptToolCall,
-} from "@/components/ai-feature-panel";
+import { TranscriptToolCall } from "@/components/ai-feature-panel";
 import { AppPreviewSection } from "@/components/app-preview";
+import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
+import { GitHubOpenSource } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import { LogoCloud } from "@/components/logo-cloud";
 import { FAQ, FAQItem } from "@/components/mdx-jobs";
-import { MockChatInput } from "@/components/mock-chat-input";
 import { NotebookGrid } from "@/components/notebook-grid";
 import { SocialCard } from "@/components/social-card";
 import { VideoModal } from "@/components/video-modal";
 import { addContact } from "@/functions/loops";
 import { useHeroContext } from "@/hooks/use-hero-context";
-import { getHeroCTA, getPlatformCTA, usePlatform } from "@/hooks/use-platform";
+import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
@@ -160,6 +158,7 @@ function Component() {
         <GrowsWithYouSection />
         <SolutionsTabbar />
         <SocialTestimonialsSection />
+        <GitHubOpenSource />
         <FAQSection />
         <BlogSection />
         <CTASection heroInputRef={heroInputRef} />
@@ -255,10 +254,11 @@ function HeroSection({
             <div className="flex flex-col justify-between px-6 pt-8 pb-8 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
               <div className="flex flex-col gap-6">
                 <h1 className="text-color text-2xl break-words sm:text-6xl">
-                  {heroContent.title}
+                  Meeting Notes You Own
                 </h1>
                 <p className="font-regular text-fg-muted text-base leading-relaxed break-words sm:text-xl">
-                  {heroContent.subtitle}
+                  Char captures every meeting without a bot and keeps data on
+                  your device.
                 </p>
                 {heroCTA.showInput ? (
                   <form
@@ -359,32 +359,10 @@ function HeroSection({
                     </form.Field>
                   </form>
                 ) : (
-                  <div className="flex w-full flex-col items-stretch gap-2 md:items-start">
+                  <div className="mt-4 flex w-full flex-col items-stretch gap-4 sm:flex-row sm:items-start">
                     <DownloadButton />
+                    <GithubStars />
                   </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-3 md:gap-6">
-                {heroContent.valueProps.map((prop) => (
-                  <p
-                    key={prop.title}
-                    className="text-fg-muted text-sm md:text-base"
-                  >
-                    {prop.description}
-                  </p>
-                ))}
-                {heroCTA.subtextLink ? (
-                  <Link
-                    to={heroCTA.subtextLink}
-                    className="text-fg-muted hover:text-color hidden text-base underline transition-colors md:block"
-                  >
-                    {heroCTA.subtext}
-                  </Link>
-                ) : (
-                  <p className="text-fg/50 hidden text-sm md:block">
-                    {heroCTA.subtext}
-                  </p>
                 )}
               </div>
             </div>
@@ -629,6 +607,9 @@ export function HowItWorksSection() {
         {/* Block 1: Listen & Write */}
         <div className="flex flex-col md:flex-row">
           <div className="flex flex-col justify-end gap-4 pr-8 pb-16 md:w-1/2">
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              During meeting
+            </p>
             <p className="font-regular text-color text-lg leading-relaxed md:text-3xl">
               Char keeps track of everything that happens during the meeting,
               includes context about previous conversations and people you talk
@@ -812,6 +793,9 @@ export function HowItWorksSection() {
         {/* Block 2: Summarize */}
         <div className="-mt-px flex flex-col md:flex-row">
           <div className="flex flex-col justify-start gap-4 pt-16 pr-8 md:w-1/2">
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              After meeting
+            </p>
             <p className="text-color text-lg leading-relaxed md:text-3xl">
               After the meeting, Char combines your notes with transcripts to
               create a perfect summary.
@@ -915,6 +899,122 @@ export function HowItWorksSection() {
 
         {/* features block */}
         <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-16 pb-4 [scrollbar-width:none] md:grid md:grid-cols-5 md:gap-12 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-8">
+          {/* own your data */}
+          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-full items-center justify-center">
+              <svg
+                className="aspect-[162/134] h-14 w-auto"
+                viewBox="0 0 162 134"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M0 17.5918V116.408C0 122.566 0 125.645 1.19837 127.997C2.25248 130.066 3.93449 131.748 6.0033 132.802C8.35524 134 11.4341 134 17.5918 134H142.865C149.022 134 152.101 134 154.453 132.802C156.522 131.748 158.204 130.066 159.258 127.997C160.456 125.645 160.456 122.566 160.456 116.408V29.969C160.456 23.8113 160.456 20.7324 159.258 18.3805C158.204 16.3117 156.522 14.6297 154.453 13.5755C152.101 12.3772 149.022 12.3772 142.865 12.3772H69.6948C66.9975 12.3772 65.6488 12.3772 64.3801 12.0717C63.2552 11.8009 62.1802 11.3542 61.1946 10.7481C60.083 10.0646 59.1314 9.10884 57.2283 7.19737L55.2196 5.1798L55.2195 5.17975C53.3164 3.26831 52.3649 2.31258 51.2532 1.62902C50.2677 1.02299 49.1926 0.576311 48.0678 0.305478C46.799 0 45.4504 0 42.753 0H17.5918C11.4341 0 8.35524 0 6.0033 1.19837C3.93449 2.25248 2.25248 3.93449 1.19837 6.0033C0 8.35524 0 11.4341 0 17.5918Z"
+                  fill={`url(#paint0-${agentWorkflowGraphicId})`}
+                />
+                <path
+                  d="M3.95117 25.7577V123.36C3.95117 126.959 6.86882 129.877 10.4679 129.877H149.988C153.587 129.877 156.505 126.959 156.505 123.36V25.7577C156.505 22.1586 153.587 19.241 149.988 19.241H10.4679C6.86881 19.241 3.95117 22.1586 3.95117 25.7577Z"
+                  fill="white"
+                />
+                <g filter={`url(#filter0-${agentWorkflowGraphicId})`}>
+                  <path
+                    d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
+                    fill={`url(#paint1-${agentWorkflowGraphicId})`}
+                  />
+                  <path
+                    d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
+                    fill="white"
+                    fillOpacity={0.2}
+                    style={{ mixBlendMode: "multiply" }}
+                  />
+                </g>
+                <g style={{ mixBlendMode: "overlay" }}>
+                  <path
+                    d="M69.4606 62.907C69.4606 65.3925 68.1634 67.6632 66.5467 69.5959C64.1646 72.4435 62.717 76.0863 62.717 80.0565C62.717 84.0267 64.1647 87.6693 66.5467 90.5169C68.1634 92.4496 69.4606 94.7202 69.4606 97.2057V104.025H61.3927V96.0795C61.3927 93.4736 60.0779 91.0314 57.8701 89.5361L56.5178 88.6204V71.2748L57.87 70.359C60.0779 68.8638 61.3927 66.4216 61.3927 63.8157V56.0884L69.4606 56.0884V62.907Z"
+                    fill="var(--color-fg)"
+                  />
+                  <path
+                    d="M91.5113 62.907C91.5113 65.3925 92.8086 67.6632 94.4253 69.5959C96.8073 72.4435 98.2549 76.0863 98.2549 80.0565C98.2549 84.0267 96.8073 87.6693 94.4253 90.5169C92.8085 92.4496 91.5113 94.7202 91.5113 97.2057V104.025H99.5793V96.0795C99.5793 93.4736 100.894 91.0314 103.102 89.5361L104.454 88.6204V71.2748L103.102 70.359C100.894 68.8638 99.5793 66.4216 99.5793 63.8157V56.0884L91.5113 56.0884V62.907Z"
+                    fill="var(--color-fg)"
+                  />
+                </g>
+                <defs>
+                  <filter
+                    id={`filter0-${agentWorkflowGraphicId}`}
+                    x="0"
+                    y="26.1128"
+                    width="160.457"
+                    height="108.403"
+                    filterUnits="userSpaceOnUse"
+                    colorInterpolationFilters="sRGB"
+                  >
+                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
+                    <feBlend
+                      mode="normal"
+                      in="SourceGraphic"
+                      in2="BackgroundImageFix"
+                      result="shape"
+                    />
+                    <feColorMatrix
+                      in="SourceAlpha"
+                      type="matrix"
+                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+                      result="hardAlpha"
+                    />
+                    <feOffset dy="0.68718" />
+                    <feGaussianBlur stdDeviation="0.34359" />
+                    <feComposite
+                      in2="hardAlpha"
+                      operator="arithmetic"
+                      k2="-1"
+                      k3="1"
+                    />
+                    <feColorMatrix
+                      type="matrix"
+                      values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"
+                    />
+                    <feBlend
+                      mode="normal"
+                      in2="shape"
+                      result="effect1_innerShadow"
+                    />
+                  </filter>
+                  <linearGradient
+                    id={`paint0-${agentWorkflowGraphicId}`}
+                    x1="82.9667"
+                    y1="4.12572"
+                    x2="82.9667"
+                    y2="134.075"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stopColor="#2BC5F4" />
+                    <stop offset="0.190196" stopColor="#00A7DE" />
+                  </linearGradient>
+                  <linearGradient
+                    id={`paint1-${agentWorkflowGraphicId}`}
+                    x1="91.3745"
+                    y1="16.4999"
+                    x2="91.3745"
+                    y2="133.828"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop stopColor="#49D2FC" />
+                    <stop offset="0.5" stopColor="#00B4E7" />
+                    <stop offset="1" stopColor="#00B4E7" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                Own your data
+              </h4>
+              <p className="text-color text-base">
+                Data stays on your device and not locked in a database.
+              </p>
+            </div>
+          </div>
+
           {/* local or cloud */}
           <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between gap-2 md:min-w-0 md:shrink">
             <div className="flex h-full items-center gap-4">
@@ -933,209 +1033,47 @@ export function HowItWorksSection() {
                 Local or cloud, your choice
               </h4>
               <p className="text-color text-base">
-                Use local models or bring your own API key. Works without
-                internet.
+                Run fully local, bring your own API key, or use Char cloud.
+                Switch anytime.
               </p>
             </div>
           </div>
 
-          {/* use any agent */}
-          <div className="group border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between md:min-w-0 md:shrink">
-            <div className="flex w-full min-w-0 items-stretch gap-1 sm:gap-3">
-              <div className="flex flex-1 flex-col justify-between">
-                <div className="flex size-8 shrink-0 items-center justify-center self-start rounded-full">
-                  <img
-                    src="/icons/Chatgpt-logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-                <div className="bg-surface-subtle flex size-8 shrink-0 items-center justify-center self-end rounded-full">
-                  <img
-                    src="/icons/Claude-logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-                <div className="bg-surface-subtle flex size-8 shrink-0 items-center justify-center self-start rounded-full">
-                  <img
-                    src="/icons/gemini%20logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-              </div>
-              {/* Folder */}
-              <div className="flex shrink-0 items-center justify-center self-stretch px-1">
-                <svg
-                  className="aspect-[162/134] h-14 w-auto"
-                  viewBox="0 0 162 134"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M0 17.5918V116.408C0 122.566 0 125.645 1.19837 127.997C2.25248 130.066 3.93449 131.748 6.0033 132.802C8.35524 134 11.4341 134 17.5918 134H142.865C149.022 134 152.101 134 154.453 132.802C156.522 131.748 158.204 130.066 159.258 127.997C160.456 125.645 160.456 122.566 160.456 116.408V29.969C160.456 23.8113 160.456 20.7324 159.258 18.3805C158.204 16.3117 156.522 14.6297 154.453 13.5755C152.101 12.3772 149.022 12.3772 142.865 12.3772H69.6948C66.9975 12.3772 65.6488 12.3772 64.3801 12.0717C63.2552 11.8009 62.1802 11.3542 61.1946 10.7481C60.083 10.0646 59.1314 9.10884 57.2283 7.19737L55.2196 5.1798L55.2195 5.17975C53.3164 3.26831 52.3649 2.31258 51.2532 1.62902C50.2677 1.02299 49.1926 0.576311 48.0678 0.305478C46.799 0 45.4504 0 42.753 0H17.5918C11.4341 0 8.35524 0 6.0033 1.19837C3.93449 2.25248 2.25248 3.93449 1.19837 6.0033C0 8.35524 0 11.4341 0 17.5918Z"
-                    fill={`url(#paint0-${agentWorkflowGraphicId})`}
-                  />
-                  <path
-                    d="M3.95117 25.7577V123.36C3.95117 126.959 6.86882 129.877 10.4679 129.877H149.988C153.587 129.877 156.505 126.959 156.505 123.36V25.7577C156.505 22.1586 153.587 19.241 149.988 19.241H10.4679C6.86881 19.241 3.95117 22.1586 3.95117 25.7577Z"
-                    fill="white"
-                  />
-                  <g filter={`url(#filter0-${agentWorkflowGraphicId})`}>
-                    <path
-                      d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
-                      fill={`url(#paint1-${agentWorkflowGraphicId})`}
-                    />
-                    <path
-                      d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
-                      fill="white"
-                      fillOpacity={0.2}
-                      style={{ mixBlendMode: "multiply" }}
-                    />
-                  </g>
-                  <g style={{ mixBlendMode: "overlay" }}>
-                    <path
-                      d="M69.4606 62.907C69.4606 65.3925 68.1634 67.6632 66.5467 69.5959C64.1646 72.4435 62.717 76.0863 62.717 80.0565C62.717 84.0267 64.1647 87.6693 66.5467 90.5169C68.1634 92.4496 69.4606 94.7202 69.4606 97.2057V104.025H61.3927V96.0795C61.3927 93.4736 60.0779 91.0314 57.8701 89.5361L56.5178 88.6204V71.2748L57.87 70.359C60.0779 68.8638 61.3927 66.4216 61.3927 63.8157V56.0884L69.4606 56.0884V62.907Z"
-                      fill="var(--color-fg)"
-                    />
-                    <path
-                      d="M91.5113 62.907C91.5113 65.3925 92.8086 67.6632 94.4253 69.5959C96.8073 72.4435 98.2549 76.0863 98.2549 80.0565C98.2549 84.0267 96.8073 87.6693 94.4253 90.5169C92.8085 92.4496 91.5113 94.7202 91.5113 97.2057V104.025H99.5793V96.0795C99.5793 93.4736 100.894 91.0314 103.102 89.5361L104.454 88.6204V71.2748L103.102 70.359C100.894 68.8638 99.5793 66.4216 99.5793 63.8157V56.0884L91.5113 56.0884V62.907Z"
-                      fill="var(--color-fg)"
-                    />
-                  </g>
-                  <defs>
-                    <filter
-                      id={`filter0-${agentWorkflowGraphicId}`}
-                      x="0"
-                      y="26.1128"
-                      width="160.457"
-                      height="108.403"
-                      filterUnits="userSpaceOnUse"
-                      colorInterpolationFilters="sRGB"
-                    >
-                      <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                      <feBlend
-                        mode="normal"
-                        in="SourceGraphic"
-                        in2="BackgroundImageFix"
-                        result="shape"
-                      />
-                      <feColorMatrix
-                        in="SourceAlpha"
-                        type="matrix"
-                        values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                        result="hardAlpha"
-                      />
-                      <feOffset dy="0.68718" />
-                      <feGaussianBlur stdDeviation="0.34359" />
-                      <feComposite
-                        in2="hardAlpha"
-                        operator="arithmetic"
-                        k2="-1"
-                        k3="1"
-                      />
-                      <feColorMatrix
-                        type="matrix"
-                        values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"
-                      />
-                      <feBlend
-                        mode="normal"
-                        in2="shape"
-                        result="effect1_innerShadow"
-                      />
-                    </filter>
-                    <linearGradient
-                      id={`paint0-${agentWorkflowGraphicId}`}
-                      x1="82.9667"
-                      y1="4.12572"
-                      x2="82.9667"
-                      y2="134.075"
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop stopColor="#2BC5F4" />
-                      <stop offset="0.190196" stopColor="#00A7DE" />
-                    </linearGradient>
-                    <linearGradient
-                      id={`paint1-${agentWorkflowGraphicId}`}
-                      x1="91.3745"
-                      y1="16.4999"
-                      x2="91.3745"
-                      y2="133.828"
-                      gradientUnits="userSpaceOnUse"
-                    >
-                      <stop stopColor="#49D2FC" />
-                      <stop offset="0.5" stopColor="#00B4E7" />
-                      <stop offset="1" stopColor="#00B4E7" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <div className="flex flex-1 flex-col justify-between">
-                <div className="bg-surface-subtle flex size-8 shrink-0 items-center justify-center self-end rounded-full">
-                  <img
-                    src="/icons/Obsidian%20logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-                <div className="bg-surface-subtle flex size-8 shrink-0 items-center justify-center self-start rounded-full">
-                  <img
-                    src="/icons/Open-claw%20logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-                <div className="bg-surface-subtle flex size-8 shrink-0 items-center justify-center self-end rounded-full">
-                  <img
-                    src="/icons/manus%20logo.svg"
-                    alt=""
-                    className="size-7 object-contain"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Create <br /> any workflow
-              </h4>
-              <p className="text-color text-base">
-                Char is fully avaliable to any agent because of it's
-                markdown-first nature
-              </p>
-            </div>
-          </div>
-
-          {/* no bot on calls */}
+          {/* works everywhere */}
           <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between md:min-w-0 md:shrink">
             <div className="flex h-full items-center">
-              <div className="flex h-16 max-w-90 justify-center">
-                <div className="border-brand-color flex w-full items-center justify-between gap-2 rounded-xl border bg-gradient-to-b from-white to-stone-100 px-4 py-3 text-nowrap shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <Icon
-                      icon="mdi:video"
-                      className="text-fg-muted shrink-0 text-xl"
-                    />
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-fg-subtle text-xs">1-1 with Joanna</p>
-                      <p className="text-fg-muted text-sm font-medium">
-                        AI Notetaker joined.
-                      </p>
-                    </div>
-                  </div>
-
-                  <button className="text-fg-subtle hover:text-fg-muted ml-2 shrink-0 transition-colors">
-                    <Icon icon="mdi:close" className="text-base" />
-                  </button>
+              <div className="flex flex-wrap gap-2">
+                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
+                  <Icon icon="mdi:video" className="text-fg-muted text-lg" />
+                  <span className="text-fg-muted text-xs">Zoom</span>
+                </div>
+                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
+                  <Icon
+                    icon="mdi:microsoft-teams"
+                    className="text-fg-muted text-lg"
+                  />
+                  <span className="text-fg-muted text-xs">Teams</span>
+                </div>
+                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
+                  <Icon icon="mdi:google" className="text-fg-muted text-lg" />
+                  <span className="text-fg-muted text-xs">Meet</span>
+                </div>
+                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
+                  <Icon
+                    icon="mdi:microphone"
+                    className="text-fg-muted text-lg"
+                  />
+                  <span className="text-fg-muted text-xs">In-person</span>
                 </div>
               </div>
             </div>
             <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Meetings without bots
+                Works everywhere
               </h4>
               <p className="text-color text-base">
-                Char captures system audio directly. No faceless bots join your
-                meetings.
+                Captures system audio. Works on Zoom, Teams, Meet, in-person, or
+                offline.
               </p>
             </div>
           </div>
@@ -1164,12 +1102,12 @@ export function HowItWorksSection() {
                       fill="white"
                     />
                     <path
-                      fill-rule="evenodd"
-                      clip-rule="evenodd"
+                      fillRule="evenodd"
+                      clipRule="evenodd"
                       d="M8.58243 2.64649C9.68243 2.23399 11.8595 2.48608 12.4324 3.72358C13.0053 4.96108 13.3491 6.56524 13.372 6.17566C13.3282 4.99155 13.4282 3.8065 13.6699 2.64649C13.9246 1.90357 14.5083 1.31996 15.2512 1.06524C15.9325 0.849761 16.6559 0.802581 17.3595 0.927743C18.0709 1.07418 18.7009 1.4833 19.1241 2.07358C19.6602 3.40992 19.9625 4.82851 20.0178 6.26733C20.0748 5.03958 20.2827 3.8235 20.6366 2.64649C21.0195 2.10692 21.5788 1.71789 22.2178 1.54649C22.9755 1.40797 23.7519 1.40797 24.5095 1.54649C25.1314 1.75288 25.6753 2.14475 26.0678 2.66941C26.5546 3.88434 26.8484 5.16789 26.9387 6.47358C26.9387 6.79441 27.0991 5.57983 27.6033 4.77774C28.0083 3.57537 29.3113 2.92898 30.5137 3.33399C31.716 3.739 32.3624 5.04204 31.9574 6.24441C31.9574 7.73399 31.9574 7.66524 31.9574 8.67358C31.9574 9.68191 31.9574 10.5757 31.9574 11.4236C31.8749 12.7647 31.691 14.0977 31.4074 15.4111C31.0097 16.5737 30.4545 17.6763 29.7574 18.6882C28.645 19.9258 27.7256 21.3242 27.0303 22.8361C26.8607 23.5878 26.7838 24.3574 26.8012 25.1277C26.7989 25.8396 26.8914 26.5486 27.0762 27.2361C26.1393 27.3362 25.1943 27.3362 24.2574 27.2361C23.3637 27.0986 22.2637 25.3111 21.9658 24.7611C21.8184 24.4658 21.5167 24.2792 21.1866 24.2792C20.8565 24.2792 20.5548 24.4658 20.4074 24.7611C19.9033 25.6319 18.7803 27.2132 18.1158 27.3048C16.5803 27.4882 13.3949 27.3048 10.9199 27.3048C10.9199 27.3048 11.3553 25.0132 10.3928 24.1882C9.43034 23.3632 8.49076 22.4007 7.78034 21.759L5.87826 19.6507C4.53693 18.4055 3.55538 16.8224 3.03659 15.0673C2.55534 12.9132 2.60117 11.8819 3.03659 11.0111C3.48069 10.292 4.17416 9.76167 4.98451 9.52149C5.65773 9.39937 6.35076 9.44662 7.00117 9.65899C7.45095 9.84729 7.83967 10.1567 8.12409 10.5527C8.65117 11.2632 8.83451 11.6069 8.60534 10.8277C8.37618 10.0486 7.87201 9.47566 7.61992 8.53608C7.12917 7.42645 6.83453 6.24013 6.74909 5.02983C6.79595 3.92807 7.52955 2.97439 8.58243 2.64649Z"
                       stroke="black"
-                      stroke-width="1.71875"
-                      stroke-linejoin="round"
+                      strokeWidth="1.71875"
+                      strokeLinejoin="round"
                     />
                     <path
                       d="M26.3428 20.2369V12.3266C26.3428 11.8531 25.958 11.4692 25.4834 11.4692C25.0088 11.4692 24.624 11.8531 24.624 12.3266V20.2369C24.624 20.7104 25.0088 21.0942 25.4834 21.0942C25.958 21.0942 26.3428 20.7104 26.3428 20.2369Z"
@@ -1184,7 +1122,6 @@ export function HowItWorksSection() {
                       fill="black"
                     />
                   </svg>
-
                   <Icon
                     icon="mdi:file-outline"
                     className="text-fg-muted text-xl"
@@ -1216,11 +1153,11 @@ export function HowItWorksSection() {
             </div>
             <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Transcribe over 40+ languages
+                40+ languages
               </h4>
               <p className="text-color text-base">
-                We use best in class models and constantly updates them to
-                support new languages.
+                Char uses best-in-class transcription models and updates them
+                continuously. Speak in the language you think in.
               </p>
             </div>
           </div>
@@ -1322,59 +1259,113 @@ function ChatInput() {
   );
 }
 
-function WorkflowGraphic() {
-  const [step, setStep] = useState(0);
+function ChatPanel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
+      <div className="flex h-9 shrink-0 items-center border-b border-neutral-200 px-3">
+        <div className="flex items-center gap-2">
+          <Icon
+            icon="mdi:message-text-outline"
+            className="text-sm text-neutral-400"
+          />
+          <span className="text-xs font-medium text-neutral-700">Chat</span>
+        </div>
+      </div>
+      <div className="flex min-h-[300px] flex-col justify-end p-3">
+        {children}
+      </div>
+      <div className="shrink-0 border-t border-neutral-200 px-3 py-2.5">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-neutral-400">
+            Ask about your notes...
+          </span>
+          <div className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-neutral-200 pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
+            <span>Send</span>
+            <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
+              ⌘ ↩
+            </kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const cyclingPairs = [
+  {
+    q: "What did Sarah say about the timeline?",
+    a: "Sarah mentioned the mobile redesign needs 2 sprints, with the first focused on core navigation improvements.",
+  },
+  {
+    q: "Any action items from last week's sync?",
+    a: "Ben to finish auth module by Friday. Sarah to share updated API specs. Victor to review the dashboard mockups.",
+  },
+  {
+    q: "What decisions were made in Q1 planning?",
+    a: "Team agreed to prioritize mobile UI over the new dashboard. API adjustments will be scoped in the next sprint.",
+  },
+];
+
+function CyclingChatGraphic() {
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const t1 = setTimeout(() => setStep(1), 200);
-    const t2 = setTimeout(() => setStep(2), 800);
-    const t3 = setTimeout(() => setStep(3), 3200);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
+    const id = setInterval(() => {
+      setIndex((i) => (i + 1) % cyclingPairs.length);
+    }, 3500);
+    return () => clearInterval(id);
   }, []);
+
+  const pair = cyclingPairs[index];
 
   return (
     <div className="flex w-full max-w-[420px] flex-col">
-      <div className="flex h-[280px] flex-col justify-end gap-3">
-        <AnimatePresence initial={false}>
-          {step >= 1 && (
-            <motion.div
-              key="q"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              <ChatBubbleQuestion text="Create a Jira ticket for the mobile bug and assign to Sarah" />
-            </motion.div>
-          )}
-          {step >= 2 && (
-            <motion.div
-              key="tool"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              <JiraToolCall loopKey={0} />
-            </motion.div>
-          )}
-          {step >= 3 && (
-            <motion.div
-              key="r"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, ease: "easeOut" }}
-            >
-              <ChatBubbleResponse
-                text="Jira ticket ENG-247 created and assigned to Sarah."
-                withCheck
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={index}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.35, ease: "easeInOut" }}
+          className="flex flex-col gap-3"
+        >
+          <ChatBubbleQuestion text={pair.q} />
+          <ChatBubbleResponse text={pair.a} />
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MeetingBar() {
+  return (
+    <div className="flex w-full items-center justify-between rounded-full bg-stone-700 p-2 pl-6">
+      <div className="flex items-center gap-3">
+        <div className="relative flex size-3">
+          <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex size-3 rounded-full bg-red-500" />
+        </div>
+        <p className="text-sm text-white">Weekly Team Sync</p>
+        <span className="text-xs text-white/50">42:17</span>
       </div>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center rounded-full px-2">
+          <Icon icon="mdi:dots-horizontal" className="text-xl text-white/60" />
+        </div>
+        <div className="flex items-center justify-center rounded-full bg-red-600 px-3 py-2">
+          <Icon icon="mdi:phone-hangup" className="text-xl text-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LiveChatMessages() {
+  return (
+    <div className="flex flex-col gap-2">
+      <ChatBubbleQuestion text="What's the timeline for the mobile UI?" />
+      <TranscriptToolCall loopKey={0} static />
+      <ChatBubbleResponse text="Ben committed to auth module this week. Sarah estimates 2 sprints for full API." />
     </div>
   );
 }
@@ -1382,38 +1373,15 @@ function WorkflowGraphic() {
 function LiveGraphic() {
   return (
     <div className="flex w-full flex-col gap-3">
-      <div className="flex w-full items-center justify-between rounded-full bg-stone-700 p-2 pl-6">
-        <div className="flex items-center gap-3">
-          <div className="relative flex size-3">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex size-3 rounded-full bg-red-500" />
-          </div>
-          <p className="text-sm text-white">Weekly Team Sync</p>
-          <span className="text-xs text-white/50">42:17</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center rounded-full px-2">
-            <Icon
-              icon="mdi:dots-horizontal"
-              className="text-xl text-white/60"
-            />
-          </div>
-          <div className="flex items-center justify-center rounded-full bg-red-600 px-3 py-2">
-            <Icon icon="mdi:phone-hangup" className="text-xl text-white" />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <ChatBubbleQuestion text="What's the timeline for the mobile UI?" />
-        <TranscriptToolCall loopKey={0} static />
-        <ChatBubbleResponse text="Ben committed to auth module this week. Sarah estimates 2 sprints for full API." />
-      </div>
+      <MeetingBar />
+      <LiveChatMessages />
     </div>
   );
 }
 
 export function AISection() {
+  const [activeBlock, setActiveBlock] = useState<0 | 1>(0);
+
   return (
     <section id="ai" className="px-4 py-16">
       <div className="items-left flex flex-col gap-4 pb-12 text-left">
@@ -1426,73 +1394,111 @@ export function AISection() {
         </p>
       </div>
 
-      <div className="surface-subtle border-brand-color grid grid-cols-1 gap-px rounded-xl border md:grid-cols-3">
-        {/* Block 1: Search */}
-        <div className="border-brand-color flex flex-col md:border-r">
-          <div className="flex min-h-[240px] flex-col gap-2 p-8">
-            <h3 className="text-color mb-3 font-mono text-2xl font-medium">
+      <div className="surface-subtle border-brand-color flex flex-col overflow-hidden rounded-xl border md:min-h-[700px] md:flex-row">
+        <div className="flex flex-col md:w-1/2">
+          {/* Block 1: Chat with notes */}
+          <div
+            className={cn([
+              "flex cursor-pointer flex-col gap-2 border-l-2 p-8 transition-all duration-200",
+              activeBlock === 0
+                ? "border-l-stone-800"
+                : "border-l-transparent opacity-50 hover:opacity-75",
+            ])}
+            onMouseEnter={() => setActiveBlock(0)}
+          >
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              After meeting
+            </p>
+            <p className="text-color font-regular text-lg leading-relaxed md:text-3xl">
               Chat with your notes
-            </h3>
+            </p>
             <p className="text-color-muted text-base leading-relaxed">
               Query your entire conversation history. Find decisions, action
               items, or topics discussed in previous meetings in natural
               language.
             </p>
           </div>
-          <div className="bg-dotted-dark flex min-h-[280px] flex-1 items-end justify-end p-8">
-            <MockChatInput
-              prompts={[
-                "What did Sarah say about the timeline?",
-                "Any action items from last week's sync?",
-                "What decisions were made in Q1 planning?",
-              ]}
-              className="w-full"
-            />
-          </div>
-        </div>
 
-        {/* Block 2: Workflow */}
-        <div className="border-brand-color flex flex-col md:border-r">
-          <div className="flex min-h-[240px] flex-col gap-2 p-8">
-            <h3 className="text-color mb-3 font-mono text-2xl font-medium">
-              Execute workflows and tasks
-            </h3>
-            <p className="text-color-muted text-base leading-relaxed">
-              Describe what you want to do and let Char handle the rest.
-              Automate follow-up tasks across your tools without manual data
-              entry.
+          {/* Mobile image for block 1 */}
+          <div className="bg-dotted-dark flex min-h-[280px] items-end justify-center p-8 md:hidden">
+            <ChatPanel>
+              <CyclingChatGraphic />
+            </ChatPanel>
+          </div>
+
+          {/* Block 2: Live meetings */}
+          <div
+            className={cn([
+              "flex cursor-pointer flex-col gap-2 border-l-2 p-8 transition-all duration-200",
+              activeBlock === 1
+                ? "border-l-stone-800"
+                : "border-l-transparent opacity-50 hover:opacity-75",
+            ])}
+            onMouseEnter={() => setActiveBlock(1)}
+          >
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              During meeting
             </p>
-            <div className="flex items-center gap-3 pt-1">
-              <Icon
-                icon="simple-icons:slack"
-                className="text-color-muted text-base"
-              />
-              <Icon
-                icon="simple-icons:linear"
-                className="text-color-muted text-base"
-              />
-              <Icon icon="logos:jira" className="text-fg-subtle text-base" />
-            </div>
-          </div>
-          <div className="bg-dotted-dark flex min-h-[280px] flex-1 items-center justify-center p-8">
-            <WorkflowGraphic />
-          </div>
-        </div>
-
-        {/* Block 3: Live */}
-        <div className="flex flex-col">
-          <div className="flex min-h-[240px] flex-col gap-2 p-8">
-            <h3 className="text-color mb-3 font-mono text-2xl font-medium">
+            <p className="text-color font-regular text-lg leading-relaxed md:text-3xl">
               Chat during live meetings
-            </h3>
+            </p>
             <p className="text-color-muted text-base leading-relaxed">
               Get instant answers from the current transcript and past meeting
               context without breaking your flow.
             </p>
           </div>
-          <div className="bg-dotted-dark flex min-h-[280px] flex-1 items-center justify-center p-8">
-            <LiveGraphic />
+
+          {/* Mobile image for block 2 */}
+          <div className="bg-dotted-dark flex min-h-[280px] flex-col justify-center gap-3 p-8 md:hidden">
+            <MeetingBar />
+            <ChatPanel>
+              <LiveChatMessages />
+            </ChatPanel>
           </div>
+        </div>
+
+        {/* Desktop right panel */}
+        <div className="bg-dotted-dark hidden flex-col justify-center gap-3 p-8 md:flex md:w-1/2">
+          <AnimatePresence mode="wait">
+            {activeBlock === 1 && (
+              <motion.div
+                key="meeting-bar"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.3 }}
+              >
+                <MeetingBar />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <ChatPanel>
+            <AnimatePresence mode="wait">
+              {activeBlock === 0 ? (
+                <motion.div
+                  key="cycling"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <CyclingChatGraphic />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="live"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <LiveChatMessages />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </ChatPanel>
         </div>
       </div>
     </section>
@@ -2593,91 +2599,6 @@ function BlogSection() {
             </Link>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-export function CTASection({
-  heroInputRef,
-}: {
-  heroInputRef: React.RefObject<HTMLInputElement | null>;
-}) {
-  const platform = usePlatform();
-  const platformCTA = getPlatformCTA(platform);
-
-  const getButtonLabel = () => {
-    if (platform === "mobile") {
-      return "Get reminder";
-    }
-    return platformCTA.label;
-  };
-
-  const handleCTAClick = () => {
-    if (platformCTA.action === "waitlist") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => {
-        if (heroInputRef.current) {
-          heroInputRef.current.focus();
-          heroInputRef.current.parentElement?.classList.add(
-            "animate-shake",
-            "border-stone-600",
-          );
-          setTimeout(() => {
-            heroInputRef.current?.parentElement?.classList.remove(
-              "animate-shake",
-              "border-stone-600",
-            );
-          }, 500);
-        }
-      }, 500);
-    }
-  };
-
-  return (
-    <section className="laptop:px-0 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <h2 className="text-color font-mono text-2xl tracking-wide md:text-6xl">
-          Your meetings. Your data.
-          <br className="sm:hidden" /> Your control.
-        </h2>
-        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
-          Start taking meeting notes with AI—without the lock-in
-        </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
-          {platformCTA.action === "download" ? (
-            <DownloadButton />
-          ) : (
-            <button
-              onClick={handleCTAClick}
-              className={cn([
-                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
-                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                "transition-all",
-              ])}
-            >
-              {getButtonLabel()}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="1.5"
-                stroke="currentColor"
-                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                />
-              </svg>
-            </button>
-          )}
-          <div className="hidden sm:block">
-            <GithubStars />
-          </div>
-        </div>
       </div>
     </section>
   );

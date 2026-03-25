@@ -232,7 +232,7 @@ function StatBadge({
 
   return (
     <div className="flex h-[84px] w-[84px] flex-col items-center justify-center gap-1 rounded-xs border border-neutral-200 bg-neutral-100 px-4 text-stone-600">
-      <p className="font-serif text-sm font-semibold">
+      <p className="font-mono text-xs font-semibold tracking-wide">
         {type === "stars" ? "Stars" : "Forks"}
       </p>
       <p className="text-center text-sm font-medium">{renderCount(count)}</p>
@@ -252,8 +252,10 @@ function OpenSourceButton({
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
-      <h2 className="font-serif text-2xl text-stone-700">Open source</h2>
-      <p className="text-neutral-600">
+      <h2 className="text-color font-mono text-2xl tracking-wide md:text-3xl">
+        Open source
+      </h2>
+      <p className="text-fg-muted leading-relaxed">
         {
           "Char values privacy and community, so it's been transparent from day one."
         }
@@ -263,9 +265,9 @@ function OpenSourceButton({
         target="_blank"
         rel="noopener noreferrer"
         className={cn([
-          "group inline-flex h-12 items-center justify-center gap-2 px-6",
-          "rounded-full bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
-          "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+          "group inline-flex h-14 items-center justify-center gap-2 px-8",
+          "rounded-full border border-neutral-300 text-neutral-800",
+          "hover:scale-[102%] hover:border-neutral-400 active:scale-[98%]",
           "cursor-pointer transition-all",
         ])}
       >
@@ -313,8 +315,8 @@ export function GitHubOpenSource() {
   const FORKS_COUNT = githubStats.data?.forks ?? GITHUB_LAST_SEEN_FORKS;
 
   return (
-    <section>
-      <div className="px-4 py-8">
+    <section id="opensource">
+      <div className="px-4 py-16">
         <div className="mx-auto max-w-4xl lg:hidden">
           <OpenSourceButton showStars={true} starCount={STARS_COUNT} />
         </div>

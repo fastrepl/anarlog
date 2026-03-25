@@ -4,7 +4,7 @@ import { useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { CTASection } from "@/routes/_view/index";
+import { CTASection } from "@/components/cta-section";
 
 export const Route = createFileRoute("/_view/product/local-ai")({
   component: Component,

@@ -69,6 +69,7 @@ const homeSections = [
   { id: "ai", label: "AI features" },
   { id: "grows-with-you", label: "Grows with you" },
   { id: "solutions", label: "Solutions" },
+  { id: "opensource", label: "Open source" },
   { id: "faq", label: "FAQ" },
   { id: "blog", label: "Blog" },
 ];

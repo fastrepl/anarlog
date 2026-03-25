@@ -2,8 +2,8 @@ import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef } from "react";
 
+import { CTASection } from "@/components/cta-section";
 import { Image } from "@/components/image";
-import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/why-char")({
   component: Component,

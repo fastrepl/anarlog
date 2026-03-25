@@ -3,6 +3,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
+
 export const Route = createFileRoute("/_view/solution/knowledge-workers")({
   component: Component,
   head: () => ({
@@ -101,7 +103,10 @@ function Component() {
         <HeroSection />
         <FeaturesSection />
         <UseCasesSection />
-        <CTASection />
+        <CTASection
+          title="Ready to transform your meetings?"
+          description="Join knowledge workers who are getting more done with AI-powered meeting notes."
+        />
       </div>
     </div>
   );
@@ -157,7 +162,7 @@ function HeroSection() {
 function FeaturesSection() {
   return (
     <section className="px-8 py-16">
-      <div className="mx-auto">
+      <div className="border-brand-color border-b">
         <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Built for how you work
         </h2>
@@ -165,6 +170,8 @@ function FeaturesSection() {
           Every feature designed to help you capture, organize, and act on your
           meetings.
         </p>
+      </div>
+      <div className="mx-auto py-16">
         <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div key={feature.title} className="flex flex-col gap-3">
@@ -187,12 +194,12 @@ function FeaturesSection() {
 
 function UseCasesSection() {
   return (
-    <section className="surface border-brand-color border px-6 py-16">
-      <div className="mx-auto max-w-4xl">
+    <section className="surface border-brand-color rounded-xl border px-8 pt-16 pb-8">
+      <div className="">
         <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           For every conversation
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
+        <p className="mb-12 max-w-2xl text-left text-neutral-600">
           From team syncs to client calls, Char helps you capture and act on
           every interaction.
         </p>
@@ -200,7 +207,7 @@ function UseCasesSection() {
           {useCases.map((useCase) => (
             <div
               key={useCase.title}
-              className="rounded-xl border border-neutral-100 bg-white p-6"
+              className="border-brand-color surface-muted rounded-xl border p-6"
             >
               <h3 className="mb-2 text-lg font-medium text-stone-700">
                 {useCase.title}
@@ -211,32 +218,6 @@ function UseCasesSection() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function CTASection() {
-  return (
-    <section className="border-t border-neutral-100 px-6 py-16">
-      <div className="mx-auto max-w-2xl text-left">
-        <h2 className="mb-4 font-mono text-3xl text-stone-700">
-          Ready to transform your meetings?
-        </h2>
-        <p className="mb-8 text-neutral-600">
-          Join knowledge workers who are getting more done with AI-powered
-          meeting notes.
-        </p>
-        <Link
-          to="/download/"
-          className={cn([
-            "inline-block rounded-full px-8 py-3 text-base font-medium",
-            "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-            "transition-transform hover:scale-105 active:scale-95",
-          ])}
-        >
-          Get started for free
-        </Link>
       </div>
     </section>
   );

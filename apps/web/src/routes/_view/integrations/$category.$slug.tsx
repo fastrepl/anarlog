@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { GitHubOpenSource } from "@/components/github-open-source";
 import {
-  CTASection,
   HowItWorksSection,
   MainFeaturesSection,
   TemplatesSection,

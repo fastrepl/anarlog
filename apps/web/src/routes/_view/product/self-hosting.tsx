@@ -4,8 +4,8 @@ import { useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { GithubStars } from "@/components/github-stars";
-import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/product/self-hosting")({
   component: Component,
