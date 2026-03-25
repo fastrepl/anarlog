@@ -156,7 +156,9 @@ function Container({
         className={cn([
           "flex max-h-full flex-col border border-neutral-200 bg-white",
           isRightPanel
-            ? "rounded-t-xl rounded-b-none"
+            ? hasContextBar
+              ? "rounded-t-none rounded-b-none"
+              : "rounded-t-xl rounded-b-none"
             : hasContextBar
               ? "rounded-t-none rounded-b-xl"
               : "rounded-xl",
