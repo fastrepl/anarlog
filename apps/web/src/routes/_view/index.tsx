@@ -394,22 +394,27 @@ function HeroSection({
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                  className="group relative w-4/5 overflow-hidden rounded-xl border border-neutral-200 shadow-xl"
+                  className="group surface border-brand-color relative flex w-4/5 flex-col overflow-hidden rounded-xl border p-4 shadow-xl"
                   style={{ aspectRatio: "16/9" }}
                 >
-                  <img
-                    src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
-                    alt="Product demo"
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
-                    <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-110">
-                      <Icon
-                        icon="mdi:play"
-                        className="text-color ml-0.5 text-lg"
-                      />
+                  <div className="w-full">
+                    <img
+                      src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
+                      alt="Product demo"
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/30">
+                      <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-110">
+                        <Icon
+                          icon="mdi:play"
+                          className="text-color ml-0.5 text-lg"
+                        />
+                      </div>
                     </div>
                   </div>
+                  <p className="text-fg-muted text-sm">
+                    Check out the Product demo
+                  </p>
                 </button>
               </div>
             </div>
@@ -741,7 +746,7 @@ export function HowItWorksSection() {
                           transform: `rotate(${[-3, 2, -5][i]}deg)`,
                         }}
                       >
-                        <div className="bg-brand absolute top-0 right-0 h-[24px] w-[24px]" />
+                        <div className="bg-brand border-brand-color absolute top-0 right-0 h-[24px] w-[24px] border-b" />
                         <p className="text-fg absolute right-3 bottom-2 text-sm">
                           {name}
                         </p>

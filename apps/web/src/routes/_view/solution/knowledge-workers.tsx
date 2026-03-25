@@ -109,10 +109,10 @@ function Component() {
 
 function HeroSection() {
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-8 max-w-4xl text-left">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-700">
+    <div className="">
+      <div className="px-8 py-12 lg:py-12">
+        <header className="mx-auto mb-8 text-left">
+          <div className="border-brand-color text-fg mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm">
             <Icon icon="mdi:account-group" className="text-lg" />
             <span>For Knowledge Workers</span>
           </div>
@@ -121,12 +121,12 @@ function HeroSection() {
             <br />
             not on taking notes
           </h1>
-          <p className="mx-auto max-w-2xl text-lg text-neutral-600 sm:text-xl">
+          <p className="max-w-2xl text-lg text-neutral-600 sm:text-xl">
             Stop scrambling to capture everything. Char records your meetings,
             transcribes conversations, and creates smart summaries so you can
             stay present.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+          <div className="mt-8 flex flex-col justify-start gap-4 sm:flex-row">
             <Link
               to="/download/"
               className={cn([
@@ -141,7 +141,7 @@ function HeroSection() {
               to="/product/ai-notetaking/"
               className={cn([
                 "inline-block rounded-full px-8 py-3 text-base font-medium",
-                "border border-stone-300 text-stone-700",
+                "border-color-bright text-fg border",
                 "transition-colors hover:bg-stone-50",
               ])}
             >
@@ -156,12 +156,12 @@ function HeroSection() {
 
 function FeaturesSection() {
   return (
-    <section className="border-t border-neutral-100 px-6 py-16">
-      <div className="mx-auto max-w-4xl">
+    <section className="px-8 py-16">
+      <div className="mx-auto">
         <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Built for how you work
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
+        <p className="mb-12 max-w-2xl text-left text-neutral-600">
           Every feature designed to help you capture, organize, and act on your
           meetings.
         </p>
@@ -187,7 +187,7 @@ function FeaturesSection() {
 
 function UseCasesSection() {
   return (
-    <section className="border-t border-neutral-100 bg-stone-50/50 px-6 py-16">
+    <section className="surface border-brand-color border px-6 py-16">
       <div className="mx-auto max-w-4xl">
         <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           For every conversation

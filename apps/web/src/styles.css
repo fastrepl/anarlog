@@ -65,6 +65,7 @@
 
   /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;
+  --breakpoint-wide: 87.5rem;
 
   /* ── Animations ──────────────────────────────── */
   --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;

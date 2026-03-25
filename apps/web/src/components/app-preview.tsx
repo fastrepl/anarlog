@@ -331,7 +331,7 @@ function MockDesktopApp() {
               <div key={group}>
                 <div
                   className={cn([
-                    "sticky top-0 z-10",
+                    "sticky top-0",
                     "bg-neutral-50 py-1 pr-1 pl-3",
                   ])}
                 >
