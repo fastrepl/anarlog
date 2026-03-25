@@ -26,6 +26,7 @@ export function ConnectFlow() {
   }, [status]);
 
   const display = getIntegrationDisplay(search.integration_id);
+  const showGoogleDisclosure = search.integration_id === "google-calendar";
 
   const handleConnect = async () => {
     if (inFlightRef.current) return;
@@ -104,13 +105,6 @@ export function ConnectFlow() {
     connect.setSessionToken(sessionToken);
   };
 
-  useEffect(() => {
-    if (search.flow === "desktop") {
-      void handleConnect();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const isLoading = status === "loading";
   const isConnecting = status === "connecting";
 
@@ -121,9 +115,15 @@ export function ConnectFlow() {
           Connect {display.name}
         </h1>
         <p className="text-neutral-600">
-          {isConnecting ? display.connectingHint : display.description}
+          {isConnecting
+            ? display.connectingHint
+            : showGoogleDisclosure
+              ? "Review the disclosure below, then continue to Google to connect your account."
+              : display.description}
         </p>
       </div>
+
+      {showGoogleDisclosure && <GoogleCalendarDisclosure />}
 
       {(status === "idle" || isLoading) && (
         <IntegrationButton onClick={handleConnect} disabled={isLoading}>
@@ -149,7 +149,11 @@ export function ConnectFlow() {
               />
             </svg>
           )}
-          {isLoading ? "Connecting…" : `Connect ${display.name}`}
+          {isLoading
+            ? "Connecting…"
+            : showGoogleDisclosure
+              ? "Continue to Google"
+              : `Connect ${display.name}`}
         </IntegrationButton>
       )}
 
@@ -164,5 +168,43 @@ export function ConnectFlow() {
         </div>
       )}
     </IntegrationPageLayout>
+  );
+}
+
+function GoogleCalendarDisclosure() {
+  return (
+    <div className="rounded-3xl border border-neutral-200 bg-white/80 p-5 text-left shadow-xs">
+      <h2 className="text-sm font-medium text-neutral-900">
+        Before you continue
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-neutral-600">
+        By connecting Google Calendar, Char will access the calendars and event
+        details you choose to sync, including calendar names, event titles,
+        descriptions, locations, meeting links, start and end times, organizers,
+        and attendees.
+      </p>
+      <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-neutral-600">
+        <li>
+          We use this data to sync meetings into Char, power reminders, show
+          meeting context, and link notes to calendar events.
+        </li>
+        <li>
+          Synced calendar data is primarily stored locally on your device. We
+          also store limited connection metadata to keep the integration
+          working.
+        </li>
+        <li>
+          We do not use Google Calendar data for advertising, marketing
+          personalization, or generalized AI model training.
+        </li>
+      </ul>
+      <p className="mt-3 text-xs leading-5 text-neutral-500">
+        Continue only if you want to authorize this connection. See our{" "}
+        <a href="/legal/privacy" className="underline hover:text-neutral-700">
+          Privacy Policy
+        </a>{" "}
+        for details.
+      </p>
+    </div>
   );
 }

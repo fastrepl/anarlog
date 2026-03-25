@@ -74,7 +74,12 @@ const pricingPlans: PricingPlan[] = [
         partiallyImplemented: true,
       },
       { label: "Advanced Templates", included: true },
-      { label: "Integrations", included: true, comingSoon: true },
+      {
+        label: "Integrations",
+        included: true,
+        tooltip:
+          "Google Calendar is available now. Additional integrations are in progress.",
+      },
       { label: "Cloud Services (STT & LLM)", included: true },
       {
         label: "Cloud Sync",

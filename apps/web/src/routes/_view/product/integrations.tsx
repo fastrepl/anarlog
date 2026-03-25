@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_view/product/integrations")({
       {
         name: "description",
         content:
-          "Connect Char with your favorite tools and automate your meeting workflow. Integrations coming soon.",
+          "Connect Char with your favorite tools and automate your meeting workflow. Google Calendar is available now, with more integrations coming soon.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],
@@ -101,8 +101,8 @@ function Component() {
                 Integrations & Workflows
               </h1>
               <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
-                Connect Char with your favorite tools. Automate repetitive tasks
-                with powerful workflows. No coding required.
+                Google Calendar is available today on Char Pro. More
+                integrations and no-code workflows are in progress.
               </p>
               <div className="mt-8">
                 <button
@@ -112,7 +112,7 @@ function Component() {
                     "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
                   ])}
                 >
-                  Coming Soon
+                  More coming soon
                 </button>
               </div>
             </div>

@@ -1,5 +1,5 @@
 ---
-date: "2026-03-17"
+date: "2026-03-24"
 title: "Privacy Policy"
 summary: "How we collect, use, and protect your personal information"
 ---
@@ -35,6 +35,18 @@ When you use our Service, we automatically collect:
 
 Analytics and telemetry events are designed to avoid including raw meeting audio, transcript text, note content, and summary text.
 
+### 3.3 Google Calendar and Other Connected Calendar Accounts
+
+If you connect Google Calendar or another supported calendar provider, we collect and process the data needed to sync calendars and events into Char. For Google Calendar, this may include:
+
+- **Calendar Information:** Calendar IDs, calendar names, colors, access or ownership metadata, primary or secondary calendar status, and source or account identifiers
+- **Event Information:** Event IDs, iCal UIDs, titles, descriptions, locations, event URLs, meeting links, start and end times, time zones, recurrence metadata, all-day status, event status metadata, organizer details, and attendee details such as names, email addresses, roles, and RSVP status
+- **Connection Information:** Provider connection IDs, connection status, reconnect or error state, and the Google account identity associated with the connection, such as email address or display name
+
+We use this data only to provide and improve the user-facing calendar features you enable in Char, such as syncing selected calendars, showing upcoming meetings, linking notes to calendar events, displaying participants and meeting context, powering reminders, and helping you organize sessions around meetings.
+
+We do not use Google Calendar data for targeted advertising, marketing personalization, sale to data brokers or information resellers, determining creditworthiness, or training generalized artificial intelligence or machine learning models. The use of information received from Google Workspace APIs will adhere to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
+
 ## 4. How We Use Your Information
 
 We use your information to:
@@ -42,7 +54,8 @@ We use your information to:
 - Provide, maintain, and improve the Service
 - Process your transactions and manage your account
 - Send you technical notices, updates, and support messages
-- **Send you marketing communications**, including newsletters, product announcements, promotional content, and other updates about Char (you may opt out at any time)
+- **Send you marketing communications**, including newsletters, product announcements, promotional content, and other updates about Char based on your contact details and marketing preferences (you may opt out at any time)
+- If you connect Google Calendar, provide and improve the calendar sync and meeting context features you requested. We do not use Google Calendar data for advertising, marketing personalization, or generalized AI model training.
 - Respond to your comments, questions, and requests
 - Protect against, identify, and prevent fraud and other illegal activities
 - Analyze usage patterns to improve user experience
@@ -52,19 +65,22 @@ We use your information to:
 
 We implement appropriate technical and organizational security measures to protect your information against unauthorized access, alteration, disclosure, or destruction. Your data is encrypted in transit and at rest.
 
+For connected calendars, synced calendar and event data is primarily stored locally on your device as part of your local Char data. We may store limited connection metadata on our backend, such as integration ID, connection ID, connection status, error state, and timestamps needed to operate the integration securely. We also use an integration provider to manage OAuth connections and credentials. We protect this data in transit using HTTPS/TLS and at rest using encryption and access controls.
+
 However, no method of transmission over the Internet or electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your information, we cannot guarantee its absolute security.
 
 ## 6. Data Sharing and Disclosure
 
 ### 6.1 We Do Not Sell Your Data
 
-We do not sell, trade, or rent your personal information to third parties.
+We do not sell, trade, or rent your personal information to third parties, including Google user data.
 
 ### 6.2 Service Providers
 
 We may share your information with third-party service providers who perform services on our behalf, such as:
 
 - **Cloud hosting and infrastructure providers** (e.g., Fly.io, Netlify, Cloudflare, Supabase) for hosting our application and storing your data securely
+- **Integration providers** (e.g., Nango) for OAuth connection management, credential handling, and calendar sync infrastructure when you connect Google Calendar or other supported accounts
 - **Payment processors** (e.g., Stripe) for processing payments securely
 - **Analytics services** (e.g., PostHog, Outlit) for understanding how users interact with our Service
 - **Speech-to-text providers** (e.g., Deepgram, AssemblyAI, Soniox) for cloud-based transcription when you enable this feature
@@ -75,7 +91,18 @@ We may share your information with third-party service providers who perform ser
 
 For a complete list of our sub-processors and their data protection safeguards, please see our [Data Processing Agreement](/legal/dpa).
 
-### 6.3 Legal Requirements
+### 6.3 Google User Data Sharing
+
+When you connect Google Calendar, we may share Google user data only:
+
+- With service providers directly involved in authenticating the connection, syncing calendars and events, and delivering the calendar features you enable
+- For security purposes, such as investigating abuse, preventing fraud, or fixing integration failures
+- To comply with applicable law, regulation, legal process, or enforceable governmental request
+- As part of a merger, acquisition, or asset sale, subject to applicable legal requirements and, where required, user consent
+
+We do not sell Google user data or transfer it to third parties for advertising, marketing, or data broker purposes.
+
+### 6.4 Legal Requirements
 
 We may disclose your information if required by law or in response to valid requests by public authorities (e.g., court orders or government agencies).
 
@@ -91,7 +118,7 @@ You can update or delete your information through your account settings. You may
 
 ### 7.3 Data Retention
 
-We retain your information for as long as your account is active or as needed to provide you services. If you delete your account, we will delete your data within 30 days, except where required to retain it for legal purposes.
+We retain your information for as long as your account is active or as needed to provide the Service. If you connect Google Calendar, synced calendar and event data is retained locally on your device until you delete it, disconnect the account, or remove local Char data. On our systems, we retain limited connection metadata while the integration is active and for up to 30 days after disconnection or account deletion, except where a longer period is required by law. If you delete your account, we will delete your cloud-stored data within 30 days, except where required to retain it for legal purposes.
 
 ### 7.4 Analytics and Telemetry Controls
 
@@ -99,6 +126,10 @@ We retain your information for as long as your account is active or as needed to
 - **Web tracking controls:** You can accept or reject non-essential website tracking from the `Cookie preferences` control in the website footer, as described in our [Cookie Policy](/legal/cookies).
 - **Global Privacy Control:** We honor Global Privacy Control (GPC) for non-essential website tracking.
 - **Cloud feature metadata:** Disabling desktop usage analytics does not disable limited server-side operational and billing telemetry required to provide cloud requests (for example, speech-to-text and AI request metadata, and subscription trial status events).
+
+### 7.5 Connected Account Controls
+
+You can disconnect Google Calendar in your account integrations settings. Disconnecting stops future syncs. Calendar and event data already synced locally to your device remains in your local Char data until you remove it or delete local app data.
 
 ## 8. International Data Transfers
 
