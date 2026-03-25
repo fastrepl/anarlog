@@ -35,7 +35,7 @@ const _PROVIDERS = [
     disabled: false,
     id: "google",
     displayName: "Google",
-    badge: "Internal Use Only",
+    badge: "Beta",
     icon: <Icon icon="logos:google-calendar" width={20} height={20} />,
     platform: "all",
     docsPath: "https://char.com/docs/calendar/gcal",
