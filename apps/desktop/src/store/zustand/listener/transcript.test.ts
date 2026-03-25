@@ -70,7 +70,6 @@ describe("transcript slice", () => {
           type: "provider_speaker_index",
           speaker_index: 0,
           channel: 0,
-          provider: "cactus",
         },
       },
     ]);
@@ -81,7 +80,6 @@ describe("transcript slice", () => {
           type: "provider_speaker_index",
           speaker_index: 1,
           channel: 1,
-          provider: "cactus",
         },
       },
     ]);
