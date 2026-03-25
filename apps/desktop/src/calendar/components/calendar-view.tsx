@@ -257,22 +257,44 @@ function CalendarViewContent() {
 
 function CalendarSyncHeaderControls() {
   const { status, cancelDebouncedSync, scheduleSync } = useSync();
+  const refreshFeedbackTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  const [showManualRefreshFeedback, setShowManualRefreshFeedback] =
+    useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (refreshFeedbackTimeoutRef.current) {
+        clearTimeout(refreshFeedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleRefresh = useCallback(() => {
+    if (refreshFeedbackTimeoutRef.current) {
+      clearTimeout(refreshFeedbackTimeoutRef.current);
+    }
+    setShowManualRefreshFeedback(true);
+    refreshFeedbackTimeoutRef.current = setTimeout(() => {
+      refreshFeedbackTimeoutRef.current = null;
+      setShowManualRefreshFeedback(false);
+    }, 1500);
     cancelDebouncedSync();
     scheduleSync();
   }, [cancelDebouncedSync, scheduleSync]);
 
+  const showSyncIndicator = showManualRefreshFeedback || status !== "idle";
   const statusText =
-    status === "syncing"
-      ? "Syncing"
-      : status === "scheduled"
-        ? "Sync scheduled"
+    status === "scheduled"
+      ? "Sync scheduled"
+      : showSyncIndicator
+        ? "Syncing"
         : null;
 
   return (
     <div className="flex items-center">
-      {statusText ? (
+      {showSyncIndicator ? (
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <span className="flex size-6 items-center justify-center text-neutral-500">
