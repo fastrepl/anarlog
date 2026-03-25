@@ -65,6 +65,7 @@ export function ChatMessageInput({
       isRightPanel={chat.mode === "RightPanelOpen"}
     >
       <div
+        data-chat-message-input
         className={cn([
           "flex flex-col pt-3 pb-2",
           chat.mode === "RightPanelOpen" ? "px-2" : "px-2",

@@ -937,6 +937,11 @@ function useTabsShortcuts() {
   useHotkeys(
     "mod+n",
     () => {
+      if (isPersistentChatInputFocused(chat.mode)) {
+        chat.startNewChat();
+        return;
+      }
+
       if (currentTab?.type === "empty") {
         newNoteCurrent();
       } else {
@@ -948,7 +953,7 @@ function useTabsShortcuts() {
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [currentTab, newNote, newNoteCurrent],
+    [chat, currentTab, newNote, newNoteCurrent],
   );
 
   useHotkeys(
@@ -1128,4 +1133,23 @@ function useNewEmptyTab() {
   }, [openNew]);
 
   return handler;
+}
+
+function isPersistentChatInputFocused(
+  mode: ReturnType<typeof useShell>["chat"]["mode"],
+) {
+  if (mode !== "FloatingOpen" && mode !== "RightPanelOpen") {
+    return false;
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement)) {
+    return false;
+  }
+
+  return activeElement.closest("[data-chat-message-input]") !== null;
 }
