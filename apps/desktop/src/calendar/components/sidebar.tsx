@@ -42,7 +42,7 @@ export function CalendarSidebarContent() {
 
   return (
     <SyncProvider>
-      <Accordion type="single" collapsible defaultValue="apple">
+      <Accordion type="multiple" defaultValue={["apple"]}>
         {visibleProviders.map((provider) =>
           provider.disabled ? (
             <div
