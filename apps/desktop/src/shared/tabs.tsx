@@ -245,7 +245,14 @@ export function TabItemBase({
           </div>
           <span className="pointer-events-none truncate">{title}</span>
         </div>
-        <div className="relative h-4 w-4 shrink-0">
+        <div
+          className={cn([
+            "relative shrink-0 overflow-visible",
+            showShortcut
+              ? "flex h-5 min-w-fit items-center justify-end"
+              : "h-4 w-4",
+          ])}
+        >
           <div
             className={cn([
               "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
@@ -293,7 +300,7 @@ export function TabItemBase({
             </div>
           )}
           {showShortcut && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center">
+            <div className="pointer-events-none flex h-full items-center justify-end">
               <Kbd>⌘ {tabIndex}</Kbd>
             </div>
           )}
