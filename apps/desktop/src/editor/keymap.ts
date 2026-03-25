@@ -1,6 +1,7 @@
 import {
   chainCommands,
   createParagraphNear,
+  deleteSelection,
   exitCode,
   joinBackward,
   joinForward,
@@ -165,6 +166,7 @@ export function buildKeymap(onNavigateToTitle?: () => void) {
   );
 
   keys["Backspace"] = chainCommands(
+    deleteSelection,
     (state, _dispatch) => {
       const { selection } = state;
       if (selection.$head.pos === 0 && selection.empty) return true;
@@ -174,7 +176,11 @@ export function buildKeymap(onNavigateToTitle?: () => void) {
     selectNodeBackward,
   );
 
-  keys["Delete"] = chainCommands(joinForward, selectNodeForward);
+  keys["Delete"] = chainCommands(
+    deleteSelection,
+    joinForward,
+    selectNodeForward,
+  );
 
   keys["Tab"] = (state, dispatch) => {
     const itemName = isInListItem(state);
