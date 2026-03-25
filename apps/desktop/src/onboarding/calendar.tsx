@@ -189,7 +189,6 @@ function GoogleCalendarProvider() {
   const auth = useAuth();
   const { isPro, isReady, upgradeToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPro);
-  const [showSignInState, setShowSignInState] = useState(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -287,7 +286,6 @@ function GoogleCalendarProvider() {
   }
 
   const isSignedIn = !!auth.session;
-  const showHoverSignIn = !isSignedIn && showSignInState;
 
   return (
     <div className="flex items-center gap-3">
@@ -296,28 +294,29 @@ function GoogleCalendarProvider() {
         disabled={
           isSignedIn && (isPending || (auth.session !== null && !isReady))
         }
-        onMouseEnter={() => setShowSignInState(true)}
-        onMouseLeave={() => setShowSignInState(false)}
-        onFocus={() => setShowSignInState(true)}
-        onBlur={() => setShowSignInState(false)}
         className={
-          showHoverSignIn
-            ? "flex items-center gap-3 border-2 border-stone-600 bg-stone-800 text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] hover:bg-stone-700"
-            : "flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white"
+          isSignedIn
+            ? "flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white"
+            : "group border-2 border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:border-stone-600 hover:bg-stone-800 hover:text-white focus-visible:border-stone-600 focus-visible:bg-stone-800 focus-visible:text-white"
         }
       >
         {!isSignedIn ? (
-          showHoverSignIn ? (
-            <>
-              <OnboardingCharIcon inverted />
-              Sign in to Char
-            </>
-          ) : (
-            <>
+          <span className="grid items-center">
+            <span className="invisible col-start-1 row-start-1 flex items-center justify-center gap-3">
               {GOOGLE_PROVIDER.icon}
               Sign up to use Google
-            </>
-          )
+            </span>
+
+            <span className="col-start-1 row-start-1 flex items-center justify-center gap-3 transition-opacity duration-150 group-hover:opacity-0 group-focus-visible:opacity-0">
+              {GOOGLE_PROVIDER.icon}
+              Sign up to use Google
+            </span>
+
+            <span className="col-start-1 row-start-1 flex items-center justify-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+              <OnboardingCharIcon inverted />
+              Sign in to Char
+            </span>
+          </span>
         ) : (
           <>
             {GOOGLE_PROVIDER.icon}
