@@ -7,6 +7,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@hypr/ui/components/ui/accordion";
+import { cn } from "@hypr/utils";
 
 import { AppleCalendarSelection } from "./apple/calendar-selection";
 import { AccessPermissionRow, TroubleShootingLink } from "./apple/permission";
@@ -21,6 +22,15 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
 import { usePermission } from "~/shared/hooks/usePermissions";
+
+function getProviderBadgeClassName(badge: string) {
+  return cn([
+    "rounded-full px-2 text-xs",
+    badge === "Beta"
+      ? "bg-sky-100 py-0.5 font-medium text-sky-900"
+      : "border border-neutral-300 font-light text-neutral-500",
+  ]);
+}
 
 export function CalendarSidebarContent() {
   const isMacos = platform() === "macos";
@@ -44,7 +54,7 @@ export function CalendarSidebarContent() {
                 {provider.displayName}
               </span>
               {provider.badge && (
-                <span className="rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500">
+                <span className={getProviderBadgeClassName(provider.badge)}>
                   {provider.badge}
                 </span>
               )}
@@ -107,7 +117,7 @@ function ProviderAccordionItem({
           {provider.icon}
           <span className="text-sm font-medium">{provider.displayName}</span>
           {provider.badge && (
-            <span className="rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500">
+            <span className={getProviderBadgeClassName(provider.badge)}>
               {provider.badge}
             </span>
           )}
