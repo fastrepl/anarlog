@@ -1,11 +1,11 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { PlusIcon } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 
-import { OnboardingButton } from "./shared";
+import { OnboardingButton, OnboardingCharIcon } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
@@ -80,6 +80,8 @@ function AppleCalendarProvider({
   onOpen: () => void;
   onReset: () => void;
 }) {
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
   return (
     <div className="flex flex-col gap-3">
       {isAuthorized ? (
@@ -87,7 +89,10 @@ function AppleCalendarProvider({
       ) : (
         <div className="flex items-center gap-3">
           <OnboardingButton
-            onClick={onRequest}
+            onClick={() => {
+              setShowTroubleshooting(true);
+              onRequest();
+            }}
             disabled={isPending}
             className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
           >
@@ -99,13 +104,15 @@ function AppleCalendarProvider({
             />
             Connect Apple Calendar
           </OnboardingButton>
-          <TroubleShootingLink
-            onRequest={onRequest}
-            onReset={onReset}
-            onOpen={onOpen}
-            isPending={isPending}
-            className="text-sm text-neutral-500"
-          />
+          {showTroubleshooting && (
+            <TroubleShootingLink
+              onRequest={onRequest}
+              onReset={onReset}
+              onOpen={onOpen}
+              isPending={isPending}
+              className="text-sm text-neutral-500"
+            />
+          )}
         </div>
       )}
     </div>
@@ -182,6 +189,7 @@ function GoogleCalendarProvider() {
   const auth = useAuth();
   const { isPro, isReady, upgradeToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPro);
+  const [showSignInState, setShowSignInState] = useState(false);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -278,28 +286,45 @@ function GoogleCalendarProvider() {
     );
   }
 
+  const isSignedIn = !!auth.session;
+  const showHoverSignIn = !isSignedIn && showSignInState;
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-3">
       <OnboardingButton
         onClick={handleConnect}
-        disabled={isPending || (auth.session !== null && !isReady)}
-        className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
+        disabled={
+          isSignedIn && (isPending || (auth.session !== null && !isReady))
+        }
+        onMouseEnter={() => setShowSignInState(true)}
+        onMouseLeave={() => setShowSignInState(false)}
+        onFocus={() => setShowSignInState(true)}
+        onBlur={() => setShowSignInState(false)}
+        className={
+          showHoverSignIn
+            ? "flex items-center gap-3 border-2 border-stone-600 bg-stone-800 text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] hover:bg-stone-700"
+            : "flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white"
+        }
       >
-        {GOOGLE_PROVIDER.icon}
-        Connect Google Calendar
+        {!isSignedIn ? (
+          showHoverSignIn ? (
+            <>
+              <OnboardingCharIcon inverted />
+              Sign in to Char
+            </>
+          ) : (
+            <>
+              {GOOGLE_PROVIDER.icon}
+              Sign up to use Google
+            </>
+          )
+        ) : (
+          <>
+            {GOOGLE_PROVIDER.icon}
+            Connect Google Calendar
+          </>
+        )}
       </OnboardingButton>
-
-      {!auth.session && (
-        <p className="text-sm text-neutral-500">
-          Sign in to connect your Google account.
-        </p>
-      )}
-
-      {auth.session && !isPro && isReady && (
-        <p className="text-sm text-neutral-500">
-          Google Calendar is available on Char Pro.
-        </p>
-      )}
     </div>
   );
 }

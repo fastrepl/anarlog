@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
-import { OnboardingButton } from "../shared";
+import { OnboardingButton, OnboardingCharIcon } from "../shared";
 
 import { useAuth } from "~/auth";
 
@@ -20,7 +20,9 @@ export function BeforeLogin({ onContinue }: { onContinue: () => void }) {
               setDidClickSignIn(true);
               auth?.signIn();
             }}
+            className="flex items-center gap-2"
           >
+            <OnboardingCharIcon inverted />
             Sign in
           </OnboardingButton>
           {didClickSignIn ? (
