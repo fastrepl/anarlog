@@ -235,6 +235,10 @@ export function serializeDraftMessage(json: JSONContent | undefined): {
         ref = {
           kind: "session",
           key: `session:manual:${mentionId}`,
+          label:
+            typeof node.attrs?.label === "string"
+              ? node.attrs.label
+              : undefined,
           source: "draft",
           sessionId: mentionId,
         };
@@ -242,6 +246,10 @@ export function serializeDraftMessage(json: JSONContent | undefined): {
         ref = {
           kind: "human",
           key: `human:manual:${mentionId}`,
+          label:
+            typeof node.attrs?.label === "string"
+              ? node.attrs.label
+              : undefined,
           source: "draft",
           humanId: mentionId,
         };
@@ -249,6 +257,10 @@ export function serializeDraftMessage(json: JSONContent | undefined): {
         ref = {
           kind: "organization",
           key: `organization:manual:${mentionId}`,
+          label:
+            typeof node.attrs?.label === "string"
+              ? node.attrs.label
+              : undefined,
           source: "draft",
           organizationId: mentionId,
         };
