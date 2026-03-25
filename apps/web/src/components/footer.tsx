@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { allSolutions } from "content-collections";
 import { ExternalLinkIcon, MailIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -16,14 +17,9 @@ const vsList = [
   { slug: "obsidian", name: "Obsidian" },
 ];
 
-const useCasesList = [
-  { to: "/solution/sales", label: "Sales" },
-  { to: "/solution/recruiting", label: "Recruiting" },
-  { to: "/solution/consulting", label: "Consulting" },
-  { to: "/solution/coaching", label: "Coaching" },
-  { to: "/solution/research", label: "Research" },
-  { to: "/solution/journalism", label: "Journalism" },
-];
+const useCasesList = allSolutions
+  .sort((a, b) => a.order - b.order)
+  .map((s) => ({ slug: s.slug, label: s.label.replace(/^For\s+/, "") }));
 
 function getMaxWidthClass(pathname: string): string {
   const isBlogOrDocs =
@@ -341,7 +337,8 @@ function ResourcesLinks() {
         </li>
         <li onMouseEnter={useCase.pause} onMouseLeave={useCase.resume}>
           <Link
-            to={currentUseCase.to}
+            to="/solution/$slug/"
+            params={{ slug: currentUseCase.slug }}
             className={cn(
               "text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted",
               "inline-flex items-center gap-1",

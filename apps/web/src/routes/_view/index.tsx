@@ -2442,7 +2442,8 @@ function SolutionsTabbar() {
                 ))}
               </div>
               <Link
-                to={active.link as "/solution/sales/"}
+                to="/solution/$slug/"
+                params={{ slug: active.id }}
                 className="mt-auto flex items-center gap-1 text-sm text-white underline underline-offset-2 hover:text-white/80"
               >
                 Learn more

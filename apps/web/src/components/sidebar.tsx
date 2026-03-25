@@ -1,4 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { allSolutions } from "content-collections";
 import {
   BookOpen,
   Building2,
@@ -33,7 +34,9 @@ const featuresList = [
 ];
 
 const solutionsList = [
-  { to: "/solution/knowledge-workers", label: "For Knowledge Workers" },
+  ...allSolutions
+    .sort((a, b) => a.order - b.order)
+    .map((s) => ({ to: `/solution/${s.slug}`, label: s.label })),
   { to: "/enterprise", label: "For Enterprises" },
   { to: "/product/api", label: "For Developers" },
 ];
