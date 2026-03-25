@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use hypr_transcript::{
-    FinalizedWord, PartialWord, SegmentKey, SegmentWord, SpeakerHintData, TranscriptDelta,
-    TranscriptProcessor, WordRef, build_segments, normalize_rendered_segment_words,
-    stable_segment_id,
+    FinalizedWord, IdentityAssignment, PartialWord, SegmentBuilderOptions, SegmentKey, SegmentWord,
+    TranscriptDelta, TranscriptProcessor, build_segments, channel_assignments_for_participants,
+    normalize_rendered_segment_words, segment_options_for_participants, stable_segment_id,
 };
 use owhisper_interface::stream::{StreamResponse, Word};
 
@@ -11,35 +11,15 @@ const CACTUS_OVERLAP_MAX_GAP_MS: i64 = 500;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
-pub struct PersistedSpeakerHint {
-    pub word_id: String,
-    pub data: SpeakerHintData,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-pub struct PartialSpeakerHint {
-    pub word_index: usize,
-    pub data: SpeakerHintData,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
 pub struct LiveTranscriptDelta {
     pub new_words: Vec<FinalizedWord>,
-    pub hints: Vec<PersistedSpeakerHint>,
     pub replaced_ids: Vec<String>,
     pub partials: Vec<PartialWord>,
-    pub partial_hints: Vec<PartialSpeakerHint>,
 }
 
 impl LiveTranscriptDelta {
     pub fn is_empty(&self) -> bool {
-        self.new_words.is_empty()
-            && self.hints.is_empty()
-            && self.replaced_ids.is_empty()
-            && self.partials.is_empty()
-            && self.partial_hints.is_empty()
+        self.new_words.is_empty() && self.replaced_ids.is_empty() && self.partials.is_empty()
     }
 }
 
@@ -70,36 +50,10 @@ pub struct LiveTranscriptUpdate {
 
 impl From<TranscriptDelta> for LiveTranscriptDelta {
     fn from(delta: TranscriptDelta) -> Self {
-        let hints = delta
-            .hints
-            .into_iter()
-            .filter_map(|hint| match hint.target {
-                WordRef::FinalWordId(word_id) => Some(PersistedSpeakerHint {
-                    word_id,
-                    data: hint.data,
-                }),
-                WordRef::RuntimeIndex(_) => None,
-            })
-            .collect();
-
-        let partial_hints = delta
-            .partial_hints
-            .into_iter()
-            .filter_map(|hint| match hint.target {
-                WordRef::RuntimeIndex(word_index) => Some(PartialSpeakerHint {
-                    word_index,
-                    data: hint.data,
-                }),
-                WordRef::FinalWordId(_) => None,
-            })
-            .collect();
-
         Self {
             new_words: delta.new_words,
-            hints,
             replaced_ids: delta.replaced_ids,
             partials: delta.partials,
-            partial_hints,
         }
     }
 }
@@ -112,11 +66,24 @@ pub struct LiveTranscriptEngine {
 }
 
 impl LiveTranscriptEngine {
-    pub fn new(provider_name: &str) -> Self {
+    pub fn new(
+        provider_name: &str,
+        participant_human_ids: &[String],
+        self_human_id: Option<&str>,
+    ) -> Self {
+        let channel_assignments =
+            channel_assignments_for_participants(participant_human_ids, self_human_id);
+        let segment_options =
+            segment_options_for_participants(participant_human_ids, self_human_id);
+
         Self {
             processor: TranscriptProcessor::new(),
             normalizer: TranscriptNormalizer::for_provider(provider_name),
-            rendered_segments: RenderedSegmentState::default(),
+            rendered_segments: RenderedSegmentState {
+                channel_assignments,
+                segment_options: Some(segment_options),
+                ..Default::default()
+            },
         }
     }
 
@@ -148,10 +115,10 @@ impl LiveTranscriptEngine {
 #[derive(Default)]
 struct RenderedSegmentState {
     words: BTreeMap<String, FinalizedWord>,
-    hints: BTreeMap<String, PersistedSpeakerHint>,
     partials: Vec<PartialWord>,
-    partial_hints: Vec<PartialSpeakerHint>,
     segments: BTreeMap<String, LiveTranscriptSegment>,
+    channel_assignments: Vec<IdentityAssignment>,
+    segment_options: Option<SegmentBuilderOptions>,
 }
 
 impl RenderedSegmentState {
@@ -168,25 +135,19 @@ impl RenderedSegmentState {
             .collect::<std::collections::BTreeSet<_>>();
 
         self.words.retain(|id, _| !replaced_ids.contains(id));
-        self.hints.retain(|word_id, _| {
-            !replaced_ids.contains(word_id) && !new_word_ids.contains(word_id)
-        });
+        self.words.retain(|id, _| !new_word_ids.contains(id));
 
         for word in &delta.new_words {
             self.words.insert(word.id.clone(), word.clone());
         }
-        for hint in &delta.hints {
-            self.hints.insert(hint.word_id.clone(), hint.clone());
-        }
 
         self.partials = delta.partials.clone();
-        self.partial_hints = delta.partial_hints.clone();
 
         let next_segments = build_live_segments(
             self.words.values().cloned().collect(),
-            self.hints.values().cloned().collect(),
             self.partials.clone(),
-            self.partial_hints.clone(),
+            &self.channel_assignments,
+            self.segment_options.as_ref(),
         );
         let next_map = next_segments
             .into_iter()
@@ -331,53 +292,41 @@ fn normalize_tokens_for_overlap(words: &[Word]) -> Vec<String> {
 
 fn build_live_segments(
     final_words: Vec<FinalizedWord>,
-    persisted_hints: Vec<PersistedSpeakerHint>,
     partials: Vec<PartialWord>,
-    partial_hints: Vec<PartialSpeakerHint>,
+    channel_assignments: &[IdentityAssignment],
+    segment_options: Option<&SegmentBuilderOptions>,
 ) -> Vec<LiveTranscriptSegment> {
-    let final_count = final_words.len();
-    let runtime_hints = persisted_hints
-        .into_iter()
-        .map(|hint| hypr_transcript::RuntimeSpeakerHint {
-            target: WordRef::FinalWordId(hint.word_id),
-            data: hint.data,
-        })
-        .chain(
-            partial_hints
-                .into_iter()
-                .map(move |hint| hypr_transcript::RuntimeSpeakerHint {
-                    target: WordRef::RuntimeIndex(final_count + hint.word_index),
-                    data: hint.data,
-                }),
-        )
-        .collect::<Vec<_>>();
+    build_segments(
+        &final_words,
+        &partials,
+        channel_assignments,
+        segment_options,
+    )
+    .into_iter()
+    .filter_map(|segment| {
+        let words = normalize_rendered_segment_words(segment.words);
+        let first = words.first()?;
+        let last = words.last()?;
+        let text = words
+            .iter()
+            .map(|word| word.text.as_str())
+            .collect::<String>()
+            .trim()
+            .to_string();
+        if text.is_empty() {
+            return None;
+        }
 
-    build_segments(&final_words, &partials, &runtime_hints, None)
-        .into_iter()
-        .filter_map(|segment| {
-            let words = normalize_rendered_segment_words(segment.words);
-            let first = words.first()?;
-            let last = words.last()?;
-            let text = words
-                .iter()
-                .map(|word| word.text.as_str())
-                .collect::<String>()
-                .trim()
-                .to_string();
-            if text.is_empty() {
-                return None;
-            }
-
-            Some(LiveTranscriptSegment {
-                id: stable_segment_id(&segment.key, &words),
-                key: segment.key,
-                start_ms: first.start_ms,
-                end_ms: last.end_ms,
-                text,
-                words,
-            })
+        Some(LiveTranscriptSegment {
+            id: stable_segment_id(&segment.key, &words),
+            key: segment.key,
+            start_ms: first.start_ms,
+            end_ms: last.end_ms,
+            text,
+            words,
         })
-        .collect()
+    })
+    .collect()
 }
 
 fn normalize_word_token(word: &Word) -> String {
@@ -501,34 +450,30 @@ mod tests {
     }
 
     #[test]
-    fn live_transcript_delta_converts_hint_targets() {
+    fn live_transcript_delta_keeps_speaker_index_on_words() {
         let delta = TranscriptDelta {
-            new_words: vec![],
-            hints: vec![hypr_transcript::RuntimeSpeakerHint {
-                target: WordRef::FinalWordId("word-1".to_string()),
-                data: SpeakerHintData::ProviderSpeakerIndex {
-                    speaker_index: 1,
-                    provider: None,
-                    channel: Some(0),
-                },
+            new_words: vec![FinalizedWord {
+                id: "word-1".to_string(),
+                text: "hello".to_string(),
+                start_ms: 0,
+                end_ms: 100,
+                channel: 0,
+                state: hypr_transcript::WordState::Final,
+                speaker_index: Some(1),
             }],
             replaced_ids: vec!["replaced".to_string()],
-            partials: vec![],
-            partial_hints: vec![hypr_transcript::RuntimeSpeakerHint {
-                target: WordRef::RuntimeIndex(2),
-                data: SpeakerHintData::ProviderSpeakerIndex {
-                    speaker_index: 2,
-                    provider: None,
-                    channel: Some(1),
-                },
+            partials: vec![PartialWord {
+                text: "world".to_string(),
+                start_ms: 100,
+                end_ms: 200,
+                channel: 1,
+                speaker_index: Some(2),
             }],
         };
 
         let converted: LiveTranscriptDelta = delta.into();
-        assert_eq!(converted.hints.len(), 1);
-        assert_eq!(converted.hints[0].word_id, "word-1");
-        assert_eq!(converted.partial_hints.len(), 1);
-        assert_eq!(converted.partial_hints[0].word_index, 2);
+        assert_eq!(converted.new_words[0].speaker_index, Some(1));
+        assert_eq!(converted.partials[0].speaker_index, Some(2));
         assert_eq!(converted.replaced_ids, vec!["replaced"]);
     }
 }

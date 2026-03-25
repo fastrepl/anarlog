@@ -14,6 +14,8 @@ pub struct PartialWord {
     pub start_ms: i64,
     pub end_ms: i64,
     pub channel: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speaker_index: Option<i32>,
 }
 
 /// Whether a finalized word is stable or awaiting correction.
@@ -37,4 +39,6 @@ pub struct FinalizedWord {
     pub end_ms: i64,
     pub channel: i32,
     pub state: WordState,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speaker_index: Option<i32>,
 }

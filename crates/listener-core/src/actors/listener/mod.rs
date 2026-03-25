@@ -46,6 +46,8 @@ pub struct ListenerArgs {
     pub session_started_at: Instant,
     pub session_started_at_unix: SystemTime,
     pub session_id: String,
+    pub participant_human_ids: Vec<String>,
+    pub self_human_id: Option<String>,
 }
 
 pub struct ListenerState {
@@ -112,9 +114,15 @@ impl Actor for ListenerActor {
                 adapter: adapter_name.clone(),
             });
 
+            let transcript = LiveTranscriptEngine::new(
+                &adapter_name,
+                &args.participant_human_ids,
+                args.self_human_id.as_deref(),
+            );
+
             let state = ListenerState {
                 args,
-                transcript: LiveTranscriptEngine::new(&adapter_name),
+                transcript,
                 tx,
                 rx_task,
                 shutdown_tx: Some(shutdown_tx),

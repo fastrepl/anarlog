@@ -6,9 +6,7 @@ use owhisper_interface::{
 };
 
 use super::channel_state::ChannelState;
-use super::types::{
-    FinalizedWord, PartialWord, RuntimeSpeakerHint, TranscriptDelta, WordRef, WordState,
-};
+use super::types::{FinalizedWord, PartialWord, TranscriptDelta, WordState};
 use super::words::{assemble, assemble_batch, finalize_words};
 
 /// Stateful processor that converts raw `StreamResponse`s into
@@ -54,7 +52,6 @@ struct CorrectionMetadata {
 
 struct PartialSnapshot {
     partials: Vec<PartialWord>,
-    partial_hints: Vec<RuntimeSpeakerHint>,
 }
 
 impl TranscriptProcessor {
@@ -66,12 +63,6 @@ impl TranscriptProcessor {
         }
     }
 
-    /// Process one streaming response. Returns `None` for non-transcript
-    /// responses or responses with no words.
-    ///
-    /// Cactus cloud handoff metadata (`cloud_handoff`, `cloud_corrected`) is
-    /// handled inline: handoff words are emitted as `Pending`, corrections
-    /// resolve the pending job and emit `replaced_ids`.
     pub fn process(&mut self, response: &StreamResponse) -> Option<TranscriptDelta> {
         let parsed = ParsedStreamResponse::from_response(response)?;
         let raw_words = assemble(parsed.words, parsed.transcript, parsed.channel);
@@ -91,7 +82,7 @@ impl TranscriptProcessor {
                 WordState::Final
             };
 
-            let (new_words, hints) = channel_state.apply_final(raw_words, word_state);
+            let new_words = channel_state.apply_final(raw_words, word_state);
 
             let replaced_ids = if parsed.correction.is_corrected_job() {
                 self.resolve_job(parsed.correction.cloud_job_id)
@@ -110,23 +101,15 @@ impl TranscriptProcessor {
                 return None;
             }
 
-            Some(snapshot.into_delta(new_words, hints, replaced_ids))
+            Some(snapshot.into_delta(new_words, replaced_ids))
         } else {
             channel_state.apply_partial(raw_words);
-            Some(self.partial_snapshot().into_delta(vec![], vec![], vec![]))
+            Some(self.partial_snapshot().into_delta(vec![], vec![]))
         }
     }
 
     // ── Generic correction API ──────────────────────────────────────────────
 
-    /// Submit already-emitted `Final` words for asynchronous correction.
-    ///
-    /// Returns `(job_id, delta)`. The delta re-emits the words with
-    /// `Pending` state and sets `replaced_ids` to their current IDs, so the
-    /// frontend transitions them from Final→Pending.
-    ///
-    /// The caller should spawn the correction task and later call
-    /// `apply_correction` with the same `job_id`.
     pub fn submit_correction(&mut self, words: Vec<FinalizedWord>) -> (u64, TranscriptDelta) {
         let job_id = self.next_job_id();
         let replaced_ids: Vec<String> = words.iter().map(|w| w.id.clone()).collect();
@@ -143,16 +126,11 @@ impl TranscriptProcessor {
 
         let delta = self
             .partial_snapshot()
-            .into_delta(pending_words, vec![], replaced_ids);
+            .into_delta(pending_words, replaced_ids);
 
         (job_id, delta)
     }
 
-    /// Resolve a pending correction job with corrected words.
-    ///
-    /// `corrected_words` should have `state: Final`. Their IDs can differ
-    /// from the originals (the correction may change word boundaries).
-    /// `replaced_ids` in the returned delta contains the original pending IDs.
     pub fn apply_correction(
         &mut self,
         job_id: u64,
@@ -161,18 +139,15 @@ impl TranscriptProcessor {
         let replaced_ids = self.resolve_job(job_id);
 
         self.partial_snapshot()
-            .into_delta(corrected_words, vec![], replaced_ids)
+            .into_delta(corrected_words, replaced_ids)
     }
 
     /// Drain all remaining state at session end.
     pub fn flush(&mut self) -> TranscriptDelta {
         let mut new_words = vec![];
-        let mut hints = vec![];
 
         for state in self.channels.values_mut() {
-            let (words, word_hints) = state.drain();
-            new_words.extend(words);
-            hints.extend(word_hints);
+            new_words.extend(state.drain());
         }
 
         self.channels.clear();
@@ -180,20 +155,14 @@ impl TranscriptProcessor {
 
         TranscriptDelta {
             new_words,
-            hints,
             replaced_ids: vec![],
             partials: vec![],
-            partial_hints: vec![],
         }
     }
 
     /// Convert a complete batch response into a `TranscriptDelta`.
-    ///
-    /// Stateless — batch responses are already final and don't need the
-    /// streaming state (watermark, held word, etc.) used by `process()`.
     pub fn process_batch_response(response: &BatchResponse) -> TranscriptDelta {
         let mut new_words = Vec::new();
-        let mut hints = Vec::new();
 
         for (channel_idx, channel) in response.results.channels.iter().enumerate() {
             let Some(alt) = channel.alternatives.first() else {
@@ -205,17 +174,13 @@ impl TranscriptProcessor {
 
             let ch = channel_idx as i32;
             let raw = assemble_batch(&alt.words, &alt.transcript, ch);
-            let (channel_words, channel_hints) = finalize_words(raw, WordState::Final);
-            new_words.extend(channel_words);
-            hints.extend(channel_hints);
+            new_words.extend(finalize_words(raw, WordState::Final));
         }
 
         TranscriptDelta {
             new_words,
-            hints,
             replaced_ids: vec![],
             partials: vec![],
-            partial_hints: vec![],
         }
     }
 
@@ -308,41 +273,23 @@ impl CorrectionMetadata {
 impl PartialSnapshot {
     fn from_channels<'a>(states: impl Iterator<Item = &'a ChannelState>) -> Self {
         let mut partials = Vec::new();
-        let mut partial_hints = Vec::new();
-        let mut offset = 0usize;
 
         for state in states {
-            let channel_partials: Vec<_> = state.current_partials().collect();
-
-            for mut hint in state.current_partial_hints() {
-                if let WordRef::RuntimeIndex(index) = &mut hint.target {
-                    *index += offset;
-                }
-                partial_hints.push(hint);
-            }
-
-            offset += channel_partials.len();
-            partials.extend(channel_partials);
+            partials.extend(state.current_partials());
         }
 
-        Self {
-            partials,
-            partial_hints,
-        }
+        Self { partials }
     }
 
     fn into_delta(
         self,
         new_words: Vec<FinalizedWord>,
-        hints: Vec<RuntimeSpeakerHint>,
         replaced_ids: Vec<String>,
     ) -> TranscriptDelta {
         TranscriptDelta {
             new_words,
-            hints,
             replaced_ids,
             partials: self.partials,
-            partial_hints: self.partial_hints,
         }
     }
 }
@@ -353,7 +300,7 @@ mod tests {
     use crate::types::RawWord;
 
     #[test]
-    fn partial_snapshot_preserves_partial_hint_indices_across_channels() {
+    fn partial_snapshot_carries_speaker_index_on_words() {
         let mut processor = TranscriptProcessor::new();
 
         let ch0 = processor
@@ -392,14 +339,8 @@ mod tests {
         let snapshot = processor.partial_snapshot();
 
         assert_eq!(snapshot.partials.len(), 3);
-        assert_eq!(snapshot.partial_hints.len(), 2);
-        assert!(matches!(
-            snapshot.partial_hints[0].target,
-            WordRef::RuntimeIndex(0)
-        ));
-        assert!(matches!(
-            snapshot.partial_hints[1].target,
-            WordRef::RuntimeIndex(2)
-        ));
+        assert_eq!(snapshot.partials[0].speaker_index, Some(4));
+        assert_eq!(snapshot.partials[1].speaker_index, None);
+        assert_eq!(snapshot.partials[2].speaker_index, Some(7));
     }
 }

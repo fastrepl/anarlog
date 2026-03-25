@@ -118,6 +118,8 @@ pub(super) async fn spawn_listener(
             session_started_at: ctx.started_at_instant,
             session_started_at_unix: ctx.started_at_system,
             session_id: ctx.params.session_id.clone(),
+            participant_human_ids: ctx.params.participant_human_ids.clone(),
+            self_human_id: ctx.params.self_human_id.clone(),
         },
         supervisor_cell,
     )

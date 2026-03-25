@@ -1,8 +1,4 @@
-import type {
-  LiveTranscriptDelta,
-  PersistedSpeakerHint,
-  SpeakerHintData,
-} from "@hypr/plugin-listener";
+import type { LiveTranscriptDelta } from "@hypr/plugin-listener";
 
 import type { SpeakerHintWithId, WordWithId } from "./types";
 
@@ -104,43 +100,29 @@ export function applyLiveTranscriptDelta(
       const wordId = hint.word_id ?? "";
       return !replacedIds.has(wordId) && !newWordIds.has(wordId);
     })
-    .concat(delta.hints.map(toStorageSpeakerHint))
+    .concat(delta.new_words.flatMap(toStorageSpeakerHints))
     .sort((a, b) => (a.word_id ?? "").localeCompare(b.word_id ?? ""));
 
   updateTranscriptWords(store, transcriptId, nextWords);
   updateTranscriptHints(store, transcriptId, nextHints);
 }
 
-function toStorageSpeakerHint(hint: PersistedSpeakerHint): SpeakerHintWithId {
-  const { type, value } = unwrapSpeakerHintData(hint.data);
-
-  return {
-    id: `${hint.word_id}:${type}`,
-    word_id: hint.word_id,
-    type,
-    value: JSON.stringify(value),
-  };
-}
-
-function unwrapSpeakerHintData(data: SpeakerHintData): {
-  type: SpeakerHintWithId["type"];
-  value: Record<string, unknown>;
-} {
-  if ("provider_speaker_index" in data) {
-    return {
-      type: "provider_speaker_index",
-      value: {
-        provider: data.provider_speaker_index.provider ?? undefined,
-        channel: data.provider_speaker_index.channel ?? undefined,
-        speaker_index: data.provider_speaker_index.speaker_index,
-      },
-    };
+function toStorageSpeakerHints(
+  word: LiveTranscriptDelta["new_words"][number],
+): SpeakerHintWithId[] {
+  if (word.speaker_index == null) {
+    return [];
   }
 
-  return {
-    type: "user_speaker_assignment",
-    value: {
-      human_id: data.user_speaker_assignment.human_id,
+  return [
+    {
+      id: `${word.id}:provider_speaker_index`,
+      word_id: word.id,
+      type: "provider_speaker_index",
+      value: JSON.stringify({
+        channel: word.channel,
+        speaker_index: word.speaker_index,
+      }),
     },
-  };
+  ];
 }

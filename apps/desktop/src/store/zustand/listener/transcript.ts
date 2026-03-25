@@ -5,8 +5,6 @@ import type {
   LiveTranscriptDelta,
   LiveTranscriptSegment,
   LiveTranscriptSegmentDelta,
-  PartialSpeakerHint,
-  SpeakerHintData,
 } from "@hypr/plugin-listener";
 
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
@@ -78,7 +76,6 @@ export const createTranscriptSlice = <
     const { handlePersist } = get();
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
-      delta.partial_hints,
     );
 
     set((state) =>
@@ -88,11 +85,7 @@ export const createTranscriptSlice = <
       }),
     );
 
-    if (
-      delta.new_words.length === 0 &&
-      delta.hints.length === 0 &&
-      delta.replaced_ids.length === 0
-    ) {
+    if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
       return;
     }
 
@@ -127,73 +120,35 @@ export const createTranscriptSlice = <
   },
 });
 
-function groupPartialsByChannel(
-  partials: LiveTranscriptDelta["partials"],
-  partialHints: LiveTranscriptDelta["partial_hints"],
-): {
+function groupPartialsByChannel(partials: LiveTranscriptDelta["partials"]): {
   wordsByChannel: WordsByChannel;
   hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
 } {
   const wordsByChannel: WordsByChannel = {};
   const hintsByChannel: Record<number, RuntimeSpeakerHint[]> = {};
 
-  const offsets = new Map<number, number>();
   partials.forEach((word) => {
-    if (!(word.channel in wordsByChannel)) {
-      wordsByChannel[word.channel] = [];
-      offsets.set(word.channel, 0);
-    }
-    wordsByChannel[word.channel]!.push(word);
-  });
-
-  let globalIndex = 0;
-  for (const [channelKey, words] of Object.entries(wordsByChannel)) {
-    offsets.set(Number(channelKey), globalIndex);
-    globalIndex += words.length;
-  }
-
-  partialHints.forEach((hint) => {
-    const partial = partials[hint.word_index];
-    if (!partial) {
-      return;
-    }
-
-    const channel = partial.channel;
-    const channelOffset = offsets.get(channel) ?? 0;
-    if (!(channel in hintsByChannel)) {
+    const channel = word.channel;
+    const channelWords = wordsByChannel[channel] ?? [];
+    if (!(channel in wordsByChannel)) {
+      wordsByChannel[channel] = channelWords;
       hintsByChannel[channel] = [];
     }
 
-    hintsByChannel[channel]!.push(toRuntimeSpeakerHint(hint, channelOffset));
+    const channelIndex = channelWords.length;
+    channelWords.push(word);
+
+    if (word.speaker_index != null) {
+      hintsByChannel[channel]!.push({
+        wordIndex: channelIndex,
+        data: {
+          type: "provider_speaker_index",
+          speaker_index: word.speaker_index,
+          channel,
+        },
+      });
+    }
   });
 
   return { wordsByChannel, hintsByChannel };
-}
-
-function toRuntimeSpeakerHint(
-  hint: PartialSpeakerHint,
-  channelOffset: number,
-): RuntimeSpeakerHint {
-  return {
-    wordIndex: hint.word_index - channelOffset,
-    data: toRuntimeSpeakerHintData(hint.data),
-  };
-}
-
-function toRuntimeSpeakerHintData(
-  data: SpeakerHintData,
-): RuntimeSpeakerHint["data"] {
-  if ("provider_speaker_index" in data) {
-    return {
-      type: "provider_speaker_index",
-      speaker_index: data.provider_speaker_index.speaker_index,
-      provider: data.provider_speaker_index.provider ?? undefined,
-      channel: data.provider_speaker_index.channel ?? undefined,
-    };
-  }
-
-  return {
-    type: "user_speaker_assignment",
-    human_id: data.user_speaker_assignment.human_id,
-  };
 }

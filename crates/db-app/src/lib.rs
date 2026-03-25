@@ -140,7 +140,7 @@ impl std::error::Error for CrudCliError {}
 mod tests {
     use super::*;
     use hypr_db_core2::Db3;
-    use hypr_transcript::{FinalizedWord, SpeakerHintData, WordState};
+    use hypr_transcript::{FinalizedWord, WordState};
 
     // https://docs.sqlitecloud.io/docs/sqlite-sync-best-practices
     mod sync_compat {
@@ -321,6 +321,7 @@ mod tests {
                     end_ms: 500,
                     channel: 0,
                     state: WordState::Final,
+                    speaker_index: None,
                 },
                 FinalizedWord {
                     id: "w2".into(),
@@ -329,11 +330,12 @@ mod tests {
                     end_ms: 1000,
                     channel: 0,
                     state: WordState::Pending,
+                    speaker_index: None,
                 },
             ],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::ProviderSpeakerIndex {
+                data: StorageSpeakerHintData::ProviderSpeakerIndex {
                     speaker_index: 0,
                     provider: Some("deepgram".into()),
                     channel: Some(0),
@@ -353,7 +355,7 @@ mod tests {
         assert_eq!(hints.len(), 1);
         assert_eq!(hints[0].word_id, "w1");
         match &hints[0].data {
-            SpeakerHintData::ProviderSpeakerIndex {
+            StorageSpeakerHintData::ProviderSpeakerIndex {
                 speaker_index,
                 provider,
                 ..
@@ -381,10 +383,11 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             }],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::UserSpeakerAssignment {
+                data: StorageSpeakerHintData::UserSpeakerAssignment {
                     human_id: "user-a".into(),
                 },
             }],
@@ -400,8 +403,9 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![],
+            speaker_hints: vec![],
             replaced_ids: vec!["w1".into()],
         };
         apply_delta(db.pool(), sid, &delta2).await.unwrap();
@@ -920,10 +924,11 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::ProviderSpeakerIndex {
+                data: StorageSpeakerHintData::ProviderSpeakerIndex {
                     speaker_index: 0,
                     provider: None,
                     channel: None,
@@ -1633,10 +1638,11 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "tw1".into(),
-                data: SpeakerHintData::UserSpeakerAssignment {
+                data: StorageSpeakerHintData::UserSpeakerAssignment {
                     human_id: "h1".into(),
                 },
             }],
@@ -1654,7 +1660,7 @@ mod tests {
         let hints = load_task_hints(db.pool(), "t1").await.unwrap();
         assert_eq!(hints.len(), 1);
         match &hints[0].data {
-            SpeakerHintData::UserSpeakerAssignment { human_id } => {
+            StorageSpeakerHintData::UserSpeakerAssignment { human_id } => {
                 assert_eq!(human_id, "h1");
             }
             _ => panic!("expected UserSpeakerAssignment"),
@@ -1725,8 +1731,9 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![],
+            speaker_hints: vec![],
             replaced_ids: vec![],
         };
         apply_task_delta(db.pool(), "t1", &delta, "u1", "public")

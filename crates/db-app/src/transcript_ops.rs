@@ -1,7 +1,7 @@
-use hypr_transcript::{FinalizedWord, SpeakerHintData, WordState};
+use hypr_transcript::{FinalizedWord, WordState};
 use sqlx::SqlitePool;
 
-use crate::{PersistableSpeakerHint, TranscriptDeltaPersist};
+use crate::{StorageSpeakerHint, StorageSpeakerHintData, TranscriptDeltaPersist};
 
 pub async fn apply_delta(
     pool: &SqlitePool,
@@ -40,9 +40,9 @@ pub async fn apply_delta(
         .await?;
     }
 
-    for h in &delta.hints {
+    for h in &delta.speaker_hints {
         let (kind, speaker_index, provider, channel, human_id) = match &h.data {
-            SpeakerHintData::ProviderSpeakerIndex {
+            StorageSpeakerHintData::ProviderSpeakerIndex {
                 speaker_index,
                 provider,
                 channel,
@@ -53,7 +53,7 @@ pub async fn apply_delta(
                 *channel,
                 None,
             ),
-            SpeakerHintData::UserSpeakerAssignment { human_id } => (
+            StorageSpeakerHintData::UserSpeakerAssignment { human_id } => (
                 "user_speaker_assignment",
                 None,
                 None,
@@ -106,6 +106,7 @@ pub async fn load_words(
                 end_ms,
                 channel,
                 state,
+                speaker_index: None,
             }
         })
         .collect())
@@ -114,7 +115,7 @@ pub async fn load_words(
 pub async fn load_hints(
     pool: &SqlitePool,
     meeting_id: &str,
-) -> Result<Vec<PersistableSpeakerHint>, sqlx::Error> {
+) -> Result<Vec<StorageSpeakerHint>, sqlx::Error> {
     let rows = sqlx::query_as::<_, (String, String, Option<i32>, Option<String>, Option<i32>, Option<String>)>(
         "SELECT word_id, kind, speaker_index, provider, channel, human_id FROM speaker_hints WHERE meeting_id = ? ORDER BY word_id",
     )
@@ -127,17 +128,17 @@ pub async fn load_hints(
         .filter_map(
             |(word_id, kind, speaker_index, provider, channel, human_id)| {
                 let data = match kind.as_str() {
-                    "provider_speaker_index" => SpeakerHintData::ProviderSpeakerIndex {
+                    "provider_speaker_index" => StorageSpeakerHintData::ProviderSpeakerIndex {
                         speaker_index: speaker_index.unwrap_or(0),
                         provider,
                         channel,
                     },
-                    "user_speaker_assignment" => SpeakerHintData::UserSpeakerAssignment {
+                    "user_speaker_assignment" => StorageSpeakerHintData::UserSpeakerAssignment {
                         human_id: human_id.unwrap_or_default(),
                     },
                     _ => return None,
                 };
-                Some(PersistableSpeakerHint { word_id, data })
+                Some(StorageSpeakerHint { word_id, data })
             },
         )
         .collect())
@@ -184,9 +185,9 @@ pub async fn apply_task_delta(
         .await?;
     }
 
-    for h in &delta.hints {
+    for h in &delta.speaker_hints {
         let (kind, speaker_index, provider, channel, human_id) = match &h.data {
-            SpeakerHintData::ProviderSpeakerIndex {
+            StorageSpeakerHintData::ProviderSpeakerIndex {
                 speaker_index,
                 provider,
                 channel,
@@ -197,7 +198,7 @@ pub async fn apply_task_delta(
                 *channel,
                 None,
             ),
-            SpeakerHintData::UserSpeakerAssignment { human_id } => (
+            StorageSpeakerHintData::UserSpeakerAssignment { human_id } => (
                 "user_speaker_assignment",
                 None,
                 None,
@@ -252,6 +253,7 @@ pub async fn load_task_words(
                 end_ms,
                 channel,
                 state,
+                speaker_index: None,
             }
         })
         .collect())
@@ -260,7 +262,7 @@ pub async fn load_task_words(
 pub async fn load_task_hints(
     pool: &SqlitePool,
     task_id: &str,
-) -> Result<Vec<PersistableSpeakerHint>, sqlx::Error> {
+) -> Result<Vec<StorageSpeakerHint>, sqlx::Error> {
     let rows = sqlx::query_as::<_, (String, String, Option<i32>, Option<String>, Option<i32>, Option<String>)>(
         "SELECT word_id, kind, speaker_index, provider, channel, human_id FROM task_speaker_hints WHERE task_id = ? ORDER BY word_id",
     )
@@ -273,17 +275,17 @@ pub async fn load_task_hints(
         .filter_map(
             |(word_id, kind, speaker_index, provider, channel, human_id)| {
                 let data = match kind.as_str() {
-                    "provider_speaker_index" => SpeakerHintData::ProviderSpeakerIndex {
+                    "provider_speaker_index" => StorageSpeakerHintData::ProviderSpeakerIndex {
                         speaker_index: speaker_index.unwrap_or(0),
                         provider,
                         channel,
                     },
-                    "user_speaker_assignment" => SpeakerHintData::UserSpeakerAssignment {
+                    "user_speaker_assignment" => StorageSpeakerHintData::UserSpeakerAssignment {
                         human_id: human_id.unwrap_or_default(),
                     },
                     _ => return None,
                 };
-                Some(PersistableSpeakerHint { word_id, data })
+                Some(StorageSpeakerHint { word_id, data })
             },
         )
         .collect())

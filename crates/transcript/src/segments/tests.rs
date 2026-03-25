@@ -1,7 +1,7 @@
-use crate::types::{ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey};
 use crate::types::{
-    FinalizedWord, PartialWord, RuntimeSpeakerHint, SpeakerHintData, WordRef, WordState,
+    ChannelProfile, IdentityAssignment, IdentityScope, Segment, SegmentBuilderOptions, SegmentKey,
 };
+use crate::types::{FinalizedWord, PartialWord, WordState};
 
 use super::build_segments;
 
@@ -13,6 +13,19 @@ fn fw(text: &str, start: i64, end: i64, ch: i32) -> FinalizedWord {
         end_ms: end,
         channel: ch,
         state: WordState::Final,
+        speaker_index: None,
+    }
+}
+
+fn fw_si(text: &str, start: i64, end: i64, ch: i32, si: i32) -> FinalizedWord {
+    FinalizedWord {
+        id: format!("w-{text}"),
+        text: text.to_string(),
+        start_ms: start,
+        end_ms: end,
+        channel: ch,
+        state: WordState::Final,
+        speaker_index: Some(si),
     }
 }
 
@@ -22,36 +35,33 @@ fn pw(text: &str, start: i64, end: i64, ch: i32) -> PartialWord {
         start_ms: start,
         end_ms: end,
         channel: ch,
+        speaker_index: None,
     }
 }
 
-fn hint_idx(word_id: &str, speaker_index: i32) -> RuntimeSpeakerHint {
-    RuntimeSpeakerHint {
-        target: WordRef::FinalWordId(word_id.to_string()),
-        data: SpeakerHintData::ProviderSpeakerIndex {
-            speaker_index,
-            provider: None,
-            channel: None,
-        },
+fn pw_si(text: &str, start: i64, end: i64, ch: i32, si: i32) -> PartialWord {
+    PartialWord {
+        text: text.to_string(),
+        start_ms: start,
+        end_ms: end,
+        channel: ch,
+        speaker_index: Some(si),
     }
 }
 
-fn hint_runtime_idx(word_index: usize, speaker_index: i32) -> RuntimeSpeakerHint {
-    RuntimeSpeakerHint {
-        target: WordRef::RuntimeIndex(word_index),
-        data: SpeakerHintData::ProviderSpeakerIndex {
-            speaker_index,
-            provider: None,
-            channel: None,
-        },
+fn channel_human(human_id: &str, ch: ChannelProfile) -> IdentityAssignment {
+    IdentityAssignment {
+        human_id: human_id.to_string(),
+        scope: IdentityScope::Channel { channel: ch },
     }
 }
 
-fn hint_human_id(target: WordRef, human_id: &str) -> RuntimeSpeakerHint {
-    RuntimeSpeakerHint {
-        target,
-        data: SpeakerHintData::UserSpeakerAssignment {
-            human_id: human_id.to_string(),
+fn speaker_human(human_id: &str, ch: ChannelProfile, si: i32) -> IdentityAssignment {
+    IdentityAssignment {
+        human_id: human_id.to_string(),
+        scope: IdentityScope::ChannelSpeaker {
+            channel: ch,
+            speaker_index: si,
         },
     }
 }
@@ -187,12 +197,11 @@ fn three_distinct_channels() {
 #[test]
 fn splits_by_speaker_within_channel() {
     let finals = vec![
-        fw("0", 0, 100, 0),
-        fw("1", 150, 250, 0),
-        fw("2", 300, 400, 0),
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 150, 250, 0, 1),
+        fw_si("2", 300, 400, 0, 0),
     ];
-    let hints = vec![hint_idx("w-0", 0), hint_idx("w-1", 1), hint_idx("w-2", 0)];
-    let result = build_segments(&finals, &[], &hints, None);
+    let result = build_segments(&finals, &[], &[], None);
     assert_eq!(result.len(), 3);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(result[1].key, key_speaker(0, 1));
@@ -219,13 +228,9 @@ fn interleaves_short_turns() {
 
 #[test]
 fn propagates_human_id_across_shared_speaker_index() {
-    let finals = vec![fw("0", 0, 100, 0), fw("1", 200, 300, 0)];
-    let hints = vec![
-        hint_idx("w-0", 1),
-        hint_idx("w-1", 1),
-        hint_human_id(WordRef::FinalWordId("w-1".to_string()), "alice"),
-    ];
-    let result = build_segments(&finals, &[], &hints, None);
+    let finals = vec![fw_si("0", 0, 100, 0, 1), fw_si("1", 200, 300, 0, 1)];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 1)];
+    let result = build_segments(&finals, &[], &assignments, None);
     assert_eq!(result.len(), 1);
     assert_eq!(
         result[0].key,
@@ -241,18 +246,15 @@ fn propagates_human_id_across_shared_speaker_index() {
 #[test]
 fn does_not_leak_human_id_across_channels_with_same_speaker_index() {
     let finals = vec![
-        fw("0", 0, 100, 0),
-        fw("1", 200, 300, 1),
-        fw("2", 400, 500, 0),
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 200, 300, 1, 0),
+        fw_si("2", 400, 500, 0, 0),
     ];
-    let hints = vec![
-        hint_idx("w-0", 0),
-        hint_human_id(WordRef::FinalWordId("w-0".to_string()), "john"),
-        hint_idx("w-1", 0),
-        hint_human_id(WordRef::FinalWordId("w-1".to_string()), "janet"),
-        hint_idx("w-2", 0),
+    let assignments = vec![
+        speaker_human("john", ChannelProfile::DirectMic, 0),
+        speaker_human("janet", ChannelProfile::RemoteParty, 0),
     ];
-    let result = build_segments(&finals, &[], &hints, None);
+    let result = build_segments(&finals, &[], &assignments, None);
 
     assert_eq!(result.len(), 3);
     assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("john"));
@@ -273,10 +275,9 @@ fn partial_word_inherits_previous_segment_key() {
 
 #[test]
 fn partial_with_intermittent_speaker_hint_stays_in_previous_segment() {
-    let finals = vec![fw("0", 0, 100, 0)];
+    let finals = vec![fw_si("0", 0, 100, 0, 0)];
     let partials = vec![pw("1", 150, 250, 0)];
-    let hints = vec![hint_idx("w-0", 0)];
-    let result = build_segments(&finals, &partials, &hints, None);
+    let result = build_segments(&finals, &partials, &[], None);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(texts(&result[0]), vec!["0", "1"]);
@@ -316,10 +317,9 @@ fn custom_max_gap_ms() {
 
 #[test]
 fn partial_words_inherit_speaker_index_across_channels() {
-    let finals = vec![fw("0", 0, 100, 0), fw("1", 150, 250, 1)];
+    let finals = vec![fw_si("0", 0, 100, 0, 0), fw_si("1", 150, 250, 1, 1)];
     let partials = vec![pw("2", 300, 400, 0), pw("3", 450, 550, 1)];
-    let hints = vec![hint_idx("w-0", 0), hint_idx("w-1", 1)];
-    let result = build_segments(&finals, &partials, &hints, None);
+    let result = build_segments(&finals, &partials, &[], None);
     assert_eq!(result.len(), 4);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(result[1].key, key_speaker(1, 1));
@@ -346,12 +346,11 @@ fn overlapping_channels_produce_interleaved_segments() {
 #[test]
 fn auto_assign_based_on_provider_speaker_index() {
     let finals = vec![
-        fw("0", 0, 100, 0),
-        fw("1", 100, 200, 1),
-        fw("2", 200, 300, 0),
+        fw_si("0", 0, 100, 0, 0),
+        fw_si("1", 100, 200, 1, 1),
+        fw_si("2", 200, 300, 0, 0),
     ];
-    let hints = vec![hint_idx("w-0", 0), hint_idx("w-1", 1), hint_idx("w-2", 0)];
-    let result = build_segments(&finals, &[], &hints, None);
+    let result = build_segments(&finals, &[], &[], None);
     assert_eq!(result.len(), 3);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(result[1].key, key_speaker(1, 1));
@@ -359,13 +358,10 @@ fn auto_assign_based_on_provider_speaker_index() {
 }
 
 #[test]
-fn handles_partial_only_stream_with_hints() {
-    let partials = vec![pw("0", 0, 80, 0), pw("1", 120, 200, 0)];
-    let hints = vec![
-        hint_runtime_idx(0, 3),
-        hint_human_id(WordRef::RuntimeIndex(0), "alice"),
-    ];
-    let result = build_segments(&[], &partials, &hints, None);
+fn handles_partial_only_stream_with_speaker_and_assignment() {
+    let partials = vec![pw_si("0", 0, 80, 0, 3), pw("1", 120, 200, 0)];
+    let assignments = vec![speaker_human("alice", ChannelProfile::DirectMic, 3)];
+    let result = build_segments(&[], &partials, &assignments, None);
     assert_eq!(result.len(), 1);
     assert_eq!(
         result[0].key,
@@ -388,11 +384,8 @@ fn propagates_direct_mic_channel_identity_forward() {
         fw("3", 1500, 1600, 1),
         fw("4", 2601, 2701, 0),
     ];
-    let hints = vec![hint_human_id(
-        WordRef::FinalWordId("w-0".to_string()),
-        "carol",
-    )];
-    let result = build_segments(&finals, &[], &hints, None);
+    let assignments = vec![channel_human("carol", ChannelProfile::DirectMic)];
+    let result = build_segments(&finals, &[], &assignments, None);
     assert_eq!(result.len(), 3);
     assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("carol"));
     assert_eq!(result[1].key, key(1));
@@ -402,25 +395,21 @@ fn propagates_direct_mic_channel_identity_forward() {
 #[test]
 fn propagates_remote_party_identity_when_channel_marked_complete() {
     let finals = vec![fw("0", 0, 100, 1), fw("1", 200, 300, 1)];
-    let hints = vec![hint_human_id(
-        WordRef::FinalWordId("w-0".to_string()),
-        "remote",
-    )];
+    let assignments = vec![channel_human("remote", ChannelProfile::RemoteParty)];
     let opts = SegmentBuilderOptions {
         complete_channels: Some(vec![ChannelProfile::DirectMic, ChannelProfile::RemoteParty]),
         ..Default::default()
     };
-    let result = build_segments(&finals, &[], &hints, Some(&opts));
+    let result = build_segments(&finals, &[], &assignments, Some(&opts));
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("remote"));
 }
 
 #[test]
 fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
-    let finals = vec![fw("0", 0, 100, 0)];
-    let partials = vec![pw("1", 150, 250, 0)];
-    let hints = vec![hint_idx("w-0", 0), hint_runtime_idx(1, 1)];
-    let result = build_segments(&finals, &partials, &hints, None);
+    let finals = vec![fw_si("0", 0, 100, 0, 0)];
+    let partials = vec![pw_si("1", 150, 250, 0, 1)];
+    let result = build_segments(&finals, &partials, &[], None);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].key, key_speaker(0, 0));
     assert_eq!(texts(&result[0]), vec!["0", "1"]);
@@ -428,9 +417,6 @@ fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
 
 #[test]
 fn consolidates_rapid_crosstalk_micro_segments() {
-    // Simulates the screenshot: rapid alternation during cross-talk
-    // Speaker1: "Alright." (long segment before) then "But" "yeah."
-    // You (ch0): "Mean," "look" "Everyone knows..."
     let finals = vec![
         fw("alright", 78000, 84000, 1),
         fw("mean", 84000, 84500, 0),
@@ -444,8 +430,6 @@ fn consolidates_rapid_crosstalk_micro_segments() {
     ];
     let opts = SegmentBuilderOptions::default();
     let result = build_segments(&finals, &[], &[], Some(&opts));
-    // micro segments absorbed: "mean" + "look" merge into the "everyone..." segment (ch0)
-    // "but" + "yeah" merge into "alright" segment (ch1)
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].key, key(1));
     assert_eq!(texts(&result[0]), vec!["alright", "but", "yeah"]);
@@ -465,8 +449,6 @@ fn no_consolidation_when_segment_duration_exceeds_threshold() {
     ];
     let opts = SegmentBuilderOptions::default();
     let result = build_segments(&finals, &[], &[], Some(&opts));
-    // "ok" is micro (1 word, 200ms) but its ch0 neighbors have duration >= 2000ms
-    // so "ok" can't cross them — stays as its own segment
     assert_eq!(result.len(), 3);
 }
 
@@ -487,7 +469,6 @@ fn no_consolidation_when_disabled() {
 
 #[test]
 fn micro_segment_not_absorbed_across_long_segment() {
-    // micro(ch0) - LONG(ch1) - micro(ch0): should NOT merge because LONG blocks the path
     let finals = vec![
         fw("hi", 0, 100, 0),
         fw("this", 200, 300, 1),

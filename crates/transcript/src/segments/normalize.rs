@@ -18,6 +18,7 @@ pub(super) fn normalize_words(
         is_final: true,
         id: Some(word.id.clone()),
         order: 0,
+        speaker_index: word.speaker_index,
     }));
 
     combined.extend(partial_words.iter().map(|word| NormalizedWord {
@@ -28,6 +29,7 @@ pub(super) fn normalize_words(
         is_final: false,
         id: None,
         order: 0,
+        speaker_index: word.speaker_index,
     }));
 
     combined.sort_by_key(|word| word.start_ms);

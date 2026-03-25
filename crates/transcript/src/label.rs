@@ -77,13 +77,13 @@ pub fn render_speaker_label(
             return human_id.clone();
         }
 
-        if key.channel == ChannelProfile::DirectMic {
-            if let Some(self_human_id) = ctx.self_human_id.as_ref() {
-                if let Some(name) = ctx.human_name_by_id.get(self_human_id) {
-                    return name.clone();
-                }
-                return "You".to_string();
+        if key.channel == ChannelProfile::DirectMic
+            && let Some(self_human_id) = ctx.self_human_id.as_ref()
+        {
+            if let Some(name) = ctx.human_name_by_id.get(self_human_id) {
+                return name.clone();
             }
+            return "You".to_string();
         }
     } else if let Some(human_id) = key.speaker_human_id.as_ref() {
         return human_id.clone();

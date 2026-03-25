@@ -1,9 +1,9 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::{
-    ChannelProfile, FinalizedWord, RuntimeSpeakerHint, SegmentBuilderOptions, SegmentKey,
-    SegmentWord, SpeakerHintData, SpeakerLabelContext, SpeakerLabeler, WordRef, build_segments,
-    render_speaker_label,
+    FinalizedWord, IdentityAssignment, SegmentKey, SegmentWord, SpeakerLabelContext,
+    SpeakerLabeler, WordState, build_segments, channel_assignments_for_participants,
+    render_speaker_label, segment_options_for_participants,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -13,12 +13,8 @@ pub struct RenderTranscriptWordInput {
     pub start_ms: i64,
     pub end_ms: i64,
     pub channel: i32,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-pub struct RenderTranscriptSpeakerHint {
-    pub word_id: String,
-    pub data: SpeakerHintData,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speaker_index: Option<i32>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -31,7 +27,7 @@ pub struct RenderTranscriptHuman {
 pub struct RenderTranscriptInput {
     pub started_at: Option<i64>,
     pub words: Vec<RenderTranscriptWordInput>,
-    pub speaker_hints: Vec<RenderTranscriptSpeakerHint>,
+    pub assignments: Vec<IdentityAssignment>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -63,15 +59,30 @@ pub fn render_transcript_segments(
         humans,
     } = request;
 
-    let (words, mut speaker_hints) = collect_render_words_and_hints(transcripts);
-    inject_channel_speaker_hints(
-        &words,
-        &participant_human_ids,
-        self_human_id.as_deref(),
-        &mut speaker_hints,
-    );
-    let segment_options = render_segment_options(&participant_human_ids, self_human_id.as_deref());
-    let segments = build_segments(&words, &[], &speaker_hints, Some(&segment_options));
+    let base_started_at = earliest_started_at(&transcripts);
+    let segment_options =
+        segment_options_for_participants(&participant_human_ids, self_human_id.as_deref());
+
+    let mut all_segments = Vec::new();
+
+    for transcript in transcripts {
+        let offset = transcript
+            .started_at
+            .map(|started_at| started_at - base_started_at)
+            .unwrap_or(0);
+
+        let (words, mut assignments) =
+            offset_transcript_data(transcript.words, transcript.assignments, offset);
+        let channel_assignments =
+            channel_assignments_for_participants(&participant_human_ids, self_human_id.as_deref());
+        assignments.extend(channel_assignments);
+
+        let segments = build_segments(&words, &[], &assignments, Some(&segment_options));
+        all_segments.extend(segments);
+    }
+
+    all_segments.sort_by_key(|seg| seg.words.first().map(|w| w.start_ms).unwrap_or(i64::MAX));
+
     let ctx = SpeakerLabelContext {
         self_human_id,
         human_name_by_id: humans
@@ -79,9 +90,9 @@ pub fn render_transcript_segments(
             .map(|human| (human.human_id, human.name))
             .collect::<HashMap<_, _>>(),
     };
-    let mut labeler = SpeakerLabeler::from_segments(&segments, Some(&ctx));
+    let mut labeler = SpeakerLabeler::from_segments(&all_segments, Some(&ctx));
 
-    segments
+    all_segments
         .into_iter()
         .filter_map(|segment| {
             let words = normalize_rendered_segment_words(segment.words);
@@ -110,57 +121,25 @@ pub fn render_transcript_segments(
         .collect()
 }
 
-fn collect_render_words_and_hints(
-    transcripts: Vec<RenderTranscriptInput>,
-) -> (Vec<FinalizedWord>, Vec<crate::RuntimeSpeakerHint>) {
-    let base_started_at = earliest_started_at(&transcripts);
+fn offset_transcript_data(
+    raw_words: Vec<RenderTranscriptWordInput>,
+    assignments: Vec<IdentityAssignment>,
+    time_offset: i64,
+) -> (Vec<FinalizedWord>, Vec<IdentityAssignment>) {
+    let words: Vec<FinalizedWord> = raw_words
+        .into_iter()
+        .map(|w| FinalizedWord {
+            id: w.id,
+            text: w.text,
+            start_ms: w.start_ms + time_offset,
+            end_ms: w.end_ms + time_offset,
+            channel: w.channel,
+            state: WordState::Final,
+            speaker_index: w.speaker_index,
+        })
+        .collect();
 
-    let mut finalized_words = Vec::new();
-    let mut runtime_hints = Vec::new();
-
-    for transcript in transcripts {
-        let offset = transcript
-            .started_at
-            .map(|started_at| started_at - base_started_at)
-            .unwrap_or(0);
-
-        finalized_words.extend(transcript.words.into_iter().map(|word| {
-            let finalized = render_word_to_finalized(word);
-            FinalizedWord {
-                start_ms: finalized.start_ms + offset,
-                end_ms: finalized.end_ms + offset,
-                ..finalized
-            }
-        }));
-        runtime_hints.extend(
-            transcript
-                .speaker_hints
-                .into_iter()
-                .map(render_hint_to_runtime),
-        );
-    }
-
-    finalized_words.sort_by_key(|word| word.start_ms);
-
-    (finalized_words, runtime_hints)
-}
-
-fn render_word_to_finalized(word: RenderTranscriptWordInput) -> FinalizedWord {
-    FinalizedWord {
-        id: word.id,
-        text: word.text,
-        start_ms: word.start_ms,
-        end_ms: word.end_ms,
-        channel: word.channel,
-        state: crate::WordState::Final,
-    }
-}
-
-fn render_hint_to_runtime(hint: RenderTranscriptSpeakerHint) -> crate::RuntimeSpeakerHint {
-    crate::RuntimeSpeakerHint {
-        target: crate::WordRef::FinalWordId(hint.word_id),
-        data: hint.data,
-    }
+    (words, assignments)
 }
 
 fn earliest_started_at(transcripts: &[RenderTranscriptInput]) -> i64 {
@@ -169,33 +148,6 @@ fn earliest_started_at(transcripts: &[RenderTranscriptInput]) -> i64 {
         .filter_map(|transcript| transcript.started_at)
         .min()
         .unwrap_or(0)
-}
-
-fn render_segment_options(
-    participant_human_ids: &[String],
-    self_human_id: Option<&str>,
-) -> SegmentBuilderOptions {
-    let mut unique_participants: HashSet<&str> = participant_human_ids
-        .iter()
-        .map(|s| s.as_str())
-        .filter(|human_id| !human_id.is_empty())
-        .collect();
-
-    if let Some(self_id) = self_human_id {
-        if !self_id.is_empty() {
-            unique_participants.insert(self_id);
-        }
-    }
-
-    let mut complete_channels = vec![ChannelProfile::DirectMic];
-    if unique_participants.len() == 2 {
-        complete_channels.push(ChannelProfile::RemoteParty);
-    }
-
-    SegmentBuilderOptions {
-        complete_channels: Some(complete_channels),
-        ..Default::default()
-    }
 }
 
 pub fn normalize_rendered_segment_words(words: Vec<SegmentWord>) -> Vec<SegmentWord> {
@@ -239,66 +191,6 @@ pub fn stable_segment_id(key: &SegmentKey, words: &[SegmentWord]) -> String {
     )
 }
 
-fn inject_channel_speaker_hints(
-    words: &[FinalizedWord],
-    participant_human_ids: &[String],
-    self_human_id: Option<&str>,
-    hints: &mut Vec<RuntimeSpeakerHint>,
-) {
-    let self_id = match self_human_id {
-        Some(id) if !id.is_empty() => id,
-        _ => return,
-    };
-
-    let remote_id = unique_other_participant(participant_human_ids, self_id);
-    let remote_id = match remote_id {
-        Some(id) => id,
-        None => return,
-    };
-
-    let first_on_direct_mic = words
-        .iter()
-        .find(|w| w.channel == ChannelProfile::DirectMic as i32);
-    let first_on_remote = words
-        .iter()
-        .find(|w| w.channel == ChannelProfile::RemoteParty as i32);
-
-    if let Some(word) = first_on_direct_mic {
-        hints.push(RuntimeSpeakerHint {
-            target: WordRef::FinalWordId(word.id.clone()),
-            data: SpeakerHintData::UserSpeakerAssignment {
-                human_id: self_id.to_string(),
-            },
-        });
-    }
-
-    if let Some(word) = first_on_remote {
-        hints.push(RuntimeSpeakerHint {
-            target: WordRef::FinalWordId(word.id.clone()),
-            data: SpeakerHintData::UserSpeakerAssignment {
-                human_id: remote_id.to_string(),
-            },
-        });
-    }
-}
-
-fn unique_other_participant<'a>(
-    participant_human_ids: &'a [String],
-    self_human_id: &str,
-) -> Option<&'a str> {
-    let others: Vec<&str> = participant_human_ids
-        .iter()
-        .map(|s| s.as_str())
-        .filter(|&id| !id.is_empty() && id != self_human_id)
-        .collect();
-
-    if others.len() == 1 {
-        Some(others[0])
-    } else {
-        None
-    }
-}
-
 fn normalized_rendered_word_text(text: &str, is_first_word: bool) -> String {
     let trimmed_start = text.trim_start();
     if trimmed_start.is_empty() {
@@ -323,6 +215,63 @@ fn normalized_rendered_word_text(text: &str, is_first_word: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{ChannelProfile, IdentityScope};
+
+    fn word(
+        id: &str,
+        text: &str,
+        start_ms: i64,
+        end_ms: i64,
+        channel: i32,
+    ) -> RenderTranscriptWordInput {
+        RenderTranscriptWordInput {
+            id: id.to_string(),
+            text: text.to_string(),
+            start_ms,
+            end_ms,
+            channel,
+            speaker_index: None,
+        }
+    }
+
+    fn word_si(
+        id: &str,
+        text: &str,
+        start_ms: i64,
+        end_ms: i64,
+        channel: i32,
+        speaker_index: i32,
+    ) -> RenderTranscriptWordInput {
+        RenderTranscriptWordInput {
+            id: id.to_string(),
+            text: text.to_string(),
+            start_ms,
+            end_ms,
+            channel,
+            speaker_index: Some(speaker_index),
+        }
+    }
+
+    fn channel_assignment(human_id: &str, channel: ChannelProfile) -> IdentityAssignment {
+        IdentityAssignment {
+            human_id: human_id.to_string(),
+            scope: IdentityScope::Channel { channel },
+        }
+    }
+
+    fn speaker_assignment(
+        human_id: &str,
+        channel: ChannelProfile,
+        speaker_index: i32,
+    ) -> IdentityAssignment {
+        IdentityAssignment {
+            human_id: human_id.to_string(),
+            scope: IdentityScope::ChannelSpeaker {
+                channel,
+                speaker_index,
+            },
+        }
+    }
 
     #[test]
     fn renders_segments_with_labels() {
@@ -330,22 +279,10 @@ mod tests {
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
-                    RenderTranscriptWordInput {
-                        id: "w1".to_string(),
-                        text: " hello".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 0,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2".to_string(),
-                        text: " world".to_string(),
-                        start_ms: 120,
-                        end_ms: 240,
-                        channel: 1,
-                    },
+                    word("w1", " hello", 0, 100, 0),
+                    word("w2", " world", 120, 240, 1),
                 ],
-                speaker_hints: vec![],
+                assignments: vec![],
             }],
             participant_human_ids: vec!["human-1".to_string(), "human-2".to_string()],
             self_human_id: Some("human-1".to_string()),
@@ -408,27 +345,10 @@ mod tests {
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
-                    RenderTranscriptWordInput {
-                        id: "w1".to_string(),
-                        text: " remote".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 1,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2".to_string(),
-                        text: " reply".to_string(),
-                        start_ms: 120,
-                        end_ms: 220,
-                        channel: 1,
-                    },
+                    word("w1", " remote", 0, 100, 1),
+                    word("w2", " reply", 120, 220, 1),
                 ],
-                speaker_hints: vec![RenderTranscriptSpeakerHint {
-                    word_id: "w1".to_string(),
-                    data: SpeakerHintData::UserSpeakerAssignment {
-                        human_id: "remote".to_string(),
-                    },
-                }],
+                assignments: vec![channel_assignment("remote", ChannelProfile::RemoteParty)],
             }],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
             self_human_id: None,
@@ -449,125 +369,17 @@ mod tests {
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
-                    RenderTranscriptWordInput {
-                        id: "w1".to_string(),
-                        text: " john".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 0,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w1b".to_string(),
-                        text: " says".to_string(),
-                        start_ms: 120,
-                        end_ms: 220,
-                        channel: 0,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w1c".to_string(),
-                        text: " hi".to_string(),
-                        start_ms: 240,
-                        end_ms: 340,
-                        channel: 0,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2".to_string(),
-                        text: " janet".to_string(),
-                        start_ms: 500,
-                        end_ms: 600,
-                        channel: 1,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2b".to_string(),
-                        text: " replies".to_string(),
-                        start_ms: 620,
-                        end_ms: 720,
-                        channel: 1,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2c".to_string(),
-                        text: " back".to_string(),
-                        start_ms: 740,
-                        end_ms: 840,
-                        channel: 1,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w3".to_string(),
-                        text: " again".to_string(),
-                        start_ms: 1_000,
-                        end_ms: 1_100,
-                        channel: 0,
-                    },
+                    word_si("w1", " john", 0, 100, 0, 0),
+                    word_si("w1b", " says", 120, 220, 0, 0),
+                    word_si("w1c", " hi", 240, 340, 0, 0),
+                    word_si("w2", " janet", 500, 600, 1, 0),
+                    word_si("w2b", " replies", 620, 720, 1, 0),
+                    word_si("w2c", " back", 740, 840, 1, 0),
+                    word_si("w3", " again", 1_000, 1_100, 0, 0),
                 ],
-                speaker_hints: vec![
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w1".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(0),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w1".to_string(),
-                        data: SpeakerHintData::UserSpeakerAssignment {
-                            human_id: "john".to_string(),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w1b".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(0),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w1c".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(0),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w2".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(1),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w2".to_string(),
-                        data: SpeakerHintData::UserSpeakerAssignment {
-                            human_id: "janet".to_string(),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w2b".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(1),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w2c".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(1),
-                        },
-                    },
-                    RenderTranscriptSpeakerHint {
-                        word_id: "w3".to_string(),
-                        data: SpeakerHintData::ProviderSpeakerIndex {
-                            speaker_index: 0,
-                            provider: None,
-                            channel: Some(0),
-                        },
-                    },
+                assignments: vec![
+                    speaker_assignment("john", ChannelProfile::DirectMic, 0),
+                    speaker_assignment("janet", ChannelProfile::RemoteParty, 0),
                 ],
             }],
             participant_human_ids: vec![],
@@ -596,25 +408,13 @@ mod tests {
             transcripts: vec![
                 RenderTranscriptInput {
                     started_at: Some(5_000),
-                    words: vec![RenderTranscriptWordInput {
-                        id: "late".to_string(),
-                        text: " later".to_string(),
-                        start_ms: 100,
-                        end_ms: 200,
-                        channel: 1,
-                    }],
-                    speaker_hints: vec![],
+                    words: vec![word("late", " later", 100, 200, 1)],
+                    assignments: vec![],
                 },
                 RenderTranscriptInput {
                     started_at: Some(1_000),
-                    words: vec![RenderTranscriptWordInput {
-                        id: "early".to_string(),
-                        text: " hello".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 0,
-                    }],
-                    speaker_hints: vec![],
+                    words: vec![word("early", " hello", 0, 100, 0)],
+                    assignments: vec![],
                 },
             ],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],
@@ -638,34 +438,11 @@ mod tests {
             transcripts: vec![RenderTranscriptInput {
                 started_at: Some(0),
                 words: vec![
-                    RenderTranscriptWordInput {
-                        id: "w1".to_string(),
-                        text: " hello".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 0,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w2".to_string(),
-                        text: " remote".to_string(),
-                        start_ms: 120,
-                        end_ms: 220,
-                        channel: 1,
-                    },
-                    RenderTranscriptWordInput {
-                        id: "w3".to_string(),
-                        text: " more".to_string(),
-                        start_ms: 240,
-                        end_ms: 340,
-                        channel: 1,
-                    },
+                    word("w1", " hello", 0, 100, 0),
+                    word("w2", " remote", 120, 220, 1),
+                    word("w3", " more", 240, 340, 1),
                 ],
-                speaker_hints: vec![RenderTranscriptSpeakerHint {
-                    word_id: "w2".to_string(),
-                    data: SpeakerHintData::UserSpeakerAssignment {
-                        human_id: "remote".to_string(),
-                    },
-                }],
+                assignments: vec![channel_assignment("remote", ChannelProfile::RemoteParty)],
             }],
             participant_human_ids: vec!["remote".to_string()],
             self_human_id: Some("self".to_string()),
@@ -693,25 +470,13 @@ mod tests {
             transcripts: vec![
                 RenderTranscriptInput {
                     started_at: None,
-                    words: vec![RenderTranscriptWordInput {
-                        id: "missing-start".to_string(),
-                        text: " hello".to_string(),
-                        start_ms: 0,
-                        end_ms: 100,
-                        channel: 0,
-                    }],
-                    speaker_hints: vec![],
+                    words: vec![word("missing-start", " hello", 0, 100, 0)],
+                    assignments: vec![],
                 },
                 RenderTranscriptInput {
                     started_at: Some(1_000),
-                    words: vec![RenderTranscriptWordInput {
-                        id: "known-start".to_string(),
-                        text: " later".to_string(),
-                        start_ms: 100,
-                        end_ms: 200,
-                        channel: 1,
-                    }],
-                    speaker_hints: vec![],
+                    words: vec![word("known-start", " later", 100, 200, 1)],
+                    assignments: vec![],
                 },
             ],
             participant_human_ids: vec!["self".to_string(), "remote".to_string()],

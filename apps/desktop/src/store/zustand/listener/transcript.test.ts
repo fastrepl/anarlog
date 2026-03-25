@@ -1,10 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createStore } from "zustand";
 
-import type {
-  LiveTranscriptDelta,
-  PartialSpeakerHint,
-} from "@hypr/plugin-listener";
+import type { LiveTranscriptDelta } from "@hypr/plugin-listener";
 
 import {
   createTranscriptSlice,
@@ -27,10 +24,9 @@ describe("transcript slice", () => {
   });
 
   const createDelta = (
-    partialHints: PartialSpeakerHint[] = [],
+    speakerIndices: Record<number, number> = {},
   ): LiveTranscriptDelta => ({
     new_words: [],
-    hints: [],
     replaced_ids: [],
     partials: [
       {
@@ -38,48 +34,27 @@ describe("transcript slice", () => {
         start_ms: 0,
         end_ms: 100,
         channel: 0,
+        speaker_index: speakerIndices[0] ?? null,
       },
       {
         text: " remote",
         start_ms: 200,
         end_ms: 300,
         channel: 1,
+        speaker_index: speakerIndices[1] ?? null,
       },
       {
         text: " again",
         start_ms: 350,
         end_ms: 450,
         channel: 1,
+        speaker_index: speakerIndices[2] ?? null,
       },
     ],
-    partial_hints: partialHints,
   });
 
   test("groups partial snapshot by channel and reindexes hints", () => {
-    store.getState().handleTranscriptDelta(
-      createDelta([
-        {
-          word_index: 0,
-          data: {
-            provider_speaker_index: {
-              speaker_index: 0,
-              channel: 0,
-              provider: "cactus",
-            },
-          },
-        },
-        {
-          word_index: 2,
-          data: {
-            provider_speaker_index: {
-              speaker_index: 1,
-              channel: 1,
-              provider: "cactus",
-            },
-          },
-        },
-      ]),
-    );
+    store.getState().handleTranscriptDelta(createDelta({ 0: 0, 2: 1 }));
 
     expect(
       store.getState().partialWordsByChannel[0]?.map((word) => word.text),
@@ -125,23 +100,11 @@ describe("transcript slice", () => {
           end_ms: 100,
           channel: 0,
           state: "final",
-        },
-      ],
-      hints: [
-        {
-          word_id: "word-1",
-          data: {
-            provider_speaker_index: {
-              speaker_index: 0,
-              channel: 0,
-              provider: "cactus",
-            },
-          },
+          speaker_index: 0,
         },
       ],
       replaced_ids: ["old-word"],
       partials: [],
-      partial_hints: [],
     };
 
     store.getState().handleTranscriptDelta(delta);

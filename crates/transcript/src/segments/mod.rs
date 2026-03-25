@@ -6,7 +6,7 @@ mod speakers;
 #[cfg(test)]
 mod tests;
 
-use crate::types::{FinalizedWord, PartialWord, RuntimeSpeakerHint};
+use crate::types::{FinalizedWord, IdentityAssignment, PartialWord};
 use crate::types::{Segment, SegmentBuilderOptions};
 
 use self::collect::{
@@ -18,7 +18,7 @@ use self::speakers::{create_speaker_state, resolve_identities};
 pub fn build_segments(
     final_words: &[FinalizedWord],
     partial_words: &[PartialWord],
-    speaker_hints: &[RuntimeSpeakerHint],
+    assignments: &[IdentityAssignment],
     options: Option<&SegmentBuilderOptions>,
 ) -> Vec<Segment> {
     if final_words.is_empty() && partial_words.is_empty() {
@@ -26,7 +26,7 @@ pub fn build_segments(
     }
 
     let words = normalize_words(final_words, partial_words);
-    let mut speaker_state = create_speaker_state(speaker_hints, &words, options);
+    let mut speaker_state = create_speaker_state(assignments, &words, options);
 
     let frames = resolve_identities(&words, &mut speaker_state);
     let mut proto_segments = collect_segments(frames, options);

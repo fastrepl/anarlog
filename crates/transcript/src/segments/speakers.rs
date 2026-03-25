@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::types::{RuntimeSpeakerHint, SpeakerHintData, WordRef};
+use crate::types::{ChannelProfile, IdentityAssignment, IdentityScope};
 use crate::types::{SegmentBuilderOptions, SegmentKey};
 
 use super::model::{
@@ -8,7 +8,7 @@ use super::model::{
 };
 
 pub(super) fn create_speaker_state(
-    speaker_hints: &[RuntimeSpeakerHint],
+    assignments: &[IdentityAssignment],
     normalized_words: &[NormalizedWord],
     options: Option<&SegmentBuilderOptions>,
 ) -> SpeakerState {
@@ -19,43 +19,45 @@ pub(super) fn create_speaker_state(
         .into_iter()
         .collect();
 
-    let id_to_index: HashMap<&str, usize> = normalized_words
-        .iter()
-        .filter_map(|word| word.id.as_deref().map(|id| (id, word.order)))
-        .collect();
-
     let mut assignment_by_word_index: HashMap<usize, SpeakerIdentity> = HashMap::new();
-    let mut human_id_by_scoped_speaker: HashMap<(crate::ChannelProfile, i32), String> =
-        HashMap::new();
+    let mut human_id_by_scoped_speaker: HashMap<(ChannelProfile, i32), String> = HashMap::new();
 
-    for hint in speaker_hints {
-        if let Some(word_index) = resolve_hint_target(hint, normalized_words.len(), &id_to_index) {
-            let entry = assignment_by_word_index.entry(word_index).or_default();
+    // Populate human_id_by_scoped_speaker from assignments
+    for assignment in assignments {
+        if let IdentityScope::ChannelSpeaker {
+            channel,
+            speaker_index,
+        } = assignment.scope
+        {
+            human_id_by_scoped_speaker
+                .insert((channel, speaker_index), assignment.human_id.clone());
+        }
+    }
 
-            match &hint.data {
-                SpeakerHintData::ProviderSpeakerIndex { speaker_index, .. } => {
-                    entry.speaker_index = Some(*speaker_index);
-                }
-                SpeakerHintData::UserSpeakerAssignment { human_id } => {
-                    entry.human_id = Some(human_id.clone());
-                }
+    // Build per-word identities from word.speaker_index + assignment cross-reference
+    for word in normalized_words {
+        if let Some(speaker_index) = word.speaker_index {
+            let entry = assignment_by_word_index.entry(word.order).or_default();
+            entry.speaker_index = Some(speaker_index);
+
+            if let Some(human_id) = human_id_by_scoped_speaker.get(&(word.channel, speaker_index)) {
+                entry.human_id = Some(human_id.clone());
             }
+        }
+    }
 
-            if let (Some(speaker_index), Some(human_id)) =
-                (entry.speaker_index, entry.human_id.as_ref())
-            {
-                human_id_by_scoped_speaker.insert(
-                    (normalized_words[word_index].channel, speaker_index),
-                    human_id.clone(),
-                );
-            }
+    // Channel-scoped assignments (no speaker_index) apply to entire channel
+    let mut human_id_by_channel: HashMap<ChannelProfile, String> = HashMap::new();
+    for assignment in assignments {
+        if let IdentityScope::Channel { channel } = assignment.scope {
+            human_id_by_channel.insert(channel, assignment.human_id.clone());
         }
     }
 
     SpeakerState {
         assignment_by_word_index,
         human_id_by_scoped_speaker,
-        human_id_by_channel: HashMap::new(),
+        human_id_by_channel,
         last_speaker_by_channel: HashMap::new(),
         complete_channels,
     }
@@ -102,18 +104,6 @@ pub(super) fn assign_complete_channel_human_id(segment: &mut ProtoSegment, state
     }
 }
 
-fn resolve_hint_target(
-    hint: &RuntimeSpeakerHint,
-    words_len: usize,
-    id_to_index: &HashMap<&str, usize>,
-) -> Option<usize> {
-    match &hint.target {
-        WordRef::FinalWordId(word_id) => id_to_index.get(word_id.as_str()).copied(),
-        WordRef::RuntimeIndex(index) if *index < words_len => Some(*index),
-        WordRef::RuntimeIndex(_) => None,
-    }
-}
-
 fn apply_identity_rules(
     word: &NormalizedWord,
     assignment: Option<&SpeakerIdentity>,
@@ -121,29 +111,29 @@ fn apply_identity_rules(
 ) -> SpeakerIdentity {
     let mut identity = assignment.cloned().unwrap_or_default();
 
-    if let (Some(speaker_index), None) = (identity.speaker_index, &identity.human_id) {
-        if let Some(human_id) = state
+    if let (Some(speaker_index), None) = (identity.speaker_index, &identity.human_id)
+        && let Some(human_id) = state
             .human_id_by_scoped_speaker
             .get(&(word.channel, speaker_index))
-        {
-            identity.human_id = Some(human_id.clone());
-        }
+    {
+        identity.human_id = Some(human_id.clone());
     }
 
-    if identity.human_id.is_none() && state.complete_channels.contains(&word.channel) {
-        if let Some(human_id) = state.human_id_by_channel.get(&word.channel) {
-            identity.human_id = Some(human_id.clone());
-        }
+    if identity.human_id.is_none()
+        && state.complete_channels.contains(&word.channel)
+        && let Some(human_id) = state.human_id_by_channel.get(&word.channel)
+    {
+        identity.human_id = Some(human_id.clone());
     }
 
-    if !word.is_final && !(identity.speaker_index.is_some() && identity.human_id.is_some()) {
-        if let Some(last) = state.last_speaker_by_channel.get(&word.channel) {
-            if identity.speaker_index.is_none() {
-                identity.speaker_index = last.speaker_index;
-            }
-            if identity.human_id.is_none() {
-                identity.human_id = last.human_id.clone();
-            }
+    if !(word.is_final || identity.speaker_index.is_some() && identity.human_id.is_some())
+        && let Some(last) = state.last_speaker_by_channel.get(&word.channel)
+    {
+        if identity.speaker_index.is_none() {
+            identity.speaker_index = last.speaker_index;
+        }
+        if identity.human_id.is_none() {
+            identity.human_id = last.human_id.clone();
         }
     }
 
@@ -166,10 +156,11 @@ fn remember_identity(
             .insert((word.channel, speaker_index), human_id.clone());
     }
 
-    if state.complete_channels.contains(&word.channel) && identity.speaker_index.is_none() {
-        if let Some(human_id) = identity.human_id.clone() {
-            state.human_id_by_channel.insert(word.channel, human_id);
-        }
+    if state.complete_channels.contains(&word.channel)
+        && identity.speaker_index.is_none()
+        && let Some(human_id) = identity.human_id.clone()
+    {
+        state.human_id_by_channel.insert(word.channel, human_id);
     }
 
     if (!word.is_final || identity.speaker_index.is_some() || has_explicit_assignment)

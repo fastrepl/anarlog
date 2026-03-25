@@ -11,6 +11,7 @@ pub(super) struct NormalizedWord {
     pub(super) is_final: bool,
     pub(super) id: Option<String>,
     pub(super) order: usize,
+    pub(super) speaker_index: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -15,12 +15,12 @@ pub use postprocessor::{
 pub use processor::TranscriptProcessor;
 pub use render::{
     RenderTranscriptHuman, RenderTranscriptInput, RenderTranscriptRequest,
-    RenderTranscriptSpeakerHint, RenderTranscriptWordInput, RenderedTranscriptSegment,
-    normalize_rendered_segment_words, render_transcript_segments, stable_segment_id,
+    RenderTranscriptWordInput, RenderedTranscriptSegment, normalize_rendered_segment_words,
+    render_transcript_segments, stable_segment_id,
 };
 pub use segments::build_segments;
 pub use types::{
-    ChannelProfile, FinalizedWord, PartialWord, RawWord, RuntimeSpeakerHint, Segment,
-    SegmentBuilderOptions, SegmentKey, SegmentWord, SpeakerHintData, TranscriptDelta, WordRef,
-    WordState,
+    ChannelProfile, FinalizedWord, IdentityAssignment, IdentityScope, PartialWord, RawWord,
+    Segment, SegmentBuilderOptions, SegmentKey, SegmentWord, TranscriptDelta, WordState,
+    channel_assignments_for_participants, segment_options_for_participants,
 };

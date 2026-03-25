@@ -234,6 +234,7 @@ fn apply_patch_to_words(
                 end_ms: word.end_ms,
                 channel: word.channel,
                 state: WordState::Final,
+                speaker_index: word.speaker_index,
             }
         })
         .collect())
@@ -252,6 +253,7 @@ mod tests {
                 end_ms: 100,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             },
             FinalizedWord {
                 id: "w2".to_string(),
@@ -260,6 +262,7 @@ mod tests {
                 end_ms: 200,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             },
         ]
     }
@@ -333,6 +336,7 @@ mod tests {
                 end_ms: 100,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             },
             FinalizedWord {
                 id: "w2".to_string(),
@@ -341,6 +345,7 @@ mod tests {
                 end_ms: 200,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             },
         ];
         let patch: Patch =

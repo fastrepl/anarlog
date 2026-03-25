@@ -4,12 +4,11 @@ import type {
 } from "@hypr/plugin-fs-sync";
 import { commands as listenerCommands } from "@hypr/plugin-listener";
 import type {
+  IdentityAssignment,
   RenderTranscriptHuman,
   RenderTranscriptInput,
   RenderTranscriptRequest,
-  RenderTranscriptSpeakerHint,
   RenderedTranscriptSegment,
-  SpeakerHintData,
 } from "@hypr/plugin-listener";
 
 import type * as main from "~/store/tinybase/store/main";
@@ -92,7 +91,8 @@ function buildRenderTranscriptRequest(
 
   for (const transcript of transcripts) {
     const words: RenderTranscriptInput["words"] = [];
-    const hints: RenderTranscriptSpeakerHint[] = [];
+    const assignments: IdentityAssignment[] = [];
+    const wordIndexById = new Map<string, number>();
 
     for (const word of transcript.words ?? []) {
       if (
@@ -104,19 +104,21 @@ function buildRenderTranscriptRequest(
         continue;
       }
 
+      wordIndexById.set(word.id, words.length);
       words.push({
         id: word.id,
         text: word.text,
         start_ms: word.start_ms,
         end_ms: word.end_ms,
         channel: typeof word.channel === "number" ? word.channel : 0,
+        speaker_index: null,
       });
     }
 
     for (const hint of transcript.speaker_hints ?? []) {
-      const normalized = normalizeSpeakerHint(hint);
+      const normalized = normalizeSpeakerHint(hint, words, wordIndexById);
       if (normalized) {
-        hints.push(normalized);
+        assignments.push(normalized);
       }
     }
 
@@ -130,7 +132,7 @@ function buildRenderTranscriptRequest(
           ? transcript.started_at
           : null,
       words,
-      speaker_hints: hints,
+      assignments,
     });
   }
 
@@ -150,7 +152,9 @@ function normalizeSpeakerHint(
   hint:
     | TranscriptSpeakerHint
     | { word_id?: string; type?: string; value?: unknown },
-): RenderTranscriptSpeakerHint | null {
+  words: RenderTranscriptInput["words"],
+  wordIndexById: Map<string, number>,
+): IdentityAssignment | null {
   if (typeof hint.word_id !== "string" || typeof hint.type !== "string") {
     return null;
   }
@@ -160,41 +164,61 @@ function normalizeSpeakerHint(
     return null;
   }
 
-  let data: SpeakerHintData | null = null;
+  const wordIndex = wordIndexById.get(hint.word_id);
+  if (typeof wordIndex !== "number") {
+    return null;
+  }
+
+  const word = words[wordIndex];
+  if (!word) {
+    return null;
+  }
+
   if (
     hint.type === "provider_speaker_index" &&
     typeof (value as { speaker_index?: unknown }).speaker_index === "number"
   ) {
-    data = {
-      provider_speaker_index: {
-        speaker_index: (value as { speaker_index: number }).speaker_index,
-        provider:
-          typeof (value as { provider?: unknown }).provider === "string"
-            ? ((value as { provider: string }).provider ?? null)
-            : null,
-        channel:
-          typeof (value as { channel?: unknown }).channel === "number"
-            ? ((value as { channel: number }).channel ?? null)
-            : null,
-      },
-    };
-  } else if (
+    word.speaker_index = (value as { speaker_index: number }).speaker_index;
+    if (typeof (value as { channel?: unknown }).channel === "number") {
+      word.channel = (value as { channel: number }).channel;
+    }
+    return null;
+  }
+
+  if (
     hint.type === "user_speaker_assignment" &&
     typeof (value as { human_id?: unknown }).human_id === "string"
   ) {
-    data = {
-      user_speaker_assignment: {
-        human_id: (value as { human_id: string }).human_id,
-      },
-    };
+    const humanId = (value as { human_id: string }).human_id;
+    return word.speaker_index == null
+      ? {
+          human_id: humanId,
+          scope: {
+            kind: "channel",
+            channel:
+              word.channel === 0
+                ? "DirectMic"
+                : word.channel === 1
+                  ? "RemoteParty"
+                  : "MixedCapture",
+          },
+        }
+      : {
+          human_id: humanId,
+          scope: {
+            kind: "channel_speaker",
+            channel:
+              word.channel === 0
+                ? "DirectMic"
+                : word.channel === 1
+                  ? "RemoteParty"
+                  : "MixedCapture",
+            speaker_index: word.speaker_index,
+          },
+        };
   }
 
-  return data
-    ? {
-        word_id: hint.word_id,
-        data,
-      }
-    : null;
+  return null;
 }
 
 function parseHintValue(value: unknown): unknown {

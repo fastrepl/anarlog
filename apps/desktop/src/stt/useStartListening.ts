@@ -108,11 +108,7 @@ export function useStartListening(
     };
 
     const handlePersist: LiveTranscriptPersistCallback = (delta) => {
-      if (
-        delta.new_words.length === 0 &&
-        delta.hints.length === 0 &&
-        delta.replaced_ids.length === 0
-      ) {
+      if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
         return;
       }
 
@@ -120,6 +116,27 @@ export function useStartListening(
         applyLiveTranscriptDelta(store, transcriptId, delta);
       });
     };
+
+    const participantHumanIds: string[] = [];
+    store.forEachRow(
+      "mapping_session_participant",
+      (mappingId, _forEachCell) => {
+        const sid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "session_id",
+        );
+        if (sid !== sessionId) return;
+        const hid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "human_id",
+        );
+        if (typeof hid === "string" && hid) {
+          participantHumanIds.push(hid);
+        }
+      },
+    );
 
     const started = await start(
       {
@@ -132,6 +149,8 @@ export function useStartListening(
         base_url: conn.baseUrl,
         api_key: conn.apiKey,
         keywords,
+        participant_human_ids: participantHumanIds,
+        self_human_id: typeof user_id === "string" ? user_id : null,
       },
       {
         handlePersist,
