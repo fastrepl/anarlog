@@ -29,6 +29,7 @@ import { ProviderId, PROVIDERS } from "./shared";
 
 import { useBillingAccess } from "~/auth/billing";
 import {
+  CharProviderIcon,
   HyprCloudCTAButton,
   HyprProviderRow,
   NonHyprProviderCard,
@@ -56,7 +57,7 @@ export function ConfigureProviders() {
           ref={hyprAccordionRef}
           providerId="hyprnote"
           providerName="Char"
-          icon={<img src="/assets/icon.png" alt="Char" className="size-5" />}
+          icon={<CharProviderIcon />}
           badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
         />
         {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
