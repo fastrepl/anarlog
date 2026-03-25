@@ -11,7 +11,7 @@ import {
   subMonths,
 } from "date-fns";
 import {
-  CalendarCogIcon,
+  CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   RefreshCwIcon,
@@ -152,7 +152,7 @@ function CalendarViewContent() {
                 className="bg-neutral-200"
                 onClick={() => setShowSettings(false)}
               >
-                <CalendarCogIcon className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
               </Button>
               <span className="text-sm font-semibold text-neutral-900">
                 Calendars
@@ -178,7 +178,7 @@ function CalendarViewContent() {
                 size="icon"
                 onClick={() => setShowSettings(true)}
               >
-                <CalendarCogIcon className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
               </Button>
             )}
             <h2 className="text-sm font-medium text-neutral-900">

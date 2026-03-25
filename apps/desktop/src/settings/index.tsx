@@ -1,6 +1,6 @@
 import {
   BellIcon,
-  CalendarCogIcon,
+  CalendarIcon,
   FlaskConical,
   MonitorIcon,
   SettingsIcon,
@@ -69,7 +69,7 @@ const SECTIONS: {
 }[] = [
   { id: "app", label: "App", icon: SmartphoneIcon },
   { id: "notifications", label: "Notifications", icon: BellIcon },
-  { id: "calendar", label: "Calendar", icon: CalendarCogIcon },
+  { id: "calendar", label: "Calendar", icon: CalendarIcon },
   { id: "system", label: "System", icon: MonitorIcon },
   { id: "lab", label: "Lab", icon: FlaskConical },
 ];
