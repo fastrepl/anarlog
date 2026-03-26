@@ -82,6 +82,11 @@ export function TabContentOnboarding({
     if (prev) setCurrentStep(prev);
   }, [currentStep]);
 
+  const handleCalendarSignIn = useCallback(() => {
+    setCurrentStep("login");
+    void auth.signIn();
+  }, [auth]);
+
   useEffect(() => {
     void analyticsCommands.event({
       event: "onboarding_step_viewed",
@@ -197,7 +202,10 @@ export function TabContentOnboarding({
               onBack={goBack}
               onNext={goNext}
             >
-              <CalendarSection onContinue={goNext} />
+              <CalendarSection
+                onContinue={goNext}
+                onSignIn={handleCalendarSignIn}
+              />
             </OnboardingSection>
 
             <OnboardingSection

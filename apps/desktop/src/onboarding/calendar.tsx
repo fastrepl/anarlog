@@ -185,7 +185,7 @@ function GoogleCalendarConnectedContent({
   );
 }
 
-function GoogleCalendarProvider() {
+function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const auth = useAuth();
   const { isPro, isReady, upgradeToPro } = useBillingAccess();
   const { data: connections, isPending, isError } = useConnections(isPro);
@@ -203,7 +203,7 @@ function GoogleCalendarProvider() {
 
   const handleConnect = useCallback(() => {
     if (!auth.session) {
-      void auth.signIn();
+      onSignIn();
       return;
     }
 
@@ -217,7 +217,7 @@ function GoogleCalendarProvider() {
       undefined,
       "connect",
     );
-  }, [auth, isPro, upgradeToPro]);
+  }, [auth.session, isPro, onSignIn, upgradeToPro]);
 
   if (!GOOGLE_PROVIDER) {
     return null;
@@ -328,7 +328,13 @@ function GoogleCalendarProvider() {
   );
 }
 
-function CalendarSectionContent({ onContinue }: { onContinue: () => void }) {
+function CalendarSectionContent({
+  onContinue,
+  onSignIn,
+}: {
+  onContinue: () => void;
+  onSignIn: () => void;
+}) {
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
   const isAuthorized = calendar.status === "authorized";
@@ -350,7 +356,7 @@ function CalendarSectionContent({ onContinue }: { onContinue: () => void }) {
         />
       )}
 
-      <GoogleCalendarProvider />
+      <GoogleCalendarProvider onSignIn={onSignIn} />
 
       {hasConnectedCalendar ? (
         <OnboardingButton onClick={onContinue}>Continue</OnboardingButton>
@@ -367,10 +373,16 @@ function CalendarSectionContent({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-export function CalendarSection({ onContinue }: { onContinue: () => void }) {
+export function CalendarSection({
+  onContinue,
+  onSignIn,
+}: {
+  onContinue: () => void;
+  onSignIn: () => void;
+}) {
   return (
     <SyncProvider>
-      <CalendarSectionContent onContinue={onContinue} />
+      <CalendarSectionContent onContinue={onContinue} onSignIn={onSignIn} />
     </SyncProvider>
   );
 }

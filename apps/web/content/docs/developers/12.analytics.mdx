@@ -165,7 +165,7 @@ Goal: measure onboarding progress and completion.
 
 | Event | Properties | Notes |
 |-------|------------|-------|
-| `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `final`. |
+| `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `calendar` → `final`. |
 | `user_signed_in` | none | Fires on auth state change. Also triggers `identify(supabaseUserId, { email, account_created_date, is_signed_up, app_version, os_version, platform })`. |
 | `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
 | `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
