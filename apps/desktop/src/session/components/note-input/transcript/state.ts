@@ -6,7 +6,7 @@ import { useAudioPlayer } from "~/audio-player";
 import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
-import { parseTranscriptWords } from "~/stt/utils";
+import { hasTranscriptWords as hasStoredTranscriptWords } from "~/stt/utils";
 
 type ListeningStatus = "listening" | "finalizing";
 type BatchPhase = "importing" | "transcribing";
@@ -120,8 +120,8 @@ function useTranscriptContent(sessionId: string) {
       return false;
     }
 
-    return transcriptIds.some(
-      (transcriptId) => parseTranscriptWords(store, transcriptId).length > 0,
+    return transcriptIds.some((transcriptId) =>
+      hasStoredTranscriptWords(store, transcriptId),
     );
   }, [store, transcriptIds, transcriptsTable]);
 

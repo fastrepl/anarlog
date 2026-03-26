@@ -12,6 +12,7 @@ import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useSTTConnection } from "~/stt/useSTTConnection";
+import { hasTranscriptWords } from "~/stt/utils";
 
 export { computeCurrentNoteTab } from "./compute-note-tab";
 
@@ -21,14 +22,25 @@ export function useHasTranscript(sessionId: string): boolean {
     sessionId,
     main.STORE_ID,
   );
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const store = main.UI.useStore(main.STORE_ID);
 
-  return !!transcriptIds && transcriptIds.length > 0;
+  return useMemo(() => {
+    if (!store) {
+      return false;
+    }
+
+    return (transcriptIds ?? []).some((transcriptId) =>
+      hasTranscriptWords(store, transcriptId),
+    );
+  }, [store, transcriptIds, transcriptsTable]);
 }
 
 export function useCurrentNoteTab(
   tab: Extract<Tab, { type: "sessions" }>,
 ): EditorView {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
+  const hasTranscript = useHasTranscript(tab.id);
   const isListenerStarting = useListener(
     (state) =>
       state.live.loading &&
@@ -45,16 +57,23 @@ export function useCurrentNoteTab(
     tab.id,
     main.STORE_ID,
   );
-  const firstEnhancedNoteId = enhancedNoteIds?.[0];
+  const firstEnhancedNoteId = hasTranscript ? enhancedNoteIds?.[0] : undefined;
+  const resolvedView =
+    !isListenerActive &&
+    (tab.state.view?.type === "transcript" ||
+      tab.state.view?.type === "enhanced") &&
+    !hasTranscript
+      ? null
+      : (tab.state.view ?? null);
 
   return useMemo(
     () =>
       computeCurrentNoteTab(
-        tab.state.view ?? null,
+        resolvedView,
         isListenerActive,
         firstEnhancedNoteId,
       ),
-    [tab.state.view, isListenerActive, firstEnhancedNoteId],
+    [resolvedView, isListenerActive, firstEnhancedNoteId],
   );
 }
 

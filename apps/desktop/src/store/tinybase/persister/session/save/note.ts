@@ -31,45 +31,56 @@ export function buildNoteSaveOps(
 ): WriteOperation[] {
   const ctx: BuildContext = { store, tables, dataDir, changedSessionIds };
 
-  const enhancedNoteItems = collectEnhancedNotes(ctx);
+  const { items: enhancedNoteItems, deletePaths: enhancedNoteDeletePaths } =
+    collectEnhancedNotes(ctx);
   const { items: memoItems, deletePaths: memoDeletePaths } = collectMemos(ctx);
 
-  return buildOperations([...enhancedNoteItems, ...memoItems], memoDeletePaths);
+  return buildOperations(
+    [...enhancedNoteItems, ...memoItems],
+    [...enhancedNoteDeletePaths, ...memoDeletePaths],
+  );
 }
 
-function collectEnhancedNotes(ctx: BuildContext): DocumentItem[] {
+function collectEnhancedNotes(ctx: BuildContext): {
+  items: DocumentItem[];
+  deletePaths: string[];
+} {
   const { store, tables, dataDir, changedSessionIds } = ctx;
+  const items: DocumentItem[] = [];
+  const deletePaths: string[] = [];
 
-  return Array.from(iterateTableRows(tables, "enhanced_notes"))
-    .filter((note) => note.content && note.session_id)
-    .filter(
-      (note) => !changedSessionIds || changedSessionIds.has(note.session_id!),
-    )
-    .map((note) => {
-      const markdown = tryParseAndConvertToMarkdown(note.content!);
-      if (!markdown) return null;
+  for (const note of iterateTableRows(tables, "enhanced_notes")) {
+    if (!note.session_id) continue;
+    if (changedSessionIds && !changedSessionIds.has(note.session_id)) continue;
 
-      const session = tables.sessions?.[note.session_id!];
-      const sessionDir = buildSessionPath(
-        dataDir,
-        note.session_id!,
-        session?.folder_id ?? "",
-      );
-      const path = [sessionDir, getEnhancedNoteFilename(store, note)].join(
-        sep(),
-      );
+    const session = tables.sessions?.[note.session_id];
+    const sessionDir = buildSessionPath(
+      dataDir,
+      note.session_id,
+      session?.folder_id ?? "",
+    );
+    const path = [sessionDir, getEnhancedNoteFilename(store, note)].join(sep());
+    const markdown = note.content
+      ? tryParseAndConvertToMarkdown(note.content)
+      : null;
 
-      const frontmatter: NoteFrontmatter = {
-        id: note.id,
-        session_id: note.session_id!,
-        template_id: note.template_id || undefined,
-        position: note.position,
-        title: note.title || undefined,
-      };
+    if (!markdown) {
+      deletePaths.push(path);
+      continue;
+    }
 
-      return [{ frontmatter, content: markdown }, path] as DocumentItem;
-    })
-    .filter((item): item is DocumentItem => item !== null);
+    const frontmatter: NoteFrontmatter = {
+      id: note.id,
+      session_id: note.session_id,
+      template_id: note.template_id || undefined,
+      position: note.position,
+      title: note.title || undefined,
+    };
+
+    items.push([{ frontmatter, content: markdown }, path]);
+  }
+
+  return { items, deletePaths };
 }
 
 function collectMemos(ctx: BuildContext): {

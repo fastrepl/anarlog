@@ -78,7 +78,7 @@ describe("processTranscriptFile", () => {
           created_at: "2024-01-01T00:00:00Z",
           session_id: "session-1",
           started_at: 0,
-          words: [],
+          words: [{ id: "w1", text: "hello" }],
           speaker_hints: [],
         },
         {
@@ -87,7 +87,7 @@ describe("processTranscriptFile", () => {
           created_at: "2024-01-01T00:00:00Z",
           session_id: "session-1",
           started_at: 100,
-          words: [],
+          words: [{ id: "w2", text: "world" }],
           speaker_hints: [],
         },
       ],
@@ -98,6 +98,27 @@ describe("processTranscriptFile", () => {
     expect(Object.keys(result.transcripts)).toHaveLength(2);
     expect(result.transcripts["transcript-1"]).toBeDefined();
     expect(result.transcripts["transcript-2"]).toBeDefined();
+  });
+
+  test("skips transcript entries without words", () => {
+    const result = createEmptyLoadedSessionData();
+    const content = JSON.stringify({
+      transcripts: [
+        {
+          id: "transcript-empty",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:00Z",
+          session_id: "session-1",
+          started_at: 0,
+          words: [],
+          speaker_hints: [],
+        },
+      ],
+    });
+
+    processTranscriptFile("/path/to/transcript.json", content, result);
+
+    expect(result.transcripts).toEqual({});
   });
 
   test("preserves real filesystem hint payload strings with omitted ended_at", () => {

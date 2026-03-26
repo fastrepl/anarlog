@@ -101,6 +101,11 @@ export function processTranscriptFile(
 
     for (const transcript of data.transcripts ?? []) {
       const { id, words, speaker_hints, ...transcriptData } = transcript;
+      const normalizedWords = words ?? [];
+      if (normalizedWords.length === 0) {
+        continue;
+      }
+
       result.transcripts[id] = {
         ...transcriptData,
         user_id: transcriptData.user_id ?? "",
@@ -117,7 +122,7 @@ export function processTranscriptFile(
           typeof transcriptData.memo_md === "string"
             ? transcriptData.memo_md
             : "",
-        words: JSON.stringify(words ?? []),
+        words: JSON.stringify(normalizedWords),
         speaker_hints: JSON.stringify(speaker_hints ?? []),
       };
     }

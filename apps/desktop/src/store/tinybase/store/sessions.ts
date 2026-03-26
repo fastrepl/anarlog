@@ -13,6 +13,7 @@ import * as main from "./main";
 import { findSessionByEventId } from "~/session/utils";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { id } from "~/shared/utils";
+import { hasTranscriptWordsValue } from "~/stt/utils";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
@@ -113,7 +114,7 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
   let hasTranscript = false;
   store.forEachRow("transcripts", (rowId, _forEachCell) => {
     const row = store.getRow("transcripts", rowId);
-    if (row?.session_id === sessionId) {
+    if (row?.session_id === sessionId && hasTranscriptWordsValue(row.words)) {
       hasTranscript = true;
     }
   });

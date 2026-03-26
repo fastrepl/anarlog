@@ -24,12 +24,7 @@ export function buildTranscriptSaveOps(
   const ctx: BuildContext = { tables, dataDir, changedSessionIds };
 
   const transcriptsBySession = groupTranscriptsBySession(ctx);
-  const sessionsToProcess = filterByChangedSessions(
-    transcriptsBySession,
-    changedSessionIds,
-  );
-
-  return buildOperations(ctx, sessionsToProcess);
+  return buildOperations(ctx, transcriptsBySession);
 }
 
 function groupTranscriptsBySession(
@@ -40,6 +35,7 @@ function groupTranscriptsBySession(
 
   for (const transcript of iterateTableRows(tables, "transcripts")) {
     if (!transcript.session_id) continue;
+    const words = transcript.words ? JSON.parse(transcript.words) : [];
 
     const data: TranscriptWithData = {
       id: transcript.id,
@@ -49,11 +45,12 @@ function groupTranscriptsBySession(
       started_at: transcript.started_at ?? 0,
       memo_md: transcript.memo_md ?? "",
       ended_at: transcript.ended_at,
-      words: transcript.words ? JSON.parse(transcript.words) : [],
+      words,
       speaker_hints: transcript.speaker_hints
         ? JSON.parse(transcript.speaker_hints)
         : [],
     };
+    if (words.length === 0) continue;
 
     const list = grouped.get(transcript.session_id) ?? [];
     list.push(data);
@@ -63,34 +60,58 @@ function groupTranscriptsBySession(
   return grouped;
 }
 
-function filterByChangedSessions(
-  transcriptsBySession: Map<string, TranscriptWithData[]>,
-  changedSessionIds?: Set<string>,
-): Array<[string, TranscriptWithData[]]> {
-  const entries = [...transcriptsBySession];
-  if (!changedSessionIds) return entries;
-  return entries.filter(([id]) => changedSessionIds.has(id));
-}
-
 function buildOperations(
   ctx: BuildContext,
-  sessions: Array<[string, TranscriptWithData[]]>,
+  transcriptsBySession: Map<string, TranscriptWithData[]>,
 ): WriteOperation[] {
   const { tables, dataDir } = ctx;
+  const operations: WriteOperation[] = [];
+  const deletePaths: string[] = [];
 
-  return sessions.map(([sessionId, transcripts]) => {
+  for (const sessionId of getSessionIdsToProcess(ctx, transcriptsBySession)) {
     const session = tables.sessions?.[sessionId];
+    if (!session) continue;
+
     const sessionDir = buildSessionPath(
       dataDir,
       sessionId,
-      session?.folder_id ?? "",
+      session.folder_id ?? "",
     );
+    const path = [sessionDir, SESSION_TRANSCRIPT_FILE].join(sep());
+    const transcripts = transcriptsBySession.get(sessionId) ?? [];
+
+    if (transcripts.length === 0) {
+      deletePaths.push(path);
+      continue;
+    }
 
     const content: TranscriptJson = { transcripts };
-    return {
-      type: "write-json" as const,
-      path: [sessionDir, SESSION_TRANSCRIPT_FILE].join(sep()),
+    operations.push({
+      type: "write-json",
+      path,
       content,
-    };
-  });
+    });
+  }
+
+  if (deletePaths.length > 0) {
+    operations.push({ type: "delete", paths: deletePaths });
+  }
+
+  return operations;
+}
+
+function getSessionIdsToProcess(
+  ctx: BuildContext,
+  transcriptsBySession: Map<string, TranscriptWithData[]>,
+): string[] {
+  if (ctx.changedSessionIds) {
+    return [...ctx.changedSessionIds];
+  }
+
+  const sessionIds = new Set(Object.keys(ctx.tables.sessions ?? {}));
+  for (const sessionId of transcriptsBySession.keys()) {
+    sessionIds.add(sessionId);
+  }
+
+  return [...sessionIds];
 }

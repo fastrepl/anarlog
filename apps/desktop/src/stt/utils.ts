@@ -18,6 +18,19 @@ interface TranscriptStore {
   ): void;
 }
 
+export function hasTranscriptWordsValue(wordsJson: unknown): boolean {
+  if (typeof wordsJson !== "string" || !wordsJson) {
+    return false;
+  }
+
+  try {
+    const words = JSON.parse(wordsJson) as unknown;
+    return Array.isArray(words) && words.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function parseTranscriptWords(
   store: TranscriptStore,
   transcriptId: string,
@@ -32,6 +45,15 @@ export function parseTranscriptWords(
   } catch {
     return [];
   }
+}
+
+export function hasTranscriptWords(
+  store: TranscriptStore,
+  transcriptId: string,
+): boolean {
+  return hasTranscriptWordsValue(
+    store.getCell("transcripts", transcriptId, "words"),
+  );
 }
 
 export function parseTranscriptHints(
