@@ -24,6 +24,14 @@ export function useDeeplinkHandler() {
       return;
     }
 
+    const timeoutIds = new Set<number>();
+    const refreshIntegrationState = () => {
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === "integration-status",
+      });
+      scheduleCalendarSync();
+    };
+
     const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {
       if (payload.to === "/auth/callback") {
         const { access_token, refresh_token } = payload.search;
@@ -38,10 +46,14 @@ export function useDeeplinkHandler() {
         const { integration_id, status, return_to } = payload.search;
         if (status === "success") {
           console.log(`[deeplink] integration updated: ${integration_id}`);
-          void queryClient.invalidateQueries({
-            predicate: (query) => query.queryKey[0] === "integration-status",
-          });
-          scheduleCalendarSync();
+          refreshIntegrationState();
+          for (const delay of [1000, 3000]) {
+            const timeoutId = window.setTimeout(() => {
+              timeoutIds.delete(timeoutId);
+              refreshIntegrationState();
+            }, delay);
+            timeoutIds.add(timeoutId);
+          }
           if (return_to === "calendar") {
             openNew({ type: "calendar" });
           }
@@ -50,6 +62,9 @@ export function useDeeplinkHandler() {
     });
 
     return () => {
+      for (const timeoutId of timeoutIds) {
+        window.clearTimeout(timeoutId);
+      }
       void unlisten.then((fn) => fn());
     };
   }, [auth, openNew, queryClient, scheduleCalendarSync]);
