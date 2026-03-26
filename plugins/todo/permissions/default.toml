@@ -1,0 +1,11 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-authorization-status",
+    "allow-request-full-access",
+    "allow-list-todo-lists",
+    "allow-fetch-todos",
+    "allow-create-todo",
+    "allow-complete-todo",
+    "allow-delete-todo",
+]

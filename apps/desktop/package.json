@@ -74,6 +74,7 @@
     "@hypr/plugin-store2": "workspace:*",
     "@hypr/plugin-tantivy": "workspace:*",
     "@hypr/plugin-template": "workspace:*",
+    "@hypr/plugin-todo": "workspace:*",
     "@hypr/plugin-tracing": "workspace:*",
     "@hypr/plugin-updater2": "workspace:*",
     "@hypr/plugin-windows": "workspace:*",

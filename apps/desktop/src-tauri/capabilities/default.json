@@ -44,6 +44,7 @@
     "listener:default",
     "listener2:default",
     "template:default",
+    "todo:default",
     "notification:default",
     "overlay:default",
     "notify:default",

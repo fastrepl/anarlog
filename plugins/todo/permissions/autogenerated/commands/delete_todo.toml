@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-delete-todo"
+description = "Enables the delete_todo command without any pre-configured scope."
+commands.allow = ["delete_todo"]
+
+[[permission]]
+identifier = "deny-delete-todo"
+description = "Denies the delete_todo command without any pre-configured scope."
+commands.deny = ["delete_todo"]

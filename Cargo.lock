@@ -813,7 +813,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "apple-reminder"
+name = "apple-todo"
 version = "0.1.0"
 dependencies = [
  "backon",
@@ -4813,6 +4813,7 @@ dependencies = [
  "tauri-plugin-store2",
  "tauri-plugin-tantivy",
  "tauri-plugin-template",
+ "tauri-plugin-todo",
  "tauri-plugin-tracing",
  "tauri-plugin-tray",
  "tauri-plugin-updater",
@@ -18955,6 +18956,21 @@ dependencies = [
  "template-app-legacy",
  "template-support",
  "tracing",
+]
+
+[[package]]
+name = "tauri-plugin-todo"
+version = "0.1.0"
+dependencies = [
+ "apple-todo",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-permissions",
+ "tauri-specta",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

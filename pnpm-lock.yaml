@@ -322,6 +322,9 @@ importers:
       '@hypr/plugin-template':
         specifier: workspace:*
         version: link:../../plugins/template
+      '@hypr/plugin-todo':
+        specifier: workspace:*
+        version: link:../../plugins/todo
       '@hypr/plugin-tracing':
         specifier: workspace:*
         version: link:../../plugins/tracing
@@ -1525,7 +1528,6 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(happy-dom@20.7.0)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
 
-
   packages/ui:
     dependencies:
       '@hookform/resolvers':
@@ -1948,6 +1950,12 @@ importers:
         version: 2.10.1
 
   plugins/template:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/todo:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1
