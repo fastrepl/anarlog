@@ -12,7 +12,7 @@ import { useSTTConnection } from "./useSTTConnection";
 import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
-import { normalizeLanguageCodes } from "~/shared/language";
+import { normalizeSpokenLanguageCodes } from "~/shared/language";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 import type {
@@ -142,7 +142,7 @@ export function useStartListening(
     const started = await start(
       {
         session_id: sessionId,
-        languages: normalizeLanguageCodes(languages ?? []),
+        languages: normalizeSpokenLanguageCodes(languages ?? []),
         onboarding: false,
         transcription_mode: transcriptionMode,
         recording_mode: recordingMode,

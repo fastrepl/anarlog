@@ -6,9 +6,9 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import {
-  getLanguageDisplayName,
-  getLanguageOptions,
-  normalizeLanguageCodes,
+  getSpokenLanguageDisplayName,
+  getSpokenLanguageOptions,
+  normalizeSelectedSpokenLanguages,
 } from "./language";
 
 interface SpokenLanguagesViewProps {
@@ -26,31 +26,37 @@ export function SpokenLanguagesView({
   const [languageInputFocused, setLanguageInputFocused] = useState(false);
   const [languageSelectedIndex, setLanguageSelectedIndex] = useState(-1);
   const selectedLanguages = useMemo(
-    () => normalizeLanguageCodes(value),
-    [value],
+    () => normalizeSelectedSpokenLanguages(value, supportedLanguages),
+    [supportedLanguages, value],
   );
   const languageOptions = useMemo(
-    () => getLanguageOptions(supportedLanguages),
+    () => getSpokenLanguageOptions(supportedLanguages),
     [supportedLanguages],
+  );
+  const selectedSelectionKeys = useMemo(
+    () =>
+      new Set(
+        languageOptions
+          .filter((option) => selectedLanguages.includes(option.value))
+          .map((option) => option.selectionKey),
+      ),
+    [languageOptions, selectedLanguages],
   );
 
   const filteredLanguages = useMemo(() => {
-    if (!languageSearchQuery.trim()) {
-      return [];
+    const availableOptions = languageOptions.filter(
+      (option) => !selectedSelectionKeys.has(option.selectionKey),
+    );
+    const query = languageSearchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return availableOptions;
     }
 
-    const query = languageSearchQuery.toLowerCase();
-
-    return languageOptions.filter((option) => {
-      if (selectedLanguages.includes(option.value)) {
-        return false;
-      }
-
-      return option.searchTerms.some((term) =>
-        term.toLowerCase().includes(query),
-      );
-    });
-  }, [languageOptions, languageSearchQuery, selectedLanguages]);
+    return availableOptions.filter((option) =>
+      option.searchTerms.some((term) => term.toLowerCase().includes(query)),
+    );
+  }, [languageOptions, languageSearchQuery, selectedSelectionKeys]);
 
   const handleLanguageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (
@@ -63,7 +69,7 @@ export function SpokenLanguagesView({
       return;
     }
 
-    if (!languageSearchQuery.trim() || filteredLanguages.length === 0) {
+    if (filteredLanguages.length === 0) {
       return;
     }
 
@@ -86,7 +92,7 @@ export function SpokenLanguagesView({
           return;
         }
 
-        onChange(normalizeLanguageCodes([...selectedLanguages, selectedCode]));
+        onChange([...selectedLanguages, selectedCode]);
         setLanguageSearchQuery("");
         setLanguageSelectedIndex(-1);
       }
@@ -119,7 +125,7 @@ export function SpokenLanguagesView({
               variant="secondary"
               className="bg-muted flex items-center gap-1 px-2 py-0.5 text-xs"
             >
-              {getLanguageDisplayName(code)}
+              {getSpokenLanguageDisplayName(code)}
               <Button
                 type="button"
                 variant="ghost"
@@ -150,7 +156,7 @@ export function SpokenLanguagesView({
             onBlur={() => setLanguageInputFocused(false)}
             role="combobox"
             aria-haspopup="listbox"
-            aria-expanded={languageInputFocused && !!languageSearchQuery.trim()}
+            aria-expanded={languageInputFocused}
             aria-controls="language-options"
             aria-activedescendant={
               languageSelectedIndex >= 0
@@ -163,7 +169,7 @@ export function SpokenLanguagesView({
           />
         </div>
 
-        {languageInputFocused && languageSearchQuery.trim() && (
+        {languageInputFocused && (
           <div
             id="language-options"
             role="listbox"
@@ -178,12 +184,7 @@ export function SpokenLanguagesView({
                   role="option"
                   aria-selected={languageSelectedIndex === index}
                   onClick={() => {
-                    onChange(
-                      normalizeLanguageCodes([
-                        ...selectedLanguages,
-                        option.value,
-                      ]),
-                    );
+                    onChange([...selectedLanguages, option.value]);
                     setLanguageSearchQuery("");
                     setLanguageSelectedIndex(-1);
                   }}
@@ -197,7 +198,7 @@ export function SpokenLanguagesView({
                   ])}
                 >
                   <span className="truncate font-medium">
-                    {getLanguageDisplayName(option.value)}
+                    {getSpokenLanguageDisplayName(option.value)}
                   </span>
                 </button>
               ))

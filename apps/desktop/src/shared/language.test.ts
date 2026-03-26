@@ -1,30 +1,62 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  getLanguageDisplayName,
-  getLanguageOptions,
-  normalizeLanguageCodes,
+  getBaseLanguageOptions,
+  getSpokenLanguageDisplayName,
+  getSpokenLanguageOptions,
+  normalizeBaseLanguageCodes,
+  normalizeSelectedSpokenLanguages,
+  normalizeSpokenLanguageCodes,
 } from "./language";
 
 describe("language helpers", () => {
-  test("shows base language names for locale variants", () => {
-    expect(getLanguageDisplayName("ko-US")).toBe("Korean");
-    expect(getLanguageDisplayName("en-US")).toBe("English");
+  test("shows meaningful spoken-language labels for supported variants", () => {
+    expect(getSpokenLanguageDisplayName("ko-US")).toBe("Korean");
+    expect(getSpokenLanguageDisplayName("en-US")).toBe("English (US)");
+    expect(getSpokenLanguageDisplayName("zh-HK")).toBe("Cantonese");
+    expect(getSpokenLanguageDisplayName("zh-TW")).toBe("Mandarin");
   });
 
-  test("normalizes and dedupes language selections by base language", () => {
+  test("keeps meaningful spoken variants while collapsing provider-only locale noise", () => {
     expect(
-      normalizeLanguageCodes(["en-US", "en", "es-419", "es", "ko-US"]),
-    ).toEqual(["en", "es", "ko"]);
+      normalizeSpokenLanguageCodes([
+        "en-US",
+        "en",
+        "es-419",
+        "es",
+        "ko-US",
+        "zh-HK",
+        "zh-TW",
+      ]),
+    ).toEqual(["en-US", "es-419", "ko", "zh-HK", "zh-TW"]);
   });
 
-  test("builds one option per language while keeping variant aliases searchable", () => {
-    const options = getLanguageOptions([
+  test("keeps main-language options at the base-language level", () => {
+    expect(
+      getBaseLanguageOptions(["en", "en-US", "en-GB", "ko-KR"]).map(
+        ({ value, label }) => ({ value, label }),
+      ),
+    ).toEqual([
+      { value: "en", label: "English" },
+      { value: "ko", label: "Korean" },
+    ]);
+
+    expect(normalizeBaseLanguageCodes(["en-US", "en", "ko-KR"])).toEqual([
+      "en",
+      "ko",
+    ]);
+  });
+
+  test("builds spoken-language options with curated variant labels and aliases", () => {
+    const options = getSpokenLanguageOptions([
       "en",
       "en-US",
+      "en-GB",
       "es",
       "es-419",
       "ko-KR",
+      "zh-HK",
+      "zh-TW",
     ]);
 
     expect(
@@ -34,14 +66,28 @@ describe("language helpers", () => {
       })),
     ).toEqual([
       { value: "en", label: "English" },
+      { value: "en-US", label: "English (US)" },
+      { value: "en-GB", label: "English (UK)" },
       { value: "es", label: "Spanish" },
-      { value: "ko", label: "Korean" },
+      { value: "es-419", label: "Spanish (Latin America)" },
+      { value: "ko-KR", label: "Korean" },
+      { value: "zh-HK", label: "Cantonese" },
+      { value: "zh-TW", label: "Mandarin" },
     ]);
 
     expect(
       options
-        .find((option) => option.value === "es")
+        .find((option) => option.value === "es-419")
         ?.searchTerms.some((term) => term.includes("Latin")),
     ).toBe(true);
+  });
+
+  test("maps legacy stored spoken languages onto current spoken-language options", () => {
+    expect(
+      normalizeSelectedSpokenLanguages(
+        ["ko-US", "en-US", "zh-Hant"],
+        ["en", "en-US", "ko-KR", "zh-TW", "zh-HK"],
+      ),
+    ).toEqual(["ko-KR", "en-US", "zh-TW"]);
   });
 });

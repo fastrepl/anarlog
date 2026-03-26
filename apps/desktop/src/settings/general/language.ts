@@ -1,8 +1,13 @@
 export {
+  getBaseLanguageOptions,
   getBaseLanguageDisplayName,
   getLanguageDisplayName,
-  getLanguageOptions,
-  normalizeLanguageCode,
-  normalizeLanguageCodes,
+  getSpokenLanguageDisplayName,
+  getSpokenLanguageOptions,
+  normalizeBaseLanguageCode,
+  normalizeBaseLanguageCodes,
+  normalizeSelectedSpokenLanguages,
+  normalizeSpokenLanguageCode,
+  normalizeSpokenLanguageCodes,
   parseLocale,
 } from "~/shared/language";

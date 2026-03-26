@@ -8,7 +8,7 @@ import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useConfigValue } from "~/shared/config";
-import { normalizeLanguageCodes } from "~/shared/language";
+import { normalizeSpokenLanguageCodes } from "~/shared/language";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
@@ -191,7 +191,7 @@ export const useRunBatch = (sessionId: string) => {
         base_url: options?.baseUrl ?? conn.baseUrl,
         api_key: options?.apiKey ?? conn.apiKey,
         keywords: options?.keywords ?? keywords ?? [],
-        languages: normalizeLanguageCodes(
+        languages: normalizeSpokenLanguageCodes(
           options?.languages ?? languages ?? [],
         ),
       };

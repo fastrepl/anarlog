@@ -37,7 +37,7 @@ import {
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
-import { normalizeLanguageCodes } from "~/shared/language";
+import { normalizeSpokenLanguageCodes } from "~/shared/language";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
@@ -55,7 +55,7 @@ export function SelectProviderAndModel() {
   const isConfigured = !!(current_stt_provider && current_stt_model);
   const hasError = isConfigured && health.status === "error";
   const normalizedSpokenLanguages = useMemo(
-    () => normalizeLanguageCodes(spoken_languages ?? []),
+    () => normalizeSpokenLanguageCodes(spoken_languages ?? []),
     [spoken_languages],
   );
 

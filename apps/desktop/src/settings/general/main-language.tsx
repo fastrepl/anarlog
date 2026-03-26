@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { getLanguageOptions, normalizeLanguageCode } from "./language";
+import { getBaseLanguageOptions, normalizeBaseLanguageCode } from "./language";
 import {
   SearchableSelect,
   type SearchableSelectOption,
@@ -16,12 +16,12 @@ export function MainLanguageView({
   supportedLanguages: readonly string[];
 }) {
   const normalizedValue = useMemo(() => {
-    return normalizeLanguageCode(value);
+    return normalizeBaseLanguageCode(value);
   }, [value]);
 
   const options: SearchableSelectOption[] = useMemo(
     () =>
-      getLanguageOptions(supportedLanguages).map((option) => ({
+      getBaseLanguageOptions(supportedLanguages).map((option) => ({
         value: option.value,
         label: option.label,
       })),
