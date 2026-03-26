@@ -7,6 +7,7 @@ import {
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
 
 const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
@@ -15,7 +16,13 @@ export function AppleCalendarSelection({
   calendarClassName,
   leftAction,
 }: { calendarClassName?: string; leftAction?: React.ReactNode } = {}) {
-  const { groups, handleToggle } = useAppleCalendarSelection();
+  const { groups, handleToggle, scheduleSync } = useAppleCalendarSelection();
+
+  useMountEffect(() => {
+    if (groups.length === 0) {
+      scheduleSync();
+    }
+  });
 
   return (
     <div className="flex flex-col gap-2">
@@ -31,7 +38,7 @@ export function AppleCalendarSelection({
 }
 
 export function useAppleCalendarSelection() {
-  const { status, scheduleDebouncedSync } = useSync();
+  const { status, scheduleDebouncedSync, scheduleSync } = useSync();
 
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
@@ -77,5 +84,6 @@ export function useAppleCalendarSelection() {
     groups,
     handleToggle,
     isLoading: status === "syncing",
+    scheduleSync,
   };
 }
