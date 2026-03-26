@@ -1,14 +1,7 @@
-type ModelEntry = {
-  id: string;
-};
-
 export function getPreferredProviderModel(
-  providerId: string,
-  savedModels: Record<string, string>,
-  models: ModelEntry[],
+  savedModel: string | undefined,
+  models: Array<{ id: string }>,
 ) {
-  const savedModel = savedModels[providerId];
-
   if (
     savedModel &&
     (models.length === 0 || models.some((model) => model.id === savedModel))
