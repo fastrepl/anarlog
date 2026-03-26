@@ -27,6 +27,7 @@ import {
 import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
+import "prosemirror-gapcursor/style/gapcursor.css";
 
 import { ResizableImageView } from "./image-view";
 import { buildInputRules, buildKeymap } from "./keymap";
