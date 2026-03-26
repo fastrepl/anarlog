@@ -39,12 +39,6 @@ function Component() {
   const isChatOpen = chat.mode === "RightPanelOpen";
 
   useEffect(() => {
-    if (isOnboarding && leftsidebar.expanded) {
-      leftsidebar.setExpanded(false);
-    }
-  }, [isOnboarding, leftsidebar]);
-
-  useEffect(() => {
     if (isNavMode) {
       savedExpandedRef.current = leftsidebar.expanded;
       if (!leftsidebar.expanded) {
