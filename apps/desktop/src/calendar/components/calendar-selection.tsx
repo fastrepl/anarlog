@@ -88,8 +88,6 @@ export function CalendarSelection({
       className={cn(["divide-y", className])}
     >
       {groups.map((group) => {
-        const enabledCount = group.calendars.filter((c) => c.enabled).length;
-
         return (
           <AccordionItem
             key={group.sourceName}
@@ -104,14 +102,9 @@ export function CalendarSelection({
                 !disableHoverTone && "hover:bg-neutral-50",
               ])}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-neutral-600">
-                  {group.sourceName}
-                </span>
-                <span className="text-[10px] text-neutral-400 tabular-nums">
-                  {enabledCount}/{group.calendars.length}
-                </span>
-              </div>
+              <span className="text-xs font-medium text-neutral-600">
+                {group.sourceName}
+              </span>
             </AccordionTrigger>
             <AccordionContent className="pb-2">
               <div className="flex flex-col gap-1">
