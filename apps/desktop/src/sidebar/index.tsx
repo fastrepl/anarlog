@@ -44,6 +44,9 @@ export function LeftSidebar() {
 
   const isSettingsMode = currentTab?.type === "settings";
   const isContactsMode = currentTab?.type === "contacts";
+  const isCalendarMode = currentTab?.type === "calendar";
+  const showCollapseButton =
+    !isSettingsMode && !isContactsMode && !isCalendarMode;
   const showSearchResults =
     !isSettingsMode && !isContactsMode && query.trim() !== "";
 
@@ -69,22 +72,24 @@ export function LeftSidebar() {
               <AxeIcon size={16} />
             </Button>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={leftsidebar.locked}
-                onClick={leftsidebar.toggleExpanded}
-              >
-                <PanelLeftCloseIcon size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="flex items-center gap-2">
-              <span>Toggle sidebar</span>
-              <Kbd className="animate-kbd-press">⌘ \</Kbd>
-            </TooltipContent>
-          </Tooltip>
+          {showCollapseButton && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={leftsidebar.locked}
+                  onClick={leftsidebar.toggleExpanded}
+                >
+                  <PanelLeftCloseIcon size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="flex items-center gap-2">
+                <span>Toggle sidebar</span>
+                <Kbd className="animate-kbd-press">⌘ \</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </header>
 
