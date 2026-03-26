@@ -813,6 +813,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "apple-reminder"
+version = "0.1.0"
+dependencies = [
+ "backon",
+ "block2",
+ "chrono",
+ "objc2",
+ "objc2-core-graphics",
+ "objc2-event-kit",
+ "objc2-foundation",
+ "schemars 1.2.1",
+ "serde",
+ "serde_json",
+ "specta",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

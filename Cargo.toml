@@ -48,6 +48,7 @@ hypr-api-sync = { path = "crates/api-sync", package = "api-sync" }
 hypr-api-ticket = { path = "crates/api-ticket", package = "api-ticket" }
 hypr-apple-calendar = { path = "crates/apple-calendar", package = "apple-calendar" }
 hypr-apple-note = { path = "crates/apple-note", package = "apple-note" }
+hypr-apple-reminder = { path = "crates/apple-reminder", package = "apple-reminder" }
 hypr-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
 hypr-audacity = { path = "crates/audacity", package = "audacity" }
 hypr-audio = { path = "crates/audio", package = "audio" }

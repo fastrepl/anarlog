@@ -1,0 +1,27 @@
+[package]
+name = "apple-reminder"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+specta = ["dep:specta"]
+
+[dependencies]
+schemars = { workspace = true, features = ["chrono04"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+
+backon = { workspace = true, features = ["std-blocking-sleep"] }
+chrono = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
+
+tracing = { workspace = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = { workspace = true }
+objc2 = { workspace = true, features = ["exception"] }
+objc2-core-graphics = { workspace = true }
+objc2-event-kit = { workspace = true, features = ["EKEventStore", "EKCalendarItem", "EKCalendar", "EKObject", "EKReminder", "EKSource", "EKTypes", "EKRecurrenceRule", "EKRecurrenceEnd", "EKAlarm", "EKStructuredLocation", "EKRecurrenceDayOfWeek", "objc2-core-graphics"] }
+objc2-foundation = { workspace = true, features = ["NSDate", "NSEnumerator", "NSPredicate", "NSError", "NSNotification", "NSCalendar", "NSTimeZone"] }
