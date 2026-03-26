@@ -37,12 +37,10 @@ export function CalendarSelection({
   disableHoverTone,
 }: CalendarSelectionProps) {
   const defaultOpen = useMemo(
-    () =>
-      groups
-        .filter((g) => g.calendars.some((c) => c.enabled))
-        .map((g) => g.sourceName),
+    () => groups.map((group) => group.sourceName),
     [groups],
   );
+  const accordionKey = groups.length === 0 ? "empty" : "loaded";
 
   if (groups.length === 0) {
     return (
@@ -84,6 +82,7 @@ export function CalendarSelection({
 
   return (
     <Accordion
+      key={accordionKey}
       type="multiple"
       defaultValue={defaultOpen}
       className={cn(["divide-y", className])}
