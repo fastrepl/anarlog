@@ -5,7 +5,7 @@ import { getPreferredProviderModel } from "./selection";
 describe("getPreferredProviderModel", () => {
   test("returns the remembered model when it is still available", () => {
     expect(
-      getPreferredProviderModel("deepgram", { deepgram: "nova-2-meeting" }, [
+      getPreferredProviderModel("nova-2-meeting", [
         { id: "nova-3-general" },
         { id: "nova-2-meeting" },
       ]),
@@ -14,7 +14,7 @@ describe("getPreferredProviderModel", () => {
 
   test("falls back to the first available model when none is remembered", () => {
     expect(
-      getPreferredProviderModel("soniox", {}, [
+      getPreferredProviderModel(undefined, [
         { id: "stt-v4" },
         { id: "stt-v3" },
       ]),
@@ -23,7 +23,7 @@ describe("getPreferredProviderModel", () => {
 
   test("falls back to the first available model when the remembered model is gone", () => {
     expect(
-      getPreferredProviderModel("deepgram", { deepgram: "nova-2-meeting" }, [
+      getPreferredProviderModel("nova-2-meeting", [
         { id: "nova-3-general" },
         { id: "nova-2-general" },
       ]),
@@ -31,8 +31,8 @@ describe("getPreferredProviderModel", () => {
   });
 
   test("keeps the remembered value when the provider does not expose a static list", () => {
-    expect(
-      getPreferredProviderModel("custom", { custom: "whisper-large-v3" }, []),
-    ).toBe("whisper-large-v3");
+    expect(getPreferredProviderModel("whisper-large-v3", [])).toBe(
+      "whisper-large-v3",
+    );
   });
 });
