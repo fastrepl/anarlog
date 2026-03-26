@@ -1,13 +1,14 @@
 import { useOutlit } from "@outlit/browser/react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
+import { DeeplinkPrompt } from "@/components/deeplink-prompt";
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { useAutoDeeplink } from "@/hooks/use-auto-deeplink";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 const validateSearch = z.object({
@@ -134,7 +135,6 @@ function Component() {
   const navigate = useNavigate();
   const { identify: identifyOutlit, isInitialized } = useOutlit();
   const { identify: identifyPosthog } = useAnalytics();
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!search.access_token || !isInitialized) return;
@@ -169,26 +169,8 @@ function Component() {
     return null;
   };
 
-  // Browsers require a user gesture (click) to open custom URL schemes.
-  // Auto-triggering via setTimeout fails for email magic links because
-  // the page is opened from an external context (email client) without
-  // "transient user activation". OAuth redirects work because they maintain
-  // activation through the redirect chain.
-  const handleDeeplink = () => {
-    const deeplink = getDeeplink();
-    if (search.flow === "desktop" && deeplink) {
-      window.location.href = deeplink;
-    }
-  };
-
-  const handleCopy = async () => {
-    const deeplink = getDeeplink();
-    if (deeplink) {
-      await navigator.clipboard.writeText(deeplink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  const deeplink = search.flow === "desktop" ? getDeeplink() : null;
+  useAutoDeeplink(deeplink);
 
   useEffect(() => {
     if (search.flow === "web" && !search.error) {
@@ -246,49 +228,7 @@ function Component() {
             </p>
           </div>
 
-          {hasTokens && (
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={handleDeeplink}
-                className={cn([
-                  "flex h-12 w-full cursor-pointer items-center justify-center text-base font-medium transition-all",
-                  "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                ])}
-              >
-                Open Char
-              </button>
-
-              <button
-                onClick={handleCopy}
-                className={cn([
-                  "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left transition-all",
-                  "rounded-lg border border-stone-100 bg-stone-50 hover:bg-stone-100 active:scale-[99%]",
-                ])}
-              >
-                <p className="text-sm text-stone-500">
-                  Button not working? Copy the link instead
-                </p>
-                <span
-                  className={cn([
-                    "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
-                    "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
-                  ])}
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon className="size-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="size-4" />
-                      Copy URL
-                    </>
-                  )}
-                </span>
-              </button>
-            </div>
-          )}
+          {hasTokens && deeplink && <DeeplinkPrompt url={deeplink} />}
         </div>
       </div>
     );
