@@ -1,5 +1,6 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { useCallback, type MouseEvent } from "react";
+import { PlusIcon } from "lucide-react";
+import { useCallback, type MouseEvent, useMemo } from "react";
 
 import {
   Accordion,
@@ -20,6 +21,7 @@ import { type CalendarProvider, PROVIDERS } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
+import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
 
 function getProviderBadgeClassName(badge: string) {
@@ -81,13 +83,14 @@ function ProviderAccordionItem({
     connections?.filter(
       (connection) => connection.integration_id === provider.nangoIntegrationId,
     ) ?? [];
-  const shouldConnectOnClick =
+  const canAddAccount =
     !!provider.nangoIntegrationId &&
     !!auth.session &&
     isPro &&
     !isPending &&
-    !isError &&
-    providerConnections.length === 0;
+    !isError;
+  const shouldConnectOnClick =
+    canAddAccount && providerConnections.length === 0;
 
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -101,23 +104,78 @@ function ProviderAccordionItem({
     },
     [provider.nangoIntegrationId, shouldConnectOnClick],
   );
+  const handleAddAccount = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      if (!canAddAccount) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void openIntegrationUrl(
+        provider.nangoIntegrationId,
+        undefined,
+        "connect",
+      );
+    },
+    [canAddAccount, provider.nangoIntegrationId],
+  );
+  const providerMenuItems = useMemo(
+    () =>
+      canAddAccount
+        ? [
+            {
+              id: `add-${provider.id}-account`,
+              text: `Add ${provider.displayName} account`,
+              action: () =>
+                void openIntegrationUrl(
+                  provider.nangoIntegrationId,
+                  undefined,
+                  "connect",
+                ),
+            },
+          ]
+        : [],
+    [
+      canAddAccount,
+      provider.displayName,
+      provider.id,
+      provider.nangoIntegrationId,
+    ],
+  );
+  const showProviderMenu = useNativeContextMenu(providerMenuItems);
 
   return (
     <AccordionItem value={provider.id} className="border-none">
-      <AccordionTrigger
-        className="py-2 hover:no-underline [&>svg]:opacity-0 [&>svg]:transition-opacity hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100"
-        onClick={handleTriggerClick}
+      <div
+        onContextMenu={
+          providerMenuItems.length > 0 ? showProviderMenu : undefined
+        }
+        className="group -mx-2 flex items-center rounded-md px-2 hover:bg-neutral-50"
       >
-        <div className="flex items-center gap-2">
-          {provider.icon}
-          <span className="text-sm font-medium">{provider.displayName}</span>
-          {provider.badge && (
-            <span className={getProviderBadgeClassName(provider.badge)}>
-              {provider.badge}
-            </span>
-          )}
-        </div>
-      </AccordionTrigger>
+        <AccordionTrigger
+          className="min-w-0 flex-1 py-2 hover:no-underline [&>svg]:opacity-0 [&>svg]:transition-opacity group-hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100"
+          onClick={handleTriggerClick}
+        >
+          <div className="flex items-center gap-2">
+            {provider.icon}
+            <span className="text-sm font-medium">{provider.displayName}</span>
+            {provider.badge && (
+              <span className={getProviderBadgeClassName(provider.badge)}>
+                {provider.badge}
+              </span>
+            )}
+          </div>
+        </AccordionTrigger>
+
+        {canAddAccount && (
+          <button
+            type="button"
+            onClick={handleAddAccount}
+            className="shrink-0 rounded p-1 text-neutral-500 transition-colors hover:bg-neutral-200 hover:text-neutral-900"
+            aria-label={`Add ${provider.displayName} account`}
+          >
+            <PlusIcon className="size-4" />
+          </button>
+        )}
+      </div>
       <AccordionContent className="pb-2">
         {provider.id === "apple" && (
           <div className="flex flex-col gap-3">

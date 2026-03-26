@@ -1,4 +1,3 @@
-import { PlusIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
@@ -101,14 +100,6 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
         ))}
 
         <ConnectedContent config={config} connections={providerConnections} />
-
-        <button
-          onClick={handleAddAccount}
-          className="flex cursor-pointer items-center gap-1 text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
-        >
-          <PlusIcon className="size-3" />
-          Add another account
-        </button>
       </div>
     );
   }
