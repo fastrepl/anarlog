@@ -11,7 +11,10 @@ import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
 import { useAppleCalendarSelection } from "~/calendar/components/apple/calendar-selection";
 import { TroubleShootingLink } from "~/calendar/components/apple/permission";
-import { CalendarSelection } from "~/calendar/components/calendar-selection";
+import {
+  type CalendarGroup,
+  CalendarSelection,
+} from "~/calendar/components/calendar-selection";
 import { SyncProvider, useSync } from "~/calendar/components/context";
 import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-selection";
 import { PROVIDERS } from "~/calendar/components/shared";
@@ -42,6 +45,14 @@ async function openOnboardingIntegrationUrl(
   await openerCommands.openUrl(url, null);
 }
 
+function getCalendarSelectionKey(groups: CalendarGroup[]) {
+  return groups.length === 0
+    ? "empty"
+    : groups
+        .map((group) => `${group.sourceName}:${group.calendars.length}`)
+        .join("|");
+}
+
 function AppleCalendarList() {
   const { scheduleSync } = useSync();
   const { groups, handleToggle, isLoading } = useAppleCalendarSelection();
@@ -52,6 +63,7 @@ function AppleCalendarList() {
 
   return (
     <CalendarSelection
+      key={getCalendarSelectionKey(groups)}
       groups={groups}
       onToggle={handleToggle}
       isLoading={isLoading}
@@ -126,6 +138,7 @@ function GoogleCalendarConnectedContent() {
   return (
     <div className="flex flex-col gap-3">
       <CalendarSelection
+        key={getCalendarSelectionKey(groups)}
         groups={groups}
         onToggle={handleToggle}
         isLoading={isLoading}
