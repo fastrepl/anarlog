@@ -1,5 +1,5 @@
-import { useForm } from "@tanstack/react-form";
-import { useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMemo, useRef } from "react";
 
 import {
   Select,
@@ -11,6 +11,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
+import { getPreferredProviderModel } from "./selection";
 import { PROVIDERS } from "./shared";
 
 import { useAuth } from "~/auth";
@@ -43,6 +44,7 @@ import * as settings from "~/store/tinybase/store/settings";
 export function SelectProviderAndModel() {
   const configuredProviders = useConfiguredMapping();
   const billing = useBillingAccess();
+  const queryClient = useQueryClient();
 
   const { current_llm_model, current_llm_provider } = useConfigValues([
     "current_llm_model",
@@ -65,29 +67,98 @@ export function SelectProviderAndModel() {
     [],
     settings.STORE_ID,
   );
+  const lastSelectedModelsRef = useRef<Record<string, string>>(
+    current_llm_provider && current_llm_model
+      ? { [current_llm_provider]: current_llm_model }
+      : {},
+  );
+  const selectionRequestRef = useRef(0);
 
-  const form = useForm({
-    defaultValues: {
-      provider: current_llm_provider || "",
-      model: current_llm_model || "",
-    },
-    listeners: {
-      onChange: ({ formApi }) => {
-        const {
-          form: { errors },
-        } = formApi.getAllErrors();
-        if (errors.length > 0) {
-          console.log(errors);
-        }
+  const rememberModel = (provider?: string, model?: string) => {
+    if (!provider || model === undefined) {
+      return;
+    }
 
-        void formApi.handleSubmit();
-      },
-    },
-    onSubmit: ({ value }) => {
-      handleSelectProvider(value.provider);
-      handleSelectModel(value.model);
-    },
-  });
+    lastSelectedModelsRef.current[provider] = model;
+  };
+
+  const getCachedModels = (provider: string) => {
+    const status = configuredProviders[provider];
+    if (!status?.listModels) {
+      return [];
+    }
+
+    return (
+      queryClient.getQueryData<ListModelsResult>([
+        "models",
+        provider,
+        status.listModels,
+      ])?.models ?? []
+    );
+  };
+
+  const fetchModels = async (provider: string) => {
+    const status = configuredProviders[provider];
+    const listModels = status?.listModels;
+    if (!listModels) {
+      return [];
+    }
+
+    const result = await queryClient.fetchQuery({
+      queryKey: ["models", provider, listModels],
+      queryFn: async () => await listModels(),
+      retry: 3,
+      retryDelay: 300,
+      staleTime: 1000 * 2,
+    });
+
+    return result.models;
+  };
+
+  const handleProviderChange = (provider: string) => {
+    if (provider === "hyprnote" && !billing.isPro) {
+      billing.upgradeToPro();
+      return;
+    }
+
+    rememberModel(current_llm_provider, current_llm_model);
+
+    const nextModel = getPreferredProviderModel(
+      lastSelectedModelsRef.current[provider],
+      getCachedModels(provider),
+      { allowSavedModelWithoutChoices: provider === "custom" },
+    );
+
+    rememberModel(provider, nextModel);
+    handleSelectProvider(provider);
+    handleSelectModel(nextModel);
+
+    const requestId = ++selectionRequestRef.current;
+    void (async () => {
+      const models = await fetchModels(provider);
+      const resolvedModel = getPreferredProviderModel(
+        lastSelectedModelsRef.current[provider],
+        models,
+        { allowSavedModelWithoutChoices: provider === "custom" },
+      );
+
+      if (selectionRequestRef.current !== requestId) {
+        return;
+      }
+
+      rememberModel(provider, resolvedModel);
+      handleSelectModel(resolvedModel);
+    })();
+  };
+
+  const handleModelChange = (model: string) => {
+    if (!current_llm_provider) {
+      return;
+    }
+
+    rememberModel(current_llm_provider, model);
+    handleSelectModel(model);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -100,97 +171,69 @@ export function SelectProviderAndModel() {
         ])}
       >
         <div className="flex flex-row items-center gap-4">
-          <form.Field
-            name="provider"
-            listeners={{
-              onChange: ({ value }) => {
-                if (value === "hyprnote") {
-                  form.setFieldValue("model", "Auto");
-                } else {
-                  form.setFieldValue("model", "");
-                }
-              },
-            }}
-          >
-            {(field) => (
-              <div className="min-w-0 flex-2" data-llm-provider-selector>
-                <Select
-                  value={field.state.value}
-                  onValueChange={(value) => {
-                    if (value === "hyprnote" && !billing.isPro) {
-                      billing.upgradeToPro();
-                      return;
-                    }
-                    field.handleChange(value);
-                  }}
-                >
-                  <SelectTrigger className="bg-white shadow-none focus:ring-0">
-                    <SelectValue placeholder="Select a provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROVIDERS.map((provider) => {
-                      const status = configuredProviders[provider.id];
-                      const requiresPro = requiresEntitlement(
-                        provider.requirements,
-                        "pro",
-                      );
-                      const locked = requiresPro && !billing.isPro;
+          <div className="min-w-0 flex-2" data-llm-provider-selector>
+            <Select
+              value={current_llm_provider || ""}
+              onValueChange={handleProviderChange}
+            >
+              <SelectTrigger className="bg-white shadow-none focus:ring-0">
+                <SelectValue placeholder="Select a provider" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROVIDERS.map((provider) => {
+                  const status = configuredProviders[provider.id];
+                  const requiresPro = requiresEntitlement(
+                    provider.requirements,
+                    "pro",
+                  );
+                  const locked = requiresPro && !billing.isPro;
 
-                      return (
-                        <SelectItem
-                          key={provider.id}
-                          value={provider.id}
-                          disabled={!status?.listModels || locked}
-                        >
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2">
-                              {provider.icon}
-                              <span>{provider.displayName}</span>
-                              {requiresPro ? (
-                                <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
-                                  Pro
-                                </span>
-                              ) : null}
-                            </div>
-                            {locked ? (
-                              <span className="text-[11px] text-neutral-500">
-                                Upgrade to Pro to use this provider.
-                              </span>
-                            ) : null}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </form.Field>
+                  return (
+                    <SelectItem
+                      key={provider.id}
+                      value={provider.id}
+                      disabled={!status?.listModels || locked}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          {provider.icon}
+                          <span>{provider.displayName}</span>
+                          {requiresPro ? (
+                            <span className="rounded-full border border-neutral-200 px-2 py-0.5 text-[10px] tracking-wide text-neutral-500 uppercase">
+                              Pro
+                            </span>
+                          ) : null}
+                        </div>
+                        {locked ? (
+                          <span className="text-[11px] text-neutral-500">
+                            Upgrade to Pro to use this provider.
+                          </span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
 
           <span className="text-neutral-500">/</span>
 
-          <form.Field name="model">
-            {(field) => {
-              const providerId = form.getFieldValue("provider");
-              const status = configuredProviders[providerId];
-
-              return (
-                <div className="min-w-0 flex-3">
-                  <ModelCombobox
-                    providerId={providerId}
-                    value={field.state.value}
-                    onChange={(value) => field.handleChange(value)}
-                    disabled={!status?.listModels}
-                    listModels={status?.listModels}
-                    isConfigured={isConfigured}
-                    suffix={
-                      isConfigured ? <HealthStatusIndicator /> : undefined
-                    }
-                  />
-                </div>
-              );
-            }}
-          </form.Field>
+          <div className="min-w-0 flex-3">
+            <ModelCombobox
+              providerId={current_llm_provider || ""}
+              value={current_llm_model || ""}
+              onChange={handleModelChange}
+              disabled={!current_llm_provider}
+              listModels={
+                current_llm_provider
+                  ? configuredProviders[current_llm_provider]?.listModels
+                  : undefined
+              }
+              isConfigured={isConfigured}
+              suffix={isConfigured ? <HealthStatusIndicator /> : undefined}
+            />
+          </div>
         </div>
 
         {!isConfigured && (
