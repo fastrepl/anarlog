@@ -1,7 +1,7 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { arch } from "@tauri-apps/plugin-os";
 import { Check, Loader2 } from "lucide-react";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import { commands as listenerCommands } from "@hypr/plugin-listener";
 import {
@@ -37,6 +37,7 @@ import {
   requiresEntitlement,
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
+import { normalizeLanguageCodes } from "~/shared/language";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function SelectProviderAndModel() {
@@ -53,23 +54,27 @@ export function SelectProviderAndModel() {
 
   const isConfigured = !!(current_stt_provider && current_stt_model);
   const hasError = isConfigured && health.status === "error";
+  const normalizedSpokenLanguages = useMemo(
+    () => normalizeLanguageCodes(spoken_languages ?? []),
+    [spoken_languages],
+  );
 
   const languageSupport = useQuery({
     queryKey: [
       "stt-language-support",
       current_stt_provider,
       current_stt_model,
-      spoken_languages,
+      normalizedSpokenLanguages,
     ],
     queryFn: async () => {
       const result = await listenerCommands.isSupportedLanguagesLive(
         current_stt_provider!,
         current_stt_model ?? null,
-        spoken_languages ?? [],
+        normalizedSpokenLanguages,
       );
       return result.status === "ok" ? result.data : true;
     },
-    enabled: !!(current_stt_provider && spoken_languages?.length),
+    enabled: !!(current_stt_provider && normalizedSpokenLanguages.length),
   });
 
   const hasLanguageWarning =

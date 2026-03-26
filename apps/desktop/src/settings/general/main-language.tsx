@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { getBaseLanguageDisplayName, parseLocale } from "./language";
+import { getLanguageOptions, normalizeLanguageCode } from "./language";
 import {
   SearchableSelect,
   type SearchableSelectOption,
@@ -15,29 +15,17 @@ export function MainLanguageView({
   onChange: (value: string) => void;
   supportedLanguages: readonly string[];
 }) {
-  const deduped = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const code of supportedLanguages) {
-      const { language } = parseLocale(code);
-      if (!map.has(language)) {
-        map.set(language, code);
-      }
-    }
-    return map;
-  }, [supportedLanguages]);
-
   const normalizedValue = useMemo(() => {
-    const { language } = parseLocale(value);
-    return deduped.get(language) ?? value;
-  }, [value, deduped]);
+    return normalizeLanguageCode(value);
+  }, [value]);
 
   const options: SearchableSelectOption[] = useMemo(
     () =>
-      [...deduped.values()].map((code) => ({
-        value: code,
-        label: getBaseLanguageDisplayName(code),
+      getLanguageOptions(supportedLanguages).map((option) => ({
+        value: option.value,
+        label: option.label,
       })),
-    [deduped],
+    [supportedLanguages],
   );
 
   return (
