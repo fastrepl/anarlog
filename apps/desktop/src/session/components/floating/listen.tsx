@@ -7,6 +7,7 @@ import { ListenActionButton } from "../listen-action";
 import { FloatingButton } from "./shared";
 
 import { useListenButtonState } from "~/session/components/shared";
+import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import {
   type RemoteMeeting,
   useRemoteMeeting,
@@ -22,9 +23,27 @@ export function ListenButton({
   const { shouldRender } = useListenButtonState(tab.id);
   const loading = useListener((state) => state.live.loading);
   const remote = useRemoteMeeting(tab.id);
+  const countdown = useEventCountdown(tab.id);
 
-  if (!remote || loading) {
+  if (loading) {
     return <ListenActionButton sessionId={tab.id} />;
+  }
+
+  if (!remote) {
+    if (!shouldRender) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-2">
+        {countdown.label && (
+          <div className="text-xs whitespace-nowrap text-neutral-500">
+            <span>{countdown.label}</span>
+          </div>
+        )}
+        <ListenActionButton sessionId={tab.id} />
+      </div>
+    );
   }
 
   if (!shouldRender) {
@@ -32,9 +51,16 @@ export function ListenButton({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <RemoteMeetingButton remote={remote} />
-      <ListenActionButton sessionId={tab.id} />
+    <div className="flex flex-col items-center gap-2">
+      {countdown.label && (
+        <div className="text-xs whitespace-nowrap text-neutral-500">
+          <span>{countdown.label}</span>
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <RemoteMeetingButton remote={remote} />
+        <ListenActionButton sessionId={tab.id} />
+      </div>
     </div>
   );
 }

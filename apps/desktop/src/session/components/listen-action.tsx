@@ -6,7 +6,6 @@ import { OptionsMenu } from "./floating/options-menu";
 import { ActionableTooltipContent, FloatingButton } from "./floating/shared";
 import { RecordingIcon, useListenButtonState } from "./shared";
 
-import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
@@ -20,7 +19,6 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   }));
   const startListening = useStartListening(sessionId);
   const openNew = useTabs((state) => state.openNew);
-  const countdown = useEventCountdown(sessionId);
 
   const handleConfigure = useCallback(() => {
     startListening();
@@ -40,7 +38,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="relative">
+    <div>
       <OptionsMenu
         sessionId={sessionId}
         disabled={isDisabled}
@@ -73,11 +71,6 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
           </span>
         </FloatingButton>
       </OptionsMenu>
-      {countdown.label && (
-        <div className="absolute bottom-full left-1/2 mb-2 -translate-x-1/2 text-xs whitespace-nowrap text-neutral-500">
-          <span>{countdown.label}</span>
-        </div>
-      )}
     </div>
   );
 }
