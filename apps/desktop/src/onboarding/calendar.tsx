@@ -1,5 +1,4 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -146,7 +145,7 @@ function GoogleCalendarConnectedContent() {
         className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
 
-      <button
+      <OnboardingButton
         type="button"
         onClick={() =>
           void openOnboardingIntegrationUrl(
@@ -155,11 +154,11 @@ function GoogleCalendarConnectedContent() {
             "connect",
           )
         }
-        className="flex w-fit cursor-pointer items-center gap-1 text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
+        className="flex items-center gap-3 border border-neutral-200 bg-white text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
       >
-        <PlusIcon className="size-3" />
+        {GOOGLE_PROVIDER?.icon}
         Add another account
-      </button>
+      </OnboardingButton>
     </div>
   );
 }
