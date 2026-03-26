@@ -1,12 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CheckIcon, CopyIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { z } from "zod";
 
-import { cn } from "@hypr/utils";
-
+import { DeeplinkPrompt } from "@/components/deeplink-prompt";
 import { flowSearchSchema } from "@/functions/desktop-flow";
+import { useAutoDeeplink } from "@/hooks/use-auto-deeplink";
 
 const commonSearch = {
   integration_id: z.string(),
@@ -51,31 +50,17 @@ function Component() {
   const scheme = search.scheme ?? "hyprnote";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [copied, setCopied] = useState(false);
 
-  const getDeeplink = () => {
-    return buildDeeplinkUrl(scheme, {
-      integration_id: search.integration_id,
-      status: search.status,
-      return_to: search.return_to,
-    });
-  };
+  const deeplink =
+    search.flow === "desktop"
+      ? buildDeeplinkUrl(scheme, {
+          integration_id: search.integration_id,
+          status: search.status,
+          return_to: search.return_to,
+        })
+      : null;
 
-  const handleDeeplink = () => {
-    const deeplink = getDeeplink();
-    if (search.flow === "desktop" && deeplink) {
-      window.location.href = deeplink;
-    }
-  };
-
-  const handleCopy = async () => {
-    const deeplink = getDeeplink();
-    if (deeplink) {
-      await navigator.clipboard.writeText(deeplink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  useAutoDeeplink(search.status === "success" ? deeplink : null);
 
   useEffect(() => {
     if (search.flow === "web") {
@@ -85,22 +70,6 @@ function Component() {
       void navigate({ to: "/app/account/" });
     }
   }, [search.flow, navigate, queryClient]);
-
-  useEffect(() => {
-    if (search.flow === "desktop" && search.status === "success") {
-      const deeplink = getDeeplink();
-      const timer = setTimeout(() => {
-        window.location.href = deeplink;
-      }, 250);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    search.flow,
-    search.status,
-    scheme,
-    search.integration_id,
-    search.return_to,
-  ]);
 
   const isSuccess = search.status === "success";
 
@@ -119,49 +88,7 @@ function Component() {
             </p>
           </div>
 
-          {isSuccess && (
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={handleDeeplink}
-                className={cn([
-                  "flex h-12 w-full cursor-pointer items-center justify-center text-base font-medium transition-all",
-                  "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                ])}
-              >
-                Open Char
-              </button>
-
-              <button
-                onClick={handleCopy}
-                className={cn([
-                  "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left transition-all",
-                  "rounded-lg border border-stone-100 bg-stone-50 hover:bg-stone-100 active:scale-[99%]",
-                ])}
-              >
-                <p className="text-sm text-stone-500">
-                  Button not working? Copy the link instead
-                </p>
-                <span
-                  className={cn([
-                    "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
-                    "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
-                  ])}
-                >
-                  {copied ? (
-                    <>
-                      <CheckIcon className="size-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <CopyIcon className="size-4" />
-                      Copy URL
-                    </>
-                  )}
-                </span>
-              </button>
-            </div>
-          )}
+          {isSuccess && deeplink && <DeeplinkPrompt url={deeplink} />}
         </div>
       </div>
     );
