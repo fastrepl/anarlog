@@ -1199,22 +1199,61 @@ function Sidebar({
           />
         </div>
       </div>
-      <div className="flex gap-1 border-b border-neutral-200 p-2">
-        {collections.map((collection) => (
-          <button
-            key={collection.name}
-            type="button"
-            onClick={() => onCollectionChange(collection.name)}
+      <div
+        className={cn([
+          "border-b border-neutral-200 px-2 py-2",
+          "bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.22),transparent_32%),radial-gradient(circle_at_85%_20%,rgba(110,231,183,0.2),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,248,250,0.98))]",
+        ])}
+      >
+        <div className="scrollbar-hide overflow-x-auto">
+          <div
             className={cn([
-              "flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-              activeCollection.name === collection.name
-                ? "bg-neutral-900 text-white"
-                : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200",
+              "inline-flex min-w-max items-center gap-2 rounded-full border p-1",
+              "border-emerald-100/80 bg-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.95),0_12px_28px_-24px_rgba(16,185,129,0.7)]",
             ])}
           >
-            {collection.label}
-          </button>
-        ))}
+            {collections.map((collection) => {
+              const isActive = activeCollection.name === collection.name;
+
+              return (
+                <button
+                  key={collection.name}
+                  type="button"
+                  onClick={() => onCollectionChange(collection.name)}
+                  className={cn([
+                    "group relative shrink-0 overflow-hidden rounded-full border px-3.5 py-2 text-xs font-medium transition-all",
+                    "shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]",
+                    isActive
+                      ? [
+                          "border-emerald-300/80 text-emerald-950",
+                          "bg-[radial-gradient(circle_at_28%_28%,rgba(255,255,255,0.96),rgba(236,253,245,0.94)_42%,rgba(163,230,53,0.72)_100%)]",
+                          "shadow-[0_10px_24px_-18px_rgba(22,163,74,0.85)]",
+                        ]
+                      : [
+                          "border-transparent text-neutral-700",
+                          "bg-[radial-gradient(circle_at_28%_28%,rgba(255,255,255,0.95),rgba(245,245,244,0.95)_45%,rgba(229,231,235,0.88)_100%)]",
+                          "hover:border-emerald-200/80 hover:text-neutral-900",
+                        ],
+                  ])}
+                >
+                  <span className="relative flex items-center gap-2">
+                    <span
+                      className={cn([
+                        "size-2.5 rounded-full border border-white/70 shadow-[0_0_0_1px_rgba(255,255,255,0.3)]",
+                        isActive
+                          ? "bg-[radial-gradient(circle_at_35%_35%,#fde68a,#84cc16_70%,#65a30d)]"
+                          : "bg-[radial-gradient(circle_at_35%_35%,#ffffff,#d9f99d_65%,#86efac)] opacity-80",
+                      ])}
+                    />
+                    <span className="whitespace-nowrap">
+                      {collection.label}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="relative min-h-0 flex-1">
