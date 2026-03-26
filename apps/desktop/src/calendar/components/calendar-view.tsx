@@ -154,7 +154,7 @@ function CalendarViewContent() {
               >
                 <CalendarIcon className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-semibold text-neutral-900">
+              <span className="text-sm font-normal text-neutral-900">
                 Calendars
               </span>
             </div>
@@ -181,7 +181,7 @@ function CalendarViewContent() {
                 <CalendarIcon className="h-4 w-4" />
               </Button>
             )}
-            <h2 className="text-sm font-medium text-neutral-900">
+            <h2 className="text-sm font-semibold text-neutral-900">
               {isMonthView
                 ? format(currentMonth, "MMMM yyyy")
                 : days.length > 0
