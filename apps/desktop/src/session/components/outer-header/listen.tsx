@@ -40,7 +40,7 @@ function StartButton({ sessionId }: { sessionId: string }) {
   const openNew = useTabs((state) => state.openNew);
 
   const handleConfigureAction = useCallback(() => {
-    openNew({ type: "ai", state: { tab: "transcription" } });
+    openNew({ type: "settings", state: { tab: "transcription" } });
   }, [openNew]);
 
   const button = (

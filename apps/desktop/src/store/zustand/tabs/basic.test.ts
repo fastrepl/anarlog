@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { type Tab, useTabs } from ".";
 import {
   createContactsTab,
+  createSettingsTab,
   createSessionTab,
   resetTabsStore,
 } from "./test-utils";
@@ -97,6 +98,37 @@ describe("Basic Tab Actions", () => {
       { id: "tab2", active: false },
     ]);
     expect(state).toHaveHistoryLength(1);
+  });
+
+  test("openNew reuses settings tab and updates requested subsection", () => {
+    const settings = createSettingsTab({
+      active: false,
+      state: { tab: "app" },
+    });
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(settings);
+    useTabs.getState().openNew(session);
+    useTabs.getState().openNew(
+      createSettingsTab({
+        active: false,
+        state: { tab: "calendar" },
+      }),
+    );
+
+    const state = useTabs.getState();
+    expect(state).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "calendar" } },
+      { id: "tab1", active: false, type: "sessions" },
+    ]);
+    expect(state).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
+    expect(state).toHaveLastHistoryEntry({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
   });
 
   test("select toggles active flag without changing history", () => {

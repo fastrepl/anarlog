@@ -70,10 +70,6 @@ function EmptyView() {
     () => openCurrent({ type: "settings" }),
     [openCurrent],
   );
-  const openAiSettings = useCallback(
-    () => openCurrent({ type: "ai" }),
-    [openCurrent],
-  );
   const openAdvancedSearch = useCallback(
     () => openCurrent({ type: "search" }),
     [openCurrent],
@@ -118,12 +114,7 @@ function EmptyView() {
         />
         <div className="my-1 h-px bg-neutral-200" />
         <ActionItem
-          label="AI Settings"
-          shortcut={["⌘", "⇧", ","]}
-          onClick={openAiSettings}
-        />
-        <ActionItem
-          label="App Settings"
+          label="Settings"
           shortcut={["⌘", ","]}
           onClick={openSettings}
         />

@@ -69,8 +69,6 @@ windowDestroyed: "plugin:windows:window-destroyed"
 
 /** user-defined types **/
 
-export type AiState = { tab: AiTab | null }
-export type AiTab = "transcription" | "intelligence" | "templates" | "shortcuts" | "prompts" | "memory"
 export type AppWindow = { type: "main" } | { type: "control" }
 export type ChangelogState = { previous: string | null; current: string }
 export type ChatShortcutsState = { isWebMode: boolean | null; selectedMineId: string | null; selectedWebIndex: number | null }
@@ -85,7 +83,8 @@ export type OpenTab = { tab: TabInput }
 export type PromptsState = { selectedTask: string | null }
 export type SearchState = { selectedTypes: string[] | null; initialQuery: string | null }
 export type SessionsState = { view: EditorView | null; autoStart: boolean | null }
-export type TabInput = { type: "sessions"; id: string; state?: SessionsState | null } | { type: "contacts"; state?: ContactsState | null } | { type: "templates"; state?: TemplatesState | null } | { type: "prompts"; state?: PromptsState | null } | { type: "chat_shortcuts"; state?: ChatShortcutsState | null } | { type: "extensions"; state?: ExtensionsState | null } | { type: "humans"; id: string } | { type: "organizations"; id: string } | { type: "folders"; id: string | null } | { type: "empty" } | { type: "extension"; extensionId: string; state?: Partial<{ [key in string]: JsonValue }> | null } | { type: "calendar" } | { type: "changelog"; state: ChangelogState } | { type: "settings" } | { type: "ai"; state?: AiState | null } | { type: "search"; state?: SearchState | null } | { type: "chat_support"; state?: ChatState | null } | { type: "onboarding" } | { type: "daily" } | { type: "edit"; requestId: string }
+export type SettingsState = { tab: string | null }
+export type TabInput = { type: "sessions"; id: string; state?: SessionsState | null } | { type: "contacts"; state?: ContactsState | null } | { type: "templates"; state?: TemplatesState | null } | { type: "prompts"; state?: PromptsState | null } | { type: "chat_shortcuts"; state?: ChatShortcutsState | null } | { type: "extensions"; state?: ExtensionsState | null } | { type: "humans"; id: string } | { type: "organizations"; id: string } | { type: "folders"; id: string | null } | { type: "empty" } | { type: "extension"; extensionId: string; state?: Partial<{ [key in string]: JsonValue }> | null } | { type: "calendar" } | { type: "changelog"; state: ChangelogState } | { type: "settings"; state?: SettingsState | null } | { type: "search"; state?: SearchState | null } | { type: "chat_support"; state?: ChatState | null } | { type: "onboarding" } | { type: "daily" } | { type: "edit"; requestId: string }
 export type TemplatesState = { showHomepage: boolean | null; isWebMode: boolean | null; selectedMineId: string | null; selectedWebIndex: number | null }
 export type VisibilityEvent = { window: AppWindow; visible: boolean }
 export type WindowDestroyed = { window: AppWindow }

@@ -25,7 +25,6 @@ import { cn } from "@hypr/utils";
 import { TabContentEmpty, TabItemEmpty } from "./empty";
 import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
-import { TabContentAI, TabItemAI } from "~/ai";
 import { TabContentCalendar, TabItemCalendar } from "~/calendar";
 import { TabContentChangelog, TabItemChangelog } from "~/changelog";
 import { ChatFloatingButton } from "~/chat/components/floating-button";
@@ -493,20 +492,6 @@ function TabItem({
       />
     );
   }
-  if (tab.type === "ai") {
-    return (
-      <TabItemAI
-        tab={tab}
-        tabIndex={tabIndex}
-        handleCloseThis={handleClose}
-        handleSelectThis={handleSelect}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={handlePinThis}
-        handleUnpinThis={handleUnpinThis}
-      />
-    );
-  }
   if (tab.type === "templates") {
     return (
       <TabItemTemplate
@@ -637,9 +622,6 @@ function ContentWrapper({ tab }: { tab: Tab }) {
   if (tab.type === "settings") {
     return <TabContentSettings tab={tab} />;
   }
-  if (tab.type === "ai") {
-    return <TabContentAI tab={tab} />;
-  }
   if (tab.type === "templates") {
     return <TabContentTemplate tab={tab} />;
   }
@@ -699,7 +681,6 @@ function TabChatButton({
   }
 
   if (
-    currentTab?.type === "ai" ||
     currentTab?.type === "settings" ||
     currentTab?.type === "chat_support" ||
     currentTab?.type === "onboarding" ||
@@ -1094,7 +1075,7 @@ function useTabsShortcuts() {
 
   useHotkeys(
     "mod+shift+comma",
-    () => openNew({ type: "ai" }),
+    () => openNew({ type: "settings", state: { tab: "transcription" } }),
     {
       preventDefault: true,
       enableOnFormTags: true,

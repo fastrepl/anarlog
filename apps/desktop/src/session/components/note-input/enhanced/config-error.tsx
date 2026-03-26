@@ -9,7 +9,7 @@ export function ConfigError({ status }: { status: LLMConnectionStatus }) {
   const openNew = useTabs((state) => state.openNew);
 
   const handleConfigureClick = () => {
-    openNew({ type: "ai", state: { tab: "intelligence" } });
+    openNew({ type: "settings", state: { tab: "intelligence" } });
   };
 
   const message = getMessageForStatus(status);

@@ -76,22 +76,8 @@ const useNavigationEvents = () => {
         if (payload.path === "/app/new") {
           openNewNote();
         } else if (payload.path === "/app/settings") {
-          let tab = (payload.search?.tab as string) ?? "general";
-          if (tab === "notifications" || tab === "account") {
-            tab = "general";
-          }
-          if (tab === "calendar") {
-            openNew({ type: "calendar" });
-          } else if (tab === "transcription" || tab === "intelligence") {
-            openNew({
-              type: "ai",
-              state: {
-                tab: tab as "transcription" | "intelligence",
-              },
-            });
-          } else {
-            openNew({ type: "settings" });
-          }
+          const tab = (payload.search?.tab as string) ?? "app";
+          openNew({ type: "settings", state: { tab } });
         } else {
           void navigate({
             to: payload.path,

@@ -7,7 +7,6 @@ import {
   FolderOpenIcon,
   SearchIcon,
   SettingsIcon,
-  SparklesIcon,
   UsersIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -121,11 +120,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     setCurrentView("main");
   }, []);
 
-  const handleClickAI = useCallback(() => {
-    openNew({ type: "ai" });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
   const handleClickHelp = useCallback(() => {
     const state = {
       groupId: null,
@@ -183,14 +177,8 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
       badge: <Kbd className={kbdClass}>⌘ ⇧ F</Kbd>,
     },
     {
-      icon: SparklesIcon,
-      label: "AI Settings",
-      onClick: handleClickAI,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ ,</Kbd>,
-    },
-    {
       icon: SettingsIcon,
-      label: "App Settings",
+      label: "Settings",
       onClick: handleClickSettings,
       badge: <Kbd className={kbdClass}>⌘ ,</Kbd>,
     },

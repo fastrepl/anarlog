@@ -5,7 +5,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import type { ChatModeState } from "./chat-mode";
 import type { LifecycleState } from "./lifecycle";
 import type { NavigationState, TabHistory } from "./navigation";
-import { pushHistory } from "./navigation";
+import { pushHistory, updateHistoryCurrent } from "./navigation";
 import type {
   RecentlyOpenedActions,
   RecentlyOpenedState,
@@ -286,9 +286,18 @@ const openTab = <T extends BasicState & NavigationState>(
   const isNewTab = !existingTab;
 
   if (!isNewTab) {
-    nextTabs = setActiveFlags(tabs, existingTab!);
-    const currentTab = { ...existingTab!, active: true };
-    return { tabs: nextTabs, currentTab, history } as Partial<T>;
+    const nextExistingTab = reuseExistingTab(existingTab!, tabWithDefaults);
+    nextTabs = tabs.map((tab) =>
+      isSameTab(tab, existingTab!)
+        ? { ...nextExistingTab, active: true }
+        : { ...tab, active: false },
+    );
+    const currentTab = { ...nextExistingTab, active: true };
+    return {
+      tabs: nextTabs,
+      currentTab,
+      history: updateHistoryCurrent(history, currentTab),
+    } as Partial<T>;
   }
 
   if (!forceNewTab) {
@@ -332,4 +341,15 @@ const openTab = <T extends BasicState & NavigationState>(
 
     return updateWithHistory(nextTabs, activeTab, history);
   }
+};
+
+const reuseExistingTab = (existingTab: Tab, requestedTab: Tab): Tab => {
+  if (existingTab.type === "settings" && requestedTab.type === "settings") {
+    return {
+      ...existingTab,
+      state: requestedTab.state,
+    };
+  }
+
+  return existingTab;
 };

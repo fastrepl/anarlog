@@ -73,27 +73,8 @@ crate::common_derives! {
 
 crate::common_derives! {
     #[derive(Default)]
-    pub enum AiTab {
-        #[default]
-        #[serde(rename = "transcription")]
-        Transcription,
-        #[serde(rename = "intelligence")]
-        Intelligence,
-        #[serde(rename = "templates")]
-        Templates,
-        #[serde(rename = "shortcuts")]
-        Shortcuts,
-        #[serde(rename = "prompts")]
-        Prompts,
-        #[serde(rename = "memory")]
-        Memory,
-    }
-}
-
-crate::common_derives! {
-    #[derive(Default)]
-    pub struct AiState {
-        pub tab: Option<AiTab>,
+    pub struct SettingsState {
+        pub tab: Option<String>,
     }
 }
 

@@ -22,7 +22,7 @@ export function ListenActionButton({ sessionId }: { sessionId: string }) {
 
   const handleConfigure = useCallback(() => {
     startListening();
-    openNew({ type: "ai", state: { tab: "transcription" } });
+    openNew({ type: "settings", state: { tab: "transcription" } });
   }, [startListening, openNew]);
 
   if (loading) {

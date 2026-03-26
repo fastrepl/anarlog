@@ -14,6 +14,7 @@ import { cn } from "@hypr/utils";
 
 import { ProfileSection } from "./profile";
 import { SidebarSearchInput } from "./search";
+import { SettingsNav } from "./settings-nav";
 import { TimelineView } from "./timeline";
 import { ToastArea } from "./toast";
 
@@ -21,6 +22,7 @@ import { useShell } from "~/contexts/shell";
 import { SearchResults } from "~/search/components/sidebar";
 import { useSearch } from "~/search/contexts/ui";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
+import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
 const DevtoolView = lazy(() =>
@@ -30,6 +32,7 @@ const DevtoolView = lazy(() =>
 export function LeftSidebar() {
   const { leftsidebar } = useShell();
   const { query } = useSearch();
+  const currentTab = useTabs((state) => state.currentTab);
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
   const isLinux = platform() === "linux";
 
@@ -38,7 +41,8 @@ export function LeftSidebar() {
     queryFn: () => commands.showDevtool(),
   });
 
-  const showSearchResults = query.trim() !== "";
+  const isSettingsMode = currentTab?.type === "settings";
+  const showSearchResults = !isSettingsMode && query.trim() !== "";
 
   return (
     <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden">
@@ -80,7 +84,7 @@ export function LeftSidebar() {
         </div>
       </header>
 
-      <SidebarSearchInput />
+      {!isSettingsMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -88,6 +92,8 @@ export function LeftSidebar() {
             <Suspense fallback={null}>
               <DevtoolView />
             </Suspense>
+          ) : isSettingsMode ? (
+            <SettingsNav />
           ) : (
             <>
               <div className={showSearchResults ? "h-full" : "hidden"}>
@@ -98,7 +104,7 @@ export function LeftSidebar() {
               </div>
             </>
           )}
-          {!leftsidebar.showDevtool && (
+          {!leftsidebar.showDevtool && !isSettingsMode && (
             <ToastArea isProfileExpanded={isProfileExpanded} />
           )}
         </div>

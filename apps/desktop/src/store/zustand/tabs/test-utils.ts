@@ -5,6 +5,7 @@ import { id } from "~/shared/utils";
 
 type SessionTab = Extract<Tab, { type: "sessions" }>;
 type ContactsTab = Extract<Tab, { type: "contacts" }>;
+type SettingsTab = Extract<Tab, { type: "settings" }>;
 
 type SessionOverrides = Partial<Omit<SessionTab, "type" | "state">> & {
   state?: Partial<SessionTab["state"]>;
@@ -12,6 +13,10 @@ type SessionOverrides = Partial<Omit<SessionTab, "type" | "state">> & {
 
 type ContactsOverrides = Partial<Omit<ContactsTab, "type" | "state">> & {
   state?: Partial<ContactsTab["state"]>;
+};
+
+type SettingsOverrides = Partial<Omit<SettingsTab, "type" | "state">> & {
+  state?: Partial<SettingsTab["state"]>;
 };
 
 export const createSessionTab = (
@@ -38,6 +43,19 @@ export const createContactsTab = (
   slotId: id(),
   state: {
     selected: null,
+    ...overrides.state,
+  },
+});
+
+export const createSettingsTab = (
+  overrides: SettingsOverrides = {},
+): SettingsTab => ({
+  type: "settings",
+  active: overrides.active ?? false,
+  pinned: overrides.pinned ?? false,
+  slotId: overrides.slotId ?? id(),
+  state: {
+    tab: "app",
     ...overrides.state,
   },
 });

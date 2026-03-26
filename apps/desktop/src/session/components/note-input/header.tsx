@@ -443,7 +443,7 @@ function CreateOtherFormatButton({
                 className="text-neutral-500 italic hover:bg-neutral-50 hover:text-neutral-700"
                 onClick={() => {
                   setOpen(false);
-                  openNew({ type: "ai", state: { tab: "templates" } });
+                  openNew({ type: "settings", state: { tab: "templates" } });
                 }}
               >
                 Manage templates
@@ -457,7 +457,7 @@ function CreateOtherFormatButton({
               <button
                 onClick={() => {
                   setOpen(false);
-                  openNew({ type: "ai", state: { tab: "templates" } });
+                  openNew({ type: "settings", state: { tab: "templates" } });
                 }}
                 className="rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 py-2 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90"
               >

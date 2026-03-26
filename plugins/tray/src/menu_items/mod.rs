@@ -16,7 +16,7 @@ pub use help_suggest_feature::HelpSuggestFeature;
 pub use tray_check_update::{TrayCheckUpdate, UpdateMenuState};
 pub use tray_open::TrayOpen;
 pub use tray_quit::TrayQuit;
-pub use tray_settings::{TraySettings, TraySettingsAI, TraySettingsGeneral};
+pub use tray_settings::TraySettings;
 pub use tray_start::TrayStart;
 pub use tray_version::TrayVersion;
 
@@ -70,8 +70,6 @@ menu_items! {
     TrayOpen => TrayOpen,
     TrayStart => TrayStart,
     TraySettings => TraySettings,
-    TraySettingsGeneral => TraySettingsGeneral,
-    TraySettingsAI => TraySettingsAI,
     TrayCheckUpdate => TrayCheckUpdate,
     TrayQuit => TrayQuit,
     TrayVersion => TrayVersion,

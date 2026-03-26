@@ -1,6 +1,4 @@
 import type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
   ChatState,
@@ -16,8 +14,6 @@ import type {
 } from "@hypr/plugin-windows";
 
 export type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
   ChatState,
@@ -38,7 +34,11 @@ export type SettingsTab =
   | "notifications"
   | "calendar"
   | "system"
-  | "lab";
+  | "lab"
+  | "transcription"
+  | "intelligence"
+  | "templates"
+  | "memory";
 
 export type SettingsState = {
   tab: SettingsTab | null;
@@ -106,10 +106,6 @@ export type Tab =
       state: ChangelogState;
     })
   | (BaseTab & { type: "settings"; state: SettingsState })
-  | (BaseTab & {
-      type: "ai";
-      state: AiState;
-    })
   | (BaseTab & {
       type: "search";
       state: SearchState;
@@ -200,12 +196,10 @@ export const getDefaultState = (tab: TabInput): Tab => {
         state: tab.state,
       };
     case "settings":
-      return { ...base, type: "settings", state: { tab: "app" } };
-    case "ai":
       return {
         ...base,
-        type: "ai",
-        state: tab.state ?? { tab: null },
+        type: "settings",
+        state: { tab: (tab.state?.tab as SettingsTab) ?? "app" },
       };
     case "search":
       return {
@@ -264,8 +258,6 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return "changelog";
     case "settings":
       return `settings`;
-    case "ai":
-      return `ai`;
     case "search":
       return `search`;
     case "chat_support":
