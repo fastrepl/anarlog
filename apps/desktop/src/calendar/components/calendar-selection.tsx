@@ -1,5 +1,10 @@
-import { CalendarOffIcon, CheckIcon, Loader2Icon } from "lucide-react";
-import { useMemo } from "react";
+import {
+  CalendarOffIcon,
+  CheckIcon,
+  EllipsisIcon,
+  Loader2Icon,
+} from "lucide-react";
+import { type MouseEvent, useMemo } from "react";
 
 import {
   Accordion,
@@ -9,6 +14,11 @@ import {
 } from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
+
 export interface CalendarItem {
   id: string;
   title: string;
@@ -17,8 +27,10 @@ export interface CalendarItem {
 }
 
 export interface CalendarGroup {
+  id?: string;
   sourceName: string;
   calendars: CalendarItem[];
+  menuItems?: MenuItemDef[];
 }
 
 interface CalendarSelectionProps {
@@ -37,7 +49,7 @@ export function CalendarSelection({
   disableHoverTone,
 }: CalendarSelectionProps) {
   const defaultOpen = useMemo(
-    () => groups.map((group) => group.sourceName),
+    () => groups.map((group) => group.id ?? group.sourceName),
     [groups],
   );
   const accordionKey = groups.length === 0 ? "empty" : "loaded";
@@ -68,6 +80,8 @@ export function CalendarSelection({
   if (groups.length === 1) {
     return (
       <div className={cn(["flex flex-col gap-1 px-2", className])}>
+        <CalendarGroupHeader group={groups[0]} />
+
         {groups[0].calendars.map((cal) => (
           <CalendarToggleRow
             key={cal.id}
@@ -90,22 +104,14 @@ export function CalendarSelection({
       {groups.map((group) => {
         return (
           <AccordionItem
-            key={group.sourceName}
-            value={group.sourceName}
+            key={group.id ?? group.sourceName}
+            value={group.id ?? group.sourceName}
             className="border-none px-2"
           >
-            <AccordionTrigger
-              className={cn([
-                "cursor-pointer py-2 hover:no-underline",
-                "[&>svg]:opacity-0 [&>svg]:transition-opacity hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100",
-                "-mx-2 rounded-md px-2",
-                !disableHoverTone && "hover:bg-neutral-50",
-              ])}
-            >
-              <span className="text-xs font-medium text-neutral-600">
-                {group.sourceName}
-              </span>
-            </AccordionTrigger>
+            <CalendarGroupAccordionHeader
+              group={group}
+              disableHoverTone={disableHoverTone}
+            />
             <AccordionContent className="pb-2">
               <div className="flex flex-col gap-1">
                 {group.calendars.map((cal) => (
@@ -122,6 +128,81 @@ export function CalendarSelection({
         );
       })}
     </Accordion>
+  );
+}
+
+function CalendarGroupAccordionHeader({
+  group,
+  disableHoverTone,
+}: {
+  group: CalendarGroup;
+  disableHoverTone?: boolean;
+}) {
+  const showContextMenu = useNativeContextMenu(group.menuItems ?? []);
+  const hasMenu = (group.menuItems?.length ?? 0) > 0;
+
+  return (
+    <div
+      onContextMenu={hasMenu ? showContextMenu : undefined}
+      className={cn([
+        "group -mx-2 flex items-center rounded-md px-2",
+        !disableHoverTone && "hover:bg-neutral-50",
+      ])}
+    >
+      <AccordionTrigger
+        className={cn([
+          "cursor-pointer py-2 hover:no-underline",
+          "min-w-0 flex-1",
+          "[&>svg]:opacity-0 [&>svg]:transition-opacity group-hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100",
+        ])}
+      >
+        <span className="truncate text-xs font-medium text-neutral-600">
+          {group.sourceName}
+        </span>
+      </AccordionTrigger>
+
+      {hasMenu && <CalendarGroupMenuButton onClick={showContextMenu} />}
+    </div>
+  );
+}
+
+function CalendarGroupHeader({ group }: { group: CalendarGroup }) {
+  const showContextMenu = useNativeContextMenu(group.menuItems ?? []);
+  const hasMenu = (group.menuItems?.length ?? 0) > 0;
+
+  if (!hasMenu) return null;
+
+  return (
+    <div
+      onContextMenu={showContextMenu}
+      className="group flex items-center justify-between gap-2 py-1"
+    >
+      <span className="truncate text-xs font-medium text-neutral-600">
+        {group.sourceName}
+      </span>
+      <CalendarGroupMenuButton onClick={showContextMenu} />
+    </div>
+  );
+}
+
+function CalendarGroupMenuButton({
+  onClick,
+}: {
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn([
+        "shrink-0 rounded p-1 text-neutral-400 transition-colors",
+        "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+        "hover:bg-neutral-200 hover:text-neutral-700",
+      ])}
+      aria-label="Open calendar account actions"
+    >
+      <EllipsisIcon className="size-4" />
+    </button>
   );
 }
 

@@ -13,11 +13,7 @@ import {
   OAuthCalendarSelection,
   useOAuthCalendarSelection,
 } from "./calendar-selection";
-import {
-  type ConnectionAction,
-  ConnectionActionList,
-  ReconnectRequiredIndicator,
-} from "./status";
+import { ReconnectRequiredIndicator } from "./status";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
@@ -190,37 +186,52 @@ function ConnectedContent({
   const { groups, connectionSourceMap, handleToggle, isLoading } =
     useOAuthCalendarSelection(config);
 
-  const connectionActions = useMemo(
-    (): ConnectionAction[] =>
-      connections.map((c) => ({
-        connectionId: c.connection_id,
-        label: connectionSourceMap.get(c.connection_id) ?? c.connection_id,
-        onReconnect: () =>
-          openIntegrationUrl(
-            config.nangoIntegrationId,
-            c.connection_id,
-            "reconnect",
-          ),
-        onDisconnect: () =>
-          openIntegrationUrl(
-            config.nangoIntegrationId,
-            c.connection_id,
-            "disconnect",
-          ),
-      })),
-    [connections, config.nangoIntegrationId, connectionSourceMap],
+  const groupsWithMenus = useMemo(
+    () =>
+      groups.map((group) => {
+        const connection = connections.find(
+          (item) =>
+            item.connection_id === group.id ||
+            connectionSourceMap.get(item.connection_id) === group.sourceName,
+        );
+
+        if (!connection) return group;
+
+        return {
+          ...group,
+          menuItems: [
+            {
+              id: `reconnect-${connection.connection_id}`,
+              text: "Reconnect",
+              action: () =>
+                void openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "reconnect",
+                ),
+            },
+            {
+              id: `disconnect-${connection.connection_id}`,
+              text: "Disconnect",
+              action: () =>
+                void openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "disconnect",
+                ),
+            },
+          ],
+        };
+      }),
+    [config.nangoIntegrationId, connectionSourceMap, connections, groups],
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <OAuthCalendarSelection
-        groups={groups}
-        onToggle={handleToggle}
-        isLoading={isLoading}
-      />
-
-      <ConnectionActionList connections={connectionActions} />
-    </div>
+    <OAuthCalendarSelection
+      groups={groupsWithMenus}
+      onToggle={handleToggle}
+      isLoading={isLoading}
+    />
   );
 }
 
