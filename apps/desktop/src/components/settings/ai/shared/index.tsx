@@ -186,15 +186,29 @@ export function NonHyprProviderCard({
               )}
             </form.Field>
           )}
-          {!showBaseUrl && config.baseUrl && (
+          {((!showBaseUrl && config.baseUrl) || !showApiKey) && (
             <details className="flex flex-col gap-4 pt-2">
               <summary className="text-xs cursor-pointer text-neutral-600 hover:text-neutral-900 hover:underline">
                 Advanced
               </summary>
-              <div className="mt-4">
-                <form.Field name="base_url">
-                  {(field) => <FormField field={field} label="Base URL" />}
-                </form.Field>
+              <div className="mt-4 flex flex-col gap-4">
+                {!showBaseUrl && config.baseUrl && (
+                  <form.Field name="base_url">
+                    {(field) => <FormField field={field} label="Base URL" />}
+                  </form.Field>
+                )}
+                {!showApiKey && (
+                  <form.Field name="api_key">
+                    {(field) => (
+                      <FormField
+                        field={field}
+                        label="API Key"
+                        placeholder="Enter your API key (optional)"
+                        type="password"
+                      />
+                    )}
+                  </form.Field>
+                )}
               </div>
             </details>
           )}
