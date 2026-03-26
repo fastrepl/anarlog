@@ -17,7 +17,7 @@ import { SyncProvider, useSync } from "~/calendar/components/context";
 import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-selection";
 import {
   type ConnectionAction,
-  ConnectionTroubleShootingLink,
+  ConnectionActionList,
   ReconnectRequiredIndicator,
 } from "~/calendar/components/oauth/status";
 import { PROVIDERS } from "~/calendar/components/shared";
@@ -157,8 +157,6 @@ function GoogleCalendarConnectedContent({
 
   return (
     <div className="flex flex-col gap-3">
-      <ConnectionTroubleShootingLink connections={connectionActions} />
-
       <CalendarSelection
         groups={groups}
         onToggle={handleToggle}
@@ -166,6 +164,8 @@ function GoogleCalendarConnectedContent({
         disableHoverTone
         className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
+
+      <ConnectionActionList connections={connectionActions} />
 
       <button
         type="button"

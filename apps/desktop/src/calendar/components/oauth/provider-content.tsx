@@ -15,7 +15,7 @@ import {
 } from "./calendar-selection";
 import {
   type ConnectionAction,
-  ConnectionTroubleShootingLink,
+  ConnectionActionList,
   ReconnectRequiredIndicator,
 } from "./status";
 
@@ -213,13 +213,13 @@ function ConnectedContent({
 
   return (
     <div className="flex flex-col gap-2">
-      <ConnectionTroubleShootingLink connections={connectionActions} />
-
       <OAuthCalendarSelection
         groups={groups}
         onToggle={handleToggle}
         isLoading={isLoading}
       />
+
+      <ConnectionActionList connections={connectionActions} />
     </div>
   );
 }

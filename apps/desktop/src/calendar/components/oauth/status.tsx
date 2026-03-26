@@ -1,6 +1,3 @@
-import { ArrowLeftIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-
 import {
   Tooltip,
   TooltipContent,
@@ -37,107 +34,30 @@ export interface ConnectionAction {
   onDisconnect: () => void;
 }
 
-export function ConnectionTroubleShootingLink({
+export function ConnectionActionList({
   connections,
 }: {
   connections: ConnectionAction[];
 }) {
-  const [showActions, setShowActions] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [pickerPos, setPickerPos] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-
-  useEffect(() => {
-    setShowActions(false);
-    setSelectedIndex(0);
-    setPickerPos(null);
-  }, [connections]);
-
   if (connections.length === 0) return null;
 
-  const selected = connections[selectedIndex];
-  const hasMultiple = connections.length > 1;
-
-  const handleClick = (e: React.MouseEvent) => {
-    if (hasMultiple) {
-      setPickerPos({ x: e.clientX, y: e.clientY });
-    } else {
-      setShowActions(true);
-    }
-  };
-
-  const handlePickConnection = (i: number) => {
-    setSelectedIndex(i);
-    setPickerPos(null);
-    setShowActions(true);
-  };
-
   return (
-    <div className="text-xs text-neutral-600">
-      {!showActions ? (
-        <>
-          <button
-            type="button"
-            onClick={handleClick}
-            className="underline transition-colors hover:text-neutral-900"
-          >
-            Having trouble?
-          </button>
-          {pickerPos && (
-            <>
-              <div
-                className="fixed inset-0 z-50"
-                onClick={() => setPickerPos(null)}
-              />
-              <div
-                className="fixed z-50 rounded border bg-white py-1 shadow-md"
-                style={{ left: pickerPos.x, top: pickerPos.y }}
-              >
-                {connections.map((conn, i) => (
-                  <button
-                    key={conn.connectionId}
-                    type="button"
-                    onClick={() => handlePickConnection(i)}
-                    className={cn([
-                      "block w-full truncate px-3 py-1.5 text-left text-xs",
-                      "transition-colors hover:bg-neutral-50",
-                    ])}
-                  >
-                    {conn.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </>
-      ) : (
-        <div>
-          <ConnectedIndicator />{" "}
-          {hasMultiple && (
-            <span className="font-medium text-neutral-800">
-              {selected.label}
-            </span>
-          )}
-          {hasMultiple && " — "}
-          <ActionLink onClick={selected.onReconnect}>Reconnect</ActionLink> or{" "}
+    <div className="flex flex-col gap-1 text-xs text-neutral-600">
+      {connections.map((connection) => (
+        <div key={connection.connectionId} className="flex flex-wrap gap-x-1.5">
+          <span className="font-medium text-neutral-800">
+            {connection.label}
+          </span>
+          <ActionLink onClick={connection.onReconnect}>Reconnect</ActionLink>
+          <span className="text-neutral-400">or</span>
           <ActionLink
-            onClick={selected.onDisconnect}
+            onClick={connection.onDisconnect}
             className="text-red-500 hover:text-red-700"
           >
             Disconnect
           </ActionLink>
-          .{" "}
-          <ActionLink
-            onClick={() => {
-              setShowActions(false);
-              setPickerPos(null);
-            }}
-          >
-            <ArrowLeftIcon className="inline-block size-3" /> Back
-          </ActionLink>
         </div>
-      )}
+      ))}
     </div>
   );
 }
