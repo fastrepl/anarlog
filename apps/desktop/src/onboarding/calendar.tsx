@@ -2,7 +2,6 @@ import { platform } from "@tauri-apps/plugin-os";
 import { PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 
 import { OnboardingButton, OnboardingCharIcon } from "./shared";
@@ -15,11 +14,6 @@ import { TroubleShootingLink } from "~/calendar/components/apple/permission";
 import { CalendarSelection } from "~/calendar/components/calendar-selection";
 import { SyncProvider, useSync } from "~/calendar/components/context";
 import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-selection";
-import {
-  type ConnectionAction,
-  ConnectionActionList,
-  ReconnectRequiredIndicator,
-} from "~/calendar/components/oauth/status";
 import { PROVIDERS } from "~/calendar/components/shared";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
@@ -119,41 +113,15 @@ function AppleCalendarProvider({
   );
 }
 
-function GoogleCalendarConnectedContent({
-  connections,
-}: {
-  connections: ConnectionItem[];
-}) {
+function GoogleCalendarConnectedContent() {
   const { scheduleSync } = useSync();
-  const { groups, connectionSourceMap, handleToggle, isLoading } =
-    useOAuthCalendarSelection(GOOGLE_PROVIDER!);
+  const { groups, handleToggle, isLoading } = useOAuthCalendarSelection(
+    GOOGLE_PROVIDER!,
+  );
 
   useMountEffect(() => {
     scheduleSync();
   });
-
-  const connectionActions = useMemo(
-    (): ConnectionAction[] =>
-      connections.map((connection) => ({
-        connectionId: connection.connection_id,
-        label:
-          connectionSourceMap.get(connection.connection_id) ??
-          connection.connection_id,
-        onReconnect: () =>
-          void openOnboardingIntegrationUrl(
-            GOOGLE_PROVIDER?.nangoIntegrationId,
-            connection.connection_id,
-            "reconnect",
-          ),
-        onDisconnect: () =>
-          void openOnboardingIntegrationUrl(
-            GOOGLE_PROVIDER?.nangoIntegrationId,
-            connection.connection_id,
-            "disconnect",
-          ),
-      })),
-    [connectionSourceMap, connections],
-  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -164,8 +132,6 @@ function GoogleCalendarConnectedContent({
         disableHoverTone
         className="rounded-xl border border-white/45 bg-white/28 shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_8px_24px_-20px_rgba(87,83,78,0.35)] backdrop-blur-md backdrop-saturate-150"
       />
-
-      <ConnectionActionList connections={connectionActions} />
 
       <button
         type="button"
@@ -197,9 +163,6 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       ) ?? [],
     [connections],
   );
-  const reconnectRequired = providerConnections.filter(
-    (connection) => connection.status === "reconnect_required",
-  );
 
   const handleConnect = useCallback(() => {
     if (!auth.session) {
@@ -230,59 +193,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   }
 
   if (providerConnections.length > 0) {
-    return (
-      <div className="flex flex-col gap-3">
-        {reconnectRequired.map((connection) => (
-          <div
-            key={connection.connection_id}
-            className="flex flex-col gap-2 rounded-xl border border-amber-200/70 bg-amber-50/70 px-4 py-3"
-          >
-            <div className="flex items-center gap-2 text-sm text-amber-800">
-              <ReconnectRequiredIndicator />
-              <span>Reconnect required for Google Calendar</span>
-            </div>
-
-            {connection.last_error_description && (
-              <p className="text-sm text-amber-900/80">
-                {connection.last_error_description}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() =>
-                  void openOnboardingIntegrationUrl(
-                    GOOGLE_PROVIDER.nangoIntegrationId,
-                    connection.connection_id,
-                    "reconnect",
-                  )
-                }
-                className="underline transition-colors hover:text-neutral-900"
-              >
-                Reconnect
-              </button>
-              <span className="text-neutral-400">or</span>
-              <button
-                type="button"
-                onClick={() =>
-                  void openOnboardingIntegrationUrl(
-                    GOOGLE_PROVIDER.nangoIntegrationId,
-                    connection.connection_id,
-                    "disconnect",
-                  )
-                }
-                className="text-red-500 underline transition-colors hover:text-red-700"
-              >
-                Disconnect
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <GoogleCalendarConnectedContent connections={providerConnections} />
-      </div>
-    );
+    return <GoogleCalendarConnectedContent />;
   }
 
   const isSignedIn = !!auth.session;
