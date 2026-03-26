@@ -46,7 +46,6 @@ export function LeftSidebar() {
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
   const isContactsMode = currentTab?.type === "contacts";
-  const isCalendarMode = currentTab?.type === "calendar";
   const showCollapseButton =
     !isSettingsMode && !isContactsMode && !isCalendarMode;
   const showSearchResults =

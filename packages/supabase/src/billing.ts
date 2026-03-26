@@ -24,8 +24,7 @@ export function deriveBillingInfo(
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
 
-  const isPro =
-    hasProEntitlement || isTrialing || subscriptionStatus === "active";
+  const isPro = hasProEntitlement || isTrialing;
   const isLite = hasLiteEntitlement && !hasProEntitlement;
   const isPaid =
     hasProEntitlement ||

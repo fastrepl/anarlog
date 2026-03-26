@@ -270,8 +270,11 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
 
         {plan.price ? (
           <Link
-            to="/auth/"
-            search={{ flow: "web" }}
+            to="/app/checkout/"
+            search={{
+              plan: plan.name.toLowerCase() as "lite" | "pro",
+              period: "monthly",
+            }}
             className={cn([
               "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
               plan.popular
