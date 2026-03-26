@@ -38,19 +38,41 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
       ([_, cal]) => cal.provider === config.id,
     );
 
-    const grouped = new Map<string, CalendarItem[]>();
     const sourceMap = new Map<string, string>();
 
-    // If there's only one non-null source (i.e. one connection),
-    // merge null-source calendars (Google-provided calendars) into the same group
+    for (const [_, cal] of providerCalendars) {
+      // HACK: derive connection_id -> source mapping from calendar entries
+      if (cal.source && cal.connection_id) {
+        sourceMap.set(cal.connection_id as string, cal.source as string);
+      }
+    }
+
     const nonNullSources = new Set(
-      providerCalendars.map(([_, cal]) => cal.source).filter(Boolean),
+      providerCalendars
+        .map(([_, cal]) => {
+          if (cal.source) {
+            return cal.source;
+          }
+          if (cal.connection_id) {
+            return sourceMap.get(cal.connection_id as string);
+          }
+          return undefined;
+        })
+        .filter(Boolean),
     );
     const singleSource =
       nonNullSources.size === 1 ? ([...nonNullSources][0] as string) : null;
 
+    const grouped = new Map<string, CalendarItem[]>();
+
     for (const [id, cal] of providerCalendars) {
-      const source = cal.source || singleSource || config.displayName;
+      const source =
+        cal.source ||
+        (cal.connection_id
+          ? sourceMap.get(cal.connection_id as string)
+          : undefined) ||
+        singleSource ||
+        config.displayName;
       if (!grouped.has(source)) grouped.set(source, []);
       grouped.get(source)!.push({
         id,
@@ -58,11 +80,6 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
         color: cal.color ?? "#4285f4",
         enabled: cal.enabled ?? false,
       });
-
-      // HACK: derive connection_id → source mapping from calendar entries
-      if (cal.source && cal.connection_id) {
-        sourceMap.set(cal.connection_id as string, cal.source as string);
-      }
     }
 
     return {
