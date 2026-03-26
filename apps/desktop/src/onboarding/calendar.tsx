@@ -2,6 +2,7 @@ import { platform } from "@tauri-apps/plugin-os";
 import { PlusIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import type { ConnectionItem } from "@hypr/api-client";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 
 import { OnboardingButton, OnboardingCharIcon } from "./shared";
@@ -17,6 +18,7 @@ import {
 } from "~/calendar/components/calendar-selection";
 import { SyncProvider, useSync } from "~/calendar/components/context";
 import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-selection";
+import { ReconnectRequiredIndicator } from "~/calendar/components/oauth/status";
 import { PROVIDERS } from "~/calendar/components/shared";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
@@ -125,10 +127,29 @@ function AppleCalendarProvider({
   );
 }
 
-function GoogleCalendarConnectedContent() {
+function GoogleCalendarConnectedContent({
+  providerConnections,
+}: {
+  providerConnections: ConnectionItem[];
+}) {
   const { scheduleSync } = useSync();
-  const { groups, handleToggle, isLoading } = useOAuthCalendarSelection(
-    GOOGLE_PROVIDER!,
+  const { groups, connectionSourceMap, handleToggle, isLoading } =
+    useOAuthCalendarSelection(GOOGLE_PROVIDER!);
+  const reconnectRequiredConnections = useMemo(
+    () =>
+      providerConnections.filter(
+        (connection) => connection.status === "reconnect_required",
+      ),
+    [providerConnections],
+  );
+  const groupsWithMenus = useMemo(
+    () =>
+      addIntegrationMenus({
+        groups,
+        connections: providerConnections,
+        connectionSourceMap,
+      }),
+    [connectionSourceMap, groups, providerConnections],
   );
 
   useMountEffect(() => {
@@ -137,9 +158,21 @@ function GoogleCalendarConnectedContent() {
 
   return (
     <div className="flex flex-col gap-3">
+      {reconnectRequiredConnections.length > 0 && (
+        <div className="flex items-start gap-2 text-sm text-amber-700">
+          <span className="pt-1">
+            <ReconnectRequiredIndicator />
+          </span>
+          <p>
+            Some Google Calendar accounts need attention. Open the account menu
+            to reconnect or disconnect them.
+          </p>
+        </div>
+      )}
+
       <CalendarSelection
-        key={getCalendarSelectionKey(groups)}
-        groups={groups}
+        key={getCalendarSelectionKey(groupsWithMenus)}
+        groups={groupsWithMenus}
         onToggle={handleToggle}
         isLoading={isLoading}
         disableHoverTone
@@ -162,6 +195,52 @@ function GoogleCalendarConnectedContent() {
       </button>
     </div>
   );
+}
+
+function addIntegrationMenus({
+  groups,
+  connections,
+  connectionSourceMap,
+}: {
+  groups: CalendarGroup[];
+  connections: ConnectionItem[];
+  connectionSourceMap: Map<string, string>;
+}) {
+  return groups.map((group) => {
+    const connection = connections.find(
+      (item) =>
+        item.connection_id === group.id ||
+        connectionSourceMap.get(item.connection_id) === group.sourceName,
+    );
+
+    if (!connection) return group;
+
+    return {
+      ...group,
+      menuItems: [
+        {
+          id: `reconnect-${connection.connection_id}`,
+          text: "Reconnect",
+          action: () =>
+            void openOnboardingIntegrationUrl(
+              GOOGLE_PROVIDER?.nangoIntegrationId,
+              connection.connection_id,
+              "reconnect",
+            ),
+        },
+        {
+          id: `disconnect-${connection.connection_id}`,
+          text: "Disconnect",
+          action: () =>
+            void openOnboardingIntegrationUrl(
+              GOOGLE_PROVIDER?.nangoIntegrationId,
+              connection.connection_id,
+              "disconnect",
+            ),
+        },
+      ],
+    };
+  });
 }
 
 function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
@@ -206,7 +285,11 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   }
 
   if (providerConnections.length > 0) {
-    return <GoogleCalendarConnectedContent />;
+    return (
+      <GoogleCalendarConnectedContent
+        providerConnections={providerConnections}
+      />
+    );
   }
 
   const isSignedIn = !!auth.session;
