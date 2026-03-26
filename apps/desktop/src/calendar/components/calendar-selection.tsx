@@ -1,5 +1,6 @@
 import {
   CalendarOffIcon,
+  ChevronDown,
   CheckIcon,
   EllipsisIcon,
   Loader2Icon,
@@ -9,8 +10,9 @@ import { type MouseEvent, useMemo } from "react";
 import {
   Accordion,
   AccordionContent,
+  AccordionHeader,
   AccordionItem,
-  AccordionTrigger,
+  AccordionTriggerPrimitive,
 } from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
@@ -106,7 +108,7 @@ export function CalendarSelection({
           <AccordionItem
             key={group.id ?? group.sourceName}
             value={group.id ?? group.sourceName}
-            className="border-none px-2"
+            className="group/group border-none px-2"
           >
             <CalendarGroupAccordionHeader
               group={group}
@@ -145,23 +147,26 @@ function CalendarGroupAccordionHeader({
     <div
       onContextMenu={hasMenu ? showContextMenu : undefined}
       className={cn([
-        "group -mx-2 flex items-center rounded-md px-2",
+        "group -mx-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md px-2",
         !disableHoverTone && "hover:bg-neutral-50",
       ])}
     >
-      <AccordionTrigger
-        className={cn([
-          "cursor-pointer py-2 hover:no-underline",
-          "min-w-0 flex-1",
-          "[&>svg]:opacity-0 [&>svg]:transition-opacity group-hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100",
-        ])}
-      >
-        <span className="truncate text-xs font-medium text-neutral-600">
-          {group.sourceName}
-        </span>
-      </AccordionTrigger>
+      <AccordionHeader className="min-w-0">
+        <AccordionTriggerPrimitive className="flex w-full min-w-0 cursor-pointer items-center py-2 text-left hover:no-underline">
+          <span className="truncate text-xs font-medium text-neutral-600">
+            {group.sourceName}
+          </span>
+        </AccordionTriggerPrimitive>
+      </AccordionHeader>
 
       {hasMenu && <CalendarGroupMenuButton onClick={showContextMenu} />}
+
+      <ChevronDown
+        className={cn([
+          "size-4 shrink-0 text-neutral-500 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
+          "group-data-[state=open]/group:rotate-180",
+        ])}
+      />
     </div>
   );
 }

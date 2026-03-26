@@ -5,6 +5,7 @@ import * as React from "react";
 import { cn } from "@hypr/utils";
 
 const Accordion = AccordionPrimitive.Root;
+const AccordionHeader = AccordionPrimitive.Header;
 
 const AccordionItem = React.forwardRef<
   React.ComponentRef<typeof AccordionPrimitive.Item>,
@@ -52,4 +53,13 @@ const AccordionContent = React.forwardRef<
 ));
 AccordionContent.displayName = AccordionPrimitive.Content.displayName;
 
-export { Accordion, AccordionContent, AccordionItem, AccordionTrigger };
+const AccordionTriggerPrimitive = AccordionPrimitive.Trigger;
+
+export {
+  Accordion,
+  AccordionContent,
+  AccordionHeader,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionTriggerPrimitive,
+};

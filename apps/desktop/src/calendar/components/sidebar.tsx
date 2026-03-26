@@ -1,12 +1,13 @@
 import { platform } from "@tauri-apps/plugin-os";
-import { PlusIcon } from "lucide-react";
+import { ChevronDown, PlusIcon } from "lucide-react";
 import { useCallback, type MouseEvent, useMemo } from "react";
 
 import {
   Accordion,
   AccordionContent,
+  AccordionHeader,
   AccordionItem,
-  AccordionTrigger,
+  AccordionTriggerPrimitive,
 } from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
@@ -143,27 +144,31 @@ function ProviderAccordionItem({
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
 
   return (
-    <AccordionItem value={provider.id} className="border-none">
+    <AccordionItem value={provider.id} className="group/provider border-none">
       <div
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
-        className="group -mx-2 flex items-center rounded-md px-2 hover:bg-neutral-50"
+        className="group -mx-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md px-2 hover:bg-neutral-50"
       >
-        <AccordionTrigger
-          className="min-w-0 flex-1 py-2 hover:no-underline [&>svg]:opacity-0 [&>svg]:transition-opacity group-hover:[&>svg]:opacity-100 focus-visible:[&>svg]:opacity-100"
-          onClick={handleTriggerClick}
-        >
-          <div className="flex items-center gap-2">
-            {provider.icon}
-            <span className="text-sm font-medium">{provider.displayName}</span>
-            {provider.badge && (
-              <span className={getProviderBadgeClassName(provider.badge)}>
-                {provider.badge}
+        <AccordionHeader className="min-w-0">
+          <AccordionTriggerPrimitive
+            className="flex w-full min-w-0 items-center py-2 text-left text-sm font-medium transition-all hover:no-underline"
+            onClick={handleTriggerClick}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              {provider.icon}
+              <span className="text-sm font-medium">
+                {provider.displayName}
               </span>
-            )}
-          </div>
-        </AccordionTrigger>
+              {provider.badge && (
+                <span className={getProviderBadgeClassName(provider.badge)}>
+                  {provider.badge}
+                </span>
+              )}
+            </div>
+          </AccordionTriggerPrimitive>
+        </AccordionHeader>
 
         {canAddAccount && (
           <button
@@ -175,6 +180,13 @@ function ProviderAccordionItem({
             <PlusIcon className="size-4" />
           </button>
         )}
+
+        <ChevronDown
+          className={cn([
+            "size-4 shrink-0 text-neutral-500 opacity-0 transition-all duration-200 group-hover:opacity-100 focus-within:opacity-100",
+            "group-data-[state=open]/provider:rotate-180",
+          ])}
+        />
       </div>
       <AccordionContent className="pb-2">
         {provider.id === "apple" && (
