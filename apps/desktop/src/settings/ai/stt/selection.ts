@@ -1,13 +1,30 @@
+type ModelEntry = {
+  id: string;
+  isDownloaded?: boolean;
+};
+
+type PreferredProviderModelOptions = {
+  allowSavedModelWithoutChoices?: boolean;
+};
+
 export function getPreferredProviderModel(
   savedModel: string | undefined,
-  models: Array<{ id: string }>,
+  models: ModelEntry[],
+  options?: PreferredProviderModelOptions,
 ) {
-  if (
-    savedModel &&
-    (models.length === 0 || models.some((model) => model.id === savedModel))
-  ) {
+  const selectableModels = models.filter((model) => model.isDownloaded ?? true);
+
+  if (savedModel && selectableModels.some((model) => model.id === savedModel)) {
     return savedModel;
   }
 
-  return models[0]?.id ?? "";
+  if (selectableModels.length > 0) {
+    return selectableModels[0].id;
+  }
+
+  if (options?.allowSavedModelWithoutChoices) {
+    return savedModel ?? "";
+  }
+
+  return "";
 }

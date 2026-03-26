@@ -30,9 +30,28 @@ describe("getPreferredProviderModel", () => {
     ).toBe("nova-3-general");
   });
 
+  test("skips models that are not selectable", () => {
+    expect(
+      getPreferredProviderModel(undefined, [
+        { id: "cloud", isDownloaded: false },
+        { id: "am-whisper-large-v3", isDownloaded: true },
+      ]),
+    ).toBe("am-whisper-large-v3");
+  });
+
+  test("clears the selection when a provider has no selectable models", () => {
+    expect(
+      getPreferredProviderModel("cloud", [
+        { id: "cloud", isDownloaded: false },
+      ]),
+    ).toBe("");
+  });
+
   test("keeps the remembered value when the provider does not expose a static list", () => {
-    expect(getPreferredProviderModel("whisper-large-v3", [])).toBe(
-      "whisper-large-v3",
-    );
+    expect(
+      getPreferredProviderModel("whisper-large-v3", [], {
+        allowSavedModelWithoutChoices: true,
+      }),
+    ).toBe("whisper-large-v3");
   });
 });

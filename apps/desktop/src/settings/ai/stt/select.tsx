@@ -98,7 +98,7 @@ export function SelectProviderAndModel() {
       : {},
   );
   const rememberModel = (provider?: string, model?: string) => {
-    if (!provider || !model) {
+    if (!provider || model === undefined) {
       return;
     }
 
@@ -108,11 +108,12 @@ export function SelectProviderAndModel() {
   const handleProviderChange = (provider: string) => {
     rememberModel(current_stt_provider, current_stt_model);
 
-    const nextModels =
-      configuredProviders[provider as ProviderId]?.models ?? [];
+    const providerId = provider as ProviderId;
+    const nextModels = configuredProviders[providerId]?.models ?? [];
     const nextModel = getPreferredProviderModel(
       lastSelectedModelsRef.current[provider],
       nextModels,
+      { allowSavedModelWithoutChoices: providerId === "custom" },
     );
 
     rememberModel(provider, nextModel);
