@@ -22,8 +22,8 @@ import { buildWebAppUrl } from "~/shared/utils";
 
 export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
-  const { isPro, upgradeToPro } = useBillingAccess();
-  const { data: connections, isError } = useConnections(isPro);
+  const { isPaid, upgradeToPro } = useBillingAccess();
+  const { data: connections, isError } = useConnections(isPaid);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -57,14 +57,14 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
     );
   }
 
-  if (!isPro) {
+  if (!isPaid) {
     return (
       <div className="pt-1 pb-2">
         <button
           onClick={upgradeToPro}
           className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
         >
-          Upgrade to Pro to connect
+          Upgrade to connect
         </button>
       </div>
     );

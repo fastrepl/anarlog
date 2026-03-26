@@ -26,6 +26,7 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: requiredInProd(z.string().min(1)),
     STRIPE_MONTHLY_PRICE_ID: requiredInProd(z.string().min(1)),
     STRIPE_YEARLY_PRICE_ID: requiredInProd(z.string().min(1)),
+    STRIPE_LITE_MONTHLY_PRICE_ID: requiredInProd(z.string().min(1)),
 
     LOOPS_KEY: requiredInProd(z.string().min(1)),
 

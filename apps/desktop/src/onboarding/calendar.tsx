@@ -244,8 +244,8 @@ function addIntegrationMenus({
 
 function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
   const auth = useAuth();
-  const { isPro, isReady, upgradeToPro } = useBillingAccess();
-  const { data: connections, isPending, isError } = useConnections(isPro);
+  const { isPaid, isReady, upgradeToPro } = useBillingAccess();
+  const { data: connections, isPending, isError } = useConnections(isPaid);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -261,7 +261,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       return;
     }
 
-    if (!isPro) {
+    if (!isPaid) {
       upgradeToPro();
       return;
     }
@@ -271,7 +271,7 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       undefined,
       "connect",
     );
-  }, [auth.session, isPro, onSignIn, upgradeToPro]);
+  }, [auth.session, isPaid, onSignIn, upgradeToPro]);
 
   if (!GOOGLE_PROVIDER) {
     return null;

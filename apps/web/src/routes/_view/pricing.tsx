@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_view/pricing")({
 
 interface PricingPlan {
   name: string;
-  price: { monthly: number; yearly: number } | null;
+  price: { monthly: number; yearly: number | null } | null;
   description: string;
   popular?: boolean;
   features: Array<{
@@ -52,6 +52,28 @@ const pricingPlans: PricingPlan[] = [
       { label: "Chat", included: true },
       { label: "Integrations", included: false },
       { label: "Cloud Services (STT & LLM)", included: false },
+      { label: "Cloud Sync", included: false },
+      { label: "Shareable Links", included: false },
+    ],
+  },
+  {
+    name: "Lite",
+    price: {
+      monthly: 8,
+      yearly: null,
+    },
+    description:
+      "Cloud AI without the complexity. No API keys needed — just sign in and go.",
+    features: [
+      { label: "Everything in Free", included: true },
+      { label: "Cloud Services (STT & LLM)", included: true },
+      {
+        label: "Integrations",
+        included: true,
+        tooltip:
+          "Google Calendar is available now. Additional integrations are in progress.",
+      },
+      { label: "Advanced Templates", included: false },
       { label: "Cloud Sync", included: false },
       { label: "Shareable Links", included: false },
     ],
@@ -134,7 +156,7 @@ function HeroSection() {
 function PricingCardsSection() {
   return (
     <section className="laptop:px-0 px-4 py-16">
-      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
+      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
         {pricingPlans.map((plan) => (
           <PricingCard key={plan.name} plan={plan} />
         ))}
@@ -174,9 +196,11 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                 </span>
                 <span className="text-neutral-600">/month</span>
               </div>
-              <div className="text-sm text-neutral-600">
-                or ${plan.price.yearly}/year
-              </div>
+              {plan.price.yearly != null && (
+                <div className="text-sm text-neutral-600">
+                  or ${plan.price.yearly}/year
+                </div>
+              )}
             </div>
           ) : (
             <div className="font-serif text-4xl text-stone-700">Free</div>
@@ -250,7 +274,9 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
             search={{ flow: "web" }}
             className={cn([
               "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+              plan.popular
+                ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >
             Get Started

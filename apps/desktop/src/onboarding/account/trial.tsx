@@ -16,7 +16,7 @@ import * as settings from "~/store/tinybase/store/settings";
 export type TrialPhase =
   | "checking"
   | "starting"
-  | "already-pro"
+  | "already-paid"
   | "already-trialing"
   | { done: StartTrialReason | "error" };
 
@@ -60,11 +60,11 @@ export function useTrialFlow(onContinue: () => void) {
   useEffect(() => {
     if (!auth?.session || !billing.isReady || hasTriggeredRef.current) return;
 
-    if (billing.isPro && !billing.isTrialing) {
+    if (billing.isPaid && !billing.isTrialing) {
       hasTriggeredRef.current = true;
       void analyticsCommands.event({
         event: "trial_flow_skipped",
-        properties: { reason: "already_pro" },
+        properties: { reason: "already_paid" },
       });
       if (store) configureProSettings(store);
       setTimeout(onContinue, 1500);
@@ -89,7 +89,7 @@ export function useTrialFlow(onContinue: () => void) {
   if (!auth?.session) return null;
   if (!billing.isReady) return "checking" as const;
 
-  if (billing.isPro && !billing.isTrialing) return "already-pro" as const;
+  if (billing.isPaid && !billing.isTrialing) return "already-paid" as const;
   if (billing.isTrialing) return "already-trialing" as const;
 
   if (mutation.isPending) return "starting" as const;

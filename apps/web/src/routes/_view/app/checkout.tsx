@@ -6,6 +6,7 @@ import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
 const validateSearch = z.object({
   period: z.enum(["monthly", "yearly"]).catch("monthly"),
+  plan: z.enum(["lite", "pro"]).catch("pro"),
   scheme: desktopSchemeSchema.optional(),
 });
 
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/_view/app/checkout")({
   validateSearch,
   beforeLoad: async ({ search }) => {
     const { url } = await createCheckoutSession({
-      data: { period: search.period, scheme: search.scheme },
+      data: { period: search.period, plan: search.plan, scheme: search.scheme },
     });
 
     if (url) {

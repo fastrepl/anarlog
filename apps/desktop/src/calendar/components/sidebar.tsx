@@ -78,8 +78,8 @@ function ProviderAccordionItem({
   calendar: ReturnType<typeof usePermission>;
 }) {
   const auth = useAuth();
-  const { isPro } = useBillingAccess();
-  const { data: connections, isPending, isError } = useConnections(isPro);
+  const { isPaid } = useBillingAccess();
+  const { data: connections, isPending, isError } = useConnections(isPaid);
   const providerConnections =
     connections?.filter(
       (connection) => connection.integration_id === provider.nangoIntegrationId,
@@ -87,7 +87,7 @@ function ProviderAccordionItem({
   const canAddAccount =
     !!provider.nangoIntegrationId &&
     !!auth.session &&
-    isPro &&
+    isPaid &&
     !isPending &&
     !isError;
   const shouldConnectOnClick =

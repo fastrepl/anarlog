@@ -59,6 +59,7 @@ const getStripeCustomerIdForUser = async (
 
 const createCheckoutSessionInput = z.object({
   period: z.enum(["monthly", "yearly"]),
+  plan: z.enum(["lite", "pro"]).default("pro"),
   scheme: desktopSchemeSchema.optional(),
 });
 
@@ -93,7 +94,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       );
 
       if (activeSubscription) {
-        return { url: null };
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: stripeCustomerId,
+          return_url: `${env.VITE_APP_URL}/app/account`,
+        });
+        return { url: portalSession.url };
       }
     }
 
@@ -121,9 +126,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
 
     const priceId =
-      data.period === "yearly"
-        ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
-        : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+      data.plan === "lite"
+        ? requireEnv(
+            env.STRIPE_LITE_MONTHLY_PRICE_ID,
+            "STRIPE_LITE_MONTHLY_PRICE_ID",
+          )
+        : data.period === "yearly"
+          ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+          : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
     const successParams = new URLSearchParams({ success: "true" });
     if (data.scheme) {

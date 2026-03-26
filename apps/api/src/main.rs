@@ -110,8 +110,8 @@ async fn app() -> Router {
         )
         .build();
 
-    let auth_state_pro =
-        AuthState::new(&env.supabase.supabase_url).with_required_entitlement("hyprnote_pro");
+    let auth_state_pro = AuthState::new(&env.supabase.supabase_url)
+        .with_required_entitlements(vec!["hyprnote_pro".into(), "hyprnote_lite".into()]);
     let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
     let auth_state_support = AuthState::new(&env.supabase.supabase_url);
 

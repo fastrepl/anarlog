@@ -66,6 +66,24 @@ impl SupabaseAuth {
 
         Ok(claims)
     }
+
+    pub async fn require_any_entitlement(
+        &self,
+        token: &str,
+        entitlements: &[&str],
+    ) -> Result<crate::Claims, crate::Error> {
+        let claims = self.verify_token(token).await?;
+
+        let has_any = entitlements
+            .iter()
+            .any(|e| claims.entitlements.contains(&e.to_string()));
+
+        if !has_any {
+            return Err(crate::Error::MissingEntitlement(entitlements.join(" or ")));
+        }
+
+        Ok(claims)
+    }
 }
 
 #[cfg(test)]

@@ -63,7 +63,7 @@ function Component() {
     );
   }
 
-  if (!billing.isPro) {
+  if (!billing.isPaid) {
     return (
       <UpgradePrompt
         integrationId={search.integration_id}

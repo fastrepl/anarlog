@@ -161,7 +161,7 @@ export function SelectProviderAndModel() {
                       provider.requirements,
                       "pro",
                     );
-                    const locked = requiresPro && !billing.isPro;
+                    const locked = requiresPro && !billing.isPaid;
                     return (
                       <SelectItem
                         key={provider.id}
@@ -343,7 +343,7 @@ function useConfiguredMapping(): Record<
       const eligible =
         getProviderSelectionBlockers(provider.requirements, {
           isAuthenticated: true,
-          isPro: billing.isPro,
+          isPaid: billing.isPaid,
           config: { base_url: baseUrl, api_key: apiKey },
         }).length === 0;
 
@@ -353,7 +353,7 @@ function useConfiguredMapping(): Record<
 
       if (provider.id === "hyprnote") {
         const models: ModelEntry[] = [
-          { id: "cloud", isDownloaded: billing.isPro, category: "latest" },
+          { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
         ];
 
         if (isAppleSilicon) {

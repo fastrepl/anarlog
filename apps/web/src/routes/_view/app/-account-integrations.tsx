@@ -19,9 +19,9 @@ const INTEGRATIONS = [
 
 export function IntegrationsSettingsCard() {
   const navigate = useNavigate();
-  const { isPro } = useBilling();
-  const { data: connections, isLoading } = useConnections(isPro);
-  const { data: accounts } = useWhoAmI(isPro);
+  const { isPaid } = useBilling();
+  const { data: connections, isLoading } = useConnections(isPaid);
+  const { data: accounts } = useWhoAmI(isPaid);
 
   const getProviderConnections = (integrationId: string) => {
     return connections?.filter((c) => c.integration_id === integrationId) ?? [];
@@ -50,13 +50,12 @@ export function IntegrationsSettingsCard() {
                 <div className="text-sm font-medium">{integration.name}</div>
               </div>
 
-              {!isPro ? (
+              {!isPaid ? (
                 <Link
-                  to="/app/checkout/"
-                  search={{ period: "monthly" }}
+                  to="/pricing/"
                   className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
                 >
-                  Upgrade to Pro
+                  Upgrade
                 </Link>
               ) : isLoading ? (
                 <button

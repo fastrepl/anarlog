@@ -1,11 +1,13 @@
 import type { SubscriptionStatus, SupabaseJwtPayload } from "./jwt";
 
-export type Plan = "free" | "trial" | "pro";
+export type Plan = "free" | "trial" | "lite" | "pro";
 
 export type BillingInfo = {
   entitlements: string[];
   subscriptionStatus: SubscriptionStatus | null;
   isPro: boolean;
+  isLite: boolean;
+  isPaid: boolean;
   isTrialing: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
@@ -18,10 +20,19 @@ export function deriveBillingInfo(
   const entitlements = payload?.entitlements ?? [];
   const subscriptionStatus = payload?.subscription_status ?? null;
   const isTrialing = subscriptionStatus === "trialing";
+
+  const hasProEntitlement = entitlements.includes("hyprnote_pro");
+  const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
+
   const isPro =
-    entitlements.includes("hyprnote_pro") ||
+    hasProEntitlement || isTrialing || subscriptionStatus === "active";
+  const isLite = hasLiteEntitlement && !hasProEntitlement;
+  const isPaid =
+    hasProEntitlement ||
+    hasLiteEntitlement ||
     isTrialing ||
     subscriptionStatus === "active";
+
   const trialEnd = payload?.trial_end
     ? new Date(payload.trial_end * 1000)
     : null;
@@ -33,13 +44,22 @@ export function deriveBillingInfo(
       secondsRemaining <= 0 ? 0 : Math.ceil(secondsRemaining / (24 * 60 * 60));
   }
 
-  const plan: Plan =
-    isPro && !isTrialing ? "pro" : isTrialing ? "trial" : "free";
+  const plan: Plan = isTrialing
+    ? "trial"
+    : hasProEntitlement
+      ? "pro"
+      : hasLiteEntitlement
+        ? "lite"
+        : subscriptionStatus === "active"
+          ? "pro"
+          : "free";
 
   return {
     entitlements,
     subscriptionStatus,
     isPro,
+    isLite,
+    isPaid,
     isTrialing,
     trialEnd,
     trialDaysRemaining,
