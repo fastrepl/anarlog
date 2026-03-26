@@ -287,17 +287,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error instanceof AuthRetryableFetchError ||
           error instanceof AuthSessionMissingError
         ) {
+          trackedUserId = null;
           await clearAuthStorage();
           setSession(null);
           return;
         }
         console.error(error);
+        return;
       }
+
+      trackedUserId = null;
+      await clearAuthStorage();
+      setSession(null);
     } catch (e) {
       if (
         e instanceof AuthRetryableFetchError ||
         e instanceof AuthSessionMissingError
       ) {
+        trackedUserId = null;
         await clearAuthStorage();
         setSession(null);
       }

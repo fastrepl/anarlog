@@ -13,7 +13,6 @@ import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { type SubscriptionStatus } from "@hypr/supabase";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
-import { Marquee } from "@hypr/ui/components/ui/marquee";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
@@ -141,10 +140,6 @@ export function AccountSettings() {
     }
   }, [isAuthenticated]);
 
-  const handleOpenAccount = useCallback(() => {
-    void openerCommands.openUrl(`${WEB_APP_BASE_URL}/app/account`, null);
-  }, []);
-
   const handleSignIn = useCallback(async () => {
     setIsPending(true);
     try {
@@ -154,18 +149,20 @@ export function AccountSettings() {
     }
   }, [auth]);
 
-  const handleSignOut = useCallback(async () => {
-    void analyticsCommands.event({
-      event: "user_signed_out",
-    });
-    void analyticsCommands.setProperties({
-      set: {
-        is_signed_up: false,
-      },
-    });
+  const signOutMutation = useMutation({
+    mutationFn: async () => {
+      void analyticsCommands.event({
+        event: "user_signed_out",
+      });
+      void analyticsCommands.setProperties({
+        set: {
+          is_signed_up: false,
+        },
+      });
 
-    await auth?.signOut();
-  }, [auth]);
+      await auth?.signOut();
+    },
+  });
 
   const handleRefreshPlan = useCallback(async () => {
     await auth?.refreshSession();
@@ -246,21 +243,18 @@ export function AccountSettings() {
       <div className="flex flex-col gap-4">
         <Container
           title="Your Account"
-          description="Redirect to the web app to manage your account."
+          description={auth.session?.user.email ?? "Signed in"}
           action={
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={handleOpenAccount}
-                className="flex flex-row gap-1.5"
-              >
-                <span className="text-sm">Open</span>
-                <ExternalLinkIcon className="text-neutral-600" size={12} />
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                Sign out
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => signOutMutation.mutate()}
+              disabled={signOutMutation.isPending}
+              className={cn([
+                "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 hover:text-red-800",
+              ])}
+            >
+              {signOutMutation.isPending ? "Signing out..." : "Sign out"}
+            </Button>
           }
         />
 
@@ -300,79 +294,9 @@ export function AccountSettings() {
             )}
           </div>
         </Container>
-        <Container
-          title="Account features"
-          description="More account-linked features are rolling out soon."
-        >
-          <FeatureGrid />
-        </Container>
       </div>
     </div>
   );
-}
-
-function FeatureGrid() {
-  const [shouldMarquee, setShouldMarquee] = useState(false);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const [measure, setMeasure] = useState<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!container || !measure) {
-      return;
-    }
-
-    const update = () => {
-      setShouldMarquee(measure.scrollWidth > container.clientWidth);
-    };
-
-    update();
-
-    const observer = new ResizeObserver(update);
-    observer.observe(container);
-    observer.observe(measure);
-
-    return () => observer.disconnect();
-  }, [container, measure]);
-
-  return (
-    <div className="relative">
-      <div ref={setContainer} className="overflow-hidden">
-        {shouldMarquee ? (
-          <Marquee className="p-0 [--duration:24s] [--gap:0.75rem]">
-            <FeatureItems />
-          </Marquee>
-        ) : (
-          <div className="flex gap-3">
-            <FeatureItems />
-          </div>
-        )}
-      </div>
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-0">
-        <div ref={setMeasure} className="flex w-max gap-3">
-          <FeatureItems />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FeatureItems() {
-  return ACCOUNT_FEATURES.map(({ label, icon: Icon, comingSoon }) => (
-    <div
-      key={label}
-      className="flex min-w-[150px] items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5"
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <Icon className="h-4 w-4 shrink-0 text-neutral-500" />
-        <p className="truncate text-sm text-neutral-700">{label}</p>
-      </div>
-      {comingSoon && (
-        <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">
-          Soon
-        </span>
-      )}
-    </div>
-  ));
 }
 
 function FeatureSpotlight() {
