@@ -25,7 +25,7 @@ pub fn list_installed_apps() -> Vec<InstalledApp> {
     result
 }
 
-pub fn list_mic_using_apps() -> Vec<InstalledApp> {
+pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
     use libpulse_binding::context::{Context, FlagSet as ContextFlagSet};
     use libpulse_binding::mainloop::standard::{IterateResult, Mainloop};
     use std::cell::RefCell;
@@ -33,22 +33,14 @@ pub fn list_mic_using_apps() -> Vec<InstalledApp> {
 
     let mut apps = Vec::new();
 
-    let mut mainloop = match Mainloop::new() {
-        Some(m) => m,
-        None => return apps,
-    };
+    let mut mainloop = Mainloop::new().ok_or(crate::Error::PulseMainloop)?;
 
-    let mut context = match Context::new(&mainloop, "hyprnote-detect") {
-        Some(c) => c,
-        None => return apps,
-    };
+    let mut context =
+        Context::new(&mainloop, "hyprnote-detect").ok_or(crate::Error::PulseContext)?;
 
-    if context
+    context
         .connect(None, ContextFlagSet::NOFLAGS, None)
-        .is_err()
-    {
-        return apps;
-    }
+        .map_err(|_| crate::Error::PulseConnect)?;
 
     let apps_rc: Rc<RefCell<Vec<InstalledApp>>> = Rc::new(RefCell::new(Vec::new()));
     let apps_clone = apps_rc.clone();
@@ -91,7 +83,7 @@ pub fn list_mic_using_apps() -> Vec<InstalledApp> {
     apps.sort_by(|a, b| a.id.cmp(&b.id));
     apps.dedup_by(|a, b| a.id == b.id);
     apps.sort_by(|a, b| a.name.cmp(&b.name));
-    apps
+    Ok(apps)
 }
 
 fn get_desktop_file_dirs() -> Vec<PathBuf> {
@@ -198,7 +190,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_list_mic_using_apps() {
-        let apps = list_mic_using_apps();
+        let apps = list_mic_using_apps().unwrap();
         println!("Got {} apps\n---", apps.len());
         println!(
             "{}",

@@ -12,11 +12,12 @@ tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
-tauri-plugin-store = { workspace = true }
-tokio = { workspace = true, features = ["macros"] }
 
 [dependencies]
-tauri-plugin-store2 = { workspace = true }
+hypr-storage = { workspace = true }
+hypr-supabase-auth = { workspace = true, features = ["client"] }
+hypr-template-support = { workspace = true }
+tauri-plugin-settings = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }

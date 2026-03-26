@@ -3,9 +3,24 @@ name = "supabase-auth"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+server = ["dep:reqwest", "dep:jsonwebtoken", "dep:tokio"]
+client = ["dep:hypr-storage"]
+
 [dependencies]
-jsonwebtoken = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+# always available
+base64 = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive", "chrono"] }
 thiserror = { workspace = true }
-tokio = { workspace = true }
+
+# server feature
+jsonwebtoken = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json"], optional = true }
+tokio = { workspace = true, optional = true }
+
+# client feature
+hypr-storage = { workspace = true, optional = true }

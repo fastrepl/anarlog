@@ -21,7 +21,6 @@ serde = { workspace = true }
 specta = { workspace = true }
 
 ractor = { workspace = true }
-ractor-supervisor = { workspace = true }
 
 reqwest = { workspace = true }
 tracing = { workspace = true }

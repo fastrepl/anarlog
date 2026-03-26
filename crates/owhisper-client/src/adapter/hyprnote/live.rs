@@ -77,13 +77,18 @@ impl RealtimeSttAdapter for HyprnoteAdapter {
     }
 
     fn parse_response(&self, raw: &str) -> Vec<StreamResponse> {
-        serde_json::from_str(raw).into_iter().collect()
+        if let Ok(response) = serde_json::from_str::<StreamResponse>(raw) {
+            return vec![response];
+        }
+
+        serde_json::from_str::<Vec<StreamResponse>>(raw).unwrap_or_default()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use hypr_language::ISO639;
+    use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 
     use super::HyprnoteAdapter;
     use crate::adapter::RealtimeSttAdapter;
@@ -174,5 +179,110 @@ mod tests {
 
         let url = adapter.build_ws_url("https://api.hyprnote.com/stt", &params, 1);
         assert!(url.scheme() == "wss");
+    }
+
+    #[test]
+    fn test_meta_model_passed_through_without_resolution() {
+        let adapter = HyprnoteAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            model: Some("cloud".to_string()),
+            languages: vec![ISO639::En.into(), ISO639::De.into()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url_str = url.as_str();
+
+        assert!(
+            url_str.contains("model=cloud"),
+            "meta-model 'cloud' should be passed through to proxy as-is, not resolved to a provider-specific model"
+        );
+        assert!(url_str.contains("language=en"));
+        assert!(url_str.contains("language=de"));
+    }
+
+    #[test]
+    fn test_provider_param_preserved_in_url() {
+        let adapter = HyprnoteAdapter::default();
+        let base_with_provider = "https://api.hyprnote.com/stt?provider=hyprnote";
+        let params = owhisper_interface::ListenParams {
+            model: Some("cloud".to_string()),
+            languages: vec![ISO639::En.into()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(base_with_provider, &params, 1);
+        assert!(
+            url.as_str().contains("provider=hyprnote"),
+            "provider=hyprnote query param should be preserved in the final URL"
+        );
+    }
+
+    #[test]
+    fn parse_response_accepts_single_response() {
+        let adapter = HyprnoteAdapter::default();
+        let raw = serde_json::to_string(&sample_response("hello", false)).unwrap();
+
+        let responses = adapter.parse_response(&raw);
+
+        assert_eq!(responses.len(), 1);
+        match &responses[0] {
+            StreamResponse::TranscriptResponse { channel, .. } => {
+                assert_eq!(channel.alternatives[0].transcript, "hello");
+            }
+            _ => panic!("expected transcript response"),
+        }
+    }
+
+    #[test]
+    fn parse_response_accepts_response_arrays() {
+        let adapter = HyprnoteAdapter::default();
+        let raw = serde_json::to_string(&vec![
+            sample_response("final", true),
+            sample_response("partial", false),
+        ])
+        .unwrap();
+
+        let responses = adapter.parse_response(&raw);
+
+        assert_eq!(responses.len(), 2);
+        match &responses[0] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(*is_final);
+                assert_eq!(channel.alternatives[0].transcript, "final");
+            }
+            _ => panic!("expected transcript response"),
+        }
+        match &responses[1] {
+            StreamResponse::TranscriptResponse {
+                channel, is_final, ..
+            } => {
+                assert!(!*is_final);
+                assert_eq!(channel.alternatives[0].transcript, "partial");
+            }
+            _ => panic!("expected transcript response"),
+        }
+    }
+
+    fn sample_response(transcript: &str, is_final: bool) -> StreamResponse {
+        StreamResponse::TranscriptResponse {
+            start: 0.0,
+            duration: 0.0,
+            is_final,
+            speech_final: is_final,
+            from_finalize: false,
+            channel: Channel {
+                alternatives: vec![Alternatives {
+                    transcript: transcript.to_string(),
+                    words: vec![],
+                    confidence: 1.0,
+                    languages: vec![],
+                }],
+            },
+            metadata: Metadata::default(),
+            channel_index: vec![0, 1],
+        }
     }
 }

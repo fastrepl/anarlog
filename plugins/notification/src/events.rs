@@ -10,12 +10,14 @@ common_event_derives! {
     #[serde(tag = "type")]
     pub enum NotificationEvent {
         #[serde(rename = "notification_confirm")]
-        Confirm { key: String, event_id: Option<String> },
+        Confirm { key: String, source: Option<hypr_notification::NotificationSource> },
         #[serde(rename = "notification_accept")]
-        Accept { key: String, event_id: Option<String> },
+        Accept { key: String, source: Option<hypr_notification::NotificationSource> },
         #[serde(rename = "notification_dismiss")]
-        Dismiss { key: String, event_id: Option<String> },
+        Dismiss { key: String, source: Option<hypr_notification::NotificationSource> },
         #[serde(rename = "notification_timeout")]
-        Timeout { key: String, event_id: Option<String> },
+        Timeout { key: String, source: Option<hypr_notification::NotificationSource> },
+        #[serde(rename = "notification_option_selected")]
+        OptionSelected { key: String, source: Option<hypr_notification::NotificationSource>, selected_index: i32 },
     }
 }

@@ -2,8 +2,9 @@ import * as _UI from "tinybase/ui-react/with-schemas";
 
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import type { Schemas, Store } from "../../store/settings";
 import { createSettingsPersister } from "./persister";
+
+import type { Schemas, Store } from "~/store/tinybase/store/settings";
 
 const { useCreatePersister } = _UI as _UI.WithSchemas<Schemas>;
 

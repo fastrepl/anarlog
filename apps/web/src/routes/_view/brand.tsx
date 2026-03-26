@@ -33,11 +33,11 @@ export const Route = createFileRoute("/_view/brand")({
   },
   head: () => ({
     meta: [
-      { title: "Brand - Hyprnote Press Kit" },
+      { title: "Brand - Char Press Kit" },
       {
         name: "description",
         content:
-          "Download Hyprnote logos, icons, and brand assets. Learn about our visual identity, typography, and color palette.",
+          "Download Char logos, icons, and brand assets. Learn about our visual identity, typography, and color palette.",
       },
     ],
   }),
@@ -48,19 +48,19 @@ const VISUAL_ASSETS = [
     id: "icon",
     name: "Icon",
     url: "/api/images/hyprnote/icon.png",
-    description: "Hyprnote app icon",
+    description: "Char app icon",
   },
   {
     id: "logo",
     name: "Logo",
     url: "/api/images/hyprnote/logo.png",
-    description: "Hyprnote wordmark logo",
+    description: "Char wordmark logo",
   },
   {
     id: "symbol-logo",
     name: "Symbol + Logo",
     url: "/api/images/hyprnote/symbol+logo.png",
-    description: "Hyprnote icon with wordmark",
+    description: "Char icon with wordmark",
   },
   {
     id: "og-image",
@@ -191,10 +191,10 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white min-h-screen"
+      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white">
+      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <BrandContentSection
           selectedItem={selectedItem}
@@ -208,13 +208,13 @@ function Component() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="text-center max-w-3xl mx-auto">
-        <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
+      <div className="mx-auto max-w-3xl text-center">
+        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
           Brand
         </h1>
-        <p className="text-lg sm:text-xl text-neutral-600">
-          Download Hyprnote logos, icons, and brand assets. Learn about our
-          visual identity, typography, and color palette.
+        <p className="text-lg text-neutral-600 sm:text-xl">
+          Download Char logos, icons, and brand assets. Learn about our visual
+          identity, typography, and color palette.
         </p>
       </div>
     </div>
@@ -233,24 +233,24 @@ function BrandContentSection({
 
   return (
     <section className="px-6 pb-16 lg:pb-24">
-      <div className="max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl">
         <MockWindow
           title="Brand"
-          className="rounded-lg w-full max-w-none"
+          className="w-full max-w-none rounded-lg"
           prefixIcons={
             isMobile &&
             selectedItem && (
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Open navigation"
               >
-                <Menu className="w-4 h-4 text-neutral-600" />
+                <Menu className="h-4 w-4 text-neutral-600" />
               </button>
             )
           }
         >
-          <div className="h-[480px] relative">
+          <div className="relative h-[480px]">
             {!selectedItem ? (
               <BrandGridView setSelectedItem={setSelectedItem} />
             ) : isMobile ? (
@@ -287,7 +287,7 @@ function BrandGridView({
   setSelectedItem: (item: SelectedItem) => void;
 }) {
   return (
-    <div className="p-8 overflow-y-auto h-[480px]">
+    <div className="h-[480px] overflow-y-auto p-8">
       <VisualAssetsGrid setSelectedItem={setSelectedItem} />
       <TypographyGrid setSelectedItem={setSelectedItem} />
       <ColorsGrid setSelectedItem={setSelectedItem} />
@@ -302,24 +302,24 @@ function VisualAssetsGrid({
 }) {
   return (
     <div className="mb-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Visual Assets
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {VISUAL_ASSETS.map((asset) => (
           <button
             key={asset.id}
             onClick={() => setSelectedItem({ type: "visual", data: asset })}
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
-            <div className="mb-3 w-16 h-16 flex items-center justify-center">
+            <div className="mb-3 flex h-16 w-16 items-center justify-center">
               <img
                 src={asset.url}
                 alt={asset.name}
-                className="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform"
+                className="max-h-full max-w-full object-contain transition-transform group-hover:scale-110"
               />
             </div>
-            <div className="font-medium text-stone-600">{asset.name}</div>
+            <div className="font-medium text-stone-700">{asset.name}</div>
           </button>
         ))}
       </div>
@@ -334,24 +334,24 @@ function TypographyGrid({
 }) {
   return (
     <div className="mb-8 border-t border-neutral-100 pt-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Typography
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {TYPOGRAPHY.map((font) => (
           <button
             key={font.id}
             onClick={() => setSelectedItem({ type: "typography", data: font })}
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
             <div
-              className="mb-3 w-16 h-16 flex items-center justify-center text-3xl font-medium text-stone-600 group-hover:scale-110 transition-transform"
+              className="mb-3 flex h-16 w-16 items-center justify-center text-3xl font-medium text-stone-700 transition-transform group-hover:scale-110"
               style={{ fontFamily: font.fontFamily }}
             >
               Aa
             </div>
             <div
-              className="font-medium text-stone-600"
+              className="font-medium text-stone-700"
               style={{ fontFamily: font.fontFamily }}
             >
               {font.name}
@@ -370,23 +370,23 @@ function ColorsGrid({
 }) {
   return (
     <div className="border-t border-neutral-100 pt-8">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4 px-2">
+      <div className="mb-4 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Colors
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 content-start">
+      <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         {COLORS.map((color) => (
           <button
             key={color.id}
             onClick={() => setSelectedItem({ type: "color", data: color })}
-            className="group flex flex-col items-center text-center p-4 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer h-fit"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
           >
-            <div className="mb-3 w-16 h-16 flex items-center justify-center">
+            <div className="mb-3 flex h-16 w-16 items-center justify-center">
               <div
-                className="w-16 h-16 rounded-lg border border-neutral-200 group-hover:scale-110 transition-transform shadow-xs"
+                className="h-16 w-16 rounded-lg border border-neutral-200 shadow-xs transition-transform group-hover:scale-110"
                 style={{ backgroundColor: color.hex }}
               />
             </div>
-            <div className="font-medium text-stone-600">{color.name}</div>
+            <div className="font-medium text-stone-700">{color.name}</div>
           </button>
         ))}
       </div>
@@ -407,7 +407,7 @@ function BrandDetailView({
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
       />
-      <ResizableHandle withHandle className="bg-neutral-200 w-px" />
+      <ResizableHandle withHandle className="w-px bg-neutral-200" />
       <BrandDetailPanel
         selectedItem={selectedItem}
         setSelectedItem={setSelectedItem}
@@ -440,7 +440,7 @@ function MobileSidebarDrawer({
             transition={{ duration: 0.2 }}
           />
           <motion.div
-            className="absolute left-0 top-0 bottom-0 z-50 w-72 bg-white border-r border-neutral-200 shadow-lg"
+            className="absolute top-0 bottom-0 left-0 z-50 w-72 border-r border-neutral-200 bg-white shadow-lg"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
@@ -450,16 +450,16 @@ function MobileSidebarDrawer({
               ease: "easeOut",
             }}
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 bg-stone-50">
-              <span className="text-sm font-medium text-stone-600">
+            <div className="flex items-center justify-between border-b border-neutral-200 bg-stone-50 px-4 py-3">
+              <span className="text-sm font-medium text-stone-700">
                 Navigation
               </span>
               <button
                 onClick={onClose}
-                className="p-1 hover:bg-neutral-200 rounded transition-colors"
+                className="rounded p-1 transition-colors hover:bg-neutral-200"
                 aria-label="Close drawer"
               >
-                <X className="w-4 h-4 text-neutral-600" />
+                <X className="h-4 w-4 text-neutral-600" />
               </button>
             </div>
             <div className="h-[calc(100%-49px)] overflow-y-auto p-4">
@@ -500,7 +500,7 @@ function BrandDetailContent({
   setSelectedItem: (item: SelectedItem | null) => void;
 }) {
   return (
-    <div className="h-full flex flex-col">
+    <div className="flex h-full flex-col">
       {selectedItem.type === "visual" && (
         <VisualAssetDetail
           asset={selectedItem.data}
@@ -559,7 +559,7 @@ function VisualAssetsSidebar({
 }) {
   return (
     <div className="mb-6">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Visual Assets
       </div>
       <div className="flex flex-col gap-3">
@@ -568,25 +568,25 @@ function VisualAssetsSidebar({
             key={asset.id}
             onClick={() => setSelectedItem({ type: "visual", data: asset })}
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "visual" &&
               selectedItem.data.id === asset.id
                 ? "border-stone-600 bg-stone-100"
                 : "border-neutral-200",
             ])}
           >
-            <div className="w-12 h-12 shrink-0 flex items-center justify-center overflow-hidden">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden">
               <img
                 src={asset.url}
                 alt={asset.name}
-                className="max-w-full max-h-full object-contain"
+                className="max-h-full max-w-full object-contain"
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-600 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-stone-700">
                 {asset.name}
               </p>
-              <p className="text-xs text-neutral-500 truncate">
+              <p className="truncate text-xs text-neutral-500">
                 {asset.description}
               </p>
             </div>
@@ -606,7 +606,7 @@ function TypographySidebar({
 }) {
   return (
     <div className="mb-6">
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Typography
       </div>
       <div className="flex flex-col gap-3">
@@ -615,7 +615,7 @@ function TypographySidebar({
             key={font.id}
             onClick={() => setSelectedItem({ type: "typography", data: font })}
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "typography" &&
               selectedItem.data.id === font.id
                 ? "border-stone-600 bg-stone-100"
@@ -623,20 +623,20 @@ function TypographySidebar({
             ])}
           >
             <div
-              className="w-12 h-12 shrink-0 flex items-center justify-center text-2xl font-medium text-stone-600"
+              className="flex h-12 w-12 shrink-0 items-center justify-center text-2xl font-medium text-stone-700"
               style={{ fontFamily: font.fontFamily }}
             >
               Aa
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <p
-                className="text-sm font-medium text-stone-600 truncate"
+                className="truncate text-sm font-medium text-stone-700"
                 style={{ fontFamily: font.fontFamily }}
               >
                 {font.name}
               </p>
               <p
-                className="text-xs text-neutral-500 truncate"
+                className="truncate text-xs text-neutral-500"
                 style={{ fontFamily: font.fontFamily }}
               >
                 {font.fontFamily}
@@ -658,7 +658,7 @@ function ColorsSidebar({
 }) {
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3 px-2">
+      <div className="mb-3 px-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
         Colors
       </div>
       <div className="flex flex-col gap-3">
@@ -667,24 +667,24 @@ function ColorsSidebar({
             key={color.id}
             onClick={() => setSelectedItem({ type: "color", data: color })}
             className={cn([
-              "w-full bg-stone-50 border rounded-lg p-3 hover:border-stone-400 hover:bg-stone-100 transition-colors text-left flex items-center gap-3 cursor-pointer",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-stone-50 p-3 text-left transition-colors hover:border-stone-400 hover:bg-stone-100",
               selectedItem?.type === "color" &&
               selectedItem.data.id === color.id
                 ? "border-stone-600 bg-stone-100"
                 : "border-neutral-200",
             ])}
           >
-            <div className="w-12 h-12 shrink-0 flex items-center justify-center">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center">
               <div
-                className="w-10 h-10 rounded-lg border border-neutral-200 shadow-xs"
+                className="h-10 w-10 rounded-lg border border-neutral-200 shadow-xs"
                 style={{ backgroundColor: color.hex }}
               />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-600 truncate">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-stone-700">
                 {color.name}
               </p>
-              <p className="text-xs text-neutral-500 truncate font-mono">
+              <p className="truncate font-mono text-xs text-neutral-500">
                 {color.hex}
               </p>
             </div>
@@ -704,7 +704,7 @@ function BrandDetailPanel({
 }) {
   return (
     <ResizablePanel defaultSize={65}>
-      <div className="h-full flex flex-col">
+      <div className="flex h-full flex-col">
         {selectedItem.type === "visual" && (
           <VisualAssetDetail
             asset={selectedItem.data}
@@ -745,32 +745,32 @@ function VisualAssetDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{asset.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{asset.name}</h2>
         <div className="flex items-center gap-2">
           <a
             href={asset.url}
             download
             target="_blank"
             rel="noopener noreferrer"
-            className="px-4 h-8 flex items-center text-sm bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all"
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 text-sm text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
           >
             Download
           </a>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+            className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
           >
             <XIcon size={16} />
           </button>
         </div>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <img
           src={asset.url}
           alt={asset.name}
-          className="max-w-[400px] w-full h-auto object-contain mb-6"
+          className="mb-6 h-auto w-full max-w-[400px] object-contain"
         />
         <p className="text-sm text-neutral-600">{asset.description}</p>
       </div>
@@ -795,20 +795,20 @@ function TypographyDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{font.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{font.name}</h2>
         <button
           onClick={onClose}
-          className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+          className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
         >
           <XIcon size={16} />
         </button>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <div className="flex flex-col gap-6">
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Font Family
             </h3>
             <p
@@ -820,26 +820,26 @@ function TypographyDetail({
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Description
             </h3>
-            <p className="text-sm text-neutral-600 leading-relaxed">
+            <p className="text-sm leading-relaxed text-neutral-600">
               {font.description}
             </p>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Usage
             </h3>
             <p className="text-sm text-neutral-600">{font.usage}</p>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+            <h3 className="mb-4 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Preview
             </h3>
-            <div className="flex flex-col gap-4 p-6 bg-stone-50 border border-neutral-200 rounded-lg">
+            <div className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-stone-50 p-6">
               <div
                 className="text-4xl text-stone-600"
                 style={{ fontFamily: font.fontFamily }}
@@ -889,34 +889,34 @@ function ColorDetail({
 
   return (
     <>
-      <div className="py-2 px-4 flex items-center justify-between border-b border-neutral-200">
-        <h2 className="font-medium text-stone-600">{color.name}</h2>
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+        <h2 className="font-medium text-stone-700">{color.name}</h2>
         <button
           onClick={onClose}
-          className="text-neutral-400 hover:text-neutral-600 transition-colors cursor-pointer"
+          className="cursor-pointer text-neutral-400 transition-colors hover:text-neutral-600"
         >
           <XIcon size={16} />
         </button>
       </div>
 
-      <div ref={scrollRef} className="p-4 overflow-y-auto">
+      <div ref={scrollRef} className="overflow-y-auto p-4">
         <div className="flex flex-col gap-6">
           <div>
             <div
-              className="w-full h-48 rounded-lg border border-neutral-200 shadow-xs mb-4"
+              className="mb-4 h-48 w-full rounded-lg border border-neutral-200 shadow-xs"
               style={{ backgroundColor: color.hex }}
             />
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Hex Value
             </h3>
-            <p className="text-lg text-stone-600 font-mono">{color.hex}</p>
+            <p className="font-mono text-lg text-stone-600">{color.hex}</p>
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
               Usage
             </h3>
             <p className="text-sm text-neutral-600">{color.description}</p>
@@ -935,7 +935,7 @@ function BrandStatusBar({
   const totalItems = VISUAL_ASSETS.length + TYPOGRAPHY.length + COLORS.length;
 
   return (
-    <div className="bg-stone-50 border-t border-neutral-200 px-4 py-2">
+    <div className="border-t border-neutral-200 bg-stone-50 px-4 py-2">
       <span className="text-xs text-neutral-500">
         {selectedItem
           ? `Viewing ${selectedItem.data.name}`

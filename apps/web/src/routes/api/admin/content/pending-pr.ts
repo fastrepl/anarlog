@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
-import { getExistingEditPRForArticle } from "@/functions/github-content";
+import { getExistingEditPRForContent } from "@/functions/github-content";
 
 export const Route = createFileRoute("/api/admin/content/pending-pr")({
   server: {
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/admin/content/pending-pr")({
           );
         }
 
-        const result = await getExistingEditPRForArticle(path);
+        const result = await getExistingEditPRForContent(path);
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {

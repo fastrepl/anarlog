@@ -4,54 +4,36 @@ display_title: "Why We Write Our Blog in an IDE (Not a WYSIWYG Editor)"
 meta_description: "Most teams write in a browser. We write in our IDE. Here's why treating content like code gives us more control, fewer surprises, and a workflow that actually scales."
 author: "John Jeong"
 coverImage: "/api/images/blog/using-ide-for-writing/cover.png"
-featured: true
-published: true
+featured: false
+category: "Engineering"
 date: "2025-11-24"
 ---
 
 There's this quiet assumption in a lot of teams that "writing" should happen somewhere else. Some separate workspace. Some browser tab. Some editor UI designed to hide the machinery. Maybe that works for some people.
 
-But it never worked for us.
+We never adopted that model. We spend most of our waking hours inside an IDE. Zed, Cursor, VS Code, Neovim—pick your flavor. That's where we think, debug, rewrite, delete, and try again. So it always felt strange to open a WYSIWYG editor and suddenly pretend the way we work should change just because the output is letters instead of code.
 
-We spend most of our waking hours inside an IDE. Zed, Cursor, VS Code, Neovim—pick your flavor. That's our home. That's where we think, debug, rewrite, delete, and try again. So it always felt strange to open a WYSIWYG editor and suddenly pretend the way we work should change just because the output is letters instead of code.
+This isn't just a workflow preference. It changes how you approach writing itself.
 
-It's not just a workflow thing. It's a mindset thing.
+## Writing is part of building
 
-## Writing Is Part of Building
+At Char everyone writes and everyone codes. There's no sharp line between the two. Writing lives next to version control, next to the app logic, next to everything else we ship. When you treat writing as something that belongs in the same universe as code, a lot of decisions get simpler.
 
-At Hyprnote everyone writes and everyone codes. There's no sharp line between the two. Writing lives next to version control, next to the app logic, next to everything else we ship. When you treat writing as something that belongs in the same universe as code, a lot of decisions get simpler.
+Context switching disappears. I don't have to think, "Okay, now I'm leaving my environment to go write a blog post." I'm already here. I just open a new `.mdx` file and start typing. Cursor or Zed already knows my shortcuts, my theme, my keybindings, my muscle memory. It feels natural.
 
-For example: context switching disappears. I don't have to think, "Okay, now I'm leaving my environment to go write a blog post." I'm already here. I just open a new `.mdx` file and start typing. Cursor or Zed already knows my shortcuts, my theme, my keybindings, my muscle memory.
+## WYSIWYG tools hide the wrong things
 
-It feels natural. It feels honest.
+WYSIWYG editors always promise ease. Click here, bold there, drag an image, done. But once you try to do anything slightly unusual, they fall apart. You start fighting the abstraction.
 
-## WYSIWYG Tools Hide the Wrong Things
+You want to add a custom callout, embed a component, adjust image borders, write MDX, leave inline comments for teammates, control spacing, or make the layout match the rest of the site. Suddenly you're clicking around a UI that was never meant for people who actually care what's happening under the hood. You end up debugging the editor itself.
 
-WYSIWYG editors always promise ease. Click here, bold there, drag an image, done. But once you try to do anything slightly unusual, they fall apart.
+MDX lets you write what you mean and see what you wrote. Nothing forces your hand.
 
-You start fighting the abstraction.
+## Markdown and MDX are not barriers
 
-You want to:
+A lot of people think Markdown is something you need to "learn." If you work in tech today, you already know it. You write `README.md` files, changelogs, and documentation. Most engineers can write Markdown faster than they can type into a WYSIWYG box.
 
-- add a custom callout
-- embed a component
-- adjust image borders
-- write MDX
-- leave inline comments for teammates
-- control spacing
-- make the layout match the rest of the site
-
-Suddenly you're clicking around a UI that was never meant for people who actually care what's happening under the hood. You end up debugging the editor itself.
-
-MDX is just… easier. You write what you mean. You see what you wrote. Nothing forces your hand.
-
-## Markdown and MDX Are Not Barriers
-
-A lot of people think Markdown is something you need to "learn." But if you work in tech today, you already know it.
-
-You write `README.md` files. You write changelogs. You write documentation. Most engineers can write Markdown faster than they can type into a WYSIWYG box.
-
-MDX just extends that. It lets you treat a blog post like a tiny interface:
+MDX extends that. It lets you treat a blog post like a tiny interface:
 
 ```jsx
 <figure src="image.jpg" caption="This is how it works" />
@@ -60,63 +42,31 @@ MDX just extends that. It lets you treat a blog post like a tiny interface:
 
 Things that would be impossible—or messy—in a visual editor are trivial when your writing tool is the same as your coding tool.
 
-## Content Becomes Code, Which Means It Scales
+## Content becomes code, which means it scales
 
-This brings us to the real reason writing in an IDE is such a superpower: version control. Every blog post, every line, every word is tracked. Reviewed. Diffed. Discussed.
+This is the real reason writing in an IDE works so well: version control. Every blog post, every line, every word is tracked, reviewed, diffed, and discussed.
 
-- **PRs become editorial workflows.**
-- **Comments become revision history.**
-- **Preview environments become draft URLs.**
+PRs become editorial workflows. Comments become revision history. Preview environments become draft URLs. Everything fits into the same mental model. You never have to worry that your CMS broke something silently, and you never have to trust a black box.
 
-Everything fits into the same mental model.
+When you need to migrate, you move the files. That's it. No database exports, no weird HTML blocks, no proprietary schemas.
 
-You never have to pray that your CMS didn't break something silently. You never have to trust a black box.
+## The downside: WYSIWYG is convenient (until it isn't)
 
-And if you ever want to migrate? You move the files. That's it.
+WYSIWYG editors do have a real advantage: convenience. You drag in an image and it uploads automatically. You paste a screenshot and it appears instantly. You never think about storage buckets or public URLs.
 
-No database exports. No weird HTML blocks. No proprietary schemas.
+For a lot of teams, that convenience becomes muscle memory. It's smooth, fast, and frankly nice.
 
-## The Downside: WYSIWYG Is Convenient (Until It Isn't)
+You can get the same convenience without giving up control. If you're already using GitHub plus an object store (Supabase Storage, S3, Cloudflare R2), you can drag-and-drop images directly into GitHub's web editor, upload them into your storage bucket, copy the public URL, and paste it into MDX. It takes seconds. Once you're used to it, it's not meaningfully slower than a WYSIWYG. The difference is that you own the flow and you're not trapped inside a CMS UI.
 
-WYSIWYG editors do have a real advantage: convenience.
+WYSIWYG gives you convenience by locking you into its environment. Git and MDX give you convenience without the lock-in.
 
-- You drag in an image, and it uploads automatically.
-- You paste a screenshot, and it appears instantly.
-- You never think about storage buckets or public URLs.
+## No lock-in, no surprises
 
-For a lot of teams, that convenience becomes muscle memory. It's smooth, fast, and frankly… nice.
+WYSIWYG editors are convenient in the beginning and painful later. They lock you into their structure, their parsing rules, their UI assumptions. A folder of `.mdx` files lasts decades. It will outlive whatever CMS trend comes next.
 
-But here's the thing: **You can get the same convenience without giving up control.**
+## Writing where you think
 
-If you're already using GitHub + an object store (Supabase Storage, S3, Cloudflare R2), you can:
-
-1. drag-and-drop images directly into GitHub's web editor
-2. or upload them into your storage bucket
-3. copy the public URL
-4. paste it into MDX
-
-It takes seconds. And once you're used to it, it's not meaningfully slower than a WYSIWYG. The difference is that **you own the flow** and you're not trapped inside a CMS UI.
-
-**WYSIWYG gives you convenience by locking you into its environment.**  
-**Git + MDX gives you convenience without the lock-in.**
-
-## No Lock-In, No Surprises
-
-WYSIWYG editors are convenient in the beginning and painful later. They lock you into their structure, their parsing rules, their UI assumptions.
-
-But a folder of `.mdx` files? That lasts decades.
-
-It will outlive whatever CMS trend comes next.
-
-Your future self will thank you.
-
-## Writing Where You Think
-
-For me, writing in an IDE just feels right.
-
-It's quiet. It's fast. It respects your attention.
-
-There's no ceremony. No distractions. Just the ideas you're trying to express and the tools you already know how to use.
+For me, writing in an IDE just feels right. It's quiet and fast, and it respects your attention. There's no ceremony, no distractions. Just the ideas you're trying to express and the tools you already know how to use.
 
 Once you experience that kind of writing, it's hard to go back.
 
@@ -126,8 +76,8 @@ Once you experience that kind of writing, it's hard to go back.
 
 1. [Why We Write Our Blog in an IDE](/blog/using-ide-for-writing) (You are here)
 2. [Why Our CMS Is GitHub](/blog/why-our-cms-is-github)
-3. [Choosing a CMS in 2025](/blog/choosing-a-cms)
+3. [Choosing a CMS in 2026](/blog/choosing-a-cms)
 4. [Don't Use a CMS Until You Absolutely Need One](/blog/dont-use-a-cms)
 5. [Docs Edition: What to Use for Developer Documentation](/blog/developer-documentation-tools)
-6. [How We Built Hyprnote's Publishing Stack](/blog/hyprnote-publishing-stack)
+6. [How We Built Char's Publishing Stack](/blog/hyprnote-publishing-stack)
 7. [Building an Editorial Workflow with GitHub and Slack](/blog/building-editorial-workflow-github-slack)

@@ -1,6 +1,10 @@
 packages:
-  - "apps/*"
-  - "packages/*"
-  - "plugins/*"
-  - "extensions/*"
-  - "e2e/*"
+  - apps/*
+  - packages/*
+  - plugins/*
+  - examples/plugins/*
+  - e2e/*
+
+onlyBuiltDependencies:
+  - supabase
+  - "@infisical/cli"

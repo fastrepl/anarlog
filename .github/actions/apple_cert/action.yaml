@@ -24,6 +24,7 @@ runs:
     - name: Setup Certificate
       shell: bash
       run: |
+        set -euo pipefail
         echo "${{ inputs.apple-certificate }}" | base64 --decode > certificate.p12
         security create-keychain -p "${{ inputs.keychain-password }}" build.keychain
         security default-keychain -s build.keychain
@@ -32,11 +33,17 @@ runs:
         security import certificate.p12 -k build.keychain -P "${{ inputs.apple-certificate-password }}" -T /usr/bin/codesign
         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ inputs.keychain-password }}" build.keychain
         security find-identity -v -p codesigning build.keychain
+        rm -f certificate.p12
 
     - id: verify-cert
       shell: bash
       run: |
+        set -euo pipefail
         CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+        if [[ -z "$CERT_INFO" ]]; then
+          echo "::error::No Developer ID Application certificate found in keychain"
+          exit 1
+        fi
         CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
         echo "cert-id=$CERT_ID" >> $GITHUB_OUTPUT
         echo "Certificate imported."

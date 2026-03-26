@@ -8,7 +8,7 @@ pub fn process_recorded(
         use rodio::Source;
 
         let source = hypr_audio_utils::source_from_path(audio_path.as_ref()).unwrap();
-        let original_sample_rate = source.sample_rate();
+        let original_sample_rate: u32 = source.sample_rate().into();
 
         let resampled_samples = if original_sample_rate != 16000 {
             hypr_audio_utils::resample_audio(source, 16000).unwrap()

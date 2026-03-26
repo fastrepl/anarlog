@@ -22,6 +22,5 @@ glib = "0.18"
 gtk = "0.18"
 pango = "0.18"
 indexmap = "2.6"
-once_cell = { workspace = true }
 open = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

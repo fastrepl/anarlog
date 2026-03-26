@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 
 import type { AuthCallbackSearch } from "@hypr/plugin-deeplink2";
 
-import { useAuth } from "../../auth";
+import { useAuth } from "~/auth";
 
 export const Route = createFileRoute("/auth/callback")({
   validateSearch: (search): AuthCallbackSearch => {

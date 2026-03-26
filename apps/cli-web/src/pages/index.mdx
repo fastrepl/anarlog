@@ -1,0 +1,55 @@
+---
+layout: "../layouts/Base.astro"
+---
+
+import Logo from "../components/Logo.astro";
+import Title from "../components/Title.astro";
+import CyclingTools from "../components/CyclingTools.astro";
+import Byline from "../components/Byline.astro";
+import GithubMention from "../components/GithubMention.astro";
+import CharRepoDir from "../components/CharRepoDir.astro";
+import Install from "../components/Install.astro";
+import CommandReference from "../components/CommandReference.astro";
+import Faq from "../components/Faq.astro";
+
+<Logo stagger={1} />
+<Title stagger={2}>Composable CLI for your meeting workflow</Title>
+<CyclingTools stagger={3} />
+
+<div class="stagger-4">
+
+## Installation
+
+<Install command="npx char --help" label="Run this to get started" />
+
+Currently published for `x86` and `arm` macs.
+
+## char record
+
+TODO
+
+<Faq question="Why not just record my mic? Shouldn't be hard, no?">
+</Faq>
+
+## char transcribe
+
+TODO
+
+<Faq question="Looking for realtime transcription, calendar syncing, etc?">
+</Faq>
+
+## char models
+
+TODO
+
+<Faq question="Is it Whisper.cpp?">
+</Faq>
+
+
+## Reference
+
+<CommandReference />
+
+</div>
+
+<Byline stagger={5}>Brought to you by <GithubMention name="@fastrepl/char" />, under <CharRepoDir name="apps/cli" />.</Byline>

@@ -1,0 +1,79 @@
+---
+title: "Analytics Funnel"
+section: "How We Work"
+summary: "The 8-stage user journey we track with PostHog, from first website visit to retained paying user"
+---
+
+We track the user lifecycle as an 8-stage funnel. Each stage has key events that tell us whether users are progressing. For implementation details and the full event catalog, see the [developer analytics docs](/docs/developers/analytics).
+
+```
+[                   1. Acquisition                  ]
+[          2. Install         ][ 2a. Waitlist ]
+[        3. Onboarding       ]
+[      4. Activation      ]
+[    5. Habits     ]
+[  6. Retention ]
+[ 7. Convert ]
+[8. Paying]
+```
+
+## 1. Acquisition (website visits)
+
+Standard PostHog pageview and session tracking.
+
+## 2. Converting visits to app installs
+
+- **`download_clicked`** — `platform`, `spec`, `source`
+- **`show_main_window`** — fired whenever the app is opened. First occurrence marks install.
+
+Optional:
+- `reminder_requested` — mobile waitlist signup
+- `os_waitlist_joined` — unsupported OS waitlist signup
+
+## 3. Onboarding
+
+- `onboarding_step_viewed` — freshly downloaded users see this on first open
+- `user_signed_in` + `identify()` — account created
+- **`onboarding_completed`** — finished onboarding flow
+
+## 4. Activation (first summary)
+
+- `note_created` — `has_event_id`
+- `session_started` — `has_calendar_event`, `stt_provider`, `stt_model`
+- **`note_enhanced`** — `is_auto`, `llm_provider`, `llm_model`, `template_id` (this is the summary)
+
+## 5. Building habits (multiple meeting notes)
+
+- Repeated `note_created` events
+- Repeated `session_started` events
+- Repeated **`note_enhanced`** events
+- `file_uploaded` — `file_type` (audio/transcript imports)
+- **`message_sent`** — chat engagement
+- **`search_performed`** — searching past notes
+- `session_exported` — `format`, getting value out of notes
+
+## 6. Retention (coming back)
+
+- Repeated **`note_enhanced`** over multiple days/weeks
+- Repeated `tab_opened` — `view`
+- `note_edited` — revisiting old notes
+- `search_performed` — referencing past content
+
+## 7. Conversion (trial to pro)
+
+- `upgrade_clicked` — `plan`: `"pro"`
+- User property: `plan` changes from trial to pro
+- User property: `trial_end_date` for timing analysis
+
+## 8. Retention (keep paying)
+
+- Continued `session_started`, `note_enhanced`, `note_created` post-conversion
+- `settings_changed` — ongoing engagement with app config
+- `data_imported` — deepening investment in the platform
+- Absence of `user_signed_out`
+
+## Segmentation properties
+
+Key user properties for segmentation across all stages:
+
+`is_signed_up`, `plan`, `trial_end_date`, `has_configured_ai`, `platform`, `app_version`, `current_stt_provider`, `current_llm_provider`

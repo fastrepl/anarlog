@@ -2,13 +2,11 @@
 description = "Default permissions for the plugin"
 permissions = [
     "allow-models-dir",
-    "allow-is-server-running",
     "allow-is-model-downloading",
     "allow-is-model-downloaded",
     "allow-download-model",
-    "allow-start-server",
-    "allow-stop-server",
-    "allow-restart-server",
+    "allow-cancel-download",
+    "allow-delete-model",
     "allow-get-current-model",
     "allow-set-current-model",
     "allow-list-downloaded-model",
@@ -16,4 +14,7 @@ permissions = [
     "allow-list-custom-models",
     "allow-get-current-model-selection",
     "allow-set-current-model-selection",
+    "allow-start-server",
+    "allow-stop-server",
+    "allow-server-url",
 ]

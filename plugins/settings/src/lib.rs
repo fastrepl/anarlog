@@ -3,15 +3,11 @@ use tauri::Manager;
 mod commands;
 mod error;
 mod ext;
-mod fs;
-mod global;
-mod obsidian;
 mod state;
-mod vault;
 
 pub use error::{Error, Result};
 pub use ext::*;
-pub use obsidian::ObsidianVault;
+pub use hypr_storage::ObsidianVault;
 pub use state::*;
 
 const PLUGIN_NAME: &str = "settings";
@@ -23,7 +19,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::settings_path::<tauri::Wry>,
             commands::global_base::<tauri::Wry>,
             commands::vault_base::<tauri::Wry>,
-            commands::change_vault_base::<tauri::Wry>,
+            commands::copy_vault::<tauri::Wry>,
+            commands::move_vault::<tauri::Wry>,
+            commands::set_vault_base::<tauri::Wry>,
             commands::load::<tauri::Wry>,
             commands::save::<tauri::Wry>,
             commands::obsidian_vaults::<tauri::Wry>,
@@ -40,9 +38,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
 
-            let vault_base = app.settings().fresh_vault_base().unwrap();
-            let state = state::State::new(vault_base);
-            assert!(app.manage(state));
+            let startup_vault_base = app.settings().resolve_startup_vault_base().unwrap();
+            let snapshot = state::StartupSnapshot::new(startup_vault_base);
+            assert!(app.manage(snapshot));
             Ok(())
         })
         .build()

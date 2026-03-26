@@ -1,7 +1,17 @@
-import { getSchema } from "@tiptap/core";
+import { type Extensions, getSchema } from "@tiptap/core";
+import type { Schema } from "@tiptap/pm/model";
 import type { JSONContent } from "@tiptap/react";
 
 import { getExtensions } from "./extensions";
+
+let _schema: Schema | null = null;
+
+function getCachedSchema(): Schema {
+  if (!_schema) {
+    _schema = getSchema(getExtensions() as Extensions);
+  }
+  return _schema;
+}
 
 export type SchemaValidationResult =
   | { valid: true }
@@ -9,8 +19,7 @@ export type SchemaValidationResult =
 
 export function validateJsonContent(json: JSONContent): SchemaValidationResult {
   try {
-    const schema = getSchema(getExtensions());
-    schema.nodeFromJSON(json);
+    getCachedSchema().nodeFromJSON(json);
     return { valid: true };
   } catch (error) {
     return {

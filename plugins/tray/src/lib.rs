@@ -1,5 +1,6 @@
 mod ext;
 mod menu_items;
+mod tray_icon;
 
 pub use ext::*;
 pub use menu_items::{HyprMenuItem, UpdateMenuState};
@@ -19,21 +20,34 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 fn setup_update_listeners(app: &tauri::AppHandle) {
+    use ext::TrayPluginExt;
     use tauri_specta::Event;
 
     let handle = app.clone();
     tauri_plugin_updater2::UpdateDownloadingEvent::listen(app, move |_event| {
         let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::Downloading);
+        let _ = handle.tray().set_update_available(true);
     });
 
     let handle = app.clone();
-    tauri_plugin_updater2::UpdateReadyEvent::listen(app, move |_event| {
-        let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::RestartToApply);
+    tauri_plugin_updater2::UpdateReadyEvent::listen(app, move |event| {
+        let _ = menu_items::TrayCheckUpdate::set_state(
+            &handle,
+            UpdateMenuState::RestartToApply(event.payload.version.clone()),
+        );
+        let _ = handle.tray().set_update_available(true);
+    });
+
+    let handle = app.clone();
+    tauri_plugin_updater2::UpdateDownloadFailedEvent::listen(app, move |_event| {
+        let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::CheckForUpdate);
+        let _ = handle.tray().set_update_available(false);
     });
 
     let handle = app.clone();
     tauri_plugin_updater2::UpdatedEvent::listen(app, move |_event| {
         let _ = menu_items::TrayCheckUpdate::set_state(&handle, UpdateMenuState::CheckForUpdate);
+        let _ = handle.tray().set_update_available(false);
     });
 }
 

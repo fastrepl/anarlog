@@ -5,10 +5,15 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands } from "@hypr/plugin-settings";
 
-import type { Schemas, Store } from "../../store/settings";
-import { StoreOrMergeableStore } from "../../store/shared";
-import { createFileListener } from "../shared/listener";
-import { settingsToContent, storeToSettings } from "./transform";
+import {
+  type LanguageDefaults,
+  settingsToContent,
+  storeToSettings,
+} from "./transform";
+
+import { createFileListener } from "~/store/tinybase/persister/shared/listener";
+import type { Schemas, Store } from "~/store/tinybase/store/settings";
+import { StoreOrMergeableStore } from "~/store/tinybase/store/shared";
 
 const SETTINGS_FILENAME = "settings.json";
 
@@ -54,7 +59,7 @@ export const createSettingsPersister = createPersisterBuilder({
 
 interface TransformUtils<T> {
   toStore: (data: T) => Content<Schemas>;
-  fromStore: (store: Store) => T;
+  fromStore: (store: Store, languageDefaults?: LanguageDefaults) => T;
 }
 
 function createPersisterBuilder<T>(transform: TransformUtils<T>) {
@@ -80,7 +85,8 @@ function createPersisterBuilder<T>(transform: TransformUtils<T>) {
         return transform.toStore(settings as T);
       },
       async () => {
-        const settings = transform.fromStore(store);
+        const languageDefaults = await getLanguageDefaults();
+        const settings = transform.fromStore(store, languageDefaults);
         const result = await commands.save(
           settings as Parameters<typeof commands.save>[0],
         );

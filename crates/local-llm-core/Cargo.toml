@@ -1,0 +1,27 @@
+[package]
+name = "local-llm-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+specta = ["dep:specta"]
+
+[dependencies]
+hypr-file = { workspace = true }
+hypr-gguf = { workspace = true }
+hypr-lmstudio = { workspace = true }
+hypr-local-model = { workspace = true }
+
+axum = { workspace = true }
+dirs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true, features = ["cors"] }
+tracing = { workspace = true }
+
+specta = { workspace = true, optional = true }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+hypr-llm-cactus = { workspace = true }

@@ -1,10 +1,12 @@
-mod utils;
-use utils::*;
+mod common;
+
+use common::analytics::*;
+use common::harness::*;
 
 use std::sync::Arc;
 
 use axum::http::StatusCode;
-use llm_proxy::{LlmProxyConfig, router};
+use llm_proxy::{LlmProxyConfig, MODEL_KEY_DEFAULT, StaticModelResolver, router};
 use tower::ServiceExt;
 
 mod basic {
@@ -152,8 +154,10 @@ mod e2e {
 
     fn real_config(analytics: MockAnalytics) -> LlmProxyConfig {
         let api_key = std::env::var("OPENROUTER_API_KEY").expect("OPENROUTER_API_KEY must be set");
+        let resolver = StaticModelResolver::default()
+            .with_models(MODEL_KEY_DEFAULT, vec!["openai/gpt-4.1-nano".into()]);
         LlmProxyConfig::new(api_key)
-            .with_models_default(vec!["openai/gpt-4.1-nano".into()])
+            .with_model_resolver(Arc::new(resolver))
             .with_analytics(Arc::new(analytics))
     }
 

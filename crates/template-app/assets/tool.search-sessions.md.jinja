@@ -1,0 +1,14 @@
+{%- import "_macros.jinja" as macros -%}
+
+Search results for "{{ query }}":
+{%- if results.is_empty() %}
+
+- No matching sessions found.
+  {%- else %}
+  {%- for item in results %}
+- [{{ loop.index }}] {{ item.title | assigned_or("Untitled session") }} (id: {{ item.id }}, score: {{ item.score | fmt("{:.3}") }})
+  {%- if let Some(ctx) = item.session_context %}
+  {{ macros::session_context_details(ctx=ctx) }}
+  {%- endif %}
+  {%- endfor %}
+  {%- endif %}

@@ -54,7 +54,7 @@ pub async fn parse_from_sqlite(path: &Path) -> Result<Collection> {
         .await?;
     let db = UserDatabase::from(db);
 
-    // Older Hyprnote DBs can have `sessions.words` as NULL/empty, but db-user's
+    // Older Char DBs can have `sessions.words` as NULL/empty, but db-user's
     // `Session::from_row` expects a non-null JSON string.
     let conn = db.conn()?;
     conn.execute(

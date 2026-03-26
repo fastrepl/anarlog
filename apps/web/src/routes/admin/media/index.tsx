@@ -1,3 +1,4 @@
+import MuxPlayer from "@mux/mux-player-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -84,8 +85,62 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+function HoverMarqueeText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflowWidth, setOverflowWidth] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const containerWidth = containerRef.current?.clientWidth ?? 0;
+      const textWidth = textRef.current?.scrollWidth ?? 0;
+      setOverflowWidth(Math.max(0, textWidth - containerWidth));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(["overflow-hidden whitespace-nowrap", className])}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={text}
+    >
+      <span
+        ref={textRef}
+        className="inline-block whitespace-nowrap"
+        style={{
+          transform:
+            isHovered && overflowWidth > 0
+              ? `translateX(-${overflowWidth}px)`
+              : "translateX(0)",
+          transitionDuration: `${Math.max(1.8, overflowWidth / 40)}s`,
+          transitionTimingFunction: "linear",
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
 function getRelativePath(fullPath: string): string {
   return fullPath;
+}
+
+function getAdminMediaDownloadUrl(path: string): string {
+  return `/api/admin/media/download?path=${encodeURIComponent(path)}`;
 }
 
 function MediaLibrary() {
@@ -102,6 +157,7 @@ function MediaLibrary() {
   const [isMounted, setIsMounted] = useState(false);
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
 
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [itemToMove, setItemToMove] = useState<MediaItem | null>(null);
 
@@ -248,53 +304,73 @@ function MediaLibrary() {
     });
   };
 
-  const openTab = useCallback(
-    (
-      type: "folder" | "file",
-      name: string,
-      path: string,
-      options: { pinned?: boolean; forceNewTab?: boolean } = {},
-    ) => {
-      const { pinned = false, forceNewTab = false } = options;
-      setTabs((prev) => {
-        // If opening the home/root folder, just activate the Home tab
-        if (type === "folder" && path === "") {
-          return prev.map((t) => ({ ...t, active: t.isHome === true }));
-        }
+  const openFileTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "file" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
 
-        const existingIndex = prev.findIndex(
-          (t) => t.type === type && t.path === path,
+      const newTab: Tab = {
+        id: `file-${path}-${Date.now()}`,
+        type: "file",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
+
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
+
+  const openFolderTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      if (path === "") {
+        return prev.map((tab) => ({ ...tab, active: tab.isHome === true }));
+      }
+
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "folder" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
+
+      const activeFolderTab = prev.find(
+        (tab) =>
+          tab.active && tab.type === "folder" && !tab.isHome && !tab.pinned,
+      );
+      if (activeFolderTab) {
+        return prev.map((tab) =>
+          tab.id === activeFolderTab.id
+            ? { ...tab, name, path, active: true }
+            : { ...tab, active: false },
         );
-        if (existingIndex !== -1) {
-          return prev.map((t, i) => ({ ...t, active: i === existingIndex }));
-        }
+      }
 
-        const newTab: Tab = {
-          id: `${type}-${path}-${Date.now()}`,
-          type,
-          name,
-          path,
-          pinned,
-          active: true,
-        };
+      const newTab: Tab = {
+        id: `folder-${path}-${Date.now()}`,
+        type: "folder",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
 
-        if (forceNewTab) {
-          return [...prev.map((t) => ({ ...t, active: false })), newTab];
-        }
-
-        const unpinnedIndex = prev.findIndex((t) => !t.pinned && !t.isHome);
-        if (unpinnedIndex !== -1 && prev.length > 0) {
-          return prev.map((t, i) =>
-            i === unpinnedIndex ? newTab : { ...t, active: false },
-          );
-        }
-
-        return [...prev.map((t) => ({ ...t, active: false })), newTab];
-      });
-      setSelectedItems(new Set());
-    },
-    [],
-  );
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs((prev) => {
@@ -344,9 +420,9 @@ function MediaLibrary() {
         setHistoryIndex((prev) => Math.min(prev + 1, 49));
       }
       isNavigatingRef.current = false;
-      openTab("folder", name || "Home", path);
+      openFolderTab(name || "Home", path);
     },
-    [historyIndex, openTab],
+    [historyIndex, openFolderTab],
   );
 
   const handleNavigateBack = useCallback(() => {
@@ -354,18 +430,18 @@ function MediaLibrary() {
       isNavigatingRef.current = true;
       const prevEntry = navigationHistory[historyIndex - 1];
       setHistoryIndex(historyIndex - 1);
-      openTab("folder", prevEntry.name, prevEntry.path);
+      openFolderTab(prevEntry.name, prevEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const handleNavigateForward = useCallback(() => {
     if (historyIndex < navigationHistory.length - 1) {
       isNavigatingRef.current = true;
       const nextEntry = navigationHistory[historyIndex + 1];
       setHistoryIndex(historyIndex + 1);
-      openTab("folder", nextEntry.name, nextEntry.path);
+      openFolderTab(nextEntry.name, nextEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const {
     uploadMutation,
@@ -398,6 +474,7 @@ function MediaLibrary() {
   const handleCreateFolder = (name: string) => {
     const parentFolder = currentTab?.type === "folder" ? currentTab.path : "";
     createFolderMutation.mutate({ name, parentFolder });
+    setIsCreatingFolder(false);
   };
 
   const handleMoveFile = (destinationFolder: string) => {
@@ -458,24 +535,34 @@ function MediaLibrary() {
     deleteMutation.mutate(Array.from(selectedItems));
   };
 
-  const handleDownload = (publicUrl: string, filename: string) => {
+  const handleDownload = async (path: string, filename: string) => {
+    const response = await fetch(getAdminMediaDownloadUrl(path), {
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download ${filename}`);
+    }
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = publicUrl;
+    link.href = blobUrl;
     link.download = filename;
-    link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  const handleDownloadSelected = () => {
+  const handleDownloadSelected = async () => {
     const currentItems = currentPathQuery.data || [];
-    selectedItems.forEach((path) => {
+    for (const path of selectedItems) {
       const item = currentItems.find((i) => i.path === path);
       if (item && item.type === "file") {
-        handleDownload(item.publicUrl, item.name);
+        await handleDownload(item.path, item.name);
       }
-    });
+    }
   };
 
   const handleReplace = (file: File, path: string) => {
@@ -540,13 +627,16 @@ function MediaLibrary() {
             onSearchChange={setSearchQuery}
             loadingPaths={loadingPaths}
             filteredTreeNodes={filteredTreeNodes}
-            onOpenFolder={(path, name) => openTab("folder", name, path)}
-            onOpenFile={(path, name) => openTab("file", name, path)}
+            onOpenFolder={navigateToFolder}
+            onOpenFile={openFileTab}
             onToggleNodeExpanded={toggleNodeExpanded}
             uploadPending={uploadMutation.isPending}
             fileInputRef={fileInputRef}
             onUpload={handleUpload}
-            onCreateFolder={() => handleCreateFolder("untitled")}
+            isCreatingFolder={isCreatingFolder}
+            onCreateFolderClick={() => setIsCreatingFolder(true)}
+            onCreateFolder={handleCreateFolder}
+            onCancelCreateFolder={() => setIsCreatingFolder(false)}
             createFolderPending={createFolderMutation.isPending}
             currentTab={currentTab}
             onRename={handleRename}
@@ -596,11 +686,11 @@ function MediaLibrary() {
             onDownload={handleDownload}
             onReplace={handleReplace}
             onDeleteSingle={handleDeleteSingle}
-            onOpenPreview={(path, name) => openTab("file", name, path)}
+            onOpenPreview={openFileTab}
             onOpenFolder={(path, name) => navigateToFolder(path, name)}
             onMove={openMoveModal}
             onRename={handleRename}
-            onCreateFolder={() => handleCreateFolder("untitled")}
+            onCreateFolder={() => setIsCreatingFolder(true)}
             fileInputRef={fileInputRef}
             createFolderPending={createFolderMutation.isPending}
             uploadPending={uploadMutation.isPending}
@@ -644,7 +734,10 @@ function Sidebar({
   uploadPending,
   fileInputRef,
   onUpload,
+  isCreatingFolder,
+  onCreateFolderClick,
   onCreateFolder,
+  onCancelCreateFolder,
   createFolderPending,
   currentTab,
   onRename,
@@ -661,7 +754,10 @@ function Sidebar({
   uploadPending: boolean;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onUpload: (files: FileList) => void;
-  onCreateFolder: () => void;
+  isCreatingFolder: boolean;
+  onCreateFolderClick: () => void;
+  onCreateFolder: (name: string) => void;
+  onCancelCreateFolder: () => void;
   createFolderPending: boolean;
   currentTab: Tab | undefined;
   onRename: (path: string, newName: string) => void;
@@ -674,10 +770,10 @@ function Sidebar({
   ]);
 
   return (
-    <div className="h-full border-r border-neutral-200 bg-white flex flex-col min-h-0">
-      <div className="h-10 pl-4 pr-2 flex items-center border-b border-neutral-200">
-        <div className="relative w-full flex items-center gap-1.5">
-          <SearchIcon className="size-4 text-neutral-400 shrink-0" />
+    <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
+      <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
+        <div className="relative flex w-full items-center gap-1.5">
+          <SearchIcon className="size-4 shrink-0 text-neutral-400" />
           <input
             type="text"
             value={searchQuery}
@@ -693,10 +789,18 @@ function Sidebar({
         </div>
       </div>
 
-      <div className="flex-1 relative min-h-0">
+      <div className="relative min-h-0 flex-1">
         {!atStart && <ScrollFadeOverlay position="top" />}
         {!atEnd && <ScrollFadeOverlay position="bottom" />}
         <div ref={scrollRef} className="h-full overflow-y-auto">
+          {isCreatingFolder && (
+            <NewFolderInlineInput
+              existingNames={filteredTreeNodes.map((n) => n.name)}
+              onSubmit={onCreateFolder}
+              onCancel={onCancelCreateFolder}
+              isLoading={createFolderPending}
+            />
+          )}
           {filteredTreeNodes.map((node) => (
             <TreeNodeItem
               key={node.path}
@@ -716,12 +820,107 @@ function Sidebar({
       </div>
 
       <AddMenu
-        onCreateFolder={onCreateFolder}
-        createFolderPending={createFolderPending}
+        onCreateFolder={onCreateFolderClick}
+        createFolderPending={createFolderPending || isCreatingFolder}
         uploadPending={uploadPending}
         fileInputRef={fileInputRef}
         onUpload={onUpload}
       />
+    </div>
+  );
+}
+
+function NewFolderInlineInput({
+  existingNames,
+  onSubmit,
+  onCancel,
+  isLoading,
+}: {
+  existingNames: string[];
+  onSubmit: (name: string) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const validate = (name: string): string | null => {
+    if (!name.trim()) {
+      return "Name cannot be empty";
+    }
+    if (existingNames.some((n) => n.toLowerCase() === name.toLowerCase())) {
+      return "A folder with this name already exists";
+    }
+    return null;
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      const name = value.trim();
+      const validationError = validate(name);
+      if (validationError) {
+        setError(validationError);
+      } else {
+        setError(null);
+        onSubmit(name);
+      }
+    } else if (e.key === "Escape") {
+      onCancel();
+    }
+  };
+
+  const handleBlur = () => {
+    if (!value.trim()) {
+      onCancel();
+      return;
+    }
+    const name = value.trim();
+    const validationError = validate(name);
+    if (validationError) {
+      setError(validationError);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } else {
+      setError(null);
+      onSubmit(name);
+    }
+  };
+
+  return (
+    <div>
+      <div
+        className={cn([
+          "flex items-center gap-1.5 py-1.5 pr-2 pl-3 text-sm",
+          error ? "bg-red-50" : "bg-neutral-100",
+        ])}
+      >
+        <FolderPlusIcon className="size-4 shrink-0 text-neutral-400" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (error) setError(null);
+          }}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          disabled={isLoading}
+          placeholder="folder-name"
+          className={cn([
+            "flex-1 bg-transparent text-sm outline-hidden",
+            error ? "text-red-700" : "text-neutral-600",
+            "placeholder:text-neutral-400",
+          ])}
+        />
+      </div>
+      {error && (
+        <div className="bg-red-50 px-3 py-1 text-xs text-red-600">{error}</div>
+      )}
     </div>
   );
 }
@@ -758,7 +957,7 @@ function AddMenu({
   const isPending = createFolderPending || uploadPending;
 
   return (
-    <div className="p-3 relative">
+    <div className="relative p-3">
       {showMenu ? (
         <>
           <div
@@ -768,10 +967,10 @@ function AddMenu({
           <button
             onClick={handleCreateFolder}
             className={cn([
-              "absolute bottom-27 left-3 right-3 z-50",
-              "w-auto h-9 text-sm font-medium rounded-full flex items-center justify-center gap-2",
-              "bg-linear-to-b from-white to-neutral-100 text-neutral-700 border border-neutral-200",
-              "shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all",
+              "absolute right-3 bottom-27 left-3 z-50",
+              "flex h-9 w-auto items-center justify-center gap-2 rounded-full text-sm font-medium",
+              "border border-neutral-200 bg-linear-to-b from-white to-neutral-100 text-neutral-700",
+              "shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >
             <FolderPlusIcon className="size-4" />
@@ -780,10 +979,10 @@ function AddMenu({
           <button
             onClick={handleAddFile}
             className={cn([
-              "absolute bottom-15 left-3 right-3 z-50",
-              "w-auto h-9 text-sm font-medium rounded-full flex items-center justify-center gap-2",
-              "bg-linear-to-b from-white to-neutral-100 text-neutral-700 border border-neutral-200",
-              "shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all",
+              "absolute right-3 bottom-15 left-3 z-50",
+              "flex h-9 w-auto items-center justify-center gap-2 rounded-full text-sm font-medium",
+              "border border-neutral-200 bg-linear-to-b from-white to-neutral-100 text-neutral-700",
+              "shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >
             <UploadIcon className="size-4" />
@@ -792,9 +991,9 @@ function AddMenu({
           <button
             onClick={handleCancel}
             className={cn([
-              "w-full h-9 text-sm font-medium rounded-full flex items-center justify-center gap-2",
-              "bg-linear-to-b from-red-50 to-red-100 text-red-700 border border-red-200",
-              "shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all",
+              "flex h-9 w-full items-center justify-center gap-2 rounded-full text-sm font-medium",
+              "border border-red-200 bg-linear-to-b from-red-50 to-red-100 text-red-700",
+              "shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >
             <XIcon className="size-4" />
@@ -806,9 +1005,9 @@ function AddMenu({
           onClick={() => setShowMenu(true)}
           disabled={isPending}
           className={cn([
-            "w-full h-9 text-sm font-medium rounded-full flex items-center justify-center gap-2",
-            "bg-linear-to-b from-white to-neutral-100 text-neutral-700 border border-neutral-200",
-            "shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%] transition-all",
+            "flex h-9 w-full items-center justify-center gap-2 rounded-full text-sm font-medium",
+            "border border-neutral-200 bg-linear-to-b from-white to-neutral-100 text-neutral-700",
+            "shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             "disabled:opacity-50 disabled:hover:scale-100 disabled:hover:shadow-xs",
           ])}
         >
@@ -917,8 +1116,8 @@ function TreeNodeItem({
     <div>
       <div
         className={cn([
-          "flex items-center gap-1.5 py-1 pr-2 cursor-pointer text-sm",
-          "hover:bg-neutral-100 transition-colors",
+          "flex cursor-pointer items-center gap-1.5 py-1 pr-2 text-sm",
+          "transition-colors hover:bg-neutral-100",
           isActive && "bg-blue-50 text-blue-700",
         ])}
         style={{ paddingLeft: `${depth * 16 + 12}px` }}
@@ -964,7 +1163,7 @@ function TreeNodeItem({
               if (e.key === "Escape") cancelRename();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="flex-1 min-w-0 text-sm bg-white border border-blue-500 rounded px-1 outline-none"
+            className="min-w-0 flex-1 rounded border border-blue-500 bg-white px-1 text-sm outline-none"
           />
         ) : (
           <span
@@ -984,13 +1183,13 @@ function TreeNodeItem({
           <div
             className={cn([
               "fixed z-50 min-w-40 py-1",
-              "bg-white border border-neutral-200 rounded-xs shadow-lg",
+              "rounded-xs border border-neutral-200 bg-white shadow-lg",
             ])}
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
             <button
               onClick={startRename}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <PencilIcon className="size-4" />
               Rename
@@ -1000,7 +1199,7 @@ function TreeNodeItem({
                 closeContextMenu();
                 onMove(node.path, node.name, node.type);
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <MoveIcon className="size-4" />
               Move to...
@@ -1011,7 +1210,7 @@ function TreeNodeItem({
                 closeContextMenu();
                 onDelete(node.path);
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors text-red-600"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-neutral-100"
             >
               <Trash2Icon className="size-4" />
               Delete
@@ -1106,7 +1305,7 @@ function ContentPanel({
   items: MediaItem[];
   onToggleSelection: (path: string) => void;
   onCopyToClipboard: (text: string) => void;
-  onDownload: (publicUrl: string, filename: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
@@ -1129,7 +1328,7 @@ function ContentPanel({
   onSetDropTarget: (path: string | null) => void;
 }) {
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       {currentTab ? (
         <>
           <div className="flex items-end">
@@ -1187,6 +1386,7 @@ function ContentPanel({
                 selectedItems={selectedItems}
                 onToggleSelection={onToggleSelection}
                 onCopyToClipboard={onCopyToClipboard}
+                onDownload={onDownload}
                 onReplace={onReplace}
                 onDeleteSingle={onDeleteSingle}
                 onOpenPreview={onOpenPreview}
@@ -1208,9 +1408,9 @@ function ContentPanel({
           </div>
         </>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-neutral-500">
+        <div className="flex flex-1 items-center justify-center text-neutral-500">
           <div className="text-center">
-            <FolderOpenIcon className="size-12 mb-3" />
+            <FolderOpenIcon className="mb-3 size-12" />
             <p className="text-sm">
               Double-click a folder or file in the sidebar to open
             </p>
@@ -1302,10 +1502,10 @@ function TabItem({
     <>
       <div
         className={cn([
-          "h-10 px-3 flex items-center gap-2 cursor-pointer text-sm transition-colors",
+          "flex h-10 cursor-pointer items-center gap-2 px-3 text-sm transition-colors",
           "border-r border-b border-neutral-200",
           tab.active
-            ? "bg-white text-neutral-900 border-b-transparent"
+            ? "border-b-transparent bg-white text-neutral-900"
             : "bg-neutral-50 text-neutral-600 hover:bg-neutral-100",
         ])}
         onClick={onSelect}
@@ -1320,7 +1520,7 @@ function TabItem({
         ) : (
           <FileIcon className="size-4 text-neutral-400" />
         )}
-        <span className={cn(["truncate max-w-30", !tab.pinned && "italic"])}>
+        <span className={cn(["max-w-30 truncate", !tab.pinned && "italic"])}>
           {tab.name}
         </span>
         {!isHome && (
@@ -1329,7 +1529,7 @@ function TabItem({
               e.stopPropagation();
               onClose();
             }}
-            className="p-0.5 hover:bg-neutral-200 rounded transition-colors"
+            className="rounded p-0.5 transition-colors hover:bg-neutral-200"
           >
             <XIcon className="size-3 text-neutral-500" />
           </button>
@@ -1378,7 +1578,7 @@ function TabContextMenu({
       <div
         className={cn([
           "fixed z-50 min-w-35 py-1",
-          "bg-white border border-neutral-200 rounded-xs shadow-lg",
+          "rounded-xs border border-neutral-200 bg-white shadow-lg",
         ])}
         style={{ left: x, top: y }}
       >
@@ -1387,7 +1587,7 @@ function TabContextMenu({
             onCloseTab();
             onClose();
           }}
-          className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
         >
           <XIcon className="size-4" />
           Close
@@ -1398,7 +1598,7 @@ function TabContextMenu({
             onPinTab();
             onClose();
           }}
-          className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
         >
           {isPinned ? (
             <>
@@ -1451,7 +1651,7 @@ function HeaderBar({
   deletePending: boolean;
   currentFile?: MediaItem;
   onCopyToClipboard: (text: string) => void;
-  onDownload: (publicUrl: string, filename: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onCreateFolder: () => void;
@@ -1474,18 +1674,18 @@ function HeaderBar({
   const breadcrumbs = currentTab.path ? currentTab.path.split("/") : [];
 
   return (
-    <div className="h-10 flex items-center justify-between px-4 border-b border-neutral-200">
-      <div className="flex items-center gap-1 text-sm text-neutral-500">
-        <div className="flex items-center gap-0.5 mr-2">
+    <div className="flex h-10 items-center justify-between border-b border-neutral-200 px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-1 text-sm text-neutral-500">
+        <div className="mr-2 flex items-center gap-0.5">
           <button
             type="button"
             onClick={onNavigateBack}
             disabled={!canNavigateBack}
             className={cn([
-              "p-1 rounded transition-colors",
+              "rounded p-1 transition-colors",
               canNavigateBack
-                ? "hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700"
-                : "text-neutral-300 cursor-not-allowed",
+                ? "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+                : "cursor-not-allowed text-neutral-300",
             ])}
             title="Back"
           >
@@ -1496,10 +1696,10 @@ function HeaderBar({
             onClick={onNavigateForward}
             disabled={!canNavigateForward}
             className={cn([
-              "p-1 rounded transition-colors",
+              "rounded p-1 transition-colors",
               canNavigateForward
-                ? "hover:bg-neutral-100 text-neutral-500 hover:text-neutral-700"
-                : "text-neutral-300 cursor-not-allowed",
+                ? "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+                : "cursor-not-allowed text-neutral-300",
             ])}
             title="Forward"
           >
@@ -1508,7 +1708,7 @@ function HeaderBar({
         </div>
         <span
           className={cn([
-            "px-1.5 py-0.5 rounded transition-colors",
+            "rounded px-1.5 py-0.5 transition-colors",
             draggingItem &&
               dropTargetPath === "" &&
               "bg-blue-100 ring-2 ring-blue-400",
@@ -1529,7 +1729,7 @@ function HeaderBar({
             type="button"
             onClick={() => onOpenFolder("", "Home")}
             className={cn([
-              "text-neutral-700 font-medium",
+              "font-medium text-neutral-700",
               breadcrumbs.length > 0 && "hover:text-neutral-900",
             ])}
           >
@@ -1540,17 +1740,25 @@ function HeaderBar({
           const isLast = index === breadcrumbs.length - 1;
           const folderPath = breadcrumbs.slice(0, index + 1).join("/");
           const isDropTarget = draggingItem && dropTargetPath === folderPath;
+          const isFileName = currentTab.type === "file" && isLast;
           return (
-            <span key={index} className="flex items-center gap-1">
+            <span key={index} className="flex min-w-0 items-center gap-1">
               <ChevronRightIcon className="size-4 text-neutral-300" />
               {isLast ? (
-                <span className="text-neutral-700 font-medium px-1.5 py-0.5">
-                  {crumb}
+                <span className="min-w-0 px-1.5 py-0.5 font-medium text-neutral-700">
+                  {isFileName ? (
+                    <HoverMarqueeText
+                      text={crumb}
+                      className="max-w-[min(42rem,52vw)]"
+                    />
+                  ) : (
+                    crumb
+                  )}
                 </span>
               ) : (
                 <span
                   className={cn([
-                    "px-1.5 py-0.5 rounded transition-colors",
+                    "rounded px-1.5 py-0.5 transition-colors",
                     isDropTarget && "bg-blue-100 ring-2 ring-blue-400",
                     draggingItem && "cursor-copy",
                   ])}
@@ -1578,8 +1786,8 @@ function HeaderBar({
           );
         })}
         {currentFile && (
-          <span className="text-xs text-neutral-400 ml-2">
-            {formatFileSize(currentFile.size)} • {currentFile.mimeType}
+          <span className="ml-2 text-xs text-neutral-400">
+            {formatFileSize(currentFile.size)}
           </span>
         )}
       </div>
@@ -1591,9 +1799,9 @@ function HeaderBar({
             onClick={() => setShowAddMenu(!showAddMenu)}
             disabled={createFolderPending || uploadPending}
             className={cn([
-              "px-2 py-1.5 text-xs font-medium font-mono rounded-xs flex items-center gap-1.5",
+              "flex items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-xs font-medium",
               "bg-neutral-900 text-white hover:bg-neutral-800",
-              "disabled:opacity-50 disabled:cursor-not-allowed transition-colors",
+              "transition-colors disabled:cursor-not-allowed disabled:opacity-50",
             ])}
           >
             <PlusIcon className="size-3" />
@@ -1609,8 +1817,8 @@ function HeaderBar({
               />
               <div
                 className={cn([
-                  "absolute top-full right-0 mt-1 z-50 min-w-40 py-1",
-                  "bg-white border border-neutral-200 rounded-xs shadow-lg",
+                  "absolute top-full right-0 z-50 mt-1 min-w-40 py-1",
+                  "rounded-xs border border-neutral-200 bg-white shadow-lg",
                 ])}
               >
                 <button
@@ -1618,7 +1826,7 @@ function HeaderBar({
                     setShowAddMenu(false);
                     fileInputRef.current?.click();
                   }}
-                  className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
                 >
                   <UploadIcon className="size-4" />
                   Add File
@@ -1628,7 +1836,7 @@ function HeaderBar({
                     setShowAddMenu(false);
                     onCreateFolder();
                   }}
-                  className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
                 >
                   <FolderPlusIcon className="size-4" />
                   Add Folder
@@ -1646,7 +1854,7 @@ function HeaderBar({
           </span>
           <button
             onClick={onDownloadSelected}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-neutral-600"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Download selected"
           >
             <DownloadIcon className="size-4" />
@@ -1654,14 +1862,14 @@ function HeaderBar({
           <button
             onClick={onDelete}
             disabled={deletePending}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-red-600 disabled:opacity-50"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-red-600 disabled:opacity-50"
             title="Delete selected"
           >
             <Trash2Icon className="size-4" />
           </button>
           <button
             onClick={onClearSelection}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-neutral-600"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Clear selection"
           >
             <XIcon className="size-4" />
@@ -1673,28 +1881,28 @@ function HeaderBar({
         <div className="flex items-center gap-1">
           <button
             onClick={() => onCopyToClipboard(currentFile.publicUrl)}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-neutral-600"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Copy URL"
           >
             <CopyIcon className="size-4" />
           </button>
           <button
-            onClick={() => onDownload(currentFile.publicUrl, currentFile.name)}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-neutral-600"
+            onClick={() => onDownload(currentFile.path, currentFile.name)}
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Download"
           >
             <DownloadIcon className="size-4" />
           </button>
           <button
             onClick={() => replaceFileInputRef.current?.click()}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-neutral-600"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Replace"
           >
             <RefreshCwIcon className="size-4" />
           </button>
           <button
             onClick={() => onDeleteSingle(currentFile.path)}
-            className="p-1.5 rounded transition-colors text-neutral-400 hover:text-red-600"
+            className="rounded p-1.5 text-neutral-400 transition-colors hover:text-red-600"
             title="Delete"
           >
             <Trash2Icon className="size-4" />
@@ -1729,6 +1937,7 @@ function FolderView({
   selectedItems,
   onToggleSelection,
   onCopyToClipboard,
+  onDownload,
   onReplace,
   onDeleteSingle,
   onOpenPreview,
@@ -1752,6 +1961,7 @@ function FolderView({
   selectedItems: Set<string>;
   onToggleSelection: (path: string) => void;
   onCopyToClipboard: (text: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
@@ -1768,7 +1978,7 @@ function FolderView({
   return (
     <div
       className={cn([
-        "h-full overflow-y-auto p-4 relative",
+        "relative h-full overflow-y-auto p-4",
         dragOver && "bg-blue-50",
       ])}
       onDrop={onDrop}
@@ -1776,19 +1986,19 @@ function FolderView({
       onDragLeave={onDragLeave}
     >
       {isLoading ? (
-        <div className="flex items-center justify-center h-full text-neutral-500">
+        <div className="flex h-full items-center justify-center text-neutral-500">
           <Spinner size={24} className="mr-2" />
           Loading...
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center h-full text-neutral-500">
-          <AlertCircleIcon className="size-12 mb-3 text-red-400" />
+        <div className="flex h-full flex-col items-center justify-center text-neutral-500">
+          <AlertCircleIcon className="mb-3 size-12 text-red-400" />
           <p className="text-sm text-red-600">Failed to load media</p>
-          <p className="text-xs mt-1 text-neutral-400">{error.message}</p>
+          <p className="mt-1 text-xs text-neutral-400">{error.message}</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-neutral-300">
-          <FolderOpenIcon className="size-10 mb-2" />
+        <div className="flex h-full flex-col items-center justify-center text-neutral-300">
+          <FolderOpenIcon className="mb-2 size-10" />
           <p className="text-sm">Empty folder</p>
         </div>
       ) : (
@@ -1805,6 +2015,7 @@ function FolderView({
               isSelected={selectedItems.has(item.path)}
               onSelect={() => onToggleSelection(item.path)}
               onCopyPath={() => onCopyToClipboard(item.publicUrl)}
+              onDownload={() => onDownload(item.path, item.name)}
               onReplace={(file) => onReplace(file, item.path)}
               onDelete={() => onDeleteSingle(item.path)}
               onOpenPreview={() => onOpenPreview(item.path, item.name)}
@@ -1837,6 +2048,7 @@ function MediaItemCard({
   isSelected,
   onSelect,
   onCopyPath,
+  onDownload,
   onReplace,
   onDelete,
   onOpenPreview,
@@ -1855,6 +2067,7 @@ function MediaItemCard({
   isSelected: boolean;
   onSelect: () => void;
   onCopyPath: () => void;
+  onDownload: () => void;
   onReplace: (file: File) => void;
   onDelete: () => void;
   onOpenPreview: () => void;
@@ -1964,11 +2177,11 @@ function MediaItemCard({
           onDropOnFolder();
         }}
         className={cn([
-          "group relative rounded-lg border overflow-hidden cursor-pointer transition-all",
+          "group relative cursor-pointer overflow-hidden rounded-lg border transition-all",
           isSelected
             ? "border-blue-500 ring-2 ring-blue-500"
             : isDropTarget
-              ? "border-blue-400 ring-2 ring-blue-400 bg-blue-50"
+              ? "border-blue-400 bg-blue-50 ring-2 ring-blue-400"
               : "border-neutral-200 hover:border-neutral-300 hover:shadow-md",
           isDragging && "opacity-50",
         ])}
@@ -1977,7 +2190,7 @@ function MediaItemCard({
       >
         <div
           className={cn([
-            "aspect-square flex items-center justify-center",
+            "flex aspect-square items-center justify-center",
             isDropTarget ? "bg-blue-100" : "bg-neutral-100",
           ])}
         >
@@ -1988,7 +2201,7 @@ function MediaItemCard({
             ])}
           />
         </div>
-        <div className="p-2 bg-white">
+        <div className="bg-white p-2">
           {isRenaming ? (
             <input
               ref={renameInputRef}
@@ -2001,10 +2214,10 @@ function MediaItemCard({
                 if (e.key === "Escape") cancelRename();
               }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full text-sm text-neutral-700 bg-white border border-blue-500 rounded px-1 py-0.5 outline-none"
+              className="w-full rounded border border-blue-500 bg-white px-1 py-0.5 text-sm text-neutral-700 outline-none"
             />
           ) : (
-            <p className="text-sm text-neutral-700 truncate" title={item.name}>
+            <p className="truncate text-sm text-neutral-700" title={item.name}>
               {item.name}
             </p>
           )}
@@ -2022,10 +2235,10 @@ function MediaItemCard({
         >
           <div
             className={cn([
-              "w-5 h-5 rounded flex items-center justify-center shadow-xs cursor-pointer",
+              "flex h-5 w-5 cursor-pointer items-center justify-center rounded shadow-xs",
               isSelected
                 ? "bg-blue-500"
-                : "bg-white border-2 border-neutral-300",
+                : "border-2 border-neutral-300 bg-white",
             ])}
           >
             {isSelected && <CheckIcon className="size-3 text-white" />}
@@ -2033,12 +2246,12 @@ function MediaItemCard({
         </div>
 
         <div
-          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="w-6 h-6 rounded bg-white/90 hover:bg-white border border-neutral-200 flex items-center justify-center shadow-xs"
+            className="flex h-6 w-6 items-center justify-center rounded border border-neutral-200 bg-white/90 shadow-xs hover:bg-white"
           >
             <MoreVerticalIcon className="size-4 text-neutral-700" />
           </button>
@@ -2051,20 +2264,20 @@ function MediaItemCard({
               />
               <div
                 className={cn([
-                  "absolute top-full right-0 mt-1 z-50 min-w-40 py-1",
-                  "bg-white border border-neutral-200 rounded-xs shadow-lg",
+                  "absolute top-full right-0 z-50 mt-1 min-w-40 py-1",
+                  "rounded-xs border border-neutral-200 bg-white shadow-lg",
                 ])}
               >
                 <button
                   onClick={startRename}
-                  className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
                 >
                   <PencilIcon className="size-4" />
                   Rename
                 </button>
                 <button
                   onClick={handleMove}
-                  className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
                 >
                   <MoveIcon className="size-4" />
                   Move to...
@@ -2072,7 +2285,7 @@ function MediaItemCard({
                 <div className="my-1 border-t border-neutral-200" />
                 <button
                   onClick={handleDelete}
-                  className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors text-red-600"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-neutral-100"
                 >
                   <Trash2Icon className="size-4" />
                   Delete
@@ -2088,7 +2301,7 @@ function MediaItemCard({
             <div
               className={cn([
                 "fixed z-50 min-w-40 py-1",
-                "bg-white border border-neutral-200 rounded-xs shadow-lg",
+                "rounded-xs border border-neutral-200 bg-white shadow-lg",
               ])}
               style={{ left: contextMenu.x, top: contextMenu.y }}
             >
@@ -2097,7 +2310,7 @@ function MediaItemCard({
                   closeContextMenu();
                   startRename();
                 }}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <PencilIcon className="size-4" />
                 Rename
@@ -2107,7 +2320,7 @@ function MediaItemCard({
                   closeContextMenu();
                   onMove();
                 }}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <MoveIcon className="size-4" />
                 Move to...
@@ -2118,7 +2331,7 @@ function MediaItemCard({
                   closeContextMenu();
                   onDelete();
                 }}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors text-red-600"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-neutral-100"
               >
                 <Trash2Icon className="size-4" />
                 Delete
@@ -2130,9 +2343,9 @@ function MediaItemCard({
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
@@ -2144,7 +2357,7 @@ function MediaItemCard({
       }}
       onDragEnd={onDragEnd}
       className={cn([
-        "group relative rounded-lg border overflow-hidden cursor-pointer transition-all",
+        "group relative cursor-pointer overflow-hidden rounded-lg border transition-all",
         isSelected
           ? "border-blue-500 ring-2 ring-blue-500"
           : "border-neutral-200 hover:border-neutral-300 hover:shadow-md",
@@ -2153,30 +2366,46 @@ function MediaItemCard({
       onClick={onOpenPreview}
       onContextMenu={handleContextMenu}
     >
-      <div className="aspect-square bg-neutral-100 flex items-center justify-center overflow-hidden">
+      <div
+        className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
+        style={{ backgroundImage: "url(/patterns/dots.svg)" }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
         {isImage && item.publicUrl ? (
           <img
             src={item.publicUrl}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="relative z-10 h-full w-full object-contain p-4"
             loading="lazy"
           />
+        ) : isVideo && item.thumbnailUrl ? (
+          <div className="relative z-10 h-full w-full">
+            <img
+              src={item.thumbnailUrl}
+              alt={item.name}
+              className="h-full w-full object-contain p-4"
+              loading="lazy"
+            />
+            <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+              Video
+            </span>
+          </div>
         ) : isVideo ? (
-          <div className="relative w-full h-full bg-neutral-900 flex items-center justify-center">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
-            <span className="absolute bottom-2 right-2 text-xs text-white bg-black/60 px-1.5 py-0.5 rounded">
+            <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Video
             </span>
           </div>
         ) : isAudio ? (
-          <div className="relative w-full h-full bg-neutral-900 flex items-center justify-center">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
-            <span className="absolute bottom-2 right-2 text-xs text-white bg-black/60 px-1.5 py-0.5 rounded">
+            <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Audio
             </span>
           </div>
         ) : (
-          <FileIcon className="size-12 text-neutral-400" />
+          <FileIcon className="relative z-10 size-12 text-neutral-400" />
         )}
       </div>
 
@@ -2192,8 +2421,8 @@ function MediaItemCard({
       >
         <div
           className={cn([
-            "w-5 h-5 rounded flex items-center justify-center shadow-xs cursor-pointer",
-            isSelected ? "bg-blue-500" : "bg-white border-2 border-neutral-300",
+            "flex h-5 w-5 cursor-pointer items-center justify-center rounded shadow-xs",
+            isSelected ? "bg-blue-500" : "border-2 border-neutral-300 bg-white",
           ])}
         >
           {isSelected && <CheckIcon className="size-3 text-white" />}
@@ -2201,12 +2430,12 @@ function MediaItemCard({
       </div>
 
       <div
-        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute top-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => setShowMenu(!showMenu)}
-          className="w-6 h-6 rounded bg-white/90 hover:bg-white border border-neutral-200 flex items-center justify-center shadow-xs"
+          className="flex h-6 w-6 items-center justify-center rounded border border-neutral-200 bg-white/90 shadow-xs hover:bg-white"
         >
           <MoreVerticalIcon className="size-4 text-neutral-700" />
         </button>
@@ -2219,43 +2448,44 @@ function MediaItemCard({
             />
             <div
               className={cn([
-                "absolute top-full right-0 mt-1 z-50 min-w-40 py-1",
-                "bg-white border border-neutral-200 rounded-xs shadow-lg",
+                "absolute top-full right-0 z-50 mt-1 min-w-40 py-1",
+                "rounded-xs border border-neutral-200 bg-white shadow-lg",
               ])}
             >
               <button
                 onClick={startRename}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <PencilIcon className="size-4" />
                 Rename
               </button>
               <button
                 onClick={handleCopyPath}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <CopyIcon className="size-4" />
                 Copy URL
               </button>
-              <a
-                href={item.publicUrl}
-                download={item.name}
-                onClick={() => setShowMenu(false)}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  onDownload();
+                }}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <DownloadIcon className="size-4" />
                 Download
-              </a>
+              </button>
               <button
                 onClick={handleReplace}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <RefreshCwIcon className="size-4" />
                 Replace
               </button>
               <button
                 onClick={handleMove}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <MoveIcon className="size-4" />
                 Move to...
@@ -2263,7 +2493,7 @@ function MediaItemCard({
               <div className="my-1 border-t border-neutral-200" />
               <button
                 onClick={handleDelete}
-                className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors text-red-600"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-neutral-100"
               >
                 <Trash2Icon className="size-4" />
                 Delete
@@ -2273,7 +2503,7 @@ function MediaItemCard({
         )}
       </div>
 
-      <div className="p-2 bg-white">
+      <div className="bg-white p-2">
         {isRenaming ? (
           <input
             ref={renameInputRef}
@@ -2286,10 +2516,10 @@ function MediaItemCard({
               if (e.key === "Escape") cancelRename();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full text-sm text-neutral-700 bg-white border border-blue-500 rounded px-1 py-0.5 outline-none"
+            className="w-full rounded border border-blue-500 bg-white px-1 py-0.5 text-sm text-neutral-700 outline-none"
           />
         ) : (
-          <p className="text-sm text-neutral-700 truncate" title={item.name}>
+          <p className="truncate text-sm text-neutral-700" title={item.name}>
             {item.name}
           </p>
         )}
@@ -2310,7 +2540,7 @@ function MediaItemCard({
           <div
             className={cn([
               "fixed z-50 min-w-40 py-1",
-              "bg-white border border-neutral-200 rounded-xs shadow-lg",
+              "rounded-xs border border-neutral-200 bg-white shadow-lg",
             ])}
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
@@ -2319,7 +2549,7 @@ function MediaItemCard({
                 closeContextMenu();
                 startRename();
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <PencilIcon className="size-4" />
               Rename
@@ -2329,26 +2559,27 @@ function MediaItemCard({
                 closeContextMenu();
                 onCopyPath();
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <CopyIcon className="size-4" />
               Copy URL
             </button>
-            <a
-              href={item.publicUrl}
-              download={item.name}
-              onClick={closeContextMenu}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+            <button
+              onClick={() => {
+                closeContextMenu();
+                onDownload();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <DownloadIcon className="size-4" />
               Download
-            </a>
+            </button>
             <button
               onClick={() => {
                 closeContextMenu();
                 fileInputRef.current?.click();
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <RefreshCwIcon className="size-4" />
               Replace
@@ -2358,7 +2589,7 @@ function MediaItemCard({
                 closeContextMenu();
                 onMove();
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <MoveIcon className="size-4" />
               Move to...
@@ -2369,7 +2600,7 @@ function MediaItemCard({
                 closeContextMenu();
                 onDelete();
               }}
-              className="w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 hover:bg-neutral-100 transition-colors text-red-600"
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-neutral-100"
             >
               <Trash2Icon className="size-4" />
               Delete
@@ -2384,43 +2615,59 @@ function MediaItemCard({
 function FilePreview({ item }: { item: MediaItem | undefined }) {
   if (!item) {
     return (
-      <div className="flex items-center justify-center h-full text-neutral-500">
+      <div className="flex h-full items-center justify-center text-neutral-500">
         <p className="text-sm">File not found</p>
       </div>
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
-      className="h-full flex-1 bg-neutral-50 p-4 flex items-center justify-center overflow-hidden"
+      className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-white p-4"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
       {isImage && (
         <img
           src={item.publicUrl}
           alt={item.name}
-          className="max-w-full max-h-full object-scale-down"
+          className="relative z-10 max-h-full max-w-full object-scale-down"
         />
       )}
       {isVideo && (
-        <video
-          src={item.publicUrl}
-          controls
-          className="max-w-full max-h-full object-contain"
-        />
+        <>
+          {item.playbackId ? (
+            <div className="relative z-10 w-full max-w-5xl overflow-hidden rounded-lg border border-neutral-200 bg-black">
+              <MuxPlayer
+                playbackId={item.playbackId}
+                className="aspect-video w-full"
+              />
+            </div>
+          ) : (
+            <video
+              src={item.publicUrl}
+              controls
+              className="relative z-10 max-h-full max-w-full object-contain"
+            />
+          )}
+        </>
       )}
       {isAudio && (
-        <audio src={item.publicUrl} controls className="w-full max-w-md" />
+        <audio
+          src={item.publicUrl}
+          controls
+          className="relative z-10 w-full max-w-md"
+        />
       )}
       {!isImage && !isVideo && !isAudio && (
-        <div className="text-center">
-          <FileIcon className="size-16 text-neutral-400 mb-4" />
+        <div className="relative z-10 text-center">
+          <FileIcon className="mb-4 size-16 text-neutral-400" />
           <p className="text-sm text-neutral-600">{item.name}</p>
-          <p className="text-xs text-neutral-400 mt-1">
+          <p className="mt-1 text-xs text-neutral-400">
             {formatFileSize(item.size)}
           </p>
         </div>
@@ -2479,17 +2726,17 @@ function MoveFileModal({
         <form onSubmit={handleSubmit}>
           <div className="py-4">
             {item && (
-              <p className="text-sm text-neutral-600 mb-3">
+              <p className="mb-3 text-sm text-neutral-600">
                 Moving: <span className="font-medium">{item.name}</span>
               </p>
             )}
-            <label className="block text-sm font-medium text-neutral-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-neutral-700">
               Destination Folder
             </label>
             <select
               value={selectedFolder}
               onChange={(e) => setSelectedFolder(e.target.value)}
-              className="w-full px-3 py-2 border border-neutral-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
             >
               <option value="">Root (no folder)</option>
               {allFolders.map((folder) => (
@@ -2503,7 +2750,7 @@ function MoveFileModal({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 rounded-md"
+              className="rounded-md px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
             >
               Cancel
             </button>
@@ -2511,9 +2758,9 @@ function MoveFileModal({
               type="submit"
               disabled={isPending}
               className={cn([
-                "px-4 py-2 text-sm font-medium text-white rounded-md",
+                "rounded-md px-4 py-2 text-sm font-medium text-white",
                 "bg-blue-500 hover:bg-blue-600",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
+                "disabled:cursor-not-allowed disabled:opacity-50",
               ])}
             >
               {isPending ? "Moving..." : "Move"}

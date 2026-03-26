@@ -23,6 +23,8 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 serde = { workspace = true }
 specta = { workspace = true }
 
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
 hypr-db-parser = { workspace = true }
 hypr-frontmatter = { workspace = true }
 hypr-tiptap = { workspace = true }

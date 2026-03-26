@@ -1,5 +1,5 @@
 use dagc::MonoAgc;
-use hypr_vad_ext::{StreamingVad, VadConfig};
+use hypr_vad_masking::{StreamingVad, VadConfig};
 
 pub struct VadAgc {
     agc: MonoAgc,

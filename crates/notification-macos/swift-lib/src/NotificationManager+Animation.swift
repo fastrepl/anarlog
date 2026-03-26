@@ -5,7 +5,7 @@ extension NotificationManager {
     notification: NotificationInstance, screen: NSScreen, timeoutSeconds: Double
   ) {
     let screenRect = screen.visibleFrame
-    let finalX = screenRect.maxX - panelWidth() - Layout.rightMargin + Layout.buttonOverhang
+    let finalX = screenRect.maxX - panelWidth() - Layout.rightMargin + buttonOverhang()
     let y = notification.panel.frame.minY
 
     notification.panel.setFrame(
@@ -30,7 +30,9 @@ extension NotificationManager {
     } completion: {
       self.refreshTrackingAreas(for: notification)
       self.updateHoverForAll(atScreenPoint: NSEvent.mouseLocation)
-      notification.startDismissTimer(timeoutSeconds: timeoutSeconds)
+      if timeoutSeconds > 0 {
+        notification.startDismissTimer(timeoutSeconds: timeoutSeconds)
+      }
     }
   }
 

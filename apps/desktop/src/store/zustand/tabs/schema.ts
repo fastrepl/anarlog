@@ -1,26 +1,28 @@
 import type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
+  ChatState,
+  ContactsSelection,
   ContactsState,
   EditorView,
   ExtensionsState,
   PromptsState,
+  SearchState,
   SessionsState,
   TabInput,
   TemplatesState,
 } from "@hypr/plugin-windows";
 
 export type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
+  ChatState,
+  ContactsSelection,
   ContactsState,
   EditorView,
   ExtensionsState,
   PromptsState,
+  SearchState,
   SessionsState,
   TabInput,
   TemplatesState,
@@ -30,8 +32,13 @@ export type SettingsTab =
   | "account"
   | "app"
   | "notifications"
+  | "calendar"
   | "system"
-  | "lab";
+  | "lab"
+  | "transcription"
+  | "intelligence"
+  | "templates"
+  | "memory";
 
 export type SettingsState = {
   tab: SettingsTab | null;
@@ -78,10 +85,9 @@ export type Tab =
       state: ChatShortcutsState;
     })
   | (BaseTab & {
-      type: "extensions";
-      state: ExtensionsState;
+      type: "humans";
+      id: string;
     })
-  | (BaseTab & { type: "humans"; id: string })
   | (BaseTab & { type: "organizations"; id: string })
   | (BaseTab & { type: "folders"; id: string | null })
   | (BaseTab & { type: "empty" })
@@ -90,6 +96,10 @@ export type Tab =
       extensionId: string;
       state: Record<string, unknown>;
     })
+  | (BaseTab & {
+      type: "extensions";
+      state: ExtensionsState;
+    })
   | (BaseTab & { type: "calendar" })
   | (BaseTab & {
       type: "changelog";
@@ -97,9 +107,16 @@ export type Tab =
     })
   | (BaseTab & { type: "settings"; state: SettingsState })
   | (BaseTab & {
-      type: "ai";
-      state: AiState;
-    });
+      type: "search";
+      state: SearchState;
+    })
+  | (BaseTab & {
+      type: "chat_support";
+      state: ChatState;
+    })
+  | (BaseTab & { type: "onboarding" })
+  | (BaseTab & { type: "daily" })
+  | (BaseTab & { type: "edit"; requestId: string });
 
 export const getDefaultState = (tab: TabInput): Tab => {
   const base = { active: false, slotId: "", pinned: false };
@@ -117,8 +134,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
         ...base,
         type: "contacts",
         state: tab.state ?? {
-          selectedOrganization: null,
-          selectedPerson: null,
+          selected: null,
         },
       };
     case "templates":
@@ -150,14 +166,6 @@ export const getDefaultState = (tab: TabInput): Tab => {
           selectedWebIndex: null,
         },
       };
-    case "extensions":
-      return {
-        ...base,
-        type: "extensions",
-        state: tab.state ?? {
-          selectedExtension: null,
-        },
-      };
     case "humans":
       return { ...base, type: "humans", id: tab.id };
     case "organizations":
@@ -173,6 +181,12 @@ export const getDefaultState = (tab: TabInput): Tab => {
         extensionId: tab.extensionId,
         state: tab.state ?? {},
       };
+    case "extensions":
+      return {
+        ...base,
+        type: "extensions",
+        state: tab.state ?? { selectedExtension: null },
+      };
     case "calendar":
       return { ...base, type: "calendar" };
     case "changelog":
@@ -182,44 +196,35 @@ export const getDefaultState = (tab: TabInput): Tab => {
         state: tab.state,
       };
     case "settings":
-      return { ...base, type: "settings", state: { tab: "account" } };
-    case "ai":
       return {
         ...base,
-        type: "ai",
-        state: tab.state ?? { tab: null },
+        type: "settings",
+        state: { tab: (tab.state?.tab as SettingsTab) ?? "app" },
       };
+    case "search":
+      return {
+        ...base,
+        type: "search",
+        state: tab.state ?? { selectedTypes: null, initialQuery: null },
+      };
+    case "chat_support":
+      return {
+        ...base,
+        type: "chat_support",
+        state: tab.state ?? {
+          groupId: null,
+          initialMessage: null,
+        },
+      };
+    case "onboarding":
+      return { ...base, type: "onboarding" };
+    case "daily":
+      return { ...base, type: "daily" };
+    case "edit":
+      return { ...base, type: "edit", requestId: tab.requestId };
     default:
       const _exhaustive: never = tab;
       return _exhaustive;
-  }
-};
-
-export const rowIdfromTab = (tab: Tab): string => {
-  switch (tab.type) {
-    case "sessions":
-      return tab.id;
-    case "humans":
-      return tab.id;
-    case "organizations":
-      return tab.id;
-    case "contacts":
-    case "templates":
-    case "prompts":
-    case "chat_shortcuts":
-    case "extensions":
-    case "empty":
-    case "extension":
-    case "calendar":
-    case "changelog":
-    case "settings":
-    case "ai":
-      throw new Error("invalid_resource");
-    case "folders":
-      if (!tab.id) {
-        throw new Error("invalid_resource");
-      }
-      return tab.id;
   }
 };
 
@@ -239,22 +244,30 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `prompts`;
     case "chat_shortcuts":
       return `chat_shortcuts`;
-    case "extensions":
-      return `extensions`;
     case "folders":
       return `folders-${tab.id ?? "all"}`;
     case "empty":
       return `empty-${tab.slotId}`;
     case "extension":
       return `extension-${tab.extensionId}`;
+    case "extensions":
+      return `extensions`;
     case "calendar":
       return `calendar`;
     case "changelog":
       return "changelog";
     case "settings":
       return `settings`;
-    case "ai":
-      return `ai`;
+    case "search":
+      return `search`;
+    case "chat_support":
+      return `chat_support`;
+    case "onboarding":
+      return `onboarding`;
+    case "daily":
+      return `daily`;
+    case "edit":
+      return `edit-${tab.requestId}`;
   }
 };
 

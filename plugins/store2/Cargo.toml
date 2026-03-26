@@ -23,6 +23,7 @@ tauri-plugin-settings = { workspace = true }
 tauri-plugin-store = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+hypr-storage = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true }

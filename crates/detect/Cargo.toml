@@ -31,7 +31,7 @@ hypr-bundle = { workspace = true }
 hypr-language = { workspace = true }
 
 plist = "1.7"
-cidre = { workspace = true }
+cidre = { workspace = true, features = ["ax"] }
 block2 = { workspace = true }
 
 objc2-foundation = { workspace = true, features = ["NSLocale", "NSArray", "NSString"] }
@@ -40,6 +40,10 @@ objc2 = { workspace = true }
 objc2-core-foundation = { workspace = true }
 objc2-application-services = { workspace = true }
 macos-accessibility-client = { workspace = true }
+
+[[example]]
+name = "detector"
+required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
 
 [target."cfg(target_os = \"linux\")".dependencies]
 libpulse-binding = "2.30"

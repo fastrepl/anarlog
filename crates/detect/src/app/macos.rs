@@ -3,7 +3,7 @@ use tokio::time::{Duration, sleep};
 
 use crate::BackgroundTask;
 
-// `defaults read /Applications/Hyprnote.app/Contents/Info.plist CFBundleIdentifier`
+// `defaults read /Applications/Char.app/Contents/Info.plist CFBundleIdentifier`
 const MEETING_APP_LIST: [&str; 3] = [
     "us.zoom.xos",         // tested
     "Cisco-Systems.Spark", // tested

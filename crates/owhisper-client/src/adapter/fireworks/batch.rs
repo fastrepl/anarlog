@@ -13,6 +13,10 @@ use crate::error::Error;
 
 // https://docs.fireworks.ai/api-reference/audio-transcriptions
 impl BatchSttAdapter for FireworksAdapter {
+    fn provider_name(&self) -> &'static str {
+        "fireworks"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],

@@ -32,7 +32,7 @@ export function CodeBlock({
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="relative group">
+      <div className="group relative">
         <pre ref={preRef} {...props}>
           {children}
         </pre>
@@ -47,17 +47,17 @@ export function CodeBlock({
             <button
               type="button"
               onClick={handleCopy}
-              className="cursor-pointer absolute top-2.5 right-2.5 p-1.5 rounded bg-stone-200/80 hover:bg-stone-300/80 text-stone-600 opacity-0 group-hover:opacity-100 transition-all"
+              className="absolute top-2.5 right-2.5 cursor-pointer rounded bg-stone-200/80 p-1.5 text-stone-600 opacity-0 transition-all group-hover:opacity-100 hover:bg-stone-300/80"
               aria-label={copied ? "Copied" : "Copy code"}
             >
               {copied ? (
-                <Check className="w-4 h-4 text-green-600" />
+                <Check className="h-4 w-4 text-green-600" />
               ) : (
-                <Copy className="w-4 h-4" />
+                <Copy className="h-4 w-4" />
               )}
             </button>
           </TooltipTrigger>
-          <TooltipContent className="bg-black text-white rounded-md">
+          <TooltipContent className="rounded-md bg-black text-white">
             {copied ? "Copied" : "Copy"}
           </TooltipContent>
         </Tooltip>

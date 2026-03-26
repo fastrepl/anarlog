@@ -1,0 +1,24 @@
+[package]
+name = "model-downloader"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+specta = ["dep:specta"]
+
+[dependencies]
+hypr-download-interface = { workspace = true }
+hypr-file = { workspace = true }
+
+serde = { workspace = true }
+specta = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt", "macros", "fs", "sync"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+zip = "2"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+wiremock = { workspace = true }

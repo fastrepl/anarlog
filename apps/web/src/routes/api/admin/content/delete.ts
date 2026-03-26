@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
-import { deleteContentFile } from "@/functions/github-content";
+import {
+  deleteContentFile,
+  ensureContentEditBranch,
+  getCollectionFromPath,
+} from "@/functions/github-content";
 
 interface DeleteRequest {
   path: string;
+  branch?: string;
 }
 
 export const Route = createFileRoute("/api/admin/content/delete")({
@@ -32,7 +37,7 @@ export const Route = createFileRoute("/api/admin/content/delete")({
           });
         }
 
-        const { path } = body;
+        const { path, branch } = body;
 
         if (!path) {
           return new Response(
@@ -41,7 +46,24 @@ export const Route = createFileRoute("/api/admin/content/delete")({
           );
         }
 
-        const result = await deleteContentFile(path);
+        const collection = getCollectionFromPath(path);
+        let targetBranch = branch;
+        let pendingPR: Awaited<
+          ReturnType<typeof ensureContentEditBranch>
+        > | null = null;
+
+        if (!targetBranch && collection && collection !== "articles") {
+          pendingPR = await ensureContentEditBranch(path);
+          if (!pendingPR.success || !pendingPR.branchName) {
+            return new Response(JSON.stringify({ error: pendingPR.error }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          targetBranch = pendingPR.branchName;
+        }
+
+        const result = await deleteContentFile(path, targetBranch);
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
@@ -50,10 +72,18 @@ export const Route = createFileRoute("/api/admin/content/delete")({
           });
         }
 
-        return new Response(JSON.stringify({ success: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            branch: targetBranch,
+            prNumber: pendingPR?.prNumber,
+            prUrl: pendingPR?.prUrl,
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       },
     },
   },

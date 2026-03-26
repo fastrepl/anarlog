@@ -1,0 +1,88 @@
+name: Content Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/web/content/docs/**"
+      - "apps/web/content/handbook/**"
+
+jobs:
+  content-check:
+    if: startsWith(github.head_ref, 'content/docs/') || startsWith(github.head_ref, 'content/handbook/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- 'apps/web/content/docs/**/*.mdx' 'apps/web/content/handbook/**/*.mdx' | tr '\n' ' ')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          if [ -z "$FILES" ]; then
+            echo "has_files=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_files=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        if: steps.changed-files.outputs.has_files == 'true'
+        run: npm install --legacy-peer-deps ai @ai-sdk/anthropic zod
+
+      - name: Run content audit
+        if: steps.changed-files.outputs.has_files == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CHANGED_FILES: ${{ steps.changed-files.outputs.files }}
+        run: |
+          node .github/scripts/content-audit.mjs
+
+      - name: Post PR comment
+        if: steps.changed-files.outputs.has_files == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const auditResults = fs.readFileSync('content-audit-results.md', 'utf8');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('<!-- content-check-bot -->')
+            );
+
+            const body = `<!-- content-check-bot -->\n${auditResults}`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }

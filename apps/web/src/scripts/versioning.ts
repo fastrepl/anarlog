@@ -1,23 +1,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-type VersionChannel = "stable" | "nightly" | "staging";
-
 // https://docs.crabnebula.dev/cloud/cli/upload-assets/#public-platform---public-platform
-export type VersionPlatform = "dmg-aarch64" | "appimage-x86_64" | "deb-x86_64";
-
-export type VersionDownloads = Partial<Record<VersionPlatform, string>>;
-
-export type VersionEntry = {
-  version: string;
-  summary?: string;
-  created: string;
-  channel: VersionChannel;
-  downloads: VersionDownloads;
-};
+export type VersionPlatform =
+  | "dmg-aarch64"
+  | "appimage-x86_64"
+  | "deb-x86_64"
+  | "appimage-aarch64"
+  | "deb-aarch64";
 
 const GITHUB_REPO_OWNER = "fastrepl";
-const GITHUB_REPO_NAME = "hyprnote";
+const GITHUB_REPO_NAME = "char";
 
 type GithubTagResponse = {
   name: string;

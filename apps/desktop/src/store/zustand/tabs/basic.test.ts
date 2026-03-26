@@ -1,9 +1,11 @@
+import "./test-matchers";
+
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { type Tab, useTabs } from ".";
-import "./test-matchers";
 import {
   createContactsTab,
+  createSettingsTab,
   createSessionTab,
   resetTabsStore,
 } from "./test-utils";
@@ -41,7 +43,7 @@ describe("Basic Tab Actions", () => {
     });
   });
 
-  test("openCurrent replaces active tab and closes all duplicates", () => {
+  test("openCurrent switches to existing tab instead of replacing active", () => {
     const session1 = createSessionTab({ active: false });
     const session2 = createSessionTab({ active: false });
     const session3 = createSessionTab({ active: false });
@@ -56,13 +58,13 @@ describe("Basic Tab Actions", () => {
     useTabs.getState().openCurrent(duplicateOfSession1);
 
     expect(useTabs.getState()).toMatchTabsInOrder([
-      { id: session2.id, active: false },
       { id: session1.id, active: true },
+      { id: session2.id, active: false },
+      { id: session3.id, active: false },
     ]);
-    expect(useTabs.getState()).toHaveLastHistoryEntry({ id: session1.id });
-    expect(useTabs.getState()).toHaveHistoryLength(2);
+    expect(useTabs.getState()).toHaveHistoryLength(1);
     expect(useTabs.getState()).toHaveNavigationState({
-      canGoBack: true,
+      canGoBack: false,
       canGoNext: false,
     });
   });
@@ -96,6 +98,37 @@ describe("Basic Tab Actions", () => {
       { id: "tab2", active: false },
     ]);
     expect(state).toHaveHistoryLength(1);
+  });
+
+  test("openNew reuses settings tab and updates requested subsection", () => {
+    const settings = createSettingsTab({
+      active: false,
+      state: { tab: "app" },
+    });
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(settings);
+    useTabs.getState().openNew(session);
+    useTabs.getState().openNew(
+      createSettingsTab({
+        active: false,
+        state: { tab: "calendar" },
+      }),
+    );
+
+    const state = useTabs.getState();
+    expect(state).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "calendar" } },
+      { id: "tab1", active: false, type: "sessions" },
+    ]);
+    expect(state).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
+    expect(state).toHaveLastHistoryEntry({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
   });
 
   test("select toggles active flag without changing history", () => {

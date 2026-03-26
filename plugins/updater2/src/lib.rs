@@ -2,6 +2,8 @@ mod commands;
 mod error;
 mod events;
 mod ext;
+#[cfg(target_os = "macos")]
+mod startup_migration;
 mod store;
 
 pub use error::{Error, Result};
@@ -18,10 +20,12 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::check::<tauri::Wry>,
             commands::download::<tauri::Wry>,
             commands::install::<tauri::Wry>,
+            commands::postinstall::<tauri::Wry>,
             commands::maybe_emit_updated::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             events::UpdateDownloadingEvent,
+            events::UpdateDownloadFailedEvent,
             events::UpdateReadyEvent,
             events::UpdatedEvent,
         ])
@@ -35,9 +39,46 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
+
+            #[cfg(target_os = "macos")]
+            match startup_migration::maybe_schedule_legacy_bundle_rename_on_launch(app) {
+                Ok(true) => std::process::exit(0),
+                Ok(false) => {}
+                Err(err) => tracing::error!("failed to schedule legacy bundle rename: {}", err),
+            }
+
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    check_and_download(&handle).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+                }
+            });
+
             Ok(())
         })
         .build()
+}
+
+async fn check_and_download<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if cfg!(debug_assertions) {
+        return;
+    }
+
+    let updater2 = app.updater2();
+
+    let version = match updater2.check().await {
+        Ok(Some(v)) => v,
+        Ok(None) => return,
+        Err(e) => {
+            tracing::error!("update_check_failed: {}", e);
+            return;
+        }
+    };
+
+    if let Err(e) = updater2.download(&version).await {
+        tracing::error!("update_download_failed: {}", e);
+    }
 }
 
 #[cfg(test)]

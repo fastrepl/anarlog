@@ -125,3 +125,36 @@ Sections:
 2. Generate a well-formatted markdown summary.
    {% endmatch -%}
    {%- endmacro -%}
+
+{%- macro session_context_details(ctx) -%}
+{%- if let Some(title) = ctx.title %}
+
+Title: {{ title }}
+{%- endif -%}
+{%- if let Some(date) = ctx.date %}
+
+Date: {{ date }}
+{%- endif -%}
+{%- if let Some(event) = ctx.event %}
+
+Event: {{ event.name }}
+{%- endif -%}
+{%- if !ctx.participants.is_empty() %}
+
+Participants:{{ participants(participants=ctx.participants) }}
+{%- endif -%}
+{%- if let Some(enhanced_content) = ctx.enhanced_content %}
+
+Enhanced Meeting Summary:
+{{ enhanced_content }}
+{%- else if let Some(raw_content) = ctx.raw_content %}
+
+User written note:
+{{ raw_content }}
+{%- endif -%}
+{%- if let Some(transcript) = ctx.transcript %}
+
+Full Meeting Transcript:
+{{ transcript(transcript) }}
+{%- endif -%}
+{%- endmacro -%}

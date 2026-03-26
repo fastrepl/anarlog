@@ -6,5 +6,5 @@ pub(crate) async fn is_enabled<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     feature: Feature,
 ) -> Result<bool, String> {
-    Ok(app.flag().is_enabled(feature))
+    Ok(app.flag().is_enabled(feature).await)
 }

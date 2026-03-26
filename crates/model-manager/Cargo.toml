@@ -1,0 +1,16 @@
+[package]
+name = "model-manager"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+cactus = ["hypr-cactus"]
+
+[dependencies]
+hypr-cactus = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time", "rt", "macros"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros", "rt"] }
+uuid = { workspace = true, features = ["v4"] }

@@ -1,0 +1,15 @@
+[package]
+name = "google-drive"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-http = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+urlencoding = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,12 @@
+.blog-editor.tiptap-root {
+  height: auto;
+  min-height: 0;
+}
+
+.blog-editor.tiptap-root .tiptap {
+  min-height: 0;
+}
+
+.blog-editor.tiptap-root .tiptap p {
+  margin-bottom: 1rem;
+}

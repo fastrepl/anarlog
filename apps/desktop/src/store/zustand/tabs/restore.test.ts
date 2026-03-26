@@ -1,7 +1,8 @@
+import "./test-matchers";
+
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { useTabs } from ".";
-import "./test-matchers";
 import { createSessionTab, resetTabsStore, seedTabsStore } from "./test-utils";
 
 const openTabs = (...tabs: ReturnType<typeof createSessionTab>[]) => {

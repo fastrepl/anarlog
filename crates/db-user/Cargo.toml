@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 hypr-buffer = { workspace = true }
-hypr-data = { workspace = true }
 hypr-db-core = { workspace = true }
 hypr-language = { workspace = true }
 owhisper-interface = { workspace = true }
@@ -17,7 +16,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 
-schemars = { workspace = true, features = ["chrono"] }
+schemars = { workspace = true, features = ["chrono04"] }
 specta = { workspace = true, features = ["derive", "chrono", "serde_json"] }
 
 chrono = { workspace = true, features = ["serde"] }

@@ -7,10 +7,10 @@ export const Route = createFileRoute("/_view/product/bot")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Bot - Hyprnote" },
+      { title: "Bot - Char" },
       {
         name: "description",
-        content: "Hyprnote Bot for meeting platforms. Coming soon.",
+        content: "Char Bot for meeting platforms. Coming soon.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],
@@ -27,10 +27,10 @@ const DRAGGABLE_ICONS = [
 function Component() {
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white h-[calc(100vh-65px)] relative overflow-hidden"
+      className="relative h-[calc(100vh-65px)] overflow-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white h-full relative">
+      <div className="relative mx-auto h-full max-w-6xl border-x border-neutral-100 bg-white">
         {DRAGGABLE_ICONS.map((icon, idx) => (
           <DraggableIcon
             key={idx}
@@ -43,12 +43,12 @@ function Component() {
           />
         ))}
 
-        <div className="bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6 h-full flex items-center justify-center relative z-10 pointer-events-none">
-          <div className="text-center max-w-4xl mx-auto pointer-events-auto">
-            <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6">
-              Hyprnote Bot
+        <div className="pointer-events-none relative z-10 flex h-full items-center justify-center bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6">
+          <div className="pointer-events-auto mx-auto max-w-4xl text-center">
+            <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+              Char Bot
             </h1>
-            <p className="text-lg sm:text-xl text-neutral-600">
+            <p className="text-lg text-neutral-600 sm:text-xl">
               An optional bot solution for teams that need centralized meeting
               recording and management.
             </p>
@@ -56,8 +56,8 @@ function Component() {
               <button
                 disabled
                 className={cn([
-                  "inline-block px-8 py-3 text-base font-medium cursor-not-allowed",
-                  "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs",
+                  "inline-block cursor-not-allowed px-8 py-3 text-base font-medium",
+                  "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
                 ])}
               >
                 Coming Soon
@@ -174,11 +174,11 @@ function DraggableIcon({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      <div className="w-full h-full shadow-2xl border border-neutral-100 flex justify-center items-center rounded-3xl bg-transparent">
+      <div className="flex h-full w-full items-center justify-center rounded-3xl border border-neutral-100 bg-transparent shadow-2xl">
         <img
           src="/api/images/hyprnote/icon.png"
-          alt="Hyprnote"
-          className="w-[85%] h-[85%] rounded-[20px] border border-neutral-100"
+          alt="Char"
+          className="h-[85%] w-[85%] rounded-[20px] border border-neutral-100"
           draggable={false}
         />
       </div>

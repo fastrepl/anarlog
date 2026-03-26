@@ -1,4 +1,5 @@
 mod batch;
+mod callback;
 pub mod error;
 mod keywords;
 mod language;
@@ -8,10 +9,12 @@ use super::{LanguageQuality, LanguageSupport};
 
 // https://developers.deepgram.com/docs/models-languages-overview
 const NOVA3_GENERAL_LANGUAGES: &[&str] = &[
-    "bg", "ca", "cs", "da", "da-DK", "de", "de-CH", "el", "en", "en-AU", "en-GB", "en-IN", "en-NZ",
-    "en-US", "es", "es-419", "et", "fi", "fr", "fr-CA", "hi", "hu", "id", "it", "ja", "ko",
-    "ko-KR", "lt", "lv", "ms", "nl", "nl-BE", "no", "pl", "pt", "pt-BR", "pt-PT", "ro", "ru", "sk",
-    "sv", "sv-SE", "tr", "uk", "vi",
+    "ar", "ar-AE", "ar-SA", "ar-QA", "ar-KW", "ar-SY", "ar-LB", "ar-PS", "ar-JO", "ar-EG", "ar-SD",
+    "ar-TD", "ar-MA", "ar-DZ", "ar-TN", "ar-IQ", "ar-IR", "be", "bn", "bs", "bg", "ca", "hr", "cs",
+    "da", "da-DK", "nl", "en", "en-US", "en-AU", "en-GB", "en-IN", "en-NZ", "et", "fi", "nl-BE",
+    "fr", "fr-CA", "de", "de-CH", "el", "he", "hi", "hu", "id", "it", "ja", "kn", "ko", "ko-KR",
+    "lv", "lt", "mk", "ms", "mr", "no", "fa", "pl", "pt", "pt-BR", "pt-PT", "ro", "ru", "sr", "sk",
+    "sl", "es", "es-419", "sv", "sv-SE", "tl", "ta", "te", "tr", "uk", "ur", "vi",
 ];
 
 const NOVA2_GENERAL_LANGUAGES: &[&str] = &[
@@ -30,11 +33,11 @@ const ENGLISH_ONLY: &[&str] = &["en", "en-US"];
 
 const EXCELLENT_LANGS: &[&str] = &["ru", "en", "es", "pl", "fr", "it"];
 
-const HIGH_LANGS: &[&str] = &["ja", "nl", "de", "ko", "pt", "sv", "uk", "vi"];
+const HIGH_LANGS: &[&str] = &["nl", "de", "ko", "pt", "sv", "uk", "vi"];
 
 const GOOD_LANGS: &[&str] = &["tr", "fi", "da", "id", "el", "no", "ca"];
 
-const MODERATE_LANGS: &[&str] = &["cs", "sk", "hu", "bg", "hi", "ms", "ro", "et"];
+const MODERATE_LANGS: &[&str] = &["ja", "cs", "sk", "hu", "bg", "hi", "ms", "ro", "et"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, strum::EnumString, strum::AsRefStr)]
 pub enum DeepgramModel {
@@ -214,7 +217,7 @@ mod tests {
             (vec![Language::new(ISO639::Ja)], Some("nova-3")),
             (vec![Language::new(ISO639::Zh)], Some("nova-2")),
             (vec![Language::new(ISO639::Th)], Some("nova-2")),
-            (vec![Language::new(ISO639::Ar)], None),
+            (vec![Language::new(ISO639::Ar)], Some("nova-3")),
             (vec![], None),
             (
                 vec![Language::with_region(ISO639::En, "CA")],
@@ -304,7 +307,7 @@ mod tests {
 
         let ja: Vec<hypr_language::Language> = vec![ISO639::Ja.into()];
         let support = DeepgramAdapter::language_support_live(&ja, None);
-        assert_eq!(support.quality(), Some(LanguageQuality::High));
+        assert_eq!(support.quality(), Some(LanguageQuality::Moderate));
     }
 
     #[test]
@@ -377,7 +380,7 @@ mod tests {
             (&[ISO639::En], true),
             (&[ISO639::Zh], true),
             (&[ISO639::Th], true),
-            (&[ISO639::Ar], false),
+            (&[ISO639::Ar], true),
             (&[], true),
             (&[ISO639::En, ISO639::Es], true),
             (&[ISO639::En, ISO639::Ko], false),

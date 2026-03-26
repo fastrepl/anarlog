@@ -1,9 +1,14 @@
 import { createMergeableStore } from "tinybase/with-schemas";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { SCHEMA } from "../../store/settings";
-import { createTestSettingsStore } from "../testing/mocks";
-import { settingsToContent, storeToSettings } from "./transform";
+import {
+  settingsToContent,
+  storeToSettings,
+  storeValuesToSettings,
+} from "./transform";
+
+import { createTestSettingsStore } from "~/store/tinybase/persister/testing/mocks";
+import { SCHEMA } from "~/store/tinybase/store/settings";
 
 type FileChangeCallback = (event: { payload: { path: string } }) => void;
 
@@ -93,6 +98,7 @@ describe("settingsPersister roundtrip", () => {
         detect: false,
         respect_dnd: true,
         ignored_platforms: ["zoom", "slack"],
+        included_platforms: ["code"],
       },
       general: {
         autostart: true,
@@ -113,35 +119,37 @@ describe("settingsPersister roundtrip", () => {
     store.setValues(values);
     const result = storeToSettings(store);
 
-    expect(result).toEqual(original);
+    const expected = { ...original, cactus: {} };
+    // storeToSettings omits values that equal schema defaults
+    delete (expected as any).notification.event;
+    expect(result).toEqual(expected);
   });
 
   test("store -> settings -> store preserves all data", () => {
-    const store = createMergeableStore()
+    const store1 = createMergeableStore()
       .setTablesSchema(SCHEMA.table)
       .setValuesSchema(SCHEMA.value);
 
-    const originalTables = {
+    store1.setTables({
       ai_providers: {
-        openai: {
+        "llm:openai": {
           type: "llm",
           base_url: "https://api.openai.com",
           api_key: "sk-123",
         },
-        anthropic: {
+        "llm:anthropic": {
           type: "llm",
           base_url: "https://api.anthropic.com",
           api_key: "sk-456",
         },
-        deepgram: {
+        "stt:deepgram": {
           type: "stt",
           base_url: "https://api.deepgram.com",
           api_key: "dg-789",
         },
       },
-    };
-
-    const originalValues = {
+    });
+    store1.setValues({
       current_llm_provider: "openai",
       current_llm_model: "gpt-4",
       current_stt_provider: "deepgram",
@@ -150,21 +158,26 @@ describe("settingsPersister roundtrip", () => {
       notification_detect: false,
       respect_dnd: true,
       ignored_platforms: '["zoom"]',
+      included_platforms: '["code"]',
       autostart: true,
       save_recordings: false,
       telemetry_consent: false,
       ai_language: "en",
       spoken_languages: '["en","ko"]',
-    };
+      mic_active_threshold: 15,
+    });
 
-    store.setTables(originalTables);
-    store.setValues(originalValues);
-
-    const settings = storeToSettings(store);
+    const settings = storeToSettings(store1);
     const [tables, values] = settingsToContent(settings);
 
-    expect(tables).toEqual(originalTables);
-    expect(values).toEqual(originalValues);
+    const store2 = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store2.setTables(tables);
+    store2.setValues(values);
+
+    expect(store2.getTables()).toEqual(store1.getTables());
+    expect(store2.getValues()).toEqual(store1.getValues());
   });
 
   test("handles empty data", () => {
@@ -180,6 +193,7 @@ describe("settingsPersister roundtrip", () => {
 
     expect(result).toEqual({
       ai: { llm: {}, stt: {} },
+      cactus: {},
       notification: {},
       general: {},
       language: {},
@@ -218,9 +232,10 @@ describe("settingsPersister roundtrip", () => {
 
   test("handles partial data - only notification settings", () => {
     const original = {
+      // different values from defaults
       notification: {
-        event: true,
-        respect_dnd: false,
+        event: false,
+        respect_dnd: true,
       },
     };
 
@@ -279,6 +294,7 @@ describe("settingsPersister roundtrip", () => {
       },
       notification: {
         ignored_platforms: '["zoom"]',
+        included_platforms: '["code"]',
       },
     };
 
@@ -295,6 +311,7 @@ describe("settingsPersister roundtrip", () => {
     });
     expect(result.notification).toEqual({
       ignored_platforms: ["zoom"],
+      included_platforms: ["code"],
     });
   });
 
@@ -305,6 +322,7 @@ describe("settingsPersister roundtrip", () => {
       },
       notification: {
         ignored_platforms: "zoom,slack",
+        included_platforms: "code,terminal",
       },
     };
 
@@ -321,6 +339,7 @@ describe("settingsPersister roundtrip", () => {
     });
     expect(result.notification).toEqual({
       ignored_platforms: ["zoom", "slack"],
+      included_platforms: ["code", "terminal"],
     });
   });
 
@@ -370,6 +389,111 @@ describe("settingsPersister roundtrip", () => {
       ai_language: "ja",
       spoken_languages: ["ja", "en", "ko"],
     });
+  });
+
+  test("storeToSettings omits values that equal schema defaults", () => {
+    const [tables, values] = settingsToContent({});
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+    const result = storeToSettings(store);
+
+    expect(result.general).toEqual({});
+    expect(result.notification).toEqual({});
+    expect(result.language).toEqual({});
+  });
+
+  test("storeToSettings keeps non-default values and omits default ones", () => {
+    const [tables, values] = settingsToContent({
+      general: {
+        autostart: true,
+        save_recordings: true,
+      },
+      notification: {
+        event: false,
+        respect_dnd: false,
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+    const result = storeToSettings(store);
+
+    expect(result.general).toEqual({ autostart: true });
+    expect(result.notification).toEqual({ event: false });
+  });
+
+  test("storeValuesToSettings clears language values matching OS locale defaults", () => {
+    const [tables, values] = settingsToContent({
+      language: {
+        ai_language: "pl",
+        spoken_languages: ["pl", "en"],
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+
+    const storeValues = store.getValues();
+    const result = storeValuesToSettings(
+      storeValues as Record<string, unknown>,
+      { ai_language: "pl", spoken_languages: ["pl", "en"] },
+    );
+
+    expect(result.language).toEqual({});
+  });
+
+  test("storeValuesToSettings keeps language values differing from OS locale defaults", () => {
+    const [tables, values] = settingsToContent({
+      language: {
+        ai_language: "ko",
+        spoken_languages: ["ko", "en"],
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+
+    const storeValues = store.getValues();
+    const result = storeValuesToSettings(
+      storeValues as Record<string, unknown>,
+      { ai_language: "pl", spoken_languages: ["pl"] },
+    );
+
+    expect(result.language).toEqual({
+      ai_language: "ko",
+      spoken_languages: ["ko", "en"],
+    });
+  });
+
+  test("storeValuesToSettings clears language values matching OS locale defaults by prefix", () => {
+    const [tables, values] = settingsToContent({
+      language: {
+        ai_language: "ko",
+        spoken_languages: ["ko", "en"],
+      },
+    });
+    const store = createMergeableStore()
+      .setTablesSchema(SCHEMA.table)
+      .setValuesSchema(SCHEMA.value);
+    store.setTables(tables);
+    store.setValues(values);
+
+    const storeValues = store.getValues();
+    const result = storeValuesToSettings(
+      storeValues as Record<string, unknown>,
+      { ai_language: "ko-KR", spoken_languages: ["ko-KR", "en-US"] },
+    );
+
+    expect(result.language).toEqual({});
   });
 
   test("language section takes precedence over general section", () => {

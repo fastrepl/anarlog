@@ -129,7 +129,7 @@ describe("withEarlyValidationRetry", () => {
     expect(onRetry).toHaveBeenCalledWith(1, "Text must not start with Invalid");
   });
 
-  it("should throw error after maxRetries attempts", async () => {
+  it("should give up and yield output after maxRetries attempts", async () => {
     const chunks: TextStreamPart<ToolSet>[] = [
       { type: "text-delta", text: "Invalid", id: "1" },
       { type: "text-delta", text: " text", id: "1" },
@@ -144,17 +144,20 @@ describe("withEarlyValidationRetry", () => {
       feedback: "Always invalid",
     }));
 
+    const onGiveUp = vi.fn();
+
     const stream = withEarlyValidationRetry(executeStream, validator, {
       minChar: 5,
       maxChar: 30,
       maxRetries: 2,
+      onGiveUp,
     });
 
-    await expect(collectStream(stream)).rejects.toThrow(
-      "Validation failed after 2 attempts: Always invalid",
-    );
+    const results = await collectStream(stream);
 
+    expect(results).toEqual(chunks);
     expect(executeStream).toHaveBeenCalledTimes(2);
+    expect(onGiveUp).toHaveBeenCalledTimes(1);
   });
 
   it("should flush buffer when maxChar threshold is reached", async () => {
@@ -283,34 +286,35 @@ describe("withEarlyValidationRetry", () => {
     expect(validator).toHaveBeenCalledWith("   Hello");
   });
 
-  it("should abort stream when validation fails", async () => {
+  it("should give up and yield output when validation fails with maxRetries 1", async () => {
     const chunks: TextStreamPart<ToolSet>[] = [
       { type: "text-delta", text: "Bad start", id: "1" },
       { type: "text-delta", text: " more text", id: "1" },
       { type: "text-delta", text: " even more", id: "1" },
     ];
 
-    let aborted = false;
-    const executeStream = vi.fn((signal: AbortSignal) => {
-      signal.addEventListener("abort", () => {
-        aborted = true;
-      });
-      return createMockStream(chunks, signal);
-    });
+    const executeStream = vi.fn((signal: AbortSignal) =>
+      createMockStream(chunks, signal),
+    );
 
     const validator: EarlyValidatorFn = () => ({
       valid: false as const,
       feedback: "Bad start",
     });
 
+    const onGiveUp = vi.fn();
+
     const stream = withEarlyValidationRetry(executeStream, validator, {
       minChar: 5,
       maxChar: 30,
       maxRetries: 1,
+      onGiveUp,
     });
 
-    await expect(collectStream(stream)).rejects.toThrow();
-    expect(aborted).toBe(true);
+    const results = await collectStream(stream);
+
+    expect(results).toEqual(chunks);
+    expect(onGiveUp).toHaveBeenCalledTimes(1);
   });
 
   it("should use default options when not provided", async () => {

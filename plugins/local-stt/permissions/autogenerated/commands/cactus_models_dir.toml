@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-cactus-models-dir"
+description = "Enables the cactus_models_dir command without any pre-configured scope."
+commands.allow = ["cactus_models_dir"]
+
+[[permission]]
+identifier = "deny-cactus-models-dir"
+description = "Denies the cactus_models_dir command without any pre-configured scope."
+commands.deny = ["cactus_models_dir"]

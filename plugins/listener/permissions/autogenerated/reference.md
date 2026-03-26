@@ -16,6 +16,7 @@ Default permissions for the plugin
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
+- `allow-render-transcript-segments`
 
 ## Permission Table
 
@@ -204,6 +205,32 @@ Enables the list_microphone_devices command without any pre-configured scope.
 <td>
 
 Denies the list_microphone_devices command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`listener:allow-render-transcript-segments`
+
+</td>
+<td>
+
+Enables the render_transcript_segments command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`listener:deny-render-transcript-segments`
+
+</td>
+<td>
+
+Denies the render_transcript_segments command without any pre-configured scope.
 
 </td>
 </tr>

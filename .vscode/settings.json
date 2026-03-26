@@ -5,19 +5,23 @@
   "search.useParentIgnoreFiles": true,
   "search.useIgnoreFiles": true,
   "files.watcherExclude": {
-    "**/routeTree.gen.ts": true
+    "**/routeTree.gen.ts": true,
+    "**/vendor/**": true
   },
   "search.exclude": {
     "**/routeTree.gen.ts": true,
-    "**/generated/**": true
+    "**/generated/**": true,
+    "**/vendor/**": true
   },
   "files.readonlyInclude": {
     "**/routeTree.gen.ts": true,
-    "**/*.gen.json": true
+    "**/*.gen.json": true,
+    "**/vendor/**": true
   },
   "editor.wordBasedSuggestions": "off",
   "editor.quickSuggestionsDelay": 200,
   "editor.inlayHints.enabled": "offUnlessPressed",
+  "css.lint.unknownAtRules": "ignore",
   "editor.defaultFormatter": "dprint.dprint",
   "editor.formatOnSave": true,
   "rust-analyzer.diagnostics.disabled": ["macro-error"],

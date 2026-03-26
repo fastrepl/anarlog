@@ -1,12 +1,13 @@
 mod auth_callback;
 mod billing_refresh;
+mod integration_callback;
 
 pub use auth_callback::*;
 pub use billing_refresh::*;
+pub use integration_callback::*;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashMap;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
@@ -19,6 +20,8 @@ pub enum DeepLink {
     AuthCallback(AuthCallbackSearch),
     #[serde(rename = "/billing/refresh")]
     BillingRefresh(BillingRefreshSearch),
+    #[serde(rename = "/integration/callback")]
+    IntegrationCallback(IntegrationCallbackSearch),
 }
 
 impl DeepLink {
@@ -26,6 +29,7 @@ impl DeepLink {
         match self {
             DeepLink::AuthCallback(_) => "/auth/callback",
             DeepLink::BillingRefresh(_) => "/billing/refresh",
+            DeepLink::IntegrationCallback(_) => "/integration/callback",
         }
     }
 }
@@ -44,15 +48,12 @@ impl FromStr for DeepLink {
             format!("{}/{}", host, path)
         };
 
-        let query_params: HashMap<String, String> = parsed.query_pairs().into_owned().collect();
+        let query = parsed.query().unwrap_or("");
 
         match full_path.as_str() {
-            "auth/callback" => Ok(DeepLink::AuthCallback(
-                AuthCallbackSearch::from_query_params(&query_params)?,
-            )),
-            "billing/refresh" => Ok(DeepLink::BillingRefresh(
-                BillingRefreshSearch::from_query_params(&query_params)?,
-            )),
+            "auth/callback" => Ok(DeepLink::AuthCallback(serde_qs::from_str(query)?)),
+            "billing/refresh" => Ok(DeepLink::BillingRefresh(serde_qs::from_str(query)?)),
+            "integration/callback" => Ok(DeepLink::IntegrationCallback(serde_qs::from_str(query)?)),
             _ => Err(crate::Error::UnknownPath(full_path)),
         }
     }
