@@ -220,6 +220,7 @@ function ResourcesLinks() {
         <li>
           <Link
             to="/pricing/"
+            search={{}}
             className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >
             Pricing

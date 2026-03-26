@@ -463,6 +463,7 @@ function NavLinks() {
   return (
     <Link
       to="/pricing/"
+      search={{}}
       className="hidden text-sm text-neutral-600 decoration-dotted transition-all hover:text-neutral-800 hover:underline sm:block"
     >
       Pricing
@@ -662,6 +663,7 @@ function MobileMenuLinks({
       />
       <Link
         to="/pricing/"
+        search={{}}
         onClick={() => setIsMenuOpen(false)}
         className="block text-base text-neutral-700 transition-colors hover:text-neutral-900"
       >

@@ -102,7 +102,7 @@ function HyprProviderCard({
 }
 
 function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
-  const { isPro, canStartTrial, upgradeToPro } = useBillingAccess();
+  const { isPaid, canStartTrial, upgradeToLite } = useBillingAccess();
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
     "current_llm_provider",
@@ -119,13 +119,13 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
   );
 
   const handleClick = useCallback(() => {
-    if (!isPro) {
-      upgradeToPro();
+    if (!isPaid) {
+      upgradeToLite();
     } else {
       handleSelectProvider("hyprnote");
       handleSelectModel("Auto");
     }
-  }, [isPro, upgradeToPro, handleSelectProvider, handleSelectModel]);
+  }, [isPaid, upgradeToLite, handleSelectProvider, handleSelectModel]);
 
   return (
     <HyprProviderRow>
@@ -136,7 +136,7 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
         </p>
       </div>
       <HyprCloudCTAButton
-        isPro={isPro}
+        isPaid={isPaid}
         canStartTrial={canStartTrial.data}
         highlight={highlight}
         onClick={handleClick}

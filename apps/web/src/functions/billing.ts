@@ -57,10 +57,35 @@ const getStripeCustomerIdForUser = async (
   return stripeCustomerId;
 };
 
-const createCheckoutSessionInput = z.object({
-  period: z.enum(["monthly", "yearly"]),
-  scheme: desktopSchemeSchema.optional(),
-});
+const createCheckoutSessionInput = z.preprocess(
+  (input) => {
+    if (!input || typeof input !== "object") {
+      return input;
+    }
+
+    const data = input as Record<string, unknown>;
+    return {
+      ...data,
+      plan: data.plan === "lite" ? "lite" : "pro",
+      period:
+        data.period === "monthly" || data.period === "yearly"
+          ? data.period
+          : "monthly",
+    };
+  },
+  z.discriminatedUnion("plan", [
+    z.object({
+      plan: z.literal("lite"),
+      period: z.literal("monthly"),
+      scheme: desktopSchemeSchema.optional(),
+    }),
+    z.object({
+      plan: z.literal("pro"),
+      period: z.enum(["monthly", "yearly"]),
+      scheme: desktopSchemeSchema.optional(),
+    }),
+  ]),
+);
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator(createCheckoutSessionInput)
@@ -121,9 +146,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
 
     const priceId =
-      data.period === "yearly"
-        ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
-        : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+      data.plan === "lite"
+        ? requireEnv(
+            env.STRIPE_LITE_MONTHLY_PRICE_ID,
+            "STRIPE_LITE_MONTHLY_PRICE_ID",
+          )
+        : data.period === "yearly"
+          ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+          : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
     const successParams = new URLSearchParams({ success: "true" });
     if (data.scheme) {

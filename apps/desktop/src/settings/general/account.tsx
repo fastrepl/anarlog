@@ -21,6 +21,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
 import { configureProSettings } from "~/shared/config/configure-pro-settings";
+import { buildWebAppUrl } from "~/shared/utils";
 import * as settings from "~/store/tinybase/store/settings";
 
 const WEB_APP_BASE_URL = env.VITE_APP_URL ?? "http://localhost:3000";
@@ -48,9 +49,11 @@ const ACCOUNT_FEATURES = [
 ] as const;
 
 function PlanStatus({
+  plan,
   subscriptionStatus,
   trialDaysRemaining,
 }: {
+  plan: import("@hypr/supabase").Plan;
   subscriptionStatus: SubscriptionStatus | null;
   trialDaysRemaining: number | null;
 }) {
@@ -58,12 +61,14 @@ function PlanStatus({
     return <span className="text-neutral-500">FREE</span>;
   }
 
+  const planLabel = plan === "lite" ? "LITE" : "PRO";
+
   switch (subscriptionStatus) {
     case "active":
       return (
         <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
           <Sparkles size={13} className="text-neutral-500" />
-          PRO
+          {planLabel}
         </span>
       );
 
@@ -129,7 +134,7 @@ function PlanStatus({
 
 export function AccountSettings() {
   const auth = useAuth();
-  const { subscriptionStatus, trialDaysRemaining } = useBillingAccess();
+  const { subscriptionStatus, trialDaysRemaining, plan } = useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
   const [isPending, setIsPending] = useState(false);
@@ -270,6 +275,7 @@ export function AccountSettings() {
             <span>
               Your current plan is{" "}
               <PlanStatus
+                plan={plan}
                 subscriptionStatus={subscriptionStatus}
                 trialDaysRemaining={trialDaysRemaining}
               />
@@ -484,11 +490,11 @@ function FeatureSpotlight() {
 
 function BillingButton() {
   const auth = useAuth();
-  const { isPro } = useBillingAccess();
+  const { isPaid, isLite } = useBillingAccess();
   const store = settings.UI.useStore(settings.STORE_ID);
 
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !isPro,
+    enabled: !!auth?.session && !isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -530,27 +536,61 @@ function BillingButton() {
     },
   });
 
+  const handleLiteUpgrade = useCallback(() => {
+    void analyticsCommands.event({
+      event: "upgrade_clicked",
+      plan: "lite",
+    });
+    void buildWebAppUrl("/pricing", {
+      plan: "lite",
+      period: "monthly",
+    }).then((url) => openerCommands.openUrl(url, null));
+  }, []);
+
   const handleProUpgrade = useCallback(() => {
     void analyticsCommands.event({
       event: "upgrade_clicked",
       plan: "pro",
     });
-    void openerCommands.openUrl(
-      `${WEB_APP_BASE_URL}/app/checkout?period=monthly`,
-      null,
-    );
+    void buildWebAppUrl("/pricing", {
+      plan: "pro",
+      period: "monthly",
+    }).then((url) => openerCommands.openUrl(url, null));
   }, []);
 
   const handleOpenAccount = useCallback(() => {
     void openerCommands.openUrl(`${WEB_APP_BASE_URL}/app/account`, null);
   }, []);
 
-  if (isPro) {
+  if (isPaid && !isLite) {
     return (
       <Button variant="outline" onClick={handleOpenAccount} className="gap-1.5">
         <span className="text-sm">Manage</span>
         <ExternalLinkIcon className="text-neutral-600" size={12} />
       </Button>
+    );
+  }
+
+  if (isLite) {
+    return (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          onClick={handleProUpgrade}
+          className="gap-1.5"
+        >
+          <span>Upgrade to Pro</span>
+          <ExternalLinkIcon className="text-neutral-600" size={12} />
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleOpenAccount}
+          className="gap-1.5"
+        >
+          <span className="text-sm">Manage</span>
+          <ExternalLinkIcon className="text-neutral-600" size={12} />
+        </Button>
+      </div>
     );
   }
 
@@ -567,10 +607,16 @@ function BillingButton() {
   }
 
   return (
-    <Button variant="outline" onClick={handleProUpgrade} className="gap-1.5">
-      <span>Upgrade to Pro</span>
-      <ExternalLinkIcon className="text-neutral-600" size={12} />
-    </Button>
+    <div className="flex gap-2">
+      <Button variant="outline" onClick={handleLiteUpgrade} className="gap-1.5">
+        <span>Upgrade to Lite</span>
+        <ExternalLinkIcon className="text-neutral-600" size={12} />
+      </Button>
+      <Button variant="outline" onClick={handleProUpgrade} className="gap-1.5">
+        <span>Upgrade to Pro</span>
+        <ExternalLinkIcon className="text-neutral-600" size={12} />
+      </Button>
+    </div>
   );
 }
 

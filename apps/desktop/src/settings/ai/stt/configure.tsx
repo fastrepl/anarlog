@@ -349,7 +349,7 @@ function CactusSettings({ models }: { models: LocalModel[] }) {
 }
 
 function HyprProviderCloudRow() {
-  const { isPro, canStartTrial, upgradeToPro } = useBillingAccess();
+  const { isPaid, canStartTrial, upgradeToLite } = useBillingAccess();
   const { shouldHighlightDownload } = useSttSettings();
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
@@ -367,13 +367,13 @@ function HyprProviderCloudRow() {
   );
 
   const handleClick = useCallback(() => {
-    if (!isPro) {
-      upgradeToPro();
+    if (!isPaid) {
+      upgradeToLite();
     } else {
       handleSelectProvider("hyprnote");
       handleSelectModel("cloud");
     }
-  }, [isPro, upgradeToPro, handleSelectProvider, handleSelectModel]);
+  }, [isPaid, upgradeToLite, handleSelectProvider, handleSelectModel]);
 
   return (
     <HyprProviderRow>
@@ -384,7 +384,7 @@ function HyprProviderCloudRow() {
         </p>
       </div>
       <HyprCloudCTAButton
-        isPro={isPro}
+        isPaid={isPaid}
         canStartTrial={canStartTrial.data}
         highlight={shouldHighlightDownload}
         onClick={handleClick}

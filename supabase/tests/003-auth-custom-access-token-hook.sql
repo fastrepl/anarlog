@@ -1,19 +1,24 @@
 begin;
-select plan(11);
+select plan(12);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
+select tests.create_supabase_user('lite', 'lite@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
 
 update public.profiles
 set stripe_customer_id = 'cus_pro'
 where id = tests.get_supabase_uid('pro');
 
+update public.profiles
+set stripe_customer_id = 'cus_lite'
+where id = tests.get_supabase_uid('lite');
+
 insert into stripe.customers (id)
-values ('cus_pro')
+values ('cus_pro'), ('cus_lite')
 on conflict (id) do nothing;
 
 insert into stripe.active_entitlements (id, customer, lookup_key)
-values ('ent_pro', 'cus_pro', 'hyprnote_pro')
+values ('ent_pro', 'cus_pro', 'hyprnote_pro'), ('ent_lite', 'cus_lite', 'hyprnote_lite')
 on conflict (id) do nothing;
 
 select results_eq(
@@ -53,6 +58,21 @@ select results_eq(
   $$,
   array['["hyprnote_pro"]'::jsonb],
   'custom_access_token_hook sets entitlements=["hyprnote_pro"] when hyprnote_pro entitlement exists'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('lite')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'entitlements'
+  )::jsonb
+  $$,
+  array['["hyprnote_lite"]'::jsonb],
+  'custom_access_token_hook sets entitlements=["hyprnote_lite"] when hyprnote_lite entitlement exists'
 );
 
 select results_eq(

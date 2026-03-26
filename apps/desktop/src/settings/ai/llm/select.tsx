@@ -117,8 +117,8 @@ export function SelectProviderAndModel() {
                 <Select
                   value={field.state.value}
                   onValueChange={(value) => {
-                    if (value === "hyprnote" && !billing.isPro) {
-                      billing.upgradeToPro();
+                    if (value === "hyprnote" && !billing.isPaid) {
+                      billing.upgradeToLite();
                       return;
                     }
                     field.handleChange(value);
@@ -134,7 +134,7 @@ export function SelectProviderAndModel() {
                         provider.requirements,
                         "pro",
                       );
-                      const locked = requiresPro && !billing.isPro;
+                      const locked = requiresPro && !billing.isPaid;
 
                       return (
                         <SelectItem
@@ -236,7 +236,7 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
         const eligible =
           getProviderSelectionBlockers(provider.requirements, {
             isAuthenticated: !!auth?.session,
-            isPro: billing.isPro,
+            isPaid: billing.isPaid,
             config: { base_url: baseUrl, api_key: apiKey },
           }).length === 0;
 

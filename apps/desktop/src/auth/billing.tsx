@@ -41,6 +41,7 @@ type BillingContextValue = BillingInfo & {
   isReady: boolean;
   canStartTrial: { data: boolean; isPending: boolean };
   upgradeToPro: () => void;
+  upgradeToLite: () => void;
 };
 
 export type BillingAccess = BillingContextValue;
@@ -60,7 +61,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   const isReady = !claimsQuery.isPending;
 
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !billing.isPro,
+    enabled: !!auth?.session && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -78,14 +79,25 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const canStartTrial = useMemo(
     () => ({
-      data: billing.isPro ? false : (canTrialQuery.data ?? false),
+      data: billing.isPaid ? false : (canTrialQuery.data ?? false),
       isPending: canTrialQuery.isPending,
     }),
-    [billing.isPro, canTrialQuery.data, canTrialQuery.isPending],
+    [billing.isPaid, canTrialQuery.data, canTrialQuery.isPending],
   );
 
   const upgradeToPro = useCallback(async () => {
-    const url = await buildWebAppUrl("/app/checkout", { period: "monthly" });
+    const url = await buildWebAppUrl("/pricing", {
+      plan: "pro",
+      period: "monthly",
+    });
+    void openerCommands.openUrl(url, null);
+  }, []);
+
+  const upgradeToLite = useCallback(async () => {
+    const url = await buildWebAppUrl("/pricing", {
+      plan: "lite",
+      period: "monthly",
+    });
     void openerCommands.openUrl(url, null);
   }, []);
 
@@ -95,8 +107,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       isReady,
       canStartTrial,
       upgradeToPro,
+      upgradeToLite,
     }),
-    [billing, isReady, canStartTrial, upgradeToPro],
+    [billing, isReady, canStartTrial, upgradeToPro, upgradeToLite],
   );
 
   return (

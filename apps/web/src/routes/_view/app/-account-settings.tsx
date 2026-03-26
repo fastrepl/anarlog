@@ -60,13 +60,43 @@ export function AccountSettingsCard() {
       }
 
       return (
-        <Link
-          to="/app/checkout/"
-          search={{ period: "monthly" }}
-          className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-        >
-          Upgrade to Pro
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/pricing/"
+            search={{ plan: "lite", period: "monthly" }}
+            className="flex h-8 items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
+          >
+            Upgrade to Lite
+          </Link>
+          <Link
+            to="/pricing/"
+            search={{ plan: "pro", period: "monthly" }}
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+          >
+            Upgrade to Pro
+          </Link>
+        </div>
+      );
+    }
+
+    if (billing.plan === "lite") {
+      return (
+        <div className="flex gap-2">
+          <Link
+            to="/pricing/"
+            search={{ plan: "pro", period: "monthly" }}
+            className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+          >
+            Upgrade to Pro
+          </Link>
+          <button
+            onClick={() => manageBillingMutation.mutate()}
+            disabled={manageBillingMutation.isPending}
+            className="flex h-8 cursor-pointer items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
+          >
+            {manageBillingMutation.isPending ? "Loading..." : "Manage Billing"}
+          </button>
+        </div>
       );
     }
 
@@ -87,7 +117,9 @@ export function AccountSettingsCard() {
       ? "Trial"
       : billing.plan === "pro"
         ? "Pro"
-        : "Free";
+        : billing.plan === "lite"
+          ? "Lite"
+          : "Free";
 
   return (
     <div className="rounded-xs border border-neutral-100">

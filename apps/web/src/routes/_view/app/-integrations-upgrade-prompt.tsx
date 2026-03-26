@@ -1,5 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
+import type { DesktopScheme } from "@/functions/desktop-flow";
+
 import {
   IntegrationPageLayout,
   integrationButtonClassName,
@@ -12,8 +14,8 @@ export function UpgradePrompt({
   scheme,
 }: {
   integrationId: string;
-  flow: string;
-  scheme: string;
+  flow: "desktop" | "web";
+  scheme: DesktopScheme;
 }) {
   const display = getIntegrationDisplay(integrationId);
 
@@ -35,8 +37,17 @@ export function UpgradePrompt({
 
       <div className="flex flex-col gap-3">
         <Link
-          to="/app/checkout/"
-          search={{ period: "monthly" }}
+          to="/pricing/"
+          search={
+            flow === "desktop"
+              ? {
+                  flow: "desktop",
+                  plan: "pro",
+                  period: "monthly",
+                  scheme,
+                }
+              : { plan: "pro", period: "monthly" }
+          }
           className={integrationButtonClassName("primary")}
         >
           Upgrade to Pro

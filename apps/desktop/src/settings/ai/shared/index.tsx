@@ -80,7 +80,7 @@ function useIsProviderConfigured(
   return (
     getProviderSelectionBlockers(providerDef.requirements, {
       isAuthenticated: true,
-      isPro: billing.isPro,
+      isPaid: billing.isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
     }).length === 0
   );
@@ -100,7 +100,7 @@ export function NonHyprProviderCard({
   const billing = useBillingAccess();
   const [provider, setProvider] = useProvider(providerType, config.id);
   const locked =
-    requiresEntitlement(config.requirements, "pro") && !billing.isPro;
+    requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
   const isConfigured = useIsProviderConfigured(
     config.id,
     providerType,

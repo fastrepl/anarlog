@@ -35,6 +35,14 @@ impl Claims {
         self.entitlements.contains(&"hyprnote_pro".to_string())
     }
 
+    pub fn is_lite(&self) -> bool {
+        self.entitlements.contains(&"hyprnote_lite".to_string())
+    }
+
+    pub fn is_paid(&self) -> bool {
+        self.is_pro() || self.is_lite()
+    }
+
     pub fn decode_insecure(token: &str) -> Result<Self, Error> {
         use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 

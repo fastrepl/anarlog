@@ -39,7 +39,7 @@ export type LLMConnectionStatus =
   | { status: "pending"; reason: "missing_model"; providerId: ProviderId }
   | { status: "error"; reason: "provider_not_found"; providerId: string }
   | { status: "error"; reason: "unauthenticated"; providerId: "hyprnote" }
-  | { status: "error"; reason: "not_pro"; providerId: "hyprnote" }
+  | { status: "error"; reason: "not_paid"; providerId: "hyprnote" }
   | {
       status: "error";
       reason: "missing_config";
@@ -97,11 +97,11 @@ export const useLLMConnection = (): LLMConnectionResult => {
         modelId: current_llm_model,
         providerConfig,
         session: auth?.session,
-        isPro: billing.isPro,
+        isPaid: billing.isPaid,
       }),
     [
       auth,
-      billing.isPro,
+      billing.isPaid,
       current_llm_model,
       current_llm_provider,
       providerConfig,
@@ -119,14 +119,14 @@ const resolveLLMConnection = (params: {
   modelId: string | undefined;
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
-  isPro: boolean;
+  isPaid: boolean;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
     modelId,
     providerConfig,
     session,
-    isPro,
+    isPaid,
   } = params;
 
   if (!rawProviderId) {
@@ -166,7 +166,7 @@ const resolveLLMConnection = (params: {
 
   const context: ProviderEligibilityContext = {
     isAuthenticated: !!session,
-    isPro,
+    isPaid,
     config: { base_url: baseUrl, api_key: apiKey },
   };
 
@@ -186,7 +186,7 @@ const resolveLLMConnection = (params: {
     if (blocker.code === "requires_entitlement" && providerId === "hyprnote") {
       return {
         conn: null,
-        status: { status: "error", reason: "not_pro", providerId },
+        status: { status: "error", reason: "not_paid", providerId },
       };
     }
     if (blocker.code === "missing_config") {

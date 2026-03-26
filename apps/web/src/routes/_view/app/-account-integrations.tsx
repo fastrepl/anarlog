@@ -52,8 +52,8 @@ export function IntegrationsSettingsCard() {
 
               {!isPro ? (
                 <Link
-                  to="/app/checkout/"
-                  search={{ period: "monthly" }}
+                  to="/pricing/"
+                  search={{ plan: "pro", period: "monthly" }}
                   className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
                 >
                   Upgrade to Pro

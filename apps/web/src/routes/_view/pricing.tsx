@@ -1,18 +1,34 @@
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, MinusCircle, XCircle } from "lucide-react";
+import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
 import { SlashSeparator } from "@/components/slash-separator";
+import { createPortalSession } from "@/functions/billing";
+import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { useBilling } from "@/hooks/use-billing";
 
 export const Route = createFileRoute("/_view/pricing")({
+  validateSearch: z
+    .object({
+      flow: z.enum(["desktop", "web"]).optional(),
+      scheme: desktopSchemeSchema.optional(),
+      plan: z.enum(["lite", "pro"]).optional(),
+      period: z.enum(["monthly", "yearly"]).optional(),
+    })
+    .refine(({ flow, scheme }) => flow !== "desktop" || !!scheme, {
+      message: "Desktop pricing links require a scheme",
+      path: ["scheme"],
+    }),
   component: Component,
 });
 
 interface PricingPlan {
   name: string;
-  price: { monthly: number; yearly: number } | null;
+  price: { monthly: number; yearly: number | null } | null;
   description: string;
   popular?: boolean;
   features: Array<{
@@ -52,6 +68,23 @@ const pricingPlans: PricingPlan[] = [
       { label: "Chat", included: true },
       { label: "Integrations", included: false },
       { label: "Cloud Services (STT & LLM)", included: false },
+      { label: "Cloud Sync", included: false },
+      { label: "Shareable Links", included: false },
+    ],
+  },
+  {
+    name: "Lite",
+    price: {
+      monthly: 8,
+      yearly: null,
+    },
+    description:
+      "Cloud AI without managing API keys. Perfect for individuals who want simplicity.",
+    features: [
+      { label: "Everything in Free", included: true },
+      { label: "Cloud Services (STT & LLM)", included: true },
+      { label: "Audio Player with Playback Rates", included: true },
+      { label: "Integrations", included: false },
       { label: "Cloud Sync", included: false },
       { label: "Shareable Links", included: false },
     ],
@@ -98,6 +131,17 @@ const pricingPlans: PricingPlan[] = [
 ];
 
 function Component() {
+  const search = Route.useSearch();
+  const billing = useBilling();
+  const manageBillingMutation = useMutation({
+    mutationFn: createPortalSession,
+    onSuccess: ({ url }) => {
+      if (url) {
+        window.location.href = url;
+      }
+    },
+  });
+
   return (
     <main
       className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
@@ -106,7 +150,14 @@ function Component() {
       <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
         <HeroSection />
         <SlashSeparator />
-        <PricingCardsSection />
+        <PricingCardsSection
+          selectedPlan={search.plan}
+          requestedPeriod={search.period}
+          scheme={search.scheme}
+          billingPlan={billing.plan}
+          isManagingBilling={manageBillingMutation.isPending}
+          onManageBilling={() => manageBillingMutation.mutate(undefined)}
+        />
         <SlashSeparator />
         <FAQSection />
         <SlashSeparator />
@@ -131,25 +182,86 @@ function HeroSection() {
   );
 }
 
-function PricingCardsSection() {
+function PricingCardsSection({
+  selectedPlan,
+  requestedPeriod,
+  scheme,
+  billingPlan,
+  isManagingBilling,
+  onManageBilling,
+}: {
+  selectedPlan?: "lite" | "pro";
+  requestedPeriod?: "monthly" | "yearly";
+  scheme?: string;
+  billingPlan: "free" | "trial" | "lite" | "pro";
+  isManagingBilling: boolean;
+  onManageBilling: () => void;
+}) {
   return (
     <section className="laptop:px-0 px-4 py-16">
-      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
+      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
         {pricingPlans.map((plan) => (
-          <PricingCard key={plan.name} plan={plan} />
+          <PricingCard
+            key={plan.name}
+            plan={plan}
+            selectedPlan={selectedPlan}
+            requestedPeriod={requestedPeriod}
+            scheme={scheme}
+            billingPlan={billingPlan}
+            isManagingBilling={isManagingBilling}
+            onManageBilling={onManageBilling}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function PricingCard({ plan }: { plan: PricingPlan }) {
+function PricingCard({
+  plan,
+  selectedPlan,
+  requestedPeriod,
+  scheme,
+  billingPlan,
+  isManagingBilling,
+  onManageBilling,
+}: {
+  plan: PricingPlan;
+  selectedPlan?: "lite" | "pro";
+  requestedPeriod?: "monthly" | "yearly";
+  scheme?: string;
+  billingPlan: "free" | "trial" | "lite" | "pro";
+  isManagingBilling: boolean;
+  onManageBilling: () => void;
+}) {
+  const planId =
+    plan.name === "Lite" ? "lite" : plan.name === "Pro" ? "pro" : null;
+  const period =
+    requestedPeriod === "yearly" && plan.price?.yearly !== null
+      ? "yearly"
+      : "monthly";
+  const isSelected = planId !== null && selectedPlan === planId;
+  const checkoutSearch = new URLSearchParams({
+    plan: planId ?? "pro",
+    period,
+  });
+
+  if (scheme) {
+    checkoutSearch.set("scheme", scheme);
+  }
+
+  const checkoutRedirect = `/app/checkout?${checkoutSearch.toString()}`;
+  const isCurrentPlan =
+    (billingPlan === "lite" && planId === "lite") ||
+    ((billingPlan === "pro" || billingPlan === "trial") && planId === "pro");
+
   return (
     <div
       className={cn([
         "flex flex-col overflow-hidden rounded-xs border transition-transform",
+        isSelected && "border-stone-400 shadow-md",
         plan.popular
-          ? "relative scale-105 border-stone-600 shadow-lg"
+          ? "relative border-stone-600 shadow-lg"
           : "border-neutral-100",
       ])}
     >
@@ -174,16 +286,18 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                 </span>
                 <span className="text-neutral-600">/month</span>
               </div>
-              <div className="text-sm text-neutral-600">
-                or ${plan.price.yearly}/year
-              </div>
+              {plan.price.yearly !== null && (
+                <div className="text-sm text-neutral-600">
+                  or ${plan.price.yearly}/year
+                </div>
+              )}
             </div>
           ) : (
             <div className="font-serif text-4xl text-stone-700">Free</div>
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-3">
+        <div className="flex min-h-[280px] flex-1 flex-col gap-3">
           {plan.features.map((feature, idx) => {
             const IconComponent =
               feature.included === true
@@ -245,21 +359,47 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
         </div>
 
         {plan.price ? (
-          <Link
-            to="/auth/"
-            search={{ flow: "web" }}
-            className={cn([
-              "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-            ])}
-          >
-            Get Started
-          </Link>
+          isCurrentPlan ? (
+            <Link
+              to="/app/account/"
+              className={cn([
+                "mt-auto flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+                "rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+              ])}
+            >
+              Current Plan
+            </Link>
+          ) : billingPlan === "lite" && planId === "pro" ? (
+            <button
+              onClick={onManageBilling}
+              disabled={isManagingBilling}
+              className={cn([
+                "mt-auto flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
+                "disabled:cursor-default disabled:opacity-50 disabled:hover:scale-100",
+              ])}
+            >
+              {isManagingBilling ? "Loading..." : "Upgrade in Billing"}
+            </button>
+          ) : (
+            <Link
+              to="/auth/"
+              search={{ flow: "web", redirect: checkoutRedirect }}
+              className={cn([
+                "mt-auto flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+                plan.popular
+                  ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                  : "rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+              ])}
+            >
+              Get Started
+            </Link>
+          )
         ) : (
           <Link
             to="/download/"
             className={cn([
-              "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+              "mt-auto flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
               "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
             ])}
           >

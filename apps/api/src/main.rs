@@ -110,8 +110,12 @@ async fn app() -> Router {
         )
         .build();
 
-    let auth_state_pro =
-        AuthState::new(&env.supabase.supabase_url).with_required_entitlement("hyprnote_pro");
+    let auth_state_paid =
+        AuthState::new(&env.supabase.supabase_url).with_required_entitlements(vec![
+            "hyprnote_lite".to_string(),
+            "hyprnote_pro".to_string(),
+        ]);
+
     let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
     let auth_state_support = AuthState::new(&env.supabase.supabase_url);
 
@@ -159,7 +163,7 @@ async fn app() -> Router {
         .merge(hypr_api_research::router(research_config))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
-            auth_state_pro,
+            auth_state_paid,
             auth::require_auth,
         ));
 

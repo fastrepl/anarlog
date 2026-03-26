@@ -43,7 +43,7 @@ export function SttSettingsProvider({
     hasSttConfigured ? "" : "hyprnote",
   );
   const [shouldHighlight, setShouldHighlight] = useState(false);
-  const { upgradeToPro } = useBillingAccess();
+  const { upgradeToLite } = useBillingAccess();
   const hyprAccordionRef = useRef<HTMLDivElement | null>(null);
 
   const toastActionTarget = useToastAction((state) => state.target);
@@ -86,8 +86,8 @@ export function SttSettingsProvider({
 
   const startTrial = useCallback(() => {
     openHyprAccordion();
-    upgradeToPro();
-  }, [openHyprAccordion, upgradeToPro]);
+    upgradeToLite();
+  }, [openHyprAccordion, upgradeToLite]);
 
   return (
     <SttSettingsContext.Provider
