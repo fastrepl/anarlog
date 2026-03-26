@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon, Puzzle, Sparkle, Sparkles } from "lucide-react";
+import { ExternalLinkIcon, Puzzle, RefreshCwIcon, Sparkle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
@@ -54,17 +54,12 @@ function PlanStatus({
   trialDaysRemaining: number | null;
 }) {
   if (!subscriptionStatus) {
-    return <span className="text-neutral-500">FREE</span>;
+    return <span className="font-semibold text-neutral-900">FREE</span>;
   }
 
   switch (subscriptionStatus) {
     case "active":
-      return (
-        <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-          <Sparkles size={13} className="text-neutral-500" />
-          PRO
-        </span>
-      );
+      return <span className="font-semibold text-neutral-900">PRO</span>;
 
     case "trialing": {
       const isUrgent = trialDaysRemaining !== null && trialDaysRemaining <= 3;
@@ -80,10 +75,7 @@ function PlanStatus({
       }
       return (
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-            <Sparkles size={13} className="text-neutral-500" />
-            PRO
-          </span>
+          <span className="font-semibold text-neutral-900">PRO</span>
           {trialText && (
             <span
               className={cn(["text-neutral-500", isUrgent && "text-amber-600"])}
@@ -98,31 +90,32 @@ function PlanStatus({
     case "past_due":
       return (
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-            <Sparkles size={13} className="text-neutral-500" />
-            PRO
-          </span>
+          <span className="font-semibold text-neutral-900">PRO</span>
           <span className="text-amber-600">(Payment issue)</span>
         </span>
       );
 
     case "unpaid":
-      return <span className="text-amber-600">Payment failed</span>;
+      return (
+        <span className="font-semibold text-amber-600">Payment failed</span>
+      );
 
     case "canceled":
-      return <span className="text-neutral-500">Canceled</span>;
+      return <span className="font-semibold text-neutral-900">Canceled</span>;
 
     case "incomplete":
-      return <span className="text-neutral-500">Setup incomplete</span>;
+      return (
+        <span className="font-semibold text-neutral-900">Setup incomplete</span>
+      );
 
     case "incomplete_expired":
-      return <span className="text-neutral-500">Expired</span>;
+      return <span className="font-semibold text-neutral-900">Expired</span>;
 
     case "paused":
-      return <span className="text-neutral-500">Paused</span>;
+      return <span className="font-semibold text-neutral-900">Paused</span>;
 
     default:
-      return <span className="text-neutral-500">FREE</span>;
+      return <span className="font-semibold text-neutral-900">FREE</span>;
   }
 }
 
@@ -261,39 +254,35 @@ export function AccountSettings() {
         <Container
           title="Plan & Billing"
           description={
-            <span>
-              Your current plan is{" "}
-              <PlanStatus
-                subscriptionStatus={subscriptionStatus}
-                trialDaysRemaining={trialDaysRemaining}
-              />
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span>
+                Your current plan is{" "}
+                <PlanStatus
+                  subscriptionStatus={subscriptionStatus}
+                  trialDaysRemaining={trialDaysRemaining}
+                />
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={handleRefreshPlan}
+                disabled={auth?.isRefreshingSession}
+                className={cn([
+                  "size-6 rounded-md text-neutral-500 hover:text-neutral-800",
+                ])}
+                aria-label="Refresh plan status"
+              >
+                {auth?.isRefreshingSession ? (
+                  <Spinner size={12} />
+                ) : (
+                  <RefreshCwIcon className="size-3.5" />
+                )}
+              </Button>
+            </div>
           }
           action={<BillingButton />}
-        >
-          <div className="flex items-center gap-1 text-sm text-neutral-600">
-            {auth?.isRefreshingSession ? (
-              <>
-                <Spinner size={14} />
-                <span>Refreshing plan status...</span>
-              </>
-            ) : (
-              <>
-                Click{" "}
-                <span
-                  onClick={handleRefreshPlan}
-                  className="text-primary cursor-pointer underline"
-                >
-                  here
-                </span>
-                <span className="text-neutral-600">
-                  {" "}
-                  to refresh plan status.
-                </span>
-              </>
-            )}
-          </div>
-        </Container>
+        />
       </div>
     </div>
   );
