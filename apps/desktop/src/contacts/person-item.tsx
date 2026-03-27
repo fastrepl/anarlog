@@ -89,8 +89,8 @@ export function PersonItem({
         }
       }}
       className={cn([
-        "group flex w-full items-center gap-2 overflow-hidden rounded-md border bg-white px-3 py-2 text-left text-sm transition-colors select-none hover:bg-neutral-100",
-        active ? "border-neutral-500 bg-neutral-100" : "border-transparent",
+        "group flex w-full items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        active ? "bg-neutral-200" : "hover:bg-neutral-200/50",
       ])}
     >
       <div className={cn(["shrink-0 rounded-full", bgClass])}>

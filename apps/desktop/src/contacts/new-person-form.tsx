@@ -58,9 +58,9 @@ export function NewPersonForm({
   };
 
   return (
-    <div className="p-2">
+    <div className="px-2 py-2">
       <form onSubmit={handleSubmit}>
-        <div className="flex w-full items-center gap-2 rounded-xs border border-neutral-200 bg-neutral-50 px-2 py-1.5">
+        <div className="flex h-8 w-full items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3 transition-colors focus-within:bg-neutral-200">
           <input
             type="text"
             value={name}

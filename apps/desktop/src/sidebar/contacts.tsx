@@ -308,54 +308,26 @@ function ContactsList({
         searchInputRef={searchInputRef}
       />
       <div className="flex-1 overflow-y-auto">
-        <div className="p-2">
-          {showNewPerson && (
-            <NewPersonForm
-              onSave={(humanId) => {
-                setShowNewPerson(false);
-                setSelected({ type: "person", id: humanId });
-              }}
-              onCancel={() => setShowNewPerson(false)}
-            />
-          )}
-          {pinnedItems.length > 0 && !searchValue.trim() && (
-            <Reorder.Group
-              axis="y"
-              values={pinnedItems.map((i) => i.id)}
-              onReorder={handleReorderPinned}
-              className="flex flex-col"
-            >
-              {pinnedItems.map((item) => (
-                <Reorder.Item key={item.id} value={item.id}>
-                  {item.kind === "person" ? (
-                    <PersonItem
-                      active={isActive(item)}
-                      humanId={item.id}
-                      onClick={() =>
-                        setSelected({ type: "person", id: item.id })
-                      }
-                      onDelete={onDeletePerson}
-                    />
-                  ) : (
-                    <OrganizationItem
-                      active={isActive(item)}
-                      organizationId={item.id}
-                      onClick={() =>
-                        setSelected({ type: "organization", id: item.id })
-                      }
-                      onDelete={onDeleteOrganization}
-                    />
-                  )}
-                </Reorder.Item>
-              ))}
-            </Reorder.Group>
-          )}
-          {pinnedItems.length > 0 && searchValue.trim() && (
-            <div className="flex flex-col">
-              {pinnedItems.map((item) =>
-                item.kind === "person" ? (
+        {showNewPerson && (
+          <NewPersonForm
+            onSave={(humanId) => {
+              setShowNewPerson(false);
+              setSelected({ type: "person", id: humanId });
+            }}
+            onCancel={() => setShowNewPerson(false)}
+          />
+        )}
+        {pinnedItems.length > 0 && !searchValue.trim() && (
+          <Reorder.Group
+            axis="y"
+            values={pinnedItems.map((i) => i.id)}
+            onReorder={handleReorderPinned}
+            className="flex flex-col"
+          >
+            {pinnedItems.map((item) => (
+              <Reorder.Item key={item.id} value={item.id}>
+                {item.kind === "person" ? (
                   <PersonItem
-                    key={`pinned-person-${item.id}`}
                     active={isActive(item)}
                     humanId={item.id}
                     onClick={() => setSelected({ type: "person", id: item.id })}
@@ -363,7 +335,6 @@ function ContactsList({
                   />
                 ) : (
                   <OrganizationItem
-                    key={`pinned-org-${item.id}`}
                     active={isActive(item)}
                     organizationId={item.id}
                     onClick={() =>
@@ -371,35 +342,58 @@ function ContactsList({
                     }
                     onDelete={onDeleteOrganization}
                   />
-                ),
-              )}
-            </div>
-          )}
-          {pinnedItems.length > 0 && nonPinnedItems.length > 0 && (
-            <div className="mx-3 my-1 h-px bg-neutral-200" />
-          )}
-          {nonPinnedItems.map((item) =>
-            item.kind === "person" ? (
-              <PersonItem
-                key={`person-${item.id}`}
-                active={isActive(item)}
-                humanId={item.id}
-                onClick={() => setSelected({ type: "person", id: item.id })}
-                onDelete={onDeletePerson}
-              />
-            ) : (
-              <OrganizationItem
-                key={`org-${item.id}`}
-                active={isActive(item)}
-                organizationId={item.id}
-                onClick={() =>
-                  setSelected({ type: "organization", id: item.id })
-                }
-                onDelete={onDeleteOrganization}
-              />
-            ),
-          )}
-        </div>
+                )}
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        )}
+        {pinnedItems.length > 0 && searchValue.trim() && (
+          <div className="flex flex-col">
+            {pinnedItems.map((item) =>
+              item.kind === "person" ? (
+                <PersonItem
+                  key={`pinned-person-${item.id}`}
+                  active={isActive(item)}
+                  humanId={item.id}
+                  onClick={() => setSelected({ type: "person", id: item.id })}
+                  onDelete={onDeletePerson}
+                />
+              ) : (
+                <OrganizationItem
+                  key={`pinned-org-${item.id}`}
+                  active={isActive(item)}
+                  organizationId={item.id}
+                  onClick={() =>
+                    setSelected({ type: "organization", id: item.id })
+                  }
+                  onDelete={onDeleteOrganization}
+                />
+              ),
+            )}
+          </div>
+        )}
+        {pinnedItems.length > 0 && nonPinnedItems.length > 0 && (
+          <div className="mx-3 my-1 h-px bg-neutral-200" />
+        )}
+        {nonPinnedItems.map((item) =>
+          item.kind === "person" ? (
+            <PersonItem
+              key={`person-${item.id}`}
+              active={isActive(item)}
+              humanId={item.id}
+              onClick={() => setSelected({ type: "person", id: item.id })}
+              onDelete={onDeletePerson}
+            />
+          ) : (
+            <OrganizationItem
+              key={`org-${item.id}`}
+              active={isActive(item)}
+              organizationId={item.id}
+              onClick={() => setSelected({ type: "organization", id: item.id })}
+              onDelete={onDeleteOrganization}
+            />
+          ),
+        )}
       </div>
     </div>
   );
