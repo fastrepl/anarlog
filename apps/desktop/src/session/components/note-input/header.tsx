@@ -586,10 +586,7 @@ function CreateOtherFormatButton({
         <div className="flex flex-col">
           <div className="border-b border-neutral-200 p-2">
             <div
-              className={cn([
-                "flex h-9 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3",
-                "transition-colors focus-within:border-neutral-400",
-              ])}
+              className={cn(["flex h-9 items-center gap-2 rounded-md bg-white px-3"])}
             >
               <SearchIcon className="h-4 w-4 text-neutral-400" />
               <input
