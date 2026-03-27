@@ -11,7 +11,7 @@ import { cn } from "@hypr/utils";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
-import { SearchProvider } from "./components/note-input/transcript/search/context";
+import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionPreviewCard } from "./components/session-preview-card";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";

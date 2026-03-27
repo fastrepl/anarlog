@@ -17,7 +17,9 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import { useTranscriptSearch } from "./context";
+import { useSearch } from "./context";
+
+import type { NoteEditorRef } from "~/editor";
 
 function ToggleButton({
   active,
@@ -90,8 +92,14 @@ function IconButton({
   );
 }
 
-export function SearchBar() {
-  const search = useTranscriptSearch();
+export function SearchBar({
+  editorRef,
+  isTranscript,
+}: {
+  editorRef: React.RefObject<NoteEditorRef | null>;
+  isTranscript?: boolean;
+}) {
+  const search = useSearch();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,23 +119,59 @@ export function SearchBar() {
 
   const {
     query,
-    setQuery,
     currentMatchIndex,
     totalMatches,
     onNext,
     onPrev,
-    close,
     caseSensitive,
     wholeWord,
     showReplace,
     replaceQuery,
-    toggleCaseSensitive,
     toggleWholeWord,
     toggleReplace,
     setReplaceQuery,
-    replaceCurrent,
-    replaceAll,
   } = search;
+
+  const commands = isTranscript ? null : editorRef.current?.commands;
+
+  const setQuery = (q: string) => {
+    search.setQuery(q);
+    commands?.setSearch(q, caseSensitive);
+  };
+
+  const toggleCaseSensitive = () => {
+    search.toggleCaseSensitive();
+    commands?.setSearch(query, !caseSensitive);
+  };
+
+  const close = () => {
+    search.close();
+    commands?.setSearch("", false);
+  };
+
+  const replaceCurrent = () => {
+    if (!query || totalMatches === 0) return;
+    commands?.replace({
+      query,
+      replacement: replaceQuery,
+      caseSensitive,
+      wholeWord,
+      all: false,
+      matchIndex: currentMatchIndex,
+    });
+  };
+
+  const replaceAll = () => {
+    if (!query) return;
+    commands?.replace({
+      query,
+      replacement: replaceQuery,
+      caseSensitive,
+      wholeWord,
+      all: true,
+      matchIndex: 0,
+    });
+  };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -181,18 +225,20 @@ export function SearchBar() {
           >
             <WholeWordIcon className="size-3.5" />
           </ToggleButton>
-          <ToggleButton
-            active={showReplace}
-            onClick={toggleReplace}
-            tooltip={
-              <>
-                <span>Replace</span>
-                <Kbd className="animate-kbd-press">⌘ H</Kbd>
-              </>
-            }
-          >
-            <ReplaceIcon className="size-3.5" />
-          </ToggleButton>
+          {!isTranscript && (
+            <ToggleButton
+              active={showReplace}
+              onClick={toggleReplace}
+              tooltip={
+                <>
+                  <span>Replace</span>
+                  <Kbd className="animate-kbd-press">⌘ H</Kbd>
+                </>
+              }
+            >
+              <ReplaceIcon className="size-3.5" />
+            </ToggleButton>
+          )}
         </div>
         <span className="text-[10px] whitespace-nowrap text-neutral-400 tabular-nums">
           {displayCount}
@@ -236,7 +282,7 @@ export function SearchBar() {
         </IconButton>
       </div>
 
-      {showReplace && (
+      {showReplace && !isTranscript && (
         <div className="flex h-7 items-center gap-1.5 rounded-lg bg-neutral-100 px-2">
           <input
             ref={replaceInputRef}

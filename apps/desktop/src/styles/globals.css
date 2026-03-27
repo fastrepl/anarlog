@@ -220,12 +220,12 @@
 }
 
 /* Search result highlighting styles — matches transcript's bg-yellow-200/50 and bg-yellow-500 */
-.search-result {
+.ProseMirror-search-match {
   background-color: rgb(254 240 138 / 0.5);
   border-radius: 2px;
 }
 
-.search-result-current {
+.ProseMirror-active-search-match {
   background-color: rgb(234 179 8) !important;
   border-radius: 2px;
 }

@@ -1,4 +1,7 @@
-import { isWordBoundary } from "../../search-replace";
+function isWordBoundary(text: string, index: number): boolean {
+  if (index < 0 || index >= text.length) return true;
+  return !/\w/.test(text[index]);
+}
 
 export interface SearchOptions {
   caseSensitive: boolean;

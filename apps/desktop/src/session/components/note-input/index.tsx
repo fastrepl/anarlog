@@ -22,9 +22,9 @@ import { type Attachment, Attachments } from "./attachments";
 import { Enhanced } from "./enhanced";
 import { Header, useAttachments, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
+import { SearchBar } from "./search/bar";
+import { useSearch } from "./search/context";
 import { Transcript } from "./transcript";
-import { SearchBar } from "./transcript/search/bar";
-import { useSearchSync } from "./use-search-sync";
 
 import type { NoteEditorRef } from "~/editor";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
@@ -35,7 +35,6 @@ import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export interface NoteInputHandle {
-  searchStorage: NoteEditorRef["searchStorage"];
   focus: () => void;
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
@@ -62,23 +61,9 @@ export const NoteInput = forwardRef<
 
   const currentTab: TabEditorView = useCurrentNoteTab(tab);
 
-  const defaultSearchStorage: NoteEditorRef["searchStorage"] = {
-    searchTerm: "",
-    replaceTerm: "",
-    results: [],
-    lastSearchTerm: "",
-    caseSensitive: false,
-    lastCaseSensitive: false,
-    resultIndex: 0,
-    lastResultIndex: 0,
-  };
-
   useImperativeHandle(
     ref,
     () => ({
-      get searchStorage() {
-        return internalEditorRef.current?.searchStorage ?? defaultSearchStorage;
-      },
       focus: () => internalEditorRef.current?.commands.focus(),
       focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
       focusAtPixelWidth: (px) =>
@@ -148,11 +133,12 @@ export const NoteInput = forwardRef<
       currentTab.type !== "transcript" && currentTab.type !== "attachments",
   });
 
-  const { showSearchBar } = useSearchSync({
-    editorRef: internalEditorRef,
-    currentTab,
-    sessionId,
-  });
+  const search = useSearch();
+  const showSearchBar = search?.isVisible ?? false;
+
+  useEffect(() => {
+    search?.close();
+  }, [currentTab]);
 
   const handleContainerClick = () => {
     if (currentTab.type !== "transcript" && currentTab.type !== "attachments") {
@@ -173,7 +159,10 @@ export const NoteInput = forwardRef<
 
       {showSearchBar && (
         <div className="px-3 pt-1">
-          <SearchBar />
+          <SearchBar
+            editorRef={internalEditorRef}
+            isTranscript={currentTab.type === "transcript"}
+          />
         </div>
       )}
 

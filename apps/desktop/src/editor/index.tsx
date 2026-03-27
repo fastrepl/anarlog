@@ -1,3 +1,5 @@
+import "prosemirror-gapcursor/style/gapcursor.css";
+
 import {
   ProseMirror,
   ProseMirrorDoc,
@@ -27,7 +29,6 @@ import {
 import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
-import "prosemirror-gapcursor/style/gapcursor.css";
 
 import { ResizableImageView } from "./image-view";
 import { buildInputRules, buildKeymap } from "./keymap";
@@ -41,21 +42,23 @@ import {
 import {
   type FileHandlerConfig,
   type PlaceholderFunction,
-  type SearchAndReplaceStorage,
+  SearchQuery,
   clearMarksOnEnterPlugin,
   clipPastePlugin,
-  createSearchStorage,
   fileHandlerPlugin,
+  getSearchState,
   hashtagPlugin,
   linkBoundaryGuardPlugin,
   placeholderPlugin,
-  searchAndReplacePlugin,
+  searchPlugin,
+  searchReplaceAll,
+  searchReplaceCurrent,
+  setSearchState,
 } from "./plugins";
 import { schema } from "./schema";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
-export type { SearchAndReplaceStorage };
 
 export interface JSONContent {
   type?: string;
@@ -65,16 +68,26 @@ export interface JSONContent {
   text?: string;
 }
 
+export interface SearchReplaceParams {
+  query: string;
+  replacement: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  all: boolean;
+  matchIndex: number;
+}
+
 export interface EditorCommands {
   focus: () => void;
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  setSearch: (query: string, caseSensitive: boolean) => void;
+  replace: (params: SearchReplaceParams) => void;
 }
 
 export interface NoteEditorRef {
   view: EditorView | null;
-  searchStorage: SearchAndReplaceStorage;
   commands: EditorCommands;
 }
 
@@ -113,6 +126,8 @@ const noopCommands: EditorCommands = {
   focusAtStart: () => {},
   focusAtPixelWidth: () => {},
   insertAtStartAndFocus: () => {},
+  setSearch: () => {},
+  replace: () => {},
 };
 
 function EditorCommandsBridge({
@@ -190,6 +205,48 @@ function EditorCommandsBridge({
     },
   );
 
+  commandsRef.current.setSearch = useEditorEventCallback(
+    (view, query: string, caseSensitive: boolean) => {
+      if (!view) return;
+      const q = new SearchQuery({ search: query, caseSensitive });
+      const current = getSearchState(view.state);
+      if (current && current.query.eq(q)) return;
+      view.dispatch(setSearchState(view.state.tr, q));
+    },
+  );
+
+  commandsRef.current.replace = useEditorEventCallback(
+    (view, params: SearchReplaceParams) => {
+      if (!view) return;
+      const query = new SearchQuery({
+        search: params.query,
+        replace: params.replacement,
+        caseSensitive: params.caseSensitive,
+        wholeWord: params.wholeWord,
+      });
+
+      view.dispatch(setSearchState(view.state.tr, query));
+
+      if (params.all) {
+        searchReplaceAll(view.state, (tr) => view.dispatch(tr));
+      } else {
+        let result = query.findNext(view.state);
+        let idx = 0;
+        while (result && idx < params.matchIndex) {
+          result = query.findNext(view.state, result.to);
+          idx++;
+        }
+        if (!result) return;
+        view.dispatch(
+          view.state.tr.setSelection(
+            TextSelection.create(view.state.doc, result.from, result.to),
+          ),
+        );
+        searchReplaceCurrent(view.state, (tr) => view.dispatch(tr));
+      }
+    },
+  );
+
   return null;
 }
 
@@ -204,7 +261,6 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
   } = props;
 
   const previousContentRef = useRef<JSONContent | undefined>(initialContent);
-  const searchStorage = useMemo(() => createSearchStorage(), []);
   const viewRef = useRef<EditorView | null>(null);
   const commandsRef = useRef<EditorCommands>(noopCommands);
 
@@ -214,12 +270,11 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
       get view() {
         return viewRef.current;
       },
-      searchStorage,
       get commands() {
         return commandsRef.current;
       },
     }),
-    [searchStorage],
+    [],
   );
 
   const onUpdate = useDebounceCallback((view: EditorView) => {
@@ -236,7 +291,7 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
       dropCursor(),
       gapCursor(),
       hashtagPlugin(),
-      searchAndReplacePlugin(searchStorage),
+      searchPlugin(),
       placeholderPlugin(placeholderComponent),
       clearMarksOnEnterPlugin(),
       clipPastePlugin(),
@@ -246,13 +301,7 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
         : []),
       ...(fileHandlerConfig ? [fileHandlerPlugin(fileHandlerConfig)] : []),
     ],
-    [
-      searchStorage,
-      placeholderComponent,
-      fileHandlerConfig,
-      mentionConfig,
-      onNavigateToTitle,
-    ],
+    [placeholderComponent, fileHandlerConfig, mentionConfig, onNavigateToTitle],
   );
 
   const defaultState = useMemo(() => {

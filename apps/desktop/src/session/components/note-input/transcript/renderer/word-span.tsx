@@ -4,8 +4,8 @@ import { cn } from "@hypr/utils";
 
 import type { HighlightSegment } from "./utils";
 
-import { useTranscriptSearch } from "~/session/components/note-input/transcript/search/context";
-import { createHighlightSegments } from "~/session/components/note-input/transcript/search/matching";
+import { useSearch } from "~/session/components/note-input/search/context";
+import { createHighlightSegments } from "~/session/components/note-input/search/matching";
 import type { SegmentWord } from "~/stt/live-segment";
 
 interface WordSpanProps {
@@ -50,7 +50,7 @@ export function WordSpan(props: WordSpanProps) {
 }
 
 function useTranscriptSearchHighlights(word: SegmentWord, displayText: string) {
-  const search = useTranscriptSearch();
+  const search = useSearch();
   const query = search?.query?.trim() ?? "";
   const isVisible = Boolean(search?.isVisible);
   const activeMatchId = search?.activeMatchId ?? null;

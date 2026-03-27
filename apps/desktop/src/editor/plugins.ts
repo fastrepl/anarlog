@@ -44,144 +44,21 @@ export function hashtagPlugin() {
 }
 
 // ---------------------------------------------------------------------------
-// Search and Replace
+// Search and Replace (prosemirror-search)
 // ---------------------------------------------------------------------------
-export interface SearchAndReplaceStorage {
-  searchTerm: string;
-  replaceTerm: string;
-  results: { from: number; to: number }[];
-  lastSearchTerm: string;
-  caseSensitive: boolean;
-  lastCaseSensitive: boolean;
-  resultIndex: number;
-  lastResultIndex: number;
-}
-
-export function createSearchStorage(): SearchAndReplaceStorage {
-  return {
-    searchTerm: "",
-    replaceTerm: "",
-    results: [],
-    lastSearchTerm: "",
-    caseSensitive: false,
-    lastCaseSensitive: false,
-    resultIndex: 0,
-    lastResultIndex: 0,
-  };
-}
-
-export const searchPluginKey = new PluginKey("searchAndReplace");
-
-function processSearches(
-  doc: PMNode,
-  searchTerm: RegExp,
-  searchResultClass: string,
-  resultIndex: number,
-): { decorations: DecorationSet; results: { from: number; to: number }[] } {
-  const decorations: Decoration[] = [];
-  const results: { from: number; to: number }[] = [];
-
-  let textNodesWithPosition: { text: string; pos: number }[] = [];
-  let index = 0;
-
-  doc.descendants((node, pos) => {
-    if (node.isText) {
-      if (textNodesWithPosition[index]) {
-        textNodesWithPosition[index] = {
-          text: textNodesWithPosition[index].text + node.text,
-          pos: textNodesWithPosition[index].pos,
-        };
-      } else {
-        textNodesWithPosition[index] = { text: `${node.text}`, pos };
-      }
-    } else {
-      index += 1;
-    }
-  });
-
-  textNodesWithPosition = textNodesWithPosition.filter(Boolean);
-
-  for (const element of textNodesWithPosition) {
-    const { text, pos } = element;
-    const matches = Array.from(text.matchAll(searchTerm)).filter(
-      ([matchText]) => matchText.trim(),
-    );
-
-    for (const m of matches) {
-      if (m[0] === "" || m.index === undefined) continue;
-      results.push({ from: pos + m.index, to: pos + m.index + m[0].length });
-    }
-  }
-
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    const className =
-      i === resultIndex
-        ? `${searchResultClass} ${searchResultClass}-current`
-        : searchResultClass;
-    decorations.push(Decoration.inline(r.from, r.to, { class: className }));
-  }
-
-  return {
-    decorations: DecorationSet.create(doc, decorations),
-    results,
-  };
-}
-
-export function searchAndReplacePlugin(storage: SearchAndReplaceStorage) {
-  return new Plugin({
-    key: searchPluginKey,
-    state: {
-      init: () => DecorationSet.empty,
-      apply({ doc, docChanged }, oldState) {
-        const {
-          searchTerm,
-          lastSearchTerm,
-          caseSensitive,
-          lastCaseSensitive,
-          resultIndex,
-          lastResultIndex,
-        } = storage;
-
-        if (
-          !docChanged &&
-          lastSearchTerm === searchTerm &&
-          lastCaseSensitive === caseSensitive &&
-          lastResultIndex === resultIndex
-        ) {
-          return oldState;
-        }
-
-        storage.lastSearchTerm = searchTerm;
-        storage.lastCaseSensitive = caseSensitive;
-        storage.lastResultIndex = resultIndex;
-
-        if (!searchTerm) {
-          storage.results = [];
-          return DecorationSet.empty;
-        }
-
-        const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const regex = new RegExp(escaped, caseSensitive ? "gu" : "gui");
-
-        const { decorations, results } = processSearches(
-          doc,
-          regex,
-          "search-result",
-          resultIndex,
-        );
-
-        storage.results = results;
-        return decorations;
-      },
-    },
-    props: {
-      decorations(state) {
-        return this.getState(state);
-      },
-    },
-  });
-}
+export {
+  search as searchPlugin,
+  SearchQuery,
+  getSearchState,
+  setSearchState,
+  getMatchHighlights,
+  findNext as searchFindNext,
+  findPrev as searchFindPrev,
+  replaceAll as searchReplaceAll,
+  replaceCurrent as searchReplaceCurrent,
+  replaceNext as searchReplaceNext,
+} from "prosemirror-search";
+import "prosemirror-search/style/search.css";
 
 // ---------------------------------------------------------------------------
 // Placeholder

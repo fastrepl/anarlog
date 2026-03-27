@@ -34,23 +34,12 @@ interface SearchContextValue {
   toggleWholeWord: () => void;
   toggleReplace: () => void;
   setReplaceQuery: (query: string) => void;
-  replaceCurrent: () => void;
-  replaceAll: () => void;
 }
 
 const SearchContext = createContext<SearchContextValue | null>(null);
 
-export function useTranscriptSearch() {
+export function useSearch() {
   return useContext(SearchContext);
-}
-
-export interface SearchReplaceDetail {
-  query: string;
-  replacement: string;
-  caseSensitive: boolean;
-  wholeWord: boolean;
-  all: boolean;
-  matchIndex: number;
 }
 
 interface SearchState {
@@ -252,47 +241,6 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.currentMatchIndex]);
 
-  const replaceCurrent = useCallback(() => {
-    if (!state.query || matchesRef.current.length === 0) return;
-    const detail: SearchReplaceDetail = {
-      query: state.query,
-      replacement: state.replaceQuery,
-      caseSensitive: state.caseSensitive,
-      wholeWord: state.wholeWord,
-      all: false,
-      matchIndex: state.currentMatchIndex,
-    };
-    window.dispatchEvent(new CustomEvent("search-replace", { detail }));
-    setTimeout(runSearch, 50);
-  }, [
-    state.query,
-    state.replaceQuery,
-    state.caseSensitive,
-    state.wholeWord,
-    state.currentMatchIndex,
-    runSearch,
-  ]);
-
-  const replaceAllFn = useCallback(() => {
-    if (!state.query) return;
-    const detail: SearchReplaceDetail = {
-      query: state.query,
-      replacement: state.replaceQuery,
-      caseSensitive: state.caseSensitive,
-      wholeWord: state.wholeWord,
-      all: true,
-      matchIndex: 0,
-    };
-    window.dispatchEvent(new CustomEvent("search-replace", { detail }));
-    setTimeout(runSearch, 50);
-  }, [
-    state.query,
-    state.replaceQuery,
-    state.caseSensitive,
-    state.wholeWord,
-    runSearch,
-  ]);
-
   useEffect(() => {
     if (!state.isVisible || !state.activeMatchId) return;
 
@@ -328,10 +276,8 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
       toggleReplace: () => dispatch({ type: "toggle_replace" }),
       setReplaceQuery: (query: string) =>
         dispatch({ type: "set_replace_query", query }),
-      replaceCurrent,
-      replaceAll: replaceAllFn,
     }),
-    [state, onNext, onPrev, replaceCurrent, replaceAllFn],
+    [state, onNext, onPrev],
   );
 
   return (
