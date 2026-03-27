@@ -26,7 +26,7 @@ export function AppleCalendarSelection({
 
   return (
     <div className="flex flex-col gap-2">
-      {leftAction ? <div>{leftAction}</div> : null}
+      {leftAction && groups.length === 0 ? <div>{leftAction}</div> : null}
 
       <CalendarSelection
         groups={groups}
