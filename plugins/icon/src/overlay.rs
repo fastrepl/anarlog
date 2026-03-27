@@ -23,6 +23,7 @@ impl Overlay {
     }
 }
 
+#[cfg(target_os = "macos")]
 struct BadgeGeometry {
     inner_origin: NSPoint,
     inner_size: f64,
