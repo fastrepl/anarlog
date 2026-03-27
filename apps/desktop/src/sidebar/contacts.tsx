@@ -307,7 +307,7 @@ function ContactsList({
         onSearchChange={setSearchValue}
         searchInputRef={searchInputRef}
       />
-      <div className="flex-1 overflow-y-auto">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
         {showNewPerson && (
           <NewPersonForm
             onSave={(humanId) => {

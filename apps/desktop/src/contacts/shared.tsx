@@ -129,7 +129,7 @@ export function ColumnHeader({
         </div>
       </div>
       {onSearchChange && (
-        <div className="px-2">
+        <div className="px-2 pb-2">
           <div className="flex h-8 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3 transition-colors focus-within:bg-neutral-200">
             <Search className="h-4 w-4 shrink-0 text-neutral-400" />
             <input
