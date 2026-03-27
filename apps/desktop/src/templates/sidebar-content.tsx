@@ -257,7 +257,7 @@ export function TemplatesSidebarContent({
           </div>
         </div>
 
-        <div className="px-2">
+        <div className="px-2 pb-2">
           <div
             className={cn([
               "flex h-8 shrink-0 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3",
@@ -294,7 +294,7 @@ export function TemplatesSidebarContent({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
         {isWebMode && isWebLoading ? (
           <div className="flex flex-col gap-1 px-2 py-2">
             {[0, 1, 2, 3].map((index) => (
