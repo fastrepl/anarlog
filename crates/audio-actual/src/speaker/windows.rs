@@ -5,7 +5,7 @@ use hypr_audio_utils::{pcm_i16_to_f32, pcm_i32_to_f32};
 use pin_project::pin_project;
 use ringbuf::{
     HeapCons, HeapProd, HeapRb,
-    traits::{Producer, Split},
+    traits::{Observer, Producer, Split},
 };
 use std::collections::VecDeque;
 use std::sync::Arc;

@@ -81,10 +81,10 @@ impl<M: ModelLoader> ModelManager<M> {
 
         let mut active = self.active.lock().await;
 
-        if let Some(ref a) = *active {
-            if a.name == resolved {
-                return Ok(Arc::clone(&a.model));
-            }
+        if let Some(ref a) = *active
+            && a.name == resolved
+        {
+            return Ok(Arc::clone(&a.model));
         }
 
         *active = None;
@@ -129,10 +129,10 @@ impl<M: ModelLoader> ModelManager<M> {
                     _ = shutdown_rx.changed() => break,
                     _ = interval.tick() => {
                         let last = last_activity.lock().await;
-                        if let Some(t) = *last {
-                            if t.elapsed() > inactivity_timeout {
-                                *active.lock().await = None;
-                            }
+                        if let Some(t) = *last
+                            && t.elapsed() > inactivity_timeout
+                        {
+                            *active.lock().await = None;
                         }
                     }
                 }
