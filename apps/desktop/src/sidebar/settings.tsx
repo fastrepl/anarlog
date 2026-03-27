@@ -111,15 +111,15 @@ export function SettingsNav() {
   const groups = showDontUseThis ? [...GROUPS, DONT_USE_THIS_GROUP] : GROUPS;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden py-2">
-      <div className="flex h-12 shrink-0 items-center py-2 pr-1 pl-3">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      <div className="flex h-12 items-center py-2 pr-1 pl-3">
         <h3 className="font-serif text-sm font-medium">Settings</h3>
       </div>
-      <div className="flex-1 overflow-y-auto px-3">
+      <div className="scrollbar-hide flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 pb-2">
           {groups.map((group) => (
             <div key={group.label} className="flex flex-col gap-0.5">
-              <span className="px-2 pb-1 text-[11px] font-medium tracking-wider text-neutral-400 uppercase">
+              <span className="px-3 pb-1 text-[11px] font-medium tracking-wider text-neutral-400 uppercase">
                 {group.label}
               </span>
               {group.items.map((item) => {
@@ -137,11 +137,11 @@ export function SettingsNav() {
                       handleOpenTemplates();
                     }}
                     className={cn([
-                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                      "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
                       "transition-colors",
                       isSettingsItem && activeTab === item.id
-                        ? "bg-neutral-200/70 font-medium text-neutral-900"
-                        : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800",
+                        ? "bg-neutral-200 font-medium text-neutral-900"
+                        : "text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-800",
                     ])}
                   >
                     <item.icon size={15} />
