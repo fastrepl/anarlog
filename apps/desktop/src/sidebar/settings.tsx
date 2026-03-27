@@ -3,7 +3,6 @@ import { getIdentifier } from "@tauri-apps/api/app";
 import {
   AudioLinesIcon,
   BellIcon,
-  BookText,
   BrainIcon,
   CalendarIcon,
   FlaskConical,
@@ -39,7 +38,6 @@ const GROUPS: {
     items: [
       { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
       { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
-      { id: "templates", label: "Templates", icon: BookText },
       { id: "memory", label: "Memory", icon: BrainIcon },
     ],
   },

@@ -1,0 +1,16 @@
+import { useTabs } from "~/store/zustand/tabs";
+import { TemplatesSidebarContent } from "~/templates/sidebar-content";
+
+export function TemplatesNav() {
+  const currentTab = useTabs((state) => state.currentTab);
+
+  if (currentTab?.type !== "templates") {
+    return null;
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden px-3 py-2">
+      <TemplatesSidebarContent tab={currentTab} />
+    </div>
+  );
+}

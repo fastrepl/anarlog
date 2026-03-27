@@ -15,7 +15,6 @@ import {
   SettingsSystem,
 } from "./general";
 import { SettingsLab } from "./lab";
-import { TemplatesContent } from "./templates-content";
 import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
@@ -23,7 +22,7 @@ import { STT } from "~/settings/ai/stt";
 import { SettingsMemory } from "~/settings/memory";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import type { Tab } from "~/store/zustand/tabs";
+import { type Tab } from "~/store/zustand/tabs";
 
 export const TabItemSettings: TabItem<Extract<Tab, { type: "settings" }>> = ({
   tab,
@@ -87,8 +86,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <STT />;
       case "intelligence":
         return <LLM />;
-      case "templates":
-        return <TemplatesContent />;
       case "memory":
         return <SettingsMemory />;
       case "todo":

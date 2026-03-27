@@ -116,7 +116,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
   const isAiTab =
     currentTab?.type === "settings" &&
-    ["transcription", "intelligence", "templates", "memory"].includes(
+    ["transcription", "intelligence", "memory"].includes(
       currentTab.state?.tab ?? "",
     );
 

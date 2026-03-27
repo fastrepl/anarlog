@@ -42,7 +42,7 @@ import { wrapSliceWithLogging } from "~/store/zustand/shared";
 export type { ChatEvent, ChatMode } from "./chat-mode";
 export type { SettingsState, SettingsTab, Tab, TabInput } from "./schema";
 export type { StateBasicActions } from "./state";
-export { isSameTab, uniqueIdfromTab } from "./schema";
+export { isSameTab, normalizeSettingsTab, uniqueIdfromTab } from "./schema";
 export { restorePinnedTabsToStore, restoreRecentlyOpenedToStore };
 
 type State = BasicState &

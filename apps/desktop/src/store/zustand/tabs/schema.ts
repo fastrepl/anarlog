@@ -35,10 +35,29 @@ export type SettingsTab =
   | "lab"
   | "transcription"
   | "intelligence"
-  | "templates"
   | "memory"
   | "todo"
   | "dont-use-this";
+
+export const normalizeSettingsTab = (
+  tab: string | null | undefined,
+): Exclude<SettingsTab, "account"> => {
+  switch (tab) {
+    case "app":
+    case "notifications":
+    case "calendar":
+    case "system":
+    case "lab":
+    case "transcription":
+    case "intelligence":
+    case "memory":
+    case "dont-use-this":
+      return tab;
+    case "account":
+    default:
+      return "app";
+  }
+};
 
 export type SettingsState = {
   tab: SettingsTab | null;

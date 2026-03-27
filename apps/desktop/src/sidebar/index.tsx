@@ -17,6 +17,7 @@ import { ContactsNav } from "./contacts";
 import { ProfileSection } from "./profile";
 import { SidebarSearchInput } from "./search";
 import { SettingsNav } from "./settings";
+import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { ToastArea } from "./toast";
 
@@ -46,12 +47,14 @@ export function LeftSidebar() {
   const isSettingsMode = currentTab?.type === "settings";
   const isCalendarMode = currentTab?.type === "calendar";
   const isContactsMode = currentTab?.type === "contacts";
+  const isTemplatesMode = currentTab?.type === "templates";
   const showCollapseButton =
-    !isSettingsMode && !isContactsMode && !isCalendarMode;
+    !isSettingsMode && !isContactsMode && !isCalendarMode && !isTemplatesMode;
   const showSearchResults =
     !isSettingsMode &&
-    !isCalendarMode &&
     !isContactsMode &&
+    !isCalendarMode &&
+    !isTemplatesMode &&
     query.trim() !== "";
 
   return (
@@ -97,9 +100,10 @@ export function LeftSidebar() {
         </div>
       </header>
 
-      {!isSettingsMode && !isCalendarMode && !isContactsMode && (
-        <SidebarSearchInput />
-      )}
+      {!isSettingsMode &&
+        !isCalendarMode &&
+        !isContactsMode &&
+        !isTemplatesMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -113,6 +117,8 @@ export function LeftSidebar() {
             <CalendarNav />
           ) : isContactsMode ? (
             <ContactsNav />
+          ) : isTemplatesMode ? (
+            <TemplatesNav />
           ) : (
             <>
               <div className={showSearchResults ? "h-full" : "hidden"}>
@@ -126,7 +132,8 @@ export function LeftSidebar() {
           {!leftsidebar.showDevtool &&
             !isSettingsMode &&
             !isCalendarMode &&
-            !isContactsMode && (
+            !isContactsMode &&
+            !isTemplatesMode && (
               <ToastArea isProfileExpanded={isProfileExpanded} />
             )}
         </div>

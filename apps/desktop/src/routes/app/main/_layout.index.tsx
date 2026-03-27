@@ -35,7 +35,9 @@ function Component() {
 
   const isCalendarMode = currentTab?.type === "calendar";
   const isNavMode =
-    currentTab?.type === "settings" || currentTab?.type === "contacts";
+    currentTab?.type === "settings" ||
+    currentTab?.type === "contacts" ||
+    currentTab?.type === "templates";
   const savedExpandedRef = useRef<boolean | null>(null);
 
   const isChatOpen = chat.mode === "RightPanelOpen";
