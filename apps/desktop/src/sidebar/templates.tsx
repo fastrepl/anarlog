@@ -9,7 +9,7 @@ export function TemplatesNav() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden px-3 py-2">
+    <div className="flex h-full flex-col overflow-hidden pb-2">
       <TemplatesSidebarContent tab={currentTab} />
     </div>
   );

@@ -161,7 +161,7 @@ export function TemplatesSidebarContent({
         <div className="flex h-12 items-center justify-between py-2 pr-1 pl-3">
           <button
             onClick={setShowHomepage}
-            className="text-sm font-medium hover:text-neutral-600"
+            className="font-serif text-sm font-medium hover:text-neutral-600"
           >
             Templates
           </button>

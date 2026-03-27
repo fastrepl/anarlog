@@ -34,29 +34,34 @@ function Component() {
   const chatPanelContainerRef = useRef<HTMLDivElement>(null);
 
   const isCalendarMode = currentTab?.type === "calendar";
-  const isNavMode =
+  const hasCustomSidebar =
+    currentTab?.type === "calendar" ||
     currentTab?.type === "settings" ||
     currentTab?.type === "contacts" ||
     currentTab?.type === "templates";
   const savedExpandedRef = useRef<boolean | null>(null);
+  const wasCustomSidebarRef = useRef(false);
 
   const isChatOpen = chat.mode === "RightPanelOpen";
   const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
 
   useEffect(() => {
-    if (isNavMode) {
+    if (hasCustomSidebar && !wasCustomSidebarRef.current) {
       savedExpandedRef.current = leftsidebar.expanded;
       if (!leftsidebar.expanded) {
         leftsidebar.setExpanded(true);
         commands.resizeWindowForSidebar().catch(console.error);
       }
       leftsidebar.setLocked(true);
-    } else if (savedExpandedRef.current !== null) {
+    } else if (!hasCustomSidebar && wasCustomSidebarRef.current) {
       leftsidebar.setLocked(false);
-      leftsidebar.setExpanded(savedExpandedRef.current);
+      if (savedExpandedRef.current !== null) {
+        leftsidebar.setExpanded(savedExpandedRef.current);
+      }
       savedExpandedRef.current = null;
     }
-  }, [isNavMode, leftsidebar]);
+    wasCustomSidebarRef.current = hasCustomSidebar;
+  }, [hasCustomSidebar, leftsidebar]);
 
   useEffect(() => {
     const isOpeningRightPanel =
@@ -81,7 +86,7 @@ function Component() {
     }
 
     previousQueryRef.current = query;
-  }, [query, leftsidebar]);
+  }, [query, leftsidebar, isOnboarding]);
 
   return (
     <SyncWrapper>
