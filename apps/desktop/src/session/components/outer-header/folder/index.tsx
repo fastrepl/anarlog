@@ -41,8 +41,8 @@ export function FolderChain({ sessionId }: { sessionId: string }) {
   );
 
   return (
-    <Breadcrumb className="ml-1.5 min-w-0">
-      <BreadcrumbList className="flex-nowrap gap-0.5 overflow-hidden text-xs text-neutral-700">
+    <Breadcrumb className="ml-1.5 w-full min-w-0">
+      <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden text-xs text-neutral-700">
         {folderId && <FolderIcon className="mr-1 h-3 w-3 shrink-0" />}
         {!folderId ? (
           <RenderIfRootNotExist
@@ -96,8 +96,8 @@ function RenderIfRootExist({
         )}
       />
       <BreadcrumbSeparator className="shrink-0" />
-      <BreadcrumbItem className="overflow-hidden">
-        <BreadcrumbPage>
+      <BreadcrumbItem className="min-w-0 flex-1 overflow-hidden">
+        <BreadcrumbPage className="block w-full min-w-0">
           <TitleInput title={title} handleChangeTitle={handleChangeTitle} />
         </BreadcrumbPage>
       </BreadcrumbItem>
@@ -127,8 +127,8 @@ function RenderIfRootNotExist({
         />
       </BreadcrumbItem>
       <BreadcrumbSeparator className="shrink-0" />
-      <BreadcrumbItem className="overflow-hidden">
-        <BreadcrumbPage>
+      <BreadcrumbItem className="min-w-0 flex-1 overflow-hidden">
+        <BreadcrumbPage className="block w-full min-w-0">
           <TitleInput title={title} handleChangeTitle={handleChangeTitle} />
         </BreadcrumbPage>
       </BreadcrumbItem>
@@ -147,7 +147,7 @@ function TitleInput({
     <input
       type="text"
       placeholder="Untitled"
-      className="w-full min-w-0 truncate border-none bg-transparent text-neutral-700 focus:underline focus:outline-hidden"
+      className="block w-full min-w-0 truncate border-none bg-transparent text-neutral-700 focus:underline focus:outline-hidden"
       value={title ?? ""}
       onChange={(e) => handleChangeTitle(e.target.value)}
     />
