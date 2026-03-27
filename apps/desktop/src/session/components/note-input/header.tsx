@@ -489,34 +489,39 @@ function CreateOtherFormatButton({
     [handleUseTemplate, setRow, user_id],
   );
 
-  const handleCreateTemplate = useCallback(() => {
-    if (!user_id) return;
+  const handleCreateTemplate = useCallback(
+    (title?: string) => {
+      if (!user_id) return;
 
-    const templateId = crypto.randomUUID();
-    const now = new Date().toISOString();
+      const templateId = crypto.randomUUID();
+      const now = new Date().toISOString();
+      const nextTitle = title?.trim() || "New Template";
 
-    setRow({
-      id: templateId,
-      user_id,
-      created_at: now,
-      title: "New Template",
-      description: "",
-      sections: [],
-    });
+      setRow({
+        id: templateId,
+        user_id,
+        created_at: now,
+        title: nextTitle,
+        description: "",
+        sections: [],
+      });
 
-    setOpen(false);
-    setSearch("");
-    openNew({
-      type: "templates",
-      state: {
-        selectedMineId: templateId,
-        selectedWebIndex: null,
-        isWebMode: false,
-        showHomepage: false,
-      },
-    });
-  }, [openNew, setRow, user_id]);
+      setOpen(false);
+      setSearch("");
+      openNew({
+        type: "templates",
+        state: {
+          selectedMineId: templateId,
+          selectedWebIndex: null,
+          isWebMode: false,
+          showHomepage: false,
+        },
+      });
+    },
+    [openNew, setRow, user_id],
+  );
 
+  const trimmedSearch = search.trim();
   const searchQuery = search.trim().toLowerCase();
   const transcriptText = useMemo(
     () => formatTranscriptExportSegments(transcriptSegments),
@@ -679,24 +684,30 @@ function CreateOtherFormatButton({
                     ))}
                   </TemplateSection>
                 ) : null}
+
+                <TemplateSection
+                  title="Create new template"
+                  icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
+                  uppercase={false}
+                >
+                  <TemplateResultButton
+                    title={trimmedSearch}
+                    onClick={() => handleCreateTemplate(trimmedSearch)}
+                  />
+                </TemplateSection>
               </div>
             ) : (
-              <div className="px-2 py-6 text-center text-sm text-neutral-500">
-                No templates found
-              </div>
+              <TemplateSection
+                title="Create new template"
+                icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
+                uppercase={false}
+              >
+                <TemplateResultButton
+                  title={trimmedSearch}
+                  onClick={() => handleCreateTemplate(trimmedSearch)}
+                />
+              </TemplateSection>
             )}
-          </div>
-
-          <div className="border-t border-neutral-200 p-2">
-            <button
-              onClick={handleCreateTemplate}
-              className="w-full rounded-md px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                <PlusIcon className="h-4 w-4" />
-                <span>Create new template</span>
-              </span>
-            </button>
           </div>
         </div>
       </PopoverContent>
@@ -1108,20 +1119,29 @@ function normalizeTemplateSuggestionText(value: string | undefined) {
 function TemplateSection({
   title,
   children,
+  icon,
+  uppercase = true,
 }: {
   title: string;
   children: React.ReactNode;
+  icon?: React.ReactNode;
+  uppercase?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 px-2">
-        {title === "Suggested templates" ? (
-          <LightbulbIcon className="h-3.5 w-3.5 text-amber-500" />
-        ) : null}
-        {title === "Favorite templates" ? (
-          <HeartIcon className="h-3.5 w-3.5 text-rose-500" />
-        ) : null}
-        <p className="font-mono text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
+        {icon ??
+          (title === "Suggested templates" ? (
+            <LightbulbIcon className="h-3.5 w-3.5 text-amber-500" />
+          ) : title === "Favorite templates" ? (
+            <HeartIcon className="h-3.5 w-3.5 text-rose-500" />
+          ) : null)}
+        <p
+          className={cn([
+            "font-mono text-[11px] font-medium tracking-wide text-neutral-500",
+            uppercase && "uppercase",
+          ])}
+        >
           {title}
         </p>
       </div>
