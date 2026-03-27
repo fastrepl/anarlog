@@ -147,12 +147,12 @@ function CalendarGroupAccordionHeader({
     <div
       onContextMenu={hasMenu ? showContextMenu : undefined}
       className={cn([
-        "group -mx-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md px-2",
+        "group -mx-2 flex items-center gap-1 rounded-md px-2",
         !disableHoverTone && "hover:bg-neutral-50",
       ])}
     >
-      <AccordionHeader className="min-w-0">
-        <AccordionTriggerPrimitive className="flex w-full min-w-0 cursor-pointer items-center py-2 text-left hover:no-underline">
+      <AccordionHeader className="max-w-full min-w-0">
+        <AccordionTriggerPrimitive className="flex max-w-full min-w-0 cursor-pointer items-center py-2 text-left hover:no-underline">
           <span className="truncate text-xs font-medium text-neutral-600">
             {group.sourceName}
           </span>
