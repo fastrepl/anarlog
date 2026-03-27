@@ -333,7 +333,7 @@ export function TemplatesSidebarContent({
               key={template.slug || index}
               onClick={() => setSelectedWebIndex(index)}
               className={cn([
-                "w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-neutral-100",
+                "w-full rounded-md border px-3 py-2 text-left text-sm select-none hover:bg-neutral-100",
                 selectedWebIndex === index
                   ? "border-neutral-500 bg-neutral-100"
                   : "border-transparent",
@@ -414,7 +414,7 @@ function TemplateListItem({
         void showContextMenu(e);
       }}
       className={cn([
-        "w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-neutral-100",
+        "w-full rounded-md border px-3 py-2 text-left text-sm select-none hover:bg-neutral-100",
         selected ? "border-neutral-500 bg-neutral-100" : "border-transparent",
       ])}
     >
