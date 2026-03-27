@@ -135,6 +135,7 @@ export function ExportPDF({
   const getExportContent = useMemo(() => {
     return (): {
       enhancedMd: string;
+      memoMd: string | null;
       transcript: { items: TranscriptItem[] } | null;
       metadata: ExportMetadata | null;
     } => {
@@ -158,7 +159,8 @@ export function ExportPDF({
             }
           }
           return {
-            enhancedMd: memoMd,
+            enhancedMd: "",
+            memoMd,
             transcript: null,
             metadata,
           };
@@ -175,6 +177,7 @@ export function ExportPDF({
           }
           return {
             enhancedMd,
+            memoMd: null,
             transcript: null,
             metadata,
           };
@@ -182,6 +185,7 @@ export function ExportPDF({
         case "transcript": {
           return {
             enhancedMd: "",
+            memoMd: null,
             transcript:
               transcriptItems.length > 0 ? { items: transcriptItems } : null,
             metadata,
@@ -190,6 +194,7 @@ export function ExportPDF({
         default:
           return {
             enhancedMd: "",
+            memoMd: null,
             transcript: null,
             metadata,
           };

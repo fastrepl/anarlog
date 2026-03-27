@@ -62,6 +62,7 @@ export function ExportModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const [format, setFormat] = useState<FileFormat>("pdf");
+  const [includeMemo, setIncludeMemo] = useState(false);
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeTranscript, setIncludeTranscript] = useState(false);
 
@@ -84,6 +85,13 @@ export function ExportModal({
 
   const event = useSessionEvent(sessionId);
   const eventTitle = event?.title;
+
+  const rawMd = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "raw_md",
+    main.STORE_ID,
+  ) as string | undefined;
 
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
   const enhancedNoteContent = main.UI.useCell(
@@ -163,6 +171,16 @@ export function ExportModal({
     return null;
   }, [store, transcriptIds]);
 
+  const getMemoMd = (): string => {
+    if (!rawMd) return "";
+    try {
+      const parsed = JSON.parse(rawMd);
+      return json2md(parsed);
+    } catch {
+      return "";
+    }
+  };
+
   const getSummaryMd = (): string => {
     if (!enhancedNoteContent) return "";
     try {
@@ -198,6 +216,15 @@ export function ExportModal({
 
     if (transcriptDuration) {
       sections.push(`- Duration: ${transcriptDuration}`);
+    }
+
+    if (includeMemo) {
+      const memo = getMemoMd();
+      if (memo) {
+        sections.push("");
+        sections.push("## Memo");
+        sections.push(memo);
+      }
     }
 
     if (includeSummary) {
@@ -237,6 +264,16 @@ export function ExportModal({
 
     if (transcriptDuration) {
       sections.push(`Duration: ${transcriptDuration}`);
+    }
+
+    if (includeMemo) {
+      const memo = getMemoMd();
+      if (memo) {
+        sections.push("");
+        sections.push("Memo");
+        sections.push("-".repeat(4));
+        sections.push(markdownToText(memo));
+      }
     }
 
     if (includeSummary) {
@@ -286,6 +323,15 @@ export function ExportModal({
       sections.push(`- Duration :: ${transcriptDuration}`);
     }
 
+    if (includeMemo) {
+      const memo = getMemoMd();
+      if (memo) {
+        sections.push("");
+        sections.push("* Memo");
+        sections.push(markdownToOrg(memo));
+      }
+    }
+
     if (includeSummary) {
       const summary = getSummaryMd();
       if (summary) {
@@ -309,6 +355,7 @@ export function ExportModal({
 
   const buildPdfContent = (): {
     enhancedMd: string;
+    memoMd: string | null;
     transcript: { items: TranscriptItem[] } | null;
     metadata: ExportMetadata | null;
   } => {
@@ -320,6 +367,12 @@ export function ExportModal({
       duration: transcriptDuration,
     };
 
+    let memoMd: string | null = null;
+    if (includeMemo) {
+      const memo = getMemoMd();
+      if (memo) memoMd = memo;
+    }
+
     const parts: string[] = [];
 
     if (includeSummary) {
@@ -329,6 +382,7 @@ export function ExportModal({
 
     return {
       enhancedMd: parts.join("\n\n"),
+      memoMd,
       transcript:
         includeTranscript && transcriptItems.length > 0
           ? { items: transcriptItems }
@@ -383,7 +437,7 @@ export function ExportModal({
     onError: console.error,
   });
 
-  const hasAnyContentSelected = includeSummary || includeTranscript;
+  const hasAnyContentSelected = includeMemo || includeSummary || includeTranscript;
   const isTranscriptPending = includeTranscript && isTranscriptLoading;
   if (!open) {
     return null;
@@ -443,6 +497,7 @@ export function ExportModal({
               <div className="flex justify-center gap-4">
                 {(
                   [
+                    ["Memo", includeMemo, setIncludeMemo],
                     ["Summary", includeSummary, setIncludeSummary],
                     ["Transcript", includeTranscript, setIncludeTranscript],
                   ] as const
