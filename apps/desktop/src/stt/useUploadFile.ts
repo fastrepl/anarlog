@@ -12,6 +12,7 @@ import {
 import { commands as listener2Commands } from "@hypr/plugin-listener2";
 import type { TranscriptStorage } from "@hypr/store";
 
+import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
@@ -55,6 +56,38 @@ export function useUploadFile(sessionId: string) {
       });
     }
   }, [sessionId, sessionTab, updateSessionTabState]);
+
+  const applyEstimatedAudioNoteDate = useCallback(
+    async (filePath: string) => {
+      try {
+        if (!store) {
+          return;
+        }
+
+        const eventJson = store.getCell("sessions", sessionId, "event_json");
+        if (typeof eventJson === "string" && eventJson.trim()) {
+          return;
+        }
+
+        const result = await fsSyncCommands.audioSourceMetadata(filePath);
+        if (result.status === "error") {
+          return;
+        }
+
+        const estimatedCreatedAt = estimateUploadedAudioSessionCreatedAt(
+          result.data,
+        );
+        if (!estimatedCreatedAt) {
+          return;
+        }
+
+        store.setCell("sessions", sessionId, "created_at", estimatedCreatedAt);
+      } catch (error) {
+        console.error("[upload] audio metadata inspection failed:", error);
+      }
+    },
+    [sessionId, store],
+  );
 
   const processFile = useCallback(
     (filePath: string, kind: "audio" | "transcript") => {
@@ -139,15 +172,18 @@ export function useUploadFile(sessionId: string) {
       }
 
       const program = pipe(
-        Effect.sync(() => {
-          if (sessionTab) {
-            updateSessionTabState(sessionTab, {
-              ...sessionTab.state,
-              view: { type: "transcript" },
-            });
-          }
-          handleBatchStarted(sessionId, "importing");
-        }),
+        Effect.promise(() => applyEstimatedAudioNoteDate(filePath)),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            if (sessionTab) {
+              updateSessionTabState(sessionTab, {
+                ...sessionTab.state,
+                view: { type: "transcript" },
+              });
+            }
+            handleBatchStarted(sessionId, "importing");
+          }),
+        ),
         Effect.flatMap(() =>
           Effect.tryPromise({
             try: async () => {
@@ -223,6 +259,7 @@ export function useUploadFile(sessionId: string) {
       sessionTab,
       store,
       triggerEnhance,
+      applyEstimatedAudioNoteDate,
       updateSessionTabState,
       user_id,
     ],

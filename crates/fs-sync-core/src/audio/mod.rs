@@ -8,8 +8,17 @@ use std::time::Duration;
 
 use crate::error::{AudioImportError, AudioProcessingError};
 use crate::runtime::{AudioImportEvent, AudioImportRuntime};
+use chrono::{DateTime, Utc};
 
 const AUDIO_FORMATS: [&str; 3] = ["audio.mp3", "audio.wav", "audio.ogg"];
+
+#[derive(Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioSourceMetadata {
+    pub created_at: Option<String>,
+    pub modified_at: Option<String>,
+    pub duration_ms: Option<u64>,
+}
 
 pub fn exists(session_dir: &Path) -> std::io::Result<bool> {
     AUDIO_FORMATS
@@ -35,6 +44,24 @@ pub fn path(session_dir: &Path) -> Option<PathBuf> {
         .iter()
         .map(|format| session_dir.join(format))
         .find(|path| path.exists())
+}
+
+pub fn source_metadata(source_path: &Path) -> std::io::Result<AudioSourceMetadata> {
+    use hypr_audio_utils::Source;
+
+    let metadata = std::fs::metadata(source_path)?;
+    let created_at = metadata.created().ok().map(system_time_to_iso);
+    let modified_at = metadata.modified().ok().map(system_time_to_iso);
+    let duration_ms = hypr_audio_utils::source_from_path(source_path)
+        .ok()
+        .and_then(|source| source.total_duration())
+        .and_then(|duration| u64::try_from(duration.as_millis()).ok());
+
+    Ok(AudioSourceMetadata {
+        created_at,
+        modified_at,
+        duration_ms,
+    })
 }
 
 pub fn import_to_session(
@@ -166,6 +193,10 @@ fn decode_with_rodio<W: Write>(
     let file = File::open(path)?;
     let decoder = rodio::Decoder::try_from(file)?;
     encode::encode_source_to_mp3(decoder, max_duration, output, on_progress)
+}
+
+fn system_time_to_iso(time: std::time::SystemTime) -> String {
+    DateTime::<Utc>::from(time).to_rfc3339()
 }
 
 #[cfg(test)]
