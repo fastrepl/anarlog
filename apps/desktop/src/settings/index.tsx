@@ -100,7 +100,7 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
       <div className="relative w-full flex-1 overflow-hidden">
         <div
           ref={ref}
-          className="scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 py-6"
+          className="scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-6"
         >
           {renderContent()}
         </div>

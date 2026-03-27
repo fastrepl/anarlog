@@ -120,7 +120,7 @@ export function SettingsApp() {
   const supportedLanguages = supportedLanguagesQuery.data ?? ["en"];
 
   return (
-    <div className="flex flex-col gap-8 pt-3">
+    <div className="flex flex-col gap-8">
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="save_recordings">
@@ -202,7 +202,7 @@ export function SettingsApp() {
 
 export function SettingsNotifications() {
   return (
-    <div className="pt-3">
+    <div>
       <NotificationSettingsView />
     </div>
   );
@@ -210,7 +210,7 @@ export function SettingsNotifications() {
 
 export function SettingsSystem() {
   return (
-    <div className="flex flex-col gap-8 pt-3">
+    <div className="flex flex-col gap-8">
       <Permissions />
       <Audio />
     </div>

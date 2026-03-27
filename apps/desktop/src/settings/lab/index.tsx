@@ -6,9 +6,12 @@ import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
+import { SettingsPageTitle } from "~/settings/page-title";
+
 export function SettingsLab() {
   return (
-    <div className="flex flex-col gap-4 pt-3">
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="Lab" />
       <DownloadButtons />
     </div>
   );

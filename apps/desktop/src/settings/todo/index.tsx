@@ -12,9 +12,12 @@ import { cn } from "@hypr/utils";
 import { TodoProviderContent } from "./provider-content";
 import { TODO_PROVIDERS } from "./shared";
 
+import { SettingsPageTitle } from "~/settings/page-title";
+
 export function SettingsTodo() {
   return (
-    <div className="flex flex-col gap-4 pt-3">
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="Ticket" />
       <Accordion type="multiple" className="flex flex-col">
         {TODO_PROVIDERS.map((provider) => (
           <AccordionItem

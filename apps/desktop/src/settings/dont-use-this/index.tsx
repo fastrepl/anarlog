@@ -1,6 +1,7 @@
 import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { Button } from "@hypr/ui/components/ui/button";
 
+import { SettingsPageTitle } from "~/settings/page-title";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function SettingsDontUseThis() {
@@ -11,7 +12,8 @@ export function SettingsDontUseThis() {
   };
 
   return (
-    <div className="flex flex-col gap-4 pt-3">
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="General" />
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1">
           <h3 className="mb-1 text-sm font-medium">Daily Note</h3>

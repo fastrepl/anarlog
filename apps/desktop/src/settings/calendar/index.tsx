@@ -1,5 +1,6 @@
 import { SyncProvider, useSync } from "~/calendar/components/context";
 import { CalendarSidebarContent } from "~/calendar/components/sidebar";
+import { SettingsPageTitle } from "~/settings/page-title";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 function SettingsCalendarContent() {
@@ -10,7 +11,8 @@ function SettingsCalendarContent() {
   });
 
   return (
-    <div className="pt-3">
+    <div className="flex flex-col gap-4">
+      <SettingsPageTitle title="Calendar" />
       <CalendarSidebarContent />
     </div>
   );

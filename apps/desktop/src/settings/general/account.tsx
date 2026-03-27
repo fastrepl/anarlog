@@ -104,7 +104,7 @@ export function SettingsAccount() {
   if (!isAuthenticated) {
     if (isPending) {
       return (
-        <div className="flex flex-col gap-8 pt-3">
+        <div className="flex flex-col gap-8">
           <div>
             <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
             <Container
@@ -143,7 +143,7 @@ export function SettingsAccount() {
     }
 
     return (
-      <div className="flex flex-col gap-8 pt-3">
+      <div className="flex flex-col gap-8">
         <section className="border-b border-neutral-200 pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -175,7 +175,7 @@ export function SettingsAccount() {
   const currentTier = plan === "trial" ? "pro" : plan;
 
   return (
-    <div className="flex flex-col gap-8 pt-3">
+    <div className="flex flex-col gap-8">
       <div>
         <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
         <Container
