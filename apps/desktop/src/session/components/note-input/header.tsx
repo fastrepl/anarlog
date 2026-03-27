@@ -424,7 +424,7 @@ function CreateOtherFormatButton({
           ])}
         >
           <PlusIcon size={14} />
-          <span>Create other format</span>
+          <span>Use template</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-64" align="start">
