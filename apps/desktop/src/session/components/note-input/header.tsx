@@ -3,6 +3,7 @@ import {
   AlertCircleIcon,
   CheckIcon,
   CopyIcon,
+  LightbulbIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -1114,6 +1115,9 @@ function TemplateSection({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 px-2">
+        {title === "Suggested templates" ? (
+          <LightbulbIcon className="h-3.5 w-3.5 text-amber-500" />
+        ) : null}
         {title === "Favorite templates" ? (
           <StarIcon className="h-3.5 w-3.5 text-amber-500" />
         ) : null}
