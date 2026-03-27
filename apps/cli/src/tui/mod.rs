@@ -72,9 +72,12 @@ impl BackgroundInput {
                     Some(InputAction::Interrupt) => {
                         // Raw mode swallows Ctrl+C, so send SIGINT back to the
                         // process and let the async runtime shut down naturally.
+                        #[cfg(unix)]
                         unsafe {
                             libc::kill(libc::getpid(), libc::SIGINT);
                         }
+                        #[cfg(not(unix))]
+                        std::process::exit(130);
                     }
                     None => {}
                 }

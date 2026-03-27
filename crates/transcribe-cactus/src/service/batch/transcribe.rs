@@ -80,7 +80,7 @@ pub(super) fn transcribe_batch(
                 channel_idx,
                 chunks,
                 channel_duration,
-                &model,
+                model,
                 &options,
                 &mut progress,
                 &metadata,
@@ -114,6 +114,7 @@ pub(super) fn transcribe_batch(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn transcribe_chunks(
     channel_idx: usize,
     chunks: &[hypr_vad_chunking::AudioChunk],

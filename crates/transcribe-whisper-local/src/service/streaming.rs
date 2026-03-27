@@ -413,7 +413,6 @@ async fn handle_websocket(
             }
 
             let _ = ws_sender.close().await;
-            return;
         }
         Err(error) => {
             send_ws_best_effort(
@@ -426,7 +425,6 @@ async fn handle_websocket(
             )
             .await;
             let _ = ws_sender.close().await;
-            return;
         }
     }
 }
@@ -434,6 +432,7 @@ async fn handle_websocket(
 type TranscriptionStream =
     Pin<Box<dyn Stream<Item = Result<(usize, crate::service::Segment), crate::Error>> + Send>>;
 
+#[allow(clippy::type_complexity)]
 fn build_transcription_streams(
     total_channels: usize,
     loaded_model: &hypr_whisper_local::LoadedWhisper,
