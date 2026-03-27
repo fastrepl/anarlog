@@ -584,7 +584,7 @@ function CreateOtherFormatButton({
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
         <div className="flex flex-col">
-          <div className="border-b border-neutral-200">
+          <div className="border-b border-neutral-200 py-2">
             <div
               className={cn(["flex h-9 items-center gap-2 rounded-md bg-white px-3"])}
             >
