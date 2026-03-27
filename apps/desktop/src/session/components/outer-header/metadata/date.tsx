@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { CalendarIcon, CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -7,7 +8,7 @@ import { format, safeFormat, safeParseDate } from "@hypr/utils";
 
 import * as main from "~/store/tinybase/store/main";
 
-export function DateDisplay({ sessionId }: { sessionId: string }) {
+export function DateEditor({ sessionId }: { sessionId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const createdAt = main.UI.useCell(
     "sessions",
@@ -15,49 +16,40 @@ export function DateDisplay({ sessionId }: { sessionId: string }) {
     "created_at",
     main.STORE_ID,
   );
-  const { startedAt, endedAt } = useSessionRecordingTimes(sessionId);
   const noteDate = safeFormat(
     createdAt ?? new Date(),
     "MMM d, yyyy h:mm a",
     "Unknown date",
   );
-  const recordingTime = formatRecordingTime(startedAt, endedAt);
+
+  if (!isEditing) {
+    return (
+      <div className="flex h-9 items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm text-neutral-700">{noteDate}</div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7 rounded-md text-neutral-500 hover:text-neutral-900"
+          onClick={() => setIsEditing(true)}
+          aria-label="Edit date"
+        >
+          <CalendarIcon size={16} />
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="text-base font-medium text-neutral-900">
-            {noteDate}
-          </div>
-          {recordingTime && (
-            <div className="mt-1 text-sm text-neutral-500">
-              Recording: {recordingTime}
-            </div>
-          )}
-        </div>
-
-        {!isEditing && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsEditing(true)}
-          >
-            Edit
-          </Button>
-        )}
-      </div>
-
-      {isEditing && (
-        <EditableDateForm
-          key={`${createdAt ?? ""}`}
-          sessionId={sessionId}
-          createdAt={createdAt}
-          onCancel={() => setIsEditing(false)}
-        />
-      )}
-    </div>
+    <EditableDateForm
+      key={`${createdAt ?? ""}`}
+      sessionId={sessionId}
+      createdAt={createdAt}
+      onCancel={() => setIsEditing(false)}
+      onSaved={() => setIsEditing(false)}
+    />
   );
 }
 
@@ -65,10 +57,12 @@ function EditableDateForm({
   sessionId,
   createdAt,
   onCancel,
+  onSaved,
 }: {
   sessionId: string;
   createdAt: unknown;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onSaved?: () => void;
 }) {
   const handleChangeCreatedAt = main.UI.useSetCellCallback(
     "sessions",
@@ -111,18 +105,19 @@ function EditableDateForm({
       }
 
       handleChangeCreatedAt(nextCreatedAt);
-      onCancel();
+      onSaved?.();
     },
   });
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3">
+    <div className="flex flex-col gap-2">
       <form.Field name="createdAt">
         {(field) => (
-          <div className="flex flex-col gap-2">
+          <div className="flex h-9 items-center gap-0">
             <Input
               autoFocus
               type="datetime-local"
+              className="flex-1 border-0 px-0 shadow-none focus-visible:ring-0"
               value={field.state.value}
               onChange={(e) => field.handleChange(e.target.value)}
               onKeyDown={(e) => {
@@ -133,70 +128,54 @@ function EditableDateForm({
 
                 if (e.key === "Escape") {
                   e.preventDefault();
-                  onCancel();
+                  onCancel?.();
                 }
               }}
             />
 
-            {field.state.meta.errors[0] && (
-              <div className="text-xs text-red-600">
-                {field.state.meta.errors[0]}
-              </div>
+            {onCancel && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0 rounded-md text-neutral-400 hover:bg-red-50 hover:text-red-600"
+                onClick={onCancel}
+                aria-label="Cancel date edit"
+              >
+                <XIcon size={16} />
+              </Button>
             )}
+
+            <form.Subscribe selector={(state) => [state.canSubmit]}>
+              {([canSubmit]) => (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 rounded-md text-neutral-400 hover:bg-green-50 hover:text-green-600"
+                  onClick={() => void form.handleSubmit()}
+                  disabled={!canSubmit}
+                  aria-label="Save date"
+                >
+                  <CheckIcon size={16} />
+                </Button>
+              )}
+            </form.Subscribe>
           </div>
         )}
       </form.Field>
 
-      <form.Subscribe selector={(state) => [state.canSubmit]}>
-        {([canSubmit]) => (
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void form.handleSubmit()}
-              disabled={!canSubmit}
-            >
-              Save
-            </Button>
-          </div>
-        )}
-      </form.Subscribe>
+      <form.Field name="createdAt">
+        {(field) =>
+          field.state.meta.errors[0] ? (
+            <div className="text-xs text-red-600">
+              {field.state.meta.errors[0]}
+            </div>
+          ) : null
+        }
+      </form.Field>
     </div>
   );
-}
-
-function useSessionRecordingTimes(sessionId: string) {
-  const resultTable = main.UI.useResultTable(
-    main.QUERIES.sessionRecordingTimes,
-    main.STORE_ID,
-  );
-
-  const recordingTimes = Object.values(resultTable).find(
-    (row) => row.session_id === sessionId,
-  );
-
-  return {
-    startedAt: recordingTimes?.min_started_at as number | undefined,
-    endedAt: recordingTimes?.max_ended_at as number | undefined,
-  };
-}
-
-function formatRecordingTime(
-  startedAt?: number,
-  endedAt?: number,
-): string | null {
-  if (!startedAt) {
-    return null;
-  }
-
-  if (!endedAt) {
-    return safeFormat(startedAt, "MMM d, yyyy h:mm a", "Unknown date");
-  }
-
-  return `${safeFormat(startedAt, "MMM d, yyyy h:mm a")} - ${safeFormat(endedAt, "MMM d, yyyy h:mm a")}`;
 }
 
 function toDatetimeLocalValue(value: unknown): string {

@@ -17,7 +17,7 @@ import {
   TZDate,
 } from "@hypr/utils";
 
-import { DateDisplay } from "./date";
+import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
 import { useConfigValue } from "~/shared/config";
@@ -99,7 +99,7 @@ function ContentInner({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {!eventDisplayData && <DateDisplay sessionId={sessionId} />}
+      {!eventDisplayData && <DateEditor sessionId={sessionId} />}
       {eventDisplayData && (
         <EventDisplay event={eventDisplayData}>
           <ParticipantsDisplay sessionId={sessionId} />
