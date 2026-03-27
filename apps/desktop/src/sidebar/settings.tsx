@@ -3,6 +3,7 @@ import { getIdentifier } from "@tauri-apps/api/app";
 import {
   AudioLinesIcon,
   BellIcon,
+  BookText,
   BrainIcon,
   CalendarIcon,
   FlaskConical,
@@ -21,7 +22,14 @@ import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
 
 const GROUPS: {
   label: string;
-  items: { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }[];
+  items: (
+    | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
+    | {
+        action: "open-templates";
+        label: string;
+        icon: typeof SmartphoneIcon;
+      }
+  )[];
 }[] = [
   {
     label: "General",
@@ -39,6 +47,11 @@ const GROUPS: {
       { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
       { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
       { id: "memory", label: "Memory", icon: BrainIcon },
+      {
+        action: "open-templates",
+        label: "Templates",
+        icon: BookText,
+      },
     ],
   },
   {
@@ -61,6 +74,7 @@ const DONT_USE_THIS_GROUP = {
 
 export function SettingsNav() {
   const currentTab = useTabs((state) => state.currentTab);
+  const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
@@ -89,6 +103,10 @@ export function SettingsNav() {
     [currentTab, updateSettingsTabState],
   );
 
+  const handleOpenTemplates = useCallback(() => {
+    openNew({ type: "templates" });
+  }, [openNew]);
+
   const groups = showDontUseThis ? [...GROUPS, DONT_USE_THIS_GROUP] : GROUPS;
 
   return (
@@ -103,22 +121,33 @@ export function SettingsNav() {
               <span className="px-2 pb-1 text-[11px] font-medium tracking-wider text-neutral-400 uppercase">
                 {group.label}
               </span>
-              {group.items.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={cn([
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
-                    "transition-colors",
-                    activeTab === id
-                      ? "bg-neutral-200/70 font-medium text-neutral-900"
-                      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800",
-                  ])}
-                >
-                  <Icon size={15} />
-                  <span>{label}</span>
-                </button>
-              ))}
+              {group.items.map((item) => {
+                const isSettingsItem = "id" in item;
+
+                return (
+                  <button
+                    key={isSettingsItem ? item.id : item.action}
+                    onClick={() => {
+                      if (isSettingsItem) {
+                        setActiveTab(item.id);
+                        return;
+                      }
+
+                      handleOpenTemplates();
+                    }}
+                    className={cn([
+                      "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                      "transition-colors",
+                      isSettingsItem && activeTab === item.id
+                        ? "bg-neutral-200/70 font-medium text-neutral-900"
+                        : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-800",
+                    ])}
+                  >
+                    <item.icon size={15} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
