@@ -659,6 +659,17 @@ function CreateOtherFormatButton({
             ) : filteredSuggestedTemplates.length > 0 ||
               filteredFavoriteTemplates.length > 0 ? (
               <div className="flex flex-col gap-3">
+                <TemplateSection
+                  title="Create new template"
+                  icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
+                  uppercase={false}
+                >
+                  <TemplateResultButton
+                    title={trimmedSearch}
+                    onClick={() => handleCreateTemplate(trimmedSearch)}
+                  />
+                </TemplateSection>
+
                 {filteredSuggestedTemplates.length > 0 ? (
                   <TemplateSection title="Suggested templates">
                     {filteredSuggestedTemplates.map((template, index) => (
@@ -684,17 +695,6 @@ function CreateOtherFormatButton({
                     ))}
                   </TemplateSection>
                 ) : null}
-
-                <TemplateSection
-                  title="Create new template"
-                  icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
-                  uppercase={false}
-                >
-                  <TemplateResultButton
-                    title={trimmedSearch}
-                    onClick={() => handleCreateTemplate(trimmedSearch)}
-                  />
-                </TemplateSection>
               </div>
             ) : (
               <TemplateSection
