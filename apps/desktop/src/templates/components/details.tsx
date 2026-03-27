@@ -36,7 +36,7 @@ export function TemplateDetailsColumn({
 }) {
   if (isWebMode) {
     if (!selectedWebTemplate) {
-      return <ResourceDetailEmpty message="Select a template to preview" />;
+      return <ResourceDetailEmpty message="No community templates available" />;
     }
     return (
       <WebTemplatePreview
@@ -47,7 +47,7 @@ export function TemplateDetailsColumn({
   }
 
   if (!selectedMineId) {
-    return <ResourceDetailEmpty message="Select a template to view details" />;
+    return <ResourceDetailEmpty message="No templates yet" />;
   }
 
   return (

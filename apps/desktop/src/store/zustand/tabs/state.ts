@@ -74,10 +74,12 @@ const updateTabState = <T extends BasicState & NavigationState>(
       ? { ...currentTab, state: newState }
       : currentTab;
 
-  const nextHistory =
-    nextCurrentTab && isSameTab(nextCurrentTab, tab)
-      ? updateHistoryCurrent(history, nextCurrentTab)
-      : history;
+  const updatedTab =
+    nextTabs.find((t) => isSameTab(t, tab) && t.type === tabType) ?? null;
+
+  const nextHistory = updatedTab
+    ? updateHistoryCurrent(history, updatedTab)
+    : history;
 
   set({
     tabs: nextTabs,

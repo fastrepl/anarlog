@@ -53,7 +53,7 @@ import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
-import { useTabs } from "~/store/zustand/tabs";
+import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
@@ -422,6 +422,10 @@ function CreateOtherFormatButton({
     isLoading: isSuggestedTemplatesLoading,
   } = useWebResources<WebTemplate>("templates");
   const openNew = useTabs((state) => state.openNew);
+  const selectTab = useTabs((state) => state.select);
+  const updateTemplatesTabState = useTabs(
+    (state) => state.updateTemplatesTabState,
+  );
   const setRow = main.UI.useSetRowCallback(
     "templates",
     (p: {
@@ -447,6 +451,26 @@ function CreateOtherFormatButton({
     }),
     [],
     main.STORE_ID,
+  );
+
+  const openTemplatesTab = useCallback(
+    (state: Extract<Tab, { type: "templates" }>["state"]) => {
+      const existingTemplatesTab = useTabs
+        .getState()
+        .tabs.find(
+          (tab): tab is Extract<Tab, { type: "templates" }> =>
+            tab.type === "templates",
+        );
+
+      if (!existingTemplatesTab) {
+        openNew({ type: "templates", state });
+        return;
+      }
+
+      updateTemplatesTabState(existingTemplatesTab, state);
+      selectTab(existingTemplatesTab);
+    },
+    [openNew, selectTab, updateTemplatesTabState],
   );
 
   const handleUseTemplate = useCallback(
@@ -515,32 +539,26 @@ function CreateOtherFormatButton({
       setOpen(false);
       setSearch("");
       resultRefs.current = [];
-      openNew({
-        type: "templates",
-        state: {
-          selectedMineId: templateId,
-          selectedWebIndex: null,
-          isWebMode: false,
-          showHomepage: false,
-        },
+      openTemplatesTab({
+        selectedMineId: templateId,
+        selectedWebIndex: null,
+        isWebMode: false,
+        showHomepage: false,
       });
     },
-    [openNew, setRow, user_id],
+    [openTemplatesTab, setRow, user_id],
   );
   const handleSeeAllTemplates = useCallback(() => {
     setOpen(false);
     setSearch("");
     resultRefs.current = [];
-    openNew({
-      type: "templates",
-      state: {
-        showHomepage: true,
-        isWebMode: null,
-        selectedMineId: null,
-        selectedWebIndex: null,
-      },
+    openTemplatesTab({
+      showHomepage: false,
+      isWebMode: true,
+      selectedMineId: null,
+      selectedWebIndex: 0,
     });
-  }, [openNew]);
+  }, [openTemplatesTab]);
 
   const trimmedSearch = search.trim();
   const searchQuery = search.trim().toLowerCase();

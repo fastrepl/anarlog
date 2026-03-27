@@ -21,6 +21,65 @@ type TemplateDraft = {
   sections: TemplateSection[];
 };
 
+export function resolveTemplateTabSelection({
+  isWebMode,
+  selectedMineId,
+  selectedWebIndex,
+  userTemplates,
+  webTemplates,
+}: {
+  isWebMode: boolean | null | undefined;
+  selectedMineId: string | null | undefined;
+  selectedWebIndex: number | null | undefined;
+  userTemplates: UserTemplate[];
+  webTemplates: WebTemplate[];
+}) {
+  const hasUserTemplates = userTemplates.length > 0;
+  const hasWebTemplates = webTemplates.length > 0;
+
+  let effectiveIsWebMode = isWebMode ?? !hasUserTemplates;
+
+  if (effectiveIsWebMode && !hasWebTemplates && hasUserTemplates) {
+    effectiveIsWebMode = false;
+  }
+
+  if (!effectiveIsWebMode && !hasUserTemplates && hasWebTemplates) {
+    effectiveIsWebMode = true;
+  }
+
+  if (effectiveIsWebMode) {
+    const effectiveSelectedWebIndex =
+      selectedWebIndex !== null &&
+      selectedWebIndex !== undefined &&
+      selectedWebIndex >= 0 &&
+      selectedWebIndex < webTemplates.length
+        ? selectedWebIndex
+        : hasWebTemplates
+          ? 0
+          : null;
+
+    return {
+      isWebMode: true,
+      selectedMineId: null,
+      selectedWebIndex: effectiveSelectedWebIndex,
+      selectedWebTemplate:
+        effectiveSelectedWebIndex !== null
+          ? (webTemplates[effectiveSelectedWebIndex] ?? null)
+          : null,
+    };
+  }
+
+  return {
+    isWebMode: false,
+    selectedMineId:
+      userTemplates.find((template) => template.id === selectedMineId)?.id ??
+      userTemplates[0]?.id ??
+      null,
+    selectedWebIndex: null,
+    selectedWebTemplate: null,
+  };
+}
+
 export function useUserTemplates(): UserTemplate[] {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const queries = main.UI.useQueries(main.STORE_ID);
