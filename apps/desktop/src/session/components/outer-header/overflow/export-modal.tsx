@@ -437,7 +437,8 @@ export function ExportModal({
     onError: console.error,
   });
 
-  const hasAnyContentSelected = includeMemo || includeSummary || includeTranscript;
+  const hasAnyContentSelected =
+    includeMemo || includeSummary || includeTranscript;
   const isTranscriptPending = includeTranscript && isTranscriptLoading;
   if (!open) {
     return null;
