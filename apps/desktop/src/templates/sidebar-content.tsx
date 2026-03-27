@@ -253,7 +253,7 @@ export function TemplatesSidebarContent({
 
       <div className="scrollbar-hide flex-1 overflow-y-auto">
         {isWebLoading && (
-          <div className="px-2 pt-3">
+          <div className="pt-3">
             <ListSectionTitle>Provided by Char</ListSectionTitle>
             <div className="flex flex-col gap-1">
               {[0, 1, 2, 3].map((index) => (
@@ -284,7 +284,7 @@ export function TemplatesSidebarContent({
         ) : (
           <>
             {hasWebResults && (
-              <div className="px-2 pt-3">
+              <div className="pt-3">
                 <ListSectionTitle>Provided by Char</ListSectionTitle>
                 {filteredWeb.map(({ template, index }) => (
                   <button
@@ -321,7 +321,7 @@ export function TemplatesSidebarContent({
             )}
 
             {hasMineResults && (
-              <div className="px-2 pt-3">
+              <div className="pt-3">
                 <ListSectionTitle>Your templates</ListSectionTitle>
                 {filteredMine.map((template) => (
                   <TemplateListItem
@@ -346,7 +346,7 @@ export function TemplatesSidebarContent({
 
 function ListSectionTitle({ children }: { children: string }) {
   return (
-    <div className="px-1 pb-1 text-xs font-medium text-neutral-400 uppercase">
+    <div className="px-3 pb-1 text-xs font-medium text-neutral-400 uppercase">
       {children}
     </div>
   );
