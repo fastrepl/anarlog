@@ -151,22 +151,17 @@ export function TemplatesSidebarContent({
     });
   }, [webTemplates, search]);
 
-  const isEmpty = isWebMode
-    ? filteredWeb.length === 0
-    : filteredMine.length === 0;
+  const hasWebResults = filteredWeb.length > 0;
+  const hasMineResults = filteredMine.length > 0;
+  const isEmpty = !isWebLoading && !hasWebResults && !hasMineResults;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
         <div className="flex h-12 items-center justify-between py-2 pr-1 pl-3">
-          <button
-            onClick={setShowHomepage}
-            className="font-serif text-sm font-medium hover:text-neutral-600"
-          >
-            Templates
-          </button>
+          <h3 className="font-serif text-sm font-medium">Templates</h3>
           <div className="flex items-center gap-1">
-            {!isWebMode && (
+            {userTemplates.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
