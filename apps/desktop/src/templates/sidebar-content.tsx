@@ -156,7 +156,7 @@ export function TemplatesSidebarContent({
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      <div className="border-b border-neutral-200">
+      <div>
         <div className="flex h-12 items-center justify-between py-2 pr-1 pl-3">
           <button
             onClick={setShowHomepage}
@@ -220,28 +220,42 @@ export function TemplatesSidebarContent({
           </div>
         </div>
 
-        <div className="flex h-10 items-center gap-2 border-t border-neutral-200 bg-white px-3">
-          <Search className="h-4 w-4 text-neutral-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setSearch("");
-              }
-            }}
-            placeholder="Search..."
-            className="w-full bg-transparent text-sm placeholder:text-neutral-400 focus:outline-hidden"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="rounded-xs p-1 hover:bg-neutral-100"
-            >
-              <X className="h-4 w-4 text-neutral-400" />
-            </button>
-          )}
+        <div>
+          <div className="relative flex h-8 shrink-0 items-center">
+            <Search className="absolute left-5 h-4 w-4 text-neutral-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setSearch("");
+                }
+              }}
+              placeholder="Search templates..."
+              className={cn([
+                "text-sm placeholder:text-sm placeholder:text-neutral-400",
+                "h-full w-full pl-8",
+                search ? "pr-8" : "pr-4",
+                "rounded-lg border border-neutral-200 bg-neutral-200/50",
+                "focus:bg-neutral-200 focus:outline-hidden",
+              ])}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className={cn([
+                  "absolute right-5",
+                  "h-4 w-4",
+                  "text-neutral-400 hover:text-neutral-600",
+                  "transition-colors",
+                ])}
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
