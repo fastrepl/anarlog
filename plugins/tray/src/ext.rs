@@ -21,6 +21,7 @@ use crate::menu_items::{
 const TRAY_ID: &str = "hypr-tray";
 
 static IS_RECORDING: AtomicBool = AtomicBool::new(false);
+static IS_DEGRADED: AtomicBool = AtomicBool::new(false);
 static IS_UPDATE_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static ANIMATION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
@@ -132,6 +133,11 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Self::refresh_icon(self.manager.app_handle())
     }
 
+    pub fn set_degraded(&self, degraded: bool) -> Result<()> {
+        IS_DEGRADED.store(degraded, Ordering::SeqCst);
+        Self::refresh_icon(self.manager.app_handle())
+    }
+
     pub fn set_update_available(&self, available: bool) -> Result<()> {
         IS_UPDATE_AVAILABLE.store(available, Ordering::SeqCst);
         Self::refresh_icon(self.manager.app_handle())
@@ -144,7 +150,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 handle.abort();
             }
 
-            if IS_RECORDING.load(Ordering::SeqCst) {
+            if IS_RECORDING.load(Ordering::SeqCst) && !IS_DEGRADED.load(Ordering::SeqCst) {
                 let app = app.clone();
                 *task = Some(tauri::async_runtime::spawn(async move {
                     let mut interval = tokio::time::interval(std::time::Duration::from_millis(250));
@@ -169,6 +175,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         let state = if IS_UPDATE_AVAILABLE.load(Ordering::SeqCst) {
             TrayIconState::UpdateAvailable
+        } else if IS_DEGRADED.load(Ordering::SeqCst) {
+            TrayIconState::Degraded
         } else {
             TrayIconState::Default
         };

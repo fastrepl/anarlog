@@ -2,6 +2,7 @@ use tauri::{Result, image::Image};
 
 pub enum TrayIconState {
     Default,
+    Degraded,
     UpdateAvailable,
 }
 
@@ -17,6 +18,9 @@ impl TrayIconState {
         match self {
             TrayIconState::Default => {
                 Image::from_bytes(include_bytes!("../icons/tray_default.png"))
+            }
+            TrayIconState::Degraded => {
+                Image::from_bytes(include_bytes!("../icons/tray_degraded.png"))
             }
             TrayIconState::UpdateAvailable => {
                 Image::from_bytes(include_bytes!("../icons/tray_update.png"))

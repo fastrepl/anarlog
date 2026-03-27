@@ -87,11 +87,12 @@ function StartButton({ sessionId }: { sessionId: string }) {
 }
 
 function InMeetingIndicator({ sessionId }: { sessionId: string }) {
-  const { mode, stop, amplitude, muted } = useListener((state) => ({
+  const { mode, stop, amplitude, muted, degraded } = useListener((state) => ({
     mode: state.getSessionMode(sessionId),
     stop: state.stop,
     amplitude: state.live.amplitude,
     muted: state.live.muted,
+    degraded: state.live.degraded,
   }));
 
   const active = mode === "active" || mode === "finalizing";
@@ -100,6 +101,21 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
   if (!active) {
     return null;
   }
+
+  const accent = degraded ? "amber" : "red";
+  const colors = {
+    red: {
+      button: "text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100",
+      sticks: "#ef4444",
+      stop: "bg-red-500",
+    },
+    amber: {
+      button:
+        "text-amber-500 hover:text-amber-600 bg-amber-50 hover:bg-amber-100",
+      sticks: "#f59e0b",
+      stop: "bg-amber-500",
+    },
+  }[accent];
 
   return (
     <button
@@ -110,7 +126,7 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
         "group inline-flex items-center justify-center rounded-md text-sm font-medium",
         finalizing
           ? ["text-neutral-500", "bg-neutral-100", "cursor-wait"]
-          : ["text-red-500 hover:text-red-600", "bg-red-50 hover:bg-red-100"],
+          : [colors.button],
         "h-7 w-20",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
@@ -131,7 +147,7 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
                 Math.hypot(amplitude.mic, amplitude.speaker),
                 1,
               )}
-              color="#ef4444"
+              color={colors.sticks}
               height={18}
               width={60}
             />
@@ -139,7 +155,7 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
           <div
             className={cn(["hidden items-center gap-1.5", "group-hover:flex"])}
           >
-            <span className="size-2 rounded-none bg-red-500" />
+            <span className={cn(["size-2 rounded-none", colors.stop])} />
             <span className="text-xs">Stop</span>
           </div>
         </>

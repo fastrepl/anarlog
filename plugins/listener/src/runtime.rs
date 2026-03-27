@@ -28,12 +28,14 @@ impl ListenerRuntime for TauriRuntime {
     fn emit_lifecycle(&self, event: hypr_listener_core::SessionLifecycleEvent) {
         use tauri_plugin_tray::TrayPluginExt;
         match &event {
-            hypr_listener_core::SessionLifecycleEvent::Active { .. } => {
+            hypr_listener_core::SessionLifecycleEvent::Active { error, .. } => {
                 let _ = self.app.tray().set_start_disabled(true);
+                let _ = self.app.tray().set_degraded(error.is_some());
                 let _ = self.app.tray().set_recording(true);
             }
             hypr_listener_core::SessionLifecycleEvent::Inactive { .. } => {
                 let _ = self.app.tray().set_start_disabled(false);
+                let _ = self.app.tray().set_degraded(false);
                 let _ = self.app.tray().set_recording(false);
             }
             hypr_listener_core::SessionLifecycleEvent::Finalizing { .. } => {}

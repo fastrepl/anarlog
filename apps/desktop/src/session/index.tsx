@@ -18,7 +18,7 @@ import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
-import { getSessionTabVisualState } from "./tab-visual-state";
+import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
@@ -57,12 +57,18 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   const title = useSessionTitle(tab.id, storeTitle as string | undefined);
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const stop = useListener((state) => state.stop);
+  const degraded = useListener((state) => state.live.degraded);
   const isEnhancing = useIsSessionEnhancing(tab.id);
-  const { isActive, accent, showSpinner } = getSessionTabVisualState(
+  const status = getSessionTabStatus(
     sessionMode,
     isEnhancing,
+    !!degraded,
     tab.active,
   );
+  const isActive =
+    status === "listening" ||
+    status === "listening-degraded" ||
+    status === "finalizing";
 
   const showCloseConfirmation =
     pendingCloseConfirmationTab?.type === "sessions" &&
@@ -87,9 +93,7 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
         icon={<StickyNoteIcon className="h-4 w-4" />}
         title={title || "Untitled"}
         selected={tab.active}
-        active={isActive}
-        accent={accent}
-        finalizing={showSpinner}
+        status={status}
         pinned={tab.pinned}
         tabIndex={tabIndex}
         showCloseConfirmation={showCloseConfirmation}

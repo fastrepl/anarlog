@@ -1,4 +1,4 @@
-import { Pin, X } from "lucide-react";
+import { AlertCircleIcon, Pin, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -26,7 +26,7 @@ type TabItemProps<T extends Tab = Tab> = { tab: T; tabIndex?: number } & {
   setPendingCloseConfirmationTab?: (tab: Tab | null) => void;
 };
 
-type TabAccent = "neutral" | "red" | "blue";
+type TabAccent = "neutral" | "red" | "amber" | "blue";
 
 const accentColors: Record<
   TabAccent,
@@ -62,6 +62,14 @@ const accentColors: Record<
       unselected: "text-red-600 hover:text-red-700",
     },
   },
+  amber: {
+    selected: ["bg-amber-50", "text-amber-600", "border-amber-400"],
+    unselected: ["bg-amber-50", "text-amber-500", "border-transparent"],
+    hover: {
+      selected: "text-amber-600 hover:text-amber-700",
+      unselected: "text-amber-600 hover:text-amber-700",
+    },
+  },
   blue: {
     selected: ["bg-sky-50", "text-sky-700", "border-sky-400"],
     unselected: ["bg-sky-50", "text-sky-500", "border-transparent"],
@@ -72,18 +80,42 @@ const accentColors: Record<
   },
 };
 
+import type { TabStatus } from "~/session/tab-visual-state";
+
+function statusToAccent(status: TabStatus | undefined): TabAccent {
+  switch (status) {
+    case "listening":
+      return "red";
+    case "listening-degraded":
+      return "amber";
+    default:
+      return "neutral";
+  }
+}
+
+function statusRequiresConfirmation(status: TabStatus | undefined): boolean {
+  return (
+    status === "listening" ||
+    status === "listening-degraded" ||
+    status === "finalizing"
+  );
+}
+
+function statusShowsSpinner(status: TabStatus | undefined): boolean {
+  return status === "finalizing" || status === "processing";
+}
+
 type TabItemBaseProps = {
   icon: React.ReactNode;
   title: React.ReactNode;
   selected: boolean;
-  active?: boolean;
-  finalizing?: boolean;
+  status?: TabStatus;
+  accent?: TabAccent;
   pinned?: boolean;
   allowPin?: boolean;
   allowClose?: boolean;
   isEmptyTab?: boolean;
   tabIndex?: number;
-  accent?: TabAccent;
   showCloseConfirmation?: boolean;
   onCloseConfirmationChange?: (show: boolean) => void;
 } & {
@@ -103,14 +135,13 @@ export function TabItemBase({
   icon,
   title,
   selected,
-  active = false,
-  finalizing = false,
+  status,
+  accent: accentOverride,
   pinned = false,
   allowPin = true,
   allowClose = true,
   isEmptyTab = false,
   tabIndex,
-  accent = "neutral",
   showCloseConfirmation = false,
   onCloseConfirmationChange,
   handleCloseThis,
@@ -120,6 +151,10 @@ export function TabItemBase({
   handlePinThis,
   handleUnpinThis,
 }: TabItemBaseProps) {
+  const accent = accentOverride ?? statusToAccent(status);
+  const active = statusRequiresConfirmation(status);
+  const showSpinner = statusShowsSpinner(status);
+
   const colors = accentColors[accent];
   const isCmdPressed = useCmdKeyPressed();
   const [isHovered, setIsHovered] = useState(false);
@@ -225,6 +260,16 @@ export function TabItemBase({
 
   const showShortcut = isCmdPressed && tabIndex !== undefined;
 
+  const indicatorDot =
+    status === "listening" ? (
+      <div className="relative size-2">
+        <div className="absolute inset-0 rounded-full bg-red-600"></div>
+        <div className="absolute inset-0 animate-ping rounded-full bg-red-300"></div>
+      </div>
+    ) : status === "listening-degraded" ? (
+      <AlertCircleIcon className="size-4 text-amber-500" />
+    ) : null;
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
@@ -247,7 +292,7 @@ export function TabItemBase({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
           <div className="flex h-4 w-4 shrink-0 items-center justify-center">
-            {finalizing ? <Spinner size={16} /> : icon}
+            {showSpinner ? <Spinner size={16} /> : (indicatorDot ?? icon)}
           </div>
           <span className="pointer-events-none truncate">{title}</span>
         </div>
