@@ -1117,7 +1117,7 @@ function TemplateSection({
         {title === "Favorite templates" ? (
           <StarIcon className="h-3.5 w-3.5 text-amber-500" />
         ) : null}
-        <p className="text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
+        <p className="font-mono text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
           {title}
         </p>
       </div>
