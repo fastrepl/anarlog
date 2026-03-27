@@ -5,6 +5,8 @@ import {
   CopyIcon,
   PlusIcon,
   RefreshCwIcon,
+  SearchIcon,
+  StarIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -43,6 +45,7 @@ import { useAudioPlayer } from "~/audio-player";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
+import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
@@ -50,6 +53,7 @@ import { useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
+import { useUserTemplates } from "~/templates";
 
 function TruncatedTitle({
   title,
@@ -391,15 +395,45 @@ function CreateOtherFormatButton({
   handleTabChange: (view: EditorView) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const templates = main.UI.useResultTable(
-    main.QUERIES.visibleTemplates,
+  const [search, setSearch] = useState("");
+  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const userTemplates = useUserTemplates();
+  const {
+    data: suggestedTemplates = [],
+    isLoading: isSuggestedTemplatesLoading,
+  } = useWebResources<WebTemplate>("templates");
+  const openNew = useTabs((state) => state.openNew);
+  const setRow = main.UI.useSetRowCallback(
+    "templates",
+    (p: {
+      id: string;
+      user_id: string;
+      created_at: string;
+      title: string;
+      description: string;
+      sections: Array<{ title: string; description: string }>;
+    }) => p.id,
+    (p: {
+      id: string;
+      user_id: string;
+      created_at: string;
+      title: string;
+      description: string;
+      sections: Array<{ title: string; description: string }>;
+    }) => ({
+      user_id: p.user_id,
+      title: p.title,
+      description: p.description,
+      sections: JSON.stringify(p.sections),
+    }),
+    [],
     main.STORE_ID,
   );
-  const openNew = useTabs((state) => state.openNew);
 
-  const handleTemplateClick = useCallback(
+  const handleUseTemplate = useCallback(
     (templateId: string) => {
       setOpen(false);
+      setSearch("");
 
       const service = getEnhancerService();
       if (!service) return;
@@ -412,8 +446,100 @@ function CreateOtherFormatButton({
     [sessionId, handleTabChange],
   );
 
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setSearch("");
+    }
+  }, []);
+
+  const handleSuggestedTemplateClick = useCallback(
+    (template: WebTemplate) => {
+      if (!user_id) return;
+
+      const templateId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      setRow({
+        id: templateId,
+        user_id,
+        created_at: now,
+        title: template.title,
+        description: template.description,
+        sections: template.sections ?? [],
+      });
+
+      handleUseTemplate(templateId);
+    },
+    [handleUseTemplate, setRow, user_id],
+  );
+
+  const handleCreateTemplate = useCallback(() => {
+    if (!user_id) return;
+
+    const templateId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    setRow({
+      id: templateId,
+      user_id,
+      created_at: now,
+      title: "New Template",
+      description: "",
+      sections: [],
+    });
+
+    setOpen(false);
+    setSearch("");
+    openNew({
+      type: "templates",
+      state: {
+        selectedMineId: templateId,
+        selectedWebIndex: null,
+        isWebMode: false,
+        showHomepage: false,
+      },
+    });
+  }, [openNew, setRow, user_id]);
+
+  const searchQuery = search.trim().toLowerCase();
+
+  const filteredFavoriteTemplates = useMemo(() => {
+    const sortedTemplates = [...userTemplates].sort((a, b) =>
+      (a.title || "").localeCompare(b.title || ""),
+    );
+
+    if (!searchQuery) {
+      return sortedTemplates;
+    }
+
+    return sortedTemplates.filter(
+      (template) =>
+        template.title?.toLowerCase().includes(searchQuery) ||
+        template.description?.toLowerCase().includes(searchQuery),
+    );
+  }, [searchQuery, userTemplates]);
+
+  const filteredSuggestedTemplates = useMemo(() => {
+    if (!searchQuery) {
+      return suggestedTemplates;
+    }
+
+    return suggestedTemplates.filter(
+      (template) =>
+        template.title?.toLowerCase().includes(searchQuery) ||
+        template.description?.toLowerCase().includes(searchQuery) ||
+        template.category?.toLowerCase().includes(searchQuery) ||
+        template.targets?.some((target) =>
+          target.toLowerCase().includes(searchQuery),
+        ),
+    );
+  }, [searchQuery, suggestedTemplates]);
+
+  const hasSearch = searchQuery.length > 0;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           className={cn([
@@ -427,44 +553,124 @@ function CreateOtherFormatButton({
           <span>Use template</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-64" align="start">
-        <div className="flex flex-col gap-2">
-          {Object.entries(templates).length > 0 ? (
-            <>
-              {Object.entries(templates).map(([templateId, template]) => (
-                <TemplateButton
-                  key={templateId}
-                  onClick={() => handleTemplateClick(templateId)}
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="flex flex-col">
+          <div className="border-b border-neutral-200 p-2">
+            <div
+              className={cn([
+                "flex h-9 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3",
+                "transition-colors focus-within:border-neutral-400",
+              ])}
+            >
+              <SearchIcon className="h-4 w-4 text-neutral-400" />
+              <input
+                autoFocus
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search templates..."
+                className="flex-1 bg-transparent text-sm placeholder:text-neutral-400 focus:outline-hidden"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="rounded-xs p-0.5 hover:bg-neutral-100"
                 >
-                  {template.title}
-                </TemplateButton>
-              ))}
-              <TemplateButton
-                className="text-neutral-500 italic hover:bg-neutral-50 hover:text-neutral-700"
-                onClick={() => {
-                  setOpen(false);
-                  openNew({ type: "settings", state: { tab: "templates" } });
-                }}
-              >
-                Manage templates
-              </TemplateButton>
-            </>
-          ) : (
-            <>
-              <p className="mb-2 text-center text-sm text-neutral-600">
-                No templates yet
-              </p>
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  openNew({ type: "settings", state: { tab: "templates" } });
-                }}
-                className="rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 py-2 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90"
-              >
-                Create templates
-              </button>
-            </>
-          )}
+                  <XIcon className="h-3 w-3 text-neutral-400" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto p-2">
+            {!hasSearch ? (
+              <div className="flex flex-col gap-3">
+                <TemplateSection title="Suggested templates">
+                  {isSuggestedTemplatesLoading &&
+                  filteredSuggestedTemplates.length === 0 ? (
+                    <div className="px-2 py-3 text-sm text-neutral-500">
+                      Loading suggestions...
+                    </div>
+                  ) : filteredSuggestedTemplates.length > 0 ? (
+                    filteredSuggestedTemplates.map((template, index) => (
+                      <TemplateResultButton
+                        key={template.slug || index}
+                        title={template.title || "Untitled"}
+                        description={template.description}
+                        onClick={() => handleSuggestedTemplateClick(template)}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-2 py-3 text-sm text-neutral-500">
+                      No suggested templates yet
+                    </div>
+                  )}
+                </TemplateSection>
+
+                <TemplateSection title="Favorite templates">
+                  {filteredFavoriteTemplates.length > 0 ? (
+                    filteredFavoriteTemplates.map((template) => (
+                      <TemplateResultButton
+                        key={template.id}
+                        title={template.title || "Untitled"}
+                        description={template.description}
+                        onClick={() => handleUseTemplate(template.id)}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-2 py-3 text-sm text-neutral-500">
+                      No favorite templates yet
+                    </div>
+                  )}
+                </TemplateSection>
+              </div>
+            ) : filteredSuggestedTemplates.length > 0 ||
+              filteredFavoriteTemplates.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {filteredSuggestedTemplates.length > 0 ? (
+                  <TemplateSection title="Suggested templates">
+                    {filteredSuggestedTemplates.map((template, index) => (
+                      <TemplateResultButton
+                        key={template.slug || index}
+                        title={template.title || "Untitled"}
+                        description={template.description}
+                        onClick={() => handleSuggestedTemplateClick(template)}
+                      />
+                    ))}
+                  </TemplateSection>
+                ) : null}
+
+                {filteredFavoriteTemplates.length > 0 ? (
+                  <TemplateSection title="Favorite templates">
+                    {filteredFavoriteTemplates.map((template) => (
+                      <TemplateResultButton
+                        key={template.id}
+                        title={template.title || "Untitled"}
+                        description={template.description}
+                        onClick={() => handleUseTemplate(template.id)}
+                      />
+                    ))}
+                  </TemplateSection>
+                ) : null}
+              </div>
+            ) : (
+              <div className="px-2 py-6 text-center text-sm text-neutral-500">
+                No templates found
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-neutral-200 p-2">
+            <button
+              onClick={handleCreateTemplate}
+              className="w-full rounded-md px-3 py-2 text-sm text-neutral-700 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+            >
+              <span className="flex items-center justify-center gap-1.5">
+                <PlusIcon className="h-4 w-4" />
+                <span>Create new template</span>
+              </span>
+            </button>
+          </div>
         </div>
       </PopoverContent>
     </Popover>
@@ -715,24 +921,62 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
   };
 }
 
-function TemplateButton({
+type WebTemplate = {
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  targets?: string[];
+  sections: Array<{ title: string; description: string }>;
+};
+
+function TemplateSection({
+  title,
   children,
-  onClick,
-  className,
 }: {
+  title: string;
   children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2 px-2">
+        {title === "Favorite templates" ? (
+          <StarIcon className="h-3.5 w-3.5 text-amber-500" />
+        ) : null}
+        <p className="text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
+          {title}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">{children}</div>
+    </div>
+  );
+}
+
+function TemplateResultButton({
+  title,
+  description,
+  onClick,
+}: {
+  title: string;
+  description?: string;
   onClick: () => void;
-  className?: string;
 }) {
   return (
     <button
       className={cn([
-        "rounded-md px-3 py-2 text-center text-sm transition-colors hover:bg-neutral-100",
-        className,
+        "w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-neutral-100",
+        "flex flex-col gap-0.5",
       ])}
       onClick={onClick}
     >
-      {children}
+      <span className="truncate text-sm font-medium text-neutral-900">
+        {title}
+      </span>
+      {description ? (
+        <span className="line-clamp-2 text-xs text-neutral-500">
+          {description}
+        </span>
+      ) : null}
     </button>
   );
 }
