@@ -1,3 +1,6 @@
+pub mod parsing;
+mod url_builder;
+
 mod argmax;
 pub(crate) mod assemblyai;
 mod cactus;
@@ -13,9 +16,8 @@ mod language;
 mod mistral;
 mod openai;
 mod owhisper;
-pub mod parsing;
 pub(crate) mod soniox;
-mod url_builder;
+mod whispercpp;
 
 pub use argmax::*;
 pub use assemblyai::*;
@@ -30,6 +32,7 @@ pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
 pub use soniox::*;
+pub use whispercpp::*;
 
 use std::collections::{BTreeSet, HashSet};
 use std::future::Future;
@@ -39,6 +42,7 @@ use std::pin::Pin;
 use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
 
 use crate::error::Error;
@@ -47,15 +51,10 @@ pub use reqwest_middleware::ClientWithMiddleware;
 
 pub type BatchFuture<'a> = Pin<Box<dyn Future<Output = Result<BatchResponse, Error>> + Send + 'a>>;
 
-#[derive(Debug, Clone)]
-pub struct StreamingBatchEvent {
-    pub response: StreamResponse,
-    pub percentage: f64,
-    pub final_batch_response: Option<BatchResponse>,
-}
+pub type StreamingBatchEvent = BatchStreamEvent;
 
 pub type StreamingBatchStream =
-    Pin<Box<dyn futures_util::Stream<Item = Result<StreamingBatchEvent, Error>> + Send>>;
+    Pin<Box<dyn futures_util::Stream<Item = Result<BatchStreamEvent, Error>> + Send>>;
 
 pub fn documented_language_codes_live() -> Vec<String> {
     let mut set: BTreeSet<&'static str> = BTreeSet::new();

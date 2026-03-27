@@ -283,7 +283,7 @@ fn transcribe_chunks(
         for segment in segments {
             cumulative_confidence += segment.confidence;
             segment_count += 1;
-            all_words.extend(build_batch_words(&segment));
+            all_words.extend(build_batch_words(&segment, channel_idx as i32));
 
             if let Some(tx) = progress.event_tx() {
                 let _ = tx.send(BatchSseMessage::Segment {

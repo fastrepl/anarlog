@@ -10,9 +10,9 @@ use owhisper_interface::stream::StreamResponse;
 use crate::adapter::{StreamingBatchEvent, StreamingBatchStream};
 use crate::error::Error;
 
-use super::CactusAdapter;
+use super::WhisperCppAdapter;
 
-impl CactusAdapter {
+impl WhisperCppAdapter {
     pub async fn transcribe_file_streaming(
         api_base: &str,
         params: &ListenParams,
@@ -22,7 +22,7 @@ impl CactusAdapter {
         tracing::info!(
             hyprnote.file.path = %path.display(),
             url.full = %api_base,
-            "starting_cactus_batch_stream"
+            "starting_whispercpp_batch_stream"
         );
 
         let (audio_data, content_type, audio_duration_secs) =
@@ -30,11 +30,21 @@ impl CactusAdapter {
                 .await
                 .map_err(|e| Error::AudioProcessing(format!("task panicked: {:?}", e)))??;
 
-        let url = build_cactus_batch_url(api_base, params);
+        let url = build_batch_url(api_base, params);
 
-        let client = reqwest::Client::new();
-        let response =
-            super::retry::post_with_retry(&client, url, &content_type, audio_data).await?;
+        let response = reqwest::Client::new()
+            .post(url.as_str())
+            .header("Content-Type", &content_type)
+            .header("Accept", "text/event-stream")
+            .body(audio_data)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            return Err(Error::UnexpectedStatus { status, body });
+        }
 
         let byte_stream = response.bytes_stream();
 
@@ -110,7 +120,7 @@ fn audio_duration_secs(path: &Path) -> f64 {
     count / channels / sample_rate
 }
 
-fn build_cactus_batch_url(api_base: &str, params: &ListenParams) -> url::Url {
+fn build_batch_url(api_base: &str, params: &ListenParams) -> url::Url {
     let mut url: url::Url = api_base.parse().expect("invalid api_base URL");
 
     if !url.path().ends_with("/listen") {
@@ -190,7 +200,7 @@ impl<S> SseParserState<S> {
         }
 
         match event_type.as_str() {
-            BATCH_EVENT | "cactus_batch" => {
+            BATCH_EVENT => {
                 let msg: BatchSseMessage = match serde_json::from_str(&data) {
                     Ok(m) => m,
                     Err(e) => {

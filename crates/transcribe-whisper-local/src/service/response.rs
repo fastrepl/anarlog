@@ -83,10 +83,16 @@ pub(super) fn build_stream_words(segment: &crate::service::Segment) -> Vec<strea
         .collect()
 }
 
-pub(super) fn build_batch_words(segment: &crate::service::Segment) -> Vec<batch::Word> {
+pub(super) fn build_batch_words(
+    segment: &crate::service::Segment,
+    channel: i32,
+) -> Vec<batch::Word> {
     build_stream_words(segment)
         .into_iter()
-        .map(batch::Word::from)
+        .map(|word| batch::Word {
+            channel,
+            ..batch::Word::from(word)
+        })
         .collect()
 }
 

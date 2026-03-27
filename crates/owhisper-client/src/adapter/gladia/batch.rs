@@ -312,6 +312,7 @@ impl GladiaAdapter {
                         start: w.start,
                         end: w.end,
                         confidence: w.confidence,
+                        channel: u.channel as i32,
                         speaker: u.speaker,
                         punctuated_word: Some(trimmed),
                     }

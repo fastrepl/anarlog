@@ -332,12 +332,24 @@ fn canonical_cactus_name(name: &str) -> String {
     }
 }
 
-fn default_cactus_model() -> CactusSttModel {
-    if cfg!(target_arch = "aarch64") && cfg!(target_os = "macos") {
-        CactusSttModel::WhisperSmallInt8Apple
-    } else {
-        CactusSttModel::WhisperSmallInt8
-    }
+fn missing_cactus_model_error() -> CliError {
+    CliError::required_argument_with_hint(
+        "--model",
+        format!(
+            "Pass --model explicitly for --provider cactus. Valid models: {}",
+            cactus_model_names().join(", ")
+        ),
+    )
+}
+
+fn cactus_model_names() -> Vec<&'static str> {
+    LocalModel::all()
+        .iter()
+        .filter_map(|model| match model {
+            LocalModel::Cactus(_) => Some(model.cli_name()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn resolve_cactus_model(
@@ -348,23 +360,19 @@ fn resolve_cactus_model(
         return Err(unsupported_cactus_error());
     }
 
-    let model = match name {
-        Some(name) => {
-            let canonical = canonical_cactus_name(name);
-            LocalModel::all()
-                .into_iter()
-                .find_map(|model| match model {
-                    LocalModel::Cactus(cactus)
-                        if model.cli_name() == name || model.cli_name() == canonical =>
-                    {
-                        Some(cactus)
-                    }
-                    _ => None,
-                })
-                .ok_or_else(|| not_found_cactus_model(models_base, name, false))?
-        }
-        None => default_cactus_model(),
-    };
+    let name = name.ok_or_else(missing_cactus_model_error)?;
+    let canonical = canonical_cactus_name(name);
+    let model = LocalModel::all()
+        .into_iter()
+        .find_map(|model| match model {
+            LocalModel::Cactus(cactus)
+                if model.cli_name() == name || model.cli_name() == canonical =>
+            {
+                Some(cactus)
+            }
+            _ => None,
+        })
+        .ok_or_else(|| not_found_cactus_model(models_base, name, false))?;
 
     let model_path = LocalModel::Cactus(model.clone()).install_path(models_base);
     if !model_path.exists() {

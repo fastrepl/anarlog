@@ -1,6 +1,6 @@
 import type { StoreApi } from "zustand";
 
-import type { BatchResponse, StreamResponse } from "@hypr/plugin-listener2";
+import type { BatchResponse, BatchStreamEvent } from "@hypr/plugin-listener2";
 
 import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries } from "./utils";
@@ -35,8 +35,7 @@ export type BatchActions = {
   handleBatchResponse: (sessionId: string, response: BatchResponse) => void;
   handleBatchResponseStreamed: (
     sessionId: string,
-    response: StreamResponse,
-    percentage: number,
+    event: BatchStreamEvent,
   ) => void;
   handleBatchFailed: (sessionId: string, error: string) => void;
   updateBatchProgress: (sessionId: string, percentage: number) => void;
@@ -114,8 +113,9 @@ export const createBatchSlice = <T extends BatchState>(
     });
   },
 
-  handleBatchResponseStreamed: (sessionId, response, percentage) => {
-    const isComplete = response.type === "Results" && response.from_finalize;
+  handleBatchResponseStreamed: (sessionId, event) => {
+    const percentage = getBatchStreamPercentage(event);
+    const isComplete = event.type === "result" || event.type === "terminal";
 
     set((state) => ({
       ...state,
@@ -134,7 +134,7 @@ export const createBatchSlice = <T extends BatchState>(
             wordsByChannel: {},
             hintsByChannel: {},
           },
-          response,
+          event,
         ),
       },
     }));
@@ -255,8 +255,13 @@ function mergeBatchPreview(
     wordsByChannel: Record<number, WordLike[]>;
     hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   },
-  response: StreamResponse,
+  event: BatchStreamEvent,
 ) {
+  if (event.type !== "segment") {
+    return preview;
+  }
+
+  const response = event.response;
   if (response.type !== "Results") {
     return preview;
   }
@@ -336,4 +341,17 @@ function mergeBatchPreview(
       [channelIndex]: [...hintsBefore, ...adjustedIncomingHints, ...hintsAfter],
     },
   };
+}
+
+function getBatchStreamPercentage(event: BatchStreamEvent): number {
+  switch (event.type) {
+    case "progress":
+    case "segment":
+      return event.percentage;
+    case "result":
+    case "terminal":
+      return 1;
+    case "error":
+      return 0;
+  }
 }

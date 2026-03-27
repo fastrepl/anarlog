@@ -4,6 +4,7 @@ pub(super) fn build_batch_words(
     transcript: &str,
     total_duration: f64,
     confidence: f64,
+    channel: i32,
 ) -> Vec<batch::Word> {
     let word_strs: Vec<&str> = transcript.split_whitespace().collect();
     if word_strs.is_empty() || total_duration <= 0.0 {
@@ -19,6 +20,7 @@ pub(super) fn build_batch_words(
             start: i as f64 * word_duration,
             end: (i + 1) as f64 * word_duration,
             confidence,
+            channel,
             speaker: None,
             punctuated_word: Some(w.to_string()),
         })

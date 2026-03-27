@@ -131,6 +131,7 @@ impl ElevenLabsAdapter {
                     start: w.start,
                     end: w.end,
                     confidence: 1.0,
+                    channel: 0,
                     speaker,
                     punctuated_word: Some(w.text.clone()),
                 }

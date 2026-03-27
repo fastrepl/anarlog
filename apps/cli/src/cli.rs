@@ -7,7 +7,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
     name = "char",
     version,
     propagate_version = true,
-    after_help = "Docs:  https://char.com/docs/cli\nBugs:  https://github.com/fastrepl/char/issues"
+    after_help = "Docs:  https://cli.char.com\nDiscussions: https://github.com/fastrepl/char/discussions/4788\nBugs:  https://github.com/fastrepl/char/issues"
 )]
 pub struct Cli {
     #[command(subcommand)]

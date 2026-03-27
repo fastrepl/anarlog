@@ -252,12 +252,20 @@ impl AssemblyAIAdapter {
                 .parse::<usize>()
                 .ok()
         });
+        let channel = w
+            .channel
+            .as_deref()
+            .and_then(|s| s.parse::<i32>().ok())
+            .map(|channel| channel.saturating_sub(1))
+            .unwrap_or(0)
+            .max(0);
 
         BatchWord {
             word: w.text.clone(),
             start: w.start as f64 / 1000.0,
             end: w.end as f64 / 1000.0,
             confidence: w.confidence,
+            channel,
             speaker,
             punctuated_word: Some(w.text),
         }
@@ -323,6 +331,50 @@ impl AssemblyAIAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn multichannel_words_are_normalized_to_zero_based_channels() {
+        let response = TranscriptResponse {
+            id: "id".to_string(),
+            status: "completed".to_string(),
+            text: None,
+            words: Some(vec![
+                AssemblyAIBatchWord {
+                    text: "left".to_string(),
+                    start: 0,
+                    end: 500,
+                    confidence: 0.9,
+                    speaker: Some("1A".to_string()),
+                    channel: Some("1".to_string()),
+                },
+                AssemblyAIBatchWord {
+                    text: "right".to_string(),
+                    start: 500,
+                    end: 1000,
+                    confidence: 0.8,
+                    speaker: Some("2A".to_string()),
+                    channel: Some("2".to_string()),
+                },
+            ]),
+            utterances: None,
+            confidence: Some(0.85),
+            audio_duration: Some(1),
+            audio_channels: Some(2),
+            error: None,
+        };
+
+        let result = AssemblyAIAdapter::convert_to_batch_response(response);
+
+        assert_eq!(result.results.channels.len(), 2);
+        assert_eq!(
+            result.results.channels[0].alternatives[0].words[0].channel,
+            0
+        );
+        assert_eq!(
+            result.results.channels[1].alternatives[0].words[0].channel,
+            1
+        );
+    }
 
     #[tokio::test]
     #[ignore]

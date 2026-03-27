@@ -1,5 +1,4 @@
 mod output;
-mod response;
 
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -10,7 +9,7 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 
 use hypr_listener2_core::{BatchErrorCode, BatchEvent};
-use owhisper_interface::stream::StreamResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 
 use crate::OptTraceBuffer;
 use crate::app::AppContext;
@@ -92,9 +91,9 @@ async fn start_batch(
     stt: SttOverrides,
     on_normalize_progress: Option<&mut dyn FnMut(f64)>,
 ) -> CliResult<BatchHandle> {
+    let resolved = resolve_config(None, stt).await?;
     let (normalized_input_dir, normalized_input_path) =
         normalize_input_file(input.path(), on_normalize_progress)?;
-    let resolved = resolve_config(None, stt).await?;
     let params = build_batch_params(&resolved, &normalized_input_path, keywords)?;
 
     let (batch_tx, batch_rx) = mpsc::unbounded_channel::<BatchEvent>();
@@ -149,13 +148,8 @@ fn build_batch_params(
     ))
 }
 
-fn extract_stream_transcript(response: &StreamResponse) -> Option<&str> {
-    match response {
-        StreamResponse::TranscriptResponse { channel, .. } => {
-            channel.alternatives.first().map(|a| a.transcript.as_str())
-        }
-        _ => None,
-    }
+fn extract_stream_transcript(event: &BatchStreamEvent) -> Option<&str> {
+    event.text()
 }
 
 struct CollectedBatch {
@@ -168,30 +162,25 @@ fn finish_batch(
         Result<hypr_listener2_core::BatchRunOutput, hypr_listener2_core::Error>,
         tokio::task::JoinError,
     >,
-    batch_response: Option<owhisper_interface::batch::Response>,
-    streamed_segments: Vec<StreamResponse>,
     failure: Option<(BatchErrorCode, String)>,
     started: std::time::Instant,
 ) -> CliResult<CollectedBatch> {
     let result = task_result
         .map_err(|e| CliError::operation_failed("batch transcription", e.to_string()))?;
-    if let Err(error) = result {
+    let output = if let Ok(output) = result {
+        output
+    } else {
+        let error = result.err().unwrap();
         let message = if let Some((code, message)) = failure {
             format!("{code:?}: {message}")
         } else {
             error.to_string()
         };
         return Err(CliError::operation_failed("batch transcription", message));
-    }
-
-    let response = batch_response
-        .or_else(|| response::batch_response_from_streams(streamed_segments))
-        .ok_or_else(|| {
-            CliError::operation_failed("batch transcription", "completed without a final response")
-        })?;
+    };
 
     Ok(CollectedBatch {
-        response,
+        response: output.response,
         elapsed: started.elapsed(),
     })
 }
@@ -246,43 +235,30 @@ async fn run_json(
         }
     };
 
-    let mut batch_response: Option<owhisper_interface::batch::Response> = None;
-    let mut streamed_segments: Vec<StreamResponse> = Vec::new();
     let mut failure: Option<(BatchErrorCode, String)> = None;
 
     while let Some(event) = handle.rx.recv().await {
         match event {
             BatchEvent::BatchStarted { .. } | BatchEvent::BatchCompleted { .. } => {}
             BatchEvent::BatchResponseStreamed {
-                response: streamed,
-                percentage,
-                ..
+                event: streamed, ..
             } => {
                 let transcript = extract_stream_transcript(&streamed)
                     .unwrap_or("")
                     .to_string();
                 writer.emit(&TranscribeEvent::Progress {
-                    percentage,
+                    percentage: streamed.percentage(),
                     transcript,
                 })?;
-                streamed_segments.push(streamed);
             }
-            BatchEvent::BatchResponse { response: next, .. } => {
-                batch_response = Some(next);
-            }
+            BatchEvent::BatchResponse { .. } => {}
             BatchEvent::BatchFailed { code, error, .. } => {
                 failure = Some((code, error));
             }
         }
     }
 
-    let result = match finish_batch(
-        handle.task.await,
-        batch_response,
-        streamed_segments,
-        failure,
-        handle.started,
-    ) {
+    let result = match finish_batch(handle.task.await, failure, handle.started) {
         Ok(r) => r,
         Err(e) => {
             let _ = writer.emit(&TranscribeEvent::Failed {
@@ -369,8 +345,6 @@ async fn run_pretty(
     #[cfg(not(feature = "standalone"))]
     let mut handle = start_batch(&args.input, args.keywords.clone(), stt, None).await?;
 
-    let mut batch_response: Option<owhisper_interface::batch::Response> = None;
-    let mut streamed_segments: Vec<StreamResponse> = Vec::new();
     let mut failure: Option<(BatchErrorCode, String)> = None;
 
     #[cfg(feature = "standalone")]
@@ -411,25 +385,23 @@ async fn run_pretty(
         match event {
             BatchEvent::BatchStarted { .. } | BatchEvent::BatchCompleted { .. } => {}
             BatchEvent::BatchResponseStreamed {
-                response: streamed,
-                #[cfg(feature = "standalone")]
-                percentage,
-                ..
+                event: streamed, ..
             } => {
                 #[cfg(feature = "standalone")]
                 {
-                    last_pct = percentage;
+                    last_pct = streamed.percentage();
                     if let Some(t) = extract_stream_transcript(&streamed) {
                         if !t.is_empty() {
                             last_transcript = t.to_string();
                         }
                     }
                 }
-                streamed_segments.push(streamed);
+                #[cfg(not(feature = "standalone"))]
+                {
+                    let _ = streamed;
+                }
             }
-            BatchEvent::BatchResponse { response: next, .. } => {
-                batch_response = Some(next);
-            }
+            BatchEvent::BatchResponse { .. } => {}
             BatchEvent::BatchFailed { code, error, .. } => {
                 failure = Some((code, error));
             }
@@ -442,13 +414,7 @@ async fn run_pretty(
             .map_err(|e| CliError::operation_failed("clear viewport", e.to_string()))?;
     }
 
-    let result = finish_batch(
-        handle.task.await,
-        batch_response,
-        streamed_segments,
-        failure,
-        handle.started,
-    )?;
+    let result = finish_batch(handle.task.await, failure, handle.started)?;
     let response = &result.response;
 
     let pretty = output::format_pretty(response);

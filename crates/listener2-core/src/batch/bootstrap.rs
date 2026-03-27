@@ -4,7 +4,7 @@ use std::time::Duration;
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CactusAdapter, DashScopeAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
-    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter,
+    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, WhisperCppAdapter,
 };
 use owhisper_interface::{ControlMessage, MixedMessage};
 use ractor::{ActorProcessingErr, ActorRef};
@@ -30,6 +30,16 @@ pub(super) async fn spawn_batch_task(
     ),
     ActorProcessingErr,
 > {
+    use super::BatchProvider;
+
+    if matches!(args.provider, BatchProvider::WhisperLocal) {
+        return spawn_whispercpp_batch_task(args, myself).await;
+    }
+
+    if matches!(args.provider, BatchProvider::Cactus) {
+        return spawn_cactus_batch_task(args, myself).await;
+    }
+
     let adapter_kind = AdapterKind::from_url_and_languages(
         &args.base_url,
         &args.listen_params.languages,
@@ -164,6 +174,57 @@ async fn spawn_cactus_batch_task(
             };
 
             process_provider_stream(stream, myself, shutdown_rx, "cactus batch").await;
+        }
+        .instrument(span),
+    );
+
+    Ok((rx_task, shutdown_tx))
+}
+
+async fn spawn_whispercpp_batch_task(
+    args: BatchArgs,
+    myself: ActorRef<BatchMsg>,
+) -> Result<
+    (
+        tokio::task::JoinHandle<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ),
+    ActorProcessingErr,
+> {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let span = tracing::info_span!(
+        "whispercpp_batch",
+        hyprnote.session.id = %args.session_id,
+        url.full = %args.base_url,
+        hyprnote.file.path = %args.file_path,
+    );
+
+    let rx_task = tokio::spawn(
+        async move {
+            let stream = match WhisperCppAdapter::transcribe_file_streaming(
+                &args.base_url,
+                &args.listen_params,
+                &args.file_path,
+            )
+            .await
+            {
+                Ok(stream) => {
+                    notify_start_result(&args.start_notifier, Ok(()));
+                    stream
+                }
+                Err(err) => {
+                    report_stream_start_failure(
+                        &myself,
+                        &args.start_notifier,
+                        &err,
+                        "whispercpp batch failed to start stream",
+                    );
+                    return;
+                }
+            };
+
+            process_provider_stream(stream, myself, shutdown_rx, "whispercpp batch").await;
         }
         .instrument(span),
     );

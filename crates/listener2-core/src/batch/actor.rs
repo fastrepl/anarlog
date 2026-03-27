@@ -2,13 +2,14 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use owhisper_client::StreamingBatchStream;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, SpawnErr};
 use tracing::Instrument;
 
 use super::accumulator::StreamBatchAccumulator;
 use super::bootstrap::{notify_start_result, spawn_batch_task};
-use super::{BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, session_span};
+use super::{BatchParams, BatchRunOutput, format_user_friendly_error, session_span};
 use crate::{BatchEvent, BatchRuntime};
 
 const BATCH_STREAM_TIMEOUT_SECS: u64 = 30;
@@ -29,6 +30,7 @@ pub(super) async fn run_batch_streaming(
 
         let args = BatchArgs {
             runtime: runtime.clone(),
+            provider: params.provider,
             file_path: params.file_path,
             base_url: params.base_url,
             api_key: params.api_key,
@@ -92,22 +94,19 @@ pub(super) async fn run_batch_streaming(
     .await
 }
 
-fn is_completion_response(response: &StreamResponse) -> bool {
+fn is_completion_event(event: &BatchStreamEvent) -> bool {
     matches!(
-        response,
-        StreamResponse::TranscriptResponse {
-            from_finalize: true,
-            ..
-        } | StreamResponse::TerminalResponse { .. }
+        event,
+        BatchStreamEvent::Result { .. } | BatchStreamEvent::Terminal { .. }
     )
 }
 
-fn provider_error_from_response(response: &StreamResponse) -> Option<(&str, &str, Option<i32>)> {
-    let StreamResponse::ErrorResponse {
+fn provider_error_from_event(event: &BatchStreamEvent) -> Option<(&str, &str, Option<i32>)> {
+    let BatchStreamEvent::Error {
         provider,
         error_message,
         error_code,
-    } = response
+    } = event
     else {
         return None;
     };
@@ -117,11 +116,7 @@ fn provider_error_from_response(response: &StreamResponse) -> Option<(&str, &str
 
 #[allow(clippy::enum_variant_names)]
 pub(super) enum BatchMsg {
-    StreamResponse {
-        response: Box<StreamResponse>,
-        percentage: f64,
-        final_batch_response: Option<owhisper_interface::batch::Response>,
-    },
+    StreamResponse { event: Box<BatchStreamEvent> },
     StreamError(crate::BatchFailure),
     StreamEnded,
     StreamStartFailed(crate::BatchFailure),
@@ -135,6 +130,7 @@ type BatchDoneNotifier =
 #[derive(Clone)]
 pub(super) struct BatchArgs {
     pub(super) runtime: Arc<dyn BatchRuntime>,
+    pub(super) provider: super::BatchProvider,
     pub(super) file_path: String,
     pub(super) base_url: String,
     pub(super) api_key: String,
@@ -152,15 +148,13 @@ struct BatchState {
     done_notifier: BatchDoneNotifier,
     final_result: Option<crate::Result<BatchRunOutput>>,
     accumulator: StreamBatchAccumulator,
-    stashed_final: Option<owhisper_interface::batch::Response>,
 }
 
 impl BatchState {
-    fn emit_streamed(&self, response: StreamResponse, percentage: f64) {
+    fn emit_streamed(&self, event: BatchStreamEvent) {
         self.runtime.emit(BatchEvent::BatchResponseStreamed {
             session_id: self.session_id.clone(),
-            response,
-            percentage,
+            event,
         });
     }
 }
@@ -199,7 +193,6 @@ impl Actor for BatchActor {
             done_notifier: args.done_notifier,
             final_result: None,
             accumulator: StreamBatchAccumulator::new(),
-            stashed_final: None,
         })
     }
 
@@ -228,17 +221,10 @@ impl Actor for BatchActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            BatchMsg::StreamResponse {
-                response,
-                percentage,
-                final_batch_response,
-            } => {
+            BatchMsg::StreamResponse { event } => {
                 tracing::info!("batch stream response received");
-                state.accumulator.observe(&response);
-                state.emit_streamed(*response, percentage);
-                if let Some(final_resp) = final_batch_response {
-                    state.stashed_final = Some(final_resp);
-                }
+                state.accumulator.observe(&event);
+                state.emit_streamed(*event);
             }
             BatchMsg::StreamStartFailed(error) => {
                 tracing::error!("batch_stream_start_failed: {}", error);
@@ -252,15 +238,7 @@ impl Actor for BatchActor {
             }
             BatchMsg::StreamEnded => {
                 tracing::info!("batch_stream_ended");
-                let output = if let Some(response) = state.stashed_final.take() {
-                    BatchRunOutput {
-                        session_id: state.session_id.clone(),
-                        mode: BatchRunMode::Streamed,
-                        response,
-                    }
-                } else {
-                    std::mem::take(&mut state.accumulator).finish(&state.session_id)
-                };
+                let output = std::mem::take(&mut state.accumulator).finish(&state.session_id);
                 state.final_result = Some(Ok(output));
                 myself.stop(None);
             }
@@ -306,9 +284,14 @@ pub(super) async fn process_provider_stream(
     context: &str,
 ) {
     futures_util::pin_mut!(stream);
-    process_stream_loop(&mut stream, myself, shutdown_rx, context, 1, |event| {
-        (event.response, event.percentage, event.final_batch_response)
-    })
+    process_stream_loop(
+        &mut stream,
+        myself,
+        shutdown_rx,
+        context,
+        1,
+        std::convert::identity,
+    )
     .await;
 }
 
@@ -328,10 +311,7 @@ pub(super) async fn process_batch_stream<S, E>(
         shutdown_rx,
         "batch stream",
         expected_completions,
-        |response| {
-            let percentage = compute_percentage(&response, audio_duration_secs);
-            (response, percentage, None)
-        },
+        |response| batch_event_from_stream_response(response, audio_duration_secs),
     )
     .await;
 }
@@ -346,13 +326,7 @@ async fn process_stream_loop<S, Item, E, F>(
 ) where
     S: futures_util::Stream<Item = Result<Item, E>>,
     E: std::fmt::Debug,
-    F: FnMut(
-        Item,
-    ) -> (
-        StreamResponse,
-        f64,
-        Option<owhisper_interface::batch::Response>,
-    ),
+    F: FnMut(Item) -> BatchStreamEvent,
 {
     let mut response_count = 0;
     let response_timeout = Duration::from_secs(BATCH_STREAM_TIMEOUT_SECS);
@@ -377,22 +351,22 @@ async fn process_stream_loop<S, Item, E, F>(
                 match result {
                     Ok(Some(Ok(item))) => {
                         response_count += 1;
-                        let (response, percentage, final_batch_response) = into_response(item);
+                        let event = into_response(item);
 
-                        let is_from_finalize = matches!(
-                            &response,
-                            StreamResponse::TranscriptResponse { from_finalize, .. } if *from_finalize
-                        );
-                        let is_completion = is_completion_response(&response);
+                        let is_completion = is_completion_event(&event);
 
                         tracing::info!(
                             "{context}: response #{}{}",
                             response_count,
-                            if is_from_finalize { " (from_finalize)" } else { "" }
+                            if matches!(&event, BatchStreamEvent::Result { .. }) {
+                                " (result)"
+                            } else {
+                                ""
+                            }
                         );
 
                         if let Some((provider, error_message, error_code)) =
-                            provider_error_from_response(&response)
+                            provider_error_from_event(&event)
                         {
                             tracing::error!(
                                 hyprnote.stt.provider.name = %provider,
@@ -411,11 +385,14 @@ async fn process_stream_loop<S, Item, E, F>(
                             break;
                         }
 
-                        send_actor_message(&myself, BatchMsg::StreamResponse {
-                            response: Box::new(response),
-                            percentage,
-                            final_batch_response,
-                        }, context, "stream response");
+                        send_actor_message(
+                            &myself,
+                            BatchMsg::StreamResponse {
+                                event: Box::new(event),
+                            },
+                            context,
+                            "stream response",
+                        );
 
                         if is_completion {
                             completions_seen += 1;
@@ -512,6 +489,44 @@ fn compute_percentage(response: &StreamResponse, audio_duration_secs: f64) -> f6
     }
 }
 
+fn batch_event_from_stream_response(
+    response: StreamResponse,
+    audio_duration_secs: f64,
+) -> BatchStreamEvent {
+    let percentage = compute_percentage(&response, audio_duration_secs);
+
+    match response {
+        StreamResponse::TranscriptResponse { .. } => BatchStreamEvent::Segment {
+            response,
+            percentage,
+        },
+        StreamResponse::TerminalResponse {
+            request_id,
+            created,
+            duration,
+            channels,
+        } => BatchStreamEvent::Terminal {
+            request_id,
+            created,
+            duration,
+            channels,
+        },
+        StreamResponse::ErrorResponse {
+            error_code,
+            error_message,
+            provider,
+        } => BatchStreamEvent::Error {
+            error_code,
+            error_message,
+            provider,
+        },
+        other => BatchStreamEvent::Segment {
+            response: other,
+            percentage,
+        },
+    }
+}
+
 fn transcript_end_from_response(response: &StreamResponse) -> Option<f64> {
     let StreamResponse::TranscriptResponse {
         start,
@@ -538,63 +553,41 @@ fn transcript_end_from_response(response: &StreamResponse) -> Option<f64> {
 
 #[cfg(test)]
 mod test {
-    use owhisper_interface::stream::{Alternatives, Channel, Metadata, ModelInfo};
-
     use super::*;
 
     #[test]
-    fn completion_response_from_finalize() {
-        let response = StreamResponse::TranscriptResponse {
-            start: 0.0,
-            duration: 0.1,
-            is_final: true,
-            speech_final: true,
-            from_finalize: true,
-            channel: Channel {
-                alternatives: vec![Alternatives {
-                    transcript: "hi".to_string(),
-                    words: Vec::new(),
-                    confidence: 1.0,
-                    languages: Vec::new(),
-                }],
+    fn completion_event_result() {
+        let event = BatchStreamEvent::Result {
+            response: owhisper_interface::batch::Response {
+                metadata: serde_json::json!({ "duration": 0.1 }),
+                results: owhisper_interface::batch::Results { channels: vec![] },
             },
-            metadata: Metadata {
-                request_id: "r".to_string(),
-                model_info: ModelInfo {
-                    name: "".to_string(),
-                    version: "".to_string(),
-                    arch: "".to_string(),
-                },
-                model_uuid: "m".to_string(),
-                extra: None,
-            },
-            channel_index: vec![0, 1],
         };
 
-        assert!(is_completion_response(&response));
+        assert!(is_completion_event(&event));
     }
 
     #[test]
-    fn completion_response_terminal() {
-        let response = StreamResponse::TerminalResponse {
+    fn completion_event_terminal() {
+        let event = BatchStreamEvent::Terminal {
             request_id: "r".to_string(),
             created: "now".to_string(),
             duration: 1.0,
             channels: 1,
         };
 
-        assert!(is_completion_response(&response));
+        assert!(is_completion_event(&event));
     }
 
     #[test]
     fn provider_error_extracts_fields() {
-        let response = StreamResponse::ErrorResponse {
+        let event = BatchStreamEvent::Error {
             error_code: Some(42),
             error_message: "nope".to_string(),
             provider: "x".to_string(),
         };
 
-        let extracted = provider_error_from_response(&response);
+        let extracted = provider_error_from_event(&event);
         assert_eq!(extracted, Some(("x", "nope", Some(42))));
     }
 }

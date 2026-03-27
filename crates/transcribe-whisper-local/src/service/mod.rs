@@ -92,39 +92,74 @@ pub(crate) fn transcribe_chunk(
     samples: &[f32],
     chunk_start_sec: f64,
 ) -> Result<Vec<Segment>, crate::Error> {
-    Ok(model
-        .transcribe(samples)?
-        .into_iter()
-        .map(|segment| Segment {
-            text: segment.text().trim().to_string(),
-            start: chunk_start_sec + segment.start(),
-            duration: segment.end() - segment.start(),
-            confidence: segment.confidence() as f64,
-            language: segment.language().map(|value| value.to_string()),
-        })
-        .filter(|segment| !segment.text.is_empty() && segment.duration > 0.0)
-        .collect())
+    let raw_segments = model.transcribe(samples)?;
+    let chunk_duration_sec = samples.len() as f64 / TARGET_SAMPLE_RATE as f64;
+
+    Ok(build_chunk_segments(
+        raw_segments,
+        chunk_start_sec,
+        chunk_duration_sec,
+    ))
+}
+
+fn build_chunk_segments(
+    raw_segments: Vec<hypr_whisper_local::Segment>,
+    chunk_start_sec: f64,
+    chunk_duration_sec: f64,
+) -> Vec<Segment> {
+    if chunk_duration_sec <= 0.0 {
+        return vec![];
+    }
+
+    let mut text_parts = Vec::new();
+    let mut confidence_sum = 0.0;
+    let mut confidence_count = 0usize;
+    let mut language = None;
+
+    for segment in raw_segments {
+        let text = segment.text().trim();
+        if text.is_empty() {
+            continue;
+        }
+
+        text_parts.push(text.to_string());
+        confidence_sum += segment.confidence() as f64;
+        confidence_count += 1;
+        if language.is_none() {
+            language = segment.language().map(|value| value.to_string());
+        }
+    }
+
+    if text_parts.is_empty() {
+        return vec![];
+    }
+
+    vec![Segment {
+        text: text_parts.join(" "),
+        start: chunk_start_sec,
+        duration: chunk_duration_sec,
+        confidence: confidence_sum / confidence_count as f64,
+        language,
+    }]
 }
 
 #[cfg(test)]
 mod tests {
-    use hypr_language::ISO639;
-
     use super::*;
 
     #[test]
     fn parse_single_language() {
         let params = parse_listen_params("language=en").unwrap();
         assert_eq!(params.languages.len(), 1);
-        assert_eq!(params.languages[0].iso639(), ISO639::En);
+        assert_eq!(params.languages[0].iso639().code(), "en");
     }
 
     #[test]
     fn parse_multiple_languages() {
         let params = parse_listen_params("language=en&language=ko").unwrap();
         assert_eq!(params.languages.len(), 2);
-        assert_eq!(params.languages[0].iso639(), ISO639::En);
-        assert_eq!(params.languages[1].iso639(), ISO639::Ko);
+        assert_eq!(params.languages[0].iso639().code(), "en");
+        assert_eq!(params.languages[1].iso639().code(), "ko");
     }
 
     #[test]
@@ -145,5 +180,34 @@ mod tests {
         let params = parse_listen_params("language=en").unwrap();
         assert_eq!(params.channels, 1);
         assert_eq!(params.sample_rate, TARGET_SAMPLE_RATE);
+    }
+
+    #[test]
+    fn builds_single_chunk_segment_from_multiple_raw_segments() {
+        let segments = build_chunk_segments(
+            vec![
+                hypr_whisper_local::Segment {
+                    text: "hello".to_string(),
+                    language: Some("en".to_string()),
+                    confidence: 0.8,
+                    ..Default::default()
+                },
+                hypr_whisper_local::Segment {
+                    text: "again".to_string(),
+                    language: Some("en".to_string()),
+                    confidence: 1.0,
+                    ..Default::default()
+                },
+            ],
+            10.0,
+            3.0,
+        );
+
+        assert_eq!(segments.len(), 1);
+        assert_eq!(segments[0].start, 10.0);
+        assert_eq!(segments[0].duration, 3.0);
+        assert_eq!(segments[0].text, "hello again");
+        assert_eq!(segments[0].language.as_deref(), Some("en"));
+        assert!((segments[0].confidence - 0.9).abs() < 1e-6);
     }
 }

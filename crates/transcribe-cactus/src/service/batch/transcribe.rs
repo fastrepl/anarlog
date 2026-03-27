@@ -169,6 +169,7 @@ fn transcribe_chunks(
                 &chunk_text,
                 chunk_duration_sec,
                 cactus_response.confidence as f64,
+                channel_idx as i32,
             );
             for w in &mut words {
                 w.start += chunk_start_sec;
