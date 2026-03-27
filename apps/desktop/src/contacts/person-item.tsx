@@ -28,7 +28,39 @@ export function PersonItem({
 
   const store = main.UI.useStore(main.STORE_ID);
 
+  const togglePin = useCallback(() => {
+    if (!store) return;
+
+    const currentPinned = store.getCell("humans", humanId, "pinned");
+    if (currentPinned) {
+      store.setPartialRow("humans", humanId, {
+        pinned: false,
+        pin_order: 0,
+      });
+    } else {
+      const allHumans = store.getTable("humans");
+      const allOrgs = store.getTable("organizations");
+      const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
+        const order = (h.pin_order as number | undefined) ?? 0;
+        return Math.max(max, order);
+      }, 0);
+      const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
+        const order = (o.pin_order as number | undefined) ?? 0;
+        return Math.max(max, order);
+      }, 0);
+      store.setPartialRow("humans", humanId, {
+        pinned: true,
+        pin_order: Math.max(maxHumanOrder, maxOrgOrder) + 1,
+      });
+    }
+  }, [store, humanId]);
+
   const showContextMenu = useNativeContextMenu([
+    {
+      id: "toggle-pin-person",
+      text: isPinned ? "Unpin Contact" : "Pin Contact",
+      action: togglePin,
+    },
     {
       id: "delete-person",
       text: "Delete Contact",
@@ -39,32 +71,9 @@ export function PersonItem({
   const handleTogglePin = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!store) return;
-
-      const currentPinned = store.getCell("humans", humanId, "pinned");
-      if (currentPinned) {
-        store.setPartialRow("humans", humanId, {
-          pinned: false,
-          pin_order: 0,
-        });
-      } else {
-        const allHumans = store.getTable("humans");
-        const allOrgs = store.getTable("organizations");
-        const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
-          const order = (h.pin_order as number | undefined) ?? 0;
-          return Math.max(max, order);
-        }, 0);
-        const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
-          const order = (o.pin_order as number | undefined) ?? 0;
-          return Math.max(max, order);
-        }, 0);
-        store.setPartialRow("humans", humanId, {
-          pinned: true,
-          pin_order: Math.max(maxHumanOrder, maxOrgOrder) + 1,
-        });
-      }
+      togglePin();
     },
-    [store, humanId],
+    [togglePin],
   );
 
   return (
@@ -80,7 +89,7 @@ export function PersonItem({
         }
       }}
       className={cn([
-        "group flex w-full items-center gap-2 overflow-hidden rounded-md border bg-white px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-100",
+        "group flex w-full items-center gap-2 overflow-hidden rounded-md border bg-white px-3 py-2 text-left text-sm transition-colors select-none hover:bg-neutral-100",
         active ? "border-neutral-500 bg-neutral-100" : "border-transparent",
       ])}
     >

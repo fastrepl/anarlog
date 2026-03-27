@@ -25,7 +25,43 @@ export function OrganizationItem({
   const isPinned = Boolean(organization.pinned);
   const store = main.UI.useStore(main.STORE_ID);
 
+  const togglePin = useCallback(() => {
+    if (!store) return;
+
+    const currentPinned = store.getCell(
+      "organizations",
+      organizationId,
+      "pinned",
+    );
+    if (currentPinned) {
+      store.setPartialRow("organizations", organizationId, {
+        pinned: false,
+        pin_order: 0,
+      });
+    } else {
+      const allOrgs = store.getTable("organizations");
+      const allHumans = store.getTable("humans");
+      const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
+        const order = (o.pin_order as number | undefined) ?? 0;
+        return Math.max(max, order);
+      }, 0);
+      const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
+        const order = (h.pin_order as number | undefined) ?? 0;
+        return Math.max(max, order);
+      }, 0);
+      store.setPartialRow("organizations", organizationId, {
+        pinned: true,
+        pin_order: Math.max(maxOrgOrder, maxHumanOrder) + 1,
+      });
+    }
+  }, [store, organizationId]);
+
   const showContextMenu = useNativeContextMenu([
+    {
+      id: "toggle-pin-org",
+      text: isPinned ? "Unpin Organization" : "Pin Organization",
+      action: togglePin,
+    },
     {
       id: "delete-org",
       text: "Delete Organization",
@@ -36,36 +72,9 @@ export function OrganizationItem({
   const handleTogglePin = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!store) return;
-
-      const currentPinned = store.getCell(
-        "organizations",
-        organizationId,
-        "pinned",
-      );
-      if (currentPinned) {
-        store.setPartialRow("organizations", organizationId, {
-          pinned: false,
-          pin_order: 0,
-        });
-      } else {
-        const allOrgs = store.getTable("organizations");
-        const allHumans = store.getTable("humans");
-        const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
-          const order = (o.pin_order as number | undefined) ?? 0;
-          return Math.max(max, order);
-        }, 0);
-        const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
-          const order = (h.pin_order as number | undefined) ?? 0;
-          return Math.max(max, order);
-        }, 0);
-        store.setPartialRow("organizations", organizationId, {
-          pinned: true,
-          pin_order: Math.max(maxOrgOrder, maxHumanOrder) + 1,
-        });
-      }
+      togglePin();
     },
-    [store, organizationId],
+    [togglePin],
   );
 
   if (!organization) {
@@ -85,7 +94,7 @@ export function OrganizationItem({
         }
       }}
       className={cn([
-        "group flex w-full items-center gap-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-100",
+        "group flex w-full items-center gap-2 overflow-hidden rounded-md border px-3 py-2 text-left text-sm transition-colors select-none hover:bg-neutral-100",
         active ? "border-neutral-500 bg-neutral-100" : "border-transparent",
       ])}
     >
