@@ -753,9 +753,12 @@ function CreateOtherFormatButton({
           <span>Use template</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 rounded-2xl p-1" align="start">
+      <PopoverContent
+        className="w-80 rounded-2xl bg-stone-50 p-1"
+        align="start"
+      >
         <div className="flex flex-col gap-1">
-          <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-200">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
             <div className="border-b border-neutral-200 py-2">
               <div
                 className={cn([
