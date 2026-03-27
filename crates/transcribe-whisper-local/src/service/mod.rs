@@ -111,36 +111,126 @@ fn build_chunk_segments(
         return vec![];
     }
 
-    let mut text_parts = Vec::new();
-    let mut confidence_sum = 0.0;
-    let mut confidence_count = 0usize;
-    let mut language = None;
+    let raw_segments: Vec<_> = raw_segments
+        .into_iter()
+        .filter_map(|segment| {
+            let text = segment.text().trim().to_string();
+            if text.is_empty() {
+                return None;
+            }
 
-    for segment in raw_segments {
-        let text = segment.text().trim();
-        if text.is_empty() {
-            continue;
-        }
+            Some((
+                segment.start(),
+                segment.end(),
+                Segment {
+                    text,
+                    start: 0.0,
+                    duration: 0.0,
+                    confidence: segment.confidence() as f64,
+                    language: segment.language().map(|value| value.to_string()),
+                },
+            ))
+        })
+        .collect();
 
-        text_parts.push(text.to_string());
-        confidence_sum += segment.confidence() as f64;
-        confidence_count += 1;
-        if language.is_none() {
-            language = segment.language().map(|value| value.to_string());
-        }
-    }
-
-    if text_parts.is_empty() {
+    if raw_segments.is_empty() {
         return vec![];
     }
 
-    vec![Segment {
-        text: text_parts.join(" "),
-        start: chunk_start_sec,
-        duration: chunk_duration_sec,
-        confidence: confidence_sum / confidence_count as f64,
-        language,
-    }]
+    if raw_segments.len() == 1 {
+        return vec![Segment {
+            start: chunk_start_sec,
+            duration: chunk_duration_sec,
+            ..raw_segments.into_iter().next().unwrap().2
+        }];
+    }
+
+    let timings = normalize_raw_segment_timings(&raw_segments, chunk_duration_sec)
+        .unwrap_or_else(|| synthetic_segment_timings(&raw_segments, chunk_duration_sec));
+
+    raw_segments
+        .into_iter()
+        .zip(timings)
+        .map(|((_, _, segment), (start_offset, duration))| Segment {
+            start: chunk_start_sec + start_offset,
+            duration,
+            ..segment
+        })
+        .collect()
+}
+
+fn normalize_raw_segment_timings(
+    raw_segments: &[(f64, f64, Segment)],
+    chunk_duration_sec: f64,
+) -> Option<Vec<(f64, f64)>> {
+    let mut clamped_bounds = Vec::with_capacity(raw_segments.len());
+    let mut previous_end = 0.0;
+
+    for (start, end, _) in raw_segments {
+        if !start.is_finite() || !end.is_finite() {
+            return None;
+        }
+
+        let start = (*start).max(0.0).max(previous_end);
+        let end = (*end).max(0.0);
+        if end <= start {
+            return None;
+        }
+
+        clamped_bounds.push((start, end));
+        previous_end = end;
+    }
+
+    if previous_end <= 0.0 {
+        return None;
+    }
+
+    let scale = chunk_duration_sec / previous_end;
+    let mut timings = Vec::with_capacity(clamped_bounds.len());
+
+    for (idx, (start, end)) in clamped_bounds.into_iter().enumerate() {
+        let start = (start * scale).min(chunk_duration_sec);
+        let end = if idx + 1 == raw_segments.len() {
+            chunk_duration_sec
+        } else {
+            (end * scale).min(chunk_duration_sec)
+        };
+
+        if end <= start {
+            return None;
+        }
+
+        timings.push((start, end - start));
+    }
+
+    Some(timings)
+}
+
+fn synthetic_segment_timings(
+    raw_segments: &[(f64, f64, Segment)],
+    chunk_duration_sec: f64,
+) -> Vec<(f64, f64)> {
+    let total_weight: usize = raw_segments
+        .iter()
+        .map(|(_, _, segment)| segment.text.split_whitespace().count().max(1))
+        .sum();
+    let mut cursor = 0.0;
+
+    raw_segments
+        .iter()
+        .enumerate()
+        .map(|(idx, (_, _, segment))| {
+            let weight = segment.text.split_whitespace().count().max(1) as f64;
+            let start = cursor;
+            let end = if idx + 1 == raw_segments.len() {
+                chunk_duration_sec
+            } else {
+                cursor + chunk_duration_sec * (weight / total_weight as f64)
+            };
+            cursor = end;
+            (start, end - start)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -183,18 +273,61 @@ mod tests {
     }
 
     #[test]
-    fn builds_single_chunk_segment_from_multiple_raw_segments() {
+    fn preserves_multiple_segments_with_normalized_timings() {
         let segments = build_chunk_segments(
             vec![
                 hypr_whisper_local::Segment {
                     text: "hello".to_string(),
                     language: Some("en".to_string()),
+                    start: 0.0,
+                    end: 1.0,
                     confidence: 0.8,
                     ..Default::default()
                 },
                 hypr_whisper_local::Segment {
                     text: "again".to_string(),
                     language: Some("en".to_string()),
+                    start: 1.5,
+                    end: 2.0,
+                    confidence: 1.0,
+                    ..Default::default()
+                },
+            ],
+            10.0,
+            4.0,
+        );
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].start, 10.0);
+        assert_eq!(segments[0].duration, 2.0);
+        assert_eq!(segments[0].text, "hello");
+        assert_eq!(segments[0].language.as_deref(), Some("en"));
+        assert!((segments[0].confidence - 0.8).abs() < 1e-6);
+
+        assert_eq!(segments[1].start, 13.0);
+        assert_eq!(segments[1].duration, 1.0);
+        assert_eq!(segments[1].text, "again");
+        assert_eq!(segments[1].language.as_deref(), Some("en"));
+        assert!((segments[1].confidence - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn falls_back_to_synthetic_timings_when_raw_timings_are_invalid() {
+        let segments = build_chunk_segments(
+            vec![
+                hypr_whisper_local::Segment {
+                    text: "hello world".to_string(),
+                    language: Some("en".to_string()),
+                    start: 0.0,
+                    end: 0.0,
+                    confidence: 0.8,
+                    ..Default::default()
+                },
+                hypr_whisper_local::Segment {
+                    text: "again".to_string(),
+                    language: Some("en".to_string()),
+                    start: 0.0,
+                    end: 0.0,
                     confidence: 1.0,
                     ..Default::default()
                 },
@@ -203,11 +336,10 @@ mod tests {
             3.0,
         );
 
-        assert_eq!(segments.len(), 1);
+        assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].start, 10.0);
-        assert_eq!(segments[0].duration, 3.0);
-        assert_eq!(segments[0].text, "hello again");
-        assert_eq!(segments[0].language.as_deref(), Some("en"));
-        assert!((segments[0].confidence - 0.9).abs() < 1e-6);
+        assert_eq!(segments[0].duration, 2.0);
+        assert_eq!(segments[1].start, 12.0);
+        assert_eq!(segments[1].duration, 1.0);
     }
 }
