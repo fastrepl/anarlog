@@ -42,6 +42,7 @@ import {
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
 import { useAudioPlayer } from "~/audio-player";
+import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
@@ -397,6 +398,19 @@ function CreateOtherFormatButton({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const { user_id } = main.UI.useValues(main.STORE_ID);
+  const sessionTitle = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "title",
+    main.STORE_ID,
+  ) as string | undefined;
+  const rawMd = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "raw_md",
+    main.STORE_ID,
+  ) as string | undefined;
+  const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
   const userTemplates = useUserTemplates();
   const {
     data: suggestedTemplates = [],
@@ -503,6 +517,21 @@ function CreateOtherFormatButton({
   }, [openNew, setRow, user_id]);
 
   const searchQuery = search.trim().toLowerCase();
+  const transcriptText = useMemo(
+    () => formatTranscriptExportSegments(transcriptSegments),
+    [transcriptSegments],
+  );
+  const meetingContent = useMemo(
+    () =>
+      [sessionTitle ?? "", extractPlainText(rawMd), transcriptText]
+        .filter((value) => value.trim().length > 0)
+        .join("\n\n"),
+    [rawMd, sessionTitle, transcriptText],
+  );
+  const suggestedTemplateRecommendations = useMemo(
+    () => rankSuggestedTemplates(suggestedTemplates, meetingContent),
+    [meetingContent, suggestedTemplates],
+  );
 
   const filteredFavoriteTemplates = useMemo(() => {
     const sortedTemplates = [...userTemplates].sort((a, b) =>
@@ -522,7 +551,7 @@ function CreateOtherFormatButton({
 
   const filteredSuggestedTemplates = useMemo(() => {
     if (!searchQuery) {
-      return suggestedTemplates;
+      return suggestedTemplateRecommendations;
     }
 
     return suggestedTemplates.filter(
@@ -534,7 +563,7 @@ function CreateOtherFormatButton({
           target.toLowerCase().includes(searchQuery),
         ),
     );
-  }, [searchQuery, suggestedTemplates]);
+  }, [searchQuery, suggestedTemplateRecommendations, suggestedTemplates]);
 
   const hasSearch = searchQuery.length > 0;
 
@@ -929,6 +958,154 @@ type WebTemplate = {
   targets?: string[];
   sections: Array<{ title: string; description: string }>;
 };
+
+const TEMPLATE_SUGGESTION_STOP_WORDS = new Set([
+  "about",
+  "after",
+  "agenda",
+  "also",
+  "and",
+  "before",
+  "between",
+  "call",
+  "customer",
+  "discussion",
+  "discussions",
+  "follow",
+  "for",
+  "from",
+  "have",
+  "into",
+  "meeting",
+  "meetings",
+  "notes",
+  "plan",
+  "review",
+  "session",
+  "sessions",
+  "template",
+  "templates",
+  "that",
+  "their",
+  "them",
+  "this",
+  "with",
+  "your",
+]);
+
+function rankSuggestedTemplates(
+  templates: WebTemplate[],
+  meetingContent: string,
+) {
+  if (templates.length <= 3) {
+    return templates;
+  }
+
+  const normalizedContent = normalizeTemplateSuggestionText(meetingContent);
+  if (!normalizedContent) {
+    return templates.slice(0, 3);
+  }
+
+  const rankedTemplates = templates
+    .map((template, index) => ({
+      template,
+      index,
+      score: getSuggestedTemplateScore(template, normalizedContent),
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.index - b.index;
+    });
+
+  if (rankedTemplates[0]?.score === 0) {
+    return templates.slice(0, 3);
+  }
+
+  return rankedTemplates.slice(0, 3).map(({ template }) => template);
+}
+
+function getSuggestedTemplateScore(
+  template: WebTemplate,
+  normalizedContent: string,
+) {
+  let score = 0;
+
+  const title = normalizeTemplateSuggestionText(template.title);
+  const category = normalizeTemplateSuggestionText(template.category);
+
+  if (title && normalizedContent.includes(title)) {
+    score += 12;
+  }
+
+  if (category && normalizedContent.includes(category)) {
+    score += 6;
+  }
+
+  template.targets?.forEach((target) => {
+    const normalizedTarget = normalizeTemplateSuggestionText(target);
+    if (normalizedTarget && normalizedContent.includes(normalizedTarget)) {
+      score += 4;
+    }
+  });
+
+  score += getTemplateSuggestionTokenMatches(
+    normalizedContent,
+    template.title,
+    3,
+  );
+  score += getTemplateSuggestionTokenMatches(
+    normalizedContent,
+    template.category,
+    2,
+  );
+  score += getTemplateSuggestionTokenMatches(
+    normalizedContent,
+    template.description,
+    1,
+  );
+
+  template.targets?.forEach((target) => {
+    score += getTemplateSuggestionTokenMatches(normalizedContent, target, 2);
+  });
+
+  return score;
+}
+
+function getTemplateSuggestionTokenMatches(
+  normalizedContent: string,
+  value: string | undefined,
+  weight: number,
+) {
+  return tokenizeTemplateSuggestionText(value).reduce((score, token) => {
+    if (normalizedContent.includes(token)) {
+      return score + weight;
+    }
+    return score;
+  }, 0);
+}
+
+function tokenizeTemplateSuggestionText(value: string | undefined) {
+  return Array.from(
+    new Set(
+      normalizeTemplateSuggestionText(value)
+        .split(/\s+/)
+        .filter(
+          (token) =>
+            token.length > 2 && !TEMPLATE_SUGGESTION_STOP_WORDS.has(token),
+        ),
+    ),
+  );
+}
+
+function normalizeTemplateSuggestionText(value: string | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function TemplateSection({
   title,
