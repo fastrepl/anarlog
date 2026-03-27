@@ -3,11 +3,11 @@ import {
   AlertCircleIcon,
   CheckIcon,
   CopyIcon,
+  HeartIcon,
   LightbulbIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
-  StarIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1119,7 +1119,7 @@ function TemplateSection({
           <LightbulbIcon className="h-3.5 w-3.5 text-amber-500" />
         ) : null}
         {title === "Favorite templates" ? (
-          <StarIcon className="h-3.5 w-3.5 text-amber-500" />
+          <HeartIcon className="h-3.5 w-3.5 text-rose-500" />
         ) : null}
         <p className="font-mono text-[11px] font-medium tracking-wide text-neutral-500 uppercase">
           {title}
