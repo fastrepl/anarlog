@@ -398,6 +398,8 @@ function CreateOtherFormatButton({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const sessionTitle = main.UI.useCell(
     "sessions",
@@ -449,6 +451,7 @@ function CreateOtherFormatButton({
     (templateId: string) => {
       setOpen(false);
       setSearch("");
+      resultRefs.current = [];
 
       const service = getEnhancerService();
       if (!service) return;
@@ -465,6 +468,7 @@ function CreateOtherFormatButton({
     setOpen(nextOpen);
     if (!nextOpen) {
       setSearch("");
+      resultRefs.current = [];
     }
   }, []);
 
@@ -508,6 +512,7 @@ function CreateOtherFormatButton({
 
       setOpen(false);
       setSearch("");
+      resultRefs.current = [];
       openNew({
         type: "templates",
         state: {
@@ -572,6 +577,151 @@ function CreateOtherFormatButton({
   }, [searchQuery, suggestedTemplateRecommendations, suggestedTemplates]);
 
   const hasSearch = searchQuery.length > 0;
+  const resultSections = useMemo<
+    Array<{
+      key: string;
+      title: string;
+      icon?: React.ReactNode;
+      uppercase?: boolean;
+      emptyMessage?: string;
+      items: Array<{
+        key: string;
+        title: string;
+        description?: string;
+        onClick: () => void;
+      }>;
+    }>
+  >(() => {
+    if (!hasSearch) {
+      return [
+        {
+          key: "suggested",
+          title: "Suggested templates",
+          items: filteredSuggestedTemplates.map((template, index) => ({
+            key: template.slug || `suggested-${index}`,
+            title: template.title || "Untitled",
+            description: template.description,
+            onClick: () => handleSuggestedTemplateClick(template),
+          })),
+          emptyMessage: isSuggestedTemplatesLoading
+            ? "Loading suggestions..."
+            : "No suggested templates yet",
+        },
+        {
+          key: "favorite",
+          title: "Favorite templates",
+          items: filteredFavoriteTemplates.map((template) => ({
+            key: template.id,
+            title: template.title || "Untitled",
+            description: template.description,
+            onClick: () => handleUseTemplate(template.id),
+          })),
+          emptyMessage: "No favorite templates yet",
+        },
+      ];
+    }
+
+    return [
+      {
+        key: "create",
+        title: "Create new template",
+        icon: <PlusIcon className="h-3.5 w-3.5 text-blue-500" />,
+        uppercase: false,
+        items: [
+          {
+            key: `create-${trimmedSearch}`,
+            title: trimmedSearch,
+            onClick: () => handleCreateTemplate(trimmedSearch),
+          },
+        ],
+      },
+      ...(filteredSuggestedTemplates.length > 0
+        ? [
+            {
+              key: "suggested",
+              title: "Suggested templates",
+              items: filteredSuggestedTemplates.map((template, index) => ({
+                key: template.slug || `suggested-${index}`,
+                title: template.title || "Untitled",
+                description: template.description,
+                onClick: () => handleSuggestedTemplateClick(template),
+              })),
+            },
+          ]
+        : []),
+      ...(filteredFavoriteTemplates.length > 0
+        ? [
+            {
+              key: "favorite",
+              title: "Favorite templates",
+              items: filteredFavoriteTemplates.map((template) => ({
+                key: template.id,
+                title: template.title || "Untitled",
+                description: template.description,
+                onClick: () => handleUseTemplate(template.id),
+              })),
+            },
+          ]
+        : []),
+    ];
+  }, [
+    filteredFavoriteTemplates,
+    filteredSuggestedTemplates,
+    handleCreateTemplate,
+    handleSuggestedTemplateClick,
+    handleUseTemplate,
+    hasSearch,
+    isSuggestedTemplatesLoading,
+    trimmedSearch,
+  ]);
+  const navigableResults = useMemo(
+    () => resultSections.flatMap((section) => section.items),
+    [resultSections],
+  );
+  const focusSearchInput = useCallback(() => {
+    searchInputRef.current?.focus();
+  }, []);
+  const focusResult = useCallback((index: number) => {
+    resultRefs.current[index]?.focus();
+  }, []);
+  const handleSearchInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (navigableResults.length === 0) {
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusResult(0);
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        focusResult(navigableResults.length - 1);
+      }
+    },
+    [focusResult, navigableResults.length],
+  );
+  const handleResultKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusResult(Math.min(index + 1, navigableResults.length - 1));
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (index === 0) {
+          focusSearchInput();
+          return;
+        }
+
+        focusResult(index - 1);
+      }
+    },
+    [focusResult, focusSearchInput, navigableResults.length],
+  );
+  let resultIndex = 0;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -598,10 +748,12 @@ function CreateOtherFormatButton({
             >
               <SearchIcon className="h-4 w-4 text-neutral-400" />
               <input
+                ref={searchInputRef}
                 autoFocus
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={handleSearchInputKeyDown}
                 placeholder="Search templates..."
                 className="flex-1 bg-transparent text-sm placeholder:text-neutral-400 focus:outline-hidden"
               />
@@ -617,99 +769,40 @@ function CreateOtherFormatButton({
           </div>
 
           <div className="max-h-80 overflow-y-auto p-2">
-            {!hasSearch ? (
-              <div className="flex flex-col gap-3">
-                <TemplateSection title="Suggested templates">
-                  {isSuggestedTemplatesLoading &&
-                  filteredSuggestedTemplates.length === 0 ? (
-                    <div className="px-2 py-3 text-sm text-neutral-500">
-                      Loading suggestions...
-                    </div>
-                  ) : filteredSuggestedTemplates.length > 0 ? (
-                    filteredSuggestedTemplates.map((template, index) => (
-                      <TemplateResultButton
-                        key={template.slug || index}
-                        title={template.title || "Untitled"}
-                        description={template.description}
-                        onClick={() => handleSuggestedTemplateClick(template)}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-2 py-3 text-sm text-neutral-500">
-                      No suggested templates yet
-                    </div>
-                  )}
-                </TemplateSection>
-
-                <TemplateSection title="Favorite templates">
-                  {filteredFavoriteTemplates.length > 0 ? (
-                    filteredFavoriteTemplates.map((template) => (
-                      <TemplateResultButton
-                        key={template.id}
-                        title={template.title || "Untitled"}
-                        description={template.description}
-                        onClick={() => handleUseTemplate(template.id)}
-                      />
-                    ))
-                  ) : (
-                    <div className="px-2 py-3 text-sm text-neutral-500">
-                      No favorite templates yet
-                    </div>
-                  )}
-                </TemplateSection>
-              </div>
-            ) : filteredSuggestedTemplates.length > 0 ||
-              filteredFavoriteTemplates.length > 0 ? (
-              <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
+              {resultSections.map((section) => (
                 <TemplateSection
-                  title="Create new template"
-                  icon={<PlusIcon className="h-3.5 w-3.5 text-blue-500" />}
-                  uppercase={false}
+                  key={section.key}
+                  title={section.title}
+                  icon={section.icon}
+                  uppercase={section.uppercase}
                 >
-                  <TemplateResultButton
-                    title={trimmedSearch}
-                    onClick={() => handleCreateTemplate(trimmedSearch)}
-                  />
+                  {section.items.length > 0 ? (
+                    section.items.map((item) => {
+                      const itemIndex = resultIndex;
+                      resultIndex += 1;
+
+                      return (
+                        <TemplateResultButton
+                          key={item.key}
+                          buttonRef={(node) => {
+                            resultRefs.current[itemIndex] = node;
+                          }}
+                          title={item.title}
+                          description={item.description}
+                          onClick={item.onClick}
+                          onKeyDown={(e) => handleResultKeyDown(e, itemIndex)}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="px-2 py-3 text-sm text-neutral-500">
+                      {section.emptyMessage}
+                    </div>
+                  )}
                 </TemplateSection>
-
-                {filteredSuggestedTemplates.length > 0 ? (
-                  <TemplateSection title="Suggested templates">
-                    {filteredSuggestedTemplates.map((template, index) => (
-                      <TemplateResultButton
-                        key={template.slug || index}
-                        title={template.title || "Untitled"}
-                        description={template.description}
-                        onClick={() => handleSuggestedTemplateClick(template)}
-                      />
-                    ))}
-                  </TemplateSection>
-                ) : null}
-
-                {filteredFavoriteTemplates.length > 0 ? (
-                  <TemplateSection title="Favorite templates">
-                    {filteredFavoriteTemplates.map((template) => (
-                      <TemplateResultButton
-                        key={template.id}
-                        title={template.title || "Untitled"}
-                        description={template.description}
-                        onClick={() => handleUseTemplate(template.id)}
-                      />
-                    ))}
-                  </TemplateSection>
-                ) : null}
-              </div>
-            ) : (
-              <TemplateSection
-                title="Create new template"
-                icon={<PlusIcon className="h-3.5 w-3.5 text-blue-500" />}
-                uppercase={false}
-              >
-                <TemplateResultButton
-                  title={trimmedSearch}
-                  onClick={() => handleCreateTemplate(trimmedSearch)}
-                />
-              </TemplateSection>
-            )}
+              ))}
+            </div>
           </div>
         </div>
       </PopoverContent>
@@ -1153,21 +1246,27 @@ function TemplateSection({
 }
 
 function TemplateResultButton({
+  buttonRef,
   title,
   description,
   onClick,
+  onKeyDown,
 }: {
+  buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
   description?: string;
   onClick: () => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
+      ref={buttonRef}
       className={cn([
-        "w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-neutral-100",
+        "w-full rounded-md px-3 py-2 text-left transition-colors hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-hidden",
         "flex flex-col gap-0.5",
       ])}
       onClick={onClick}
+      onKeyDown={onKeyDown}
     >
       <span className="truncate text-sm font-medium text-neutral-900">
         {title}
