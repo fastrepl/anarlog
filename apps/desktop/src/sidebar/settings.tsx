@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getIdentifier } from "@tauri-apps/api/app";
 import {
   AudioLinesIcon,
+  ArrowUpRightIcon,
   BellIcon,
   BookText,
   BrainIcon,
@@ -145,6 +146,9 @@ export function SettingsNav() {
                   >
                     <item.icon size={15} />
                     <span>{item.label}</span>
+                    {!isSettingsItem ? (
+                      <ArrowUpRightIcon size={13} className="ml-auto" />
+                    ) : null}
                   </button>
                 );
               })}
