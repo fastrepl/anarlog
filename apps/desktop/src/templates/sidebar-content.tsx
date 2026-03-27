@@ -294,18 +294,18 @@ export function TemplatesSidebarContent({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto">
         {isWebMode && isWebLoading ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1 px-2 py-2">
             {[0, 1, 2, 3].map((index) => (
-              <div key={index} className="animate-pulse rounded-md px-3 py-2">
+              <div key={index} className="animate-pulse rounded-lg px-3 py-2">
                 <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
                 <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
               </div>
             ))}
           </div>
         ) : isEmpty ? (
-          <div className="py-8 text-center text-neutral-500">
+          <div className="px-3 py-8 text-center text-neutral-500">
             {isWebMode ? (
               <BookText size={32} className="mx-auto mb-2 text-neutral-300" />
             ) : (
@@ -333,10 +333,10 @@ export function TemplatesSidebarContent({
               key={template.slug || index}
               onClick={() => setSelectedWebIndex(index)}
               className={cn([
-                "w-full rounded-md border px-3 py-2 text-left text-sm select-none hover:bg-neutral-100",
+                "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
                 selectedWebIndex === index
-                  ? "border-neutral-500 bg-neutral-100"
-                  : "border-transparent",
+                  ? "bg-neutral-200"
+                  : "hover:bg-neutral-200/50",
               ])}
             >
               <div className="flex items-center gap-2">
@@ -414,8 +414,8 @@ function TemplateListItem({
         void showContextMenu(e);
       }}
       className={cn([
-        "w-full rounded-md border px-3 py-2 text-left text-sm select-none hover:bg-neutral-100",
-        selected ? "border-neutral-500 bg-neutral-100" : "border-transparent",
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-neutral-200" : "hover:bg-neutral-200/50",
       ])}
     >
       <div className="flex items-center gap-2">
