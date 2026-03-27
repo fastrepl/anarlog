@@ -592,7 +592,9 @@ function CreateOtherFormatButton({
         <div className="flex flex-col">
           <div className="border-b border-neutral-200 py-2">
             <div
-              className={cn(["flex h-9 items-center gap-2 rounded-md bg-white px-3"])}
+              className={cn([
+                "flex h-9 items-center gap-2 rounded-md bg-white px-3",
+              ])}
             >
               <SearchIcon className="h-4 w-4 text-neutral-400" />
               <input
@@ -661,7 +663,7 @@ function CreateOtherFormatButton({
               <div className="flex flex-col gap-3">
                 <TemplateSection
                   title="Create new template"
-                  icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
+                  icon={<PlusIcon className="h-3.5 w-3.5 text-blue-500" />}
                   uppercase={false}
                 >
                   <TemplateResultButton
@@ -699,7 +701,7 @@ function CreateOtherFormatButton({
             ) : (
               <TemplateSection
                 title="Create new template"
-                icon={<PlusIcon className="h-3.5 w-3.5 text-neutral-500" />}
+                icon={<PlusIcon className="h-3.5 w-3.5 text-blue-500" />}
                 uppercase={false}
               >
                 <TemplateResultButton
