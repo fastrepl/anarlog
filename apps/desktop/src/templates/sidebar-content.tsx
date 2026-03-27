@@ -28,10 +28,13 @@ import { cn } from "@hypr/utils";
 import {
   useCreateTemplate,
   useUserTemplates,
+  type UserTemplate,
   type WebTemplate,
 } from "./shared";
 
+import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
+import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 type SortOption = "alphabetical" | "reverse-alphabetical";
@@ -48,6 +51,11 @@ export function TemplatesSidebarContent({
   const createTemplate = useCreateTemplate();
   const { data: webTemplates = [], isLoading: isWebLoading } =
     useWebResources<WebTemplate>("templates");
+  const deleteTemplateFromStore = main.UI.useDelRowCallback(
+    "templates",
+    (templateId: string) => templateId,
+    main.STORE_ID,
+  );
 
   const { selectedMineId, selectedWebIndex } = tab.state;
   const isWebMode = tab.state.isWebMode ?? userTemplates.length === 0;
@@ -108,6 +116,32 @@ export function TemplatesSidebarContent({
       setSelectedMineId(id);
     }
   }, [createTemplate, setSelectedMineId]);
+
+  const handleDuplicateTemplate = useCallback(
+    (template: UserTemplate) => {
+      const id = createTemplate({
+        title: getDuplicatedTemplateTitle(template.title),
+        description: template.description ?? "",
+        sections: template.sections.map((section) => ({ ...section })),
+      });
+
+      if (id) {
+        setSelectedMineId(id);
+      }
+    },
+    [createTemplate, setSelectedMineId],
+  );
+
+  const handleDeleteTemplate = useCallback(
+    (id: string) => {
+      deleteTemplateFromStore(id);
+
+      if (selectedMineId === id) {
+        setSelectedMineId(null);
+      }
+    },
+    [deleteTemplateFromStore, selectedMineId, setSelectedMineId],
+  );
 
   const sortedUserTemplates = useMemo(() => {
     const sorted = [...userTemplates];
@@ -223,9 +257,14 @@ export function TemplatesSidebarContent({
           </div>
         </div>
 
-        <div>
-          <div className="relative flex h-8 shrink-0 items-center">
-            <Search className="absolute left-5 h-4 w-4 text-neutral-400" />
+        <div className="px-2">
+          <div
+            className={cn([
+              "flex h-8 shrink-0 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3",
+              "transition-colors focus-within:bg-neutral-200",
+            ])}
+          >
+            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
             <input
               type="text"
               value={search}
@@ -236,20 +275,13 @@ export function TemplatesSidebarContent({
                 }
               }}
               placeholder="Search templates..."
-              className={cn([
-                "text-sm placeholder:text-sm placeholder:text-neutral-400",
-                "h-full w-full pl-8",
-                search ? "pr-8" : "pr-4",
-                "rounded-lg border border-neutral-200 bg-neutral-200/50",
-                "focus:bg-neutral-200 focus:outline-hidden",
-              ])}
+              className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm placeholder:text-neutral-400 focus:outline-hidden"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
                 className={cn([
-                  "absolute right-5",
-                  "h-4 w-4",
+                  "h-4 w-4 shrink-0",
                   "text-neutral-400 hover:text-neutral-600",
                   "transition-colors",
                 ])}
@@ -329,33 +361,81 @@ export function TemplatesSidebarContent({
           ))
         ) : (
           filteredMine.map((template) => (
-            <button
+            <TemplateListItem
               key={template.id}
-              onClick={() => setSelectedMineId(template.id)}
-              className={cn([
-                "w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-neutral-100",
-                selectedMineId === template.id
-                  ? "border-neutral-500 bg-neutral-100"
-                  : "border-transparent",
-              ])}
-            >
-              <div className="flex items-center gap-2">
-                <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">
-                    {template.title?.trim() || "Untitled"}
-                  </div>
-                  {template.description && (
-                    <div className="truncate text-xs text-neutral-500">
-                      {template.description}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </button>
+              template={template}
+              selected={selectedMineId === template.id}
+              onSelect={setSelectedMineId}
+              onDuplicate={handleDuplicateTemplate}
+              onDelete={handleDeleteTemplate}
+            />
           ))
         )}
       </div>
     </div>
   );
+}
+
+function TemplateListItem({
+  template,
+  selected,
+  onSelect,
+  onDuplicate,
+  onDelete,
+}: {
+  template: UserTemplate;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onDuplicate: (template: UserTemplate) => void;
+  onDelete: (id: string) => void;
+}) {
+  const contextMenu = useMemo(
+    () => [
+      {
+        id: `duplicate-template-${template.id}`,
+        text: "Duplicate",
+        action: () => onDuplicate(template),
+      },
+      {
+        id: `delete-template-${template.id}`,
+        text: "Delete",
+        action: () => onDelete(template.id),
+      },
+    ],
+    [onDelete, onDuplicate, template],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  return (
+    <button
+      onClick={() => onSelect(template.id)}
+      onContextMenu={(e) => {
+        onSelect(template.id);
+        void showContextMenu(e);
+      }}
+      className={cn([
+        "w-full rounded-md border px-3 py-2 text-left text-sm hover:bg-neutral-100",
+        selected ? "border-neutral-500 bg-neutral-100" : "border-transparent",
+      ])}
+    >
+      <div className="flex items-center gap-2">
+        <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-medium">
+            {template.title?.trim() || "Untitled"}
+          </div>
+          {template.description && (
+            <div className="truncate text-xs text-neutral-500">
+              {template.description}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function getDuplicatedTemplateTitle(title: string) {
+  const value = title.trim();
+  return value ? `${value} copy` : "Untitled copy";
 }
