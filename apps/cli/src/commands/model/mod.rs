@@ -125,6 +125,9 @@ fn make_manager(
 }
 
 pub(crate) fn model_is_enabled(model: &LocalModel) -> bool {
+    if matches!(model, LocalModel::Am(_)) {
+        return false;
+    }
     cfg!(all(
         target_os = "macos",
         any(target_arch = "arm", target_arch = "aarch64")

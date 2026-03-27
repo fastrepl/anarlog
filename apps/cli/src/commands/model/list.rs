@@ -53,7 +53,6 @@ pub(crate) async fn collect_model_rows(
     rows.sort_by(|a, b| {
         status_rank(&a.status)
             .cmp(&status_rank(&b.status))
-            .then_with(|| a.kind.cmp(&b.kind))
             .then_with(|| a.name.cmp(&b.name))
     });
     rows
@@ -81,7 +80,7 @@ pub(super) async fn write_model_output(
                 .load_preset(UTF8_FULL_CONDENSED)
                 .set_content_arrangement(ContentArrangement::Dynamic);
 
-            table.set_header(vec!["Name", "Type", "Status", "Title", "Details", "Path"]);
+            table.set_header(vec!["Name", "Status", "Path"]);
 
             for row in rows {
                 let path = match &home {
@@ -92,28 +91,13 @@ pub(super) async fn write_model_output(
                         .unwrap_or_else(|| row.install_path.clone()),
                     None => row.install_path.clone(),
                 };
-                table.add_row(vec![
-                    row.name.clone(),
-                    row.kind.clone(),
-                    row.status.clone(),
-                    row.display_name.clone(),
-                    detail_text(row).to_string(),
-                    path,
-                ]);
+                table.add_row(vec![row.name.clone(), row.status.clone(), path]);
             }
 
             println!("{table}");
         }
     }
     Ok(())
-}
-
-fn detail_text(row: &ModelRow) -> &str {
-    if row.description.is_empty() {
-        "-"
-    } else {
-        row.description.as_str()
-    }
 }
 
 fn status_rank(status: &str) -> usize {
@@ -154,7 +138,6 @@ mod tests {
         rows.sort_by(|a, b| {
             status_rank(&a.status)
                 .cmp(&status_rank(&b.status))
-                .then_with(|| a.kind.cmp(&b.kind))
                 .then_with(|| a.name.cmp(&b.name))
         });
 
