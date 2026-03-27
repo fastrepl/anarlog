@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
@@ -184,8 +185,13 @@ function ChatGroups({
           />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={0} className="w-72 p-1.5">
-        <div className="flex flex-col gap-0.5">
+      <DropdownMenuContent
+        variant="app"
+        align="start"
+        sideOffset={0}
+        className="w-72"
+      >
+        <AppFloatingPanel className="flex flex-col gap-0.5 p-1.5">
           <div className="px-2 py-1.5">
             <h4 className="text-[10px] font-semibold tracking-wider text-neutral-500 uppercase">
               Recent Chats
@@ -211,7 +217,7 @@ function ChatGroups({
               <p className="text-xs text-neutral-400">No recent chats</p>
             </div>
           )}
-        </div>
+        </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>
   );

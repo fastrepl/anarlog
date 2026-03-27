@@ -2,6 +2,7 @@ import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -247,8 +248,10 @@ function AddSessionButton({ onAdd }: { onAdd: (sessionId: string) => void }) {
           <PlusIcon className="size-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-64 p-3">
-        <SessionPicker onSelect={onAdd} onClose={() => setOpen(false)} />
+      <PopoverContent variant="app" side="top" align="start" className="w-64">
+        <AppFloatingPanel className="p-3">
+          <SessionPicker onSelect={onAdd} onClose={() => setOpen(false)} />
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

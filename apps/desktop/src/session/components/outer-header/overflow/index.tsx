@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -47,23 +48,25 @@ export function OverflowButton({
             <MoreHorizontalIcon size={16} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <Copy />
-          <Folder sessionId={sessionId} setOpen={setOpen} />
-          <DropdownMenuItem
-            onClick={openExportModal}
-            className="cursor-pointer"
-          >
-            <FileTextIcon />
-            <span>Export</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
-          <DropdownMenuSeparator />
-          <ShowInFinder sessionId={sessionId} />
-          {audioExists && <DropdownMenuSeparator />}
-          {audioExists && <DeleteRecording sessionId={sessionId} />}
-          <DeleteNote sessionId={sessionId} />
+        <DropdownMenuContent variant="app" align="end" className="w-56">
+          <AppFloatingPanel className="overflow-hidden p-1">
+            <Copy />
+            <Folder sessionId={sessionId} setOpen={setOpen} />
+            <DropdownMenuItem
+              onClick={openExportModal}
+              className="cursor-pointer"
+            >
+              <FileTextIcon />
+              <span>Export</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <Listening sessionId={sessionId} hasTranscript={hasTranscript} />
+            <DropdownMenuSeparator />
+            <ShowInFinder sessionId={sessionId} />
+            {audioExists && <DropdownMenuSeparator />}
+            {audioExists && <DeleteRecording sessionId={sessionId} />}
+            <DeleteNote sessionId={sessionId} />
+          </AppFloatingPanel>
         </DropdownMenuContent>
       </DropdownMenu>
       <ExportModal

@@ -20,6 +20,7 @@ import {
   CommandList,
 } from "@hypr/ui/components/ui/command";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -339,41 +340,45 @@ export function NotificationSettingsView() {
                       </div>
                     </PopoverTrigger>
                     <PopoverContent
-                      className="p-0"
+                      variant="app"
                       align="start"
                       style={{ width: "var(--radix-popover-trigger-width)" }}
                     >
-                      <Command>
-                        <CommandInput
-                          placeholder="Search installed apps..."
-                          value={searchQuery}
-                          onValueChange={setSearchQuery}
-                        />
-                        <CommandEmpty>
-                          <div className="text-muted-foreground px-2 py-1.5 text-sm">
-                            No apps found.
-                          </div>
-                        </CommandEmpty>
-                        <CommandList>
-                          <CommandGroup className="max-h-[250px] overflow-y-auto">
-                            {ignorableApps.map((app) => (
-                              <CommandItem
-                                key={app.id}
-                                value={`${app.name} ${app.id}`}
-                                onSelect={() => handleToggleIgnoredApp(app.id)}
-                                className={cn([
-                                  "cursor-pointer",
-                                  "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
-                                ])}
-                              >
-                                <span className="flex-1 truncate">
-                                  {app.name}
-                                </span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
+                      <AppFloatingPanel className="overflow-hidden">
+                        <Command className="rounded-[inherit] border-0 bg-transparent">
+                          <CommandInput
+                            placeholder="Search installed apps..."
+                            value={searchQuery}
+                            onValueChange={setSearchQuery}
+                          />
+                          <CommandEmpty>
+                            <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                              No apps found.
+                            </div>
+                          </CommandEmpty>
+                          <CommandList>
+                            <CommandGroup className="max-h-[250px] overflow-y-auto">
+                              {ignorableApps.map((app) => (
+                                <CommandItem
+                                  key={app.id}
+                                  value={`${app.name} ${app.id}`}
+                                  onSelect={() =>
+                                    handleToggleIgnoredApp(app.id)
+                                  }
+                                  className={cn([
+                                    "cursor-pointer",
+                                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                                  ])}
+                                >
+                                  <span className="flex-1 truncate">
+                                    {app.name}
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </AppFloatingPanel>
                     </PopoverContent>
                   </Popover>
                 </div>

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -50,36 +51,38 @@ export function SortDropdown({
           <ArrowDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={sortOption}
-          onValueChange={(value) => setSortOption(value as SortOption)}
-        >
-          <DropdownMenuRadioItem
-            value="alphabetical"
-            className="cursor-pointer text-xs"
+      <DropdownMenuContent variant="app" align="end">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuRadioGroup
+            value={sortOption}
+            onValueChange={(value) => setSortOption(value as SortOption)}
           >
-            A-Z
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="reverse-alphabetical"
-            className="cursor-pointer text-xs"
-          >
-            Z-A
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="oldest"
-            className="cursor-pointer text-xs"
-          >
-            Oldest
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="newest"
-            className="cursor-pointer text-xs"
-          >
-            Newest
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+            <DropdownMenuRadioItem
+              value="alphabetical"
+              className="cursor-pointer text-xs"
+            >
+              A-Z
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="reverse-alphabetical"
+              className="cursor-pointer text-xs"
+            >
+              Z-A
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="oldest"
+              className="cursor-pointer text-xs"
+            >
+              Oldest
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="newest"
+              className="cursor-pointer text-xs"
+            >
+              Newest
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>
   );

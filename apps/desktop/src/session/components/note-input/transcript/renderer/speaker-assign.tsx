@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -69,8 +70,9 @@ export function SpeakerAssignPopover({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        variant="app"
         align="start"
-        className="w-56 p-0"
+        className="w-56"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <ParticipantList sessionId={sessionId} onSelect={handleAssign} />
@@ -111,12 +113,14 @@ function ParticipantList({
 
   if (participants.length === 0) {
     return (
-      <p className="px-3 py-2 text-xs text-neutral-400">No participants</p>
+      <AppFloatingPanel>
+        <p className="px-3 py-2 text-xs text-neutral-400">No participants</p>
+      </AppFloatingPanel>
     );
   }
 
   return (
-    <div className="max-h-48 overflow-auto py-1">
+    <AppFloatingPanel className="max-h-48 overflow-auto py-1">
       {participants.map((p) => (
         <button
           key={p.id}
@@ -130,6 +134,6 @@ function ParticipantList({
           {p.name}
         </button>
       ))}
-    </div>
+    </AppFloatingPanel>
   );
 }

@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -107,12 +108,13 @@ export function OptionsMenu({
         </div>
       </PopoverTrigger>
       <PopoverContent
+        variant="app"
         side="top"
         align="center"
         sideOffset={8}
-        className="w-43 rounded-xl p-1.5"
+        className="w-43"
       >
-        <div className="flex flex-col gap-1">
+        <AppFloatingPanel className="flex flex-col gap-1 p-1">
           <Button
             variant="ghost"
             className="h-9 justify-center px-3 whitespace-nowrap"
@@ -127,7 +129,7 @@ export function OptionsMenu({
           >
             <span className="text-sm">Upload transcript</span>
           </Button>
-        </div>
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

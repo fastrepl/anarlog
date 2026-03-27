@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { useEffect, useRef, useState } from "react";
 
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -137,21 +138,24 @@ export function DayCell({
               </button>
             </PopoverTrigger>
             <PopoverContent
+              variant="app"
               align="start"
-              className="max-h-[300px] w-[220px] overflow-y-auto rounded-lg p-2 shadow-lg"
+              className="max-h-[300px] w-[220px] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="mb-2 text-sm font-medium text-neutral-900">
-                {format(day, "MMM d, yyyy")}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                {eventIds.map((eventId) => (
-                  <EventChip key={eventId} eventId={eventId} />
-                ))}
-                {sessionIds.map((sessionId) => (
-                  <SessionChip key={sessionId} sessionId={sessionId} />
-                ))}
-              </div>
+              <AppFloatingPanel className="p-2">
+                <div className="mb-2 text-sm font-medium text-neutral-900">
+                  {format(day, "MMM d, yyyy")}
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  {eventIds.map((eventId) => (
+                    <EventChip key={eventId} eventId={eventId} />
+                  ))}
+                  {sessionIds.map((sessionId) => (
+                    <SessionChip key={sessionId} sessionId={sessionId} />
+                  ))}
+                </div>
+              </AppFloatingPanel>
             </PopoverContent>
           </Popover>
         )}

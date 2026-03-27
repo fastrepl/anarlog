@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -365,13 +366,14 @@ export function TabItemBase({
           <div className="pointer-events-none absolute inset-0" />
         </PopoverTrigger>
         <PopoverContent
+          variant="app"
           side="bottom"
           align="start"
-          className="z-[60] w-[240px] rounded-xl p-3"
+          className="z-[60] w-[240px]"
           sideOffset={2}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col gap-2">
+          <AppFloatingPanel className="flex flex-col gap-2 p-3">
             <p className="text-sm text-neutral-700">
               Are you sure you want to close this tab? This will stop Char from
               listening.
@@ -397,7 +399,7 @@ export function TabItemBase({
                 ⌘ W
               </Kbd>
             </Button>
-          </div>
+          </AppFloatingPanel>
         </PopoverContent>
       </Popover>
     </div>

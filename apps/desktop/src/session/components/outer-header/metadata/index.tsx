@@ -4,6 +4,7 @@ import { forwardRef, useState } from "react";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -33,10 +34,13 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
         <TriggerInner sessionId={sessionId} open={open} />
       </PopoverTrigger>
       <PopoverContent
+        variant="app"
         align="end"
-        className="flex max-h-[80vh] w-85 flex-col rounded-lg p-0 shadow-lg"
+        className="flex max-h-[80vh] w-85 flex-col"
       >
-        <ContentInner sessionId={sessionId} />
+        <AppFloatingPanel>
+          <ContentInner sessionId={sessionId} />
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );
