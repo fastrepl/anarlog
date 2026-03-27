@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
 import {
   Tooltip,
   TooltipContent,
@@ -18,7 +17,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import { buildWebAppUrl } from "~/shared/utils";
+import { openIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
@@ -33,7 +32,13 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   );
 
   const handleAddAccount = useCallback(
-    () => openIntegrationUrl(config.nangoIntegrationId, undefined, "connect"),
+    () =>
+      openIntegrationUrl(
+        config.nangoIntegrationId,
+        undefined,
+        "connect",
+        "calendar",
+      ),
     [config.nangoIntegrationId],
   );
 
@@ -86,6 +91,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "reconnect",
+                "calendar",
               )
             }
             onDisconnect={() =>
@@ -93,6 +99,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "disconnect",
+                "calendar",
               )
             }
             errorDescription={connection.last_error_description ?? null}
@@ -199,6 +206,7 @@ function ConnectedContent({
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "reconnect",
+                  "calendar",
                 ),
             },
             {
@@ -209,6 +217,7 @@ function ConnectedContent({
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "disconnect",
+                  "calendar",
                 ),
             },
           ],
@@ -224,22 +233,4 @@ function ConnectedContent({
       isLoading={isLoading}
     />
   );
-}
-
-export async function openIntegrationUrl(
-  nangoIntegrationId: string | undefined,
-  connectionId: string | undefined,
-  action: "connect" | "reconnect" | "disconnect",
-) {
-  if (!nangoIntegrationId) return;
-  const params: Record<string, string> = {
-    action,
-    integration_id: nangoIntegrationId,
-    return_to: "calendar",
-  };
-  if (connectionId) {
-    params.connection_id = connectionId;
-  }
-  const url = await buildWebAppUrl("/app/integration", params);
-  await openerCommands.openUrl(url, null);
 }

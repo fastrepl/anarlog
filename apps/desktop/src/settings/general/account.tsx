@@ -1,7 +1,19 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon, Puzzle, RefreshCwIcon, Sparkle } from "lucide-react";
+import {
+  CheckCircle2,
+  Puzzle,
+  RefreshCw,
+  Sparkle,
+  XCircle,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   canStartTrial as canStartTrialApi,
@@ -10,10 +22,14 @@ import {
 import { createClient } from "@hypr/api-client/client";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { type SubscriptionStatus } from "@hypr/supabase";
+import {
+  getActionForTier,
+  PLAN_TIERS,
+  type PlanTier,
+  type TierAction,
+} from "@hypr/pricing";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
@@ -46,82 +62,10 @@ const ACCOUNT_FEATURES = [
   },
 ] as const;
 
-function PlanStatus({
-  subscriptionStatus,
-  trialDaysRemaining,
-}: {
-  subscriptionStatus: SubscriptionStatus | null;
-  trialDaysRemaining: number | null;
-}) {
-  if (!subscriptionStatus) {
-    return <span className="font-semibold text-neutral-900">FREE</span>;
-  }
-
-  switch (subscriptionStatus) {
-    case "active":
-      return <span className="font-semibold text-neutral-900">PRO</span>;
-
-    case "trialing": {
-      const isUrgent = trialDaysRemaining !== null && trialDaysRemaining <= 3;
-      let trialText = null;
-      if (trialDaysRemaining !== null) {
-        if (trialDaysRemaining === 0) {
-          trialText = "Trial ends today";
-        } else if (trialDaysRemaining === 1) {
-          trialText = "Trial ends tomorrow";
-        } else {
-          trialText = `${trialDaysRemaining} days left`;
-        }
-      }
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-semibold text-neutral-900">PRO</span>
-          {trialText && (
-            <span
-              className={cn(["text-neutral-500", isUrgent && "text-amber-600"])}
-            >
-              ({trialText})
-            </span>
-          )}
-        </span>
-      );
-    }
-
-    case "past_due":
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-semibold text-neutral-900">PRO</span>
-          <span className="text-amber-600">(Payment issue)</span>
-        </span>
-      );
-
-    case "unpaid":
-      return (
-        <span className="font-semibold text-amber-600">Payment failed</span>
-      );
-
-    case "canceled":
-      return <span className="font-semibold text-neutral-900">Canceled</span>;
-
-    case "incomplete":
-      return (
-        <span className="font-semibold text-neutral-900">Setup incomplete</span>
-      );
-
-    case "incomplete_expired":
-      return <span className="font-semibold text-neutral-900">Expired</span>;
-
-    case "paused":
-      return <span className="font-semibold text-neutral-900">Paused</span>;
-
-    default:
-      return <span className="font-semibold text-neutral-900">FREE</span>;
-  }
-}
-
-export function AccountSettings() {
+export function SettingsAccount() {
   const auth = useAuth();
-  const { subscriptionStatus, trialDaysRemaining } = useBillingAccess();
+  const { plan, isPaid, isPro, isTrialing, trialDaysRemaining } =
+    useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
   const [isPending, setIsPending] = useState(false);
@@ -157,51 +101,49 @@ export function AccountSettings() {
     },
   });
 
-  const handleRefreshPlan = useCallback(async () => {
-    await auth?.refreshSession();
-  }, [auth]);
-
   if (!isAuthenticated) {
     if (isPending) {
       return (
-        <div>
-          <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
-          <Container
-            title="Finish sign-in"
-            description="Complete the sign-in flow in your browser, then come back here if Char does not reconnect automatically."
-            action={
-              <Button onClick={handleSignIn} variant="outline">
-                Reopen sign-in page
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-neutral-500">
-                Having trouble? Paste the callback URL manually.
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  type="text"
-                  className="flex-1 font-mono text-xs"
-                  placeholder="hyprnote://deeplink/auth?access_token=..."
-                  value={callbackUrl}
-                  onChange={(e) => setCallbackUrl(e.target.value)}
-                />
-                <Button
-                  onClick={() => auth?.handleAuthCallback(callbackUrl)}
-                  disabled={!callbackUrl}
-                >
-                  Submit
+        <div className="flex flex-col gap-8 pt-3">
+          <div>
+            <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
+            <Container
+              title="Finish sign-in"
+              description="Complete the sign-in flow in your browser, then come back here if Char does not reconnect automatically."
+              action={
+                <Button onClick={handleSignIn} variant="outline">
+                  Reopen sign-in page
                 </Button>
+              }
+            >
+              <div className="flex flex-col gap-3">
+                <p className="text-xs text-neutral-500">
+                  Having trouble? Paste the callback URL manually.
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    type="text"
+                    className="flex-1 font-mono text-xs"
+                    placeholder="hyprnote://deeplink/auth?access_token=..."
+                    value={callbackUrl}
+                    onChange={(e) => setCallbackUrl(e.target.value)}
+                  />
+                  <Button
+                    onClick={() => auth?.handleAuthCallback(callbackUrl)}
+                    disabled={!callbackUrl}
+                  >
+                    Submit
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Container>
+            </Container>
+          </div>
         </div>
       );
     }
 
     return (
-      <div>
+      <div className="flex flex-col gap-8 pt-3">
         <section className="border-b border-neutral-200 pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -230,10 +172,12 @@ export function AccountSettings() {
     );
   }
 
+  const currentTier = plan === "trial" ? "pro" : plan;
+
   return (
-    <div>
-      <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8 pt-3">
+      <div>
+        <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
         <Container
           title="Your Account"
           description={auth.session?.user.email ?? "Signed in"}
@@ -250,40 +194,347 @@ export function AccountSettings() {
             </Button>
           }
         />
-
-        <Container
-          title="Plan & Billing"
-          description={
-            <div className="flex items-center gap-1.5">
-              <span>
-                Your current plan is{" "}
-                <PlanStatus
-                  subscriptionStatus={subscriptionStatus}
-                  trialDaysRemaining={trialDaysRemaining}
-                />
-              </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleRefreshPlan}
-                disabled={auth?.isRefreshingSession}
-                className={cn([
-                  "size-6 rounded-md text-neutral-500 hover:text-neutral-800",
-                ])}
-                aria-label="Refresh plan status"
-              >
-                {auth?.isRefreshingSession ? (
-                  <Spinner size={12} />
-                ) : (
-                  <RefreshCwIcon className="size-3.5" />
-                )}
-              </Button>
-            </div>
-          }
-          action={<BillingButton />}
-        />
       </div>
+
+      <PlanBillingSection
+        currentTier={currentTier}
+        isTrialing={isTrialing}
+        trialDaysRemaining={trialDaysRemaining}
+        isPaid={isPaid}
+        isPro={isPro}
+      />
+    </div>
+  );
+}
+
+function PlanBillingSection({
+  currentTier,
+  isTrialing,
+  trialDaysRemaining,
+  isPaid,
+  isPro,
+}: {
+  currentTier: PlanTier;
+  isTrialing: boolean;
+  trialDaysRemaining: number | null;
+  isPaid: boolean;
+  isPro: boolean;
+}) {
+  const auth = useAuth();
+  const store = settings.UI.useStore(settings.STORE_ID);
+
+  const canTrialQuery = useQuery({
+    enabled: !!auth?.session && !isPro,
+    queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
+    queryFn: async () => {
+      const headers = auth?.getHeaders();
+      if (!headers) {
+        return false;
+      }
+      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+      const { data, error } = await canStartTrialApi({ client });
+      if (error) {
+        throw error;
+      }
+      return data?.canStartTrial ?? false;
+    },
+  });
+
+  const startTrialMutation = useMutation({
+    mutationFn: async () => {
+      const headers = auth?.getHeaders();
+      if (!headers) {
+        throw new Error("Not authenticated");
+      }
+      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+      const { error } = await startTrial({
+        client,
+        query: { interval: "monthly" },
+      });
+      if (error) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    },
+    onSuccess: async () => {
+      if (store) {
+        configureProSettings(store);
+      }
+      await auth?.refreshSession();
+    },
+  });
+
+  const openUrl = useCallback((url: string) => {
+    void openerCommands.openUrl(url, null);
+  }, []);
+
+  const planLabel =
+    currentTier === "free" ? "Free" : currentTier === "lite" ? "Lite" : "Pro";
+  const statusText = isTrialing ? (
+    <>
+      Pro trial
+      {trialDaysRemaining != null &&
+        ` \u2014 ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left`}
+    </>
+  ) : (
+    <>
+      You&rsquo;re on the <span className="font-semibold">{planLabel}</span>{" "}
+      plan
+    </>
+  );
+
+  const renderAction = (action: TierAction, compact: boolean) => {
+    if (action == null) return null;
+
+    if (action.style === "current") {
+      if (compact) {
+        return <span className="text-xs text-neutral-400">{action.label}</span>;
+      }
+      return (
+        <div className="flex h-8 items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+          {action.label}
+        </div>
+      );
+    }
+
+    const isUpgrade = action.style === "upgrade";
+
+    const handleClick = () => {
+      if (action.label === "Start free trial") {
+        startTrialMutation.mutate();
+        return;
+      }
+      if (!action.targetPlan) return;
+
+      void analyticsCommands.event({
+        event: "upgrade_clicked",
+        plan: action.targetPlan,
+      });
+
+      if (isPaid && action.targetPlan) {
+        openUrl(
+          `${WEB_APP_BASE_URL}/app/switch-plan?targetPlan=${action.targetPlan}&targetPeriod=monthly`,
+        );
+      } else {
+        openUrl(
+          `${WEB_APP_BASE_URL}/app/checkout?plan=${action.targetPlan}&period=monthly`,
+        );
+      }
+    };
+
+    const label =
+      action.label === "Start free trial" && startTrialMutation.isPending
+        ? "Loading..."
+        : action.label;
+
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={
+            action.label === "Start free trial" && startTrialMutation.isPending
+          }
+          className={cn([
+            "text-xs font-medium transition-colors",
+            isUpgrade
+              ? "text-stone-600 hover:text-stone-800"
+              : "text-neutral-500 hover:text-neutral-700",
+          ])}
+        >
+          {label}
+        </button>
+      );
+    }
+
+    const buttonClass = cn([
+      "flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium transition-all hover:scale-[102%] active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+      isUpgrade
+        ? "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:shadow-lg"
+        : "border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs hover:shadow-md",
+    ]);
+
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={
+          action.label === "Start free trial" && startTrialMutation.isPending
+        }
+        className={buttonClass}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="font-serif text-lg font-semibold">Plan & Billing</h2>
+        {isPaid && (
+          <button
+            type="button"
+            onClick={() => openUrl(`${WEB_APP_BASE_URL}/app/account`)}
+            className="text-xs text-neutral-500 transition-colors hover:text-neutral-700"
+          >
+            Manage billing
+          </button>
+        )}
+      </div>
+
+      <div className="mb-4 flex items-center gap-2">
+        <p className="text-sm text-neutral-600">{statusText}</p>
+        <button
+          type="button"
+          onClick={() => auth?.refreshSession()}
+          className="text-neutral-400 transition-colors hover:text-neutral-600"
+          aria-label="Refresh billing status"
+        >
+          <RefreshCw className="size-3" />
+        </button>
+      </div>
+
+      <PlanTierList
+        currentTier={currentTier}
+        isTrialing={isTrialing}
+        canStartTrial={canTrialQuery.data ?? false}
+        renderAction={renderAction}
+      />
+    </div>
+  );
+}
+
+function PlanTierList({
+  currentTier,
+  isTrialing,
+  canStartTrial,
+  renderAction,
+}: {
+  currentTier: PlanTier;
+  isTrialing: boolean;
+  canStartTrial: boolean;
+  renderAction: (action: TierAction, compact: boolean) => ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isWide, setIsWide] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      setIsWide(entry.contentRect.width >= 480);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef}>
+      {isWide ? (
+        <div className="grid grid-cols-3 gap-px border-t border-neutral-100">
+          {PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentTier;
+            const action = getActionForTier(
+              tier.id,
+              currentTier,
+              canStartTrial,
+            );
+
+            return (
+              <div
+                key={tier.id}
+                className={cn([
+                  "flex flex-col p-3",
+                  isCurrent && "bg-stone-50/60",
+                ])}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-serif text-base font-medium text-stone-800">
+                    {tier.name}
+                  </span>
+                  {isCurrent && (
+                    <span className="rounded-full bg-stone-600 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
+                      {isTrialing ? "Trial" : "Current"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mb-2">
+                  <span className="font-serif text-xl text-stone-700">
+                    {tier.price}
+                  </span>
+                  {tier.period && (
+                    <span className="text-sm text-neutral-500">
+                      {tier.period}
+                    </span>
+                  )}
+                  {tier.subtitle && (
+                    <div className="mt-0.5 text-xs text-neutral-400">
+                      {tier.subtitle}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-3 flex flex-col gap-1">
+                  {tier.features.map((f) => (
+                    <div key={f} className="flex items-start gap-1.5">
+                      <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-green-700" />
+                      <span className="text-xs text-neutral-700">{f}</span>
+                    </div>
+                  ))}
+                  {tier.notIncluded.map((f) => (
+                    <div key={f} className="flex items-start gap-1.5">
+                      <XCircle className="mt-0.5 size-3.5 shrink-0 text-neutral-300" />
+                      <span className="text-xs text-neutral-400">{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-auto">{renderAction(action, false)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentTier;
+            const action = getActionForTier(
+              tier.id,
+              currentTier,
+              canStartTrial,
+            );
+
+            return (
+              <div
+                key={tier.id}
+                className={cn([
+                  "flex items-center justify-between border-b border-neutral-100 py-2.5 last:border-b-0",
+                  isCurrent && "-mx-2 rounded-md bg-stone-50/60 px-2",
+                ])}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-stone-800">
+                    {tier.name}
+                  </span>
+                  <span className="text-sm text-neutral-500">
+                    {tier.price}
+                    {tier.period}
+                  </span>
+                  {isCurrent && (
+                    <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
+                      {isTrialing ? "Trial" : "Current"}
+                    </span>
+                  )}
+                </div>
+                <div className="shrink-0">{renderAction(action, true)}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -392,98 +643,6 @@ function FeatureSpotlight() {
         ) : null}
       </AnimatePresence>
     </div>
-  );
-}
-
-function BillingButton() {
-  const auth = useAuth();
-  const { isPro } = useBillingAccess();
-  const store = settings.UI.useStore(settings.STORE_ID);
-
-  const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !isPro,
-    queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
-    queryFn: async () => {
-      const headers = auth?.getHeaders();
-      if (!headers) {
-        return false;
-      }
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { data, error } = await canStartTrialApi({ client });
-      if (error) {
-        throw error;
-      }
-
-      return data?.canStartTrial ?? false;
-    },
-  });
-
-  const startTrialMutation = useMutation({
-    mutationFn: async () => {
-      const headers = auth?.getHeaders();
-      if (!headers) {
-        throw new Error("Not authenticated");
-      }
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { error } = await startTrial({
-        client,
-        query: { interval: "monthly" },
-      });
-      if (error) {
-        throw error;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    },
-    onSuccess: async () => {
-      if (store) {
-        configureProSettings(store);
-      }
-      await auth?.refreshSession();
-    },
-  });
-
-  const handleProUpgrade = useCallback(() => {
-    void analyticsCommands.event({
-      event: "upgrade_clicked",
-      plan: "pro",
-    });
-    void openerCommands.openUrl(
-      `${WEB_APP_BASE_URL}/app/checkout?period=monthly`,
-      null,
-    );
-  }, []);
-
-  const handleOpenAccount = useCallback(() => {
-    void openerCommands.openUrl(`${WEB_APP_BASE_URL}/app/account`, null);
-  }, []);
-
-  if (isPro) {
-    return (
-      <Button variant="outline" onClick={handleOpenAccount} className="gap-1.5">
-        <span className="text-sm">Manage</span>
-        <ExternalLinkIcon className="text-neutral-600" size={12} />
-      </Button>
-    );
-  }
-
-  if (canTrialQuery.data) {
-    return (
-      <Button
-        variant="outline"
-        onClick={() => startTrialMutation.mutate()}
-        disabled={startTrialMutation.isPending}
-      >
-        <span>Start Pro Trial</span>
-      </Button>
-    );
-  }
-
-  return (
-    <Button variant="outline" onClick={handleProUpgrade} className="gap-1.5">
-      <span>Upgrade to Pro</span>
-      <ExternalLinkIcon className="text-neutral-600" size={12} />
-    </Button>
   );
 }
 

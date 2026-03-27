@@ -25,6 +25,7 @@
     "@ai-sdk/openai": "^3.0.39",
     "@ai-sdk/openai-compatible": "^2.0.35",
     "@ai-sdk/react": "^3.0.118",
+    "@hypr/pricing": "workspace:^",
     "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/lang-jinja": "^6.0.0",
     "@codemirror/language": "^6.12.1",

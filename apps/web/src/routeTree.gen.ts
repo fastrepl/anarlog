@@ -114,6 +114,7 @@ import { Route as ViewCallbackSignoutRouteImport } from './routes/_view/callback
 import { Route as ViewCallbackIntegrationRouteImport } from './routes/_view/callback/integration'
 import { Route as ViewCallbackAuthRouteImport } from './routes/_view/callback/auth'
 import { Route as ViewBlogSlugRouteImport } from './routes/_view/blog/$slug'
+import { Route as ViewAppSwitchPlanRouteImport } from './routes/_view/app/switch-plan'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
@@ -689,6 +690,11 @@ const ViewBlogSlugRoute = ViewBlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewAppSwitchPlanRoute = ViewAppSwitchPlanRouteImport.update({
+  id: '/switch-plan',
+  path: '/switch-plan',
+  getParentRoute: () => ViewAppRouteRoute,
+} as any)
 const ViewAppIntegrationRoute = ViewAppIntegrationRouteImport.update({
   id: '/integration',
   path: '/integration',
@@ -940,6 +946,7 @@ export interface FileRoutesByFullPath {
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -1082,6 +1089,7 @@ export interface FileRoutesByTo {
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -1230,6 +1238,7 @@ export interface FileRoutesById {
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
+  '/_view/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/_view/blog/$slug': typeof ViewBlogSlugRoute
   '/_view/callback/auth': typeof ViewCallbackAuthRoute
   '/_view/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -1378,6 +1387,7 @@ export interface FileRouteTypes {
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
+    | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
     | '/callback/integration'
@@ -1520,6 +1530,7 @@ export interface FileRouteTypes {
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
+    | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
     | '/callback/integration'
@@ -1667,6 +1678,7 @@ export interface FileRouteTypes {
     | '/_view/app/account'
     | '/_view/app/checkout'
     | '/_view/app/integration'
+    | '/_view/app/switch-plan'
     | '/_view/blog/$slug'
     | '/_view/callback/auth'
     | '/_view/callback/integration'
@@ -2566,6 +2578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewBlogSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/app/switch-plan': {
+      id: '/_view/app/switch-plan'
+      path: '/switch-plan'
+      fullPath: '/app/switch-plan'
+      preLoaderRoute: typeof ViewAppSwitchPlanRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
     '/_view/app/integration': {
       id: '/_view/app/integration'
       path: '/integration'
@@ -2853,6 +2872,7 @@ interface ViewAppRouteRouteChildren {
   ViewAppAccountRoute: typeof ViewAppAccountRoute
   ViewAppCheckoutRoute: typeof ViewAppCheckoutRoute
   ViewAppIntegrationRoute: typeof ViewAppIntegrationRoute
+  ViewAppSwitchPlanRoute: typeof ViewAppSwitchPlanRoute
   ViewAppIndexRoute: typeof ViewAppIndexRoute
 }
 
@@ -2860,6 +2880,7 @@ const ViewAppRouteRouteChildren: ViewAppRouteRouteChildren = {
   ViewAppAccountRoute: ViewAppAccountRoute,
   ViewAppCheckoutRoute: ViewAppCheckoutRoute,
   ViewAppIntegrationRoute: ViewAppIntegrationRoute,
+  ViewAppSwitchPlanRoute: ViewAppSwitchPlanRoute,
   ViewAppIndexRoute: ViewAppIndexRoute,
 }
 

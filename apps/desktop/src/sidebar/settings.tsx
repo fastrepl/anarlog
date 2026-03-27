@@ -10,7 +10,9 @@ import {
   MonitorIcon,
   SmartphoneIcon,
   SparklesIcon,
+  TicketIcon,
   TriangleAlertIcon,
+  UserIcon,
 } from "lucide-react";
 import { useCallback } from "react";
 
@@ -26,6 +28,7 @@ const GROUPS: {
     label: "General",
     items: [
       { id: "app", label: "App", icon: SmartphoneIcon },
+      { id: "account", label: "Account", icon: UserIcon },
       { id: "calendar", label: "Calendar", icon: CalendarIcon },
       { id: "notifications", label: "Notifications", icon: BellIcon },
       { id: "system", label: "System", icon: MonitorIcon },
@@ -46,10 +49,16 @@ const GROUPS: {
   },
 ];
 
-const DONT_USE_THIS_ITEM = {
-  id: "dont-use-this" as SettingsTab,
-  label: "Don't use this",
-  icon: TriangleAlertIcon,
+const DONT_USE_THIS_GROUP = {
+  label: "Do not use",
+  items: [
+    {
+      id: "dont-use-this" as SettingsTab,
+      label: "General",
+      icon: TriangleAlertIcon,
+    },
+    { id: "todo" as SettingsTab, label: "Ticket", icon: TicketIcon },
+  ],
 };
 
 export function SettingsNav() {
@@ -70,10 +79,8 @@ export function SettingsNav() {
 
   const activeTab =
     currentTab?.type === "settings"
-      ? currentTab.state.tab === "account"
-        ? "app"
-        : (currentTab.state.tab ?? "app")
-      : "app";
+      ? (currentTab.state.tab ?? "account")
+      : "account";
 
   const setActiveTab = useCallback(
     (tab: SettingsTab) => {
@@ -84,13 +91,7 @@ export function SettingsNav() {
     [currentTab, updateSettingsTabState],
   );
 
-  const groups = showDontUseThis
-    ? GROUPS.map((g) =>
-        g.label === "Advanced"
-          ? { ...g, items: [...g.items, DONT_USE_THIS_ITEM] }
-          : g,
-      )
-    : GROUPS;
+  const groups = showDontUseThis ? [...GROUPS, DONT_USE_THIS_GROUP] : GROUPS;
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto px-3 py-2">

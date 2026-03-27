@@ -156,6 +156,89 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     return { url: checkout.url };
   });
 
+const createPlanSwitchSessionInput = z.object({
+  targetPlan: z.enum(["lite", "pro"]),
+  targetPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
+  scheme: desktopSchemeSchema.optional(),
+});
+
+export const createPlanSwitchSession = createServerFn({ method: "POST" })
+  .inputValidator(createPlanSwitchSessionInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+
+    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
+      id: user.id,
+      user_metadata: user.user_metadata,
+    });
+
+    if (!stripeCustomerId) {
+      return { url: null };
+    }
+
+    const subscriptions = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 1,
+    });
+
+    const activeSubscription = subscriptions.data.find((sub) =>
+      ["active", "trialing"].includes(sub.status),
+    );
+
+    if (!activeSubscription) {
+      return { url: null };
+    }
+
+    const subscriptionItemId = activeSubscription.items.data[0].id;
+
+    const targetPriceId =
+      data.targetPlan === "lite"
+        ? requireEnv(
+            env.STRIPE_LITE_MONTHLY_PRICE_ID,
+            "STRIPE_LITE_MONTHLY_PRICE_ID",
+          )
+        : data.targetPeriod === "yearly"
+          ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+          : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+
+    const returnUrl = data.scheme
+      ? `${env.VITE_APP_URL}/app/account?scheme=${data.scheme}`
+      : `${env.VITE_APP_URL}/app/account`;
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: returnUrl,
+      flow_data: {
+        type: "subscription_update_confirm",
+        subscription_update_confirm: {
+          subscription: activeSubscription.id,
+          items: [
+            {
+              id: subscriptionItemId,
+              price: targetPriceId,
+            },
+          ],
+        },
+        after_completion: {
+          type: "redirect",
+          redirect: { return_url: returnUrl },
+        },
+      },
+    });
+
+    return { url: portalSession.url };
+  });
+
 export const createPortalSession = createServerFn({ method: "POST" }).handler(
   async () => {
     const supabase = getSupabaseServerClient();

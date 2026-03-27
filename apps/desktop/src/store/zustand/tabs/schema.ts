@@ -37,6 +37,7 @@ export type SettingsTab =
   | "intelligence"
   | "templates"
   | "memory"
+  | "todo"
   | "dont-use-this";
 
 export type SettingsState = {
@@ -194,7 +195,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return {
         ...base,
         type: "settings",
-        state: { tab: (tab.state?.tab as SettingsTab) ?? "app" },
+        state: { tab: (tab.state?.tab as SettingsTab) ?? "account" },
       };
     case "chat_support":
       return {

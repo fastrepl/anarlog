@@ -15,6 +15,7 @@
     "@honeycombio/opentelemetry-web": "^1.3.0",
     "@hypr/api-client": "workspace:*",
     "@hypr/changelog": "workspace:^",
+    "@hypr/pricing": "workspace:^",
     "@hypr/supabase": "workspace:*",
     "@hypr/tiptap": "workspace:*",
     "@hypr/ui": "workspace:*",

@@ -156,7 +156,7 @@ function HeroSection() {
 function PricingCardsSection() {
   return (
     <section className="laptop:px-0 px-4 py-16">
-      <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
+      <div className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-8 md:grid-cols-3">
         {pricingPlans.map((plan) => (
           <PricingCard key={plan.name} plan={plan} />
         ))}
@@ -171,14 +171,16 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
       className={cn([
         "flex flex-col overflow-hidden rounded-xs border transition-transform",
         plan.popular
-          ? "relative scale-105 border-stone-600 shadow-lg"
+          ? "relative border-stone-600 shadow-lg"
           : "border-neutral-100",
       ])}
     >
-      {plan.popular && (
+      {plan.popular ? (
         <div className="bg-stone-600 px-4 py-2 text-center text-sm font-medium text-white">
           Most Popular
         </div>
+      ) : (
+        <div className="px-4 py-2 text-sm">&nbsp;</div>
       )}
 
       <div className="flex flex-1 flex-col p-8">
@@ -186,28 +188,34 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
           <h2 className="mb-2 font-serif text-2xl text-stone-700">
             {plan.name}
           </h2>
-          <p className="mb-4 text-sm text-neutral-600">{plan.description}</p>
+          <p className="mb-4 min-h-[80px] text-sm text-neutral-600">
+            {plan.description}
+          </p>
 
-          {plan.price ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-baseline gap-2">
-                <span className="font-serif text-4xl text-stone-700">
-                  ${plan.price.monthly}
-                </span>
-                <span className="text-neutral-600">/month</span>
-              </div>
-              {plan.price.yearly != null && (
-                <div className="text-sm text-neutral-600">
-                  or ${plan.price.yearly}/year
+          <div className="min-h-[64px]">
+            {plan.price ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-serif text-4xl text-stone-700">
+                    ${plan.price.monthly}
+                  </span>
+                  <span className="text-neutral-600">/month</span>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="font-serif text-4xl text-stone-700">Free</div>
-          )}
+                {plan.price.yearly != null ? (
+                  <div className="text-sm text-neutral-600">
+                    or ${plan.price.yearly}/year
+                  </div>
+                ) : (
+                  <div className="text-sm text-neutral-400">Monthly only</div>
+                )}
+              </div>
+            ) : (
+              <div className="font-serif text-4xl text-stone-700">Free</div>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-3">
+        <div className="flex flex-col gap-3">
           {plan.features.map((feature, idx) => {
             const IconComponent =
               feature.included === true
@@ -268,33 +276,35 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
           })}
         </div>
 
-        {plan.price ? (
-          <Link
-            to="/app/checkout/"
-            search={{
-              plan: plan.name.toLowerCase() as "lite" | "pro",
-              period: "monthly",
-            }}
-            className={cn([
-              "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-              plan.popular
-                ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-                : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
-            ])}
-          >
-            Get Started
-          </Link>
-        ) : (
-          <Link
-            to="/download/"
-            className={cn([
-              "mt-8 flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-              "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
-            ])}
-          >
-            Download for free
-          </Link>
-        )}
+        <div className="mt-auto pt-8">
+          {plan.price ? (
+            <Link
+              to="/app/checkout/"
+              search={{
+                plan: plan.name.toLowerCase() as "lite" | "pro",
+                period: "monthly",
+              }}
+              className={cn([
+                "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+                plan.popular
+                  ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                  : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+              ])}
+            >
+              Get Started
+            </Link>
+          ) : (
+            <Link
+              to="/download/"
+              className={cn([
+                "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+                "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+              ])}
+            >
+              Download for free
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );

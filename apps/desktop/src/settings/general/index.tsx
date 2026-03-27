@@ -6,7 +6,7 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as listenerCommands } from "@hypr/plugin-listener";
 import type { General, GeneralStorage } from "@hypr/store";
 
-import { AccountSettings } from "./account";
+export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
 import { Audio } from "./audio";
 import { MainLanguageView } from "./main-language";
@@ -121,8 +121,6 @@ export function SettingsApp() {
 
   return (
     <div className="flex flex-col gap-8 pt-3">
-      <AccountSettings />
-
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="save_recordings">

@@ -1,0 +1,19 @@
+{
+  "name": "@hypr/pricing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ui": "./src/plan-grid.tsx"
+  },
+  "dependencies": {
+    "@hypr/utils": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.13"
+  },
+  "peerDependencies": {
+    "lucide-react": ">=0.400.0",
+    "react": "^19.0.0"
+  }
+}

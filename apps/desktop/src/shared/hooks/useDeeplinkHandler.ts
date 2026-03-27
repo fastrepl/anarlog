@@ -56,6 +56,8 @@ export function useDeeplinkHandler() {
           }
           if (return_to === "calendar") {
             openNew({ type: "calendar" });
+          } else if (return_to === "todo") {
+            openNew({ type: "settings", state: { tab: "todo" } });
           }
         }
       }

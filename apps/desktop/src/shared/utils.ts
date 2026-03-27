@@ -19,7 +19,11 @@ export const getScheme = async (): Promise<string> => {
   return schemes[id] ?? "hypr";
 };
 
-type DesktopFlowPath = "/auth" | "/app/integration" | "/app/checkout";
+type DesktopFlowPath =
+  | "/auth"
+  | "/app/integration"
+  | "/app/checkout"
+  | "/app/switch-plan";
 
 export const buildWebAppUrl = async (
   path: DesktopFlowPath,

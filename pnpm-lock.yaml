@@ -334,6 +334,9 @@ importers:
       '@hypr/plugin-windows':
         specifier: workspace:*
         version: link:../../plugins/windows
+      '@hypr/pricing':
+        specifier: workspace:^
+        version: link:../../packages/pricing
       '@hypr/store':
         specifier: workspace:*
         version: link:../../packages/store
@@ -781,6 +784,9 @@ importers:
       '@hypr/changelog':
         specifier: workspace:^
         version: link:../../packages/changelog
+      '@hypr/pricing':
+        specifier: workspace:^
+        version: link:../../packages/pricing
       '@hypr/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -1337,6 +1343,22 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  packages/pricing:
+    dependencies:
+      '@hypr/utils':
+        specifier: workspace:^
+        version: link:../utils
+      lucide-react:
+        specifier: '>=0.400.0'
+        version: 0.544.0(react@19.2.4)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.13
+        version: 19.2.14
 
   packages/store:
     dependencies:

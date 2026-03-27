@@ -8,9 +8,15 @@ import {
 
 import { SettingsCalendar } from "./calendar";
 import { SettingsDontUseThis } from "./dont-use-this";
-import { SettingsApp, SettingsNotifications, SettingsSystem } from "./general";
+import {
+  SettingsAccount,
+  SettingsApp,
+  SettingsNotifications,
+  SettingsSystem,
+} from "./general";
 import { SettingsLab } from "./lab";
 import { TemplatesContent } from "./templates-content";
+import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
 import { STT } from "~/settings/ai/stt";
@@ -59,13 +65,14 @@ export function TabContentSettings({
 }
 
 function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
-  const activeTab =
-    tab.state.tab === "account" ? "app" : (tab.state.tab ?? "app");
+  const activeTab = tab.state.tab ?? "account";
   const ref = useRef<HTMLDivElement>(null);
   const { atStart, atEnd } = useScrollFade(ref, "vertical", [activeTab]);
 
   const renderContent = () => {
     switch (activeTab) {
+      case "account":
+        return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
       case "notifications":
@@ -84,6 +91,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <TemplatesContent />;
       case "memory":
         return <SettingsMemory />;
+      case "todo":
+        return <SettingsTodo />;
       case "dont-use-this":
         return <SettingsDontUseThis />;
     }
