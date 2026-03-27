@@ -1,12 +1,4 @@
-import {
-  ArrowDownUp,
-  BookText,
-  Globe,
-  Plus,
-  Search,
-  Star,
-  X,
-} from "lucide-react";
+import { ArrowDownUp, BookText, Plus, Search, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -17,15 +9,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
-import { Switch } from "@hypr/ui/components/ui/switch";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import {
+  resolveTemplateTabSelection,
   useCreateTemplate,
   useUserTemplates,
   type UserTemplate,
