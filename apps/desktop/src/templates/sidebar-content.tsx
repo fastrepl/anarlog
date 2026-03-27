@@ -11,6 +11,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -176,17 +177,19 @@ export function TemplatesSidebarContent({
                     <ArrowDownUp size={16} />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => setSortOption("alphabetical")}
-                  >
-                    A to Z
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setSortOption("reverse-alphabetical")}
-                  >
-                    Z to A
-                  </DropdownMenuItem>
+                <DropdownMenuContent variant="app" align="end">
+                  <AppFloatingPanel className="overflow-hidden p-1">
+                    <DropdownMenuItem
+                      onClick={() => setSortOption("alphabetical")}
+                    >
+                      A to Z
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setSortOption("reverse-alphabetical")}
+                    >
+                      Z to A
+                    </DropdownMenuItem>
+                  </AppFloatingPanel>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

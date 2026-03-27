@@ -20,6 +20,7 @@ import {
 } from "@hypr/plugin-fs-sync";
 import { NoteTab } from "@hypr/ui/components/ui/note-tab";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -753,12 +754,9 @@ function CreateOtherFormatButton({
           <span>Use template</span>
         </button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-80 rounded-2xl bg-stone-50 p-1"
-        align="start"
-      >
+      <PopoverContent variant="app" className="w-80" align="start">
         <div className="flex flex-col gap-1">
-          <div className="flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+          <AppFloatingPanel className="flex flex-col overflow-hidden">
             <div className="border-b border-neutral-200 py-2">
               <div
                 className={cn([
@@ -823,7 +821,7 @@ function CreateOtherFormatButton({
                 ))}
               </div>
             </div>
-          </div>
+          </AppFloatingPanel>
 
           <button
             onClick={handleSeeAllTemplates}
