@@ -1,5 +1,5 @@
 import { Reorder } from "motion/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import type { ContactsSelection } from "@hypr/plugin-windows";
@@ -88,13 +88,16 @@ function ContactsList({
   const [showNewPerson, setShowNewPerson] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
-  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useHotkeys(
     "mod+f",
-    () => setShowSearch(true),
+    () => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    },
     { preventDefault: true, enableOnFormTags: true },
-    [setShowSearch],
+    [],
   );
 
   const allHumans = main.UI.useTable("humans", main.STORE_ID);
@@ -302,8 +305,7 @@ function ContactsList({
         onAdd={handleAdd}
         searchValue={searchValue}
         onSearchChange={setSearchValue}
-        showSearch={showSearch}
-        onShowSearchChange={setShowSearch}
+        searchInputRef={searchInputRef}
       />
       <div className="flex-1 overflow-y-auto">
         <div className="p-2">
