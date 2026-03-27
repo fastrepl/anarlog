@@ -44,34 +44,23 @@ export function TemplatesSidebarContent({
     main.STORE_ID,
   );
 
-  const { selectedMineId, selectedWebIndex } = tab.state;
-  const isWebMode = tab.state.isWebMode ?? userTemplates.length === 0;
-
-  const setShowHomepage = useCallback(() => {
-    updateTabState(tab, {
-      ...tab.state,
-      showHomepage: true,
-    });
-  }, [updateTabState, tab]);
-
-  const setIsWebMode = useCallback(
-    (value: boolean) => {
-      updateTabState(tab, {
-        ...tab.state,
-        isWebMode: value,
-        selectedMineId: null,
-        selectedWebIndex: null,
-      });
-    },
-    [updateTabState, tab],
-  );
+  const {
+    isWebMode,
+    selectedMineId: effectiveSelectedMineId,
+    selectedWebIndex: effectiveSelectedWebIndex,
+  } = resolveTemplateTabSelection({
+    isWebMode: tab.state.isWebMode,
+    selectedMineId: tab.state.selectedMineId,
+    selectedWebIndex: tab.state.selectedWebIndex,
+    userTemplates,
+    webTemplates,
+  });
 
   const setSelectedMineId = useCallback(
     (id: string | null) => {
       updateTabState(tab, {
         ...tab.state,
         isWebMode: false,
-        showHomepage: false,
         selectedMineId: id,
         selectedWebIndex: null,
       });
@@ -84,7 +73,6 @@ export function TemplatesSidebarContent({
       updateTabState(tab, {
         ...tab.state,
         isWebMode: true,
-        showHomepage: false,
         selectedMineId: null,
         selectedWebIndex: index,
       });
@@ -123,11 +111,11 @@ export function TemplatesSidebarContent({
     (id: string) => {
       deleteTemplateFromStore(id);
 
-      if (selectedMineId === id) {
+      if (effectiveSelectedMineId === id) {
         setSelectedMineId(null);
       }
     },
-    [deleteTemplateFromStore, selectedMineId, setSelectedMineId],
+    [deleteTemplateFromStore, effectiveSelectedMineId, setSelectedMineId],
   );
 
   const sortedUserTemplates = useMemo(() => {
@@ -215,24 +203,6 @@ export function TemplatesSidebarContent({
               </DropdownMenu>
             )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 px-2">
-                  <Globe size={14} className="text-neutral-400" />
-                  <Switch
-                    size="sm"
-                    checked={isWebMode}
-                    onCheckedChange={setIsWebMode}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {isWebMode
-                  ? "Showing community templates"
-                  : "Showing your templates"}
-              </TooltipContent>
-            </Tooltip>
-
             <Button
               size="icon"
               variant="ghost"
@@ -282,30 +252,27 @@ export function TemplatesSidebarContent({
       </div>
 
       <div className="scrollbar-hide flex-1 overflow-y-auto">
-        {isWebMode && isWebLoading ? (
-          <div className="flex flex-col gap-1 px-2 py-2">
-            {[0, 1, 2, 3].map((index) => (
-              <div key={index} className="animate-pulse rounded-lg px-3 py-2">
-                <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
-                <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
-              </div>
-            ))}
+        {isWebLoading && (
+          <div className="px-2 pt-3">
+            <ListSectionTitle>Provided by Char</ListSectionTitle>
+            <div className="flex flex-col gap-1">
+              {[0, 1, 2, 3].map((index) => (
+                <div key={index} className="animate-pulse rounded-lg px-3 py-2">
+                  <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
+                  <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
+                </div>
+              ))}
+            </div>
           </div>
-        ) : isEmpty ? (
+        )}
+
+        {isEmpty ? (
           <div className="px-3 py-8 text-center text-neutral-500">
-            {isWebMode ? (
-              <BookText size={32} className="mx-auto mb-2 text-neutral-300" />
-            ) : (
-              <Star size={32} className="mx-auto mb-2 text-neutral-300" />
-            )}
+            <BookText size={32} className="mx-auto mb-2 text-neutral-300" />
             <p className="text-sm">
-              {search
-                ? "No templates found"
-                : isWebMode
-                  ? "No community templates"
-                  : "No templates yet"}
+              {search ? "No templates found" : "No templates yet"}
             </p>
-            {!search && !isWebMode && (
+            {!search && (
               <button
                 onClick={handleCreateTemplate}
                 className="mt-3 text-sm text-neutral-600 underline hover:text-neutral-800"
@@ -314,51 +281,73 @@ export function TemplatesSidebarContent({
               </button>
             )}
           </div>
-        ) : isWebMode ? (
-          filteredWeb.map(({ template, index }) => (
-            <button
-              key={template.slug || index}
-              onClick={() => setSelectedWebIndex(index)}
-              className={cn([
-                "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
-                selectedWebIndex === index
-                  ? "bg-neutral-200"
-                  : "hover:bg-neutral-200/50",
-              ])}
-            >
-              <div className="flex items-center gap-2">
-                <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">
-                    {template.title || "Untitled"}
-                    {template.category && (
-                      <span className="ml-1 font-mono text-xs text-stone-400">
-                        ({template.category})
-                      </span>
-                    )}
-                  </div>
-                  {template.description && (
-                    <div className="truncate text-xs text-neutral-500">
-                      {template.description}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))
         ) : (
-          filteredMine.map((template) => (
-            <TemplateListItem
-              key={template.id}
-              template={template}
-              selected={selectedMineId === template.id}
-              onSelect={setSelectedMineId}
-              onDuplicate={handleDuplicateTemplate}
-              onDelete={handleDeleteTemplate}
-            />
-          ))
+          <>
+            {hasWebResults && (
+              <div className="px-2 pt-3">
+                <ListSectionTitle>Provided by Char</ListSectionTitle>
+                {filteredWeb.map(({ template, index }) => (
+                  <button
+                    key={template.slug || index}
+                    onClick={() => setSelectedWebIndex(index)}
+                    className={cn([
+                      "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+                      isWebMode && effectiveSelectedWebIndex === index
+                        ? "bg-neutral-200"
+                        : "hover:bg-neutral-200/50",
+                    ])}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium">
+                          {template.title || "Untitled"}
+                          {template.category && (
+                            <span className="ml-1 font-mono text-xs text-stone-400">
+                              ({template.category})
+                            </span>
+                          )}
+                        </div>
+                        {template.description && (
+                          <div className="truncate text-xs text-neutral-500">
+                            {template.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {hasMineResults && (
+              <div className="px-2 pt-3">
+                <ListSectionTitle>Your templates</ListSectionTitle>
+                {filteredMine.map((template) => (
+                  <TemplateListItem
+                    key={template.id}
+                    template={template}
+                    selected={
+                      !isWebMode && effectiveSelectedMineId === template.id
+                    }
+                    onSelect={setSelectedMineId}
+                    onDuplicate={handleDuplicateTemplate}
+                    onDelete={handleDeleteTemplate}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ListSectionTitle({ children }: { children: string }) {
+  return (
+    <div className="px-1 pb-1 text-xs font-medium text-neutral-400 uppercase">
+      {children}
     </div>
   );
 }
