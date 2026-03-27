@@ -156,12 +156,11 @@ function ProviderAccordionItem({
         onContextMenu={
           providerMenuItems.length > 0 ? showProviderMenu : undefined
         }
-        className={cn([
-          "group -mx-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md px-2 hover:bg-neutral-50",
-          requiresPro && "opacity-60",
-        ])}
+        className="group -mx-2 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-md px-2 hover:bg-neutral-50"
       >
-        <AccordionHeader className="min-w-0">
+        <AccordionHeader
+          className={cn(["min-w-0", requiresPro && "opacity-60"])}
+        >
           <AccordionTriggerPrimitive
             className="flex w-full min-w-0 items-center py-2 text-left text-sm font-medium transition-all hover:no-underline"
             onClick={handleTriggerClick}
