@@ -88,18 +88,20 @@ describe("ChatSession", () => {
       ],
     });
 
-    const child = vi.fn(() => null);
+    let pendingRefs: unknown[] | undefined;
 
     render(
       <ChatSession sessionId="draft-session">
-        {(props) => child(props)}
+        {(props) => {
+          pendingRefs = props.pendingRefs;
+          return null;
+        }}
       </ChatSession>,
     );
 
     await act(async () => {});
 
-    expect(child).toHaveBeenCalled();
-    expect(child.mock.lastCall?.[0].pendingRefs).toEqual([
+    expect(pendingRefs).toEqual([
       {
         kind: "human",
         key: "human:manual:human-1",
