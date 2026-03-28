@@ -170,4 +170,51 @@ describe("syncCalendars", () => {
       name: "Personal",
     });
   });
+
+  test("preserves enabled state for legacy Google calendars without connection ids", async () => {
+    const store = createStore();
+
+    store.setRow("calendars", "legacy-row", {
+      user_id: "user-1",
+      created_at: "2026-03-25T00:00:00.000Z",
+      tracking_id_calendar: "primary",
+      name: "John (Hyprnote)",
+      enabled: true,
+      provider: "google",
+      source: "john@hyprnote.com",
+      color: "#4285f4",
+      connection_id: "",
+    });
+
+    pluginCalendar.listCalendars.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "primary",
+          title: "John (Hyprnote)",
+          source: "john@hyprnote.com",
+          color: "#4285f4",
+        },
+      ],
+    });
+
+    await syncCalendars(store, [
+      {
+        provider: "google",
+        connection_ids: ["conn-john"],
+      },
+    ]);
+
+    const calendars = getCalendarsByConnection(store, "google");
+
+    expect(calendars).toHaveLength(1);
+    expect(calendars[0]).toMatchObject({
+      id: "legacy-row",
+      tracking_id_calendar: "primary",
+      name: "John (Hyprnote)",
+      enabled: true,
+      source: "john@hyprnote.com",
+      connection_id: "conn-john",
+    });
+  });
 });

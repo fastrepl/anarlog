@@ -42,3 +42,37 @@ export function findCalendarByTrackingId(
 
   return foundRowId;
 }
+
+export function findLegacyCalendarByTrackingId(
+  store: Store<Schemas>,
+  {
+    provider,
+    trackingId,
+    source,
+  }: {
+    provider: string;
+    trackingId: string;
+    source?: string;
+  },
+): string | null {
+  if (!source) {
+    return null;
+  }
+
+  let foundRowId: string | null = null;
+
+  store.forEachRow("calendars", (rowId, _forEachCell) => {
+    if (foundRowId) return;
+    const row = store.getRow("calendars", rowId);
+    if (
+      row?.provider === provider &&
+      !row?.connection_id &&
+      row?.tracking_id_calendar === trackingId &&
+      row?.source === source
+    ) {
+      foundRowId = rowId;
+    }
+  });
+
+  return foundRowId;
+}

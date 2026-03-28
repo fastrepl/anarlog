@@ -9,6 +9,7 @@ import type {
 
 import {
   findCalendarByTrackingId,
+  findLegacyCalendarByTrackingId,
   getCalendarTrackingKey,
 } from "~/calendar/utils";
 import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
@@ -127,19 +128,38 @@ export async function syncCalendars(
 
     store.transaction(() => {
       const disabledCalendarIds = new Set<string>();
+      const legacyMatchedRowIds = new Set<string>();
+
+      for (const { calendars } of perConnection) {
+        for (const cal of calendars) {
+          const legacyRowId = findLegacyCalendarByTrackingId(store, {
+            provider,
+            trackingId: cal.id,
+            source: cal.source ?? undefined,
+          });
+
+          if (legacyRowId) {
+            legacyMatchedRowIds.add(legacyRowId);
+          }
+        }
+      }
 
       for (const rowId of store.getRowIds("calendars")) {
         const row = store.getRow("calendars", rowId);
         if (
-          row.provider === provider &&
-          !incomingKeys.has(
-            getCalendarTrackingKey({
-              provider: row.provider as string | undefined,
-              connectionId: row.connection_id as string | undefined,
-              trackingId: row.tracking_id_calendar as string | undefined,
-            }),
-          )
+          legacyMatchedRowIds.has(rowId) ||
+          (row.provider === provider &&
+            !incomingKeys.has(
+              getCalendarTrackingKey({
+                provider: row.provider as string | undefined,
+                connectionId: row.connection_id as string | undefined,
+                trackingId: row.tracking_id_calendar as string | undefined,
+              }),
+            ))
         ) {
+          if (legacyMatchedRowIds.has(rowId)) {
+            continue;
+          }
           disabledCalendarIds.add(rowId);
           store.delRow("calendars", rowId);
         } else if (row.provider === provider && !row.enabled) {
@@ -158,11 +178,17 @@ export async function syncCalendars(
 
       for (const { connectionId, calendars } of perConnection) {
         for (const cal of calendars) {
-          const existingRowId = findCalendarByTrackingId(store, {
-            provider,
-            connectionId,
-            trackingId: cal.id,
-          });
+          const existingRowId =
+            findCalendarByTrackingId(store, {
+              provider,
+              connectionId,
+              trackingId: cal.id,
+            }) ??
+            findLegacyCalendarByTrackingId(store, {
+              provider,
+              trackingId: cal.id,
+              source: cal.source ?? undefined,
+            });
           const rowId = existingRowId ?? crypto.randomUUID();
           const existing = existingRowId
             ? store.getRow("calendars", existingRowId)
