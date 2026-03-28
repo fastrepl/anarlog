@@ -8,6 +8,11 @@ import {
   BreadcrumbSeparator,
 } from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 
 import { useBillingAccess } from "~/auth/billing";
 import { FolderBreadcrumb } from "~/shared/ui/folder-breadcrumb";
@@ -24,7 +29,7 @@ export function FolderChain({ sessionId }: { sessionId: string }) {
   );
 
   if (!folderId) {
-    return null;
+    return <UnassignedFolderBreadcrumb />;
   }
 
   return (
@@ -32,6 +37,24 @@ export function FolderChain({ sessionId }: { sessionId: string }) {
       <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden font-mono text-xs text-neutral-700">
         <FolderIcon className="mr-1 h-3 w-3 shrink-0" />
         <RenderFolderBreadcrumb folderId={folderId} isPro={isPro} />
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+function UnassignedFolderBreadcrumb() {
+  return (
+    <Breadcrumb className="ml-1.5 w-full min-w-0">
+      <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden font-mono text-xs text-neutral-700">
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <BreadcrumbItem className="flex items-center gap-1.5 text-neutral-400">
+              <FolderIcon className="h-3 w-3 shrink-0" />
+              <span className="cursor-default">Unassigned</span>
+            </BreadcrumbItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Coming soon</TooltipContent>
+        </Tooltip>
       </BreadcrumbList>
     </Breadcrumb>
   );
