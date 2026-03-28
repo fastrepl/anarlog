@@ -23,28 +23,28 @@ export function ResourcePreviewHeader({
   children?: ReactNode;
 }) {
   return (
-    <div className="border-b border-neutral-200 px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          {category && (
-            <div className="mb-1">
-              <span className="font-mono text-xs text-stone-400">
-                {category}
-              </span>
-            </div>
-          )}
-          <h2 className="truncate text-lg font-semibold">
-            {title || "Untitled"}
-          </h2>
-          {description && (
-            <p className="mt-1 text-sm text-neutral-500">{description}</p>
-          )}
-        </div>
-        <Button onClick={onClone} size="sm" className="ml-4 shrink-0">
-          {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
-          {actionLabel}
-        </Button>
+    <div className="relative px-6 pt-5 pb-4">
+      <div className="min-w-0 pr-32">
+        {category && (
+          <div className="mb-1">
+            <span className="font-mono text-xs text-stone-400">{category}</span>
+          </div>
+        )}
+        <h2 className="truncate text-lg font-semibold">
+          {title || "Untitled"}
+        </h2>
+        {description && (
+          <p className="mt-1 text-sm text-neutral-500">{description}</p>
+        )}
       </div>
+      <Button
+        onClick={onClone}
+        size="sm"
+        className="absolute top-5 right-6 shrink-0"
+      >
+        {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
+        {actionLabel}
+      </Button>
       {targets && targets.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {targets.map((target, index) => (

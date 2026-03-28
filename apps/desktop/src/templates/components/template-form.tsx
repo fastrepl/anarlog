@@ -143,102 +143,100 @@ export function TemplateForm({
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            {value.category ? (
-              <div className="mb-1">
-                <span className="font-mono text-xs text-stone-400">
-                  {value.category}
-                </span>
-              </div>
-            ) : null}
-            <form.Field name="title">
-              {(field) => (
-                <Input
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Enter template title"
-                  className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
-                />
-              )}
-            </form.Field>
-            <form.Field name="description">
-              {(field) => (
-                <Textarea
-                  value={field.state.value}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  placeholder="Describe the template purpose..."
-                  className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
-                  rows={1}
-                />
-              )}
-            </form.Field>
-          </div>
-          <div className="ml-4 flex shrink-0 items-center gap-1">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => toggleTemplateFavorite(id)}
-              className={cn([
-                "text-neutral-500 hover:text-neutral-800",
-                value.pinned && "text-rose-500 hover:text-rose-600",
-              ])}
-              title={value.pinned ? "Unfavorite template" : "Favorite template"}
-              aria-label={
-                value.pinned ? "Unfavorite template" : "Favorite template"
-              }
-            >
-              <HeartIcon
-                className="size-4"
-                fill={value.pinned ? "currentColor" : "none"}
+      <div className="relative px-6 pt-5 pb-4">
+        <div className="min-w-0 pr-48">
+          {value.category ? (
+            <div className="mb-1">
+              <span className="font-mono text-xs text-stone-400">
+                {value.category}
+              </span>
+            </div>
+          ) : null}
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Enter template title"
+                className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
               />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              onClick={setSelectedTemplateId}
-              title={isDefault ? "Remove as default" : "Set as default"}
-              className="shrink-0"
-            >
-              {isDefault ? "Default" : "Set default"}
-            </Button>
-            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className={cn([
-                    "text-neutral-500 hover:text-neutral-800",
-                    actionsOpen &&
-                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
-                  ])}
-                  aria-label="Template actions"
+            )}
+          </form.Field>
+          <form.Field name="description">
+            {(field) => (
+              <Textarea
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Describe the template purpose..."
+                className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
+                rows={1}
+              />
+            )}
+          </form.Field>
+        </div>
+        <div className="absolute top-5 right-6 flex items-center gap-1">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => toggleTemplateFavorite(id)}
+            className={cn([
+              "text-neutral-500 hover:text-neutral-800",
+              value.pinned && "text-rose-500 hover:text-rose-600",
+            ])}
+            title={value.pinned ? "Unfavorite template" : "Favorite template"}
+            aria-label={
+              value.pinned ? "Unfavorite template" : "Favorite template"
+            }
+          >
+            <HeartIcon
+              className="size-4"
+              fill={value.pinned ? "currentColor" : "none"}
+            />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="default"
+            onClick={setSelectedTemplateId}
+            title={isDefault ? "Remove as default" : "Set as default"}
+            className="shrink-0"
+          >
+            {isDefault ? "Default" : "Set default"}
+          </Button>
+          <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className={cn([
+                  "text-neutral-500 hover:text-neutral-800",
+                  actionsOpen &&
+                    "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                ])}
+                aria-label="Template actions"
+              >
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent variant="app" align="end">
+              <AppFloatingPanel className="overflow-hidden p-1">
+                <DropdownMenuItem
+                  onClick={() => handleDuplicateTemplate(id)}
+                  className="cursor-pointer"
                 >
-                  <MoreHorizontalIcon className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent variant="app" align="end">
-                <AppFloatingPanel className="overflow-hidden p-1">
-                  <DropdownMenuItem
-                    onClick={() => handleDuplicateTemplate(id)}
-                    className="cursor-pointer"
-                  >
-                    Duplicate
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDeleteTemplate(id)}
-                    className="cursor-pointer text-red-600 focus:text-red-600"
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </AppFloatingPanel>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleDeleteTemplate(id)}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </AppFloatingPanel>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         {value.targets && value.targets.length > 0 ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
