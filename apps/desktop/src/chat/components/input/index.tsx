@@ -12,6 +12,7 @@ import {
   useDraftState,
   useSlashCommandConfig,
   useSubmit,
+  useSyncDraftStateFromEditor,
 } from "./hooks";
 import { type McpIndicator, McpIndicatorBadge } from "./mcp";
 
@@ -63,6 +64,7 @@ export function ChatMessageInput({
     onContextRefsChange,
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
+  useSyncDraftStateFromEditor({ editorRef, handleEditorUpdate });
   const slashCommandConfig = useSlashCommandConfig();
 
   return (

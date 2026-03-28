@@ -135,6 +135,44 @@ export function useAutoFocusEditor({
   }, [editorRef, disabled, shouldFocus]);
 }
 
+export function useSyncDraftStateFromEditor({
+  editorRef,
+  handleEditorUpdate,
+}: {
+  editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
+  handleEditorUpdate: (json: JSONContent) => void;
+}) {
+  useEffect(() => {
+    let rafId: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 20;
+
+    const syncWhenReady = () => {
+      const editor = editorRef.current?.editor;
+
+      if (editor && !editor.isDestroyed && editor.isInitialized) {
+        handleEditorUpdate(editor.getJSON());
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        return;
+      }
+
+      attempts += 1;
+      rafId = window.requestAnimationFrame(syncWhenReady);
+    };
+
+    syncWhenReady();
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
+  }, [editorRef, handleEditorUpdate]);
+}
+
 export function useSlashCommandConfig(): SlashCommandConfig {
   const sessions = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
