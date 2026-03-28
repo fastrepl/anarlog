@@ -2,15 +2,19 @@ import { Icon } from "@iconify-icon/react";
 import {
   ArrowLeftIcon,
   CalendarIcon,
+  ChevronDownIcon,
   ChevronUpIcon,
   CircleHelpIcon,
-  CircleIcon,
   FolderOpenIcon,
+  MailIcon,
   MessageCircleIcon,
+  PanelRightIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  SlidersHorizontalIcon,
   SparklesIcon,
+  SquareArrowOutUpRightIcon,
   UsersIcon,
   X,
 } from "lucide-react";
@@ -280,7 +284,7 @@ const editorTabs = ["Summary", "Memos", "Transcript"];
 export function AppPreviewSection() {
   return (
     <section className="mb-16 hidden px-4 md:block">
-      <div className="mock-background border-brand-color relative mx-auto w-full overflow-hidden rounded-xl border px-8 py-16">
+      <div className="mock-background border-color-brand relative mx-auto w-full overflow-hidden rounded-xl border px-8 py-16">
         <MockDesktopApp />
       </div>
     </section>
@@ -300,10 +304,10 @@ function MockDesktopApp() {
   }
 
   return (
-    <div className="border-brand-color overflow-hidden rounded-2xl border shadow-xl">
+    <div className="border-color-brand overflow-hidden rounded-2xl border shadow-xl">
       <div className="flex h-[720px] gap-1 overflow-hidden bg-stone-50 p-1">
         {/* Sidebar */}
-        <div className="hidden w-70 shrink-0 flex-col gap-1 overflow-hidden md:flex">
+        <div className="hidden shrink-0 flex-col gap-1 overflow-hidden md:flex md:w-1/5">
           <div className="flex h-9 w-full items-center py-1 pl-3">
             <div className="flex gap-2">
               <div className="size-3 rounded-full bg-red-400" />
@@ -424,164 +428,134 @@ function MockDesktopApp() {
               <button className="flex size-9 items-center justify-center text-neutral-600">
                 <PlusIcon size={16} />
               </button>
-              <div className="ml-auto flex h-full items-center gap-1 pr-1">
-                <div
-                  className={cn([
-                    "inline-flex items-center justify-center rounded-full text-sm font-medium text-white",
-                    "gap-2",
-                    "h-7 px-3",
-                    "border-2 border-stone-600 bg-stone-800",
-                  ])}
-                >
-                  <CircleIcon size={8} className="fill-red-500 text-red-500" />
-                  <span className="text-xs whitespace-nowrap">New meeting</span>
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Content + Chat panel */}
-          <div className="flex min-h-0 flex-1 gap-1">
-            {/* Note content */}
-            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${activeNote.id}-${activeEditorTab}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.12 }}
-                  className="flex min-h-0 flex-1 flex-col overflow-hidden"
-                >
-                  <div className="w-full pt-1 pr-1 pl-2">
-                    <div className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1" />
+          {/* Note content */}
+          <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${activeNote.id}-${activeEditorTab}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="w-full pt-1 pr-1 pl-2">
+                  <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1" />
+                  </div>
+                </div>
+
+                <div className="mt-2 shrink-0 px-3">
+                  <div className="flex w-full items-center gap-2">
+                    <div
+                      className={cn([
+                        "min-w-0 flex-1",
+                        "border-none bg-transparent",
+                        "text-xl font-semibold",
+                      ])}
+                    >
+                      {activeNote.noteContent.title}
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-2 shrink-0 px-3">
-                    <div className="flex w-full items-center gap-2">
-                      <div
-                        className={cn([
-                          "min-w-0 flex-1",
-                          "border-none bg-transparent",
-                          "text-xl font-semibold",
-                        ])}
-                      >
-                        {activeNote.noteContent.title}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 shrink-0 px-2">
-                    <div className="flex flex-col">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="relative min-w-0 flex-1">
-                          <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto">
-                            {editorTabs.map((tabLabel, i) => (
-                              <NoteTab
-                                key={tabLabel}
-                                isActive={activeEditorTab === i}
-                                onClick={() => setActiveEditorTab(i)}
-                              >
-                                {tabLabel}
-                              </NoteTab>
-                            ))}
-                          </div>
+                <div className="mt-2 shrink-0 px-2">
+                  <div className="flex flex-col">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="relative min-w-0 flex-1">
+                        <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto">
+                          {editorTabs.map((tabLabel, i) => (
+                            <NoteTab
+                              key={tabLabel}
+                              isActive={activeEditorTab === i}
+                              onClick={() => setActiveEditorTab(i)}
+                            >
+                              {tabLabel}
+                            </NoteTab>
+                          ))}
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-                    {activeEditorTab === 0 && (
-                      <div className="mock-summary text-sm leading-relaxed text-neutral-700">
-                        {activeNote.noteContent.summary}
-                      </div>
-                    )}
-                    {activeEditorTab === 1 && (
-                      <textarea
-                        readOnly
-                        value={activeNote.noteContent.memos}
-                        className="h-full w-full resize-none border-none bg-transparent text-sm leading-relaxed text-neutral-700 focus:outline-hidden"
-                      />
-                    )}
-                    {activeEditorTab === 2 && (
-                      <div className="flex flex-col gap-3">
-                        {activeNote.noteContent.transcript.map((line, i) => (
-                          <div key={i} className="flex gap-3">
-                            <span className="w-12 shrink-0 pt-0.5 text-right text-xs font-medium text-neutral-400">
-                              {line.speaker}
-                            </span>
-                            <span className="text-sm leading-relaxed text-neutral-700">
-                              {line.text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              {/* Chat floating button */}
-              {!chatOpen && (
-                <button
-                  onClick={() => setChatOpen(true)}
-                  className={cn([
-                    "absolute right-4 bottom-4 z-40",
-                    "flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4",
-                    "bg-white shadow-lg hover:shadow-xl",
-                    "border border-neutral-200",
-                    "transition-all duration-200 ease-out hover:scale-105",
-                  ])}
-                >
-                  <MessageCircleIcon size={16} className="text-neutral-600" />
-                  <span className="text-sm font-medium text-neutral-700">
-                    Chat with notes
-                  </span>
-                </button>
-              )}
-            </div>
-
-            {/* Chat panel */}
-            <AnimatePresence>
-              {chatOpen && (
-                <motion.div
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 320, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="shrink-0 overflow-hidden"
-                >
-                  <MockChatPanel onClose={() => setChatOpen(false)} />
-                </motion.div>
-              )}
+                <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+                  {activeEditorTab === 0 && (
+                    <div className="mock-summary text-sm leading-relaxed text-neutral-700">
+                      {activeNote.noteContent.summary}
+                    </div>
+                  )}
+                  {activeEditorTab === 1 && (
+                    <textarea
+                      readOnly
+                      value={activeNote.noteContent.memos}
+                      className="h-full w-full resize-none border-none bg-transparent text-sm leading-relaxed text-neutral-700 focus:outline-hidden"
+                    />
+                  )}
+                  {activeEditorTab === 2 && (
+                    <div className="flex flex-col gap-3">
+                      {activeNote.noteContent.transcript.map((line, i) => (
+                        <div key={i} className="flex gap-3">
+                          <span className="w-12 shrink-0 pt-0.5 text-right text-xs font-medium text-neutral-400">
+                            {line.speaker}
+                          </span>
+                          <span className="text-sm leading-relaxed text-neutral-700">
+                            {line.text}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </AnimatePresence>
+
+            {!chatOpen && (
+              <button
+                onClick={() => setChatOpen(true)}
+                className={cn([
+                  "absolute right-4 bottom-4 z-40",
+                  "flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4",
+                  "bg-white shadow-lg hover:shadow-xl",
+                  "border border-neutral-200",
+                  "transition-all duration-200 ease-out hover:scale-105",
+                ])}
+              >
+                <MessageCircleIcon size={16} className="text-neutral-600" />
+                <span className="text-sm font-medium text-neutral-700">
+                  Chat with notes
+                </span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Chat panel — full height */}
+        <AnimatePresence>
+          {chatOpen && (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 320, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="shrink-0 overflow-hidden"
+            >
+              <MockChatPanel onClose={() => setChatOpen(false)} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
-const chatMessages = [
-  {
-    role: "user" as const,
-    text: "What needs to happen before the mobile UI update can start?",
-  },
-  {
-    role: "assistant" as const,
-    text: "Based on the standup, Ben needs to finish the API adjustments first — specifically around fetching personalized user data more efficiently. The UI update is being phased, and core navigation improvements come first, but they depend on Ben's API work being completed.",
-  },
-  {
-    role: "user" as const,
-    text: "Who's responsible for the dashboard?",
-  },
-  {
-    role: "assistant" as const,
-    text: "Alice raised the urgency on the new analytics dashboard and is driving it. You asked her to spec out the requirements by Friday. The dashboard will include real-time user engagement metrics and a customizable reporting system.",
-  },
+const charlieActions = [
+  { icon: SlidersHorizontalIcon, label: "Actions" },
+  { icon: MailIcon, label: "Draft follow-up" },
+  { icon: SearchIcon, label: "Key decisions" },
 ];
 
 const profileMenuItems = [
@@ -673,80 +647,96 @@ function MockProfileSection() {
 
 function MockChatPanel({ onClose }: { onClose: () => void }) {
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
-      {/* Header */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-200 px-1">
-        <div className="flex h-auto max-w-full min-w-0 items-center justify-start gap-2 px-2 py-1.5">
-          <MessageCircleIcon className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-          <h3 className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-700">
-            Chat
-          </h3>
-        </div>
-        <button
-          onClick={onClose}
-          className="flex size-8 cursor-pointer items-center justify-center text-neutral-400 hover:text-neutral-600"
-        >
-          <X size={14} />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* Top controls */}
+      <div className="flex h-9 shrink-0 items-center justify-between">
+        <button className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-sm text-neutral-700 hover:bg-neutral-100">
+          <span className="font-mono text-xs font-semibold text-neutral-800">
+            {"{ }"}
+          </span>
+          <span className="text-xs">Ask Charlie anything</span>
+          <ChevronDownIcon size={12} className="text-neutral-400" />
         </button>
+        <div className="flex items-center">
+          <button className="flex size-7 items-center justify-center text-neutral-400 hover:text-neutral-600">
+            <PlusIcon size={14} />
+          </button>
+          <button className="flex size-7 items-center justify-center text-neutral-400 hover:text-neutral-600">
+            <SquareArrowOutUpRightIcon size={14} />
+          </button>
+          <button
+            onClick={onClose}
+            className="flex size-7 cursor-pointer items-center justify-center text-neutral-400 hover:text-neutral-600"
+          >
+            <PanelRightIcon size={14} />
+          </button>
+        </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex min-h-full flex-1 flex-col">
-          <div className="flex-1" />
-          {chatMessages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn([
-                "flex px-3 py-2",
-                msg.role === "user" ? "justify-end" : "justify-start",
-              ])}
-            >
+      {/* Main area with Charlie intro */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1" />
+
+        <div className="flex flex-col gap-3 pb-4">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm font-semibold text-neutral-800">
+              {"{ }"}
+            </span>
+            <span className="text-sm font-semibold text-neutral-800">
+              Charlie
+            </span>
+            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-600">
+              Beta
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed text-neutral-500">
+            Hi, I'm Charlie. I can pull context from your notes, find key
+            decisions, and draft what comes next.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {charlieActions.map((action) => (
               <div
+                key={action.label}
                 className={cn([
-                  "max-w-[85%]",
-                  msg.role === "user"
-                    ? "rounded-2xl bg-blue-100 px-3 py-1.5 text-neutral-800"
-                    : "text-neutral-800",
+                  "inline-flex items-center gap-1.5 rounded-full border border-neutral-200",
+                  "px-3 py-1.5 text-xs text-neutral-600",
                 ])}
               >
-                <span className="text-sm leading-relaxed whitespace-pre-line">
-                  {msg.text}
-                </span>
+                <action.icon size={12} className="text-neutral-400" />
+                {action.label}
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Context bar */}
-      <div className="mx-2 shrink-0 rounded-t-xl border-t border-r border-l border-neutral-200 bg-white">
-        <div className="flex items-center gap-1.5 px-2.5 py-2">
-          <div className="inline-flex items-center gap-1 rounded-md bg-white px-1.5 py-0.5 text-xs text-neutral-600 shadow-xs">
-            <Icon icon="mdi:note-text-outline" width={12} height={12} />
-            <span className="truncate">Team Standup</span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Input */}
-      <div className="shrink-0 px-2 pb-2">
-        <div className="flex flex-col rounded-b-xl border-r border-b border-l border-neutral-200 bg-white">
-          <div className="flex flex-col px-3 pt-3 pb-2">
-            <div className="mb-1 text-sm text-neutral-400">
-              Ask about your notes...
+      {/* Context + Input */}
+      <div className="shrink-0">
+        <div className="flex flex-col rounded-xl border border-neutral-200 bg-white">
+          <div className="flex items-center justify-between px-2.5 py-1.5">
+            <div className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-xs text-neutral-600">
+              <Icon icon="mdi:note-text-outline" width={12} height={12} />
+              <span className="truncate">{mockNotes[0].noteContent.title}</span>
+            </div>
+            <button className="flex size-5 items-center justify-center text-neutral-400">
+              <PlusIcon size={12} />
+            </button>
+          </div>
+          <div className="flex flex-col px-3 pb-2">
+            <div className="mb-3 text-sm text-neutral-400">
+              Ask & search about anything, or be creative!
             </div>
             <div className="flex items-center justify-end">
               <div
                 className={cn([
                   "inline-flex h-7 items-center gap-1.5 rounded-lg pr-1.5 pl-2.5",
                   "text-xs font-medium",
-                  "border border-neutral-200 text-neutral-300",
+                  "bg-neutral-800 text-white",
                 ])}
               >
                 <span>Send</span>
-                <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
-                  ⌘ ↩
+                <kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[10px] text-neutral-300">
+                  ⌘↩
                 </kbd>
               </div>
             </div>

@@ -11,7 +11,7 @@ export function SolutionFeatures({
 }) {
   return (
     <section className="pt-24 pb-16">
-      <div className="border-brand-color border-b px-8">
+      <div className="border-color-brand border-b px-8">
         <h2 className="text-fg mb-4 text-left font-mono text-4xl">{title}</h2>
         <p className="text-fg-muted mb-12 max-w-2xl text-left">{description}</p>
       </div>

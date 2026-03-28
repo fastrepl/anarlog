@@ -82,7 +82,7 @@ export function JiraToolCall({ loopKey }: { loopKey: number }) {
   }, [loopKey]);
 
   return (
-    <div className="border-brand-color rounded-xl border bg-gradient-to-r from-blue-50 to-stone-50 p-3 shadow-lg">
+    <div className="border-color-brand rounded-xl border bg-gradient-to-r from-blue-50 to-stone-50 p-3 shadow-lg">
       <div className="mb-2 flex items-center gap-2 text-xs text-neutral-500">
         <Icon icon="logos:jira" className="text-sm" />
         <AnimatePresence mode="wait">
@@ -166,7 +166,7 @@ export function TranscriptToolCall({
   }, [loopKey, isStatic]);
 
   return (
-    <div className="border-brand-color surface rounded-xl border px-3 py-2.5">
+    <div className="border-color-brand surface rounded-xl border px-3 py-2.5">
       <div className="flex flex-col gap-2 text-sm">
         <AnimatePresence>
           {phase >= 1 && (

@@ -231,58 +231,13 @@ function StatBadge({
     n > 1000 ? `${(n / 1000).toFixed(1)}k` : n;
 
   return (
-    <div className="flex h-[84px] w-[84px] flex-col items-center justify-center gap-1 rounded-xs border border-neutral-200 bg-neutral-100 px-4 text-stone-600">
-      <p className="font-mono text-xs font-semibold tracking-wide">
+    <div className="border-color-brand surface-subtle flex min-w-[100px] flex-col items-end justify-end gap-4 rounded-md border px-4 py-4">
+      <p className="text-fg font-mono text-sm tracking-wide uppercase opacity-50">
         {type === "stars" ? "Stars" : "Forks"}
       </p>
-      <p className="text-center text-sm font-medium">{renderCount(count)}</p>
-    </div>
-  );
-}
-
-function OpenSourceButton({
-  showStars = false,
-  starCount,
-}: {
-  showStars?: boolean;
-  starCount?: number;
-}) {
-  const renderCount = (n: number) =>
-    n > 1000 ? `${(n / 1000).toFixed(1)}k` : n;
-
-  return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-4 text-center">
-      <h2 className="text-color font-mono text-2xl tracking-wide md:text-3xl">
-        Open source
-      </h2>
-      <p className="text-fg-muted leading-relaxed">
-        {
-          "Char values privacy and community, so it's been transparent from day one."
-        }
-      </p>
-      <a
-        href={`https://github.com/${GITHUB_ORG_REPO}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn([
-          "group inline-flex h-14 items-center justify-center gap-2 px-8",
-          "rounded-full border border-neutral-300 text-neutral-800",
-          "hover:scale-[102%] hover:border-neutral-400 active:scale-[98%]",
-          "cursor-pointer transition-all",
-        ])}
-      >
-        <Icon icon="mdi:github" className="text-lg" />
-        View on GitHub
-        {showStars && starCount && (
-          <>
-            <span className="text-neutral-400">•</span>
-            <div className="flex items-center gap-1">
-              <Icon icon="mdi:star" className="text-lg" />
-              <span>{renderCount(starCount)}</span>
-            </div>
-          </>
-        )}
-      </a>
+      <h3 className="text-fg text-right font-mono text-2xl font-medium">
+        {renderCount(count)}
+      </h3>
     </div>
   );
 }
@@ -304,10 +259,6 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
   );
 }
 
-function GridRow({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-1">{children}</div>;
-}
-
 export function GitHubOpenSource() {
   const githubStats = useGitHubStats();
 
@@ -316,219 +267,50 @@ export function GitHubOpenSource() {
 
   return (
     <section id="opensource">
-      <div className="px-4 py-16">
-        <div className="mx-auto max-w-4xl lg:hidden">
-          <OpenSourceButton showStars={true} starCount={STARS_COUNT} />
+      <div className="mx-auto max-w-5xl px-4 py-16">
+        <h2 className="text-fg border-color-brand mb-8 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
+          Open source
+        </h2>
+        <div
+          className={cn([
+            "flex flex-col items-center gap-6",
+            "md:flex-row md:items-center md:justify-between md:gap-12",
+          ])}
+        >
+          <div className="flex flex-col items-center gap-4 md:items-start">
+            <p className="text-fg-muted max-w-md text-center text-base leading-relaxed md:text-left">
+              Char values privacy and community, so it's been transparent from
+              day one.
+            </p>
+            <a
+              href={`https://github.com/${GITHUB_ORG_REPO}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn([
+                "group inline-flex h-14 items-center justify-center gap-2 px-8",
+                "text-fg border-color-brand rounded-full border",
+                "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
+                "cursor-pointer transition-all",
+              ])}
+            >
+              <Icon icon="mdi:github" className="text-lg" />
+              View on GitHub
+            </a>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <StatBadge type="stars" count={STARS_COUNT} />
+            <StatBadge type="forks" count={FORKS_COUNT} />
+          </div>
         </div>
 
-        <div className="mx-auto hidden max-w-7xl items-center justify-between lg:flex">
-          <div className="flex gap-1">
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(0, 2).map((profile) => (
-                  <Avatar
-                    key={`left-c1-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(2, 4).map((profile) => (
-                  <Avatar
-                    key={`left-c1-r2-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(4, 6).map((profile) => (
-                  <Avatar
-                    key={`left-c1-r3-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(6, 8).map((profile) => (
-                  <Avatar
-                    key={`left-c1-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(8, 10).map((profile) => (
-                  <Avatar
-                    key={`left-c2-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <StatBadge type="stars" count={STARS_COUNT} />
-              <GridRow>
-                {CURATED_PROFILES.slice(10, 12).map((profile) => (
-                  <Avatar
-                    key={`left-c2-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(12, 15).map((profile) => (
-                  <Avatar
-                    key={`left-c3-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(15, 18).map((profile) => (
-                  <Avatar
-                    key={`left-c3-r2-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(18, 21).map((profile) => (
-                  <Avatar
-                    key={`left-c3-r3-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(21, 24).map((profile) => (
-                  <Avatar
-                    key={`left-c3-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-center">
-            <OpenSourceButton />
-          </div>
-
-          <div className="flex gap-1">
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(24, 27).map((profile) => (
-                  <Avatar
-                    key={`right-c1-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(27, 30).map((profile) => (
-                  <Avatar
-                    key={`right-c1-r2-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(30, 33).map((profile) => (
-                  <Avatar
-                    key={`right-c1-r3-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(33, 36).map((profile) => (
-                  <Avatar
-                    key={`right-c1-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(36, 38).map((profile) => (
-                  <Avatar
-                    key={`right-c2-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <StatBadge type="forks" count={FORKS_COUNT} />
-              <GridRow>
-                {CURATED_PROFILES.slice(38, 40).map((profile) => (
-                  <Avatar
-                    key={`right-c2-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <GridRow>
-                {CURATED_PROFILES.slice(40, 42).map((profile) => (
-                  <Avatar
-                    key={`right-c3-r1-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(42, 44).map((profile) => (
-                  <Avatar
-                    key={`right-c3-r2-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(44, 46).map((profile) => (
-                  <Avatar
-                    key={`right-c3-r3-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-              <GridRow>
-                {CURATED_PROFILES.slice(46, 48).map((profile) => (
-                  <Avatar
-                    key={`right-c3-r4-${profile.username}`}
-                    username={profile.username}
-                    avatar={profile.avatar}
-                  />
-                ))}
-              </GridRow>
-            </div>
-          </div>
+        <div className="mt-12 flex flex-wrap justify-start gap-1">
+          {CURATED_PROFILES.map((profile) => (
+            <Avatar
+              key={profile.username}
+              username={profile.username}
+              avatar={profile.avatar}
+            />
+          ))}
         </div>
       </div>
     </section>

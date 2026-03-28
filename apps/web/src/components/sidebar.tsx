@@ -24,7 +24,19 @@ import { cn } from "@hypr/utils";
 import { SearchTrigger } from "@/components/search";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 
-const featuresList = [
+type MenuItem = {
+  to: string;
+  label: string;
+  icon?: LucideIcon;
+  external?: boolean;
+};
+
+type MenuGroup = {
+  title: string;
+  items: MenuItem[];
+};
+
+const featuresList: MenuItem[] = [
   { to: "/product/ai-notetaking", label: "AI Notetaking" },
   { to: "/product/search", label: "Searchable Notes" },
   { to: "/gallery?type=template", label: "Custom Templates" },
@@ -33,7 +45,7 @@ const featuresList = [
   { to: "/opensource", label: "Open Source" },
 ];
 
-const solutionsList = [
+const solutionsList: MenuItem[] = [
   ...allSolutions
     .sort((a, b) => a.order - b.order)
     .map((s) => ({ to: `/solution/${s.slug}`, label: s.label })),
@@ -41,12 +53,7 @@ const solutionsList = [
   { to: "/product/api", label: "For Developers" },
 ];
 
-const resourcesList: {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  external?: boolean;
-}[] = [
+const resourcesList: MenuItem[] = [
   { to: "/blog/", label: "Blog", icon: FileText },
   { to: "/docs/", label: "Documentation", icon: BookOpen },
   {
@@ -66,49 +73,27 @@ const resourcesList: {
   },
 ];
 
-const homeSections = [
-  { id: "hero", label: "Intro" },
-  { id: "how-it-works", label: "How it works" },
-  { id: "ai", label: "AI features" },
-  { id: "grows-with-you", label: "Grows with you" },
-  { id: "solutions", label: "Solutions" },
-  { id: "opensource", label: "Open source" },
-  { id: "faq", label: "FAQ" },
-  { id: "blog", label: "Blog" },
+const productGroups: MenuGroup[] = [
+  { title: "Features", items: featuresList },
+  { title: "Solutions", items: solutionsList },
 ];
 
-const homeSectionIds = homeSections.map((s) => s.id);
+const navLinks = [
+  { to: "/why-char/", label: "Why Char" },
+  {
+    to: "/product/ai-notetaking/",
+    label: "Product",
+    submenu: "product" as const,
+  },
+  { to: "/docs/", label: "Resources", submenu: "resources" as const },
+  { to: "/pricing/", label: "Pricing" },
+] as const;
 
-function useActiveHomeSection(enabled: boolean) {
-  const [activeId, setActiveId] = useState<string | null>(null);
+const MAIN_MENU_LINK_HOVER =
+  "hover:underline hover:decoration-dotted hover:underline-offset-4";
 
-  useEffect(() => {
-    if (!enabled) {
-      setActiveId(null);
-      return;
-    }
-
-    setActiveId(homeSectionIds[0]);
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.find((e) => e.isIntersecting);
-        if (visible) {
-          setActiveId(visible.target.id);
-        }
-      },
-      { rootMargin: "-20% 0px -60% 0px", threshold: 0 },
-    );
-
-    homeSectionIds.forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
-    });
-
-    return () => observer.disconnect();
-  }, [enabled]);
-
-  return activeId;
+function isPathActive(pathname: string, to: string) {
+  return pathname.startsWith(to.replace(/\/$/, ""));
 }
 
 function findActiveSubItem(pathname: string) {
@@ -166,13 +151,6 @@ function CharLogo({ className }: { className?: string }) {
   );
 }
 
-const navLinks = [
-  { to: "/why-char/", label: "Why Char" },
-  { to: "/product/ai-notetaking/", label: "Product", hasSubmenu: true },
-  { to: "/docs/", label: "Resources", hasSubmenu: true },
-  { to: "/pricing/", label: "Pricing" },
-] as const;
-
 export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isProductOpen, setIsProductOpen] = useState(false);
@@ -181,14 +159,15 @@ export function Sidebar() {
   const platform = usePlatform();
   const platformCTA = getPlatformCTA(platform);
   const pathname = router.location.pathname;
-  const isHomePage = pathname === "/";
-  const activeSection = useActiveHomeSection(isHomePage);
-  const activeSubItem = isHomePage ? null : findActiveSubItem(pathname);
-
-  useEffect(() => {
+  const activeSubItem = findActiveSubItem(pathname);
+  const closeAllMenus = () => {
     setIsMobileOpen(false);
     setIsProductOpen(false);
     setIsResourcesOpen(false);
+  };
+
+  useEffect(() => {
+    closeAllMenus();
   }, [pathname]);
 
   useEffect(() => {
@@ -240,11 +219,11 @@ export function Sidebar() {
                   setIsProductOpen={setIsProductOpen}
                   isResourcesOpen={isResourcesOpen}
                   setIsResourcesOpen={setIsResourcesOpen}
-                  setIsMenuOpen={setIsMobileOpen}
+                  closeAllMenus={closeAllMenus}
                 />
                 <MobileMenuCTAs
                   platformCTA={platformCTA}
-                  setIsMenuOpen={setIsMobileOpen}
+                  closeAllMenus={closeAllMenus}
                 />
               </div>
             </nav>
@@ -261,7 +240,12 @@ export function Sidebar() {
             </Link>
             <Link
               to="/why-char/"
-              className="text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800 hover:underline"
+              className={cn(
+                [
+                  "text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800",
+                ],
+                [MAIN_MENU_LINK_HOVER],
+              )}
             >
               Why Char
             </Link>
@@ -270,87 +254,29 @@ export function Sidebar() {
               isOpen={isProductOpen}
               setIsOpen={setIsProductOpen}
             >
-              <div className="grid grid-cols-2 gap-x-6 px-3 py-2">
-                <div>
-                  <div className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
-                    Features
-                  </div>
-                  {featuresList.map((item) => (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setIsProductOpen(false)}
-                      className="group flex items-center py-2 text-sm text-neutral-700"
-                    >
-                      <span className="decoration-dotted group-hover:underline">
-                        {item.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-                <div>
-                  <div className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
-                    Solutions
-                  </div>
-                  {solutionsList.map((item) => (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setIsProductOpen(false)}
-                      className="group flex items-center py-2 text-sm text-neutral-700"
-                    >
-                      <span className="decoration-dotted group-hover:underline">
-                        {item.label}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
+              <ProductMenuContent
+                variant="tablet"
+                onItemClick={() => setIsProductOpen(false)}
+              />
             </TabletDropdown>
             <TabletDropdown
               label="Resources"
               isOpen={isResourcesOpen}
               setIsOpen={setIsResourcesOpen}
             >
-              <div className="px-3 py-2">
-                {resourcesList.map((item) => {
-                  const Icon = item.icon;
-                  if (item.external) {
-                    return (
-                      <a
-                        key={item.to}
-                        href={item.to}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setIsResourcesOpen(false)}
-                        className="group flex items-center gap-2 py-2 text-sm text-neutral-700"
-                      >
-                        <Icon size={16} className="text-neutral-400" />
-                        <span className="decoration-dotted group-hover:underline">
-                          {item.label}
-                        </span>
-                      </a>
-                    );
-                  }
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onClick={() => setIsResourcesOpen(false)}
-                      className="group flex items-center gap-2 py-2 text-sm text-neutral-700"
-                    >
-                      <Icon size={16} className="text-neutral-400" />
-                      <span className="decoration-dotted group-hover:underline">
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
+              <ResourcesMenuContent
+                variant="tablet"
+                onItemClick={() => setIsResourcesOpen(false)}
+              />
             </TabletDropdown>
             <Link
               to="/pricing/"
-              className="text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800 hover:underline"
+              className={cn(
+                [
+                  "text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800",
+                ],
+                [MAIN_MENU_LINK_HOVER],
+              )}
             >
               Pricing
             </Link>
@@ -363,39 +289,23 @@ export function Sidebar() {
       </header>
 
       {/* ===== DESKTOP: left sidebar (xl+ / 1280px+) ===== */}
-      <aside className="wide:w-[200px] z-10 hidden w-[120px] shrink-0 self-stretch xl:block">
-        <div className="sticky top-0 flex h-screen flex-col">
-          <div className="wide:px-12 px-6 pt-12 pb-10">
+      <aside className="wide:w-[160px] z-50 hidden w-[120px] shrink-0 self-stretch xl:block">
+        <div className="sticky top-0 flex flex-col">
+          <div className="wide:px-4 px-4 pt-12 pb-4">
             <Link to="/">
               <CharLogo className="text-fg wide:h-8 h-6 w-auto transition-colors hover:scale-105" />
             </Link>
           </div>
 
-          <AnimatePresence initial={false}>
-            {isHomePage && (
-              <motion.div
-                key="home-section-nav"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: "easeInOut" }}
-                className="overflow-hidden"
-              >
-                <div className="wide:px-12 px-6 pb-4">
-                  <HomeSectionNav activeId={activeSection} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <nav className="wide:px-12 flex flex-col gap-1 px-6 pt-4">
+          <nav className="wide:px-4 flex flex-col gap-1 pt-4 pl-4">
             {navLinks.map((link) =>
-              "hasSubmenu" in link && link.hasSubmenu ? (
+              "submenu" in link ? (
                 <SidebarFlyout
                   key={link.to}
                   label={link.label}
                   to={link.to}
-                  isActive={pathname.startsWith(link.to.replace(/\/$/, ""))}
+                  submenu={link.submenu}
+                  isActive={isPathActive(pathname, link.to)}
                   activeSubItem={
                     activeSubItem?.parent === link.label ? activeSubItem : null
                   }
@@ -405,11 +315,11 @@ export function Sidebar() {
                   key={link.to}
                   to={link.to}
                   className={cn(
-                    ["py-1.5 text-base transition-colors"],
+                    ["py-1 text-base transition-colors"],
                     [
-                      pathname.startsWith(link.to.replace(/\/$/, ""))
-                        ? "text-fg -mx-2 rounded-full px-2 underline"
-                        : "text-fg hover:underline",
+                      isPathActive(pathname, link.to)
+                        ? "text-fg -mx-2 rounded-full px-2 underline decoration-dotted underline-offset-2"
+                        : cn(["text-fg"], [MAIN_MENU_LINK_HOVER]),
                     ],
                   )}
                 >
@@ -417,15 +327,10 @@ export function Sidebar() {
                 </Link>
               ),
             )}
+            <SearchTrigger variant="sidebar-nav" />
           </nav>
 
           <div className="flex-1" />
-
-          <div className="wide:px-12 shrink-0 px-6 pb-8">
-            <div className="flex flex-col gap-3">
-              <SearchTrigger variant="header" />
-            </div>
-          </div>
         </div>
       </aside>
     </>
@@ -451,7 +356,14 @@ function TabletDropdown({
       onMouseEnter={() => setIsOpen(true)}
       onMouseLeave={() => setIsOpen(false)}
     >
-      <button className="flex items-center gap-1 py-2 text-sm text-neutral-600 transition-all hover:text-neutral-800">
+      <button
+        className={cn(
+          [
+            "text-fg-subtle hover:text-fg flex items-center gap-1 py-2 text-sm decoration-dotted transition-all",
+          ],
+          [MAIN_MENU_LINK_HOVER],
+        )}
+      >
         {label}
         {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
@@ -473,37 +385,51 @@ function MobileMenuLinks({
   setIsProductOpen,
   isResourcesOpen,
   setIsResourcesOpen,
-  setIsMenuOpen,
+  closeAllMenus,
 }: {
   isProductOpen: boolean;
   setIsProductOpen: (open: boolean) => void;
   isResourcesOpen: boolean;
   setIsResourcesOpen: (open: boolean) => void;
-  setIsMenuOpen: (open: boolean) => void;
+  closeAllMenus: () => void;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <Link
         to="/why-char/"
-        onClick={() => setIsMenuOpen(false)}
-        className="block text-base text-neutral-700 transition-colors hover:text-neutral-900"
+        onClick={closeAllMenus}
+        className={cn(
+          [
+            "block text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+          ],
+          [MAIN_MENU_LINK_HOVER],
+        )}
       >
         Why Char
       </Link>
-      <MobileProductSection
-        isProductOpen={isProductOpen}
-        setIsProductOpen={setIsProductOpen}
-        setIsMenuOpen={setIsMenuOpen}
-      />
-      <MobileResourcesSection
-        isResourcesOpen={isResourcesOpen}
-        setIsResourcesOpen={setIsResourcesOpen}
-        setIsMenuOpen={setIsMenuOpen}
-      />
+      <CollapsibleSection
+        label="Product"
+        isOpen={isProductOpen}
+        setIsOpen={setIsProductOpen}
+      >
+        <ProductMenuContent variant="mobile" onItemClick={closeAllMenus} />
+      </CollapsibleSection>
+      <CollapsibleSection
+        label="Resources"
+        isOpen={isResourcesOpen}
+        setIsOpen={setIsResourcesOpen}
+      >
+        <ResourcesMenuContent variant="mobile" onItemClick={closeAllMenus} />
+      </CollapsibleSection>
       <Link
         to="/pricing/"
-        onClick={() => setIsMenuOpen(false)}
-        className="block text-base text-neutral-700 transition-colors hover:text-neutral-900"
+        onClick={closeAllMenus}
+        className={cn(
+          [
+            "block text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+          ],
+          [MAIN_MENU_LINK_HOVER],
+        )}
       >
         Pricing
       </Link>
@@ -511,134 +437,19 @@ function MobileMenuLinks({
   );
 }
 
-function MobileProductSection({
-  isProductOpen,
-  setIsProductOpen,
-  setIsMenuOpen,
-}: {
-  isProductOpen: boolean;
-  setIsProductOpen: (open: boolean) => void;
-  setIsMenuOpen: (open: boolean) => void;
-}) {
-  return (
-    <div>
-      <button
-        onClick={() => setIsProductOpen(!isProductOpen)}
-        className="flex w-full items-center justify-between text-base text-neutral-700 transition-colors hover:text-neutral-900"
-      >
-        <span>Product</span>
-        {isProductOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-      {isProductOpen && (
-        <div className="mt-3 ml-4 flex flex-col gap-4 border-l-2 border-neutral-200 pl-4">
-          <div>
-            <div className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
-              Features
-            </div>
-            <div className="flex flex-col gap-2 pb-4">
-              {featuresList.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
-              Solutions
-            </div>
-            <div className="flex flex-col gap-2">
-              {solutionsList.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MobileResourcesSection({
-  isResourcesOpen,
-  setIsResourcesOpen,
-  setIsMenuOpen,
-}: {
-  isResourcesOpen: boolean;
-  setIsResourcesOpen: (open: boolean) => void;
-  setIsMenuOpen: (open: boolean) => void;
-}) {
-  return (
-    <div>
-      <button
-        onClick={() => setIsResourcesOpen(!isResourcesOpen)}
-        className="flex w-full items-center justify-between text-base text-neutral-700 transition-colors hover:text-neutral-900"
-      >
-        <span>Resources</span>
-        {isResourcesOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-      </button>
-      {isResourcesOpen && (
-        <div className="mt-3 ml-4 flex flex-col gap-2 border-l-2 border-neutral-200 pl-4">
-          {resourcesList.map((item) => {
-            const Icon = item.icon;
-            if (item.external) {
-              return (
-                <a
-                  key={item.to}
-                  href={item.to}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="flex items-center gap-2 py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-                >
-                  <Icon size={14} className="text-neutral-400" />
-                  {item.label}
-                </a>
-              );
-            }
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setIsMenuOpen(false)}
-                className="flex items-center gap-2 py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
-              >
-                <Icon size={14} className="text-neutral-400" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function MobileMenuCTAs({
   platformCTA,
-  setIsMenuOpen,
+  closeAllMenus,
 }: {
   platformCTA: ReturnType<typeof getPlatformCTA>;
-  setIsMenuOpen: (open: boolean) => void;
+  closeAllMenus: () => void;
 }) {
   return (
     <div className="flex flex-row gap-3">
       <Link
         to="/auth/"
         search={{ flow: "web" }}
-        onClick={() => setIsMenuOpen(false)}
+        onClick={closeAllMenus}
         className="block w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-center text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
       >
         Get started
@@ -647,7 +458,7 @@ function MobileMenuCTAs({
         <a
           href="/download/apple-silicon"
           download
-          onClick={() => setIsMenuOpen(false)}
+          onClick={closeAllMenus}
           className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
         >
           {platformCTA.label}
@@ -655,7 +466,7 @@ function MobileMenuCTAs({
       ) : (
         <Link
           to="/"
-          onClick={() => setIsMenuOpen(false)}
+          onClick={closeAllMenus}
           className="block w-full rounded-lg bg-linear-to-t from-stone-600 to-stone-500 px-4 py-3 text-center text-sm text-white shadow-md transition-all active:scale-[98%]"
         >
           {platformCTA.label}
@@ -667,61 +478,251 @@ function MobileMenuCTAs({
 
 // ─── Desktop sidebar pieces (xl+) ──────────────────────────────────────────
 
-function HomeSectionNav({ activeId }: { activeId: string | null }) {
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
+function MenuItemLink({
+  item,
+  onClick,
+  className,
+  iconClassName,
+  iconSize = 14,
+  decorateOnHover = false,
+}: {
+  item: MenuItem;
+  onClick?: () => void;
+  className: string;
+  iconClassName?: string;
+  iconSize?: number;
+  decorateOnHover?: boolean;
+}) {
+  const Icon = item.icon;
+  const label = decorateOnHover ? (
+    <span className="decoration-dotted group-hover:underline">
+      {item.label}
+    </span>
+  ) : (
+    item.label
+  );
 
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
+  const content = (
+    <>
+      {Icon ? <Icon size={iconSize} className={iconClassName} /> : null}
+      {label}
+    </>
+  );
+
+  if (item.external) {
+    return (
+      <a
+        href={item.to}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onClick}
+        className={className}
+      >
+        {content}
+      </a>
+    );
+  }
 
   return (
-    <nav
-      className="border-brand-bright flex flex-col gap-1.5 border-b pb-4"
-      onMouseLeave={() => setHoveredId(null)}
-    >
-      {homeSections.map((s) => {
-        const showLabel = activeId === s.id || hoveredId === s.id;
-        return (
-          <button
-            key={s.id}
-            onClick={() => scrollTo(s.id)}
-            onMouseEnter={() => setHoveredId(s.id)}
-            className="flex h-5 cursor-pointer items-center text-left"
-          >
-            {showLabel ? (
-              <motion.span
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.15 }}
-                style={{ originX: 0, originY: "50%" }}
-                className={cn(
-                  ["text-sm"],
-                  [activeId === s.id ? "text-fg" : "text-fg-subtle"],
-                )}
-              >
-                {s.label}
-              </motion.span>
-            ) : (
-              <div className="h-px w-5 bg-stone-600" />
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <Link to={item.to} onClick={onClick} className={className}>
+      {content}
+    </Link>
+  );
+}
+
+function MenuGroupLinks({
+  group,
+  titleClassName,
+  listClassName,
+  itemClassName,
+  onItemClick,
+  decorateOnHover = false,
+}: {
+  group: MenuGroup;
+  titleClassName: string;
+  listClassName: string;
+  itemClassName: string;
+  onItemClick?: () => void;
+  decorateOnHover?: boolean;
+}) {
+  return (
+    <div>
+      <div className={titleClassName}>{group.title}</div>
+      <div className={listClassName}>
+        {group.items.map((item) => (
+          <MenuItemLink
+            key={item.to}
+            item={item}
+            onClick={onItemClick}
+            className={itemClassName}
+            decorateOnHover={decorateOnHover}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductMenuContent({
+  variant,
+  onItemClick,
+}: {
+  variant: "mobile" | "tablet" | "flyout";
+  onItemClick?: () => void;
+}) {
+  if (variant === "tablet") {
+    return (
+      <div className="grid grid-cols-2 gap-x-4 px-2 py-2">
+        {productGroups.map((group) => (
+          <MenuGroupLinks
+            key={group.title}
+            group={group}
+            titleClassName="mb-2 text-xs font-semibold tracking-wider text-fg-subtle uppercase"
+            listClassName="flex flex-col"
+            itemClassName="group flex items-center py-2 text-sm text-fg"
+            onItemClick={onItemClick}
+            decorateOnHover
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === "mobile") {
+    return (
+      <div className="mt-3 ml-4 flex flex-col gap-4 border-l-2 border-neutral-200 pl-4">
+        {productGroups.map((group, index) => (
+          <MenuGroupLinks
+            key={group.title}
+            group={group}
+            titleClassName="mb-2 text-xs font-semibold tracking-wider text-neutral-400 uppercase"
+            listClassName={
+              index === 0 ? "flex flex-col gap-2 pb-4" : "flex flex-col gap-2"
+            }
+            itemClassName="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
+            onItemClick={onItemClick}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {productGroups.map((group, index) => (
+        <div key={group.title}>
+          {index > 0 ? (
+            <div className="border-color-brand my-1.5 border-t" />
+          ) : null}
+          <MenuGroupLinks
+            group={group}
+            titleClassName="px-3 pb-1 text-xs font-medium tracking-wide text-fg-subtle uppercase"
+            listClassName="flex flex-col"
+            itemClassName="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResourcesMenuContent({
+  variant,
+  onItemClick,
+}: {
+  variant: "mobile" | "tablet" | "flyout";
+  onItemClick?: () => void;
+}) {
+  if (variant === "tablet") {
+    return (
+      <div className="px-3 py-2">
+        {resourcesList.map((item) => (
+          <MenuItemLink
+            key={item.to}
+            item={item}
+            onClick={onItemClick}
+            className="group flex items-center gap-2 py-2 text-sm text-neutral-700"
+            iconClassName="text-neutral-400"
+            iconSize={16}
+            decorateOnHover
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === "mobile") {
+    return (
+      <div className="mt-3 ml-4 flex flex-col gap-2 border-l-2 border-neutral-200 pl-4">
+        {resourcesList.map((item) => (
+          <MenuItemLink
+            key={item.to}
+            item={item}
+            onClick={onItemClick}
+            className="text-fg flex items-center gap-2 py-1 text-sm transition-colors hover:text-neutral-900"
+            iconClassName="text-neutral-400"
+            iconSize={14}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col">
+      {resourcesList.map((item) => (
+        <MenuItemLink
+          key={item.to}
+          item={item}
+          className="text-fg flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors hover:bg-stone-50 hover:text-stone-950"
+          iconClassName="shrink-0 text-fg-subtle"
+          iconSize={15}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  label,
+  isOpen,
+  setIsOpen,
+  children,
+}: {
+  label: string;
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          [
+            "flex w-full items-center justify-between text-base text-neutral-700 decoration-dotted transition-colors hover:text-neutral-900",
+          ],
+          [MAIN_MENU_LINK_HOVER],
+        )}
+      >
+        <span>{label}</span>
+        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {isOpen ? children : null}
+    </div>
   );
 }
 
 function SidebarFlyout({
   label,
   to,
+  submenu,
   isActive,
   activeSubItem,
 }: {
   label: string;
   to: string;
+  submenu: "product" | "resources";
   isActive: boolean;
   activeSubItem: { to: string; label: string } | null;
 }) {
@@ -750,12 +751,12 @@ function SidebarFlyout({
         to={to}
         className={cn(
           [
-            "flex items-center justify-between py-1 text-base transition-colors",
+            "transition-position flex items-center justify-between py-1 text-base",
           ],
           [
             isActive
               ? "text-fg -mx-2 rounded-xl px-2 underline"
-              : "text-fg hover:underline",
+              : cn(["text-fg"], [MAIN_MENU_LINK_HOVER]),
           ],
         )}
       >
@@ -766,7 +767,7 @@ function SidebarFlyout({
       {activeSubItem && (
         <Link
           to={activeSubItem.to}
-          className="block pl-2 text-xs text-stone-500 transition-colors hover:text-stone-800"
+          className="text-fg block text-xs opacity-50 transition-opacity hover:opacity-100"
         >
           {activeSubItem.label}
         </Link>
@@ -776,90 +777,23 @@ function SidebarFlyout({
         {isOpen && (
           <motion.div
             className="absolute top-0 left-full z-[9999] pl-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.15, ease: "easeInOut" }}
             onMouseEnter={open}
             onMouseLeave={close}
           >
-            <div className="border-brand-color surface w-56 rounded-lg border py-2 shadow-lg">
-              {label === "Product" && <ProductFlyoutContent />}
-              {label === "Resources" && <ResourcesFlyoutContent />}
+            <div className="border-color-brand surface w-56 rounded-lg border py-2 shadow-lg">
+              {submenu === "product" ? (
+                <ProductMenuContent variant="flyout" />
+              ) : (
+                <ResourcesMenuContent variant="flyout" />
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  );
-}
-
-function ProductFlyoutContent() {
-  return (
-    <div className="flex flex-col">
-      <div className="px-3 pb-1">
-        <span className="text-xs font-medium tracking-wide text-stone-400 uppercase">
-          Features
-        </span>
-      </div>
-      {featuresList.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          className="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
-        >
-          {item.label}
-        </Link>
-      ))}
-      <div className="border-brand-color my-1.5 border-t" />
-      <div className="px-3 pb-1">
-        <span className="text-xs font-medium tracking-wide text-stone-400 uppercase">
-          Solutions
-        </span>
-      </div>
-      {solutionsList.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          className="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
-        >
-          {item.label}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
-function ResourcesFlyoutContent() {
-  return (
-    <div className="flex flex-col">
-      {resourcesList.map((item) => {
-        const Icon = item.icon;
-        if (item.external) {
-          return (
-            <a
-              key={item.to}
-              href={item.to}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
-            >
-              <Icon size={15} className="shrink-0 text-stone-400" />
-              {item.label}
-            </a>
-          );
-        }
-        return (
-          <Link
-            key={item.to}
-            to={item.to}
-            className="flex items-center gap-2.5 px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
-          >
-            <Icon size={15} className="shrink-0 text-stone-400" />
-            {item.label}
-          </Link>
-        );
-      })}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useInView } from "motion/react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
@@ -28,27 +28,6 @@ import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
-
-const heroContent = {
-  title: "AI Notepad for Meetings \u2014 No Strings Attached.",
-  subtitle: "No forced cloud. No data held hostage. No bots in your meetings.",
-  valueProps: [
-    {
-      title: "Zero lock-in",
-      description:
-        "Choose your preferred STT and LLM provider. Cloud or local.",
-    },
-    {
-      title: "You own your data",
-      description: "Plain markdown files on your device. Works with any tool.",
-    },
-    {
-      title: "Just works",
-      description:
-        "A simple, familiar notepad, real-time transcription, and AI summaries.",
-    },
-  ],
-};
 
 const mainFeatures = [
   {
@@ -97,55 +76,33 @@ const mainFeatures = [
 const activeFeatureIndices = mainFeatures.map((_, i) => i);
 const FEATURES_AUTO_ADVANCE_DURATION = 8000;
 
-const socialProofRedditBody = `Dear Hyprnote Team,
-
-I wanted to take a moment to commend you on the impressive work you've done with Hyprnote. Your commitment to privacy, on-device AI, and transparency is truly refreshing in today's software landscape. The fact that all transcription and summarization happens locally and live!—without compromising data security—makes Hyprnote a standout solution, especially for those of us in compliance-sensitive environments.
-
-The live transcription is key for me. It saves a landmark step to transcribe each note myself using macwhisper. Much more handy they way you all do this. The Calendar function is cool too.
-
-I am a telephysician and my notes are much more quickly done. Seeing 6-8 patients daily and tested it yesteday. So yes, my job is session heavy. Add to that being in psychiatry where document making sessions become voluminous, my flow is AI dependent to make reports stand out. Accuracy is key for patient care.
-
-Hyprnote is now part of that process.
-
-Thank you for your dedication and for building a tool that not only saves time, but also gives peace of mind. I look forward to seeing Hyprnote continue to evolve
-
-Cheers!`;
-
-const socialProofLinkedInBody = `Guys at Hyprnote (YC S25) are wild.
-
-Had a call with John Jeong about their product (privacy-first AI notepad).
-
-Next day? They already shipped a first version of the context feature we discussed 🤯
-
-24 𝐡𝐨𝐮𝐫𝐬. A conversation turned into production
-
-As Product Engineer at Waveful, where we also prioritize rapid execution, I deeply respect this level of speed.
-
-The ability to ship this fast while maintaining quality, is what separates great teams from the rest 🔥
-
-Btw give an eye to Hyprnote:
-100% local AI processing
-Zero cloud dependency
-Real privacy
-Almost daily releases
-
-Their repo: https://lnkd.in/dKCtxkA3 (mac only rn but they're releasing for windows very soon)
-
-Been using it for daily tasks, even simple note-taking is GREAT because I can review everything late, make action points etc.
-
-Mad respect to the team. This is how you build in 2025. 🚀`;
-
 export const Route = createFileRoute("/_view/")({
   component: Component,
 });
+
+function useHasEnteredView<T extends Element>(
+  amount: "some" | "all" | number = 0.2,
+) {
+  const ref = useRef<T>(null);
+  const isInView = useInView(ref, { amount });
+  const [hasEnteredView, setHasEnteredView] = useState(false);
+
+  useEffect(() => {
+    if (isInView) {
+      setHasEnteredView(true);
+    }
+  }, [isInView]);
+
+  return { ref, isInView, hasEnteredView };
+}
 
 function Component() {
   const [expandedVideo, setExpandedVideo] = useState<string | null>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <main className="min-h-screen flex-1 overflow-x-hidden">
-      <div className="mx-auto">
+    <main className="min-h-screen flex-1 overflow-x-hidden px-8">
+      <div className="">
         {/* <AnnouncementBanner /> */}
         <HeroSection
           onVideoExpand={setExpandedVideo}
@@ -245,16 +202,21 @@ function HeroSection({
 
   return (
     <div className="">
-      <div className="flex w-full min-w-0 flex-col text-left">
+      <div className="flex w-full flex-col text-left">
         <section
           id="hero"
-          className="isolate flex w-full min-w-0 overflow-visible px-4 pt-10 text-left"
+          className="isolate flex w-full overflow-visible pt-10 text-left"
         >
-          <div className="border-brand-bright items-left relative z-10 flex min-h-[80vh] w-full min-w-0 flex-row content-between rounded-lg border">
+          <div className="border-brand-bright items-left relative z-10 flex min-h-[80vh] w-full flex-col content-between rounded-lg border md:flex-row">
             <div className="flex flex-col justify-between px-6 pt-8 pb-8 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
-              <div className="flex flex-col gap-6">
-                <h1 className="text-color text-2xl break-words sm:text-6xl">
-                  Meeting Notes You Own
+              <div className="flex flex-col gap-2">
+                <h1
+                  className="text-color break-words"
+                  style={{
+                    fontSize: "clamp(1.5rem, 0.75rem + 3.2vw, 3.75rem)",
+                  }}
+                >
+                  Meeting Notes <br /> You Own
                 </h1>
                 <p className="font-regular text-fg-muted text-base leading-relaxed break-words sm:text-xl">
                   Char captures every meeting without a bot and keeps data on
@@ -367,12 +329,20 @@ function HeroSection({
               </div>
             </div>
 
-            <div className="relative hidden w-1/2 shrink-0 self-stretch overflow-hidden p-8 md:block">
+            <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-8 md:block md:w-1/2">
               <NotebookGrid />
+
+              <div className="absolute bottom-48 left-0 flex justify-start p-10">
+                <img
+                  src="/icons/reminder.svg"
+                  alt="Reminder to myself"
+                  className="h-24 object-contain"
+                />
+              </div>
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                  className="group surface border-brand-color relative flex w-4/5 flex-col overflow-hidden rounded-xl border p-4 shadow-xl"
+                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border p-4 shadow-xl"
                   style={{ aspectRatio: "16/9" }}
                 >
                   <div className="w-full">
@@ -390,9 +360,6 @@ function HeroSection({
                       </div>
                     </div>
                   </div>
-                  <p className="text-fg-muted text-sm">
-                    Check out the Product demo
-                  </p>
                 </button>
               </div>
             </div>
@@ -434,26 +401,11 @@ function LogoSection() {
 function SocialTestimonialsSection() {
   return (
     <section className="px-4 pt-16 pb-16">
-      <h2 className="text-color mb-10 font-mono text-2xl tracking-wide md:text-4xl">
+      <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
         What people are saying
       </h2>
 
       <div className="flex flex-col gap-6 md:hidden">
-        <SocialCard
-          platform="reddit"
-          author="spilledcarryout"
-          subreddit="macapps"
-          body={socialProofRedditBody}
-          url="https://www.reddit.com/r/macapps/comments/1lo24b9/comment/n15dr0t/"
-        />
-        <SocialCard
-          platform="linkedin"
-          author="Flavius Catalin Miron"
-          role="Product Engineer"
-          company="Waveful"
-          body={socialProofLinkedInBody}
-          url="https://www.linkedin.com/in/flaviews/"
-        />
         <SocialCard
           platform="twitter"
           author="yoran was here"
@@ -465,39 +417,57 @@ function SocialTestimonialsSection() {
           platform="twitter"
           author="Tom Yang"
           username="tomyang11_"
+          avatar="/avatars/tom.jpg"
           body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
           url="https://twitter.com/tomyang11_/status/1956395933538902092"
         />
       </div>
 
-      <div className="hidden gap-8 md:grid md:grid-cols-3">
+      <div className="hidden gap-4 md:grid md:grid-cols-3">
         <SocialCard
-          platform="reddit"
-          author="spilledcarryout"
-          subreddit="macapps"
-          body={socialProofRedditBody}
-          url="https://www.reddit.com/r/macapps/comments/1lo24b9/comment/n15dr0t/"
+          platform="twitter"
+          author="Tobi Lutke"
+          username="tobi"
+          avatar="/avatars/tobi.jpg"
+          body={`I'm actually very pro meeting recording and ai summarization. But I'm not ok with bots joining as fake humans accomplish this. It's a meeting between you and me. Not you and me and some startup's viral growth strategy.
+
+Granola is great. Gemini does this well in Google Meet. Hyprnote is great and fully local. But use them with consent.
+
+My tweet is about how ridiculous and self important it looks when you show up to a meeting with random bots as entourage.`}
+          url="https://x.com/tobi/status/1983892259230699921"
         />
         <SocialCard
-          platform="linkedin"
-          author="Flavius Catalin Miron"
-          role="Product Engineer"
-          company="Waveful"
-          body={socialProofLinkedInBody}
-          url="https://www.linkedin.com/in/flaviews/"
+          platform="twitter"
+          author="Anand Chowdhary"
+          username="AnandChowdhary"
+          avatar="/avatars/anand.jpg"
+          body={`Hyprnote has been on my radar since their time in YC S25 as “that local-first meeting notes thing,” and I finally took a closer look today. It immediately hit a nerve I’ve had with AI note tools for years. I love the idea of getting help with meetings. I really don’t love bots joining every Zoom call or my audio being streamed to some mystery server “for quality purposes”.
+
+@tryhyprnote leans into that tension in a pretty honest way. It calls itself a local-first AI notepad for private meetings, and the “private” bit is not just a tagline. There are no meeting bots and no calendar guests. It just listens directly to the audio going in and out of your computer, gives you a realtime transcript, and lets you stay in the conversation instead of turning into a court reporter.
+
+You still have a simple notepad to jot quick memos during the call. Those act more like hints than homework. After the meeting, Hyprnote can use your memos to shape a personalized summary, but that part is optional. If you forget to take notes altogether, it can still generate a recap from the transcript.
+
+The tech stack is pretty nice if you are into that sort of thing. TypeScript and React on the UI, Rust and Tauri for the desktop app. The cool part is what that enables. You can run the whole thing offline with LM Studio or Ollama. No Wi‑Fi, no outbound requests. That makes it genuinely interesting for teams that care a lot about compliance or even air‑gapped environments. And if you do want cloud models, it does the “bring your own LLM” thing with Gemini, Claude, Azure‑hosted GPT, etc., so it can fit into whatever your company’s approved stack is.
+
+If you have been waiting for an AI meeting assistant that behaves like a real desktop app and respects the fact that you might not want to ship your raw meeting audio to the cloud, Hyprnote is worth a look`}
+          url="https://x.com/AnandChowdhary/status/1997980479698723119"
         />
         <div className="flex flex-col gap-8">
           <SocialCard
             platform="twitter"
-            author="yoran was here"
-            username="yoran_beisher"
-            body="Been using Hypernote for a while now, truly one of the best AI apps I've used all year. Like they said, the best thing since sliced bread"
-            url="https://x.com/yoran_beisher/status/1953147865486012611"
+            author="James Koshigoe"
+            username="JamesKoshigoe"
+            avatar="/avatars/james.jpg"
+            body={`@getcharnotes
+ is by far one of my favorite AI secret weapons as of late. It's an AI notetaking tool, and there's a ton, but it's the best open source one that respects privacy & isn't a walled garden like others
+No affiliation, just love their product & hope they succeed`}
+            url="https://x.com/JamesKoshigoe/status/2024676687980671195"
           />
           <SocialCard
             platform="twitter"
             author="Tom Yang"
             username="tomyang11_"
+            avatar="/avatars/tom.jpg"
             body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
             url="https://twitter.com/tomyang11_/status/1956395933538902092"
           />
@@ -562,43 +532,69 @@ function DotWaveTransition() {
 export function HowItWorksSection() {
   const agentWorkflowGraphicId = useId().replaceAll(":", "");
   const [enhancedLines, setEnhancedLines] = useState(0);
+  const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
 
   useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
     const runAnimation = () => {
       setEnhancedLines(0);
 
-      setTimeout(() => {
-        setEnhancedLines(1);
+      timeouts.push(
         setTimeout(() => {
-          setEnhancedLines(2);
-          setTimeout(() => {
-            setEnhancedLines(3);
+          setEnhancedLines(1);
+          timeouts.push(
             setTimeout(() => {
-              setEnhancedLines(4);
-              setTimeout(() => {
-                setEnhancedLines(5);
+              setEnhancedLines(2);
+              timeouts.push(
                 setTimeout(() => {
-                  setEnhancedLines(6);
-                  setTimeout(() => {
-                    setEnhancedLines(7);
-                    setTimeout(() => runAnimation(), 1000);
-                  }, 800);
-                }, 800);
-              }, 800);
-            }, 800);
-          }, 800);
-        }, 800);
-      }, 800);
+                  setEnhancedLines(3);
+                  timeouts.push(
+                    setTimeout(() => {
+                      setEnhancedLines(4);
+                      timeouts.push(
+                        setTimeout(() => {
+                          setEnhancedLines(5);
+                          timeouts.push(
+                            setTimeout(() => {
+                              setEnhancedLines(6);
+                              timeouts.push(
+                                setTimeout(() => {
+                                  setEnhancedLines(7);
+                                  timeouts.push(
+                                    // animation stops after last line
+                                  );
+                                }, 800),
+                              );
+                            }, 800),
+                          );
+                        }, 800),
+                      );
+                    }, 800),
+                  );
+                }, 800),
+              );
+            }, 800),
+          );
+        }, 800),
+      );
     };
 
     runAnimation();
-  }, []);
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
+  }, [isInView]);
 
   return (
-    <section id="how-it-works" className="px-4 pt-8 pb-24">
+    <section ref={ref} id="how-it-works" className="px-4 pt-8 pb-24">
       <div className="flex flex-col">
         {/* Header */}
-        <div className="border-brand-color border-b py-10">
+        <div className="border-color-brand border-b py-10">
           <h2 className="text-color font-mono text-2xl leading-relaxed tracking-wide md:text-5xl">
             Focus on conversation <br /> while Char makes notes
           </h2>
@@ -607,7 +603,7 @@ export function HowItWorksSection() {
         {/* Block 1: Listen & Write */}
         <div className="flex flex-col md:flex-row">
           <div className="flex flex-col justify-end gap-4 pr-8 pb-16 md:w-1/2">
-            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+            <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
               During meeting
             </p>
             <p className="font-regular text-color text-lg leading-relaxed md:text-3xl">
@@ -617,7 +613,7 @@ export function HowItWorksSection() {
             </p>
           </div>
 
-          <div className="bg-lined-notebook md:w-1/2">
+          <div className="bg-lined-notebook select-none md:w-1/2">
             <motion.div
               initial="hidden"
               whileInView="visible"
@@ -641,7 +637,12 @@ export function HowItWorksSection() {
               >
                 <div className="flex items-center gap-3">
                   <div className="relative flex size-3">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span
+                      className={cn([
+                        "absolute inline-flex size-full rounded-full bg-red-400 opacity-75",
+                        isInView && "animate-ping",
+                      ])}
+                    />
                     <span className="relative inline-flex size-3 rounded-full bg-red-500" />
                   </div>
                   <p className="text-sm text-white md:text-base">
@@ -674,9 +675,9 @@ export function HowItWorksSection() {
                       transition: { duration: 0.5, ease: "easeOut" },
                     },
                   }}
-                  className="border-brand-color bg-surface h-[200px] w-full overflow-hidden rounded-xl border sm:h-[300px] sm:w-1/2"
+                  className="border-color-brand bg-surface h-[200px] w-full overflow-hidden rounded-xl border sm:h-[300px] sm:w-1/2"
                 >
-                  <div className="border-brand-color bg-surface-subtle relative flex h-[38px] shrink-0 items-center gap-2 border-b px-4">
+                  <div className="border-color-brand bg-surface-subtle relative flex h-[38px] shrink-0 items-center gap-2 border-b px-4">
                     <div className="flex gap-2">
                       <div className="size-3 rounded-full bg-red-400" />
                       <div className="size-3 rounded-full bg-yellow-400" />
@@ -695,9 +696,19 @@ export function HowItWorksSection() {
                     </h4>
                     <div className="text-color overflow-hidden text-base whitespace-pre-line">
                       {"ui update - moble\napi\nnew dash - urgnet"}
-                      <span className="animate-pulse text-xl text-blue-700">
+                      <motion.span
+                        className="text-2xl text-blue-600"
+                        animate={
+                          isInView ? { opacity: [1, 0, 1] } : { opacity: 1 }
+                        }
+                        transition={{
+                          duration: 0.8,
+                          repeat: isInView ? Infinity : 0,
+                          ease: "linear",
+                        }}
+                      >
                         |
-                      </span>
+                      </motion.span>
                     </div>
                   </div>
                 </motion.div>
@@ -706,31 +717,33 @@ export function HowItWorksSection() {
                     hidden: {},
                     visible: { transition: { staggerChildren: 0.15 } },
                   }}
-                  className="grid w-full grid-cols-2 place-content-around gap-4 sm:w-1/2"
+                  className="grid w-full grid-cols-2 place-content-around sm:w-1/2 md:gap-2 xl:gap-4"
                 >
                   {["design weekly.md", "1:1 with John.md", "Q2 goals.md"].map(
                     (name, i) => (
                       <motion.div
                         key={name}
                         variants={{
-                          hidden: { opacity: 0, y: -10 },
+                          hidden: {
+                            opacity: 0,
+                            y: -10,
+                            rotate: [-6, 6, -4][i],
+                          },
                           visible: {
                             opacity: 1,
                             y: 0,
+                            rotate: [-6, 6, -4][i],
                             transition: { duration: 0.4, ease: "easeOut" },
                           },
                         }}
-                        className="bg-surface border-brand-color relative h-32 w-full rounded border"
+                        className="bg-surface border-color-brand relative flex h-32 w-full flex-col items-end justify-end rounded border p-2"
                         style={{
                           clipPath:
                             "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 0 100%)",
-                          transform: `rotate(${[-3, 2, -5][i]}deg)`,
                         }}
                       >
-                        <div className="bg-brand border-brand-color absolute top-0 right-0 h-[24px] w-[24px] border-b" />
-                        <p className="text-fg absolute right-3 bottom-2 text-sm">
-                          {name}
-                        </p>
+                        <div className="border-color-brand absolute top-0 right-0 h-[24px] w-[24px] bg-[var(--color-border)]" />
+                        <p className="text-fg text-sm">{name}</p>
                       </motion.div>
                     ),
                   )}
@@ -747,31 +760,31 @@ export function HowItWorksSection() {
                   >
                     {[
                       {
-                        name: "Ben J.",
+                        name: "Ben",
                         color: "bg-red-200 border-red-300 text-red-500",
                       },
                       {
-                        name: "Sarah M.",
+                        name: "Sarah",
                         color: "bg-blue-200 border-blue-300 text-blue-500",
                       },
                       {
-                        name: "Victor F.",
+                        name: "Victor",
                         color: "bg-amber-200 border-amber-300 text-amber-500",
                       },
                     ].map(({ name, color }) => (
                       <div
                         key={name}
-                        className="flex items-center gap-2 rounded-full border border-stone-200 bg-stone-50 px-1.5 py-1"
+                        className="bg-surface flex items-center gap-2 rounded-full border border-stone-200 py-2 pr-4 pl-2"
                       >
                         <div
                           className={cn([
-                            "flex size-5 items-center justify-center rounded-full border text-sm font-bold",
+                            "flex size-5 min-w-5 items-center justify-center rounded-full border text-sm font-bold",
                             color,
                           ])}
                         >
                           {name[0]}
                         </div>
-                        <span className="text-fg-muted pr-1.5 text-sm font-medium">
+                        <span className="text-fg-muted text-sm font-medium">
                           {name}
                         </span>
                       </div>
@@ -785,7 +798,7 @@ export function HowItWorksSection() {
 
         <div className="flex flex-col md:flex-row">
           <div className="md:w-1/2"></div>
-          <div className="bg-lined-notebook flex flex-col justify-center px-8 md:w-1/2">
+          <div className="bg-lined-notebook flex flex-col justify-center px-8 select-none md:w-1/2">
             <DotWaveTransition />
           </div>
         </div>
@@ -793,7 +806,7 @@ export function HowItWorksSection() {
         {/* Block 2: Summarize */}
         <div className="-mt-px flex flex-col md:flex-row">
           <div className="flex flex-col justify-start gap-4 pt-16 pr-8 md:w-1/2">
-            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+            <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
               After meeting
             </p>
             <p className="text-color text-lg leading-relaxed md:text-3xl">
@@ -802,7 +815,7 @@ export function HowItWorksSection() {
             </p>
           </div>
 
-          <div className="bg-lined-notebook flex-1">
+          <div className="bg-lined-notebook flex-1 select-none">
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -810,15 +823,20 @@ export function HowItWorksSection() {
               viewport={{ once: true, amount: 0.6 }}
               className="flex h-full items-end justify-center p-8"
             >
-              <div className="surface border-brand-color w-full overflow-hidden rounded-xl border">
-                <div className="border-brand-color bg-surface-subtle relative flex h-[38px] items-center gap-2 border-b px-4">
+              <div className="surface border-color-brand w-full overflow-hidden rounded-xl border">
+                <div className="border-color-brand bg-surface-subtle relative flex h-[38px] items-center gap-2 border-b px-4">
                   <div className="flex gap-2">
                     <div className="size-3 rounded-full bg-red-400" />
                     <div className="size-3 rounded-full bg-yellow-400" />
                     <div className="size-3 rounded-full bg-green-400" />
                   </div>
+                  <div className="absolute left-1/2 -translate-x-1/2">
+                    <span className="text-fg-muted font-mono text-sm font-medium">
+                      Char
+                    </span>
+                  </div>
                 </div>
-                <div className="flex w-full flex-col gap-4 overflow-hidden p-6">
+                <div className="relative flex w-full flex-col gap-4 overflow-hidden p-6">
                   <div className="flex flex-col gap-2">
                     <h4
                       className={cn([
@@ -870,7 +888,7 @@ export function HowItWorksSection() {
                     >
                       New Dashboard – Urgent Priority
                     </h4>
-                    <ul className="text-color flex list-disc flex-col gap-2 pl-5 text-sm">
+                    <ul className="text-color flex list-disc flex-col gap-2 pl-5">
                       <li
                         className={cn([
                           "transition-opacity duration-500",
@@ -891,6 +909,7 @@ export function HowItWorksSection() {
                       </li>
                     </ul>
                   </div>
+                  <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-56 bg-gradient-to-t from-white to-transparent" />
                 </div>
               </div>
             </motion.div>
@@ -898,126 +917,54 @@ export function HowItWorksSection() {
         </div>
 
         {/* features block */}
-        <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-16 pb-4 [scrollbar-width:none] md:grid md:grid-cols-5 md:gap-12 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-8">
+        <div className="border-color-brand flex snap-x snap-mandatory gap-6 overflow-x-auto border-t pt-16 pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4">
           {/* own your data */}
-          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-full items-center justify-center">
-              <svg
-                className="aspect-[162/134] h-14 w-auto"
-                viewBox="0 0 162 134"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M0 17.5918V116.408C0 122.566 0 125.645 1.19837 127.997C2.25248 130.066 3.93449 131.748 6.0033 132.802C8.35524 134 11.4341 134 17.5918 134H142.865C149.022 134 152.101 134 154.453 132.802C156.522 131.748 158.204 130.066 159.258 127.997C160.456 125.645 160.456 122.566 160.456 116.408V29.969C160.456 23.8113 160.456 20.7324 159.258 18.3805C158.204 16.3117 156.522 14.6297 154.453 13.5755C152.101 12.3772 149.022 12.3772 142.865 12.3772H69.6948C66.9975 12.3772 65.6488 12.3772 64.3801 12.0717C63.2552 11.8009 62.1802 11.3542 61.1946 10.7481C60.083 10.0646 59.1314 9.10884 57.2283 7.19737L55.2196 5.1798L55.2195 5.17975C53.3164 3.26831 52.3649 2.31258 51.2532 1.62902C50.2677 1.02299 49.1926 0.576311 48.0678 0.305478C46.799 0 45.4504 0 42.753 0H17.5918C11.4341 0 8.35524 0 6.0033 1.19837C3.93449 2.25248 2.25248 3.93449 1.19837 6.0033C0 8.35524 0 11.4341 0 17.5918Z"
-                  fill={`url(#paint0-${agentWorkflowGraphicId})`}
-                />
-                <path
-                  d="M3.95117 25.7577V123.36C3.95117 126.959 6.86882 129.877 10.4679 129.877H149.988C153.587 129.877 156.505 126.959 156.505 123.36V25.7577C156.505 22.1586 153.587 19.241 149.988 19.241H10.4679C6.86881 19.241 3.95117 22.1586 3.95117 25.7577Z"
-                  fill="white"
-                />
-                <g filter={`url(#filter0-${agentWorkflowGraphicId})`}>
-                  <path
-                    d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
-                    fill={`url(#paint1-${agentWorkflowGraphicId})`}
-                  />
-                  <path
-                    d="M0 43.7046V116.236C0 122.394 0 125.473 1.19837 127.825C2.25248 129.894 3.93449 131.576 6.0033 132.63C8.35524 133.828 11.4341 133.828 17.5918 133.828H142.865C149.022 133.828 152.101 133.828 154.453 132.63C156.522 131.576 158.204 129.894 159.258 127.825C160.456 125.473 160.456 122.394 160.456 116.236V43.7046C160.456 37.5469 160.456 34.468 159.258 32.1161C158.204 30.0473 156.522 28.3653 154.453 27.3112C152.101 26.1128 149.022 26.1128 142.865 26.1128H17.5918C11.4341 26.1128 8.35524 26.1128 6.0033 27.3112C3.93449 28.3653 2.25248 30.0473 1.19837 32.1161C0 34.468 0 37.5469 0 43.7046Z"
-                    fill="white"
-                    fillOpacity={0.2}
-                    style={{ mixBlendMode: "multiply" }}
-                  />
-                </g>
-                <g style={{ mixBlendMode: "overlay" }}>
-                  <path
-                    d="M69.4606 62.907C69.4606 65.3925 68.1634 67.6632 66.5467 69.5959C64.1646 72.4435 62.717 76.0863 62.717 80.0565C62.717 84.0267 64.1647 87.6693 66.5467 90.5169C68.1634 92.4496 69.4606 94.7202 69.4606 97.2057V104.025H61.3927V96.0795C61.3927 93.4736 60.0779 91.0314 57.8701 89.5361L56.5178 88.6204V71.2748L57.87 70.359C60.0779 68.8638 61.3927 66.4216 61.3927 63.8157V56.0884L69.4606 56.0884V62.907Z"
-                    fill="var(--color-fg)"
-                  />
-                  <path
-                    d="M91.5113 62.907C91.5113 65.3925 92.8086 67.6632 94.4253 69.5959C96.8073 72.4435 98.2549 76.0863 98.2549 80.0565C98.2549 84.0267 96.8073 87.6693 94.4253 90.5169C92.8085 92.4496 91.5113 94.7202 91.5113 97.2057V104.025H99.5793V96.0795C99.5793 93.4736 100.894 91.0314 103.102 89.5361L104.454 88.6204V71.2748L103.102 70.359C100.894 68.8638 99.5793 66.4216 99.5793 63.8157V56.0884L91.5113 56.0884V62.907Z"
-                    fill="var(--color-fg)"
-                  />
-                </g>
-                <defs>
-                  <filter
-                    id={`filter0-${agentWorkflowGraphicId}`}
-                    x="0"
-                    y="26.1128"
-                    width="160.457"
-                    height="108.403"
-                    filterUnits="userSpaceOnUse"
-                    colorInterpolationFilters="sRGB"
-                  >
-                    <feFlood floodOpacity={0} result="BackgroundImageFix" />
-                    <feBlend
-                      mode="normal"
-                      in="SourceGraphic"
-                      in2="BackgroundImageFix"
-                      result="shape"
-                    />
-                    <feColorMatrix
-                      in="SourceAlpha"
-                      type="matrix"
-                      values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
-                      result="hardAlpha"
-                    />
-                    <feOffset dy="0.68718" />
-                    <feGaussianBlur stdDeviation="0.34359" />
-                    <feComposite
-                      in2="hardAlpha"
-                      operator="arithmetic"
-                      k2="-1"
-                      k3="1"
-                    />
-                    <feColorMatrix
-                      type="matrix"
-                      values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.25 0"
-                    />
-                    <feBlend
-                      mode="normal"
-                      in2="shape"
-                      result="effect1_innerShadow"
-                    />
-                  </filter>
-                  <linearGradient
-                    id={`paint0-${agentWorkflowGraphicId}`}
-                    x1="82.9667"
-                    y1="4.12572"
-                    x2="82.9667"
-                    y2="134.075"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#2BC5F4" />
-                    <stop offset="0.190196" stopColor="#00A7DE" />
-                  </linearGradient>
-                  <linearGradient
-                    id={`paint1-${agentWorkflowGraphicId}`}
-                    x1="91.3745"
-                    y1="16.4999"
-                    x2="91.3745"
-                    y2="133.828"
-                    gradientUnits="userSpaceOnUse"
-                  >
-                    <stop stopColor="#49D2FC" />
-                    <stop offset="0.5" stopColor="#00B4E7" />
-                    <stop offset="1" stopColor="#00B4E7" />
-                  </linearGradient>
-                </defs>
-              </svg>
+          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-32 items-center justify-start gap-2 select-none">
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[3deg] object-contain"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[-5deg] object-contain"
+                draggable={false}
+              />
+              <img
+                src="/icons/folderchar.svg"
+                alt=""
+                className="w-14 object-contain"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[6deg] object-contain"
+                draggable={false}
+              />
+              <img
+                src="/icons/file.webp"
+                alt=""
+                className="w-10 rotate-[-4deg] object-contain"
+                draggable={false}
+              />
             </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Own your data
+                Own your <br /> data
               </h4>
               <p className="text-color text-base">
-                Data stays on your device and not locked in a database.
+                Data stays on your device and not locked in a cloud.
               </p>
             </div>
           </div>
 
           {/* local or cloud */}
-          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-full items-center gap-4">
+          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-32 items-center gap-4 select-none">
               <Icon icon="mdi:wifi-off" className="text-fg-muted text-2xl" />
               <div className="flex rounded-md border border-red-300 bg-red-100 px-2 py-2">
                 <DancingSticks
@@ -1028,9 +975,10 @@ export function HowItWorksSection() {
                 />
               </div>
             </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Local or cloud, your choice
+                Local or cloud,
+                <br /> your choice
               </h4>
               <p className="text-color text-base">
                 Run fully local, bring your own API key, or use Char cloud.
@@ -1040,36 +988,38 @@ export function HowItWorksSection() {
           </div>
 
           {/* works everywhere */}
-          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between md:min-w-0 md:shrink">
-            <div className="flex h-full items-center">
-              <div className="flex flex-wrap gap-2">
-                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
-                  <Icon icon="mdi:video" className="text-fg-muted text-lg" />
-                  <span className="text-fg-muted text-xs">Zoom</span>
-                </div>
-                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
-                  <Icon
-                    icon="mdi:microsoft-teams"
-                    className="text-fg-muted text-lg"
-                  />
-                  <span className="text-fg-muted text-xs">Teams</span>
-                </div>
-                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
-                  <Icon icon="mdi:google" className="text-fg-muted text-lg" />
-                  <span className="text-fg-muted text-xs">Meet</span>
-                </div>
-                <div className="border-brand-color flex items-center gap-2 rounded-lg border bg-gradient-to-b from-white to-stone-50 px-3 py-2 shadow-sm">
-                  <Icon
-                    icon="mdi:microphone"
-                    className="text-fg-muted text-lg"
-                  />
-                  <span className="text-fg-muted text-xs">In-person</span>
-                </div>
+          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-32 items-center select-none">
+              <div className="flex flex-wrap items-center gap-6">
+                <img
+                  src="/icons/zoom.svg"
+                  alt="Zoom"
+                  className="size-10"
+                  draggable={false}
+                />
+                <img
+                  src="/icons/teams logo.svg"
+                  alt="Teams"
+                  className="size-12"
+                  draggable={false}
+                />
+                <img
+                  src="/icons/google-meet logo.svg"
+                  alt="Google Meet"
+                  className="size-12"
+                  draggable={false}
+                />
+                <img
+                  src="/icons/inperson logo.svg"
+                  alt="In-person"
+                  className="size-14"
+                  draggable={false}
+                />
               </div>
             </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Works everywhere
+                Works <br /> everywhere
               </h4>
               <p className="text-color text-base">
                 Captures system audio. Works on Zoom, Teams, Meet, in-person, or
@@ -1079,16 +1029,16 @@ export function HowItWorksSection() {
           </div>
 
           {/* upload existing recordings */}
-          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between md:min-w-0 md:shrink">
-            <div className="flex h-full items-center">
-              <div className="relative flex h-16 w-full items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-100 px-2 py-2">
-                <div className="flex size-10 items-center justify-center rounded-full bg-gray-100">
+          <div className="border-brand flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-32 items-center select-none">
+              <div className="relative flex h-16 w-4/5 items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-100 px-2 py-2">
+                <div className="flex size-10 items-center justify-center rounded-full bg-white">
                   <Icon
                     icon="mdi:file-upload"
                     className="text-fg-muted text-xl"
                   />
                 </div>
-                <div className="border-brand-color surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md border py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
+                <div className="border-color-brand surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md border py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
                   <svg
                     width="24"
                     height="24"
@@ -1135,7 +1085,7 @@ export function HowItWorksSection() {
                 </div>
               </div>
             </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
                 Upload existing recordings
               </h4>
@@ -1147,13 +1097,13 @@ export function HowItWorksSection() {
           </div>
 
           {/* languages */}
-          <div className="border-brand flex min-w-[260px] shrink-0 snap-center flex-col justify-between md:min-w-0 md:shrink">
-            <div className="flex h-full items-center justify-center p-8">
+          <div className="border-brand flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
+            <div className="flex h-32 items-center justify-start select-none">
               <HelloBubble />
             </div>
-            <div className="flex min-h-0 flex-col justify-end gap-2 md:min-h-[200px]">
+            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
               <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                40+ languages
+                40+ <br /> languages
               </h4>
               <p className="text-color text-base">
                 Char uses best-in-class transcription models and updates them
@@ -1170,7 +1120,7 @@ export function HowItWorksSection() {
 function ChatBubbleQuestion({ text }: { text: string }) {
   return (
     <div className="flex w-full justify-end">
-      <div className="border-brand-color w-2/3 rounded-t-2xl rounded-bl-2xl border bg-blue-50 px-4 py-3">
+      <div className="border-color-brand w-2/3 rounded-t-2xl rounded-bl-2xl border bg-blue-50 px-4 py-3">
         <p className="text-color text-sm">{text}</p>
       </div>
     </div>
@@ -1194,31 +1144,38 @@ const helloWords = [
 
 function HelloBubble() {
   const [index, setIndex] = useState(0);
+  const { ref, isInView } = useHasEnteredView<HTMLDivElement>(0.4);
+  const itemHeight = 44;
 
   useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
     const id = setInterval(() => {
       setIndex((i) => (i + 1) % helloWords.length);
     }, 2000);
     return () => clearInterval(id);
-  }, []);
-
-  const current = helloWords[index];
+  }, [isInView]);
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={current.text}
-        initial={{ opacity: 0, scale: 0.8, filter: "blur(4px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        exit={{ opacity: 0, scale: 0.8, filter: "blur(4px)" }}
-        transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="rounded-full rounded-bl-sm bg-blue-500 px-6 py-3"
-      >
-        <span className="block text-2xl font-medium whitespace-nowrap text-white">
-          {current.text}
-        </span>
-      </motion.div>
-    </AnimatePresence>
+    <div ref={ref} className="relative" style={{ height: itemHeight }}>
+      <AnimatePresence mode="popLayout">
+        <motion.div
+          key={index}
+          className="flex items-center rounded-full rounded-bl-sm bg-blue-500 px-6"
+          style={{ height: itemHeight }}
+          initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
+          animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+          exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
+          transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <span className="block text-2xl font-medium whitespace-nowrap text-white">
+            {helloWords[index].text}
+          </span>
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -1230,7 +1187,7 @@ function ChatBubbleResponse({
   withCheck?: boolean;
 }) {
   return (
-    <div className="border-brand-color w-2/3 rounded-t-xl rounded-br-xl border bg-gradient-to-b from-white to-stone-100 px-4 py-3">
+    <div className="border-color-brand w-2/3 rounded-t-xl rounded-br-xl border bg-gradient-to-b from-white to-stone-100 px-4 py-3">
       <p className="text-fg-muted mb-1 text-sm">Char</p>
       {withCheck ? (
         <div className="flex items-center gap-2 text-sm">
@@ -1240,21 +1197,6 @@ function ChatBubbleResponse({
       ) : (
         <p className="text-color text-sm">{text}</p>
       )}
-    </div>
-  );
-}
-
-function ChatInput() {
-  return (
-    <div className="p-3">
-      <div className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2">
-        <span className="text-fg-subtle flex-1 text-sm">
-          Ask Char anything...
-        </span>
-        <div className="text-fg-subtle flex size-6 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
-          <Icon icon="mdi:arrow-up" className="text-xs" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -1308,41 +1250,97 @@ const cyclingPairs = [
 
 function CyclingChatGraphic() {
   const [index, setIndex] = useState(0);
+  const [phase, setPhase] = useState<"question" | "answer" | "exit">(
+    "question",
+  );
+  const { ref, isInView } = useHasEnteredView<HTMLDivElement>(0.4);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setIndex((i) => (i + 1) % cyclingPairs.length);
-    }, 3500);
-    return () => clearInterval(id);
-  }, []);
+    if (!isInView) {
+      return;
+    }
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    function runCycle() {
+      setPhase("question");
+
+      timers.push(setTimeout(() => setPhase("answer"), 800));
+      timers.push(setTimeout(() => setPhase("exit"), 3500));
+      timers.push(
+        setTimeout(() => {
+          setIndex((i) => (i + 1) % cyclingPairs.length);
+          setPhase("question");
+        }, 4000),
+      );
+    }
+
+    runCycle();
+    const id = setInterval(runCycle, 4000);
+
+    return () => {
+      clearInterval(id);
+      timers.forEach(clearTimeout);
+    };
+  }, [isInView]);
 
   const pair = cyclingPairs[index];
 
   return (
-    <div className="flex w-full max-w-[420px] flex-col">
+    <div ref={ref} className="flex w-full max-w-[420px] flex-col">
       <AnimatePresence mode="wait">
-        <motion.div
-          key={index}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -12 }}
-          transition={{ duration: 0.35, ease: "easeInOut" }}
-          className="flex flex-col gap-3"
-        >
-          <ChatBubbleQuestion text={pair.q} />
-          <ChatBubbleResponse text={pair.a} />
-        </motion.div>
+        {phase !== "exit" && (
+          <motion.div
+            key={index}
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            className="flex flex-col"
+          >
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.3,
+                ease: "easeOut",
+                layout: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+              }}
+            >
+              <ChatBubbleQuestion text={pair.q} />
+            </motion.div>
+            <AnimatePresence>
+              {phase === "answer" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                  style={{ overflow: "hidden" }}
+                >
+                  <ChatBubbleResponse text={pair.a} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
 }
 
-function MeetingBar() {
+function MeetingBar({ animated = true }: { animated?: boolean }) {
   return (
     <div className="flex w-full items-center justify-between rounded-full bg-stone-700 p-2 pl-6">
       <div className="flex items-center gap-3">
         <div className="relative flex size-3">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span
+            className={cn([
+              "absolute inline-flex size-full rounded-full bg-red-400 opacity-75",
+              animated && "animate-ping",
+            ])}
+          />
           <span className="relative inline-flex size-3 rounded-full bg-red-500" />
         </div>
         <p className="text-sm text-white">Weekly Team Sync</p>
@@ -1361,29 +1359,68 @@ function MeetingBar() {
 }
 
 function LiveChatMessages() {
-  return (
-    <div className="flex flex-col gap-2">
-      <ChatBubbleQuestion text="What's the timeline for the mobile UI?" />
-      <TranscriptToolCall loopKey={0} static />
-      <ChatBubbleResponse text="Ben committed to auth module this week. Sarah estimates 2 sprints for full API." />
-    </div>
-  );
-}
+  const [step, setStep] = useState(0);
+  const { ref, isInView } = useHasEnteredView<HTMLDivElement>(0.4);
 
-function LiveGraphic() {
+  useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
+    setStep(0);
+    const t1 = setTimeout(() => setStep(1), 600);
+    const t2 = setTimeout(() => setStep(2), 1200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isInView]);
+
+  const ease = [0.4, 0, 0.2, 1] as const;
+
   return (
-    <div className="flex w-full flex-col gap-3">
-      <MeetingBar />
-      <LiveChatMessages />
+    <div ref={ref} className="flex flex-col">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+      >
+        <ChatBubbleQuestion text="What's the timeline for the mobile UI?" />
+      </motion.div>
+      <AnimatePresence>
+        {step >= 1 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
+            transition={{ duration: 0.4, ease }}
+            style={{ overflow: "hidden" }}
+          >
+            <TranscriptToolCall loopKey={0} static />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {step >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
+            transition={{ duration: 0.4, ease }}
+            style={{ overflow: "hidden" }}
+          >
+            <ChatBubbleResponse text="Ben committed to auth module this week. Sarah estimates 2 sprints for full API." />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
 export function AISection() {
   const [activeBlock, setActiveBlock] = useState<0 | 1>(0);
+  const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
 
   return (
-    <section id="ai" className="px-4 py-16">
+    <section ref={ref} id="ai" className="px-4 py-16">
       <div className="items-left flex flex-col gap-4 pb-12 text-left">
         <h2 className="text-fg font-mono text-2xl tracking-wide md:text-4xl">
           Get more from every note with AI
@@ -1394,12 +1431,12 @@ export function AISection() {
         </p>
       </div>
 
-      <div className="surface-subtle border-brand-color flex flex-col overflow-hidden rounded-xl border md:min-h-[700px] md:flex-row">
-        <div className="flex flex-col md:w-1/2">
+      <div className="surface-subtle border-color-brand flex flex-col overflow-hidden rounded-xl border md:min-h-[700px] md:flex-row">
+        <div className="flex flex-col gap-8 pt-8 pr-8 pl-4 md:w-1/2">
           {/* Block 1: Chat with notes */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 p-8 transition-all duration-200",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
               activeBlock === 0
                 ? "border-l-stone-800"
                 : "border-l-transparent opacity-50 hover:opacity-75",
@@ -1429,7 +1466,7 @@ export function AISection() {
           {/* Block 2: Live meetings */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 p-8 transition-all duration-200",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
               activeBlock === 1
                 ? "border-l-stone-800"
                 : "border-l-transparent opacity-50 hover:opacity-75",
@@ -1450,7 +1487,7 @@ export function AISection() {
 
           {/* Mobile image for block 2 */}
           <div className="bg-dotted-dark flex min-h-[280px] flex-col justify-center gap-3 p-8 md:hidden">
-            <MeetingBar />
+            <MeetingBar animated={isInView} />
             <ChatPanel>
               <LiveChatMessages />
             </ChatPanel>
@@ -1458,7 +1495,7 @@ export function AISection() {
         </div>
 
         {/* Desktop right panel */}
-        <div className="bg-dotted-dark hidden flex-col justify-center gap-3 p-8 md:flex md:w-1/2">
+        <div className="bg-dotted-dark hidden flex-col justify-end gap-2 p-8 md:flex md:w-1/2">
           <AnimatePresence mode="wait">
             {activeBlock === 1 && (
               <motion.div
@@ -1468,7 +1505,7 @@ export function AISection() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.3 }}
               >
-                <MeetingBar />
+                <MeetingBar animated={isInView} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1508,7 +1545,7 @@ export function AISection() {
 export function GrowsWithYouSection() {
   return (
     <section id="grows-with-you" className="px-4 pt-8 pb-16">
-      <div className="surface border-brand-color mx-auto rounded-xl border">
+      <div className="surface border-color-brand mx-auto rounded-xl border">
         <div className="items-left flex flex-col gap-2 px-8 pt-16 pb-8 text-left">
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Char grows with you
@@ -1526,10 +1563,10 @@ export function GrowsWithYouSection() {
           </Link>
         </div>
 
-        <div className="border-brand-color grid border-t md:grid-cols-2">
-          <div className="bg-lined-notebook border-brand-color flex flex-col border-b md:border-r md:border-b-0">
+        <div className="border-color-brand grid border-t md:grid-cols-2">
+          <div className="bg-lined-notebook border-color-brand flex flex-col border-b md:border-r md:border-b-0">
             <div className="flex h-[240px] items-start px-8 pt-8">
-              <div className="surface border-brand-color w-full rounded-xl border p-4 md:max-w-2/3">
+              <div className="surface border-color-brand w-full rounded-xl border p-4 md:max-w-4/5">
                 <div className="mb-3 flex items-center gap-3">
                   <div className="flex size-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-500">
                     S
@@ -1544,7 +1581,7 @@ export function GrowsWithYouSection() {
                 <div className="text-color-muted mb-2 text-xs">
                   sarah@acme.com · +1 (415) 555-0123
                 </div>
-                <div className="border-brand-color bg-surface-subtle rounded border p-3">
+                <div className="border-color-brand bg-surface-subtle rounded border p-3">
                   <p className="text-color-muted mb-1 text-xs font-medium">
                     Last conversation
                   </p>
@@ -1577,10 +1614,9 @@ export function GrowsWithYouSection() {
               </ul>
             </div>
           </div>
-
           <div className="bg-grid flex flex-col">
             <div className="flex h-[240px] items-center px-8 pt-8">
-              <div className="surface-subtle border-brand-color flex w-full items-center justify-between gap-4 rounded-2xl border p-4 md:max-w-2/3">
+              <div className="surface-subtle border-color-brand flex w-full items-center justify-between gap-4 rounded-2xl border p-4 md:max-w-4/5">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:calendar"
@@ -1646,6 +1682,7 @@ export function MainFeaturesSection({
 }) {
   const [progress, setProgress] = useState(0);
   const progressRef = useRef(0);
+  const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
 
   const handleFeatureIndexChange = useCallback(
     (nextIndex: number) => {
@@ -1657,6 +1694,10 @@ export function MainFeaturesSection({
   );
 
   useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
     const startTime =
       Date.now() - (progressRef.current / 100) * FEATURES_AUTO_ADVANCE_DURATION;
     let animationId: number;
@@ -1694,7 +1735,7 @@ export function MainFeaturesSection({
 
     animationId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationId);
-  }, [selectedFeature, setSelectedFeature, featuresScrollRef]);
+  }, [featuresScrollRef, isInView, selectedFeature, setSelectedFeature]);
 
   const handleScrollToFeature = (index: number) => {
     scrollToFeature(index);
@@ -1703,7 +1744,7 @@ export function MainFeaturesSection({
   };
 
   return (
-    <section>
+    <section ref={ref}>
       <div className="px-4 py-16 text-left">
         <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-transparent shadow-xl">
           <Image
@@ -1860,13 +1901,16 @@ function MobileFeatureVideo({
   isActive: boolean;
 }) {
   const playerRef = useRef<MuxPlayerRefAttributes>(null);
+  const { ref, isInView, hasEnteredView } =
+    useHasEnteredView<HTMLDivElement>(0.35);
   const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+  const shouldLoadPlayer = hasEnteredView || isActive;
 
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isActive) {
+    if (isActive && isInView) {
       player.play()?.catch(() => {
         // Autoplay blocked or player not ready - fail silently
       });
@@ -1874,10 +1918,10 @@ function MobileFeatureVideo({
       player.pause();
       player.currentTime = 0;
     }
-  }, [isActive]);
+  }, [isActive, isInView]);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={ref} className="relative h-full w-full">
       <img
         src={thumbnailUrl}
         alt={alt}
@@ -1886,24 +1930,26 @@ function MobileFeatureVideo({
           isActive ? "opacity-0" : "opacity-100",
         ])}
       />
-      <MuxPlayer
-        ref={playerRef}
-        playbackId={playbackId}
-        muted
-        loop
-        playsInline
-        maxResolution="1080p"
-        minResolution="720p"
-        className={cn([
-          "h-full w-full object-contain transition-opacity duration-300",
-          isActive ? "opacity-100" : "opacity-0",
-        ])}
-        style={
-          {
-            "--controls": "none",
-          } as React.CSSProperties & { [key: `--${string}`]: string }
-        }
-      />
+      {shouldLoadPlayer && (
+        <MuxPlayer
+          ref={playerRef}
+          playbackId={playbackId}
+          muted
+          loop
+          playsInline
+          maxResolution="1080p"
+          minResolution="720p"
+          className={cn([
+            "h-full w-full object-contain transition-opacity duration-300",
+            isActive ? "opacity-100" : "opacity-0",
+          ])}
+          style={
+            {
+              "--controls": "none",
+            } as React.CSSProperties & { [key: `--${string}`]: string }
+          }
+        />
+      )}
     </div>
   );
 }
@@ -1918,22 +1964,25 @@ function FeatureVideo({
   isHovered: boolean;
 }) {
   const playerRef = useRef<MuxPlayerRefAttributes>(null);
+  const { ref, isInView, hasEnteredView } =
+    useHasEnteredView<HTMLDivElement>(0.35);
   const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+  const shouldLoadPlayer = hasEnteredView || isHovered;
 
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isHovered) {
+    if (isHovered && isInView) {
       player.play();
     } else {
       player.pause();
       player.currentTime = 0;
     }
-  }, [isHovered]);
+  }, [isHovered, isInView]);
 
   return (
-    <div className="relative h-full w-full">
+    <div ref={ref} className="relative h-full w-full">
       <img
         src={thumbnailUrl}
         alt={alt}
@@ -1942,24 +1991,26 @@ function FeatureVideo({
           isHovered ? "opacity-0" : "opacity-100",
         ])}
       />
-      <MuxPlayer
-        ref={playerRef}
-        playbackId={playbackId}
-        muted
-        loop
-        playsInline
-        maxResolution="1080p"
-        minResolution="720p"
-        className={cn([
-          "h-full w-full object-contain transition-opacity duration-300",
-          isHovered ? "opacity-100" : "opacity-0",
-        ])}
-        style={
-          {
-            "--controls": "none",
-          } as React.CSSProperties & { [key: `--${string}`]: string }
-        }
-      />
+      {shouldLoadPlayer && (
+        <MuxPlayer
+          ref={playerRef}
+          playbackId={playbackId}
+          muted
+          loop
+          playsInline
+          maxResolution="1080p"
+          minResolution="720p"
+          className={cn([
+            "h-full w-full object-contain transition-opacity duration-300",
+            isHovered ? "opacity-100" : "opacity-0",
+          ])}
+          style={
+            {
+              "--controls": "none",
+            } as React.CSSProperties & { [key: `--${string}`]: string }
+          }
+        />
+      )}
     </div>
   );
 }
@@ -2166,55 +2217,53 @@ const solutionColors: Record<
   string,
   { accent: string; bg: string; border: string }
 > = {
-  sales: { accent: "oklch(0.62 0.1332 49)", bg: "#fefce8", border: "#fde68a" },
+  developers: {
+    accent: "oklch(0.55 0.2245 292.58)",
+    bg: "#f5f3ff",
+    border: "#ddd6fe",
+  },
+  enterprise: {
+    accent: "#374151",
+    bg: "#f9fafb",
+    border: "#d1d5db",
+  },
   research: {
     accent: "oklch(0.5471 0.1899 264.38)",
     bg: "#eff6ff",
     border: "#bfdbfe",
   },
-  legal: { accent: "#374151", bg: "#f9fafb", border: "#d1d5db" },
-  engineering: {
-    accent: "oklch(0.55 0.2245 292.58)",
-    bg: "#f5f3ff",
-    border: "#ddd6fe",
-  },
-  healthcare: {
-    accent: "oklch(0.5588 0.1085 165.61)",
-    bg: "#ecfdf5",
-    border: "#a7f3d0",
-  },
-  recruiting: {
-    accent: "oklch(0.55 0.148 3.96)",
-    bg: "#fff1f2",
-    border: "#fecdd3",
-  },
-  "project-management": {
-    accent: "oklch(0.6 0.1283 38.4)",
-    bg: "#fff7ed",
-    border: "#fed7aa",
-  },
-  journalism: {
-    accent: "oklch(0.5059 0.0765 186.39)",
-    bg: "#f0fdfa",
-    border: "#99f6e4",
-  },
 };
 
 const solutionScenarios = [
   {
-    id: "sales",
-    label: "Sales",
-    headline: "Close more deals with AI-powered meeting notes",
+    id: "developers",
+    label: "Developers",
+    headline: "The only meeting AI you can fork, fix and make your own",
     description:
-      "Stop taking notes during sales calls. Focus on building relationships while Char captures every detail, extracts insights, and prepares your follow-ups.",
+      "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
     pills: [
-      "Capture Every Detail",
-      "Deal Intelligence",
-      "Action Items",
-      "Sales Coaching",
-      "Privacy-First",
+      "Bring Your Own Key",
+      "Automation Hooks",
+      "Fully Extensible",
+      "CLI Access",
+      "REST API",
     ],
-    link: "/solution/sales/",
+    link: "/solution/engineering",
+  },
+  {
+    id: "enterprise",
+    label: "Enterprise",
+    headline: "Meeting AI configured for your organization",
+    description:
+      "Other AI note-takers ask you to trust their infrastructure, their models, and their policies. We built one where you control all three.",
+    pills: [
+      "Self-Hosted Deployment",
+      "Zero-Knowledge Security",
+      "Compliance Ready",
+      "Access Control",
+      "Open Source",
+    ],
+    link: "/enterprise",
   },
   {
     id: "research",
@@ -2231,96 +2280,6 @@ const solutionScenarios = [
     ],
     link: "/solution/research",
   },
-  {
-    id: "legal",
-    label: "Legal",
-    headline: "Confidential AI notes for legal professionals",
-    description:
-      "Capture every client meeting and case discussion with AI that processes everything locally. Your privileged communications stay protected.",
-    pills: [
-      "Confidentiality First",
-      "Accurate Transcription",
-      "Case Documentation",
-      "Billable Time Tracking",
-      "Self-Hosting",
-    ],
-    link: "/solution/legal",
-  },
-  {
-    id: "engineering",
-    label: "Engineering",
-    headline: "The only meeting AI you can fork, fix and make your own",
-    description:
-      "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
-    pills: [
-      "Bring Your Own Key",
-      "Automation Hooks",
-      "Fully Extensible",
-      "CLI Access",
-      "REST API",
-    ],
-    link: "/solution/engineering",
-  },
-  {
-    id: "healthcare",
-    label: "Healthcare",
-    headline: "Privacy-first AI notes for healthcare teams",
-    description:
-      "Capture clinical meetings and patient discussions with AI that processes everything locally. Your patient data never leaves your device.",
-    pills: [
-      "Privacy-First Design",
-      "Clinical Documentation",
-      "Care Coordination",
-      "Time Savings",
-      "Self-Hosting",
-    ],
-    link: "/solution/healthcare",
-  },
-  {
-    id: "recruiting",
-    label: "Recruiting",
-    headline: "Hire better with AI-powered interview notes",
-    description:
-      "Focus on the candidate, not your notepad. Char captures every interview detail so you can make better hiring decisions.",
-    pills: [
-      "Capture Every Response",
-      "Structured Feedback",
-      "Objective Comparison",
-      "Faster Decisions",
-      "Candidate Privacy",
-    ],
-    link: "/solution/recruiting",
-  },
-  {
-    id: "project-management",
-    label: "Project management",
-    headline: "Keep projects on track with AI-powered notes",
-    description:
-      "Focus on leading your projects, not taking notes. Char captures every meeting detail so nothing falls through the cracks.",
-    pills: [
-      "Action Item Tracking",
-      "Stakeholder Management",
-      "Status Updates",
-      "Risk Documentation",
-      "Searchable History",
-    ],
-    link: "/solution/project-management",
-  },
-  {
-    id: "journalism",
-    label: "Journalism",
-    headline: "Report with confidence using AI-powered notes",
-    description:
-      "Focus on asking the right questions while Char captures every quote, verifies accuracy, and helps you tell compelling stories.",
-    pills: [
-      "Interview Recording",
-      "Precise Quotes",
-      "Fact Verification",
-      "Fast Turnaround",
-      "Source Protection",
-    ],
-    link: "/solution/journalism",
-  },
 ];
 
 function SolutionsTabbar() {
@@ -2330,7 +2289,7 @@ function SolutionsTabbar() {
   const activeColor = solutionColors[active.id];
 
   return (
-    <section id="solutions" className="px-4 pb-16">
+    <section id="solutions" className="px-4 pb-24">
       <div className="mb-8 flex flex-col gap-2 pt-16">
         <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
           Build for every conversation
@@ -2422,9 +2381,9 @@ function SolutionsTabbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.12 }}
-              className="flex min-h-[400px] flex-col gap-4 px-8 py-16"
+              className="flex h-[480px] flex-col gap-4 px-8 py-16"
             >
-              <h3 className="max-w-2xl font-mono text-2xl leading-snug text-white md:text-4xl">
+              <h3 className="mb-2 max-w-2xl font-mono text-2xl leading-snug text-white md:text-3xl">
                 {active.headline}
               </h3>
               <p className="max-w-2xl text-base leading-relaxed text-white">
@@ -2441,14 +2400,13 @@ function SolutionsTabbar() {
                   </span>
                 ))}
               </div>
-              <Link
-                to="/solution/$slug/"
-                params={{ slug: active.id }}
-                className="mt-auto flex items-center gap-1 text-sm text-white underline underline-offset-2 hover:text-white/80"
+              <a
+                href={active.link}
+                className="mt-4 flex items-center gap-1 text-sm text-white underline underline-offset-2 hover:text-white/80"
               >
                 Learn more
                 <Icon icon="mdi:arrow-top-right" className="text-sm" />
-              </Link>
+              </a>
             </motion.div>
           </AnimatePresence>
         </div>
@@ -2460,7 +2418,7 @@ function SolutionsTabbar() {
 function FAQSection() {
   return (
     <section id="faq" className="px-4 pt-16 pb-16">
-      <div className="mx-auto flex flex-col gap-8 md:flex-row md:gap-16">
+      <div className="mx-auto flex flex-col gap-4 md:flex-row md:gap-8">
         <div className="mb-4 text-left md:mb-12">
           <h2 className="text-color mb-4 font-mono text-2xl tracking-wide md:text-4xl">
             Frequently Asked Questions
@@ -2516,12 +2474,12 @@ function BlogSection() {
   }
 
   return (
-    <section id="blog" className="border-t border-neutral-100 py-16">
-      <div className="mb-12 px-4 text-left">
+    <section id="blog" className="py-16">
+      <div className="border-color-brand mb-12 border-b px-4 pb-8 text-left">
         <h2 className="text-color mb-2 font-mono text-2xl tracking-wide md:text-4xl">
           Latest from our blog
         </h2>
-        <p className="text-fg-muted">
+        <p className="text-fg-muted font-base">
           Insights, updates, and stories from the Char team
         </p>
         <div className="mt-4 text-left">
@@ -2561,23 +2519,23 @@ function BlogSection() {
               params={{ slug: article.slug }}
               className="group block h-full"
             >
-              <article className="bg-surface border-brand-color flex h-full flex-col overflow-hidden rounded-md border p-2 transition-all duration-300 hover:shadow-lg">
-                <div className="bg-surface aspect-40/21 overflow-hidden">
+              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-2 transition-all duration-300 hover:shadow-lg">
+                {/* <div className="bg-surface aspect-40/21 overflow-hidden">
                   <img
                     src={ogImage}
                     alt={article.display_title}
                     className="h-full w-full object-cover transition-all duration-500"
                   />
-                </div>
+                </div> */}
 
-                <div className="flex flex-1 flex-col">
-                  {/* <h3 className="text-color group-hover:text-color mb-2 line-clamp-2 font-mono text-xl transition-colors">
+                <div className="flex flex-1 flex-col px-2 pt-4">
+                  <h3 className="text-color text-fg mb-2 line-clamp-2 font-mono text-xl font-medium">
                     {article.display_title || article.meta_title}
                   </h3>
 
-                  <p className="text-fg-muted mb-4 line-clamp-3 flex-1 text-base leading-relaxed">
+                  <p className="text-fg-muted text-fg mb-4 line-clamp-3 flex-1 text-base leading-relaxed">
                     {article.meta_description}
-                  </p> */}
+                  </p>
 
                   <div className="flex items-center justify-between gap-4 py-4">
                     <time

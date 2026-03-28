@@ -123,7 +123,7 @@ function WhyWereDifferentSection() {
           {differentiators.map((item) => (
             <div
               key={item.title}
-              className="border-brand-color bg-surface flex min-w-0 flex-1 flex-col gap-4 rounded-lg border p-6"
+              className="border-color-brand bg-surface flex min-w-0 flex-1 flex-col gap-4 rounded-lg border p-6"
             >
               <div className="w-fit p-2">
                 <Icon icon={item.icon} className="text-fg-muted text-2xl" />
@@ -185,7 +185,7 @@ function WhoThisIsForSection() {
           {audiences.map((item) => (
             <div
               key={item.title}
-              className="border-brand-color surface flex gap-4 rounded-lg border p-6"
+              className="border-color-brand surface flex gap-4 rounded-lg border p-6"
             >
               <div className="flex size-10 h-fit shrink-0 items-center justify-center rounded-lg border border-neutral-100 bg-white p-2">
                 <Icon icon={item.icon} className="text-fg-muted text-2xl" />
@@ -208,9 +208,9 @@ function WhatWereBuildingTowardSection() {
   return (
     <section className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16">
       <div className="mx-auto">
-        <div className="border-brand-color surface rounded-lg border p-4">
+        <div className="border-color-brand surface rounded-lg border p-4">
           <div
-            className="border-brand-color bg-surface rounded-xs border p-8 sm:p-12"
+            className="border-color-brand bg-surface rounded-xs border p-8 sm:p-12"
             style={{
               backgroundImage: "url(/api/images/texture/paper.png)",
             }}

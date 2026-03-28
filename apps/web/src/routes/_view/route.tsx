@@ -34,6 +34,8 @@ function Component() {
     router.location.pathname.startsWith("/company-handbook");
   const isChoosePage = router.location.pathname.startsWith("/choose");
   const isHomePage = router.location.pathname === "/";
+  const hasHeroCTA =
+    isHomePage || router.location.pathname.startsWith("/product/ai-notetaking");
   const [onTrigger, setOnTrigger] = useState<(() => void) | null>(null);
   const [isDocsDrawerOpen, setIsDocsDrawerOpen] = useState(false);
   const [isHandbookDrawerOpen, setIsHandbookDrawerOpen] = useState(false);
@@ -79,42 +81,42 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
-                <>
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh]"
-                    style={{
-                      background:
-                        "linear-gradient(to bottom, var(--brand-yellow), transparent)",
-                    }}
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh] opacity-30"
-                    style={{
-                      backgroundImage: brandPageNoiseBackgroundImage,
-                      backgroundRepeat: "repeat",
-                      maskImage:
-                        "linear-gradient(to bottom, black, transparent)",
-                      WebkitMaskImage:
-                        "linear-gradient(to bottom, black, transparent)",
-                    }}
-                  />
-                </>
+                {!isDocsPage && (
+                  <>
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh]"
+                      style={{
+                        background:
+                          "linear-gradient(to bottom, var(--brand-yellow), transparent)",
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[180vh] opacity-30"
+                      style={{
+                        backgroundImage: brandPageNoiseBackgroundImage,
+                        backgroundRepeat: "repeat",
+                        maskImage:
+                          "linear-gradient(to bottom, black, transparent)",
+                        WebkitMaskImage:
+                          "linear-gradient(to bottom, black, transparent)",
+                      }}
+                    />
+                  </>
+                )}
 
                 {/* Mobile top bar spacer */}
                 <div className="h-14 xl:hidden" />
 
                 {/* Sidebar + content in a centered container */}
-                <div className="relative z-10 mx-auto flex w-full max-w-[1880px]">
-                  {!isChoosePage && !isDocsPage && !isHandbookPage && (
-                    <Sidebar />
-                  )}
-                  <main className="min-w-0 flex-1 px-4">
+                <div className="relative z-10 mx-auto flex w-full max-w-[1800px]">
+                  {!isChoosePage && <Sidebar />}
+                  <main className="min-w-0 flex-1">
                     <Outlet />
                   </main>
                   {!isChoosePage && !isDocsPage && !isHandbookPage && (
-                    <RightPanel isHomePage={isHomePage} />
+                    <RightPanel revealCtaOnScroll={hasHeroCTA} />
                   )}
                 </div>
 

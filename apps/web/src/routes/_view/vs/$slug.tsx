@@ -101,8 +101,8 @@ function HeroSection({
   description: string;
 }) {
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-12 lg:py-20">
-      <header className="mx-auto max-w-4xl text-left">
+    <div className="px-6 py-12 lg:py-20">
+      <header className="border-brand-bright rounded-xl border p-8 text-left">
         <div className="mb-12 flex flex-row items-center justify-center sm:gap-0">
           <div className="relative h-40 w-40 sm:hidden">
             <div className="absolute top-0 left-0 z-0 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-white opacity-50 shadow-2xl">

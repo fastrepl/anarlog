@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const TARGET_CELL_SIZE = 56;
+const TARGET_CELL_SIZE = 40;
 const ROTATIONS = [0, 90, 180, 270] as const;
 
 function CellPattern() {
   return (
     <svg width="100%" height="100%" viewBox="0 0 56 56" className="size-full">
-      {[39, 32, 25, 25, 17].map((r, i) => (
+      {[39, 32, 25, 17].map((r, i) => (
         <circle
           key={i}
           cx={0}
@@ -14,8 +14,8 @@ function CellPattern() {
           r={r}
           fill="none"
           stroke="var(--color-border-bright)"
-          opacity={1}
-          strokeWidth={1}
+          opacity={0.5}
+          strokeWidth={2}
         />
       ))}
     </svg>
@@ -80,7 +80,7 @@ export function NotebookGrid() {
   return (
     <div
       ref={containerRef}
-      className="border-brand-bright h-full w-full overflow-hidden border"
+      className="border-color-brand h-full w-full overflow-hidden border"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{
@@ -93,11 +93,11 @@ export function NotebookGrid() {
           key={i}
           className="relative overflow-hidden"
           style={{
-            boxShadow: "0px 0px 0px 0.5px var(--color-border-bright)",
+            boxShadow: "0px 0px 0px 0.5px var(--color-border)",
           }}
         >
           <div
-            className="absolute inset-0 transition-transform duration-500 ease-in-out"
+            className="absolute inset-0 transition-transform duration-300 ease-in-out"
             style={{ transform: `rotate(${rotation}deg)` }}
           >
             <CellPattern />

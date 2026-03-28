@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useInView } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -36,8 +36,14 @@ const STAGGER_DELAY = 300;
 
 function LogoSlot({ logos, delay }: { logos: Logo[]; delay: number }) {
   const [index, setIndex] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { amount: 0.4 });
 
   useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
     let interval: ReturnType<typeof setInterval>;
     const timeout = setTimeout(() => {
       interval = setInterval(() => {
@@ -48,12 +54,13 @@ function LogoSlot({ logos, delay }: { logos: Logo[]; delay: number }) {
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [logos.length, delay]);
+  }, [delay, isInView, logos.length]);
 
   const logo = logos[index];
 
   return (
     <div
+      ref={ref}
       className={cn([
         "relative flex h-20 items-center justify-center overflow-hidden",
       ])}

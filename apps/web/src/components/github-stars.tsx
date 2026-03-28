@@ -17,9 +17,9 @@ export function GithubStars() {
     <a href={`https://github.com/${GITHUB_ORG_REPO}`} target="_blank">
       <button
         className={cn([
-          "group flex h-15 items-center justify-center px-8 text-base sm:text-lg",
-          "border-brand-bright text-fg rounded-full border",
-          "hover:scale-[102%] hover:border-neutral-400 active:scale-[98%]",
+          "group flex h-14 items-center justify-center px-8 text-base sm:text-lg",
+          "border-color-brand text-fg rounded-full border",
+          "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
           "cursor-pointer transition-all",
         ])}
       >

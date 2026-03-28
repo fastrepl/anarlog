@@ -55,7 +55,7 @@ export function SolutionHero({
             )}
           </div>
         </header>
-        <div className="bg-grid-dark border-brand-color h-48 w-full border"></div>
+        <div className="bg-grid-dark border-color-brand h-48 w-full border"></div>
       </div>
     </div>
   );

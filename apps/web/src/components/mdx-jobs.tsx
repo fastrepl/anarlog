@@ -287,7 +287,7 @@ export function FAQItem({
 
 export function FAQ({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-brand-color bg-surface w-full divide-y divide-neutral-200 rounded-lg border px-4">
+    <div className="border-color-brand bg-surface w-full divide-y divide-neutral-200 rounded-lg border px-4">
       {children}
     </div>
   );

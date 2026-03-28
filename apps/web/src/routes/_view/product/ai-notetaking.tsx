@@ -1,5 +1,5 @@
 import { Icon } from "@iconify-icon/react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
@@ -8,6 +8,9 @@ import { Typewriter } from "@hypr/ui/components/ui/typewriter";
 import { cn } from "@hypr/utils";
 
 import { AppPreviewSection } from "@/components/app-preview";
+import { CTASection as SharedCTA } from "@/components/cta-section";
+import { DownloadButton } from "@/components/download-button";
+import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import { HowItWorksSection } from "@/routes/_view/index";
 
@@ -46,7 +49,7 @@ function Component() {
         <SearchSection />
         <SharingSection />
         <FloatingPanelSection />
-        <CTASection />
+        <SharedCTA />
       </div>
     </div>
   );
@@ -64,17 +67,9 @@ function HeroSection() {
             You focus on the conversation. AI transcribes, summarizes,
             <br className="hidden sm:inline" /> and fills in what you missed.
           </p>
-          <div className="mt-8">
-            <Link
-              to="/download/"
-              className={cn([
-                "inline-block rounded-full px-8 py-3 text-base font-medium",
-                "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "transition-transform hover:scale-105 active:scale-95",
-              ])}
-            >
-              Download for free
-            </Link>
+          <div className="mt-8 flex items-center gap-4">
+            <DownloadButton />
+            <GithubStars />
           </div>
         </header>
       </div>
@@ -93,37 +88,38 @@ function SearchSection() {
   ];
 
   return (
-    <section
-      id="search"
-      className="bg-surface-subtle bg-cover bg-center"
-      style={{
-        backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
-      }}
-    >
-      <div className="px-6 py-20">
-        <div className="flex flex-col gap-12 text-left">
-          <div>
-            <h2 className="mb-4 font-mono text-3xl text-stone-50">
-              Find anything instantly
-            </h2>
-            <p className="text-base text-neutral-100">
-              Search across all your notes by participant names, topics,
-              keywords, or time—and jump straight to what matters
-            </p>
-          </div>
+    <section id="search" className="px-4 py-8">
+      <div
+        className="border-border bg-surface-subtle overflow-hidden rounded-xl border bg-cover bg-center"
+        style={{
+          backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
+        }}
+      >
+        <div className="px-6 py-20">
+          <div className="flex flex-col gap-12 text-left">
+            <div>
+              <h2 className="mb-4 font-mono text-3xl text-stone-50">
+                Find anything instantly
+              </h2>
+              <p className="text-base text-neutral-100">
+                Search across all your notes by participant names, topics,
+                keywords, or time—and jump straight to what matters
+              </p>
+            </div>
 
-          <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
-            <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
-              <SearchIcon className="size-5 shrink-0 text-stone-400" />
-              <div className="min-w-0 flex-1 overflow-hidden text-left">
-                <Typewriter
-                  text={searchQueries}
-                  speed={100}
-                  deleteSpeed={30}
-                  waitTime={2000}
-                  className="block truncate text-base font-light text-stone-700 sm:text-lg"
-                  cursorClassName="ml-1"
-                />
+            <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
+              <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
+                <SearchIcon className="size-5 shrink-0 text-stone-400" />
+                <div className="min-w-0 flex-1 overflow-hidden text-left">
+                  <Typewriter
+                    text={searchQueries}
+                    speed={100}
+                    deleteSpeed={30}
+                    waitTime={2000}
+                    className="block truncate text-base font-light text-stone-700 sm:text-lg"
+                    cursorClassName="ml-1"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -933,9 +929,9 @@ TrackProtectCell.displayName = "TrackProtectCell";
 
 function SharingSection() {
   return (
-    <section id="sharing">
+    <section id="sharing" className="px-4 py-8">
       <div className="px-4 py-12 text-left lg:px-0">
-        <div className="mb-4 inline-block rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-xs">
+        <div className="border-border mb-4 inline-block rounded-full border bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-md">
           Coming Soon
         </div>
         <h2 className="text-color mb-4 font-mono text-3xl">Share notes</h2>
@@ -944,10 +940,10 @@ function SharingSection() {
           summaries with your team.
         </p>
       </div>
-      <div className="border-brand-color border-t">
+      <div className="border-border overflow-hidden rounded-xl border">
         <div className="hidden min-[1000px]:grid min-[1000px]:grid-cols-3">
-          <div className="border-brand-color bg-surface flex flex-col border-r">
-            <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+          <div className="border-color-brand bg-surface flex flex-col border-r">
+            <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
               <div className="flex items-center gap-3">
                 <Icon
                   icon="mdi:account-group"
@@ -964,8 +960,8 @@ function SharingSection() {
             </div>
             <CollaboratorsCell />
           </div>
-          <div className="border-brand-color bg-surface flex flex-col border-r">
-            <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+          <div className="border-color-brand bg-surface flex flex-col border-r">
+            <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
               <div className="flex items-center gap-3">
                 <Icon icon="mdi:link-variant" className="text-color text-3xl" />
                 <h3 className="text-color font-mono text-2xl">
@@ -980,7 +976,7 @@ function SharingSection() {
             <ShareLinksCell />
           </div>
           <div className="bg-surface flex flex-col">
-            <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+            <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
               <div className="flex items-center gap-3">
                 <Icon icon="mdi:shield-lock" className="text-color text-3xl" />
                 <h3 className="text-color font-mono text-2xl">
@@ -998,8 +994,8 @@ function SharingSection() {
 
         <div className="hidden overflow-x-auto min-[1000px]:hidden! sm:block">
           <div className="flex min-w-max">
-            <div className="border-brand-color bg-surface flex w-[400px] flex-col border-r">
-              <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+            <div className="border-color-brand bg-surface flex w-[400px] flex-col border-r">
+              <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:account-group"
@@ -1016,8 +1012,8 @@ function SharingSection() {
               </div>
               <CollaboratorsCell />
             </div>
-            <div className="border-brand-color bg-surface flex w-[400px] flex-col border-r">
-              <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+            <div className="border-color-brand bg-surface flex w-[400px] flex-col border-r">
+              <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:link-variant"
@@ -1035,7 +1031,7 @@ function SharingSection() {
               <ShareLinksCell />
             </div>
             <div className="bg-surface flex w-[400px] flex-col">
-              <div className="border-brand-color flex flex-1 flex-col gap-4 border-b p-4">
+              <div className="border-color-brand flex flex-1 flex-col gap-4 border-b p-4">
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:shield-lock"
@@ -1056,8 +1052,8 @@ function SharingSection() {
         </div>
 
         <div className="sm:hidden">
-          <div className="border-brand-color bg-surface border-b">
-            <div className="border-brand-color border-b p-4">
+          <div className="border-color-brand bg-surface border-b">
+            <div className="border-color-brand border-b p-4">
               <div className="mb-3 flex items-center gap-3">
                 <Icon
                   icon="mdi:account-group"
@@ -1074,8 +1070,8 @@ function SharingSection() {
             </div>
             <CollaboratorsCell />
           </div>
-          <div className="border-brand-color bg-surface border-b">
-            <div className="border-brand-color border-b p-4">
+          <div className="border-color-brand bg-surface border-b">
+            <div className="border-color-brand border-b p-4">
               <div className="mb-3 flex items-center gap-3">
                 <Icon icon="mdi:link-variant" className="text-color text-2xl" />
                 <h3 className="text-color font-mono text-xl">
@@ -1090,7 +1086,7 @@ function SharingSection() {
             <ShareLinksCell />
           </div>
           <div className="bg-surface">
-            <div className="border-brand-color border-b p-4">
+            <div className="border-color-brand border-b p-4">
               <div className="mb-3 flex items-center gap-3">
                 <Icon icon="mdi:shield-lock" className="text-color text-2xl" />
                 <h3 className="text-color font-mono text-xl">
@@ -1146,23 +1142,25 @@ const AUTO_ADVANCE_DURATION = 5000;
 
 function FloatingPanelSection() {
   return (
-    <section id="floating-panel" className="border-brand-color border-y">
-      <FloatingPanelHeader />
-      <FloatingPanelContent />
+    <section id="floating-panel" className="px-4 py-8">
+      <div className="border-border overflow-hidden rounded-xl border">
+        <FloatingPanelHeader />
+        <FloatingPanelContent />
+      </div>
     </section>
   );
 }
 
 function FloatingPanelHeader() {
   return (
-    <div className="px-4 py-12 text-left lg:px-0">
-      <div className="mb-4 inline-block rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-xs">
+    <div className="px-4 py-12 text-left md:px-8">
+      <div className="border-border mb-4 inline-block rounded-full border bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-md">
         Coming Soon
       </div>
       <h2 className="text-color mb-4 font-mono text-3xl">
         Floating panel for meetings
       </h2>
-      <p className="text-fg-muted mx-auto max-w-3xl text-base">
+      <p className="text-fg-muted max-w-3xl text-base">
         A compact overlay that stays on top during meetings but won't show when
         you share your screen.
       </p>
@@ -1239,7 +1237,7 @@ function FloatingPanelContent() {
   };
 
   return (
-    <div className="border-brand-color border-t">
+    <div className="">
       <FloatingPanelMobile
         scrollRef={scrollRef}
         selectedTab={selectedTab}
@@ -1270,9 +1268,9 @@ function FloatingPanelTablet({
   onPauseChange: (paused: boolean) => void;
 }) {
   return (
-    <div className="border-brand-color hidden border-t min-[800px]:max-[1000px]:block">
+    <div className="border-color-brand hidden border-t min-[800px]:max-[1000px]:block">
       <div className="flex flex-col">
-        <div className="scrollbar-hide border-brand-color overflow-x-auto border-b">
+        <div className="scrollbar-hide border-color-brand overflow-x-auto border-b">
           <div className="flex">
             {floatingPanelTabs.map((tab, index) => (
               <button
@@ -1285,7 +1283,7 @@ function FloatingPanelTablet({
                   selectedTab === index && onPauseChange(false)
                 }
                 className={cn([
-                  "border-brand-color relative flex min-w-[280px] cursor-pointer flex-col items-start overflow-hidden border-r p-6 text-left transition-colors last:border-r-0",
+                  "border-color-brand relative flex min-w-[280px] cursor-pointer flex-col items-start overflow-hidden border-r p-6 text-left transition-colors last:border-r-0",
                   selectedTab !== index && "hover:bg-neutral-50",
                 ])}
               >
@@ -1364,9 +1362,9 @@ function FloatingPanelDesktop() {
   };
 
   return (
-    <div className="border-brand-color hidden grid-cols-2 border-t min-[1000px]:grid">
+    <div className="border-color-brand hidden grid-cols-2 border-t min-[1000px]:grid">
       <div
-        className="border-brand-color relative overflow-hidden border-r"
+        className="border-color-brand relative overflow-hidden border-r"
         style={{ paddingBottom: "56.25%" }}
       >
         <div className="absolute inset-0 overflow-y-auto">
@@ -1379,7 +1377,7 @@ function FloatingPanelDesktop() {
               className={cn([
                 "relative cursor-pointer overflow-hidden p-6 transition-colors",
                 index < floatingPanelTabs.length - 1 &&
-                  "border-brand-color border-b",
+                  "border-color-brand border-b",
                 selectedTab !== index && "hover:bg-neutral-50",
               ])}
             >
@@ -1446,8 +1444,8 @@ function FloatingPanelMobile({
         <div className="flex">
           {floatingPanelTabs.map((tab, index) => (
             <div key={index} className="w-full shrink-0 snap-center">
-              <div className="border-brand-color flex flex-col overflow-hidden border-y">
-                <div className="border-brand-color aspect-4/3 overflow-hidden border-b">
+              <div className="border-color-brand flex flex-col overflow-hidden border-y">
+                <div className="border-color-brand aspect-4/3 overflow-hidden border-b">
                   <img
                     src={tab.image}
                     alt={`${tab.title} preview`}
@@ -1491,57 +1489,5 @@ function FloatingPanelMobile({
         ))}
       </div>
     </div>
-  );
-}
-
-function CTASection() {
-  return (
-    <section className="bg-surface-subtle px-4 py-16 lg:px-0">
-      <div className="flex flex-col items-center gap-6 text-left">
-        <div className="border-brand-color mb-4 flex size-40 items-center justify-center rounded-[48px] border bg-transparent shadow-2xl">
-          <img
-            src="/api/images/hyprnote/icon.png"
-            alt="Char"
-            width={144}
-            height={144}
-            className="border-brand-color mx-auto size-36 rounded-[40px] border"
-          />
-        </div>
-        <h2 className="text-color font-mono text-2xl tracking-wide md:text-6xl">
-          The complete AI notetaking solution
-        </h2>
-        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
-          From live meetings to archived recordings, handle all your audio
-          transcription and AI summary needs with one powerful tool
-        </p>
-        <div className="pt-6">
-          <Link
-            to="/download/"
-            className={cn([
-              "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
-              "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-              "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-              "transition-all",
-            ])}
-          >
-            Download for free
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-              className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-              />
-            </svg>
-          </Link>
-        </div>
-      </div>
-    </section>
   );
 }
