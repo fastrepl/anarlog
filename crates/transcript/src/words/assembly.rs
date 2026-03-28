@@ -13,22 +13,20 @@ pub(crate) fn assemble(raw: &[Word], transcript: &str, channel: i32) -> Vec<RawW
             speaker: word.speaker,
         }),
         transcript,
-        channel,
     )
 }
 
-pub(crate) fn assemble_batch(raw: &[batch::Word], transcript: &str) -> Vec<RawWord> {
+pub(crate) fn assemble_batch(raw: &[batch::Word], transcript: &str, channel: i32) -> Vec<RawWord> {
     assemble_words(
         raw.iter().map(|word| AssemblyToken {
             word: word.word.as_str(),
             punctuated_word: word.punctuated_word.as_deref(),
             start_ms: (word.start * 1000.0).round() as i64,
             end_ms: (word.end * 1000.0).round() as i64,
-            channel: word.channel,
+            channel,
             speaker: word.speaker.map(|speaker| speaker as i32),
         }),
         transcript,
-        0,
     )
 }
 
@@ -45,7 +43,6 @@ struct AssemblyToken<'a> {
 fn assemble_words<'a>(
     tokens: impl Iterator<Item = AssemblyToken<'a>>,
     transcript: &str,
-    _channel: i32,
 ) -> Vec<RawWord> {
     let tokens: Vec<AssemblyToken<'a>> = tokens.collect();
     let spaced = spacing_from_slice(
@@ -216,13 +213,8 @@ mod tests {
     #[test]
     fn merges_punctuation_into_previous_word() {
         let mut result = Vec::new();
-        push_assembled_word(
-            &mut result,
-            token("look", None, 0, 100),
-            "look".to_string(),
-            0,
-        );
-        push_assembled_word(&mut result, token(".", None, 100, 110), ".".to_string(), 0);
+        push_assembled_word(&mut result, token("look", None, 0, 100), "look".to_string());
+        push_assembled_word(&mut result, token(".", None, 100, 110), ".".to_string());
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].text, "look.");
@@ -235,13 +227,11 @@ mod tests {
             &mut result,
             token("look", None, 0, 100),
             "look.".to_string(),
-            0,
         );
         push_assembled_word(
             &mut result,
             token("Everyone", None, 110, 200),
             "Everyone".to_string(),
-            0,
         );
 
         assert_eq!(result.len(), 2);
@@ -260,7 +250,6 @@ mod tests {
             ]
             .into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 3);
@@ -280,7 +269,6 @@ mod tests {
             ]
             .into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 3);
@@ -292,13 +280,8 @@ mod tests {
     #[test]
     fn merges_contraction_into_previous_word() {
         let mut result = Vec::new();
-        push_assembled_word(&mut result, token("it", None, 0, 100), " it".to_string(), 0);
-        push_assembled_word(
-            &mut result,
-            token("'s", None, 100, 150),
-            "'s".to_string(),
-            0,
-        );
+        push_assembled_word(&mut result, token("it", None, 0, 100), " it".to_string());
+        push_assembled_word(&mut result, token("'s", None, 100, 150), "'s".to_string());
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].text, " it's");
@@ -310,7 +293,6 @@ mod tests {
         let words = assemble_words(
             vec![token("mill", None, 0, 100), token("ions", None, 100, 200)].into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 1);
@@ -323,7 +305,6 @@ mod tests {
         let words = assemble_words(
             vec![token("한", None, 0, 100), token("국", None, 100, 200)].into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 1);
@@ -336,7 +317,6 @@ mod tests {
         let words = assemble_words(
             vec![token("3", Some("3."), 0, 100), token("14", None, 100, 200)].into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 1);
@@ -353,10 +333,29 @@ mod tests {
             ]
             .into_iter(),
             transcript,
-            0,
         );
 
         assert_eq!(words.len(), 1);
         assert_eq!(words[0].text, "example.com");
+    }
+
+    #[test]
+    fn assemble_batch_uses_caller_channel() {
+        let words = assemble_batch(
+            &[batch::Word {
+                word: "hello".to_string(),
+                start: 0.0,
+                end: 0.5,
+                confidence: 0.9,
+                speaker: Some(2),
+                punctuated_word: Some("hello".to_string()),
+            }],
+            "hello",
+            7,
+        );
+
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].channel, 7);
+        assert_eq!(words[0].speaker, Some(2));
     }
 }

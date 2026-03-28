@@ -164,7 +164,7 @@ impl TranscriptProcessor {
     pub fn process_batch_response(response: &BatchResponse) -> TranscriptDelta {
         let mut new_words = Vec::new();
 
-        for channel in &response.results.channels {
+        for (channel_index, channel) in response.results.channels.iter().enumerate() {
             let Some(alt) = channel.alternatives.first() else {
                 continue;
             };
@@ -172,7 +172,7 @@ impl TranscriptProcessor {
                 continue;
             }
 
-            let raw = assemble_batch(&alt.words, &alt.transcript);
+            let raw = assemble_batch(&alt.words, &alt.transcript, channel_index as i32);
             new_words.extend(finalize_words(raw, WordState::Final));
         }
 
@@ -296,6 +296,8 @@ impl PartialSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use owhisper_interface::batch;
+
     use crate::types::RawWord;
 
     #[test]
@@ -341,5 +343,50 @@ mod tests {
         assert_eq!(snapshot.partials[0].speaker_index, Some(4));
         assert_eq!(snapshot.partials[1].speaker_index, None);
         assert_eq!(snapshot.partials[2].speaker_index, Some(7));
+    }
+
+    #[test]
+    fn process_batch_response_uses_batch_channel_position() {
+        let response = batch::Response {
+            metadata: serde_json::json!({}),
+            results: batch::Results {
+                channels: vec![
+                    batch::Channel {
+                        alternatives: vec![batch::Alternatives {
+                            transcript: "hello".to_string(),
+                            confidence: 0.9,
+                            words: vec![batch::Word {
+                                word: "hello".to_string(),
+                                start: 0.0,
+                                end: 0.5,
+                                confidence: 0.9,
+                                speaker: None,
+                                punctuated_word: Some("hello".to_string()),
+                            }],
+                        }],
+                    },
+                    batch::Channel {
+                        alternatives: vec![batch::Alternatives {
+                            transcript: "world".to_string(),
+                            confidence: 0.9,
+                            words: vec![batch::Word {
+                                word: "world".to_string(),
+                                start: 0.5,
+                                end: 1.0,
+                                confidence: 0.9,
+                                speaker: None,
+                                punctuated_word: Some("world".to_string()),
+                            }],
+                        }],
+                    },
+                ],
+            },
+        };
+
+        let delta = TranscriptProcessor::process_batch_response(&response);
+
+        assert_eq!(delta.new_words.len(), 2);
+        assert_eq!(delta.new_words[0].channel, 0);
+        assert_eq!(delta.new_words[1].channel, 1);
     }
 }
