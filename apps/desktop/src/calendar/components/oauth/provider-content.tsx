@@ -21,8 +21,8 @@ import { openIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
-  const { isPaid, upgradeToPro } = useBillingAccess();
-  const { data: connections, isError } = useConnections(isPaid);
+  const { isPro, upgradeToPro } = useBillingAccess();
+  const { data: connections, isError } = useConnections(isPro);
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -62,7 +62,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
     );
   }
 
-  if (!isPaid) {
+  if (!isPro) {
     return (
       <div className="pt-1 pb-2">
         <button
