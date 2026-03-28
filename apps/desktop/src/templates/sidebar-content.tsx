@@ -323,12 +323,6 @@ export function TemplatesSidebarContent({
                         <div className="truncate font-medium">
                           {template.title || "Untitled"}
                         </div>
-                        <TemplateTags
-                          tags={[
-                            ...(template.category ? [template.category] : []),
-                            ...(template.targets ?? []),
-                          ]}
-                        />
                       </div>
                     </div>
                   </button>
@@ -398,36 +392,9 @@ function TemplateListItem({
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
           </div>
-          <TemplateTags
-            tags={[
-              ...(template.category ? [template.category] : []),
-              ...(template.targets ?? []),
-            ]}
-          />
         </div>
       </div>
     </button>
-  );
-}
-
-function TemplateTags({ tags }: { tags: string[] }) {
-  const uniqueTags = [...new Set(tags)];
-
-  if (uniqueTags.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {uniqueTags.map((tag) => (
-        <span
-          key={tag}
-          className="rounded-xs bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500"
-        >
-          {tag}
-        </span>
-      ))}
-    </div>
   );
 }
 
