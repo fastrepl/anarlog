@@ -143,38 +143,8 @@ export function TemplateForm({
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="relative px-6 pt-5 pb-4">
-        <div className="min-w-0 pr-48">
-          {value.category ? (
-            <div className="mb-1">
-              <span className="font-mono text-xs text-stone-400">
-                {value.category}
-              </span>
-            </div>
-          ) : null}
-          <form.Field name="title">
-            {(field) => (
-              <Input
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Enter template title"
-                className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
-              />
-            )}
-          </form.Field>
-          <form.Field name="description">
-            {(field) => (
-              <Textarea
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Describe the template purpose..."
-                className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
-                rows={1}
-              />
-            )}
-          </form.Field>
-        </div>
-        <div className="absolute top-5 right-6 flex items-center gap-1">
+      <div className="px-6 pt-1 pb-4">
+        <div className="flex items-center justify-end gap-1">
           <Button
             type="button"
             size="icon"
@@ -237,6 +207,36 @@ export function TemplateForm({
               </AppFloatingPanel>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        <div className="mt-3 min-w-0">
+          {value.category ? (
+            <div className="mb-1">
+              <span className="font-mono text-xs text-stone-400">
+                {value.category}
+              </span>
+            </div>
+          ) : null}
+          <form.Field name="title">
+            {(field) => (
+              <Input
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Enter template title"
+                className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+              />
+            )}
+          </form.Field>
+          <form.Field name="description">
+            {(field) => (
+              <Textarea
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="Describe the template purpose..."
+                className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
+                rows={1}
+              />
+            )}
+          </form.Field>
         </div>
         {value.targets && value.targets.length > 0 ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
