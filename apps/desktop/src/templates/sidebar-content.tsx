@@ -247,20 +247,6 @@ export function TemplatesSidebarContent({
       </div>
 
       <div className="scrollbar-hide flex-1 overflow-y-auto">
-        {isWebLoading && (
-          <div className="pt-3">
-            <ListSectionTitle>Provided by Char</ListSectionTitle>
-            <div className="flex flex-col gap-1">
-              {[0, 1, 2, 3].map((index) => (
-                <div key={index} className="animate-pulse rounded-lg px-3 py-2">
-                  <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
-                  <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {isEmpty ? (
           <div className="px-3 py-8 text-center text-neutral-500">
             <BookText size={32} className="mx-auto mb-2 text-neutral-300" />
@@ -272,12 +258,47 @@ export function TemplatesSidebarContent({
                 onClick={handleCreateTemplate}
                 className="mt-3 text-sm text-neutral-600 underline hover:text-neutral-800"
               >
-                Create your first template
+                Create my first template
               </button>
             )}
           </div>
         ) : (
           <>
+            {hasMineResults && (
+              <div className="pt-3">
+                <ListSectionTitle>My templates</ListSectionTitle>
+                {filteredMine.map((template) => (
+                  <TemplateListItem
+                    key={template.id}
+                    template={template}
+                    selected={
+                      !isWebMode && effectiveSelectedMineId === template.id
+                    }
+                    onSelect={setSelectedMineId}
+                    onDuplicate={handleDuplicateTemplate}
+                    onDelete={handleDeleteTemplate}
+                  />
+                ))}
+              </div>
+            )}
+
+            {isWebLoading && !hasWebResults && (
+              <div className="pt-3">
+                <ListSectionTitle>Provided by Char</ListSectionTitle>
+                <div className="flex flex-col gap-1">
+                  {[0, 1, 2, 3].map((index) => (
+                    <div
+                      key={index}
+                      className="animate-pulse rounded-lg px-3 py-2"
+                    >
+                      <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
+                      <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {hasWebResults && (
               <div className="pt-3">
                 <ListSectionTitle>Provided by Char</ListSectionTitle>
@@ -311,24 +332,6 @@ export function TemplatesSidebarContent({
                       </div>
                     </div>
                   </button>
-                ))}
-              </div>
-            )}
-
-            {hasMineResults && (
-              <div className="pt-3">
-                <ListSectionTitle>Your templates</ListSectionTitle>
-                {filteredMine.map((template) => (
-                  <TemplateListItem
-                    key={template.id}
-                    template={template}
-                    selected={
-                      !isWebMode && effectiveSelectedMineId === template.id
-                    }
-                    onSelect={setSelectedMineId}
-                    onDuplicate={handleDuplicateTemplate}
-                    onDelete={handleDeleteTemplate}
-                  />
                 ))}
               </div>
             )}
