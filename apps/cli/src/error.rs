@@ -67,7 +67,6 @@ impl CliError {
         }
     }
 
-
     pub fn operation_failed(action: &'static str, reason: impl Into<String>) -> Self {
         Self::OperationFailed {
             action,

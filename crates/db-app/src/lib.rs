@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
 
 #[cfg(feature = "cli")]
 pub mod human_cli;

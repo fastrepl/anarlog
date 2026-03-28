@@ -418,8 +418,7 @@ impl SyncProbe {
         }
 
         if let Some(center) = self.acquisition_center()
-            && (lag_samples - center).unsigned_abs()
-                > self.tuning.acquire_cluster_tolerance_samples
+            && (lag_samples - center).unsigned_abs() > self.tuning.acquire_cluster_tolerance_samples
         {
             self.acquisition_entries.clear();
         }

@@ -1,6 +1,6 @@
+use crate::error::{CliError, CliResult};
 use std::io::{IsTerminal, Write};
 use std::path::Path;
-use crate::error::{CliError, CliResult};
 
 #[allow(dead_code)]
 pub fn format_timestamp_ms(ms: i64) -> String {
