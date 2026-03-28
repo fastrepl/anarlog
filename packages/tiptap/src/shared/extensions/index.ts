@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@tiptap/extension-table";
-import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
 import { Mark } from "@tiptap/pm/model";
@@ -24,6 +23,7 @@ import { Hashtag } from "../hashtag";
 import { AttachmentImage } from "./image";
 import { Placeholder, type PlaceholderFunction } from "./placeholder";
 import { SearchAndReplace } from "./search-and-replace";
+import TaskItem from "./task-item";
 
 export type { PlaceholderFunction };
 export * from "./image";
