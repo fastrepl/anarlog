@@ -434,6 +434,8 @@ function CreateOtherFormatButton({
       created_at: string;
       title: string;
       description: string;
+      category?: string;
+      targets?: string[];
       sections: Array<{ title: string; description: string }>;
     }) => p.id,
     (p: {
@@ -442,11 +444,15 @@ function CreateOtherFormatButton({
       created_at: string;
       title: string;
       description: string;
+      category?: string;
+      targets?: string[];
       sections: Array<{ title: string; description: string }>;
     }) => ({
       user_id: p.user_id,
       title: p.title,
       description: p.description,
+      category: p.category,
+      targets: p.targets ? JSON.stringify(p.targets) : undefined,
       sections: JSON.stringify(p.sections),
     }),
     [],
@@ -511,6 +517,8 @@ function CreateOtherFormatButton({
         created_at: now,
         title: template.title,
         description: template.description,
+        category: template.category,
+        targets: template.targets,
         sections: template.sections ?? [],
       });
 
@@ -590,7 +598,11 @@ function CreateOtherFormatButton({
     return sortedTemplates.filter(
       (template) =>
         template.title?.toLowerCase().includes(searchQuery) ||
-        template.description?.toLowerCase().includes(searchQuery),
+        template.description?.toLowerCase().includes(searchQuery) ||
+        template.category?.toLowerCase().includes(searchQuery) ||
+        template.targets?.some((target) =>
+          target.toLowerCase().includes(searchQuery),
+        ),
     );
   }, [searchQuery, userTemplates]);
 
@@ -622,6 +634,7 @@ function CreateOtherFormatButton({
         key: string;
         title: string;
         description?: string;
+        tags?: string[];
         onClick: () => void;
       }>;
     }>
@@ -635,6 +648,7 @@ function CreateOtherFormatButton({
             key: template.slug || `suggested-${index}`,
             title: template.title || "Untitled",
             description: template.description,
+            tags: getTemplateTags(template),
             onClick: () => handleSuggestedTemplateClick(template),
           })),
           emptyMessage: isSuggestedTemplatesLoading
@@ -648,6 +662,7 @@ function CreateOtherFormatButton({
             key: template.id,
             title: template.title || "Untitled",
             description: template.description,
+            tags: getTemplateTags(template),
             onClick: () => handleUseTemplate(template.id),
           })),
           emptyMessage: "No favorite templates yet",
@@ -678,6 +693,7 @@ function CreateOtherFormatButton({
                 key: template.slug || `suggested-${index}`,
                 title: template.title || "Untitled",
                 description: template.description,
+                tags: getTemplateTags(template),
                 onClick: () => handleSuggestedTemplateClick(template),
               })),
             },
@@ -692,6 +708,7 @@ function CreateOtherFormatButton({
                 key: template.id,
                 title: template.title || "Untitled",
                 description: template.description,
+                tags: getTemplateTags(template),
                 onClick: () => handleUseTemplate(template.id),
               })),
             },
@@ -825,6 +842,7 @@ function CreateOtherFormatButton({
                             }}
                             title={item.title}
                             description={item.description}
+                            tags={item.tags}
                             onClick={item.onClick}
                             onKeyDown={(e) => handleResultKeyDown(e, itemIndex)}
                           />
@@ -1111,6 +1129,15 @@ type WebTemplate = {
   sections: Array<{ title: string; description: string }>;
 };
 
+function getTemplateTags(template: { category?: string; targets?: string[] }) {
+  return [
+    ...new Set([
+      ...(template.category ? [template.category] : []),
+      ...(template.targets ?? []),
+    ]),
+  ];
+}
+
 const TEMPLATE_SUGGESTION_STOP_WORDS = new Set([
   "about",
   "after",
@@ -1297,12 +1324,14 @@ function TemplateResultButton({
   buttonRef,
   title,
   description,
+  tags,
   onClick,
   onKeyDown,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
   description?: string;
+  tags?: string[];
   onClick: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
 }) {
@@ -1322,6 +1351,18 @@ function TemplateResultButton({
       {description ? (
         <span className="line-clamp-2 text-xs text-neutral-500">
           {description}
+        </span>
+      ) : null}
+      {tags && tags.length > 0 ? (
+        <span className="mt-1 flex flex-wrap gap-1">
+          {tags.map((tag, index) => (
+            <span
+              key={`${tag}-${index}`}
+              className="rounded-xs bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500"
+            >
+              {tag}
+            </span>
+          ))}
         </span>
       ) : null}
     </button>

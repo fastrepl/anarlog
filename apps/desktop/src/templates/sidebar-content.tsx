@@ -97,6 +97,8 @@ export function TemplatesSidebarContent({
       const id = createTemplate({
         title: getDuplicatedTemplateTitle(template.title),
         description: template.description ?? "",
+        category: template.category,
+        targets: template.targets,
         sections: template.sections.map((section) => ({ ...section })),
       });
 
@@ -139,7 +141,9 @@ export function TemplatesSidebarContent({
     return sortedUserTemplates.filter(
       (template) =>
         template.title?.toLowerCase().includes(q) ||
-        template.description?.toLowerCase().includes(q),
+        template.description?.toLowerCase().includes(q) ||
+        template.category?.toLowerCase().includes(q) ||
+        template.targets?.some((target) => target.toLowerCase().includes(q)),
     );
   }, [sortedUserTemplates, search]);
 
@@ -319,6 +323,12 @@ export function TemplatesSidebarContent({
                         <div className="truncate font-medium">
                           {template.title || "Untitled"}
                         </div>
+                        <TemplateTags
+                          tags={[
+                            ...(template.category ? [template.category] : []),
+                            ...(template.targets ?? []),
+                          ]}
+                        />
                       </div>
                     </div>
                   </button>
@@ -388,9 +398,36 @@ function TemplateListItem({
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
           </div>
+          <TemplateTags
+            tags={[
+              ...(template.category ? [template.category] : []),
+              ...(template.targets ?? []),
+            ]}
+          />
         </div>
       </div>
     </button>
+  );
+}
+
+function TemplateTags({ tags }: { tags: string[] }) {
+  const uniqueTags = [...new Set(tags)];
+
+  if (uniqueTags.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {uniqueTags.map((tag) => (
+        <span
+          key={tag}
+          className="rounded-xs bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-500"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
   );
 }
 

@@ -118,6 +118,8 @@ export const tableSchemaForTinybase = {
     user_id: { type: "string" },
     title: { type: "string" },
     description: { type: "string" },
+    category: { type: "string" },
+    targets: { type: "string" },
     sections: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof templateSchema>,
   chat_groups: {

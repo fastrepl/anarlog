@@ -18,6 +18,8 @@ export type UserTemplate = Template & { id: string };
 type TemplateDraft = {
   title: string;
   description: string;
+  category?: string;
+  targets?: string[];
   sections: TemplateSection[];
 };
 
@@ -115,6 +117,8 @@ export function useCreateTemplate() {
       created_at: string;
       title: string;
       description: string;
+      category?: string;
+      targets?: string[];
       sections: TemplateSection[];
     }) => p.id,
     (p: {
@@ -123,12 +127,16 @@ export function useCreateTemplate() {
       created_at: string;
       title: string;
       description: string;
+      category?: string;
+      targets?: string[];
       sections: TemplateSection[];
     }) =>
       ({
         user_id: p.user_id,
         title: p.title,
         description: p.description,
+        category: p.category,
+        targets: p.targets ? JSON.stringify(p.targets) : undefined,
         sections: JSON.stringify(p.sections),
       }) satisfies TemplateStorage,
     [],
@@ -148,6 +156,8 @@ export function useCreateTemplate() {
         created_at: now,
         title: template.title,
         description: template.description,
+        category: template.category,
+        targets: template.targets,
         sections: template.sections.map((section) => ({ ...section })),
       });
 
@@ -178,6 +188,26 @@ function normalizeTemplatePayload(template: unknown): Template {
     title: typeof record.title === "string" ? record.title : "",
     description:
       typeof record.description === "string" ? record.description : "",
+    category: typeof record.category === "string" ? record.category : undefined,
+    targets:
+      typeof record.targets === "string"
+        ? (() => {
+            try {
+              const parsed = JSON.parse(record.targets);
+              return Array.isArray(parsed)
+                ? parsed.filter(
+                    (target): target is string => typeof target === "string",
+                  )
+                : undefined;
+            } catch {
+              return undefined;
+            }
+          })()
+        : Array.isArray(record.targets)
+          ? record.targets.filter(
+              (target): target is string => typeof target === "string",
+            )
+          : undefined,
     sections,
   };
 }

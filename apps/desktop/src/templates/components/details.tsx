@@ -33,6 +33,8 @@ export function TemplateDetailsColumn({
   handleCloneTemplate: (template: {
     title: string;
     description: string;
+    category?: string;
+    targets?: string[];
     sections: TemplateSection[];
   }) => void;
 }) {
@@ -69,6 +71,8 @@ function WebTemplatePreview({
   onClone: (template: {
     title: string;
     description: string;
+    category?: string;
+    targets?: string[];
     sections: TemplateSection[];
   }) => void;
 }) {
@@ -85,6 +89,8 @@ function WebTemplatePreview({
           onClone({
             title: template.title ?? "",
             description: template.description ?? "",
+            category: template.category,
+            targets: template.targets,
             sections: template.sections ?? [],
           })
         }

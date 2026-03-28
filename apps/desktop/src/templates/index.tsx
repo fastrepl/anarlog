@@ -107,6 +107,8 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
     (template: {
       title: string;
       description: string;
+      category?: string;
+      targets?: string[];
       sections: TemplateSection[];
     }) => {
       const id = createTemplate({

@@ -50,6 +50,7 @@ function normalizeTemplatePayload(template: unknown): Template {
     title: typeof record.title === "string" ? record.title : "",
     description:
       typeof record.description === "string" ? record.description : "",
+    category: typeof record.category === "string" ? record.category : undefined,
     sections,
     targets,
   };
@@ -161,9 +162,14 @@ export function TemplateForm({
             />
           )}
         </form.Field>
-        {value.targets && value.targets.length > 0 && (
+        {(value.category || (value.targets && value.targets.length > 0)) && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {value.targets.map((target, index) => (
+            {value.category ? (
+              <span className="font-mono text-xs text-stone-400">
+                ({value.category})
+              </span>
+            ) : null}
+            {value.targets?.map((target, index) => (
               <span
                 key={index}
                 className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
