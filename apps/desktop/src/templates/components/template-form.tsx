@@ -143,7 +143,7 @@ export function TemplateForm({
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="px-6 pt-1 pb-4">
+      <div className="pt-1 pr-1 pb-4 pl-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             {value.category ? (
@@ -153,6 +153,21 @@ export function TemplateForm({
             ) : null}
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={setSelectedTemplateId}
+              title={isDefault ? "Remove as default" : "Set as default"}
+              className={cn([
+                "shrink-0 px-0 hover:bg-transparent",
+                isDefault
+                  ? "text-sky-600 hover:text-sky-700"
+                  : "text-neutral-500 hover:text-neutral-700",
+              ])}
+            >
+              {isDefault ? "Current default" : "Set as default"}
+            </Button>
             <Button
               type="button"
               size="icon"
@@ -171,16 +186,6 @@ export function TemplateForm({
                 className="size-4"
                 fill={value.pinned ? "currentColor" : "none"}
               />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              onClick={setSelectedTemplateId}
-              title={isDefault ? "Remove as default" : "Set as default"}
-              className="shrink-0"
-            >
-              {isDefault ? "Default" : "Set default"}
             </Button>
             <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
               <DropdownMenuTrigger asChild>
@@ -217,7 +222,7 @@ export function TemplateForm({
             </DropdownMenu>
           </div>
         </div>
-        <div className="mt-3 min-w-0">
+        <div className="mt-3 min-w-0 px-3">
           <form.Field name="title">
             {(field) => (
               <Input
@@ -239,19 +244,19 @@ export function TemplateForm({
               />
             )}
           </form.Field>
+          {value.targets && value.targets.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {value.targets.map((target, index) => (
+                <span
+                  key={index}
+                  className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
+                >
+                  {target}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
-        {value.targets && value.targets.length > 0 ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {value.targets.map((target, index) => (
-              <span
-                key={index}
-                className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
-              >
-                {target}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div className="flex-1 overflow-y-auto">

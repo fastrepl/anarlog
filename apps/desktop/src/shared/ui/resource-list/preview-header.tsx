@@ -23,7 +23,7 @@ export function ResourcePreviewHeader({
   children?: ReactNode;
 }) {
   return (
-    <div className="px-6 pt-1 pb-4">
+    <div className="pt-1 pr-1 pb-4 pl-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           {category ? (
@@ -35,26 +35,26 @@ export function ResourcePreviewHeader({
           {actionLabel}
         </Button>
       </div>
-      <div className="mt-3 min-w-0">
+      <div className="mt-3 min-w-0 px-3">
         <h2 className="truncate text-lg font-semibold">
           {title || "Untitled"}
         </h2>
         {description && (
           <p className="mt-1 text-sm text-neutral-500">{description}</p>
         )}
+        {targets && targets.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {targets.map((target, index) => (
+              <span
+                key={index}
+                className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
+              >
+                {target}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-      {targets && targets.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {targets.map((target, index) => (
-            <span
-              key={index}
-              className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
-            >
-              {target}
-            </span>
-          ))}
-        </div>
-      )}
       {children}
     </div>
   );
