@@ -12,12 +12,14 @@ import { Button } from "@hypr/ui/components/ui/button";
 
 import { SearchableFolderDropdown } from "./searchable-dropdown";
 
+import { useBillingAccess } from "~/auth/billing";
 import { FolderBreadcrumb } from "~/shared/ui/folder-breadcrumb";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function FolderChain({ sessionId }: { sessionId: string }) {
+  const { isPro } = useBillingAccess();
   const folderId = main.UI.useCell(
     "sessions",
     sessionId,
@@ -39,6 +41,20 @@ export function FolderChain({ sessionId }: { sessionId: string }) {
     [],
     main.STORE_ID,
   );
+
+  if (!isPro) {
+    return (
+      <Breadcrumb className="ml-1.5 w-full min-w-0">
+        <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden text-xs text-neutral-700">
+          <BreadcrumbItem className="min-w-0 flex-1 overflow-hidden">
+            <BreadcrumbPage className="block w-full min-w-0">
+              <TitleInput title={title} handleChangeTitle={handleChangeTitle} />
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
 
   return (
     <Breadcrumb className="ml-1.5 w-full min-w-0">

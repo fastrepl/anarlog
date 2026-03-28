@@ -25,6 +25,7 @@ import { cn } from "@hypr/utils";
 import { TabContentEmpty, TabItemEmpty } from "./empty";
 import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
+import { useBillingAccess } from "~/auth/billing";
 import { TabContentCalendar, TabItemCalendar } from "~/calendar";
 import { TabContentChangelog, TabItemChangelog } from "~/changelog";
 import { ChatFloatingButton } from "~/chat/components/floating-button";
@@ -907,6 +908,7 @@ function useTabsShortcuts() {
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isListening = liveStatus === "active" || liveStatus === "finalizing";
+  const { isPro } = useBillingAccess();
   const { chat } = useShell();
 
   const newNote = useNewNote();
@@ -1068,13 +1070,19 @@ function useTabsShortcuts() {
 
   useHotkeys(
     "mod+shift+l",
-    () => openNew({ type: "folders", id: null }),
+    () => {
+      if (!isPro) {
+        return;
+      }
+
+      openNew({ type: "folders", id: null });
+    },
     {
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [openNew],
+    [isPro, openNew],
   );
 
   const newNoteAndListen = useNewNoteAndListen();

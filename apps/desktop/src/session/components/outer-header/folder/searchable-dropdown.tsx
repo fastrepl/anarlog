@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
 
+import { useBillingAccess } from "~/auth/billing";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
@@ -201,7 +202,12 @@ function useSessionFolderId(sessionId: string) {
 }
 
 function useMoveDisabledReason(sessionId: string) {
+  const { isPro } = useBillingAccess();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+
+  if (!isPro) {
+    return "Upgrade to Pro to move notes into folders.";
+  }
 
   if (sessionMode === "active" || sessionMode === "finalizing") {
     return "Stop listening before moving this note.";
