@@ -1083,6 +1083,7 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
     llmStatus.status === "pending" ||
     (llmStatus.status === "error" &&
       (llmStatus.reason === "missing_config" ||
+        llmStatus.reason === "not_pro" ||
         llmStatus.reason === "unauthenticated"));
 
   const isIdleWithConfigError = enhanceTask.isIdle && isConfigError;

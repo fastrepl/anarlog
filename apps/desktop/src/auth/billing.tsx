@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
 } from "react";
 
@@ -20,6 +21,8 @@ import {
 import { env } from "../env";
 import { buildWebAppUrl } from "../shared/utils";
 import { useAuth } from "./context";
+
+import * as settings from "~/store/tinybase/store/settings";
 
 async function getClaimsFromToken(
   accessToken: string,
@@ -49,6 +52,8 @@ const BillingContext = createContext<BillingContextValue | null>(null);
 
 export function BillingProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const { current_llm_provider } = settings.UI.useValues(settings.STORE_ID);
 
   const claimsQuery = useQuery({
     queryKey: ["tokenInfo", auth?.session?.access_token ?? ""],
@@ -88,6 +93,25 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     const url = await buildWebAppUrl("/app/checkout", { period: "monthly" });
     void openerCommands.openUrl(url, null);
   }, []);
+
+  useEffect(() => {
+    if (!auth?.session?.user.id || !isReady || billing.isPaid) {
+      return;
+    }
+
+    if (current_llm_provider !== "hyprnote") {
+      return;
+    }
+
+    settingsStore?.setValue("current_llm_provider", "");
+    settingsStore?.setValue("current_llm_model", "");
+  }, [
+    auth?.session?.user.id,
+    billing.isPaid,
+    current_llm_provider,
+    isReady,
+    settingsStore,
+  ]);
 
   const value = useMemo<BillingContextValue>(
     () => ({

@@ -41,7 +41,10 @@ const _PROVIDERS = [
     badge: "Recommended",
     icon: <CharProviderIcon />,
     baseUrl: new URL("/llm", env.VITE_API_URL).toString(),
-    requirements: [{ kind: "requires_auth" }],
+    requirements: [
+      { kind: "requires_auth" },
+      { kind: "requires_entitlement", entitlement: "pro" },
+    ],
   },
   {
     id: "lmstudio",
