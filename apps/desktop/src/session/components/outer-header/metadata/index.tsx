@@ -36,9 +36,9 @@ export function MetadataButton({ sessionId }: { sessionId: string }) {
       <PopoverContent
         variant="app"
         align="end"
-        className="flex max-h-[80vh] w-85 flex-col"
+        className="flex max-h-[80vh] w-85 flex-col overflow-visible"
       >
-        <AppFloatingPanel>
+        <AppFloatingPanel className="overflow-visible">
           <ContentInner sessionId={sessionId} />
         </AppFloatingPanel>
       </PopoverContent>
