@@ -24,18 +24,18 @@ export function ResourcePreviewHeader({
 }) {
   return (
     <div className="px-6 pt-1 pb-4">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          {category ? (
+            <span className="font-mono text-xs text-stone-400">{category}</span>
+          ) : null}
+        </div>
         <Button onClick={onClone} size="sm" className="shrink-0">
           {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
           {actionLabel}
         </Button>
       </div>
       <div className="mt-3 min-w-0">
-        {category && (
-          <div className="mb-1">
-            <span className="font-mono text-xs text-stone-400">{category}</span>
-          </div>
-        )}
         <h2 className="truncate text-lg font-semibold">
           {title || "Untitled"}
         </h2>

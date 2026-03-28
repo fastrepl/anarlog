@@ -144,78 +144,80 @@ export function TemplateForm({
   return (
     <div className="flex h-full flex-1 flex-col">
       <div className="px-6 pt-1 pb-4">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={() => toggleTemplateFavorite(id)}
-            className={cn([
-              "text-neutral-500 hover:text-neutral-800",
-              value.pinned && "text-rose-500 hover:text-rose-600",
-            ])}
-            title={value.pinned ? "Unfavorite template" : "Favorite template"}
-            aria-label={
-              value.pinned ? "Unfavorite template" : "Favorite template"
-            }
-          >
-            <HeartIcon
-              className="size-4"
-              fill={value.pinned ? "currentColor" : "none"}
-            />
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="default"
-            onClick={setSelectedTemplateId}
-            title={isDefault ? "Remove as default" : "Set as default"}
-            className="shrink-0"
-          >
-            {isDefault ? "Default" : "Set default"}
-          </Button>
-          <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className={cn([
-                  "text-neutral-500 hover:text-neutral-800",
-                  actionsOpen &&
-                    "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
-                ])}
-                aria-label="Template actions"
-              >
-                <MoreHorizontalIcon className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent variant="app" align="end">
-              <AppFloatingPanel className="overflow-hidden p-1">
-                <DropdownMenuItem
-                  onClick={() => handleDuplicateTemplate(id)}
-                  className="cursor-pointer"
-                >
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleDeleteTemplate(id)}
-                  className="cursor-pointer text-red-600 focus:text-red-600"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </AppFloatingPanel>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div className="mt-3 min-w-0">
-          {value.category ? (
-            <div className="mb-1">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {value.category ? (
               <span className="font-mono text-xs text-stone-400">
                 {value.category}
               </span>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => toggleTemplateFavorite(id)}
+              className={cn([
+                "text-neutral-500 hover:text-neutral-800",
+                value.pinned && "text-rose-500 hover:text-rose-600",
+              ])}
+              title={value.pinned ? "Unfavorite template" : "Favorite template"}
+              aria-label={
+                value.pinned ? "Unfavorite template" : "Favorite template"
+              }
+            >
+              <HeartIcon
+                className="size-4"
+                fill={value.pinned ? "currentColor" : "none"}
+              />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={setSelectedTemplateId}
+              title={isDefault ? "Remove as default" : "Set as default"}
+              className="shrink-0"
+            >
+              {isDefault ? "Default" : "Set default"}
+            </Button>
+            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={cn([
+                    "text-neutral-500 hover:text-neutral-800",
+                    actionsOpen &&
+                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                  ])}
+                  aria-label="Template actions"
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent variant="app" align="end">
+                <AppFloatingPanel className="overflow-hidden p-1">
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateTemplate(id)}
+                    className="cursor-pointer"
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteTemplate(id)}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </AppFloatingPanel>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="mt-3 min-w-0">
           <form.Field name="title">
             {(field) => (
               <Input
