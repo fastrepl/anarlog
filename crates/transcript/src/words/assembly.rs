@@ -220,9 +220,8 @@ mod tests {
             &mut result,
             token("look", None, 0, 100),
             "look".to_string(),
-            0,
         );
-        push_assembled_word(&mut result, token(".", None, 100, 110), ".".to_string(), 0);
+        push_assembled_word(&mut result, token(".", None, 100, 110), ".".to_string());
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].text, "look.");
@@ -235,13 +234,11 @@ mod tests {
             &mut result,
             token("look", None, 0, 100),
             "look.".to_string(),
-            0,
         );
         push_assembled_word(
             &mut result,
             token("Everyone", None, 110, 200),
             "Everyone".to_string(),
-            0,
         );
 
         assert_eq!(result.len(), 2);
@@ -292,12 +289,11 @@ mod tests {
     #[test]
     fn merges_contraction_into_previous_word() {
         let mut result = Vec::new();
-        push_assembled_word(&mut result, token("it", None, 0, 100), " it".to_string(), 0);
+        push_assembled_word(&mut result, token("it", None, 0, 100), " it".to_string());
         push_assembled_word(
             &mut result,
             token("'s", None, 100, 150),
             "'s".to_string(),
-            0,
         );
 
         assert_eq!(result.len(), 1);
