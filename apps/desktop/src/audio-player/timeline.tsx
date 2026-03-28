@@ -5,11 +5,13 @@ import { cn } from "@hypr/utils";
 
 import { useAudioPlayer, useAudioTime } from "./provider";
 
+import { useBillingAccess } from "~/auth/billing";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 const PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 export function Timeline() {
+  const { isPro } = useBillingAccess();
   const {
     registerContainer,
     state,
@@ -116,49 +118,51 @@ export function Timeline() {
           <span>{formatTime(time.total)}</span>
         </div>
 
-        <div className="relative shrink-0" ref={rateMenuRef}>
-          <button
-            onClick={() => setShowRateMenu((prev) => !prev)}
-            className={cn([
-              "flex items-center justify-center",
-              "h-6 rounded-md px-1.5",
-              "border border-neutral-200 bg-white",
-              "transition-colors hover:bg-neutral-100",
-              "font-mono text-xs text-neutral-700 select-none",
-              "shadow-xs",
-            ])}
-          >
-            {playbackRate}x
-          </button>
-          {showRateMenu && (
-            <div
+        {isPro ? (
+          <div className="relative shrink-0" ref={rateMenuRef}>
+            <button
+              onClick={() => setShowRateMenu((prev) => !prev)}
               className={cn([
-                "absolute right-0 bottom-full mb-1",
-                "rounded-lg border border-neutral-200 bg-white shadow-md",
-                "z-50 py-1",
+                "flex items-center justify-center",
+                "h-6 rounded-md px-1.5",
+                "border border-neutral-200 bg-white",
+                "transition-colors hover:bg-neutral-100",
+                "font-mono text-xs text-neutral-700 select-none",
+                "shadow-xs",
               ])}
             >
-              {PLAYBACK_RATES.map((rate) => (
-                <button
-                  key={rate}
-                  onClick={() => {
-                    setPlaybackRate(rate);
-                    setShowRateMenu(false);
-                  }}
-                  className={cn([
-                    "block w-full px-3 py-1 text-left font-mono text-xs select-none",
-                    "transition-colors hover:bg-neutral-100",
-                    rate === playbackRate
-                      ? "font-semibold text-neutral-900"
-                      : "text-neutral-600",
-                  ])}
-                >
-                  {rate}x
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+              {playbackRate}x
+            </button>
+            {showRateMenu && (
+              <div
+                className={cn([
+                  "absolute right-0 bottom-full mb-1",
+                  "rounded-lg border border-neutral-200 bg-white shadow-md",
+                  "z-50 py-1",
+                ])}
+              >
+                {PLAYBACK_RATES.map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => {
+                      setPlaybackRate(rate);
+                      setShowRateMenu(false);
+                    }}
+                    className={cn([
+                      "block w-full px-3 py-1 text-left font-mono text-xs select-none",
+                      "transition-colors hover:bg-neutral-100",
+                      rate === playbackRate
+                        ? "font-semibold text-neutral-900"
+                        : "text-neutral-600",
+                    ])}
+                  >
+                    {rate}x
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
 
         <div
           ref={registerContainer}
