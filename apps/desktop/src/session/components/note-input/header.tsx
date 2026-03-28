@@ -586,25 +586,34 @@ function CreateOtherFormatButton({
     [meetingContent, suggestedTemplates],
   );
 
-  const filteredFavoriteTemplates = useMemo(() => {
-    const sortedTemplates = [...userTemplates].sort((a, b) =>
-      (a.title || "").localeCompare(b.title || ""),
-    );
+  const favoriteTemplates = useMemo(
+    () => sortFavoriteTemplates(userTemplates),
+    [userTemplates],
+  );
+  const otherTemplates = useMemo(
+    () => sortOtherTemplates(userTemplates),
+    [userTemplates],
+  );
 
+  const filteredFavoriteTemplates = useMemo(() => {
     if (!searchQuery) {
-      return sortedTemplates;
+      return favoriteTemplates;
     }
 
-    return sortedTemplates.filter(
-      (template) =>
-        template.title?.toLowerCase().includes(searchQuery) ||
-        template.description?.toLowerCase().includes(searchQuery) ||
-        template.category?.toLowerCase().includes(searchQuery) ||
-        template.targets?.some((target) =>
-          target.toLowerCase().includes(searchQuery),
-        ),
+    return favoriteTemplates.filter((template) =>
+      matchesTemplateSearch(template, searchQuery),
     );
-  }, [searchQuery, userTemplates]);
+  }, [favoriteTemplates, searchQuery]);
+
+  const filteredOtherTemplates = useMemo(() => {
+    if (!searchQuery) {
+      return otherTemplates;
+    }
+
+    return otherTemplates.filter((template) =>
+      matchesTemplateSearch(template, searchQuery),
+    );
+  }, [otherTemplates, searchQuery]);
 
   const filteredSuggestedTemplates = useMemo(() => {
     if (!searchQuery) {
@@ -667,6 +676,18 @@ function CreateOtherFormatButton({
           })),
           emptyMessage: "No favorite templates yet",
         },
+        {
+          key: "mine",
+          title: "My templates",
+          items: filteredOtherTemplates.map((template) => ({
+            key: template.id,
+            title: template.title || "Untitled",
+            description: template.description,
+            tags: getTemplateTags(template),
+            onClick: () => handleUseTemplate(template.id),
+          })),
+          emptyMessage: "No other templates yet",
+        },
       ];
     }
 
@@ -714,9 +735,25 @@ function CreateOtherFormatButton({
             },
           ]
         : []),
+      ...(filteredOtherTemplates.length > 0
+        ? [
+            {
+              key: "mine",
+              title: "My templates",
+              items: filteredOtherTemplates.map((template) => ({
+                key: template.id,
+                title: template.title || "Untitled",
+                description: template.description,
+                tags: getTemplateTags(template),
+                onClick: () => handleUseTemplate(template.id),
+              })),
+            },
+          ]
+        : []),
     ];
   }, [
     filteredFavoriteTemplates,
+    filteredOtherTemplates,
     filteredSuggestedTemplates,
     handleCreateTemplate,
     handleSuggestedTemplateClick,
@@ -1136,6 +1173,46 @@ function getTemplateTags(template: { category?: string; targets?: string[] }) {
       ...(template.targets ?? []),
     ]),
   ];
+}
+
+function matchesTemplateSearch(
+  template: {
+    title?: string;
+    description?: string;
+    category?: string;
+    targets?: string[];
+  },
+  query: string,
+) {
+  return (
+    template.title?.toLowerCase().includes(query) ||
+    template.description?.toLowerCase().includes(query) ||
+    template.category?.toLowerCase().includes(query) ||
+    template.targets?.some((target) => target.toLowerCase().includes(query))
+  );
+}
+
+function sortFavoriteTemplates<
+  T extends { pinned?: boolean; pin_order?: number; title?: string },
+>(templates: T[]) {
+  return [...templates]
+    .filter((template) => template.pinned)
+    .sort((a, b) => {
+      const orderA = a.pin_order ?? Infinity;
+      const orderB = b.pin_order ?? Infinity;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.title || "").localeCompare(b.title || "");
+    });
+}
+
+function sortOtherTemplates<T extends { pinned?: boolean; title?: string }>(
+  templates: T[],
+) {
+  return [...templates]
+    .filter((template) => !template.pinned)
+    .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 }
 
 const TEMPLATE_SUGGESTION_STOP_WORDS = new Set([

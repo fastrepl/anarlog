@@ -14,6 +14,7 @@ import { cn } from "@hypr/utils";
 import {
   resolveTemplateTabSelection,
   useCreateTemplate,
+  useToggleTemplateFavorite,
   useUserTemplates,
   type UserTemplate,
   type WebTemplate,
@@ -36,6 +37,7 @@ export function TemplatesSidebarContent({
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
+  const toggleTemplateFavorite = useToggleTemplateFavorite();
   const { data: webTemplates = [], isLoading: isWebLoading } =
     useWebResources<WebTemplate>("templates");
   const deleteTemplateFromStore = main.UI.useDelRowCallback(
@@ -120,19 +122,37 @@ export function TemplatesSidebarContent({
     [deleteTemplateFromStore, effectiveSelectedMineId, setSelectedMineId],
   );
 
+  const handleToggleFavorite = useCallback(
+    (id: string) => {
+      toggleTemplateFavorite(id);
+    },
+    [toggleTemplateFavorite],
+  );
+
   const sortedUserTemplates = useMemo(() => {
-    const sorted = [...userTemplates];
+    const favorites = userTemplates
+      .filter((template) => template.pinned)
+      .sort((a, b) => {
+        const orderA = a.pin_order ?? Infinity;
+        const orderB = b.pin_order ?? Infinity;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return (a.title || "").localeCompare(b.title || "");
+      });
+
+    const others = userTemplates.filter((template) => !template.pinned);
     switch (sortOption) {
       case "alphabetical":
-        return sorted.sort((a, b) =>
-          (a.title || "").localeCompare(b.title || ""),
-        );
+        others.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+        break;
       case "reverse-alphabetical":
       default:
-        return sorted.sort((a, b) =>
-          (b.title || "").localeCompare(a.title || ""),
-        );
+        others.sort((a, b) => (b.title || "").localeCompare(a.title || ""));
+        break;
     }
+
+    return [...favorites, ...others];
   }, [userTemplates, sortOption]);
 
   const filteredMine = useMemo(() => {
@@ -279,6 +299,7 @@ export function TemplatesSidebarContent({
                       !isWebMode && effectiveSelectedMineId === template.id
                     }
                     onSelect={setSelectedMineId}
+                    onToggleFavorite={handleToggleFavorite}
                     onDuplicate={handleDuplicateTemplate}
                     onDelete={handleDeleteTemplate}
                   />
@@ -348,17 +369,25 @@ function TemplateListItem({
   template,
   selected,
   onSelect,
+  onToggleFavorite,
   onDuplicate,
   onDelete,
 }: {
   template: UserTemplate;
   selected: boolean;
   onSelect: (id: string) => void;
+  onToggleFavorite: (id: string) => void;
   onDuplicate: (template: UserTemplate) => void;
   onDelete: (id: string) => void;
 }) {
   const contextMenu = useMemo(
     () => [
+      {
+        id: `favorite-template-${template.id}`,
+        text: template.pinned ? "Unfavorite" : "Favorite",
+        action: () => onToggleFavorite(template.id),
+      },
+      { separator: true as const },
       {
         id: `duplicate-template-${template.id}`,
         text: "Duplicate",
@@ -370,7 +399,7 @@ function TemplateListItem({
         action: () => onDelete(template.id),
       },
     ],
-    [onDelete, onDuplicate, template],
+    [onDelete, onDuplicate, onToggleFavorite, template],
   );
   const showContextMenu = useNativeContextMenu(contextMenu);
 

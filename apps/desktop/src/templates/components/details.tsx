@@ -24,12 +24,14 @@ export function TemplateDetailsColumn({
   selectedMineId,
   selectedWebTemplate,
   handleDeleteTemplate,
+  handleDuplicateTemplate,
   handleCloneTemplate,
 }: {
   isWebMode: boolean;
   selectedMineId: string | null;
   selectedWebTemplate: WebTemplate | null;
   handleDeleteTemplate: (id: string) => void;
+  handleDuplicateTemplate: (id: string) => void;
   handleCloneTemplate: (template: {
     title: string;
     description: string;
@@ -59,6 +61,7 @@ export function TemplateDetailsColumn({
       key={selectedMineId}
       id={selectedMineId}
       handleDeleteTemplate={handleDeleteTemplate}
+      handleDuplicateTemplate={handleDuplicateTemplate}
     />
   );
 }

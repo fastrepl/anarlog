@@ -122,6 +122,22 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
     [createTemplate, setSelectedMineId],
   );
 
+  const handleDuplicateTemplate = useCallback(
+    (id: string) => {
+      const template = userTemplates.find((item) => item.id === id);
+      if (!template) return;
+
+      handleCloneTemplate({
+        title: template.title,
+        description: template.description,
+        category: template.category,
+        targets: template.targets,
+        sections: template.sections,
+      });
+    },
+    [handleCloneTemplate, userTemplates],
+  );
+
   return (
     <div className="h-full">
       <TemplateDetailsColumn
@@ -129,6 +145,7 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
         selectedMineId={selectedMineId}
         selectedWebTemplate={selectedWebTemplate}
         handleDeleteTemplate={handleDeleteTemplate}
+        handleDuplicateTemplate={handleDuplicateTemplate}
         handleCloneTemplate={handleCloneTemplate}
       />
     </div>

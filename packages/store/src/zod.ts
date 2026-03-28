@@ -171,6 +171,8 @@ export const templateSchema = z.object({
   user_id: z.string(),
   title: z.string(),
   description: z.string(),
+  pinned: z.preprocess((val) => val ?? false, z.boolean()),
+  pin_order: z.preprocess((val) => val ?? undefined, z.number().optional()),
   category: z.preprocess((val) => val ?? undefined, z.string().optional()),
   targets: z.preprocess(
     (val) => val ?? undefined,

@@ -1,10 +1,21 @@
 import { useForm } from "@tanstack/react-form";
+import { HeartIcon, MoreHorizontalIcon } from "lucide-react";
+import { useState } from "react";
 
 import type { Template, TemplateSection, TemplateStorage } from "@hypr/store";
+import { Button } from "@hypr/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@hypr/ui/components/ui/dropdown-menu";
 import { Input } from "@hypr/ui/components/ui/input";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
+import { useToggleTemplateFavorite } from "../shared";
 import { RelatedSessions } from "./related-sessions";
 import { SectionsList } from "./sections-editor";
 
@@ -50,6 +61,9 @@ function normalizeTemplatePayload(template: unknown): Template {
     title: typeof record.title === "string" ? record.title : "",
     description:
       typeof record.description === "string" ? record.description : "",
+    pinned: Boolean(record.pinned),
+    pin_order:
+      typeof record.pin_order === "number" ? record.pin_order : undefined,
     category: typeof record.category === "string" ? record.category : undefined,
     sections,
     targets,
@@ -59,12 +73,16 @@ function normalizeTemplatePayload(template: unknown): Template {
 export function TemplateForm({
   id,
   handleDeleteTemplate,
+  handleDuplicateTemplate,
 }: {
   id: string;
   handleDeleteTemplate: (id: string) => void;
+  handleDuplicateTemplate: (id: string) => void;
 }) {
   const row = main.UI.useRow("templates", id, main.STORE_ID);
   const value = row ? normalizeTemplatePayload(row) : undefined;
+  const toggleTemplateFavorite = useToggleTemplateFavorite();
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
@@ -126,7 +144,7 @@ export function TemplateForm({
   return (
     <div className="flex h-full flex-1 flex-col">
       <div className="border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-start justify-between gap-3">
           <form.Field name="title">
             {(field) => (
               <Input
@@ -137,19 +155,69 @@ export function TemplateForm({
               />
             )}
           </form.Field>
-          <button
-            type="button"
-            onClick={setSelectedTemplateId}
-            title={isDefault ? "Remove as default" : "Set as default"}
-            className={cn([
-              "shrink-0 rounded border px-2 py-0.5 text-xs transition-colors",
-              isDefault
-                ? "border-neutral-800 bg-neutral-800 text-white"
-                : "border-neutral-300 text-neutral-500 hover:border-neutral-500 hover:text-neutral-700",
-            ])}
-          >
-            {isDefault ? "Default" : "Set default"}
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => toggleTemplateFavorite(id)}
+              className={cn([
+                "text-neutral-500 hover:text-neutral-800",
+                value.pinned && "text-rose-500 hover:text-rose-600",
+              ])}
+              title={value.pinned ? "Unfavorite template" : "Favorite template"}
+              aria-label={
+                value.pinned ? "Unfavorite template" : "Favorite template"
+              }
+            >
+              <HeartIcon
+                className="size-4"
+                fill={value.pinned ? "currentColor" : "none"}
+              />
+            </Button>
+            <button
+              type="button"
+              onClick={setSelectedTemplateId}
+              title={isDefault ? "Remove as default" : "Set as default"}
+              className={cn([
+                "shrink-0 rounded border px-2 py-0.5 text-xs transition-colors",
+                isDefault
+                  ? "border-neutral-800 bg-neutral-800 text-white"
+                  : "border-neutral-300 text-neutral-500 hover:border-neutral-500 hover:text-neutral-700",
+              ])}
+            >
+              {isDefault ? "Default" : "Set default"}
+            </button>
+            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="text-neutral-500 hover:text-neutral-800"
+                  aria-label="Template actions"
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent variant="app" align="end">
+                <AppFloatingPanel className="overflow-hidden p-1">
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateTemplate(id)}
+                    className="cursor-pointer"
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteTemplate(id)}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </AppFloatingPanel>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <form.Field name="description">
           {(field) => (
