@@ -86,11 +86,6 @@ export function ChatSession({
     setPendingDraftRefs(refs);
   }, []);
 
-  useEffect(() => {
-    setPendingManualRefs([]);
-    setPendingDraftRefs([]);
-  }, [sessionId, chatGroupId]);
-
   const { transport, isSystemPromptReady } = useTransport(
     modelOverride,
     extraTools,
