@@ -152,7 +152,7 @@ export function TemplateForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   placeholder="Enter template title"
-                  className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+                  className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
                 />
               )}
             </form.Field>
@@ -191,15 +191,10 @@ export function TemplateForm({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="default"
               onClick={setSelectedTemplateId}
               title={isDefault ? "Remove as default" : "Set as default"}
-              className={cn([
-                "shrink-0",
-                isDefault
-                  ? "border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 hover:text-white"
-                  : "border-neutral-300 text-neutral-600 hover:border-neutral-500 hover:bg-transparent hover:text-neutral-700",
-              ])}
+              className="shrink-0"
             >
               {isDefault ? "Default" : "Set default"}
             </Button>
