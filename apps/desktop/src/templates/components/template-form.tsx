@@ -146,6 +146,13 @@ export function TemplateForm({
       <div className="border-b border-neutral-200 px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 flex-1">
+            {value.category ? (
+              <div className="mb-1">
+                <span className="font-mono text-xs text-stone-400">
+                  {value.category}
+                </span>
+              </div>
+            ) : null}
             <form.Field name="title">
               {(field) => (
                 <Input
@@ -233,13 +240,6 @@ export function TemplateForm({
             </DropdownMenu>
           </div>
         </div>
-        {value.category ? (
-          <div className="mt-2">
-            <span className="font-mono text-xs text-stone-400">
-              ({value.category})
-            </span>
-          </div>
-        ) : null}
         {value.targets && value.targets.length > 0 ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {value.targets.map((target, index) => (

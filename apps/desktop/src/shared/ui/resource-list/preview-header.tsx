@@ -26,6 +26,13 @@ export function ResourcePreviewHeader({
     <div className="border-b border-neutral-200 px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="min-w-0 flex-1">
+          {category && (
+            <div className="mb-1">
+              <span className="font-mono text-xs text-stone-400">
+                {category}
+              </span>
+            </div>
+          )}
           <h2 className="truncate text-lg font-semibold">
             {title || "Untitled"}
           </h2>
@@ -38,11 +45,6 @@ export function ResourcePreviewHeader({
           {actionLabel}
         </Button>
       </div>
-      {category && (
-        <div className="mt-2">
-          <span className="font-mono text-xs text-stone-400">({category})</span>
-        </div>
-      )}
       {targets && targets.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {targets.map((target, index) => (
