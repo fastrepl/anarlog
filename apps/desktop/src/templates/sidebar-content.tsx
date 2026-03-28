@@ -318,17 +318,7 @@ export function TemplatesSidebarContent({
                       <div className="min-w-0 flex-1">
                         <div className="truncate font-medium">
                           {template.title || "Untitled"}
-                          {template.category && (
-                            <span className="ml-1 font-mono text-xs text-stone-400">
-                              ({template.category})
-                            </span>
-                          )}
                         </div>
-                        {template.description && (
-                          <div className="truncate text-xs text-neutral-500">
-                            {template.description}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </button>
@@ -398,11 +388,6 @@ function TemplateListItem({
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
           </div>
-          {template.description && (
-            <div className="truncate text-xs text-neutral-500">
-              {template.description}
-            </div>
-          )}
         </div>
       </div>
     </button>
