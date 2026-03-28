@@ -33,7 +33,7 @@ export const PLAN_TIERS: PlanTierData[] = [
       { label: "Save Audio Recordings", included: true },
       { label: "Audio Player", included: true },
       { label: "Bring Your Own Key", included: true },
-      { label: "Export to various formats", included: true },
+      { label: "Export to Various Formats", included: true },
       { label: "Local-first", included: true },
       { label: "Custom Default Folder", included: true },
       { label: "Templates", included: true },
