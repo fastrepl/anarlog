@@ -641,6 +641,10 @@ function TabChatButton({
 }) {
   const { chat } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
+  const isChatOpen =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isRightPanelOpen = chat.mode === "RightPanelOpen";
+  const isTabbarSelected = placement === "tabbar" && isChatOpen;
 
   const { data: isChatEnabled } = useQuery({
     refetchInterval: 10_000,
@@ -658,7 +662,11 @@ function TabChatButton({
     return null;
   }
 
-  if (chat.mode === "RightPanelOpen" || chat.mode === "FullTab") {
+  if (chat.mode === "FullTab") {
+    return null;
+  }
+
+  if (placement !== "tabbar" && isRightPanelOpen) {
     return null;
   }
 
@@ -671,29 +679,40 @@ function TabChatButton({
     return null;
   }
 
-  const handleOpen = () => chat.sendEvent({ type: "OPEN" });
+  const buttonTitle = isTabbarSelected ? "Close chat" : "Chat with notes";
+
+  const handleClick = () =>
+    chat.sendEvent(isTabbarSelected ? { type: "TOGGLE" } : { type: "OPEN" });
 
   if (placement === "tabbar") {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            onClick={handleOpen}
+            onClick={handleClick}
             variant="ghost"
             size="icon"
-            className="text-neutral-600"
-            aria-label="Chat with notes"
-            title="Chat with notes"
+            className={cn([
+              "text-neutral-600",
+              isTabbarSelected &&
+                "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+            ])}
+            aria-label={buttonTitle}
+            aria-pressed={isTabbarSelected}
+            title={buttonTitle}
           >
             <img
               src="/assets/char-logo-icon-black.svg"
               alt="Char"
-              className="size-[13px] shrink-0 object-contain"
+              className={cn([
+                "size-[13px] shrink-0 object-contain opacity-65",
+                isTabbarSelected && "opacity-100",
+              ])}
             />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="flex items-center gap-2">
-          <span>Chat with notes</span>
+          <span>{buttonTitle}</span>
           {shortcutLabel && (
             <Kbd className="animate-kbd-press">{shortcutLabel}</Kbd>
           )}
