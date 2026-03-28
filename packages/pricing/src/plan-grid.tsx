@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, Construction, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@hypr/utils";
@@ -73,7 +73,7 @@ export function PlanGrid({
                   {tier.price}
                 </span>
                 {tier.period && (
-                  <span className="text-sm text-neutral-500">
+                  <span className="ml-1 text-sm text-neutral-500">
                     {tier.period}
                   </span>
                 )}
@@ -85,18 +85,47 @@ export function PlanGrid({
               </div>
 
               <div className="mb-4 flex flex-col gap-1.5">
-                {tier.features.map((f) => (
-                  <div key={f} className="flex items-start gap-1.5">
-                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-green-700" />
-                    <span className="text-xs text-neutral-700">{f}</span>
-                  </div>
-                ))}
-                {tier.notIncluded.map((f) => (
-                  <div key={f} className="flex items-start gap-1.5">
-                    <XCircle className="mt-0.5 size-3.5 shrink-0 text-neutral-300" />
-                    <span className="text-xs text-neutral-400">{f}</span>
-                  </div>
-                ))}
+                {tier.features.map((feature) => {
+                  const Icon =
+                    feature.included === true
+                      ? CheckCircle2
+                      : feature.included === "partial"
+                        ? Construction
+                        : XCircle;
+                  const hoverTitle =
+                    feature.included === "partial"
+                      ? "Currently in development"
+                      : undefined;
+
+                  return (
+                    <div
+                      key={feature.label}
+                      className="flex items-start gap-1.5"
+                      title={hoverTitle}
+                    >
+                      <Icon
+                        className={cn([
+                          "mt-0.5 size-3.5 shrink-0",
+                          feature.included === true
+                            ? "text-green-700"
+                            : feature.included === "partial"
+                              ? "text-yellow-600"
+                              : "text-red-500",
+                        ])}
+                      />
+                      <span
+                        className={cn([
+                          "text-xs",
+                          feature.included === false
+                            ? "text-neutral-700"
+                            : "text-neutral-900",
+                        ])}
+                      >
+                        {feature.label}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="mt-auto">{renderAction(tier, action)}</div>

@@ -15,8 +15,10 @@ export interface PlanTierData {
   price: string;
   period: string;
   subtitle: string | null;
-  features: string[];
-  notIncluded: string[];
+  features: Array<{
+    label: string;
+    included: boolean | "partial";
+  }>;
 }
 
 export const PLAN_TIERS: PlanTierData[] = [
@@ -24,35 +26,54 @@ export const PLAN_TIERS: PlanTierData[] = [
     id: "free",
     name: "Free",
     price: "$0",
-    period: "",
+    period: "per month",
     subtitle: null,
-    features: ["On-device transcription", "Bring your own API keys", "Export"],
-    notIncluded: ["Cloud AI", "Integrations"],
+    features: [
+      { label: "On-device Transcription", included: true },
+      { label: "Save Audio Recordings", included: true },
+      { label: "Audio Player", included: true },
+      { label: "Bring Your Own Key", included: true },
+      { label: "Export to various formats", included: true },
+      { label: "Local-first", included: true },
+      { label: "Custom Default Folder", included: true },
+      { label: "Templates", included: true },
+      { label: "Shortcuts", included: true },
+      { label: "Chat", included: true },
+      { label: "Integrations", included: false },
+      { label: "Cloud Services (STT & LLM)", included: false },
+      { label: "Cloud Sync", included: false },
+      { label: "Shareable Links", included: false },
+    ],
   },
   {
     id: "lite",
     name: "Lite",
     price: "$8",
-    period: "/mo",
-    subtitle: "Monthly only",
-    features: ["Everything in Free", "Cloud AI (STT & LLM)", "Integrations"],
-    notIncluded: ["Advanced templates", "Cloud sync"],
+    period: "/month",
+    subtitle: null,
+    features: [
+      { label: "Everything in Free", included: true },
+      { label: "Cloud Services (STT & LLM)", included: true },
+      { label: "Speaker Identification", included: "partial" },
+      { label: "Advanced Templates", included: false },
+      { label: "Cloud Sync", included: false },
+      { label: "Shareable Links", included: false },
+    ],
   },
   {
     id: "pro",
     name: "Pro",
     price: "$25",
-    period: "/mo",
+    period: "/month",
     subtitle: "or $250/year",
     features: [
-      "Everything in Free",
-      "Cloud AI (STT & LLM)",
-      "Advanced templates",
-      "Integrations",
-      "Cloud sync",
-      "Shareable links",
+      { label: "Everything in Lite", included: true },
+      { label: "Change Playback Rates", included: true },
+      { label: "Advanced Templates", included: true },
+      { label: "Integrations", included: true },
+      { label: "Cloud Sync", included: "partial" },
+      { label: "Shareable Links", included: "partial" },
     ],
-    notIncluded: [],
   },
 ];
 

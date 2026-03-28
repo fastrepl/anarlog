@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
+  Construction,
   Puzzle,
   RefreshCw,
   Sparkle,
@@ -41,10 +42,10 @@ import * as settings from "~/store/tinybase/store/settings";
 const WEB_APP_BASE_URL = env.VITE_APP_URL ?? "http://localhost:3000";
 const ACCOUNT_FEATURES = [
   {
-    label: "Pro AI models",
+    label: "Cloud Services",
     icon: Sparkle,
-    comingSoon: false,
-    benefit: "Use premium hosted models without managing API keys.",
+    benefit:
+      "Get hosted transcription and language models without managing API keys.",
     accent: {
       icon: "text-blue-900",
       label: "text-blue-950",
@@ -53,7 +54,6 @@ const ACCOUNT_FEATURES = [
   {
     label: "Integrations",
     icon: Puzzle,
-    comingSoon: true,
     benefit: "Connect tools and pull context into Char with less busywork.",
     accent: {
       icon: "text-purple-700",
@@ -151,8 +151,8 @@ export function SettingsAccount() {
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Sign in to Char</h3>
                 <div className="text-sm text-neutral-600">
-                  Sign in to unlock powerful AI models, sync across devices,
-                  personalization, and workflow integrations.
+                  Sign in to unlock cloud transcription and AI models, plus Pro
+                  features like integrations and sharing.
                 </div>
               </div>
               <button
@@ -466,7 +466,7 @@ function PlanTierList({
                     {tier.price}
                   </span>
                   {tier.period && (
-                    <span className="text-sm text-neutral-500">
+                    <span className="ml-1 text-sm text-neutral-500">
                       {tier.period}
                     </span>
                   )}
@@ -478,18 +478,47 @@ function PlanTierList({
                 </div>
 
                 <div className="mb-3 flex flex-col gap-1">
-                  {tier.features.map((f) => (
-                    <div key={f} className="flex items-start gap-1.5">
-                      <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-green-700" />
-                      <span className="text-xs text-neutral-700">{f}</span>
-                    </div>
-                  ))}
-                  {tier.notIncluded.map((f) => (
-                    <div key={f} className="flex items-start gap-1.5">
-                      <XCircle className="mt-0.5 size-3.5 shrink-0 text-neutral-300" />
-                      <span className="text-xs text-neutral-400">{f}</span>
-                    </div>
-                  ))}
+                  {tier.features.map((feature) => {
+                    const Icon =
+                      feature.included === true
+                        ? CheckCircle2
+                        : feature.included === "partial"
+                          ? Construction
+                          : XCircle;
+                    const hoverTitle =
+                      feature.included === "partial"
+                        ? "Currently in development"
+                        : undefined;
+
+                    return (
+                      <div
+                        key={feature.label}
+                        className="flex items-start gap-1.5"
+                        title={hoverTitle}
+                      >
+                        <Icon
+                          className={cn([
+                            "mt-0.5 size-3.5 shrink-0",
+                            feature.included === true
+                              ? "text-green-700"
+                              : feature.included === "partial"
+                                ? "text-yellow-600"
+                                : "text-red-500",
+                          ])}
+                        />
+                        <span
+                          className={cn([
+                            "text-xs",
+                            feature.included === false
+                              ? "text-neutral-700"
+                              : "text-neutral-900",
+                          ])}
+                        >
+                          {feature.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-auto">{renderAction(action, false)}</div>
@@ -555,13 +584,7 @@ function FeatureSpotlight() {
     return () => window.clearInterval(interval);
   }, [isPaused]);
 
-  const {
-    label,
-    icon: Icon,
-    comingSoon,
-    benefit,
-    accent,
-  } = ACCOUNT_FEATURES[activeIndex];
+  const { label, icon: Icon, benefit, accent } = ACCOUNT_FEATURES[activeIndex];
 
   return (
     <div className="group relative flex w-full max-w-[220px] min-w-[180px] items-center justify-center p-2">
@@ -632,9 +655,6 @@ function FeatureSpotlight() {
               <p className={cn(["text-sm font-medium", accent.label])}>
                 {label}
               </p>
-              {comingSoon ? (
-                <span className="text-xs text-neutral-400">Soon</span>
-              ) : null}
             </div>
             <p className="mt-1 text-xs leading-[1.45] text-neutral-600">
               {benefit}
