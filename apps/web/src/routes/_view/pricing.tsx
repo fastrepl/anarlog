@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, MinusCircle, XCircle } from "lucide-react";
+import { CheckCircle2, Construction, XCircle } from "lucide-react";
 
 import { cn } from "@hypr/utils";
 
@@ -19,8 +19,6 @@ interface PricingPlan {
     label: string;
     included: boolean | "partial";
     tooltip?: string;
-    comingSoon?: boolean;
-    partiallyImplemented?: boolean;
   }>;
 }
 
@@ -33,27 +31,22 @@ const pricingPlans: PricingPlan[] = [
     features: [
       { label: "On-device Transcription", included: true },
       { label: "Save Audio Recordings", included: true },
-      { label: "Audio Player with Transcript Tracking", included: true },
-      { label: "Bring Your Own Key (STT & LLM)", included: true },
-      { label: "Export to PDF, TXT, Markdown", included: true },
+      { label: "Audio Player", included: true },
+      { label: "Bring Your Own Key", included: true },
+      { label: "Export to various formats", included: true },
       {
-        label: "Local-first Data Architecture",
+        label: "Custom Default Folder",
         included: true,
-        tooltip:
-          "Filesystem-based by default: notes and transcripts are stored on your device first.",
+        tooltip: "Move your default folder location to anywhere you prefer.",
       },
-      {
-        label: "Custom Content Base Location",
-        included: true,
-        tooltip: "Move your default content folder to any location you prefer.",
-      },
-      { label: "Templates", included: true },
-      { label: "Shortcuts", included: true },
       { label: "Chat", included: true },
-      { label: "Integrations", included: false },
+      { label: "Contacts view", included: true },
+      { label: "Calendar view", included: true },
+      { label: "Transcript Editor", included: "partial" },
+      { label: "Templates", included: "partial" },
+      { label: "Shortcuts", included: "partial" },
       { label: "Cloud Services (STT & LLM)", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
+      { label: "Speaker Identification", included: false },
     ],
   },
   {
@@ -63,17 +56,15 @@ const pricingPlans: PricingPlan[] = [
       yearly: null,
     },
     description:
-      "Cloud AI without the complexity. No API keys needed — just sign in and go.",
+      "Unlimited cloud transcription and AI models without the complexity. No API keys needed — just sign in and go.",
     features: [
       { label: "Everything in Free", included: true },
       { label: "Cloud Services (STT & LLM)", included: true },
-      {
-        label: "Integrations",
-        included: true,
-        tooltip:
-          "Google Calendar is available now. Additional integrations are in progress.",
-      },
+      { label: "Speaker Identification", included: "partial" },
+      { label: "Change Playback Rates", included: false },
+      { label: "Integrations", included: false },
       { label: "Advanced Templates", included: false },
+      { label: "Folders view", included: false },
       { label: "Cloud Sync", included: false },
       { label: "Shareable Links", included: false },
     ],
@@ -85,35 +76,33 @@ const pricingPlans: PricingPlan[] = [
       yearly: 250,
     },
     description:
-      "No API keys needed. Get cloud services, advanced sharing, and team features out of the box.",
+      "Everything in Lite, plus advanced sharing and team features out of the box.",
     popular: true,
     features: [
-      { label: "Everything in Free", included: true },
-      { label: "Audio Player with Playback Rates", included: true },
-      {
-        label: "Speaker Identification",
-        included: "partial",
-        partiallyImplemented: true,
-      },
-      { label: "Advanced Templates", included: true },
+      { label: "Everything in Lite", included: true },
+      { label: "Change Playback Rates", included: true },
       {
         label: "Integrations",
         included: true,
         tooltip:
           "Google Calendar is available now. Additional integrations are in progress.",
       },
-      { label: "Cloud Services (STT & LLM)", included: true },
+      { label: "Advanced Templates", included: "partial" },
+      { label: "Folders view", included: "partial" },
+      {
+        label: "Connect to OpenClaw",
+        included: "partial",
+        tooltip: "Select which notes to sync",
+      },
       {
         label: "Cloud Sync",
-        included: true,
+        included: "partial",
         tooltip: "Select which notes to sync",
-        comingSoon: true,
       },
       {
         label: "Shareable Links",
-        included: true,
+        included: "partial",
         tooltip: "DocSend-like: view tracking, expiration, revocation",
-        comingSoon: true,
       },
     ],
   },
@@ -200,17 +189,18 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                     ${plan.price.monthly}
                   </span>
                   <span className="text-neutral-600">/month</span>
+                  {plan.price.yearly != null ? (
+                    <span className="text-sm text-neutral-600">
+                      or ${plan.price.yearly}/year
+                    </span>
+                  ) : null}
                 </div>
-                {plan.price.yearly != null ? (
-                  <div className="text-sm text-neutral-600">
-                    or ${plan.price.yearly}/year
-                  </div>
-                ) : (
-                  <div className="text-sm text-neutral-400">Monthly only</div>
-                )}
               </div>
             ) : (
-              <div className="font-serif text-4xl text-stone-700">Free</div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-serif text-4xl text-stone-700">$0</span>
+                <span className="text-neutral-600">per month</span>
+              </div>
             )}
           </div>
         </div>
@@ -221,11 +211,19 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
               feature.included === true
                 ? CheckCircle2
                 : feature.included === "partial"
-                  ? MinusCircle
+                  ? Construction
                   : XCircle;
+            const hoverTitle =
+              feature.included === "partial"
+                ? "Currently in development"
+                : undefined;
 
             return (
-              <div key={idx} className="flex items-start gap-3">
+              <div
+                key={idx}
+                className="flex items-start gap-3"
+                title={hoverTitle}
+              >
                 <IconComponent
                   className={cn([
                     "mt-0.5 size-4.5 shrink-0",
@@ -233,7 +231,7 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                       ? "text-green-700"
                       : feature.included === "partial"
                         ? "text-yellow-600"
-                        : "text-neutral-300",
+                        : "text-red-500",
                   ])}
                 />
                 <div className="flex-1">
@@ -241,29 +239,13 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
                     <span
                       className={cn([
                         "text-sm",
-                        feature.included === true
-                          ? "text-neutral-900"
-                          : feature.included === "partial"
-                            ? "text-neutral-700"
-                            : "text-neutral-400",
+                        feature.included === false
+                          ? "text-neutral-700"
+                          : "text-neutral-900",
                       ])}
                     >
                       {feature.label}
                     </span>
-                    {(feature.comingSoon || feature.partiallyImplemented) && (
-                      <span
-                        className={cn([
-                          "rounded-full px-2 py-0.5 text-xs font-medium",
-                          feature.partiallyImplemented
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-neutral-200 text-neutral-500",
-                        ])}
-                      >
-                        {feature.partiallyImplemented
-                          ? "Partially Implemented"
-                          : "Coming Soon"}
-                      </span>
-                    )}
                   </div>
                   {feature.tooltip && (
                     <div className="mt-0.5 text-xs text-neutral-500 italic">
@@ -330,7 +312,7 @@ function FAQSection() {
     {
       question: "What value does an account unlock?",
       answer:
-        "An account unlocks Char's cloud layer: powerful AI models, sync across devices, personalization, and integrations that streamline your workflow.",
+        "A paid plan unlocks Char's cloud layer. Lite gives you hosted transcription, speaker identification, and language models, while Pro adds advanced templates, integrations, sync across devices, and shareable links.",
     },
     {
       question: "What's included in shareable links?",
