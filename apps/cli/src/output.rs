@@ -1,19 +1,8 @@
 use std::io::{IsTerminal, Write};
 use std::path::Path;
-use std::time::Duration;
-
 use crate::error::{CliError, CliResult};
 
-pub fn format_hhmmss(duration: Duration) -> String {
-    let secs = duration.as_secs();
-    format!(
-        "{:02}:{:02}:{:02}",
-        secs / 3600,
-        (secs % 3600) / 60,
-        secs % 60
-    )
-}
-
+#[allow(dead_code)]
 pub fn format_timestamp_ms(ms: i64) -> String {
     let total_secs = (ms / 1000).max(0);
     let mins = total_secs / 60;

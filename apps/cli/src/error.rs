@@ -67,19 +67,6 @@ impl CliError {
         }
     }
 
-    pub fn invalid_argument_with_hint(
-        name: &'static str,
-        value: impl Into<String>,
-        reason: impl Into<String>,
-        hint: impl Into<String>,
-    ) -> Self {
-        Self::InvalidArgument {
-            name,
-            value: value.into(),
-            reason: reason.into(),
-            hint: Some(hint.into()),
-        }
-    }
 
     pub fn operation_failed(action: &'static str, reason: impl Into<String>) -> Self {
         Self::OperationFailed {

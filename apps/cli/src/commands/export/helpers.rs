@@ -56,13 +56,13 @@ pub(super) fn build_segments(
             })
             .unwrap_or_else(|| format!("Channel {}", word.channel));
 
-        if let Some(last) = segments.last_mut() {
-            if last.speaker == speaker {
-                last.text.push(' ');
-                last.text.push_str(&word.text);
-                last.end_ms = word.end_ms;
-                continue;
-            }
+        if let Some(last) = segments.last_mut()
+            && last.speaker == speaker
+        {
+            last.text.push(' ');
+            last.text.push_str(&word.text);
+            last.end_ms = word.end_ms;
+            continue;
         }
 
         segments.push(Segment {

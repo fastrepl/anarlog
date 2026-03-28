@@ -131,22 +131,22 @@ async fn run_with_audio<A: AudioProvider>(
 
     let capture = runtime::capture(audio, args.audio, sample_rate, chunk_size, |progress| {
         app.update(&progress);
-        if progress.emit_event {
-            if let Some(writer) = event_writer.as_mut() {
-                writer.emit(&RecordEvent::Progress {
-                    elapsed_ms: progress.elapsed.as_millis() as u64,
-                    audio_secs: progress.audio_secs,
-                    sample_count: progress.sample_count,
-                    level_left: progress.left_level,
-                    level_right: progress.right_level,
-                })?;
-            }
+        if progress.emit_event
+            && let Some(writer) = event_writer.as_mut()
+        {
+            writer.emit(&RecordEvent::Progress {
+                elapsed_ms: progress.elapsed.as_millis() as u64,
+                audio_secs: progress.audio_secs,
+                sample_count: progress.sample_count,
+                level_left: progress.left_level,
+                level_right: progress.right_level,
+            })?;
         }
-        if progress.render_ui {
-            if let Some(view) = viewport.as_mut() {
-                view.poll_input();
-                view.draw(&app.lines());
-            }
+        if progress.render_ui
+            && let Some(view) = viewport.as_mut()
+        {
+            view.poll_input();
+            view.draw(&app.lines());
         }
         Ok(())
     })

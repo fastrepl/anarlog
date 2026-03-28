@@ -87,7 +87,7 @@ impl SttProvider {
         self.meta().cloud_provider
     }
 
-    pub(crate) fn to_batch_provider(&self) -> BatchProvider {
+    pub(crate) fn to_batch_provider(self) -> BatchProvider {
         self.meta().batch_provider
     }
 }

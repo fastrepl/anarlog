@@ -96,10 +96,10 @@ impl AppContext {
 
 fn analytics_client() -> hypr_analytics::AnalyticsClient {
     let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
-    if std::env::var_os("DO_NOT_TRACK").is_none() {
-        if let Some(key) = option_env!("POSTHOG_API_KEY") {
-            builder = builder.with_posthog(key);
-        }
+    if std::env::var_os("DO_NOT_TRACK").is_none()
+        && let Some(key) = option_env!("POSTHOG_API_KEY")
+    {
+        builder = builder.with_posthog(key);
     }
     builder.build()
 }

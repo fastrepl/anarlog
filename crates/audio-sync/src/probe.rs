@@ -417,11 +417,11 @@ impl SyncProbe {
             return self.snapshot(SyncProbeState::Locked, Some(lag_samples), confidence);
         }
 
-        if let Some(center) = self.acquisition_center() {
-            if (lag_samples - center).unsigned_abs() > self.tuning.acquire_cluster_tolerance_samples
-            {
-                self.acquisition_entries.clear();
-            }
+        if let Some(center) = self.acquisition_center()
+            && (lag_samples - center).unsigned_abs()
+                > self.tuning.acquire_cluster_tolerance_samples
+        {
+            self.acquisition_entries.clear();
         }
 
         self.push_acquisition_entry(Some(lag_samples));
@@ -575,7 +575,7 @@ fn median_isize(iter: impl IntoIterator<Item = isize>) -> Option<isize> {
 
     values.sort_unstable();
     let mid = values.len() / 2;
-    Some(if values.len() % 2 == 0 {
+    Some(if values.len().is_multiple_of(2) {
         (values[mid - 1] + values[mid]) / 2
     } else {
         values[mid]

@@ -49,7 +49,7 @@ impl Db3 {
 
     pub async fn connect_local_plain(path: impl AsRef<Path>) -> Result<Self, sqlx::Error> {
         if let Some(parent) = path.as_ref().parent() {
-            std::fs::create_dir_all(parent).map_err(|e| sqlx::Error::Io(e))?;
+            std::fs::create_dir_all(parent).map_err(sqlx::Error::Io)?;
         }
         let options = SqliteConnectOptions::new()
             .filename(path)

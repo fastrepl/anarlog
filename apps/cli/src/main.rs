@@ -13,6 +13,7 @@ use crate::error::CliResult;
 use clap::Parser;
 
 #[tokio::main]
+#[allow(clippy::let_unit_value)]
 async fn main() {
     let cli = Cli::parse();
 
@@ -82,7 +83,7 @@ fn init_tracing(cli: &Cli) -> OptTraceBuffer {
     #[cfg(feature = "standalone")]
     return None;
     #[cfg(not(feature = "standalone"))]
-    return ();
+    return;
 }
 
 fn init_tracing_stderr(level: tracing_subscriber::filter::LevelFilter) {

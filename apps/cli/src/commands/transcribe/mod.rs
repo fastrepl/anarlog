@@ -187,6 +187,7 @@ fn finish_batch(
 
 // -- Entry point --
 
+#[allow(clippy::unit_arg)]
 pub async fn run(ctx: &AppContext, args: Args) -> CliResult<()> {
     let format = args.format;
     let output_path = args.output.clone();
@@ -390,10 +391,10 @@ async fn run_pretty(
                 #[cfg(feature = "standalone")]
                 {
                     last_pct = streamed.percentage();
-                    if let Some(t) = extract_stream_transcript(&streamed) {
-                        if !t.is_empty() {
-                            last_transcript = t.to_string();
-                        }
+                    if let Some(t) = extract_stream_transcript(&streamed)
+                        && !t.is_empty()
+                    {
+                        last_transcript = t.to_string();
                     }
                 }
                 #[cfg(not(feature = "standalone"))]

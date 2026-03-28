@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug)]
 pub struct AppPaths {
+    #[allow(dead_code)]
     pub base: PathBuf,
     pub models_base: PathBuf,
 }
