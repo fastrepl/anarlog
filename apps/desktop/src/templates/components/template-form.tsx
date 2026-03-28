@@ -194,7 +194,11 @@ export function TemplateForm({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="text-neutral-500 hover:text-neutral-800"
+                  className={cn([
+                    "text-neutral-500 hover:text-neutral-800",
+                    actionsOpen &&
+                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                  ])}
                   aria-label="Template actions"
                 >
                   <MoreHorizontalIcon className="size-4" />
