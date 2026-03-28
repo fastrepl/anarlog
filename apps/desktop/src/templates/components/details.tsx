@@ -1,3 +1,5 @@
+import { Pencil } from "lucide-react";
+
 import type { TemplateSection } from "@hypr/store";
 
 import { SectionsList } from "./sections-editor";
@@ -77,6 +79,8 @@ function WebTemplatePreview({
         description={template.description}
         category={template.category}
         targets={template.targets}
+        actionLabel="Edit"
+        actionIcon={<Pencil className="mr-2 h-4 w-4" />}
         onClone={() =>
           onClone({
             title: template.title ?? "",

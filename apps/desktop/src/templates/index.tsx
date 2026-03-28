@@ -109,7 +109,10 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
       description: string;
       sections: TemplateSection[];
     }) => {
-      const id = createTemplate(template);
+      const id = createTemplate({
+        ...template,
+        title: getTemplateCopyTitle(template.title),
+      });
       if (id) {
         setSelectedMineId(id);
       }
@@ -128,4 +131,13 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
       />
     </div>
   );
+}
+
+function getTemplateCopyTitle(title: string) {
+  const value = title.trim();
+
+  if (!value) return "Untitled (Copy)";
+  if (value.endsWith("(Copy)")) return value;
+
+  return `${value} (Copy)`;
 }

@@ -9,6 +9,8 @@ export function ResourcePreviewHeader({
   category,
   targets,
   onClone,
+  actionLabel = "Clone",
+  actionIcon,
   children,
 }: {
   title: string;
@@ -16,6 +18,8 @@ export function ResourcePreviewHeader({
   category?: string | null;
   targets?: string[] | null;
   onClone: () => void;
+  actionLabel?: string;
+  actionIcon?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -30,8 +34,8 @@ export function ResourcePreviewHeader({
           )}
         </div>
         <Button onClick={onClone} size="sm" className="ml-4 shrink-0">
-          <Copy className="mr-2 h-4 w-4" />
-          Clone
+          {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
+          {actionLabel}
         </Button>
       </div>
       {category && (
