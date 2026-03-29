@@ -57,7 +57,11 @@ import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useRunBatch } from "~/stt/useRunBatch";
-import { useUserTemplates } from "~/templates";
+import {
+  getTemplateCreatorLabel,
+  useTemplateCreatorName,
+  useUserTemplates,
+} from "~/templates";
 
 function TruncatedTitle({
   title,
@@ -418,6 +422,7 @@ function CreateOtherFormatButton({
   ) as string | undefined;
   const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
   const userTemplates = useUserTemplates();
+  const creatorName = useTemplateCreatorName();
   const {
     data: suggestedTemplates = [],
     isLoading: isSuggestedTemplatesLoading,
@@ -733,6 +738,10 @@ function CreateOtherFormatButton({
             key: template.id,
             title: template.title || "Untitled",
             description: template.description,
+            creatorLabel: getTemplateCreatorLabel({
+              isUserTemplate: true,
+              creatorName,
+            }),
             tags: getTemplateTags(template),
             onClick: () => handleUseTemplate(template.id),
           })),
@@ -745,6 +754,7 @@ function CreateOtherFormatButton({
             key: template.slug || `suggested-${index}`,
             title: template.title || "Untitled",
             description: template.description,
+            creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
             tags: getTemplateTags(template),
             onClick: () => handleSuggestedTemplateClick(template),
           })),
@@ -753,15 +763,9 @@ function CreateOtherFormatButton({
             : "No suggested templates yet",
         },
         {
-          key: "mine",
-          title: "My templates",
-          items: filteredOtherTemplates.map((template) => ({
-            key: template.id,
-            title: template.title || "Untitled",
-            description: template.description,
-            tags: getTemplateTags(template),
-            onClick: () => handleUseTemplate(template.id),
-          })),
+          key: "library",
+          title: "Templates",
+          items: libraryTemplates,
           emptyMessage: "No other templates yet",
         },
       ];
@@ -790,52 +794,36 @@ function CreateOtherFormatButton({
                 key: template.id,
                 title: template.title || "Untitled",
                 description: template.description,
+                creatorLabel: getTemplateCreatorLabel({
+                  isUserTemplate: true,
+                  creatorName,
+                }),
                 tags: getTemplateTags(template),
                 onClick: () => handleUseTemplate(template.id),
               })),
             },
           ]
         : []),
-      ...(filteredSuggestedTemplates.length > 0
+      ...(libraryTemplates.length > 0
         ? [
             {
-              key: "suggested",
-              title: "Suggested templates",
-              items: filteredSuggestedTemplates.map((template, index) => ({
-                key: template.slug || `suggested-${index}`,
-                title: template.title || "Untitled",
-                description: template.description,
-                tags: getTemplateTags(template),
-                onClick: () => handleSuggestedTemplateClick(template),
-              })),
-            },
-          ]
-        : []),
-      ...(filteredOtherTemplates.length > 0
-        ? [
-            {
-              key: "mine",
-              title: "My templates",
-              items: filteredOtherTemplates.map((template) => ({
-                key: template.id,
-                title: template.title || "Untitled",
-                description: template.description,
-                tags: getTemplateTags(template),
-                onClick: () => handleUseTemplate(template.id),
-              })),
+              key: "library",
+              title: "Templates",
+              items: libraryTemplates,
             },
           ]
         : []),
     ];
   }, [
+    creatorName,
     filteredFavoriteTemplates,
-    filteredOtherTemplates,
     filteredSuggestedTemplates,
     handleCreateTemplate,
     handleSuggestedTemplateClick,
     handleUseTemplate,
     hasSearch,
     isSuggestedTemplatesLoading,
+    libraryTemplates,
     trimmedSearch,
   ]);
   const navigableResults = useMemo(
@@ -962,6 +950,7 @@ function CreateOtherFormatButton({
                               }}
                               title={item.title}
                               description={item.description}
+                              creatorLabel={item.creatorLabel}
                               tags={item.tags}
                               onClick={item.onClick}
                               onKeyDown={(e) =>
@@ -1489,6 +1478,7 @@ function TemplateResultButton({
   buttonRef,
   title,
   description,
+  creatorLabel,
   tags,
   onClick,
   onKeyDown,
@@ -1496,6 +1486,7 @@ function TemplateResultButton({
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
   description?: string;
+  creatorLabel?: string;
   tags?: string[];
   onClick: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
@@ -1517,6 +1508,9 @@ function TemplateResultButton({
         <span className="line-clamp-2 text-xs text-neutral-500">
           {description}
         </span>
+      ) : null}
+      {creatorLabel ? (
+        <span className="text-[11px] text-neutral-400">{creatorLabel}</span>
       ) : null}
       {tags && tags.length > 0 ? (
         <span className="mt-1 flex flex-wrap gap-1">
