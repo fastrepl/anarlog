@@ -128,14 +128,13 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Ok(())
     }
 
-      pub fn set_title(&self, title: Option<&str>) -> Result<()> {
+    pub fn set_title(&self, title: Option<&str>) -> Result<()> {
         let app = self.manager.app_handle();
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
             tray.set_title(title)?;
         }
         Ok(())
     }
-
 
     pub fn set_recording(&self, recording: bool) -> Result<()> {
         IS_RECORDING.store(recording, Ordering::SeqCst);
