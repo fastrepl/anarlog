@@ -106,6 +106,27 @@ export function useUserTemplates(): UserTemplate[] {
   }, [templates]);
 }
 
+export function useTemplateCreatorName() {
+  const userId = main.UI.useValue("user_id", main.STORE_ID);
+  const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
+
+  return typeof name === "string" && name.trim().length > 0
+    ? name.trim()
+    : "user";
+}
+
+export function getTemplateCreatorLabel({
+  isUserTemplate,
+  creatorName,
+}: {
+  isUserTemplate: boolean;
+  creatorName?: string | null;
+}) {
+  return isUserTemplate
+    ? `Created by ${creatorName?.trim() || "user"}`
+    : "Created by Char";
+}
+
 export function useCreateTemplate() {
   const { user_id } = main.UI.useValues(main.STORE_ID);
 

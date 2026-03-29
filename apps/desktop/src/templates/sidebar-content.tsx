@@ -12,8 +12,10 @@ import {
 import { cn } from "@hypr/utils";
 
 import {
+  getTemplateCreatorLabel,
   resolveTemplateTabSelection,
   useCreateTemplate,
+  useTemplateCreatorName,
   useToggleTemplateFavorite,
   useUserTemplates,
   type UserTemplate,
@@ -36,6 +38,7 @@ export function TemplatesSidebarContent({
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const userTemplates = useUserTemplates();
+  const creatorName = useTemplateCreatorName();
   const createTemplate = useCreateTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const { data: webTemplates = [], isLoading: isWebLoading } =
@@ -184,9 +187,74 @@ export function TemplatesSidebarContent({
     });
   }, [webTemplates, search]);
 
-  const hasWebResults = filteredWeb.length > 0;
-  const hasMineResults = filteredMine.length > 0;
-  const isEmpty = !isWebLoading && !hasWebResults && !hasMineResults;
+  const combinedTemplates = useMemo<
+    Array<
+      | {
+          key: string;
+          title: string;
+          creatorLabel: string;
+          selected: boolean;
+          pinned: boolean;
+          source: "user";
+          template: UserTemplate;
+        }
+      | {
+          key: string;
+          title: string;
+          creatorLabel: string;
+          selected: boolean;
+          pinned: false;
+          source: "web";
+          index: number;
+          template: WebTemplate;
+        }
+    >
+  >(() => {
+    const mine = filteredMine.map((template) => ({
+      key: template.id,
+      title: template.title?.trim() || "Untitled",
+      creatorLabel: getTemplateCreatorLabel({
+        isUserTemplate: true,
+        creatorName,
+      }),
+      selected: !isWebMode && effectiveSelectedMineId === template.id,
+      pinned: Boolean(template.pinned),
+      source: "user" as const,
+      template,
+    }));
+
+    const web = filteredWeb.map(({ template, index }) => ({
+      key: template.slug || `web-${index}`,
+      title: template.title?.trim() || "Untitled",
+      creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
+      selected: isWebMode && effectiveSelectedWebIndex === index,
+      pinned: false as const,
+      source: "web" as const,
+      index,
+      template,
+    }));
+
+    const direction = sortOption === "reverse-alphabetical" ? -1 : 1;
+
+    return [...mine, ...web].sort((a, b) => {
+      if (a.pinned !== b.pinned) {
+        return a.pinned ? -1 : 1;
+      }
+
+      return direction * a.title.localeCompare(b.title);
+    });
+  }, [
+    creatorName,
+    effectiveSelectedMineId,
+    effectiveSelectedWebIndex,
+    filteredMine,
+    filteredWeb,
+    isWebMode,
+    sortOption,
+  ]);
+
+  const hasResults = combinedTemplates.length > 0;
+  const isEmpty = !isWebLoading && !hasResults;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
@@ -288,28 +356,50 @@ export function TemplatesSidebarContent({
           </div>
         ) : (
           <>
-            {hasMineResults && (
+            {hasResults && (
               <div className="pt-3">
-                <ListSectionTitle>My templates</ListSectionTitle>
-                {filteredMine.map((template) => (
-                  <TemplateListItem
-                    key={template.id}
-                    template={template}
-                    selected={
-                      !isWebMode && effectiveSelectedMineId === template.id
-                    }
-                    onSelect={setSelectedMineId}
-                    onToggleFavorite={handleToggleFavorite}
-                    onDuplicate={handleDuplicateTemplate}
-                    onDelete={handleDeleteTemplate}
-                  />
-                ))}
+                {combinedTemplates.map((item) =>
+                  item.source === "user" ? (
+                    <TemplateListItem
+                      key={item.key}
+                      template={item.template}
+                      creatorLabel={item.creatorLabel}
+                      selected={item.selected}
+                      onSelect={setSelectedMineId}
+                      onToggleFavorite={handleToggleFavorite}
+                      onDuplicate={handleDuplicateTemplate}
+                      onDelete={handleDeleteTemplate}
+                    />
+                  ) : (
+                    <button
+                      key={item.key}
+                      onClick={() => setSelectedWebIndex(item.index)}
+                      className={cn([
+                        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+                        item.selected
+                          ? "bg-neutral-200"
+                          : "hover:bg-neutral-200/50",
+                      ])}
+                    >
+                      <div className="flex items-center gap-2">
+                        <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium">
+                            {item.title}
+                          </div>
+                          <div className="truncate text-xs text-neutral-400">
+                            {item.creatorLabel}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ),
+                )}
               </div>
             )}
 
-            {isWebLoading && !hasWebResults && (
+            {isWebLoading && !hasResults && (
               <div className="pt-3">
-                <ListSectionTitle>Provided by Char</ListSectionTitle>
                 <div className="flex flex-col gap-1">
                   {[0, 1, 2, 3].map((index) => (
                     <div
@@ -317,37 +407,10 @@ export function TemplatesSidebarContent({
                       className="animate-pulse rounded-lg px-3 py-2"
                     >
                       <div className="h-4 w-3/4 rounded-xs bg-neutral-200" />
-                      <div className="mt-1.5 h-3 w-1/2 rounded-xs bg-neutral-100" />
+                      <div className="mt-1.5 h-3 w-1/3 rounded-xs bg-neutral-100" />
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {hasWebResults && (
-              <div className="pt-3">
-                <ListSectionTitle>Provided by Char</ListSectionTitle>
-                {filteredWeb.map(({ template, index }) => (
-                  <button
-                    key={template.slug || index}
-                    onClick={() => setSelectedWebIndex(index)}
-                    className={cn([
-                      "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
-                      isWebMode && effectiveSelectedWebIndex === index
-                        ? "bg-neutral-200"
-                        : "hover:bg-neutral-200/50",
-                    ])}
-                  >
-                    <div className="flex items-center gap-2">
-                      <BookText className="h-4 w-4 shrink-0 text-neutral-500" />
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate font-medium">
-                          {template.title || "Untitled"}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
               </div>
             )}
           </>
@@ -357,16 +420,9 @@ export function TemplatesSidebarContent({
   );
 }
 
-function ListSectionTitle({ children }: { children: string }) {
-  return (
-    <div className="px-3 pb-1 text-xs font-medium text-neutral-400 uppercase">
-      {children}
-    </div>
-  );
-}
-
 function TemplateListItem({
   template,
+  creatorLabel,
   selected,
   onSelect,
   onToggleFavorite,
@@ -374,6 +430,7 @@ function TemplateListItem({
   onDelete,
 }: {
   template: UserTemplate;
+  creatorLabel: string;
   selected: boolean;
   onSelect: (id: string) => void;
   onToggleFavorite: (id: string) => void;
@@ -420,6 +477,9 @@ function TemplateListItem({
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
+          </div>
+          <div className="truncate text-xs text-neutral-400">
+            {creatorLabel}
           </div>
         </div>
       </div>

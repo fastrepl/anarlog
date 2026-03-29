@@ -402,6 +402,7 @@ function CreateOtherFormatButton({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const resultsScrollRef = useRef<HTMLDivElement>(null);
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const sessionTitle = main.UI.useCell(
     "sessions",
@@ -632,6 +633,80 @@ function CreateOtherFormatButton({
   }, [searchQuery, suggestedTemplateRecommendations, suggestedTemplates]);
 
   const hasSearch = searchQuery.length > 0;
+  const filteredWebTemplates = useMemo(() => {
+    if (!searchQuery) {
+      return suggestedTemplates;
+    }
+
+    return suggestedTemplates.filter(
+      (template) =>
+        template.title?.toLowerCase().includes(searchQuery) ||
+        template.description?.toLowerCase().includes(searchQuery) ||
+        template.category?.toLowerCase().includes(searchQuery) ||
+        template.targets?.some((target) =>
+          target.toLowerCase().includes(searchQuery),
+        ),
+    );
+  }, [searchQuery, suggestedTemplates]);
+  const libraryTemplates = useMemo<
+    Array<{
+      key: string;
+      title: string;
+      description?: string;
+      creatorLabel: string;
+      tags?: string[];
+      onClick: () => void;
+    }>
+  >(() => {
+    const userItems = filteredOtherTemplates.map((template) => ({
+      key: template.id,
+      title: template.title || "Untitled",
+      description: template.description,
+      creatorLabel: getTemplateCreatorLabel({
+        isUserTemplate: true,
+        creatorName,
+      }),
+      tags: getTemplateTags(template),
+      onClick: () => handleUseTemplate(template.id),
+    }));
+
+    const suggestedSlugs = new Set(
+      !hasSearch
+        ? filteredSuggestedTemplates.map(
+            (template, index) => template.slug || `suggested-${index}`,
+          )
+        : [],
+    );
+
+    const webItems = filteredWebTemplates
+      .filter((template, index) => {
+        if (hasSearch) {
+          return true;
+        }
+
+        return !suggestedSlugs.has(template.slug || `suggested-${index}`);
+      })
+      .map((template, index) => ({
+        key: template.slug || `library-${index}`,
+        title: template.title || "Untitled",
+        description: template.description,
+        creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
+        tags: getTemplateTags(template),
+        onClick: () => handleSuggestedTemplateClick(template),
+      }));
+
+    return [...userItems, ...webItems].sort((a, b) =>
+      a.title.localeCompare(b.title),
+    );
+  }, [
+    creatorName,
+    filteredOtherTemplates,
+    filteredSuggestedTemplates,
+    filteredWebTemplates,
+    handleSuggestedTemplateClick,
+    handleUseTemplate,
+    hasSearch,
+  ]);
   const resultSections = useMemo<
     Array<{
       key: string;
@@ -643,6 +718,7 @@ function CreateOtherFormatButton({
         key: string;
         title: string;
         description?: string;
+        creatorLabel?: string;
         tags?: string[];
         onClick: () => void;
       }>;
@@ -650,6 +726,18 @@ function CreateOtherFormatButton({
   >(() => {
     if (!hasSearch) {
       return [
+        {
+          key: "favorite",
+          title: "Favorite templates",
+          items: filteredFavoriteTemplates.map((template) => ({
+            key: template.id,
+            title: template.title || "Untitled",
+            description: template.description,
+            tags: getTemplateTags(template),
+            onClick: () => handleUseTemplate(template.id),
+          })),
+          emptyMessage: "No favorite templates yet",
+        },
         {
           key: "suggested",
           title: "Suggested templates",
@@ -663,18 +751,6 @@ function CreateOtherFormatButton({
           emptyMessage: isSuggestedTemplatesLoading
             ? "Loading suggestions..."
             : "No suggested templates yet",
-        },
-        {
-          key: "favorite",
-          title: "Favorite templates",
-          items: filteredFavoriteTemplates.map((template) => ({
-            key: template.id,
-            title: template.title || "Untitled",
-            description: template.description,
-            tags: getTemplateTags(template),
-            onClick: () => handleUseTemplate(template.id),
-          })),
-          emptyMessage: "No favorite templates yet",
         },
         {
           key: "mine",
@@ -705,21 +781,6 @@ function CreateOtherFormatButton({
           },
         ],
       },
-      ...(filteredSuggestedTemplates.length > 0
-        ? [
-            {
-              key: "suggested",
-              title: "Suggested templates",
-              items: filteredSuggestedTemplates.map((template, index) => ({
-                key: template.slug || `suggested-${index}`,
-                title: template.title || "Untitled",
-                description: template.description,
-                tags: getTemplateTags(template),
-                onClick: () => handleSuggestedTemplateClick(template),
-              })),
-            },
-          ]
-        : []),
       ...(filteredFavoriteTemplates.length > 0
         ? [
             {
@@ -731,6 +792,21 @@ function CreateOtherFormatButton({
                 description: template.description,
                 tags: getTemplateTags(template),
                 onClick: () => handleUseTemplate(template.id),
+              })),
+            },
+          ]
+        : []),
+      ...(filteredSuggestedTemplates.length > 0
+        ? [
+            {
+              key: "suggested",
+              title: "Suggested templates",
+              items: filteredSuggestedTemplates.map((template, index) => ({
+                key: template.slug || `suggested-${index}`,
+                title: template.title || "Untitled",
+                description: template.description,
+                tags: getTemplateTags(template),
+                onClick: () => handleSuggestedTemplateClick(template),
               })),
             },
           ]
@@ -766,6 +842,9 @@ function CreateOtherFormatButton({
     () => resultSections.flatMap((section) => section.items),
     [resultSections],
   );
+  const { atStart, atEnd } = useScrollFade(resultsScrollRef, "vertical", [
+    resultSections,
+  ]);
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus();
   }, []);
@@ -857,42 +936,51 @@ function CreateOtherFormatButton({
               </div>
             </div>
 
-            <div className="max-h-80 overflow-y-auto p-2">
-              <div className="flex flex-col gap-3">
-                {resultSections.map((section) => (
-                  <TemplateSection
-                    key={section.key}
-                    title={section.title}
-                    icon={section.icon}
-                    uppercase={section.uppercase}
-                  >
-                    {section.items.length > 0 ? (
-                      section.items.map((item) => {
-                        const itemIndex = resultIndex;
-                        resultIndex += 1;
+            <div className="relative">
+              <div
+                ref={resultsScrollRef}
+                className="scrollbar-hide max-h-80 overflow-y-auto p-2"
+              >
+                <div className="flex flex-col gap-3">
+                  {resultSections.map((section) => (
+                    <TemplateSection
+                      key={section.key}
+                      title={section.title}
+                      icon={section.icon}
+                      uppercase={section.uppercase}
+                    >
+                      {section.items.length > 0 ? (
+                        section.items.map((item) => {
+                          const itemIndex = resultIndex;
+                          resultIndex += 1;
 
-                        return (
-                          <TemplateResultButton
-                            key={item.key}
-                            buttonRef={(node) => {
-                              resultRefs.current[itemIndex] = node;
-                            }}
-                            title={item.title}
-                            description={item.description}
-                            tags={item.tags}
-                            onClick={item.onClick}
-                            onKeyDown={(e) => handleResultKeyDown(e, itemIndex)}
-                          />
-                        );
-                      })
-                    ) : (
-                      <div className="px-2 py-3 text-sm text-neutral-500">
-                        {section.emptyMessage}
-                      </div>
-                    )}
-                  </TemplateSection>
-                ))}
+                          return (
+                            <TemplateResultButton
+                              key={item.key}
+                              buttonRef={(node) => {
+                                resultRefs.current[itemIndex] = node;
+                              }}
+                              title={item.title}
+                              description={item.description}
+                              tags={item.tags}
+                              onClick={item.onClick}
+                              onKeyDown={(e) =>
+                                handleResultKeyDown(e, itemIndex)
+                              }
+                            />
+                          );
+                        })
+                      ) : (
+                        <div className="px-2 py-3 text-sm text-neutral-500">
+                          {section.emptyMessage}
+                        </div>
+                      )}
+                    </TemplateSection>
+                  ))}
+                </div>
               </div>
+              {!atStart && <ScrollFadeOverlay position="top" />}
+              {!atEnd && <ScrollFadeOverlay position="bottom" />}
             </div>
           </AppFloatingPanel>
 

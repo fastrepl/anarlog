@@ -17,7 +17,11 @@ import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
-export { useUserTemplates } from "./shared";
+export {
+  getTemplateCreatorLabel,
+  useTemplateCreatorName,
+  useUserTemplates,
+} from "./shared";
 
 export const TabItemTemplate: TabItem<Extract<Tab, { type: "templates" }>> = ({
   tab,
