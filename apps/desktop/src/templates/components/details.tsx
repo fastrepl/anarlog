@@ -2,6 +2,7 @@ import { Pencil } from "lucide-react";
 
 import type { TemplateSection } from "@hypr/store";
 
+import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 import { TemplateForm } from "./template-form";
 
@@ -87,7 +88,9 @@ function WebTemplatePreview({
         category={template.category}
         targets={template.targets}
         actionLabel="Edit"
-        actionIcon={<Pencil className="mr-2 h-4 w-4" />}
+        actionIcon={<Pencil className="h-4 w-4" />}
+        actionVariant="ghost"
+        actionClassName="shrink-0 px-0 text-neutral-700 hover:bg-transparent hover:text-neutral-900"
         onClone={() =>
           onClone({
             title: template.title ?? "",
@@ -99,18 +102,13 @@ function WebTemplatePreview({
         }
       />
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <h3 className="mb-3 text-sm font-medium text-neutral-600">
-            Sections
-          </h3>
-          <SectionsList
-            disabled={true}
-            items={template.sections ?? []}
-            onChange={() => {}}
-          />
-        </div>
-      </div>
+      <TemplateDetailScrollArea>
+        <SectionsList
+          disabled={true}
+          items={template.sections ?? []}
+          onChange={() => {}}
+        />
+      </TemplateDetailScrollArea>
     </div>
   );
 }

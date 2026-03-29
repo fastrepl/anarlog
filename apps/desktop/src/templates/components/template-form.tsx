@@ -16,6 +16,7 @@ import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
 import { useToggleTemplateFavorite } from "../shared";
+import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 
 import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
@@ -254,7 +255,7 @@ export function TemplateForm({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <TemplateDetailScrollArea className="pb-6">
         <div className="p-6">
           <h3 className="mb-3 text-sm font-medium text-neutral-600">
             Sections
@@ -269,7 +270,7 @@ export function TemplateForm({
             )}
           </form.Field>
         </div>
-      </div>
+      </TemplateDetailScrollArea>
     </div>
   );
 }
