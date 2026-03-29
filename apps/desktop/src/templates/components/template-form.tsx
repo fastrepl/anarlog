@@ -156,10 +156,10 @@ export function TemplateForm({
               onClick={setSelectedTemplateId}
               title={isDefault ? "Remove as default" : "Set as default"}
               className={cn([
-                "shrink-0 px-0 hover:bg-transparent",
+                "shrink-0 text-neutral-600 hover:text-black",
                 isDefault
-                  ? "text-sky-600 hover:text-sky-700"
-                  : "text-neutral-500 hover:text-neutral-700",
+                  ? "bg-neutral-100 text-black hover:bg-neutral-100"
+                  : null,
               ])}
             >
               {isDefault ? "Current default" : "Set as default"}
