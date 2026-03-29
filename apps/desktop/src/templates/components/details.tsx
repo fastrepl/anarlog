@@ -88,9 +88,9 @@ function WebTemplatePreview({
         category={template.category}
         targets={template.targets}
         actionLabel="Edit"
-        actionIcon={<Pencil className="h-4 w-4" />}
+        actionIcon={<Pencil size={14} className="shrink-0" />}
         actionVariant="ghost"
-        actionClassName="shrink-0 px-0 text-neutral-700 hover:bg-transparent hover:text-neutral-900"
+        actionClassName="shrink-0 text-neutral-600 hover:text-black"
         onClone={() =>
           onClone({
             title: template.title ?? "",
