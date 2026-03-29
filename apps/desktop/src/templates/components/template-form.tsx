@@ -88,6 +88,7 @@ export function TemplateForm({
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const creatorName = useTemplateCreatorName();
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [isEditingTargets, setIsEditingTargets] = useState(false);
 
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
@@ -119,6 +120,7 @@ export function TemplateForm({
     defaultValues: {
       title: value?.title ?? "",
       description: value?.description ?? "",
+      targets: value?.targets ?? [],
       sections: value?.sections ?? [],
     },
     listeners: {
@@ -245,18 +247,58 @@ export function TemplateForm({
               />
             )}
           </form.Field>
-          {value.targets && value.targets.length > 0 ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {value.targets.map((target, index) => (
-                <span
-                  key={index}
-                  className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
-                >
-                  {target}
-                </span>
-              ))}
-            </div>
-          ) : null}
+          <form.Field name="targets">
+            {(field) => {
+              const hasTargets = field.state.value.length > 0;
+
+              return (
+                <>
+                  {hasTargets ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {field.state.value.map((target, index) => (
+                        <span
+                          key={`${target}-${index}`}
+                          className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
+                        >
+                          {target}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {isEditingTargets ? (
+                    <Input
+                      autoFocus
+                      value={field.state.value.join(", ")}
+                      onChange={(e) =>
+                        field.handleChange(
+                          e.target.value
+                            .split(",")
+                            .map((tag) => tag.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                      onBlur={() => setIsEditingTargets(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === "Escape") {
+                          setIsEditingTargets(false);
+                        }
+                      }}
+                      placeholder="Edit tags, comma separated"
+                      className="mt-1 h-4 rounded-none border-0 px-0 py-0 text-xs leading-none text-neutral-400 shadow-none focus-visible:ring-0"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTargets(true)}
+                      className="mt-1 h-4 text-left text-xs leading-none text-neutral-400 transition-colors hover:text-neutral-600"
+                    >
+                      {hasTargets ? "Edit tags" : "Add tags"}
+                    </button>
+                  )}
+                </>
+              );
+            }}
+          </form.Field>
           <p className="mt-2 text-xs text-neutral-400">
             {getTemplateCreatorLabel({
               isUserTemplate: true,
