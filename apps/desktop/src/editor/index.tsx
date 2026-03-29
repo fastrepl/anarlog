@@ -56,6 +56,7 @@ import {
   setSearchState,
 } from "./plugins";
 import { schema } from "./schema";
+import { TaskItemView } from "./task-item-view";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
@@ -103,6 +104,7 @@ interface EditorProps {
 const nodeViews = {
   image: ResizableImageView,
   "mention-@": MentionNodeView,
+  taskItem: TaskItemView,
 };
 
 function ViewCapture({
