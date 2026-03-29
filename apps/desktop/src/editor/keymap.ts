@@ -7,8 +7,11 @@ import {
   joinForward,
   liftEmptyBlock,
   newlineInCode,
+  selectAll,
   selectNodeBackward,
   selectNodeForward,
+  selectTextblockEnd,
+  selectTextblockStart,
   splitBlock,
   toggleMark,
 } from "prosemirror-commands";
@@ -165,7 +168,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     splitBlock,
   );
 
-  keys["Backspace"] = chainCommands(
+  const backspaceCmd: Command = chainCommands(
     deleteSelection,
     (state, _dispatch) => {
       const { selection } = state;
@@ -175,12 +178,30 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     joinBackward,
     selectNodeBackward,
   );
+  keys["Backspace"] = backspaceCmd;
+  keys["Mod-Backspace"] = backspaceCmd;
+  keys["Shift-Backspace"] = backspaceCmd;
 
-  keys["Delete"] = chainCommands(
+  const deleteCmd: Command = chainCommands(
     deleteSelection,
     joinForward,
     selectNodeForward,
   );
+  keys["Delete"] = deleteCmd;
+  keys["Mod-Delete"] = deleteCmd;
+
+  keys["Mod-a"] = selectAll;
+
+  if (mac) {
+    keys["Ctrl-h"] = backspaceCmd;
+    keys["Alt-Backspace"] = backspaceCmd;
+    keys["Ctrl-d"] = deleteCmd;
+    keys["Ctrl-Alt-Backspace"] = deleteCmd;
+    keys["Alt-Delete"] = deleteCmd;
+    keys["Alt-d"] = deleteCmd;
+    keys["Ctrl-a"] = selectTextblockStart;
+    keys["Ctrl-e"] = selectTextblockEnd;
+  }
 
   keys["Tab"] = (state, dispatch) => {
     const itemName = isInListItem(state);
