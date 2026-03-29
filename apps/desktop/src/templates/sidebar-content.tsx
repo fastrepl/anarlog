@@ -12,10 +12,8 @@ import {
 import { cn } from "@hypr/utils";
 
 import {
-  getTemplateCreatorLabel,
   resolveTemplateTabSelection,
   useCreateTemplate,
-  useTemplateCreatorName,
   useToggleTemplateFavorite,
   useUserTemplates,
   type UserTemplate,
@@ -38,7 +36,6 @@ export function TemplatesSidebarContent({
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const userTemplates = useUserTemplates();
-  const creatorName = useTemplateCreatorName();
   const createTemplate = useCreateTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const { data: webTemplates = [], isLoading: isWebLoading } =
@@ -192,7 +189,6 @@ export function TemplatesSidebarContent({
       | {
           key: string;
           title: string;
-          creatorLabel: string;
           selected: boolean;
           pinned: boolean;
           source: "user";
@@ -201,7 +197,6 @@ export function TemplatesSidebarContent({
       | {
           key: string;
           title: string;
-          creatorLabel: string;
           selected: boolean;
           pinned: false;
           source: "web";
@@ -213,10 +208,6 @@ export function TemplatesSidebarContent({
     const mine = filteredMine.map((template) => ({
       key: template.id,
       title: template.title?.trim() || "Untitled",
-      creatorLabel: getTemplateCreatorLabel({
-        isUserTemplate: true,
-        creatorName,
-      }),
       selected: !isWebMode && effectiveSelectedMineId === template.id,
       pinned: Boolean(template.pinned),
       source: "user" as const,
@@ -226,7 +217,6 @@ export function TemplatesSidebarContent({
     const web = filteredWeb.map(({ template, index }) => ({
       key: template.slug || `web-${index}`,
       title: template.title?.trim() || "Untitled",
-      creatorLabel: getTemplateCreatorLabel({ isUserTemplate: false }),
       selected: isWebMode && effectiveSelectedWebIndex === index,
       pinned: false as const,
       source: "web" as const,
@@ -244,7 +234,6 @@ export function TemplatesSidebarContent({
       return direction * a.title.localeCompare(b.title);
     });
   }, [
-    creatorName,
     effectiveSelectedMineId,
     effectiveSelectedWebIndex,
     filteredMine,
@@ -363,7 +352,6 @@ export function TemplatesSidebarContent({
                     <TemplateListItem
                       key={item.key}
                       template={item.template}
-                      creatorLabel={item.creatorLabel}
                       selected={item.selected}
                       onSelect={setSelectedMineId}
                       onToggleFavorite={handleToggleFavorite}
@@ -386,9 +374,6 @@ export function TemplatesSidebarContent({
                         <div className="min-w-0 flex-1">
                           <div className="truncate font-medium">
                             {item.title}
-                          </div>
-                          <div className="truncate text-xs text-neutral-400">
-                            {item.creatorLabel}
                           </div>
                         </div>
                       </div>
@@ -422,7 +407,6 @@ export function TemplatesSidebarContent({
 
 function TemplateListItem({
   template,
-  creatorLabel,
   selected,
   onSelect,
   onToggleFavorite,
@@ -430,7 +414,6 @@ function TemplateListItem({
   onDelete,
 }: {
   template: UserTemplate;
-  creatorLabel: string;
   selected: boolean;
   onSelect: (id: string) => void;
   onToggleFavorite: (id: string) => void;
@@ -477,9 +460,6 @@ function TemplateListItem({
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium">
             {template.title?.trim() || "Untitled"}
-          </div>
-          <div className="truncate text-xs text-neutral-400">
-            {creatorLabel}
           </div>
         </div>
       </div>
