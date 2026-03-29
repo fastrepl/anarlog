@@ -308,18 +308,16 @@ export function TemplateForm({
         </div>
       </div>
 
-      <TemplateDetailScrollArea className="pb-6">
-        <div className="p-6">
-          <form.Field name="sections">
-            {(field) => (
-              <SectionsList
-                disabled={false}
-                items={field.state.value}
-                onChange={(items) => field.handleChange(items)}
-              />
-            )}
-          </form.Field>
-        </div>
+      <TemplateDetailScrollArea>
+        <form.Field name="sections">
+          {(field) => (
+            <SectionsList
+              disabled={false}
+              items={field.state.value}
+              onChange={(items) => field.handleChange(items)}
+            />
+          )}
+        </form.Field>
       </TemplateDetailScrollArea>
     </div>
   );
