@@ -154,7 +154,7 @@ export function SectionsList({
         <Button
           variant="outline"
           size="sm"
-          className="w-full text-sm"
+          className="w-fit rounded-full border-neutral-200 bg-white px-4 text-sm text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
           onClick={addSection}
           disabled={disabled}
         >

@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 
+import { TemplateCategoryLabel } from "../template-category-label";
+
 export function ResourcePreviewHeader({
   title,
   description,
@@ -26,16 +28,14 @@ export function ResourcePreviewHeader({
     <div className="pt-1 pr-1 pb-4 pl-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          {category ? (
-            <span className="font-mono text-xs text-stone-400">{category}</span>
-          ) : null}
+          <TemplateCategoryLabel category={category} />
         </div>
         <Button onClick={onClone} size="sm" className="shrink-0">
           {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
           {actionLabel}
         </Button>
       </div>
-      <div className="mt-3 min-w-0 px-3">
+      <div className="mt-3 min-w-0 pr-5 pl-3">
         <h2 className="truncate text-lg font-semibold">
           {title || "Untitled"}
         </h2>

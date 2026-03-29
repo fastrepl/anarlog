@@ -16,10 +16,9 @@ import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
 import { useToggleTemplateFavorite } from "../shared";
-import { RelatedSessions } from "./related-sessions";
 import { SectionsList } from "./sections-editor";
 
-import { DangerZone } from "~/shared/ui/resource-list";
+import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -146,11 +145,7 @@ export function TemplateForm({
       <div className="pt-1 pr-1 pb-4 pl-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            {value.category ? (
-              <span className="font-mono text-xs text-stone-400">
-                {value.category}
-              </span>
-            ) : null}
+            <TemplateCategoryLabel category={value.category} />
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -222,7 +217,7 @@ export function TemplateForm({
             </DropdownMenu>
           </div>
         </div>
-        <div className="mt-3 min-w-0 px-3">
+        <div className="mt-3 min-w-0 pr-5 pl-3">
           <form.Field name="title">
             {(field) => (
               <Input
@@ -260,7 +255,7 @@ export function TemplateForm({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="border-b border-neutral-200 p-6">
+        <div className="p-6">
           <h3 className="mb-3 text-sm font-medium text-neutral-600">
             Sections
           </h3>
@@ -274,24 +269,6 @@ export function TemplateForm({
             )}
           </form.Field>
         </div>
-
-        <div className="border-b border-neutral-200 p-6">
-          <h3 className="mb-4 text-sm font-medium text-neutral-600">
-            Related Notes
-          </h3>
-          <RelatedSessions templateId={id} />
-        </div>
-
-        <div className="p-6">
-          <DangerZone
-            title="Delete this template"
-            description="This action cannot be undone"
-            buttonLabel="Delete Template"
-            onAction={() => handleDeleteTemplate(id)}
-          />
-        </div>
-
-        <div className="pb-96" />
       </div>
     </div>
   );
