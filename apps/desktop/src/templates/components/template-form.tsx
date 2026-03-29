@@ -148,7 +148,7 @@ export function TemplateForm({
           <div className="min-w-0">
             <TemplateCategoryLabel category={value.category} />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0">
             <Button
               type="button"
               size="sm"
