@@ -733,7 +733,7 @@ function CreateOtherFormatButton({
       return [
         {
           key: "favorite",
-          title: "Favorite templates",
+          title: "Favorites",
           items: filteredFavoriteTemplates.map((template) => ({
             key: template.id,
             title: template.title || "Untitled",
@@ -749,7 +749,7 @@ function CreateOtherFormatButton({
         },
         {
           key: "suggested",
-          title: "Suggested templates",
+          title: "Suggested",
           items: filteredSuggestedTemplates.map((template, index) => ({
             key: template.slug || `suggested-${index}`,
             title: template.title || "Untitled",
@@ -761,12 +761,6 @@ function CreateOtherFormatButton({
           emptyMessage: isSuggestedTemplatesLoading
             ? "Loading suggestions..."
             : "No suggested templates yet",
-        },
-        {
-          key: "library",
-          title: "Templates",
-          items: libraryTemplates,
-          emptyMessage: "No other templates yet",
         },
       ];
     }
@@ -789,7 +783,7 @@ function CreateOtherFormatButton({
         ? [
             {
               key: "favorite",
-              title: "Favorite templates",
+              title: "Favorites",
               items: filteredFavoriteTemplates.map((template) => ({
                 key: template.id,
                 title: template.title || "Untitled",

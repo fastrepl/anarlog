@@ -5,6 +5,8 @@ import { Button, type ButtonProps } from "@hypr/ui/components/ui/button";
 
 import { TemplateCategoryLabel } from "../template-category-label";
 
+import { getTemplateCreatorLabel } from "~/templates/shared";
+
 export function ResourcePreviewHeader({
   title,
   description,
@@ -63,6 +65,9 @@ export function ResourcePreviewHeader({
             ))}
           </div>
         )}
+        <p className="mt-2 text-xs text-neutral-400">
+          {getTemplateCreatorLabel({ isUserTemplate: false })}
+        </p>
       </div>
       {children}
     </div>

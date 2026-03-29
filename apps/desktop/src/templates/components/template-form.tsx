@@ -15,7 +15,11 @@ import { Input } from "@hypr/ui/components/ui/input";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
-import { useToggleTemplateFavorite } from "../shared";
+import {
+  getTemplateCreatorLabel,
+  useTemplateCreatorName,
+  useToggleTemplateFavorite,
+} from "../shared";
 import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 
@@ -82,6 +86,7 @@ export function TemplateForm({
   const row = main.UI.useRow("templates", id, main.STORE_ID);
   const value = row ? normalizeTemplatePayload(row) : undefined;
   const toggleTemplateFavorite = useToggleTemplateFavorite();
+  const creatorName = useTemplateCreatorName();
   const [actionsOpen, setActionsOpen] = useState(false);
 
   const selectedTemplateId = settings.UI.useValue(
@@ -252,14 +257,17 @@ export function TemplateForm({
               ))}
             </div>
           ) : null}
+          <p className="mt-2 text-xs text-neutral-400">
+            {getTemplateCreatorLabel({
+              isUserTemplate: true,
+              creatorName,
+            })}
+          </p>
         </div>
       </div>
 
       <TemplateDetailScrollArea className="pb-6">
         <div className="p-6">
-          <h3 className="mb-3 text-sm font-medium text-neutral-600">
-            Sections
-          </h3>
           <form.Field name="sections">
             {(field) => (
               <SectionsList
