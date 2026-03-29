@@ -1,7 +1,7 @@
 import { Copy } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Button } from "@hypr/ui/components/ui/button";
+import { Button, type ButtonProps } from "@hypr/ui/components/ui/button";
 
 import { TemplateCategoryLabel } from "../template-category-label";
 
@@ -13,6 +13,8 @@ export function ResourcePreviewHeader({
   onClone,
   actionLabel = "Clone",
   actionIcon,
+  actionVariant,
+  actionClassName,
   children,
 }: {
   title: string;
@@ -22,6 +24,8 @@ export function ResourcePreviewHeader({
   onClone: () => void;
   actionLabel?: string;
   actionIcon?: ReactNode;
+  actionVariant?: ButtonProps["variant"];
+  actionClassName?: string;
   children?: ReactNode;
 }) {
   return (
@@ -30,7 +34,12 @@ export function ResourcePreviewHeader({
         <div className="min-w-0">
           <TemplateCategoryLabel category={category} />
         </div>
-        <Button onClick={onClone} size="sm" className="shrink-0">
+        <Button
+          onClick={onClone}
+          size="sm"
+          variant={actionVariant}
+          className={actionClassName}
+        >
           {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
           {actionLabel}
         </Button>
