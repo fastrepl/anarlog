@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   type Permission,
@@ -13,7 +13,6 @@ export function usePermission(type: Permission) {
   const status = useQuery({
     queryKey: [`${type}Permission`],
     queryFn: () => permissionsCommands.checkPermission(type),
-    refetchInterval: 1000,
     select: (result): PermissionStatus => {
       if (result.status === "error") {
         return "denied";
@@ -27,11 +26,11 @@ export function usePermission(type: Permission) {
     onSuccess: async () => {
       if (type === "systemAudio") {
         setOptimisticStatus("authorized");
-        setTimeout(() => void status.refetch(), 1000);
+        schedulePermissionRefetch(status.refetch);
         return;
       }
       setOptimisticStatus(null);
-      setTimeout(() => status.refetch(), 1000);
+      schedulePermissionRefetch(status.refetch);
     },
   });
 
@@ -39,7 +38,7 @@ export function usePermission(type: Permission) {
     mutationFn: () => permissionsCommands.resetPermission(type),
     onSuccess: () => {
       setOptimisticStatus(null);
-      setTimeout(() => status.refetch(), 1000);
+      schedulePermissionRefetch(status.refetch);
     },
   });
 
@@ -57,6 +56,17 @@ export function usePermission(type: Permission) {
     resetMutation.mutate();
   };
 
+  useEffect(() => {
+    const onWindowFocus = () => {
+      void status.refetch();
+    };
+
+    window.addEventListener("focus", onWindowFocus);
+    return () => {
+      window.removeEventListener("focus", onWindowFocus);
+    };
+  }, [status]);
+
   return {
     status: optimisticStatus ?? status.data,
     isPending,
@@ -70,7 +80,6 @@ export function usePermissions() {
   const micPermissionStatus = useQuery({
     queryKey: ["micPermission"],
     queryFn: () => permissionsCommands.checkPermission("microphone"),
-    refetchInterval: 1000,
     select: (result) => {
       if (result.status === "error") {
         throw new Error(result.error);
@@ -82,7 +91,6 @@ export function usePermissions() {
   const systemAudioPermissionStatus = useQuery({
     queryKey: ["systemAudioPermission"],
     queryFn: () => permissionsCommands.checkPermission("systemAudio"),
-    refetchInterval: 1000,
     select: (result) => {
       if (result.status === "error") {
         throw new Error(result.error);
@@ -94,7 +102,6 @@ export function usePermissions() {
   const accessibilityPermissionStatus = useQuery({
     queryKey: ["accessibilityPermission"],
     queryFn: () => permissionsCommands.checkPermission("accessibility"),
-    refetchInterval: 1000,
     select: (result) => {
       if (result.status === "error") {
         throw new Error(result.error);
@@ -106,9 +113,9 @@ export function usePermissions() {
   const micPermission = useMutation({
     mutationFn: () => permissionsCommands.requestPermission("microphone"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void micPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: (error) => {
       console.error(error);
@@ -118,9 +125,9 @@ export function usePermissions() {
   const systemAudioPermission = useMutation({
     mutationFn: () => permissionsCommands.requestPermission("systemAudio"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void systemAudioPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: console.error,
   });
@@ -128,9 +135,9 @@ export function usePermissions() {
   const accessibilityPermission = useMutation({
     mutationFn: () => permissionsCommands.requestPermission("accessibility"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void accessibilityPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: console.error,
   });
@@ -138,9 +145,9 @@ export function usePermissions() {
   const micResetPermission = useMutation({
     mutationFn: () => permissionsCommands.resetPermission("microphone"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void micPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: console.error,
   });
@@ -148,9 +155,9 @@ export function usePermissions() {
   const systemAudioResetPermission = useMutation({
     mutationFn: () => permissionsCommands.resetPermission("systemAudio"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void systemAudioPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: console.error,
   });
@@ -158,9 +165,9 @@ export function usePermissions() {
   const accessibilityResetPermission = useMutation({
     mutationFn: () => permissionsCommands.resetPermission("accessibility"),
     onSuccess: () => {
-      setTimeout(() => {
+      schedulePermissionRefetch(() => {
         void accessibilityPermissionStatus.refetch();
-      }, 1000);
+      });
     },
     onError: console.error,
   });
@@ -201,6 +208,23 @@ export function usePermissions() {
     }
   };
 
+  useEffect(() => {
+    const onWindowFocus = () => {
+      void micPermissionStatus.refetch();
+      void systemAudioPermissionStatus.refetch();
+      void accessibilityPermissionStatus.refetch();
+    };
+
+    window.addEventListener("focus", onWindowFocus);
+    return () => {
+      window.removeEventListener("focus", onWindowFocus);
+    };
+  }, [
+    micPermissionStatus,
+    systemAudioPermissionStatus,
+    accessibilityPermissionStatus,
+  ]);
+
   return {
     micPermissionStatus,
     systemAudioPermissionStatus,
@@ -218,4 +242,10 @@ export function usePermissions() {
     handleSystemAudioPermissionAction,
     handleAccessibilityPermissionAction,
   };
+}
+
+function schedulePermissionRefetch(refetch: () => void | Promise<unknown>) {
+  window.setTimeout(() => {
+    void refetch();
+  }, 1000);
 }
