@@ -242,16 +242,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("[auth] startAutoRefresh: mounting continuous ticker");
     void client.auth.startAutoRefresh();
 
+    // Throttle focus-triggered restarts so we don't race an in-flight
+    // refresh tick that's already using the current refresh token.
+    // Without this, startAutoRefresh() fires a new immediate tick that
+    // can consume the same refresh token concurrently, triggering a
+    // "refresh_token_already_used" fatal error and signing the user out.
+    let lastRefreshStart = Date.now();
+    const FOCUS_THROTTLE_MS = 10_000;
+
     let unlisten: (() => void) | undefined;
     let cancelled = false;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
         console.log(`[auth] onFocusChanged: focused=${focused}`);
         if (focused) {
-          // Restart the ticker on window focus to trigger an immediate refresh
-          // check, recovering stale sessions after sleep/hibernate.
-          console.log("[auth] startAutoRefresh: window regained focus");
-          void client.auth.startAutoRefresh();
+          const now = Date.now();
+          if (now - lastRefreshStart > FOCUS_THROTTLE_MS) {
+            lastRefreshStart = now;
+            // Restart the ticker on window focus to trigger an immediate refresh
+            // check, recovering stale sessions after sleep/hibernate.
+            console.log("[auth] startAutoRefresh: window regained focus");
+            void client.auth.startAutoRefresh();
+          } else {
+            console.log(
+              "[auth] onFocusChanged: skipping restart, throttled",
+            );
+          }
         }
       })
       .then((fn) => {

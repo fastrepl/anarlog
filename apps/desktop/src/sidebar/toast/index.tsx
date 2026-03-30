@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -30,7 +30,7 @@ export function ToastArea({
     isLocalSttModel,
   } = useNotifications();
 
-  const isAuthenticated = !!auth?.session;
+  const isAuthenticated = useDebouncedFalse(!!auth?.session, 5_000);
   const {
     current_llm_provider,
     current_llm_model,
@@ -161,6 +161,40 @@ export function ToastArea({
       ) : null}
     </AnimatePresence>
   );
+}
+
+/**
+ * Returns `value` immediately when it becomes true, but delays
+ * the transition to false by `delayMs`. This prevents the
+ * "Sign in required" toast from flashing while the Supabase SDK
+ * refreshes an expired token after sleep/wake.
+ */
+function useDebouncedFalse(value: boolean, delayMs: number): boolean {
+  const [debounced, setDebounced] = useState(value);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (value) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      setDebounced(true);
+    } else {
+      timerRef.current = setTimeout(() => {
+        setDebounced(false);
+        timerRef.current = null;
+      }, delayMs);
+      return () => {
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    }
+  }, [value, delayMs]);
+
+  return debounced;
 }
 
 function useShouldShowToast(isProfileExpanded: boolean) {
