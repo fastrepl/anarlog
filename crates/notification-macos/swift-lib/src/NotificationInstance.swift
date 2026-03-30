@@ -16,7 +16,8 @@ class NotificationInstance {
 
   var countdownTimer: Timer?
   var meetingStartTime: Date?
-  weak var timerLabel: NSTextField?
+  var compactTimerLabel: NSTextField?
+  var expandedTimerLabel: NSTextField?
   weak var progressBar: NotificationBackgroundView? {
     didSet {
       progressBar?.onProgressComplete = { [weak self] in
@@ -45,28 +46,46 @@ class NotificationInstance {
     NotificationManager.shared.animateExpansion(notification: self, isExpanded: isExpanded)
   }
 
-  func startCountdown(label: NSTextField) {
-    timerLabel = label
-    updateCountdown()
-
+  func stopCountdown() {
     countdownTimer?.invalidate()
+    countdownTimer = nil
+  }
+
+  func setCompactCountdownLabel(_ label: NSTextField) {
+    compactTimerLabel = label
+    startCountdownIfNeeded()
+    updateCountdown()
+  }
+
+  func setExpandedCountdownLabel(_ label: NSTextField) {
+    expandedTimerLabel = label
+    startCountdownIfNeeded()
+    updateCountdown()
+  }
+
+  func clearExpandedCountdownLabel() {
+    expandedTimerLabel = nil
+  }
+
+  private func startCountdownIfNeeded() {
+    guard meetingStartTime != nil else {
+      stopCountdown()
+      return
+    }
+    guard countdownTimer == nil else { return }
+
     countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
       self?.updateCountdown()
     }
   }
 
-  func stopCountdown() {
-    countdownTimer?.invalidate()
-    countdownTimer = nil
-    timerLabel = nil
-  }
-
   private func updateCountdown() {
-    guard let startTime = meetingStartTime, let label = timerLabel else { return }
+    guard let startTime = meetingStartTime else { return }
     let remaining = startTime.timeIntervalSinceNow
 
     if remaining <= 0 {
-      label.stringValue = "Started"
+      compactTimerLabel?.stringValue = "Started"
+      expandedTimerLabel?.stringValue = "Started"
       countdownTimer?.invalidate()
       countdownTimer = nil
 
@@ -77,7 +96,9 @@ class NotificationInstance {
     } else {
       let minutes = Int(remaining) / 60
       let seconds = Int(remaining) % 60
-      label.stringValue = "Begins in \(minutes):\(String(format: "%02d", seconds))"
+      let countdownText = "Begins in \(minutes):\(String(format: "%02d", seconds))"
+      compactTimerLabel?.stringValue = countdownText
+      expandedTimerLabel?.stringValue = countdownText
     }
   }
 
@@ -103,6 +124,8 @@ class NotificationInstance {
     progressBar?.onProgressComplete = nil
     progressBar?.resetProgress()
     stopCountdown()
+    compactTimerLabel = nil
+    expandedTimerLabel = nil
 
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = Timing.dismiss

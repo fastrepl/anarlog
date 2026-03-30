@@ -57,6 +57,10 @@ extension NotificationManager {
     textStack.addArrangedSubview(titleLabel)
     textStack.addArrangedSubview(bodyLabel)
 
+    if notification.meetingStartTime != nil {
+      notification.setCompactCountdownLabel(bodyLabel)
+    }
+
     container.addArrangedSubview(iconContainer)
     container.addArrangedSubview(textStack)
 

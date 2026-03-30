@@ -132,7 +132,7 @@ export function checkEventNotifications(
         key: notificationKey,
         title: title,
         message: `Starting in ${minutesUntil} minute${minutesUntil !== 1 ? "s" : ""}`,
-        timeout: { secs: 30, nanos: 0 },
+        timeout: null,
         source: { type: "calendar_event", event_id: eventId },
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: participants,
