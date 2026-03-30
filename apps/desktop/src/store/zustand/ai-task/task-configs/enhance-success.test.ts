@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TaskConfig } from ".";
 import { enhanceSuccess } from "./enhance-success";
 
+import { createSummaryReadyNotificationKey } from "~/services/summary-ready-notification";
+
 const mocks = vi.hoisted(() => ({
   isFocused: vi.fn().mockResolvedValue(true),
   showNotification: vi.fn().mockResolvedValue({ status: "ok", data: null }),
@@ -142,7 +144,7 @@ describe("enhanceSuccess.onSuccess", () => {
     await enhanceSuccess.onSuccess?.(params);
 
     expect(mocks.showNotification).toHaveBeenCalledWith({
-      key: null,
+      key: createSummaryReadyNotificationKey("session-1", "note-1"),
       title: "Summary ready",
       message: "Weekly sync",
       timeout: null,
@@ -150,7 +152,7 @@ describe("enhanceSuccess.onSuccess", () => {
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: null,
+      action_label: "Open summary",
       options: null,
     });
   });

@@ -5,6 +5,8 @@ import { md2json } from "@hypr/tiptap/shared";
 
 import { createTaskId, type TaskConfig } from ".";
 
+import { createSummaryReadyNotificationKey } from "~/services/summary-ready-notification";
+
 async function maybeShowSummaryReadyNotification(
   store: Parameters<
     NonNullable<TaskConfig<"enhance">["onSuccess"]>
@@ -34,7 +36,7 @@ async function maybeShowSummaryReadyNotification(
     typeof rawSessionTitle === "string" ? rawSessionTitle.trim() : "";
 
   void notificationCommands.showNotification({
-    key: null,
+    key: createSummaryReadyNotificationKey(args.sessionId, args.enhancedNoteId),
     title: `${noteTitle} ready`,
     message: sessionTitle || "Your meeting summary has been generated.",
     timeout: null,
@@ -42,7 +44,7 @@ async function maybeShowSummaryReadyNotification(
     start_time: null,
     participants: null,
     event_details: null,
-    action_label: null,
+    action_label: "Open summary",
     options: null,
   });
 }

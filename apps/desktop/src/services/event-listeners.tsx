@@ -1,12 +1,17 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect, useRef } from "react";
 
-import { events as notificationEvents } from "@hypr/plugin-notification";
+import {
+  events as notificationEvents,
+  type NotificationSource,
+} from "@hypr/plugin-notification";
 import {
   commands as updaterCommands,
   events as updaterEvents,
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
+
+import { parseSummaryReadyNotificationKey } from "./summary-ready-notification";
 
 import * as main from "~/store/tinybase/store/main";
 import {
@@ -14,6 +19,42 @@ import {
   getOrCreateSessionForEventId,
 } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";
+
+type NotificationTarget = {
+  key: string;
+  source: NotificationSource | null;
+};
+
+type MainStore = NonNullable<ReturnType<typeof main.UI.useStore>>;
+
+export function getNotificationOpenConfig(
+  notification: NotificationTarget,
+  store: MainStore,
+) {
+  const summaryTarget = parseSummaryReadyNotificationKey(notification.key);
+  if (summaryTarget) {
+    return {
+      id: summaryTarget.sessionId,
+      state: {
+        view: { type: "enhanced" as const, id: summaryTarget.enhancedNoteId },
+        autoStart: null,
+      },
+    };
+  }
+
+  const eventId =
+    notification.source?.type === "calendar_event"
+      ? notification.source.event_id
+      : null;
+  const sessionId = eventId
+    ? getOrCreateSessionForEventId(store, eventId)
+    : createSession(store);
+
+  return {
+    id: sessionId,
+    state: { view: null, autoStart: true },
+  };
+}
 
 function useUpdaterEvents() {
   const openNew = useTabs((state) => state.openNew);
@@ -46,7 +87,7 @@ function useUpdaterEvents() {
 function useNotificationEvents() {
   const store = main.UI.useStore(main.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
-  const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);
+  const pendingNotification = useRef<NotificationTarget | null>(null);
   const storeRef = useRef(store);
   const openNewRef = useRef(openNew);
 
@@ -56,16 +97,14 @@ function useNotificationEvents() {
   }, [store, openNew]);
 
   useEffect(() => {
-    if (pendingAutoStart.current && store) {
-      const { eventId } = pendingAutoStart.current;
-      pendingAutoStart.current = null;
-      const sessionId = eventId
-        ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
+    if (pendingNotification.current && store) {
+      const notification = pendingNotification.current;
+      pendingNotification.current = null;
+      const { id, state } = getNotificationOpenConfig(notification, store);
       openNew({
         type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: true },
+        id,
+        state,
       });
     }
   }, [store, openNew]);
@@ -84,22 +123,22 @@ function useNotificationEvents() {
           payload.type === "notification_confirm" ||
           payload.type === "notification_accept"
         ) {
-          const eventId =
-            payload.source?.type === "calendar_event"
-              ? payload.source.event_id
-              : null;
           const currentStore = storeRef.current;
           if (!currentStore) {
-            pendingAutoStart.current = { eventId };
+            pendingNotification.current = {
+              key: payload.key,
+              source: payload.source,
+            };
             return;
           }
-          const sessionId = eventId
-            ? getOrCreateSessionForEventId(currentStore, eventId)
-            : createSession(currentStore);
+          const { id, state } = getNotificationOpenConfig(
+            { key: payload.key, source: payload.source },
+            currentStore,
+          );
           openNewRef.current({
             type: "sessions",
-            id: sessionId,
-            state: { view: null, autoStart: true },
+            id,
+            state,
           });
         } else if (payload.type === "notification_option_selected") {
           const currentStore = storeRef.current;
