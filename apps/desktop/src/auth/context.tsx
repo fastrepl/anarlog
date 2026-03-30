@@ -264,9 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log("[auth] startAutoRefresh: window regained focus");
             void client.auth.startAutoRefresh();
           } else {
-            console.log(
-              "[auth] onFocusChanged: skipping restart, throttled",
-            );
+            console.log("[auth] onFocusChanged: skipping restart, throttled");
           }
         }
       })
