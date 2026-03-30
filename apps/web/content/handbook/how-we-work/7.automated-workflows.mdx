@@ -10,7 +10,7 @@ We use GitHub Actions cron jobs to automate recurring tasks. These workflows run
 
 **Schedule:** Every Sunday at 12:00 UTC
 
-Analyzes git commits and changelogs from the past 7 days, then writes a "Char Weekly" blog post summarizing what shipped. Created as a PR for review before publishing.
+Checks stable release tags from the past 7 days, then writes a "Char Weekly" blog post summarizing what actually shipped on stable. Desktop posts are grounded in shipped changelog entries, and unreleased codebase work is excluded. Created as a PR for review before publishing.
 
 **Workflow:** `.github/workflows/devin_weekly_blog.yaml`
 

@@ -12,11 +12,64 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+      - id: stable-releases
+        run: |
+          python3 <<'PY' >> "$GITHUB_OUTPUT"
+          import subprocess
+          from datetime import datetime, timedelta, timezone
+
+          now = datetime.now(timezone.utc)
+          window_start = now - timedelta(days=7)
+          releases: list[str] = []
+
+          for prefix, label in (
+            ("desktop_v", "Desktop stable"),
+            ("cli_v", "CLI stable"),
+          ):
+            output = subprocess.check_output(
+              [
+                "git",
+                "for-each-ref",
+                "--sort=-creatordate",
+                "--format=%(creatordate:short)|%(refname:strip=2)",
+                f"refs/tags/{prefix}*",
+              ],
+              text=True,
+            )
+
+            for line in output.splitlines():
+              if not line:
+                continue
+
+              created, tag = line.split("|", 1)
+              if "nightly" in tag:
+                continue
+
+              released_at = datetime.strptime(created, "%Y-%m-%d").replace(
+                tzinfo=timezone.utc,
+              )
+              if not (window_start <= released_at <= now):
+                continue
+
+              version = tag.removeprefix(prefix)
+              releases.append(
+                f"- {label} {version} (released {created}, tag {tag})",
+              )
+
+          print("releases<<EOF")
+          if releases:
+            print("\n".join(releases))
+          else:
+            print("NONE")
+          print("EOF")
+          PY
       - uses: ./.github/actions/devin
         with:
           api_key: ${{ secrets.DEVIN_API_KEY }}
           prompt: |
-            You are tasked with writing the weekly "Char Weekly" blog post summarizing the past week's development work.
+            You are tasked with writing the weekly "Char Weekly" blog post summarizing what actually shipped to stable this week.
 
             ## Context
             Char is an open-source AI notepad for meetings built for high-agency people who demand complete control over their data and AI stack.
@@ -24,17 +77,17 @@ jobs:
 
             Read and follow positioning guidelines in `apps/web/content/AGENTS.md`.
 
+            Stable releases published in the last 7 days:
+            ${{ steps.stable-releases.outputs.releases }}
+
             ## Your Task
-            1. **Analyze Recent Changes**
-               - Review git commits from the last 7 days using: `git log --since="7 days ago" --stat --oneline`
-               - Review the changelog files in `packages/changelog/content/` for any new releases
-               - Focus on changes in: crates/, apps/desktop/, apps/web/, packages/, plugins/
-               - Pay special attention to:
-                 * New features or improvements
-                 * Bug fixes
-                 * UI/UX changes
-                 * Performance improvements
-                 * New integrations or providers
+            1. **Analyze Stable Releases**
+               - Start from the stable release list above. Do not start from the last 7 days of commits.
+               - Only include features, fixes, and improvements that shipped in one of those stable releases.
+               - For desktop stable releases, use `packages/changelog/content/<version>.md` as the canonical source of shipped changes.
+               - For CLI stable releases, inspect the released `cli_v*` tag range for that version and only include commands or behavior that were actually part of the tagged release.
+               - Use `git log` only to verify details inside a shipped release range, not to discover unrelated weekly work.
+               - Do not mention nightly-only work, scaffolding, in-progress plugins, or code merged to main that was not part of a shipped stable release.
 
             2. **Write the Blog Post**
                Determine today's date and create a new MDX file at `apps/web/content/updates/YYYY-MM-DD.mdx` (e.g. `2026-03-29.mdx`). You can get the date with: `date -u +"%Y-%m-%d"` on Linux.
@@ -50,9 +103,8 @@ jobs:
                Write the post in a narrative style (not bullet points). Group related changes into sections with descriptive headings. Focus on what matters to users:
                - What's new and why it's useful
                - What was fixed and what problem it solves
-               - What's coming next (if applicable)
 
-               Keep the tone conversational and technical but accessible. Reference the changelog for specific version numbers when relevant.
+               Keep the tone conversational and technical but accessible. Reference shipped version numbers when relevant.
 
             3. **Create a PR**
                - Create a PR with the blog post
@@ -60,8 +112,9 @@ jobs:
                - Include a summary of what the post covers in the PR description
 
             ## Important Notes
-            - If there are no significant changes this week, still create a brief post noting it was a quiet week
-            - Do not include internal refactoring or CI changes unless they have user-facing impact
+            - If the stable release list above is `NONE`, create a brief post noting that no stable releases shipped this week
+            - Every claim in the post must map back to a shipped stable release from the list above
+            - Do not include internal refactoring, CI changes, nightly work, or codebase activity that did not ship to stable
             - Link to the changelog page at the end: `/changelog`
             - Test that MDX syntax is valid using dprint
           title: ${{ github.run_id }}-weekly-blog

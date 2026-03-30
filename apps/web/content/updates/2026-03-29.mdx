@@ -3,49 +3,22 @@ title: "Char Weekly: March 29, 2026"
 date: "2026-03-29"
 ---
 
-Desktop v1.0.18 shipped this week alongside a rapid-fire run of CLI releases (v1.0.3 through v1.0.15). The headline additions: global keyboard shortcuts from anywhere on your Mac, a new Lite plan, and the first building blocks for todo and activity-capture integrations.
+Desktop v1.0.18 shipped this week, and the CLI also pushed through a rapid run of stable releases up to v1.0.15. On the desktop side, the release focused on day-to-day usability: better calendar feedback, cleaner chat composition, and manual speaker assignment in transcripts. On the CLI side, the first stable line picked up a few important commands and then spent several releases hardening shortcut handling and update checks.
 
-## CLI shortcuts and native overlay
+## Desktop: calendar, chat, and transcripts
 
-The CLI now supports global keyboard shortcuts. Run `char shortcut install` and a lightweight macOS daemon registers a system-wide hotkey that starts or stops recording no matter which app is in focus. When triggered, a small SwiftUI overlay shows a live waveform so you know it's listening. The daemon runs as a launchd service, so it survives restarts and stays out of your way.
+Desktop v1.0.18 adds a proper "Syncing" state to the calendar month view, sorts events more clearly, reduces provider UI clutter, and introduces a dedicated Calendar settings area for permissions and provider management. Google Calendar also graduates from an internal-only label to a public beta label, which makes the current status much clearer inside the app.
 
-Other CLI additions this week: a `play` command for audio playback, a `skill` command for installing reusable workflows, an `update` command for self-updates, and a much-improved TUI with a real waveform visualizer and better input handling.
+The same release also tightens up the note and chat flow. Chat is reachable from pre-listening notes, the composer now scrolls internally instead of growing without bound, and the send button stays visible during long drafts. In transcripts, you can now manually assign speakers to segments, which is the kind of small control surface that matters when a long meeting needs cleanup before you share it.
 
-## Lite plan
+## Desktop: recording and distribution polish
 
-A new Lite pricing tier sits between Free and Pro. The plan grid is now shared across the desktop app and the website so messaging stays consistent everywhere you see it. If you're already on a plan, there's a new switch-plan flow to move between tiers.
+There are a handful of smaller but useful changes in the same stable release. Empty-note behavior is clearer, recording controls are easier to resume at a glance, and a few rough edges in transcript rendering and mic-stop detection were cleaned up. The macOS installer is now notarized and stapled as well, which removes a lot of first-launch friction for people installing Char outside a development environment.
 
-## Chat with context
+## CLI: first stable commands, then hardening
 
-The chat panel now supports typed mention context. When you reference a session or a contact in the composer, the mention carries structured data — not just a name string — so the AI has richer context to work with. The composer also caps its editor height and scrolls internally for long drafts, and the send button stays visible no matter how much you type. Hotkeys for starting a new chat are routed through shared state, so they work consistently whether the chat panel is docked or floating.
+The CLI releases this week were more incremental, but still meaningful. Stable builds added audio playback with `char play`, reusable workflow installation through `char skill`, and a self-update command. A companion `char-cli-ui` binary also landed as the CLI matured.
 
-## Templates as a first-class tab
-
-Templates moved out of settings and into their own sidebar tab. The new layout mirrors how calendar and contacts work: a sidebar list on the left, details on the right. Personal template editing is smoother — select a template, tweak it, save — without bouncing through nested settings pages. The note-input header also got a revamped template picker for faster switching during a meeting.
-
-## Calendar polish
-
-v1.0.18 brought a batch of calendar refinements. The month header now shows a "Syncing" spinner during refresh. Events sort by all-day status and start time. Provider chevrons only appear on hover. There's a new Calendar tab in Settings for managing permissions and providers, and you can launch Google Calendar connection directly from the empty provider row. The Google Calendar badge also updated from "Internal Use Only" to "Beta."
-
-## Speaker assignment and transcript fixes
-
-You can now manually assign speakers to transcript segments. Click a speaker label, pick from your contacts, and the assignment sticks. Under the hood, the transcript rendering pipeline was refactored — speaker mapping, segment collection, and word stitching all got cleaner, which fixes a few edge cases where labels drifted during long recordings.
-
-## Export gets memo support
-
-The export modal now includes a memo option for PDF and text formats. If you've written notes alongside the transcript, you can include them in the export. Uploaded audio files also estimate their recording date from file metadata, so imported sessions land on the right day in your timeline.
-
-## Todo and activity-capture scaffolding
-
-Two new plugin skeletons landed: `plugins/todo` and `plugins/activity-capture`. The todo plugin wires up Apple Reminders and Linear — list teams, list tickets, create and complete items — all from within Char. Activity capture lays groundwork for detecting what's happening on your Mac: which browser tab is open, whether you're in a Slack huddle or listening to Spotify. These are early scaffolds; expect them to surface in the UI over the coming weeks.
-
-## Under the hood
-
-- **VAD chunking v2**: A new voice-activity-detection chunking engine (`vad-chunking2`) is in development for more accurate audio segmentation.
-- **Multi-channel denoise**: The denoiser is now channel-aware, handling stereo and multi-track recordings correctly.
-- **Notarized DMGs**: macOS disk images are now notarized and stapled, so Gatekeeper won't flag them on first launch.
-- **Soniox language field**: Missing language parameter added to the Soniox live adapter — fixes transcription in non-English sessions.
-- **AssemblyAI fixes**: Language normalization and batch handling improvements for the AssemblyAI provider.
-- **Degraded-state indicators**: If your mic disconnects or audio capture enters a degraded state, the tab and tray icon now make it visually obvious.
+After that, the focus shifted to reliability: update/versioning issues were fixed, and shortcut support got additional event-tap and permission-handling hardening in the latest stable releases. That is the right shape for an early stable CLI line: get the core commands in, then make the edges less fragile.
 
 Full version details on the [changelog](/changelog).
