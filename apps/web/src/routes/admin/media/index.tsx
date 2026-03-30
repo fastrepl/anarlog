@@ -73,6 +73,16 @@ interface Tab {
   isHome?: boolean;
 }
 
+const HOME_TAB: Tab = {
+  id: "home",
+  type: "folder",
+  name: "Home",
+  path: "",
+  pinned: true,
+  active: true,
+  isHome: true,
+};
+
 export const Route = createFileRoute("/admin/media/")({
   component: MediaLibrary,
 });
@@ -143,10 +153,16 @@ function getAdminMediaDownloadUrl(path: string): string {
   return `/api/admin/media/download?path=${encodeURIComponent(path)}`;
 }
 
+function getFolderPathForTab(tab: Tab | undefined): string {
+  if (!tab) return "";
+  if (tab.type === "folder") return tab.path;
+  return tab.path.split("/").slice(0, -1).join("/");
+}
+
 function MediaLibrary() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>(() => [HOME_TAB]);
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [rootLoaded, setRootLoaded] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -189,36 +205,20 @@ function MediaLibrary() {
       }));
       setTreeNodes(children);
       setRootLoaded(true);
-
-      // Add permanent Home tab
-      setTabs([
-        {
-          id: "home",
-          type: "folder",
-          name: "Home",
-          path: "",
-          pinned: true,
-          active: true,
-          isHome: true,
-        },
-      ]);
     }
   }, [rootQuery.data, rootLoaded]);
 
   const currentTab = tabs.find((t) => t.active);
+  const currentFolderPath = getFolderPathForTab(currentTab);
 
   const currentPathQuery = useQuery({
-    queryKey: ["mediaItems", currentTab?.path || "", currentTab?.type],
-    queryFn: async () => {
-      if (currentTab?.type === "file") {
-        const parentPath = currentTab.path.split("/").slice(0, -1).join("/");
-        const items = await fetchMediaItems(parentPath);
-        return items.filter((i) => i.path === currentTab.path);
-      }
-      return fetchMediaItems(currentTab?.path || "");
-    },
+    queryKey: ["mediaItems", currentFolderPath],
+    queryFn: () => fetchMediaItems(currentFolderPath),
     enabled: isMounted && currentTab !== undefined,
   });
+
+  const currentItems = currentPathQuery.data || [];
+  const isCurrentPathLoading = !isMounted || currentPathQuery.isLoading;
 
   const loadFolderContents = async (path: string) => {
     setLoadingPaths((prev) => new Set(prev).add(path));
@@ -556,7 +556,6 @@ function MediaLibrary() {
   };
 
   const handleDownloadSelected = async () => {
-    const currentItems = currentPathQuery.data || [];
     for (const path of selectedItems) {
       const item = currentItems.find((i) => i.path === path);
       if (item && item.type === "file") {
@@ -678,9 +677,9 @@ function MediaLibrary() {
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            isLoading={currentPathQuery.isLoading}
+            isLoading={isCurrentPathLoading}
             error={currentPathQuery.error}
-            items={currentPathQuery.data || []}
+            items={currentItems}
             onToggleSelection={toggleSelection}
             onCopyToClipboard={copyToClipboard}
             onDownload={handleDownload}
@@ -1402,6 +1401,7 @@ function ContentPanel({
               />
             ) : (
               <FilePreview
+                isLoading={isLoading}
                 item={items.find((i) => i.path === currentTab.path)}
               />
             )}
@@ -2612,7 +2612,22 @@ function MediaItemCard({
   );
 }
 
-function FilePreview({ item }: { item: MediaItem | undefined }) {
+function FilePreview({
+  item,
+  isLoading,
+}: {
+  item: MediaItem | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center text-neutral-500">
+        <Spinner size={24} className="mr-2" />
+        Loading...
+      </div>
+    );
+  }
+
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center text-neutral-500">
