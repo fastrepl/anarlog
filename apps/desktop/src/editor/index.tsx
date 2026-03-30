@@ -56,7 +56,7 @@ import {
   setSearchState,
 } from "./plugins";
 import { schema } from "./schema";
-import { SlashCommandMenu, slashCommandPlugin } from "./slash-command";
+import { SlashCommandMenu } from "./slash-command";
 import { TaskItemView } from "./task-item-view";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
@@ -299,7 +299,6 @@ const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
       clearMarksOnEnterPlugin(),
       clipPastePlugin(),
       linkBoundaryGuardPlugin(),
-      slashCommandPlugin(),
       ...(mentionConfig
         ? [mentionSuggestionPlugin(mentionConfig.trigger), mentionSkipPlugin()]
         : []),

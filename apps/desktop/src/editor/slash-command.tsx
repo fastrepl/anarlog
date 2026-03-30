@@ -10,6 +10,7 @@ import {
 import {
   useEditorEffect,
   useEditorEventCallback,
+  useEditorEventListener,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
@@ -26,19 +27,13 @@ import {
 } from "lucide-react";
 import { setBlockType } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
-import {
-  type EditorState,
-  Plugin,
-  PluginKey,
-  type Transaction,
-} from "prosemirror-state";
+import type { EditorState, Transaction } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { isMentionActive } from "./mention";
 import { schema } from "./schema";
 
 // ---------------------------------------------------------------------------
@@ -214,21 +209,17 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Plugin
+// Derive slash command state from EditorState (no plugin needed)
 // ---------------------------------------------------------------------------
 interface SlashCommandState {
-  active: boolean;
   query: string;
   from: number;
   to: number;
 }
 
-export const slashCommandKey = new PluginKey<SlashCommandState>("slashCommand");
-
 function findSlashCommand(state: EditorState): SlashCommandState | null {
   const { $from } = state.selection;
   if (!state.selection.empty) return null;
-  if (isMentionActive(state)) return null;
 
   const textBefore = $from.parent.textBetween(
     0,
@@ -247,57 +238,9 @@ function findSlashCommand(state: EditorState): SlashCommandState | null {
   const from = $from.start() + slashIndex;
   const to = $from.pos;
 
-  return { active: true, query, from, to };
+  return { query, from, to };
 }
 
-export function slashCommandPlugin() {
-  return new Plugin<SlashCommandState>({
-    key: slashCommandKey,
-    state: {
-      init: () => ({ active: false, query: "", from: 0, to: 0 }),
-      apply(tr, prev, _oldState, newState) {
-        const meta = tr.getMeta(slashCommandKey);
-        if (meta?.deactivate) {
-          return { active: false, query: "", from: 0, to: 0 };
-        }
-        if (tr.docChanged || tr.selectionSet) {
-          return (
-            findSlashCommand(newState) ?? {
-              active: false,
-              query: "",
-              from: 0,
-              to: 0,
-            }
-          );
-        }
-        return prev;
-      },
-    },
-    props: {
-      handleKeyDown(view, event) {
-        const state = slashCommandKey.getState(view.state);
-        if (!state?.active) return false;
-
-        if (event.key === "Escape") {
-          view.dispatch(
-            view.state.tr.setMeta(slashCommandKey, { deactivate: true }),
-          );
-          return true;
-        }
-
-        if (["ArrowUp", "ArrowDown", "Enter"].includes(event.key)) {
-          return true;
-        }
-
-        return false;
-      },
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
-// React component
-// ---------------------------------------------------------------------------
 function filterCommands(query: string): SlashCommandItem[] {
   if (!query) return SLASH_COMMANDS;
   const q = query.toLowerCase();
@@ -308,41 +251,72 @@ function filterCommands(query: string): SlashCommandItem[] {
   );
 }
 
+// ---------------------------------------------------------------------------
+// React component
+// ---------------------------------------------------------------------------
 export function SlashCommandMenu() {
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const popupRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const prevQueryRef = useRef("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [dismissedFrom, setDismissedFrom] = useState<number | null>(null);
 
   const editorState = useEditorState();
-  const pluginState = editorState
-    ? slashCommandKey.getState(editorState)
-    : null;
-  const active = pluginState?.active ?? false;
-  const query = pluginState?.query ?? "";
-  const items = active ? filterCommands(query) : [];
+  const slashState = editorState ? findSlashCommand(editorState) : null;
 
-  if (prevQueryRef.current !== query) {
-    prevQueryRef.current = query;
+  const dismissed = slashState !== null && dismissedFrom === slashState.from;
+  const active = slashState !== null && !dismissed;
+  const items = active ? filterCommands(slashState.query) : [];
+
+  if (!active && selectedIndex !== 0) {
     setSelectedIndex(0);
+  }
+  if (slashState === null && dismissedFrom !== null) {
+    setDismissedFrom(null);
   }
 
   const executeCommand = useEditorEventCallback(
     (view, item: SlashCommandItem) => {
-      if (!view) return;
-      const state = slashCommandKey.getState(view.state);
-      if (!state?.active) return;
-
-      view.dispatch(
-        view.state.tr.setMeta(slashCommandKey, { deactivate: true }),
-      );
-      item.action(view, state.from, state.to);
+      if (!view || !slashState) return;
+      setDismissedFrom(slashState.from);
+      item.action(view, slashState.from, slashState.to);
       view.focus();
     },
   );
 
+  useEditorEventListener("keydown", (_view, event) => {
+    if (!active || items.length === 0) return false;
+
+    if (event.key === "Escape") {
+      if (slashState) {
+        setDismissedFrom(slashState.from);
+      }
+      return true;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex((prev) => (prev + items.length - 1) % items.length);
+      return true;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % items.length);
+      return true;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const item = items[selectedIndex];
+      if (item) executeCommand(item);
+      return true;
+    }
+
+    return false;
+  });
+
   useEditorEffect((view) => {
-    if (!view || !active) {
+    if (!view || !active || items.length === 0) {
       cleanupRef.current?.();
       cleanupRef.current = null;
       return;
@@ -351,7 +325,7 @@ export function SlashCommandMenu() {
     const popup = popupRef.current;
     if (!popup) return;
 
-    const coords = view.coordsAtPos(pluginState!.from);
+    const coords = view.coordsAtPos(slashState!.from);
     const referenceEl: VirtualElement = {
       getBoundingClientRect: () =>
         new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top),
@@ -373,29 +347,6 @@ export function SlashCommandMenu() {
     cleanupRef.current = autoUpdate(referenceEl, popup, update);
     update();
   });
-
-  useEffect(() => {
-    if (!active) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex(
-          (prev) => (prev + items.length - 1) % Math.max(items.length, 1),
-        );
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % Math.max(items.length, 1));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const item = items[selectedIndex];
-        if (item) executeCommand(item);
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [active, items, selectedIndex, executeCommand]);
 
   if (!active || items.length === 0) return null;
 
