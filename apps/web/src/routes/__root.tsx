@@ -14,7 +14,7 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const TITLE = "Char - AI notepad for private meetings";
+const TITLE = "Char - Meeting Notes You Own";
 const DESCRIPTION =
   "Char is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
 const KEYWORDS =
