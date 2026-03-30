@@ -229,6 +229,23 @@ export function useToggleTemplateFavorite() {
   );
 }
 
+export function findMatchingUserTemplateId({
+  template,
+  userTemplates,
+}: {
+  template: Pick<
+    WebTemplate,
+    "title" | "description" | "category" | "targets" | "sections"
+  >;
+  userTemplates: UserTemplate[];
+}) {
+  return (
+    userTemplates.find((userTemplate) =>
+      matchesTemplateContent(userTemplate, template),
+    )?.id ?? null
+  );
+}
+
 export function normalizeTemplatePayload(template: unknown): Template {
   const record = (
     template && typeof template === "object" ? template : {}
@@ -279,4 +296,50 @@ export function normalizeTemplatePayload(template: unknown): Template {
 
 function normalizeTemplateWithId(id: string, template: unknown) {
   return { id, ...normalizeTemplatePayload(template) };
+}
+
+function matchesTemplateContent(
+  left: Pick<
+    UserTemplate,
+    "title" | "description" | "category" | "targets" | "sections"
+  >,
+  right: Pick<
+    WebTemplate,
+    "title" | "description" | "category" | "targets" | "sections"
+  >,
+) {
+  return (
+    left.title === right.title &&
+    left.description === right.description &&
+    left.category === right.category &&
+    areStringArraysEqual(left.targets, right.targets) &&
+    areTemplateSectionsEqual(left.sections, right.sections)
+  );
+}
+
+function areStringArraysEqual(
+  left: string[] | undefined,
+  right: string[] | undefined,
+) {
+  const leftValue = left ?? [];
+  const rightValue = right ?? [];
+
+  return (
+    leftValue.length === rightValue.length &&
+    leftValue.every((value, index) => value === rightValue[index])
+  );
+}
+
+function areTemplateSectionsEqual(
+  left: TemplateSection[],
+  right: TemplateSection[],
+) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (section, index) =>
+        section.title === right[index]?.title &&
+        section.description === right[index]?.description,
+    )
+  );
 }

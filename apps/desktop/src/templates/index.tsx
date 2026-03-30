@@ -5,6 +5,7 @@ import type { TemplateSection } from "@hypr/store";
 
 import { TemplateDetailsColumn } from "./components/details";
 import {
+  findMatchingUserTemplateId,
   resolveTemplateTabSelection,
   useCreateTemplate,
   useUserTemplates,
@@ -15,6 +16,7 @@ import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
+import * as settings from "~/store/tinybase/store/settings";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export {
@@ -71,6 +73,16 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
   const { data: webTemplates = [] } = useWebResources<WebTemplate>("templates");
+  const selectedTemplateId = settings.UI.useValue(
+    "selected_template_id",
+    settings.STORE_ID,
+  ) as string | undefined;
+  const setSelectedTemplateId = settings.UI.useSetValueCallback(
+    "selected_template_id",
+    (templateId: string) => templateId,
+    [],
+    settings.STORE_ID,
+  );
 
   const setSelectedMineId = useCallback(
     (id: string | null) => {
@@ -126,6 +138,40 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
     [createTemplate, setSelectedMineId],
   );
 
+  const handleSetDefaultWebTemplate = useCallback(
+    (template: WebTemplate) => {
+      const existingId = findMatchingUserTemplateId({
+        template,
+        userTemplates,
+      });
+
+      if (existingId) {
+        setSelectedTemplateId(existingId);
+        return;
+      }
+
+      const id = createTemplate({
+        title: template.title ?? "",
+        description: template.description ?? "",
+        category: template.category,
+        targets: template.targets,
+        sections: template.sections ?? [],
+      });
+
+      if (id) {
+        setSelectedTemplateId(id);
+      }
+    },
+    [createTemplate, setSelectedTemplateId, userTemplates],
+  );
+
+  const defaultSelectedWebTemplateId = selectedWebTemplate
+    ? findMatchingUserTemplateId({
+        template: selectedWebTemplate,
+        userTemplates,
+      })
+    : null;
+
   const handleDuplicateTemplate = useCallback(
     (id: string) => {
       const template = userTemplates.find((item) => item.id === id);
@@ -148,9 +194,14 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
         isWebMode={isWebMode}
         selectedMineId={selectedMineId}
         selectedWebTemplate={selectedWebTemplate}
+        isSelectedWebTemplateDefault={
+          !!defaultSelectedWebTemplateId &&
+          defaultSelectedWebTemplateId === selectedTemplateId
+        }
         handleDeleteTemplate={handleDeleteTemplate}
         handleDuplicateTemplate={handleDuplicateTemplate}
         handleCloneTemplate={handleCloneTemplate}
+        handleSetDefaultWebTemplate={handleSetDefaultWebTemplate}
       />
     </div>
   );

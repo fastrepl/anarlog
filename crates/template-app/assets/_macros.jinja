@@ -117,7 +117,14 @@ Sections:
 {% for section in tpl.sections -%}
 {{ loop.index }}. {{ section.title }}{% if section.description.is_some() %} - {{ section.description.as_ref().unwrap() }}{% endif %}
 {% endfor -%}
-{%- when None %}
+
+Follow this template exactly:
+
+- Use these section titles as the only # headings, in this order.
+- Do not add, remove, or rename sections.
+- Follow each section description literally, including whether the content should be a paragraph, bullets, checklist, or another format.
+- If a section description implies a single paragraph or compact answer, keep it compact and do not expand it into extra subsections.
+  {%- when None %}
 
 # Instructions
 

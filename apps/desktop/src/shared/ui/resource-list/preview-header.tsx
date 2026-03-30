@@ -17,6 +17,7 @@ export function ResourcePreviewHeader({
   actionIcon,
   actionVariant,
   actionClassName,
+  actions,
   children,
 }: {
   title: string;
@@ -28,6 +29,7 @@ export function ResourcePreviewHeader({
   actionIcon?: ReactNode;
   actionVariant?: ButtonProps["variant"];
   actionClassName?: string;
+  actions?: ReactNode;
   children?: ReactNode;
 }) {
   return (
@@ -36,15 +38,17 @@ export function ResourcePreviewHeader({
         <div className="min-w-0">
           <TemplateCategoryLabel category={category} />
         </div>
-        <Button
-          onClick={onClone}
-          size="sm"
-          variant={actionVariant}
-          className={actionClassName}
-        >
-          {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
-          {actionLabel}
-        </Button>
+        {actions ?? (
+          <Button
+            onClick={onClone}
+            size="sm"
+            variant={actionVariant}
+            className={actionClassName}
+          >
+            {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
+            {actionLabel}
+          </Button>
+        )}
       </div>
       <div className="mt-3 min-w-0 pr-5 pl-3">
         <h2 className="truncate text-lg font-semibold">

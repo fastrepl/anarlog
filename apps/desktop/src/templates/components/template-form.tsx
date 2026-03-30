@@ -161,7 +161,11 @@ export function TemplateForm({
               size="sm"
               variant="ghost"
               onClick={setSelectedTemplateId}
-              title={isDefault ? "Remove as default" : "Set as default"}
+              title={
+                isDefault
+                  ? "Used for generated summaries"
+                  : "Use for generated summaries"
+              }
               className={cn([
                 "shrink-0 text-neutral-600 hover:text-black",
                 isDefault

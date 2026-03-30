@@ -16,8 +16,21 @@ const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
 
   try {
     const jsonContent = md2json(text);
-    store.setPartialRow("enhanced_notes", args.enhancedNoteId, {
+    const nextRow: {
+      content: string;
+      title: string;
+      template_id?: string;
+    } = {
       content: JSON.stringify(jsonContent),
+      title: "Summary",
+    };
+
+    if (args.templateId) {
+      nextRow.template_id = args.templateId;
+    }
+
+    store.setPartialRow("enhanced_notes", args.enhancedNoteId, {
+      ...nextRow,
     });
   } catch (error) {
     console.error("Failed to convert markdown to JSON:", error);

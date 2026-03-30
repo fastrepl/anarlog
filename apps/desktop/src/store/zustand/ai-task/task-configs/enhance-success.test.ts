@@ -53,6 +53,33 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(() => JSON.parse(persisted)).not.toThrow();
   });
 
+  it("persists template metadata when a template is used", async () => {
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn().mockReturnValue(""),
+    } as unknown as EnhanceSuccessParams["store"];
+    const params = createParams({
+      store,
+      args: {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+        templateId: "template-1",
+      },
+    });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(store.setPartialRow).toHaveBeenCalledWith(
+      "enhanced_notes",
+      "note-1",
+      expect.objectContaining({
+        content: expect.any(String),
+        template_id: "template-1",
+        title: "Summary",
+      }),
+    );
+  });
+
   it("starts title generation when session title is empty", async () => {
     const store = {
       setPartialRow: vi.fn(),

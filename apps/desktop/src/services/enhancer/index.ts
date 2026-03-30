@@ -224,22 +224,12 @@ export class EnhancerService {
     const userId = store.getValue("user_id");
     const nextPosition = existingIds.length + 1;
 
-    let title = "Summary";
-    if (normalizedTemplateId) {
-      const templateTitle = store.getCell(
-        "templates",
-        normalizedTemplateId,
-        "title",
-      );
-      if (typeof templateTitle === "string") title = templateTitle;
-    }
-
     store.setRow("enhanced_notes", enhancedNoteId, {
       user_id: userId || "",
       session_id: sessionId,
       content: "",
       position: nextPosition,
-      title,
+      title: "Summary",
       template_id: normalizedTemplateId,
     });
 

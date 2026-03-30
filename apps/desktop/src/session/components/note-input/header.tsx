@@ -51,6 +51,7 @@ import { useHasTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
+import * as settings from "~/store/tinybase/store/settings";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -1168,6 +1169,10 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
       "template_id",
       main.STORE_ID,
     ) as string | undefined) || undefined;
+  const selectedTemplateId = settings.UI.useValue(
+    "selected_template_id",
+    settings.STORE_ID,
+  ) as string | undefined;
 
   const enhanceTask = useAITaskTask(taskId, "enhance");
 
@@ -1192,11 +1197,18 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
         args: {
           sessionId,
           enhancedNoteId,
-          templateId: templateId ?? noteTemplateId,
+          templateId: templateId ?? noteTemplateId ?? selectedTemplateId,
         },
       });
     },
-    [model, enhanceTask.start, sessionId, enhancedNoteId, noteTemplateId],
+    [
+      model,
+      enhanceTask.start,
+      sessionId,
+      enhancedNoteId,
+      noteTemplateId,
+      selectedTemplateId,
+    ],
   );
 
   useEffect(() => {

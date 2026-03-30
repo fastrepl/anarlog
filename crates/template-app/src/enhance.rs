@@ -50,11 +50,14 @@ mod tests {
     # Format Requirements
 
     - Use Markdown format without code block wrappers.
-    - Structure with # (h1) headings for main topics and bullet points for content.
+    - When an output template is provided, follow its section order and formatting instructions exactly.
+    - Template-specific instructions override the default bullet guidance below.
     - Use only h1 headers. Do not use h2 or h3. Each header represents a section.
-    - Each section should have at least 3 detailed bullet points.
-    - Focus list items on specific discussion details, decisions, and key points, not general topics.
-    - Maintain a consistent list hierarchy:
+    - When no output template is provided, structure with # (h1) headings for main topics and bullet points for content.
+    - When no output template is provided, each section should have at least 3 detailed bullet points.
+    - When an output template is provided, match the structure implied by each section description, including paragraph vs bullet formatting.
+    - When using bullet points, focus list items on specific discussion details, decisions, and key points, not general topics.
+    - When using bullet points, maintain a consistent list hierarchy:
       - Use bullet points at the same level unless an example or clarification is absolutely necessary.
       - Avoid nesting lists beyond one level of indentation.
       - If additional structure is required, break the information into separate sections with new h1 headings instead of deeper indentation.
@@ -150,6 +153,12 @@ mod tests {
     Sections:
     1. Section 1 - Section 1 description
     2. Section 2 - Section 2 description
+    Follow this template exactly:
+
+    - Use these section titles as the only # headings, in this order.
+    - Do not add, remove, or rename sections.
+    - Follow each section description literally, including whether the content should be a paragraph, bullets, checklist, or another format.
+    - If a section description implies a single paragraph or compact answer, keep it compact and do not expand it into extra subsections.
     ");
 
     tpl_snapshot!(

@@ -146,6 +146,45 @@ describe("EnhancerService", () => {
       expect(aiTaskStore.getState().generate).toHaveBeenCalled();
     });
 
+    it("uses the selected default template for generated summaries", () => {
+      const tables = createTables();
+      tables.templates["template-1"] = {
+        title: "Board Meeting",
+      };
+
+      const store = createMockStore(tables);
+      const aiTaskStore = createMockAITaskStore();
+      const deps = createDeps({
+        mainStore: store,
+        indexes: createMockIndexes(tables),
+        aiTaskStore,
+        getSelectedTemplateId: () => "template-1",
+      });
+      const service = new EnhancerService(deps);
+
+      const result = service.enhance("session-1", { isAuto: true });
+
+      expect(result.type).toBe("started");
+      expect(store.setRow).toHaveBeenCalledWith(
+        "enhanced_notes",
+        expect.any(String),
+        expect.objectContaining({
+          session_id: "session-1",
+          title: "Summary",
+          template_id: "template-1",
+        }),
+      );
+      expect(aiTaskStore.getState().generate).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          args: expect.objectContaining({
+            sessionId: "session-1",
+            templateId: "template-1",
+          }),
+        }),
+      );
+    });
+
     it("reuses existing note with same template", () => {
       const tables = createTables({
         enhanced_notes: {

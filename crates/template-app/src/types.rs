@@ -231,6 +231,12 @@ mod tests {
     Sections:
     1. Summary - Brief overview
     2. Action Items
+    Follow this template exactly:
+
+    - Use these section titles as the only # headings, in this order.
+    - Do not add, remove, or rename sections.
+    - Follow each section description literally, including whether the content should be a paragraph, bullets, checklist, or another format.
+    - If a section description implies a single paragraph or compact answer, keep it compact and do not expand it into extra subsections.
     "
     );
 
