@@ -147,7 +147,6 @@ jobs:
           CACTUS_CLOUD_API_BASE: "https://api.char.com/cactus"
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          OUTLIT_PUBLIC_KEY: ${{ secrets.OUTLIT_PUBLIC_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           APPLE_ID: ${{ secrets.APPLE_ID }}

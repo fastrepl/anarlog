@@ -835,9 +835,6 @@ importers:
       '@opentelemetry/resources':
         specifier: ^2.6.0
         version: 2.6.0(@opentelemetry/api@1.9.0)
-      '@outlit/browser':
-        specifier: ^1.4.0
-        version: 1.4.0(react@19.2.4)
       '@posthog/react':
         specifier: ^1.8.2
         version: 1.8.2(@types/react@19.2.13)(posthog-js@1.358.0)(react@19.2.4)
@@ -5486,20 +5483,6 @@ packages:
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
 
-  '@outlit/browser@1.4.0':
-    resolution: {integrity: sha512-CIcMrRWkeVa42uof33ugoQw6RGkDRtwUxUxF0Ih6hFLhgJU3I/d+fYC+bZHmzh3WMUSPQhjulRrA3cY9GouqPg==}
-    peerDependencies:
-      react: '>=17.0.0'
-      vue: '>=3.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-      vue:
-        optional: true
-
-  '@outlit/core@1.1.0':
-    resolution: {integrity: sha512-TNM9cIdunfcF0TLwCzSJ7sZWmDhUF8oYt4Q1KgW5Fm+4KGsfjDUbGDq9svrml1cmPrAXTZdiYwIYdRAG9327/g==}
-
   '@oxc-project/runtime@0.115.0':
     resolution: {integrity: sha512-Rg8Wlt5dCbXhQnsXPrkOjL1DTSvXLgb2R/KYfnf1/K+R0k6UMLEmbQXPM+kwrWqSmWA2t0B1EtHy2/3zikQpvQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -9794,6 +9777,7 @@ packages:
   basic-ftp@5.1.0:
     resolution: {integrity: sha512-RkaJzeJKDbaDWTIPiJwubyljaEPwpVWkm9Rt5h9Nd6h7tEXTJ3VB4qxdZBioV7JO5yLUaOKwz7vDOzlncUsegw==}
     engines: {node: '>=10.0.0'}
+    deprecated: Security vulnerability fixed in 5.2.0, please upgrade
 
   before-after-hook@2.2.3:
     resolution: {integrity: sha512-NzUnlZexiaH/46WDhANlyR2bXRopNg4F/zuSA3OpZnllCUgRaOF2znDioDWrmbNVsuZk6l9pMquQB38cfBZwkQ==}
@@ -22458,14 +22442,6 @@ snapshots:
       '@orama/orama': 3.1.18
 
   '@oslojs/encoding@1.1.0': {}
-
-  '@outlit/browser@1.4.0(react@19.2.4)':
-    dependencies:
-      '@outlit/core': 1.1.0
-    optionalDependencies:
-      react: 19.2.4
-
-  '@outlit/core@1.1.0': {}
 
   '@oxc-project/runtime@0.115.0': {}
 

@@ -346,7 +346,6 @@ dependencies = [
 name = "analytics"
 version = "0.1.0"
 dependencies = [
- "outlit",
  "posthog-rs",
  "serde",
  "serde_json",
@@ -12592,20 +12591,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "outlit"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cbcbd0c73031b437a5f673b30470b1f0c296fc058fd6c738e5ed0d37076e985"
-dependencies = [
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
 ]
 
 [[package]]

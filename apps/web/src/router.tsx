@@ -1,4 +1,3 @@
-import { OutlitProvider } from "@outlit/browser/react";
 import * as Sentry from "@sentry/tanstackstart-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
@@ -16,23 +15,6 @@ import { routeTree } from "./routeTree.gen";
 const ZENDESK_SNIPPET_ID = "ze-snippet";
 const ZENDESK_SNIPPET_SRC =
   "https://static.zdassets.com/ekr/snippet.js?key=15949e47-ed5a-4e52-846e-200dd0b8f4b9";
-
-function MaybeOutlitProvider({
-  children,
-  enabled,
-}: {
-  children: React.ReactNode;
-  enabled: boolean;
-}) {
-  if (enabled && env.VITE_OUTLIT_PUBLIC_KEY) {
-    return (
-      <OutlitProvider publicKey={env.VITE_OUTLIT_PUBLIC_KEY} trackPageviews>
-        {children}
-      </OutlitProvider>
-    );
-  }
-  return <>{children}</>;
-}
 
 function MaybeZendeskWidget({ enabled }: { enabled: boolean }) {
   useEffect(() => {
@@ -70,12 +52,10 @@ function ConsentAwareProviders({
 
   return (
     <PostHogProvider enabled={analyticsEnabled}>
-      <MaybeOutlitProvider enabled={analyticsEnabled}>
-        <QueryClientProvider client={queryClient}>
-          {children}
-          <MaybeZendeskWidget enabled={analyticsEnabled} />
-        </QueryClientProvider>
-      </MaybeOutlitProvider>
+      <QueryClientProvider client={queryClient}>
+        {children}
+        <MaybeZendeskWidget enabled={analyticsEnabled} />
+      </QueryClientProvider>
     </PostHogProvider>
   );
 }
