@@ -171,7 +171,7 @@ export function TemplatesSidebarContent({
   const filteredWeb = useMemo(() => {
     const query = search.toLowerCase().trim();
 
-    return webTemplates.flatMap((template, index) => {
+    const matchingTemplates = webTemplates.flatMap((template, index) => {
       const matches =
         !query ||
         template.title?.toLowerCase().includes(query) ||
@@ -183,7 +183,18 @@ export function TemplatesSidebarContent({
 
       return matches ? [{ template, index }] : [];
     });
-  }, [webTemplates, search]);
+
+    matchingTemplates.sort((a, b) => {
+      const titleA = a.template.title || "";
+      const titleB = b.template.title || "";
+
+      return sortOption === "reverse-alphabetical"
+        ? titleB.localeCompare(titleA)
+        : titleA.localeCompare(titleB);
+    });
+
+    return matchingTemplates;
+  }, [search, sortOption, webTemplates]);
 
   const combinedTemplates = useMemo<
     Array<
@@ -225,22 +236,13 @@ export function TemplatesSidebarContent({
       template,
     }));
 
-    const direction = sortOption === "reverse-alphabetical" ? -1 : 1;
-
-    return [...mine, ...web].sort((a, b) => {
-      if (a.pinned !== b.pinned) {
-        return a.pinned ? -1 : 1;
-      }
-
-      return direction * a.title.localeCompare(b.title);
-    });
+    return [...mine, ...web];
   }, [
     effectiveSelectedMineId,
     effectiveSelectedWebIndex,
     filteredMine,
     filteredWeb,
     isWebMode,
-    sortOption,
   ]);
 
   const hasResults = combinedTemplates.length > 0;
