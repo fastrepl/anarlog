@@ -167,10 +167,10 @@ export function TemplateForm({
                   : "Use for generated summaries"
               }
               className={cn([
-                "shrink-0 text-neutral-600 hover:text-black",
+                "shrink-0",
                 isDefault
-                  ? "bg-neutral-100 text-black hover:bg-neutral-100"
-                  : null,
+                  ? "bg-black text-white hover:bg-black hover:text-white"
+                  : "text-neutral-600 hover:text-black",
               ])}
             >
               {isDefault ? "Current default" : "Set as default"}
