@@ -51,7 +51,8 @@ export function ChatContent({
   mcpIndicator?: McpIndicator;
   children?: React.ReactNode;
 }) {
-  const disabled = !model || !isSystemPromptReady;
+  const isModelConfigured = !!model;
+  const disabled = !isSystemPromptReady;
   const mergeContextRefs = (contextRefs?: ContextRef[]) =>
     contextRefs ? dedupeByKey([pendingRefs, contextRefs]) : pendingRefs;
 
@@ -63,7 +64,7 @@ export function ChatContent({
           status={status}
           error={error}
           onReload={regenerate}
-          isModelConfigured={!!model}
+          isModelConfigured={isModelConfigured}
           onSendMessage={(content, parts, contextRefs) => {
             handleSendMessage(
               content,
@@ -74,28 +75,32 @@ export function ChatContent({
           }}
         />
       )}
-      <ContextBar
-        entities={contextEntities}
-        onRemoveEntity={onRemoveContextEntity}
-        onAddEntity={onAddContextEntity}
-      />
-      <ChatMessageInput
-        draftKey={sessionId}
-        disabled={disabled}
-        hasContextBar={contextEntities.length > 0}
-        onSendMessage={(content, parts, contextRefs) => {
-          handleSendMessage(
-            content,
-            parts,
-            sendMessage,
-            mergeContextRefs(contextRefs),
-          );
-        }}
-        onContextRefsChange={onDraftContextRefsChange}
-        isStreaming={status === "streaming" || status === "submitted"}
-        onStop={stop}
-        mcpIndicator={mcpIndicator}
-      />
+      {isModelConfigured && (
+        <>
+          <ContextBar
+            entities={contextEntities}
+            onRemoveEntity={onRemoveContextEntity}
+            onAddEntity={onAddContextEntity}
+          />
+          <ChatMessageInput
+            draftKey={sessionId}
+            disabled={disabled}
+            hasContextBar={contextEntities.length > 0}
+            onSendMessage={(content, parts, contextRefs) => {
+              handleSendMessage(
+                content,
+                parts,
+                sendMessage,
+                mergeContextRefs(contextRefs),
+              );
+            }}
+            onContextRefsChange={onDraftContextRefsChange}
+            isStreaming={status === "streaming" || status === "submitted"}
+            onStop={stop}
+            mcpIndicator={mcpIndicator}
+          />
+        </>
+      )}
     </div>
   );
 }

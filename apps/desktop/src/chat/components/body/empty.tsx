@@ -75,7 +75,10 @@ export function ChatBodyEmpty({
           </p>
           <button
             onClick={handleGoToSettings}
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-700 transition-colors hover:bg-neutral-100"
+            className={cn([
+              "inline-flex w-fit items-center gap-1.5 rounded-full border border-stone-600 bg-stone-800 px-3 py-1.5 text-xs font-medium text-white",
+              "shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-colors hover:bg-stone-700",
+            ])}
           >
             <SparklesIcon size={12} />
             Open AI Settings
