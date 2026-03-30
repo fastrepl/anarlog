@@ -66,9 +66,11 @@ async parseMeetingLink(text: string) : Promise<string | null> {
 
 
 export const events = __makeEvents__<{
-calendarChangedEvent: CalendarChangedEvent
+calendarChangedEvent: CalendarChangedEvent,
+notificationWorkerEvent: NotificationWorkerEvent
 }>({
-calendarChangedEvent: "plugin:calendar:calendar-changed-event"
+calendarChangedEvent: "plugin:calendar:calendar-changed-event",
+notificationWorkerEvent: "plugin:calendar:notification-worker-event"
 })
 
 /** user-defined constants **/
@@ -160,6 +162,7 @@ email: string | null;
  */
 is_current_user: boolean }
 export type EventStatus = "confirmed" | "tentative" | "cancelled"
+export type NotificationWorkerEvent = { type: "eventStarted"; event_id: string; title: string; started_at: string; participants: string[] }
 export type ProviderConnectionIds = { provider: CalendarProviderType; connection_ids: string[] }
 
 /** tauri-specta globals **/

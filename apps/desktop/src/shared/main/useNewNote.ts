@@ -7,6 +7,7 @@ import { useShallow } from "zustand/shallow";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { id } from "~/shared/utils";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { setPendingUpload } from "~/stt/pending-upload";
@@ -89,11 +90,8 @@ export function useNewNoteAndListen({
     });
 
     const ff = behavior === "new" ? openNew : openCurrent;
-    ff({
-      type: "sessions",
-      id: sessionId,
-      state: { view: null, autoStart: true },
-    });
+    listenerStore.getState().requestAutoStart(sessionId);
+    ff({ type: "sessions", id: sessionId, state: { view: null } });
   }, [
     status,
     liveSessionId,
@@ -152,7 +150,7 @@ export function useNewNoteAndUpload() {
       openNew({
         type: "sessions",
         id: sessionId,
-        state: { view: { type: "transcript" }, autoStart: null },
+        state: { view: { type: "transcript" } },
       });
     },
     [persistedStore, internalStore, openNew],

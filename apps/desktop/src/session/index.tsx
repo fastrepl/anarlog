@@ -116,10 +116,11 @@ export function TabContentNote({
 }) {
   const listenerStatus = useListener((state) => state.live.status);
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
+  const pendingAutoStart = useListener((state) => state.pendingAutoStart);
+  const clearAutoStart = useListener((state) => state.clearAutoStart);
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const { conn } = useSTTConnection();
   const startListening = useStartListening(tab.id);
-  const hasAttemptedAutoStart = useRef(false);
 
   useEffect(() => {
     if (
@@ -134,16 +135,12 @@ export function TabContentNote({
   }, [sessionMode, tab, updateSessionTabState]);
 
   useEffect(() => {
-    if (!tab.state.autoStart) {
-      hasAttemptedAutoStart.current = false;
-      return;
-    }
-
-    if (hasAttemptedAutoStart.current) {
+    if (pendingAutoStart !== tab.id) {
       return;
     }
 
     if (listenerStatus !== "inactive") {
+      clearAutoStart();
       return;
     }
 
@@ -151,17 +148,15 @@ export function TabContentNote({
       return;
     }
 
-    hasAttemptedAutoStart.current = true;
     startListening();
-    updateSessionTabState(tab, { ...tab.state, autoStart: null });
+    clearAutoStart();
   }, [
+    pendingAutoStart,
     tab.id,
-    tab.state,
-    tab.state.autoStart,
     listenerStatus,
     conn,
     startListening,
-    updateSessionTabState,
+    clearAutoStart,
   ]);
 
   const { data: audioUrl } = useQuery({

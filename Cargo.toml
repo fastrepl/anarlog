@@ -69,6 +69,7 @@ hypr-cactus = { path = "crates/cactus", package = "cactus" }
 hypr-cactus-model = { path = "crates/cactus-model", package = "cactus-model" }
 hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
+hypr-calendar-worker = { path = "crates/calendar-worker", package = "calendar-worker" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }
 hypr-claude = { path = "crates/claude", package = "claude" }
 hypr-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }

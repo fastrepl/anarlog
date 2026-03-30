@@ -1,6 +1,7 @@
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { useEffect, useRef } from "react";
 
+import { events as calendarEvents } from "@hypr/plugin-calendar";
 import { events as notificationEvents } from "@hypr/plugin-notification";
 import {
   commands as updaterCommands,
@@ -8,11 +9,17 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
+import {
+  consumePendingCalendarAutoStarts,
+  resolveCalendarAutoStartEvent,
+} from "./calendar-auto-start";
+
 import * as main from "~/store/tinybase/store/main";
 import {
   createSession,
   getOrCreateSessionForEventId,
 } from "~/store/tinybase/store/sessions";
+import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
 
 function useUpdaterEvents() {
@@ -46,28 +53,12 @@ function useUpdaterEvents() {
 function useNotificationEvents() {
   const store = main.UI.useStore(main.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
-  const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);
   const storeRef = useRef(store);
   const openNewRef = useRef(openNew);
 
   useEffect(() => {
     storeRef.current = store;
     openNewRef.current = openNew;
-  }, [store, openNew]);
-
-  useEffect(() => {
-    if (pendingAutoStart.current && store) {
-      const { eventId } = pendingAutoStart.current;
-      pendingAutoStart.current = null;
-      const sessionId = eventId
-        ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
-      openNew({
-        type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: true },
-      });
-    }
   }, [store, openNew]);
 
   useEffect(() => {
@@ -89,17 +80,15 @@ function useNotificationEvents() {
               ? payload.source.event_id
               : null;
           const currentStore = storeRef.current;
-          if (!currentStore) {
-            pendingAutoStart.current = { eventId };
-            return;
-          }
+          if (!currentStore) return;
           const sessionId = eventId
             ? getOrCreateSessionForEventId(currentStore, eventId)
             : createSession(currentStore);
+          listenerStore.getState().requestAutoStart(sessionId);
           openNewRef.current({
             type: "sessions",
             id: sessionId,
-            state: { view: null, autoStart: true },
+            state: { view: null },
           });
         } else if (payload.type === "notification_option_selected") {
           const currentStore = storeRef.current;
@@ -119,11 +108,112 @@ function useNotificationEvents() {
                 )
               : createSession(currentStore);
 
+          listenerStore.getState().requestAutoStart(sessionId);
           openNewRef.current({
             type: "sessions",
             id: sessionId,
-            state: { view: null, autoStart: true },
+            state: { view: null },
           });
+        }
+      })
+      .then((f) => {
+        if (cancelled) {
+          f();
+        } else {
+          unlisten = f;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+}
+
+function useCalendarStartEvents() {
+  const store = main.UI.useStore(main.STORE_ID);
+  const openNew = useTabs((state) => state.openNew);
+  const pendingAutoStartTrackingIds = useRef(new Set<string>());
+  const storeRef = useRef(store);
+  const openNewRef = useRef(openNew);
+
+  useEffect(() => {
+    storeRef.current = store;
+  }, [store]);
+  useEffect(() => {
+    openNewRef.current = openNew;
+  }, [openNew]);
+
+  const openCalendarAutoStart = (
+    currentStore: NonNullable<typeof store>,
+    eventRowId: string,
+  ) => {
+    const sessionId = getOrCreateSessionForEventId(currentStore, eventRowId);
+    listenerStore.getState().requestAutoStart(sessionId);
+    openNewRef.current({
+      type: "sessions",
+      id: sessionId,
+      state: { view: null },
+    });
+  };
+
+  const consumePendingAutoStarts = (
+    currentStore: NonNullable<typeof store>,
+  ) => {
+    consumePendingCalendarAutoStarts(
+      currentStore,
+      pendingAutoStartTrackingIds.current,
+      (eventRowId) => {
+        openCalendarAutoStart(currentStore, eventRowId);
+      },
+    );
+  };
+
+  useEffect(() => {
+    if (getCurrentWebviewWindowLabel() !== "main" || !store) return;
+
+    consumePendingAutoStarts(store);
+
+    const listenerId = store.addRowListener("events", null, () => {
+      consumePendingAutoStarts(store);
+    });
+
+    return () => {
+      store.delListener(listenerId);
+    };
+  }, [store]);
+
+  useEffect(() => {
+    if (getCurrentWebviewWindowLabel() !== "main") return;
+
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+
+    void calendarEvents.notificationWorkerEvent
+      .listen(({ payload }) => {
+        if (payload.type !== "eventStarted") return;
+
+        const currentStore = storeRef.current;
+        if (!currentStore) {
+          pendingAutoStartTrackingIds.current.add(payload.event_id);
+          return;
+        }
+
+        const resolution = resolveCalendarAutoStartEvent(
+          currentStore,
+          payload.event_id,
+        );
+
+        if (resolution.status === "pending") {
+          pendingAutoStartTrackingIds.current.add(payload.event_id);
+          return;
+        }
+
+        pendingAutoStartTrackingIds.current.delete(payload.event_id);
+
+        if (resolution.status === "ready") {
+          openCalendarAutoStart(currentStore, resolution.eventRowId);
         }
       })
       .then((f) => {
@@ -144,6 +234,7 @@ function useNotificationEvents() {
 export function EventListeners() {
   useUpdaterEvents();
   useNotificationEvents();
+  useCalendarStartEvents();
 
   return null;
 }

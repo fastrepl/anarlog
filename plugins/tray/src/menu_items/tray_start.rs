@@ -25,7 +25,6 @@ impl MenuItemHandler for TrayStart {
                     id: "new".to_string(),
                     state: Some(SessionsState {
                         view: Default::default(),
-                        auto_start: Some(true),
                     }),
                 },
             };

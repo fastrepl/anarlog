@@ -142,7 +142,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
         ...base,
         type: "sessions",
         id: tab.id,
-        state: tab.state ?? { view: null, autoStart: null },
+        state: tab.state ?? { view: null },
       };
     case "contacts":
       return {

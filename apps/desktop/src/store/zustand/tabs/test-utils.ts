@@ -29,7 +29,7 @@ export const createSessionTab = (
   slotId: id(),
   state: {
     view: null,
-    autoStart: null,
+
     ...overrides.state,
   },
 });

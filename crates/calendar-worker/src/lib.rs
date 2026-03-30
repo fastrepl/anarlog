@@ -34,10 +34,10 @@ pub async fn run(
     };
 
     let schedule = Schedule::from_str("0 * * * * *")?;
-    let worker = WorkerBuilder::new("notification-worker")
+    let worker = WorkerBuilder::new("calendar-worker")
         .backend(CronStream::new(schedule))
         .data(state)
-        .build(worker::check_upcoming);
+        .build(worker::check_events);
 
     worker.run().await?;
 

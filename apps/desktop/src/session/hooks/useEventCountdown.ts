@@ -1,18 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useSessionEvent } from "~/store/tinybase/hooks";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-export function useEventCountdown(
-  sessionId: string,
-  { onExpire }: { onExpire?: () => void } = {},
-) {
+export function useEventCountdown(sessionId: string) {
   const sessionEvent = useSessionEvent(sessionId);
   const startedAt = sessionEvent?.started_at;
-  const onExpireRef = useRef(onExpire);
-  onExpireRef.current = onExpire;
-
   const [label, setLabel] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,8 +16,6 @@ export function useEventCountdown(
     }
 
     const eventStart = new Date(startedAt).getTime();
-    let fired = false;
-
     let interval: ReturnType<typeof setInterval>;
 
     const update = () => {
@@ -32,10 +24,6 @@ export function useEventCountdown(
       if (diff <= 0) {
         setLabel(null);
         clearInterval(interval);
-        if (!fired) {
-          fired = true;
-          onExpireRef.current?.();
-        }
         return;
       }
 

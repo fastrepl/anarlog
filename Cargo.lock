@@ -2919,6 +2919,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "calendar-worker"
+version = "0.1.0"
+dependencies = [
+ "apalis",
+ "apalis-cron",
+ "chrono",
+ "cron",
+ "serde",
+ "serde_json",
+ "specta",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "camino"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11517,23 +11534,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "notification-worker"
-version = "0.1.0"
-dependencies = [
- "apalis",
- "apalis-cron",
- "chrono",
- "cron",
- "serde",
- "serde_json",
- "specta",
- "tauri-specta",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "notify"
 version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -18101,6 +18101,8 @@ version = "0.1.0"
 dependencies = [
  "calendar",
  "calendar-interface",
+ "calendar-worker",
+ "chrono",
  "serde",
  "specta",
  "specta-typescript",
@@ -18110,6 +18112,7 @@ dependencies = [
  "tauri-plugin-permissions",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

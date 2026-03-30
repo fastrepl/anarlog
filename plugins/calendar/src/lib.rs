@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod events;
 mod runtime;
+mod source;
 
 pub use error::Error;
 pub use events::*;
@@ -26,7 +27,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::create_event::<tauri::Wry>,
             commands::parse_meeting_link,
         ])
-        .events(tauri_specta::collect_events![CalendarChangedEvent])
+        .events(tauri_specta::collect_events![
+            CalendarChangedEvent,
+            hypr_calendar_worker::runtime::NotificationWorkerEvent
+        ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
@@ -43,6 +47,20 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             use tauri::Manager;
             app.manage(PluginConfig { api_base_url });
+
+            let worker_source = source::CalendarEventSource(app.app_handle().clone());
+            let worker_runtime = runtime::TauriNotificationWorkerRuntime(app.app_handle().clone());
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = hypr_calendar_worker::run(
+                    worker_source,
+                    worker_runtime,
+                    chrono::Duration::minutes(10),
+                )
+                .await
+                {
+                    tracing::error!("calendar-worker error: {e}");
+                }
+            });
             Ok(())
         })
         .build()

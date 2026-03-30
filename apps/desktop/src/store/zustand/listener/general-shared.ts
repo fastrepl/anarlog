@@ -20,6 +20,7 @@ export type LoadingPhase =
   | "connected";
 
 export type GeneralState = {
+  pendingAutoStart: string | null;
   live: {
     eventUnlisteners?: (() => void)[];
     loading: boolean;
@@ -58,6 +59,7 @@ const initialLiveState: LiveState = {
 };
 
 export const initialGeneralState: GeneralState = {
+  pendingAutoStart: null,
   live: initialLiveState,
 };
 

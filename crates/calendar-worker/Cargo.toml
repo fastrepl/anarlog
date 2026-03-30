@@ -1,5 +1,5 @@
 [package]
-name = "notification-worker"
+name = "calendar-worker"
 version = "0.1.0"
 edition = "2024"
 

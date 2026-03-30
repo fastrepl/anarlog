@@ -42,6 +42,8 @@ export type GeneralActions = {
     options?: { handlePersist?: BatchPersistCallback },
   ) => Promise<void>;
   getSessionMode: (sessionId: string) => SessionMode;
+  requestAutoStart: (sessionId: string) => void;
+  clearAutoStart: () => void;
 };
 
 export const createGeneralSlice = <
@@ -147,6 +149,12 @@ export const createGeneralSlice = <
     }
 
     await runBatchSession(get, sessionId, params);
+  },
+  requestAutoStart: (sessionId) => {
+    set({ pendingAutoStart: sessionId } as Partial<T>);
+  },
+  clearAutoStart: () => {
+    set({ pendingAutoStart: null } as Partial<T>);
   },
   getSessionMode: (sessionId) => {
     if (!sessionId) {

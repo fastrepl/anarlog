@@ -10,15 +10,18 @@ description = ""
 [dependencies]
 hypr-calendar = { workspace = true, features = ["specta"] }
 hypr-calendar-interface = { workspace = true }
+hypr-calendar-worker = { workspace = true, features = ["tauri-event"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+chrono = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["chrono"] }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }

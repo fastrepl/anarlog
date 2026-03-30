@@ -27,14 +27,14 @@ describe("State Updater Actions", () => {
       const state = useTabs.getState();
       expect(state.tabs[0]).toMatchObject({
         id: tab.id,
-        state: { view: { type: "enhanced", id: "note-1" }, autoStart: null },
+        state: { view: { type: "enhanced", id: "note-1" } },
       });
       expect(useTabs.getState()).toHaveCurrentTab({
         id: tab.id,
-        state: { view: { type: "enhanced", id: "note-1" }, autoStart: null },
+        state: { view: { type: "enhanced", id: "note-1" } },
       });
       expect(useTabs.getState()).toHaveLastHistoryEntry({
-        state: { view: { type: "enhanced", id: "note-1" }, autoStart: null },
+        state: { view: { type: "enhanced", id: "note-1" } },
       });
     });
 
@@ -56,11 +56,11 @@ describe("State Updater Actions", () => {
       });
       expect(state.tabs[1]).toMatchObject({
         id: active.id,
-        state: { view: null, autoStart: null },
+        state: { view: null },
       });
       expect(useTabs.getState()).toHaveLastHistoryEntry({
         id: active.id,
-        state: { view: null, autoStart: null },
+        state: { view: null },
       });
     });
 
@@ -77,7 +77,7 @@ describe("State Updater Actions", () => {
       const state = useTabs.getState();
       expect(state.tabs[0]).toMatchObject({
         id: session.id,
-        state: { view: null, autoStart: null },
+        state: { view: null },
       });
       expect(state.tabs[1]).toMatchObject({ type: "contacts" });
     });
@@ -115,7 +115,7 @@ describe("State Updater Actions", () => {
       const state = useTabs.getState();
       expect(state.tabs[0]).toMatchObject({ state: newContactsState });
       expect(state.tabs[1]).toMatchObject({
-        state: { view: null, autoStart: null },
+        state: { view: null },
       });
       expect(useTabs.getState()).toHaveLastHistoryEntry({
         id: session.id,
