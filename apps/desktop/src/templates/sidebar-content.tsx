@@ -1,5 +1,5 @@
 import { ArrowDownUp, BookText, Plus, Search, X } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -33,6 +33,7 @@ export function TemplatesSidebarContent({
   tab: Extract<Tab, { type: "templates" }>;
 }) {
   const updateTabState = useTabs((state) => state.updateTemplatesTabState);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const userTemplates = useUserTemplates();
@@ -245,6 +246,98 @@ export function TemplatesSidebarContent({
   const hasResults = combinedTemplates.length > 0;
   const isEmpty = !isWebLoading && !hasResults;
 
+  const selectCombinedTemplate = useCallback(
+    (
+      item:
+        | {
+            source: "user";
+            template: UserTemplate;
+          }
+        | {
+            source: "web";
+            index: number;
+          },
+    ) => {
+      if (item.source === "user") {
+        setSelectedMineId(item.template.id);
+        return;
+      }
+
+      setSelectedWebIndex(item.index);
+    },
+    [setSelectedMineId, setSelectedWebIndex],
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.altKey ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.closest("input, textarea, select, [contenteditable='true']"))
+      ) {
+        return;
+      }
+
+      if (combinedTemplates.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const currentIndex = combinedTemplates.findIndex((item) => item.selected);
+      const nextIndex =
+        currentIndex === -1
+          ? event.key === "ArrowDown"
+            ? 0
+            : combinedTemplates.length - 1
+          : Math.max(
+              0,
+              Math.min(
+                combinedTemplates.length - 1,
+                currentIndex + (event.key === "ArrowDown" ? 1 : -1),
+              ),
+            );
+
+      const nextItem = combinedTemplates[nextIndex];
+      if (!nextItem || nextIndex === currentIndex) {
+        return;
+      }
+
+      selectCombinedTemplate(nextItem);
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  }, [combinedTemplates, selectCombinedTemplate]);
+
+  useEffect(() => {
+    const selectedElement = scrollContainerRef.current?.querySelector(
+      "[data-template-selected='true']",
+    );
+
+    if (!(selectedElement instanceof HTMLElement)) {
+      return;
+    }
+
+    selectedElement.scrollIntoView({
+      block: "nearest",
+    });
+  }, [effectiveSelectedMineId, effectiveSelectedWebIndex]);
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
@@ -327,7 +420,10 @@ export function TemplatesSidebarContent({
         </div>
       </div>
 
-      <div className="scrollbar-hide flex-1 overflow-y-auto">
+      <div
+        ref={scrollContainerRef}
+        className="scrollbar-hide flex-1 overflow-y-auto"
+      >
         {isEmpty ? (
           <div className="px-3 py-8 text-center text-neutral-500">
             <BookText size={32} className="mx-auto mb-2 text-neutral-300" />
@@ -362,6 +458,7 @@ export function TemplatesSidebarContent({
                     <button
                       key={item.key}
                       onClick={() => setSelectedWebIndex(item.index)}
+                      data-template-selected={item.selected}
                       className={cn([
                         "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
                         item.selected
@@ -450,6 +547,7 @@ function TemplateListItem({
         onSelect(template.id);
         void showContextMenu(e);
       }}
+      data-template-selected={selected}
       className={cn([
         "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
         selected ? "bg-neutral-200" : "hover:bg-neutral-200/50",
