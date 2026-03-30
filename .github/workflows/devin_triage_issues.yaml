@@ -1,8 +1,6 @@
 name: devin_triage_issues
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
   workflow_dispatch:
 
 jobs:

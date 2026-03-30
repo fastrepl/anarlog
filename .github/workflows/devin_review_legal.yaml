@@ -1,8 +1,6 @@
 name: devin_review_legal
 
 on:
-  schedule:
-    - cron: "0 0 1 * *"
   workflow_dispatch:
 
 jobs:

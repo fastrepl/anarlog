@@ -1,8 +1,6 @@
 name: devin_update_docs
 
 on:
-  schedule:
-    - cron: "0 0 * * 0"
   workflow_dispatch:
 
 jobs:

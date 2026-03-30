@@ -1,8 +1,6 @@
 name: devin_weekly_blog
 
 on:
-  schedule:
-    - cron: "0 12 * * 0"
   workflow_dispatch:
 
 jobs:
