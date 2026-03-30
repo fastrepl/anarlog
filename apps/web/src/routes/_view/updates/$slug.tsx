@@ -109,7 +109,9 @@ function Component() {
               </Link>
             )}
             {sorted.map((u) => {
-              const label = getWeekLabel(u.date).replace("Week ", "W");
+              const [weekLabel, yearLabel] = getWeekLabel(u.date)
+                .replace("Week ", "W")
+                .split(" ");
               const isCurrent = u.slug === update.slug;
               return (
                 <Link
@@ -117,13 +119,14 @@ function Component() {
                   to="/updates/$slug/"
                   params={{ slug: u.slug }}
                   className={cn([
-                    "rounded px-2 py-1 text-sm transition-colors",
+                    "flex flex-col items-center justify-center rounded px-2 py-1 text-center text-sm leading-tight transition-colors",
                     isCurrent
                       ? "bg-stone-100 font-medium text-stone-900"
                       : "text-stone-500 hover:text-stone-800",
                   ])}
                 >
-                  {label}
+                  <span>{weekLabel}</span>
+                  <span>{yearLabel}</span>
                 </Link>
               );
             })}
