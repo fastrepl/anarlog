@@ -258,11 +258,12 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     keys["Ctrl-e"] = selectTextblockEnd;
   }
 
+  // Prevent Tab from moving focus outside the editor
   keys["Tab"] = (state, dispatch) => {
     const itemName = isInListItem(state);
-    if (!itemName) return false;
+    if (!itemName) return true;
     const nodeType = state.schema.nodes[itemName];
-    if (!nodeType) return false;
+    if (!nodeType) return true;
     return sinkListItem(nodeType)(state, dispatch);
   };
 
