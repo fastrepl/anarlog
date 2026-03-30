@@ -12,6 +12,7 @@ import {
   selectNodeForward,
   selectTextblockEnd,
   selectTextblockStart,
+  setBlockType,
   splitBlock,
   toggleMark,
 } from "prosemirror-commands";
@@ -29,7 +30,12 @@ import {
   sinkListItem,
   splitListItem,
 } from "prosemirror-schema-list";
-import { Selection, type Command, type EditorState } from "prosemirror-state";
+import {
+  Selection,
+  TextSelection,
+  type Command,
+  type EditorState,
+} from "prosemirror-state";
 
 import { schema } from "./schema";
 
@@ -145,7 +151,42 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   keys["Shift-Enter"] = hardBreakCmd;
   if (mac) keys["Mod-Enter"] = hardBreakCmd;
 
+  const exitCodeBlockOnEmptyLine: Command = (state, dispatch) => {
+    const { $from } = state.selection;
+    if (!$from.parent.type.spec.code) return false;
+
+    const lastLine = $from.parent.textContent.split("\n").pop() ?? "";
+    const atEnd = $from.parentOffset === $from.parent.content.size;
+    if (!atEnd || lastLine !== "") return false;
+
+    if (dispatch) {
+      const codeBlockPos = $from.before($from.depth);
+      const codeBlock = $from.parent;
+      const textContent = codeBlock.textContent.replace(/\n$/, "");
+      const tr = state.tr;
+
+      tr.replaceWith(
+        codeBlockPos,
+        codeBlockPos + codeBlock.nodeSize,
+        textContent
+          ? [
+              schema.nodes.codeBlock.create(null, schema.text(textContent)),
+              schema.nodes.paragraph.create(),
+            ]
+          : [schema.nodes.paragraph.create()],
+      );
+
+      const newParaPos = textContent
+        ? codeBlockPos + textContent.length + 2 + 1
+        : codeBlockPos + 1;
+      tr.setSelection(TextSelection.create(tr.doc, newParaPos));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+
   keys["Enter"] = chainCommands(
+    exitCodeBlockOnEmptyLine,
     newlineInCode,
     (state, dispatch) => {
       const itemName = isInListItem(state);
@@ -168,6 +209,19 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     splitBlock,
   );
 
+  const revertBlockToParagraph: Command = (state, dispatch) => {
+    const { $from } = state.selection;
+    if (!state.selection.empty || $from.parentOffset !== 0) return false;
+    const node = $from.parent;
+    if (
+      node.type !== schema.nodes.heading &&
+      node.type !== schema.nodes.codeBlock
+    ) {
+      return false;
+    }
+    return setBlockType(schema.nodes.paragraph)(state, dispatch);
+  };
+
   const backspaceCmd: Command = chainCommands(
     deleteSelection,
     (state, _dispatch) => {
@@ -175,6 +229,7 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
       if (selection.$head.pos === 0 && selection.empty) return true;
       return false;
     },
+    revertBlockToParagraph,
     joinBackward,
     selectNodeBackward,
   );
