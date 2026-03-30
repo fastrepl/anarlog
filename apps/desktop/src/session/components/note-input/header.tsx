@@ -18,6 +18,12 @@ import {
   type AttachmentInfo,
   commands as fsSyncCommands,
 } from "@hypr/plugin-fs-sync";
+import { json2md, parseJsonContent } from "@hypr/tiptap/shared";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@hypr/ui/components/ui/hover-card";
 import { NoteTab } from "@hypr/ui/components/ui/note-tab";
 import {
   AppFloatingPanel,
@@ -30,6 +36,7 @@ import {
   useScrollFade,
 } from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
@@ -49,6 +56,10 @@ import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
@@ -76,6 +87,91 @@ function TruncatedTitle({
     >
       {title}
     </span>
+  );
+}
+
+function getStoredNoteMarkdown(content: string | undefined) {
+  const trimmed = content?.trim() ?? "";
+
+  if (!trimmed) {
+    return "";
+  }
+
+  if (!trimmed.startsWith("{")) {
+    return trimmed;
+  }
+
+  return json2md(parseJsonContent(trimmed)).trim();
+}
+
+async function copyTextToClipboard(
+  text: string,
+  messages?: {
+    success: string;
+    error: string;
+  },
+) {
+  try {
+    await navigator.clipboard.writeText(text);
+
+    if (messages) {
+      sonnerToast.success(messages.success);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to copy note tab content", error);
+
+    if (messages) {
+      sonnerToast.error(messages.error);
+    }
+
+    return false;
+  }
+}
+
+function HeaderTabRaw({
+  isActive,
+  onClick = () => {},
+  sessionId,
+}: {
+  isActive: boolean;
+  onClick?: () => void;
+  sessionId: string;
+}) {
+  const rawMd = main.UI.useCell(
+    "sessions",
+    sessionId,
+    "raw_md",
+    main.STORE_ID,
+  ) as string | undefined;
+  const memoMarkdown = useMemo(() => getStoredNoteMarkdown(rawMd), [rawMd]);
+  const contextMenu = useMemo<MenuItemDef[]>(
+    () => [
+      {
+        id: `copy-memo-${sessionId}`,
+        text: "Copy",
+        action: () => {
+          void copyTextToClipboard(memoMarkdown, {
+            success: "Memo copied to clipboard",
+            error: "Failed to copy memo",
+          });
+        },
+        disabled: memoMarkdown.length === 0,
+      },
+    ],
+    [memoMarkdown, sessionId],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  return (
+    <NoteTab
+      isActive={isActive}
+      onClick={onClick}
+      onContextMenu={showContextMenu}
+    >
+      Memos
+    </NoteTab>
   );
 }
 
@@ -120,94 +216,133 @@ function HeaderTabTranscript({
     };
   }, []);
 
-  const handleRefreshClick = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation();
+  const handleRefresh = useCallback(async () => {
+    if (!audioExists || isBatchProcessing || !store) {
+      return;
+    }
 
-      if (!audioExists || isBatchProcessing || !store) {
-        return;
+    setIsRedoing(true);
+
+    const oldTranscriptIds: string[] = [];
+    store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
+      const session = store.getCell("transcripts", transcriptId, "session_id");
+      if (session === sessionId) {
+        oldTranscriptIds.push(transcriptId);
+      }
+    });
+
+    getEnhancerService()?.resetEnhanceTasks(sessionId);
+
+    try {
+      const result = await fsSyncCommands.audioPath(sessionId);
+      if (result.status === "error") {
+        throw new Error(result.error);
       }
 
-      setIsRedoing(true);
+      const audioPath = result.data;
+      if (!audioPath) {
+        throw new Error("audio path not available");
+      }
 
-      const oldTranscriptIds: string[] = [];
-      store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
-        const session = store.getCell(
-          "transcripts",
-          transcriptId,
-          "session_id",
-        );
-        if (session === sessionId) {
-          oldTranscriptIds.push(transcriptId);
-        }
-      });
+      await runBatch(audioPath);
 
-      getEnhancerService()?.resetEnhanceTasks(sessionId);
-
-      try {
-        const result = await fsSyncCommands.audioPath(sessionId);
-        if (result.status === "error") {
-          throw new Error(result.error);
-        }
-
-        const audioPath = result.data;
-        if (!audioPath) {
-          throw new Error("audio path not available");
-        }
-
-        await runBatch(audioPath);
-
-        if (oldTranscriptIds.length > 0) {
-          store.transaction(() => {
-            oldTranscriptIds.forEach((id) => {
-              store.delRow("transcripts", id);
-            });
+      if (oldTranscriptIds.length > 0) {
+        store.transaction(() => {
+          oldTranscriptIds.forEach((id) => {
+            store.delRow("transcripts", id);
           });
-        }
-
-        getEnhancerService()?.queueAutoEnhance(sessionId);
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : typeof error === "string"
-              ? error
-              : JSON.stringify(error);
-        console.error("[redo_transcript] failed:", message);
-      } finally {
-        setIsRedoing(false);
+        });
       }
+
+      getEnhancerService()?.queueAutoEnhance(sessionId);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : JSON.stringify(error);
+      console.error("[redo_transcript] failed:", message);
+    } finally {
+      setIsRedoing(false);
+    }
+  }, [audioExists, isBatchProcessing, runBatch, sessionId, store]);
+  const handleCopy = useCallback(
+    async (messages?: { success: string; error: string }) => {
+      if (!transcriptText) {
+        return false;
+      }
+
+      const copiedToClipboard = await copyTextToClipboard(
+        transcriptText,
+        messages,
+      );
+      if (!copiedToClipboard) {
+        return false;
+      }
+
+      if (copiedResetTimeoutRef.current !== null) {
+        window.clearTimeout(copiedResetTimeoutRef.current);
+      }
+
+      setCopied(true);
+      copiedResetTimeoutRef.current = window.setTimeout(() => {
+        setCopied(false);
+        copiedResetTimeoutRef.current = null;
+      }, 2000);
+
+      return true;
     },
-    [audioExists, isBatchProcessing, runBatch, sessionId, store],
+    [transcriptText],
+  );
+  const handleRefreshClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      void handleRefresh();
+    },
+    [handleRefresh],
   );
   const handleCopyClick = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
 
-      if (!transcriptText) {
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(transcriptText);
-        if (copiedResetTimeoutRef.current !== null) {
-          window.clearTimeout(copiedResetTimeoutRef.current);
-        }
-        setCopied(true);
-        copiedResetTimeoutRef.current = window.setTimeout(() => {
-          setCopied(false);
-          copiedResetTimeoutRef.current = null;
-        }, 2000);
-      } catch {}
+      await handleCopy();
     },
-    [transcriptText],
+    [handleCopy],
   );
 
+  const canRegenerate = audioExists && isSessionInactive && !!store;
+  const canCopy = transcriptText.length > 0;
   const showRefreshButton = audioExists && isActive && isSessionInactive;
   const showCopyButton =
     isActive && isSessionInactive && transcriptText.length > 0;
   const showProgress = audioExists && isActive && isProcessing;
+  const contextMenu = useMemo<MenuItemDef[]>(
+    () => [
+      {
+        id: `copy-transcript-${sessionId}`,
+        text: "Copy",
+        action: () => {
+          void handleCopy({
+            success: "Transcript copied to clipboard",
+            error: "Failed to copy transcript",
+          });
+        },
+        disabled: !canCopy,
+      },
+      {
+        id: `regenerate-transcript-${sessionId}`,
+        text: "Regenerate",
+        action: () => {
+          void handleRefresh();
+        },
+        disabled: !canRegenerate,
+      },
+    ],
+    [canCopy, canRegenerate, handleCopy, handleRefresh, sessionId],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
   const refreshButton = (
     <span
       onClick={handleRefreshClick}
@@ -243,7 +378,11 @@ function HeaderTabTranscript({
   );
 
   return (
-    <NoteTab isActive={isActive} onClick={onClick}>
+    <NoteTab
+      isActive={isActive}
+      onClick={onClick}
+      onContextMenu={showContextMenu}
+    >
       Transcript
       {showCopyButton && (
         <Tooltip>
@@ -276,26 +415,159 @@ function HeaderTabEnhanced({
   onClick = () => {},
   sessionId,
   enhancedNoteId,
+  canRemove = false,
+  onRemove,
 }: {
   isActive: boolean;
   onClick?: () => void;
   sessionId: string;
   enhancedNoteId: string;
+  canRemove?: boolean;
+  onRemove?: () => void;
 }) {
   const { isGenerating, isError, onRegenerate, onCancel, currentStep } =
     useEnhanceLogic(sessionId, enhancedNoteId);
+  const content = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "content",
+    main.STORE_ID,
+  ) as string | undefined;
+  const templateId = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "template_id",
+    main.STORE_ID,
+  ) as string | undefined;
+  const rawTemplateTitle = main.UI.useCell(
+    "templates",
+    templateId ?? "",
+    "title",
+    main.STORE_ID,
+  );
+  const templateTitle =
+    typeof rawTemplateTitle === "string" && rawTemplateTitle.trim()
+      ? rawTemplateTitle.trim()
+      : null;
+  const openTemplatesTab = useOpenTemplatesTab();
+  const summaryTitle = "Summary";
+  const tabLabel = templateTitle ?? summaryTitle;
+  const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
-  const title =
-    main.UI.useCell("enhanced_notes", enhancedNoteId, "title", main.STORE_ID) ||
-    "Summary";
-
+  const handleCopy = useCallback(() => {
+    return copyTextToClipboard(noteMarkdown, {
+      success: `${tabLabel} copied to clipboard`,
+      error: `Failed to copy ${tabLabel}`,
+    });
+  }, [noteMarkdown, tabLabel]);
+  const handleRegenerate = useCallback(() => {
+    void onRegenerate(null);
+  }, [onRegenerate]);
   const handleRegenerateClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      void onRegenerate(null);
+      handleRegenerate();
     },
-    [onRegenerate],
+    [handleRegenerate],
   );
+  const handleExploreTemplatesClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!templateId) {
+        return;
+      }
+
+      openTemplatesTab({
+        showHomepage: false,
+        isWebMode: false,
+        selectedMineId: templateId,
+        selectedWebIndex: null,
+      });
+    },
+    [openTemplatesTab, templateId],
+  );
+
+  const wrapWithTemplateTooltip = useCallback(
+    (node: React.ReactNode) => {
+      if (!templateId || !templateTitle) {
+        return node;
+      }
+
+      return (
+        <HoverCard openDelay={150} closeDelay={100}>
+          <HoverCardTrigger asChild>{node}</HoverCardTrigger>
+          <HoverCardContent
+            variant="app"
+            align="start"
+            side="bottom"
+            sideOffset={8}
+            avoidCollisions={false}
+            className="w-72"
+          >
+            <AppFloatingPanel className="flex flex-col gap-2 p-3">
+              <p className="text-xs leading-5 text-neutral-700">
+                <span className="font-medium text-neutral-900">
+                  {templateTitle}
+                </span>{" "}
+                was used to generate this summary.
+              </p>
+              <button
+                type="button"
+                onClick={handleExploreTemplatesClick}
+                className="w-fit text-xs font-medium text-neutral-900 underline underline-offset-2 hover:text-neutral-600"
+              >
+                Explore more templates
+              </button>
+            </AppFloatingPanel>
+          </HoverCardContent>
+        </HoverCard>
+      );
+    },
+    [handleExploreTemplatesClick, templateId, templateTitle],
+  );
+  const contextMenu = useMemo<MenuItemDef[]>(() => {
+    const items: MenuItemDef[] = [
+      {
+        id: `copy-enhanced-${enhancedNoteId}`,
+        text: "Copy",
+        action: () => {
+          void handleCopy();
+        },
+        disabled: noteMarkdown.length === 0,
+      },
+      {
+        id: `regenerate-enhanced-${enhancedNoteId}`,
+        text: "Regenerate",
+        action: handleRegenerate,
+        disabled: isGenerating,
+      },
+    ];
+
+    if (canRemove) {
+      items.push({ separator: true });
+      items.push({
+        id: `remove-enhanced-${enhancedNoteId}`,
+        text: "Remove",
+        action: () => {
+          onRemove?.();
+        },
+        disabled: isGenerating || !onRemove,
+      });
+    }
+
+    return items;
+  }, [
+    canRemove,
+    enhancedNoteId,
+    handleCopy,
+    handleRegenerate,
+    isGenerating,
+    noteMarkdown.length,
+    onRemove,
+  ]);
+  const showContextMenu = useNativeContextMenu(contextMenu);
 
   if (isGenerating) {
     const step = currentStep as TaskStepInfo<"enhance"> | undefined;
@@ -305,11 +577,12 @@ function HeaderTabEnhanced({
       onCancel();
     };
 
-    return (
+    return wrapWithTemplateTooltip(
       <div
         role="button"
         tabIndex={0}
         onClick={onClick}
+        onContextMenu={showContextMenu}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -317,7 +590,7 @@ function HeaderTabEnhanced({
           }
         }}
         className={cn([
-          "group/tab relative my-2 shrink-0 cursor-pointer border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200",
+          "group/tab relative my-2 shrink-0 cursor-pointer border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
           isActive
             ? ["text-neutral-900", "border-neutral-900"]
             : [
@@ -328,7 +601,7 @@ function HeaderTabEnhanced({
         ])}
       >
         <span className="flex h-5 items-center gap-1">
-          <TruncatedTitle title={title} isActive={isActive} />
+          <TruncatedTitle title={summaryTitle} isActive={isActive} />
           <button
             type="button"
             onClick={handleCancelClick}
@@ -353,7 +626,7 @@ function HeaderTabEnhanced({
             <XIcon className="hidden size-4 items-center justify-center group-hover/tab:flex" />
           </button>
         </span>
-      </div>
+      </div>,
     );
   }
 
@@ -387,11 +660,43 @@ function HeaderTabEnhanced({
     </span>
   );
 
-  return (
-    <NoteTab isActive={isActive} onClick={onClick}>
-      <TruncatedTitle title={title} isActive={isActive} />
+  return wrapWithTemplateTooltip(
+    <NoteTab
+      isActive={isActive}
+      onClick={onClick}
+      onContextMenu={showContextMenu}
+    >
+      <TruncatedTitle title={summaryTitle} isActive={isActive} />
       {isActive && regenerateIcon}
-    </NoteTab>
+    </NoteTab>,
+  );
+}
+
+function useOpenTemplatesTab() {
+  const openNew = useTabs((state) => state.openNew);
+  const selectTab = useTabs((state) => state.select);
+  const updateTemplatesTabState = useTabs(
+    (state) => state.updateTemplatesTabState,
+  );
+
+  return useCallback(
+    (state: Extract<Tab, { type: "templates" }>["state"]) => {
+      const existingTemplatesTab = useTabs
+        .getState()
+        .tabs.find(
+          (tab): tab is Extract<Tab, { type: "templates" }> =>
+            tab.type === "templates",
+        );
+
+      if (!existingTemplatesTab) {
+        openNew({ type: "templates", state });
+        return;
+      }
+
+      updateTemplatesTabState(existingTemplatesTab, state);
+      selectTab(existingTemplatesTab);
+    },
+    [openNew, selectTab, updateTemplatesTabState],
   );
 }
 
@@ -427,11 +732,7 @@ function CreateOtherFormatButton({
     data: suggestedTemplates = [],
     isLoading: isSuggestedTemplatesLoading,
   } = useWebResources<WebTemplate>("templates");
-  const openNew = useTabs((state) => state.openNew);
-  const selectTab = useTabs((state) => state.select);
-  const updateTemplatesTabState = useTabs(
-    (state) => state.updateTemplatesTabState,
-  );
+  const openTemplatesTab = useOpenTemplatesTab();
   const setRow = main.UI.useSetRowCallback(
     "templates",
     (p: {
@@ -463,26 +764,6 @@ function CreateOtherFormatButton({
     }),
     [],
     main.STORE_ID,
-  );
-
-  const openTemplatesTab = useCallback(
-    (state: Extract<Tab, { type: "templates" }>["state"]) => {
-      const existingTemplatesTab = useTabs
-        .getState()
-        .tabs.find(
-          (tab): tab is Extract<Tab, { type: "templates" }> =>
-            tab.type === "templates",
-        );
-
-      if (!existingTemplatesTab) {
-        openNew({ type: "templates", state });
-        return;
-      }
-
-      updateTemplatesTabState(existingTemplatesTab, state);
-      selectTab(existingTemplatesTab);
-    },
-    [openNew, selectTab, updateTemplatesTabState],
   );
 
   const handleUseTemplate = useCallback(
@@ -877,7 +1158,7 @@ function CreateOtherFormatButton({
       <PopoverTrigger asChild>
         <button
           className={cn([
-            "relative my-2 shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200",
+            "relative my-2 shrink-0 px-1 py-0.5 text-xs font-medium whitespace-nowrap transition-all duration-200 select-none",
             "text-neutral-600 hover:text-neutral-800",
             "flex items-center gap-1",
             "border-b-2 border-transparent",
@@ -996,11 +1277,16 @@ export function Header({
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isLiveProcessing = sessionMode === "active";
+  const store = main.UI.useStore(main.STORE_ID);
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const { atStart, atEnd } = useScrollFade(tabsRef, "horizontal", [
     editorTabs.length,
   ]);
+  const primaryEnhancedTabId = editorTabs.find(
+    (view): view is Extract<EditorView, { type: "enhanced" }> =>
+      view.type === "enhanced",
+  )?.id;
 
   if (editorTabs.length === 1 && editorTabs[0].type === "raw") {
     return null;
@@ -1014,17 +1300,45 @@ export function Header({
             ref={tabsRef}
             className="scrollbar-hide flex items-center gap-1 overflow-x-auto"
           >
-            {editorTabs.map((view) => {
+            {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
                 return (
                   <HeaderTabEnhanced
                     key={`enhanced-${view.id}`}
                     sessionId={sessionId}
                     enhancedNoteId={view.id}
+                    canRemove={view.id !== primaryEnhancedTabId}
+                    onRemove={
+                      view.id !== primaryEnhancedTabId
+                        ? () => {
+                            const previousView = editorTabs[index - 1];
+                            if (
+                              currentTab.type === "enhanced" &&
+                              currentTab.id === view.id &&
+                              previousView
+                            ) {
+                              handleTabChange(previousView);
+                            }
+
+                            store?.delRow("enhanced_notes", view.id);
+                          }
+                        : undefined
+                    }
                     isActive={
                       currentTab.type === "enhanced" &&
                       currentTab.id === view.id
                     }
+                    onClick={() => handleTabChange(view)}
+                  />
+                );
+              }
+
+              if (view.type === "raw") {
+                return (
+                  <HeaderTabRaw
+                    key={view.type}
+                    sessionId={sessionId}
+                    isActive={currentTab.type === view.type}
                     onClick={() => handleTabChange(view)}
                   />
                 );
