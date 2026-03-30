@@ -1,8 +1,25 @@
 import type { LanguageModel } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { TaskConfig } from ".";
 import { enhanceSuccess } from "./enhance-success";
+
+const mocks = vi.hoisted(() => ({
+  isFocused: vi.fn().mockResolvedValue(true),
+  showNotification: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    isFocused: mocks.isFocused,
+  }),
+}));
+
+vi.mock("@hypr/plugin-notification", () => ({
+  commands: {
+    showNotification: mocks.showNotification,
+  },
+}));
 
 type EnhanceSuccessParams = Parameters<
   NonNullable<TaskConfig<"enhance">["onSuccess"]>
@@ -35,6 +52,13 @@ function createParams(
 }
 
 describe("enhanceSuccess.onSuccess", () => {
+  beforeEach(() => {
+    mocks.isFocused.mockReset();
+    mocks.isFocused.mockResolvedValue(true);
+    mocks.showNotification.mockReset();
+    mocks.showNotification.mockResolvedValue({ status: "ok", data: null });
+  });
+
   it("persists enhanced note content as TipTap JSON string", async () => {
     const params = createParams();
 
@@ -97,5 +121,45 @@ describe("enhanceSuccess.onSuccess", () => {
     await enhanceSuccess.onSuccess?.(params);
 
     expect(params.startTask).not.toHaveBeenCalled();
+  });
+
+  it("shows a notification when summary generation finishes out of focus", async () => {
+    mocks.isFocused.mockResolvedValue(false);
+    const store = {
+      setPartialRow: vi.fn(),
+      getCell: vi.fn((table: string, _row: string, cell: string) => {
+        if (table === "enhanced_notes" && cell === "title") {
+          return "Summary";
+        }
+        if (table === "sessions" && cell === "title") {
+          return "Weekly sync";
+        }
+        return "";
+      }),
+    } as unknown as EnhanceSuccessParams["store"];
+    const params = createParams({ store });
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(mocks.showNotification).toHaveBeenCalledWith({
+      key: null,
+      title: "Summary ready",
+      message: "Weekly sync",
+      timeout: null,
+      source: null,
+      start_time: null,
+      participants: null,
+      event_details: null,
+      action_label: null,
+      options: null,
+    });
+  });
+
+  it("does not show a notification when the app is focused", async () => {
+    const params = createParams();
+
+    await enhanceSuccess.onSuccess?.(params);
+
+    expect(mocks.showNotification).not.toHaveBeenCalled();
   });
 });
