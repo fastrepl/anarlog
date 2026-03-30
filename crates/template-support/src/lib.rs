@@ -21,6 +21,19 @@ pub struct DeviceInfo {
     pub locale: Option<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub llm_provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub llm_model: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stt_provider: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stt_model: Option<String>,
+}
+
 #[derive(askama::Template)]
 #[template(path = "bug_report.md.jinja", escape = "none")]
 struct BugReportBody<'a> {
@@ -59,6 +72,7 @@ struct SupportChatPrompt;
 struct SupportContextBlock<'a> {
     account: Option<&'a AccountInfo>,
     device: &'a DeviceInfo,
+    models: Option<&'a ModelInfo>,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, specta::Type)]
@@ -75,6 +89,8 @@ pub enum SupportTemplate {
 pub struct SupportContext {
     pub account: Option<AccountInfo>,
     pub device: DeviceInfo,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub models: Option<ModelInfo>,
 }
 
 #[derive(Clone, serde::Deserialize, serde::Serialize, specta::Type)]
@@ -111,6 +127,7 @@ pub fn render(t: SupportTemplate) -> Result<String, askama::Error> {
         SupportTemplate::SupportContext(t) => askama::Template::render(&SupportContextBlock {
             account: t.account.as_ref(),
             device: &t.device,
+            models: t.models.as_ref(),
         }),
         SupportTemplate::BugReport(t) => askama::Template::render(&BugReportBody {
             description: &t.description,
