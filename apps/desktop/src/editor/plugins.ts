@@ -1,6 +1,6 @@
 import { type Mark, type Node as PMNode } from "prosemirror-model";
 import { Plugin, PluginKey, type Transaction } from "prosemirror-state";
-import { Decoration, DecorationSet } from "prosemirror-view";
+import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import tldList from "tlds";
 
 import {
@@ -315,7 +315,7 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
   const imageType = schema.nodes.image;
 
   function insertImage(
-    view: import("prosemirror-view").EditorView,
+    view: EditorView,
     url: string,
     attachmentId: string | null,
     pos?: number,
@@ -328,11 +328,7 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
     view.dispatch(tr);
   }
 
-  async function handleFiles(
-    view: import("prosemirror-view").EditorView,
-    files: File[],
-    pos?: number,
-  ) {
+  async function handleFiles(view: EditorView, files: File[], pos?: number) {
     for (const file of files) {
       if (!IMAGE_MIME_TYPES.includes(file.type)) continue;
 

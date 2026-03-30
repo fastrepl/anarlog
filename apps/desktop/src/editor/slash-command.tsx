@@ -26,7 +26,13 @@ import {
 } from "lucide-react";
 import { setBlockType } from "prosemirror-commands";
 import { wrapInList } from "prosemirror-schema-list";
-import { Plugin, PluginKey } from "prosemirror-state";
+import {
+  type EditorState,
+  Plugin,
+  PluginKey,
+  type Transaction,
+} from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -44,20 +50,16 @@ export interface SlashCommandItem {
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   keywords: string[];
-  action: (
-    view: import("prosemirror-view").EditorView,
-    from: number,
-    to: number,
-  ) => void;
+  action: (view: EditorView, from: number, to: number) => void;
 }
 
 function clearSlashAndRun(
-  view: import("prosemirror-view").EditorView,
+  view: EditorView,
   from: number,
   to: number,
   command: (
-    state: import("prosemirror-state").EditorState,
-    dispatch?: (tr: import("prosemirror-state").Transaction) => void,
+    state: EditorState,
+    dispatch?: (tr: Transaction) => void,
   ) => boolean,
 ) {
   const tr = view.state.tr.delete(from, to);
@@ -223,9 +225,7 @@ interface SlashCommandState {
 
 export const slashCommandKey = new PluginKey<SlashCommandState>("slashCommand");
 
-function findSlashCommand(
-  state: import("prosemirror-state").EditorState,
-): SlashCommandState | null {
+function findSlashCommand(state: EditorState): SlashCommandState | null {
   const { $from } = state.selection;
   if (!state.selection.empty) return null;
   if (isMentionActive(state)) return null;

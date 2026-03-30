@@ -20,6 +20,7 @@ import {
   UserIcon,
 } from "lucide-react";
 import {
+  type EditorState,
   NodeSelection,
   Plugin,
   PluginKey,
@@ -60,15 +61,13 @@ export const mentionSuggestionKey = new PluginKey<SuggestionState>(
   "mentionSuggestion",
 );
 
-export function isMentionActive(
-  state: import("prosemirror-state").EditorState,
-): boolean {
+export function isMentionActive(state: EditorState): boolean {
   const pluginState = mentionSuggestionKey.getState(state);
   return pluginState?.active === true;
 }
 
 function findSuggestion(
-  state: import("prosemirror-state").EditorState,
+  state: EditorState,
   trigger: string,
 ): SuggestionState | null {
   const { $from } = state.selection;
