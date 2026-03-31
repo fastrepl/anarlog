@@ -3,7 +3,43 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
+import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, type ReactNode } from "react";
+
+export const taskListNodeSpec: NodeSpec = {
+  content: "taskItem+",
+  group: "block",
+  parseDOM: [{ tag: 'ul[data-type="taskList"]' }],
+  toDOM() {
+    return ["ul", { "data-type": "taskList", class: "task-list" }, 0];
+  },
+};
+
+export const taskItemNodeSpec: NodeSpec = {
+  content: "paragraph block*",
+  defining: true,
+  attrs: { checked: { default: false } },
+  parseDOM: [
+    {
+      tag: 'li[data-type="taskItem"]',
+      getAttrs(dom) {
+        return {
+          checked: (dom as HTMLElement).getAttribute("data-checked") === "true",
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "li",
+      {
+        "data-type": "taskItem",
+        "data-checked": node.attrs.checked ? "true" : "false",
+      },
+      0,
+    ];
+  },
+};
 
 export const TaskItemView = forwardRef<
   HTMLLIElement,

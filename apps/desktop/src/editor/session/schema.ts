@@ -1,12 +1,12 @@
 import { type MarkSpec, type NodeSpec, Schema } from "prosemirror-model";
 
-import { parseYouTubeUrl } from "@hypr/tiptap/shared";
 import {
-  DEFAULT_EDITOR_WIDTH,
-  normalizeEditorWidth,
-  parseImageTitleMetadata,
-  stripEditorWidthFromTitle,
-} from "@hypr/tiptap/shared";
+  imageNodeSpec,
+  mentionNodeSpec,
+  taskItemNodeSpec,
+  taskListNodeSpec,
+} from "../node-views";
+import { clipNodeSpec } from "../plugins";
 
 // Node names match Tiptap for JSON content compatibility.
 const nodes: Record<string, NodeSpec> = {
@@ -117,153 +117,11 @@ const nodes: Record<string, NodeSpec> = {
     },
   },
 
-  taskList: {
-    content: "taskItem+",
-    group: "block",
-    parseDOM: [{ tag: 'ul[data-type="taskList"]' }],
-    toDOM() {
-      return ["ul", { "data-type": "taskList", class: "task-list" }, 0];
-    },
-  },
-
-  taskItem: {
-    content: "paragraph block*",
-    defining: true,
-    attrs: { checked: { default: false } },
-    parseDOM: [
-      {
-        tag: 'li[data-type="taskItem"]',
-        getAttrs(dom) {
-          return {
-            checked:
-              (dom as HTMLElement).getAttribute("data-checked") === "true",
-          };
-        },
-      },
-    ],
-    toDOM(node) {
-      return [
-        "li",
-        {
-          "data-type": "taskItem",
-          "data-checked": node.attrs.checked ? "true" : "false",
-        },
-        0,
-      ];
-    },
-  },
-
-  image: {
-    group: "block",
-    draggable: true,
-    attrs: {
-      src: { default: null },
-      alt: { default: null },
-      title: { default: null },
-      attachmentId: { default: null },
-      editorWidth: { default: DEFAULT_EDITOR_WIDTH },
-    },
-    parseDOM: [
-      {
-        tag: "img[src]",
-        getAttrs(dom) {
-          const el = dom as HTMLElement;
-          const title = el.getAttribute("title");
-          const metadata = parseImageTitleMetadata(title);
-          return {
-            src: el.getAttribute("src"),
-            alt: el.getAttribute("alt"),
-            title: stripEditorWidthFromTitle(title),
-            attachmentId: el.getAttribute("data-attachment-id"),
-            editorWidth:
-              normalizeEditorWidth(
-                Number(el.getAttribute("data-editor-width")),
-              ) ??
-              metadata.editorWidth ??
-              DEFAULT_EDITOR_WIDTH,
-          };
-        },
-      },
-    ],
-    toDOM(node) {
-      const attrs: Record<string, string> = {};
-      if (node.attrs.src) attrs.src = node.attrs.src;
-      if (node.attrs.alt) attrs.alt = node.attrs.alt;
-      if (node.attrs.title) attrs.title = node.attrs.title;
-      if (node.attrs.attachmentId) {
-        attrs["data-attachment-id"] = node.attrs.attachmentId;
-      }
-      if (node.attrs.editorWidth) {
-        attrs["data-editor-width"] = String(node.attrs.editorWidth);
-      }
-      return ["img", attrs];
-    },
-  },
-
-  "mention-@": {
-    group: "inline",
-    inline: true,
-    atom: true,
-    selectable: true,
-    attrs: {
-      id: { default: null },
-      type: { default: null },
-      label: { default: null },
-    },
-    parseDOM: [
-      {
-        tag: 'span.mention[data-mention="true"]',
-        getAttrs(dom) {
-          const el = dom as HTMLElement;
-          return {
-            id: el.getAttribute("data-id"),
-            type: el.getAttribute("data-type"),
-            label: el.getAttribute("data-label"),
-          };
-        },
-      },
-    ],
-    toDOM(node) {
-      return [
-        "span",
-        {
-          class: "mention",
-          "data-mention": "true",
-          "data-id": node.attrs.id,
-          "data-type": node.attrs.type,
-          "data-label": node.attrs.label,
-        },
-        node.attrs.label || "",
-      ];
-    },
-  },
-
-  clip: {
-    group: "block",
-    atom: true,
-    attrs: { src: { default: null } },
-    parseDOM: [
-      {
-        tag: 'div[data-type="clip"]',
-        getAttrs(dom) {
-          const src = (dom as HTMLElement).getAttribute("data-src");
-          const parsed = src ? parseYouTubeUrl(src) : null;
-          return parsed ? { src: parsed.embedUrl } : false;
-        },
-      },
-      {
-        tag: "iframe[src]",
-        getAttrs(dom) {
-          const src = (dom as HTMLElement).getAttribute("src");
-          const parsed = src ? parseYouTubeUrl(src) : null;
-          return parsed ? { src: parsed.embedUrl } : false;
-        },
-      },
-    ],
-    toDOM(node) {
-      return ["div", { "data-type": "clip", "data-src": node.attrs.src }];
-    },
-  },
+  taskList: taskListNodeSpec,
+  taskItem: taskItemNodeSpec,
+  image: imageNodeSpec,
+  "mention-@": mentionNodeSpec,
+  clip: clipNodeSpec,
 };
 
 const marks: Record<string, MarkSpec> = {

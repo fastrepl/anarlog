@@ -3,14 +3,63 @@ import {
   useEditorEventCallback,
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
+import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback, useRef, useState } from "react";
 
 import {
   DEFAULT_EDITOR_WIDTH,
   normalizeEditorWidth,
+  parseImageTitleMetadata,
   stripEditorWidthFromTitle,
 } from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
+
+export const imageNodeSpec: NodeSpec = {
+  group: "block",
+  draggable: true,
+  attrs: {
+    src: { default: null },
+    alt: { default: null },
+    title: { default: null },
+    attachmentId: { default: null },
+    editorWidth: { default: DEFAULT_EDITOR_WIDTH },
+  },
+  parseDOM: [
+    {
+      tag: "img[src]",
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        const title = el.getAttribute("title");
+        const metadata = parseImageTitleMetadata(title);
+        return {
+          src: el.getAttribute("src"),
+          alt: el.getAttribute("alt"),
+          title: stripEditorWidthFromTitle(title),
+          attachmentId: el.getAttribute("data-attachment-id"),
+          editorWidth:
+            normalizeEditorWidth(
+              Number(el.getAttribute("data-editor-width")),
+            ) ??
+            metadata.editorWidth ??
+            DEFAULT_EDITOR_WIDTH,
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const attrs: Record<string, string> = {};
+    if (node.attrs.src) attrs.src = node.attrs.src;
+    if (node.attrs.alt) attrs.alt = node.attrs.alt;
+    if (node.attrs.title) attrs.title = node.attrs.title;
+    if (node.attrs.attachmentId) {
+      attrs["data-attachment-id"] = node.attrs.attachmentId;
+    }
+    if (node.attrs.editorWidth) {
+      attrs["data-editor-width"] = String(node.attrs.editorWidth);
+    }
+    return ["img", attrs];
+  },
+};
 
 export const ResizableImageView = forwardRef<
   HTMLDivElement,

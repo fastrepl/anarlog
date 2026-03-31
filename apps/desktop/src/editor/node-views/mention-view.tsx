@@ -6,9 +6,48 @@ import {
   StickyNoteIcon,
   UserIcon,
 } from "lucide-react";
+import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback } from "react";
 
 import { cn } from "@hypr/utils";
+
+export const mentionNodeSpec: NodeSpec = {
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  attrs: {
+    id: { default: null },
+    type: { default: null },
+    label: { default: null },
+  },
+  parseDOM: [
+    {
+      tag: 'span.mention[data-mention="true"]',
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        return {
+          id: el.getAttribute("data-id"),
+          type: el.getAttribute("data-type"),
+          label: el.getAttribute("data-label"),
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    return [
+      "span",
+      {
+        class: "mention",
+        "data-mention": "true",
+        "data-id": node.attrs.id,
+        "data-type": node.attrs.type,
+        "data-label": node.attrs.label,
+      },
+      node.attrs.label || "",
+    ];
+  },
+};
 
 const GLOBAL_NAVIGATE_FUNCTION = "__HYPR_NAVIGATE__";
 

@@ -3,7 +3,48 @@ import {
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
 import { FileIcon, XIcon } from "lucide-react";
+import type { NodeSpec } from "prosemirror-model";
 import { forwardRef } from "react";
+
+export const attachmentNodeSpec: NodeSpec = {
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  attrs: {
+    id: { default: null },
+    name: { default: "" },
+    mimeType: { default: "" },
+    url: { default: null },
+    size: { default: null },
+  },
+  parseDOM: [
+    {
+      tag: 'span[data-type="attachment"]',
+      getAttrs(dom) {
+        const el = dom as HTMLElement;
+        return {
+          id: el.getAttribute("data-id"),
+          name: el.getAttribute("data-name"),
+          mimeType: el.getAttribute("data-mime-type"),
+          url: el.getAttribute("data-url"),
+          size: el.getAttribute("data-size")
+            ? Number(el.getAttribute("data-size"))
+            : null,
+        };
+      },
+    },
+  ],
+  toDOM(node) {
+    const attrs: Record<string, string> = { "data-type": "attachment" };
+    if (node.attrs.id) attrs["data-id"] = node.attrs.id;
+    if (node.attrs.name) attrs["data-name"] = node.attrs.name;
+    if (node.attrs.mimeType) attrs["data-mime-type"] = node.attrs.mimeType;
+    if (node.attrs.url) attrs["data-url"] = node.attrs.url;
+    if (node.attrs.size != null) attrs["data-size"] = String(node.attrs.size);
+    return ["span", attrs, node.attrs.name || "attachment"];
+  },
+};
 
 export const AttachmentChipView = forwardRef<
   HTMLSpanElement,
