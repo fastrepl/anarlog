@@ -1,4 +1,4 @@
-import { CheckCircle2, Construction, XCircle } from "lucide-react";
+import { CheckCircle2, Construction, RefreshCw, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cn } from "@hypr/utils";
@@ -19,6 +19,7 @@ export function PlanGrid({
   isPaid,
   renderAction,
   renderManageBilling,
+  onRefresh,
 }: {
   currentPlan: PlanTier;
   isTrialing: boolean;
@@ -27,6 +28,7 @@ export function PlanGrid({
   isPaid: boolean;
   renderAction: (tier: PlanTierData, action: TierAction) => ReactNode;
   renderManageBilling?: () => ReactNode;
+  onRefresh?: () => void;
 }) {
   const statusText = isTrialing
     ? `Pro trial${trialDaysRemaining != null ? ` \u2014 ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left` : ""}`
@@ -39,7 +41,19 @@ export function PlanGrid({
           <h3 className="mb-2 font-serif text-lg font-semibold">
             Plan & Billing
           </h3>
-          <p className="text-sm text-neutral-600">{statusText}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-neutral-600">{statusText}</p>
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="text-neutral-400 transition-colors hover:text-neutral-600"
+                aria-label="Refresh billing status"
+              >
+                <RefreshCw className="size-3" />
+              </button>
+            )}
+          </div>
         </div>
         {isPaid && renderManageBilling?.()}
       </div>

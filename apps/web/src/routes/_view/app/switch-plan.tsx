@@ -13,6 +13,10 @@ const validateSearch = z.object({
 export const Route = createFileRoute("/_view/app/switch-plan")({
   validateSearch,
   beforeLoad: async ({ search }) => {
+    if (!search.scheme) {
+      throw redirect({ to: "/download/" });
+    }
+
     const { url } = await createPlanSwitchSession({
       data: {
         targetPlan: search.targetPlan,
@@ -25,6 +29,6 @@ export const Route = createFileRoute("/_view/app/switch-plan")({
       throw redirect({ href: url } as any);
     }
 
-    throw redirect({ to: "/app/account/" });
+    throw redirect({ to: "/" });
   },
 });

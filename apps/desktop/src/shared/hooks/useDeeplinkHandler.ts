@@ -1,9 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
 import { events as deeplink2Events } from "@hypr/plugin-deeplink2";
+import { commands as windowsCommands } from "@hypr/plugin-windows";
 
 import { useAuth } from "~/auth";
 import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
@@ -11,6 +13,7 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function useDeeplinkHandler() {
   const auth = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const openNew = useTabs((state) => state.openNew);
   const scheduleCalendarSync = useScheduleTaskRunCallback(
@@ -38,12 +41,16 @@ export function useDeeplinkHandler() {
         if (access_token && refresh_token && auth) {
           void auth.setSessionFromTokens(access_token, refresh_token);
         }
+        void windowsCommands.windowRestoreFrameAnimated({ type: "main" });
+        void navigate({ to: "/app/main" });
       } else if (payload.to === "/billing/refresh") {
         if (auth) {
           void auth.refreshSession();
         }
       } else if (payload.to === "/integration/callback") {
         const { integration_id, status, return_to } = payload.search;
+        void windowsCommands.windowRestoreFrameAnimated({ type: "main" });
+        void navigate({ to: "/app/main" });
         if (status === "success") {
           console.log(`[deeplink] integration updated: ${integration_id}`);
           refreshIntegrationState();

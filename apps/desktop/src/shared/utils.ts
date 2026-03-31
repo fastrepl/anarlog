@@ -23,7 +23,8 @@ type DesktopFlowPath =
   | "/auth"
   | "/app/integration"
   | "/app/checkout"
-  | "/app/switch-plan";
+  | "/app/switch-plan"
+  | "/app/portal";
 
 export const buildWebAppUrl = async (
   path: DesktopFlowPath,

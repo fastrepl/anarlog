@@ -49,11 +49,19 @@ export const Route = createFileRoute("/_view/callback/auth")({
           throw redirect({ to: "/update-password/", search: {} });
         }
         throw redirect({
-          to: search.redirect || "/app/account/",
+          to: search.redirect || "/",
           search: {},
         });
       } else {
-        console.error(result.error);
+        throw redirect({
+          to: "/callback/auth/",
+          search: {
+            flow: "web",
+            scheme: search.scheme,
+            error: "exchange_failed",
+            error_description: result.error ?? undefined,
+          },
+        });
       }
     }
 
@@ -73,7 +81,15 @@ export const Route = createFileRoute("/_view/callback/auth")({
           },
         });
       } else {
-        console.error(result.error);
+        throw redirect({
+          to: "/callback/auth/",
+          search: {
+            flow: "desktop",
+            scheme: search.scheme,
+            error: "exchange_failed",
+            error_description: result.error ?? undefined,
+          },
+        });
       }
     }
 
@@ -90,7 +106,15 @@ export const Route = createFileRoute("/_view/callback/auth")({
         if (result.success) {
           throw redirect({ to: "/update-password/", search: {} });
         } else {
-          console.error(result.error);
+          throw redirect({
+            to: "/callback/auth/",
+            search: {
+              flow: search.flow,
+              scheme: search.scheme,
+              error: "exchange_failed",
+              error_description: result.error ?? undefined,
+            },
+          });
         }
       } else {
         const result = await exchangeOtpToken({
@@ -104,7 +128,7 @@ export const Route = createFileRoute("/_view/callback/auth")({
         if (result.success) {
           if (search.flow === "web") {
             throw redirect({
-              to: search.redirect || "/app/account/",
+              to: search.redirect || "/",
               search: {},
             });
           }
@@ -121,7 +145,15 @@ export const Route = createFileRoute("/_view/callback/auth")({
             });
           }
         } else {
-          console.error(result.error);
+          throw redirect({
+            to: "/callback/auth/",
+            search: {
+              flow: search.flow,
+              scheme: search.scheme,
+              error: "exchange_failed",
+              error_description: result.error ?? undefined,
+            },
+          });
         }
       }
     }
@@ -184,7 +216,7 @@ function Component() {
   useEffect(() => {
     if (search.flow === "web" && !search.error) {
       navigate({
-        to: search.redirect || "/app/account/",
+        to: search.redirect || "/",
         search: {},
         replace: true,
       });

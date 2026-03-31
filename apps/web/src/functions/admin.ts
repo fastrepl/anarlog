@@ -1,7 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { getSupabaseServerClient } from "@/functions/supabase";
-import { ADMIN_EMAILS } from "@/lib/team";
+
+const ADMIN_EMAILS = [
+  "yujonglee@hyprnote.com",
+  "yujonglee.dev@gmail.com",
+  "john@hyprnote.com",
+  "marketing@hyprnote.com",
+  "harshika.alagh@gmail.com",
+  "yunhyungjo@yonsei.ac.kr",
+  "goranmoomin@daum.net",
+  "artem@hyprnote.com",
+  "stua@fastmail.com",
+  "thestua@gmail.com",
+];
 
 export const isAdminEmail = (email: string): boolean => {
   return ADMIN_EMAILS.includes(email.toLowerCase());

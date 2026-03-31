@@ -94,9 +94,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       );
 
       if (activeSubscription) {
+        const returnUrl = data.scheme
+          ? `${env.VITE_APP_URL}/callback/billing?scheme=${data.scheme}`
+          : `${env.VITE_APP_URL}/`;
         const portalSession = await stripe.billingPortal.sessions.create({
           customer: stripeCustomerId,
-          return_url: `${env.VITE_APP_URL}/app/account`,
+          return_url: returnUrl,
         });
         return { url: portalSession.url };
       }
@@ -135,15 +138,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
           : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
-    const successParams = new URLSearchParams({ success: "true" });
-    if (data.scheme) {
-      successParams.set("scheme", data.scheme);
-    }
+    const successUrl = data.scheme
+      ? `${env.VITE_APP_URL}/callback/billing?scheme=${data.scheme}`
+      : `${env.VITE_APP_URL}/`;
 
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      success_url: `${env.VITE_APP_URL}/app/account?${successParams.toString()}`,
-      cancel_url: `${env.VITE_APP_URL}/app/account`,
+      success_url: successUrl,
+      cancel_url: `${env.VITE_APP_URL}/`,
       line_items: [
         {
           price: priceId,
@@ -212,8 +214,8 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
     const returnUrl = data.scheme
-      ? `${env.VITE_APP_URL}/app/account?scheme=${data.scheme}`
-      : `${env.VITE_APP_URL}/app/account`;
+      ? `${env.VITE_APP_URL}/callback/billing?scheme=${data.scheme}`
+      : `${env.VITE_APP_URL}/`;
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
@@ -239,8 +241,13 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
     return { url: portalSession.url };
   });
 
-export const createPortalSession = createServerFn({ method: "POST" }).handler(
-  async () => {
+const createPortalSessionInput = z.object({
+  scheme: desktopSchemeSchema.optional(),
+});
+
+export const createPortalSession = createServerFn({ method: "POST" })
+  .inputValidator(createPortalSessionInput)
+  .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
     const {
       data: { user },
@@ -261,14 +268,17 @@ export const createPortalSession = createServerFn({ method: "POST" }).handler(
 
     const stripe = getStripeClient();
 
+    const returnUrl = data.scheme
+      ? `${env.VITE_APP_URL}/callback/billing?scheme=${data.scheme}`
+      : `${env.VITE_APP_URL}/`;
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${env.VITE_APP_URL}/app/account`,
+      return_url: returnUrl,
     });
 
     return { url: portalSession.url };
-  },
-);
+  });
 
 export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
   async () => {

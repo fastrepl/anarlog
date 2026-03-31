@@ -259,33 +259,17 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
         </div>
 
         <div className="mt-auto pt-8">
-          {plan.price ? (
-            <Link
-              to="/app/checkout/"
-              search={{
-                plan: plan.name.toLowerCase() as "lite" | "pro",
-                period: "monthly",
-              }}
-              className={cn([
-                "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-                plan.popular
-                  ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
-                  : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
-              ])}
-            >
-              Get Started
-            </Link>
-          ) : (
-            <Link
-              to="/download/"
-              className={cn([
-                "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
-                "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
-              ])}
-            >
-              Download for free
-            </Link>
-          )}
+          <Link
+            to="/download/"
+            className={cn([
+              "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+              plan.popular
+                ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+            ])}
+          >
+            {plan.price ? "Get Started" : "Download for free"}
+          </Link>
         </div>
       </div>
     </div>

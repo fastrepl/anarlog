@@ -18,6 +18,7 @@ import {
 
 import {
   canStartTrial as canStartTrialApi,
+  deleteAccount as deleteAccountApi,
   startTrial,
 } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
@@ -30,16 +31,15 @@ import {
   type TierAction,
 } from "@hypr/pricing";
 import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
 import { configureProSettings } from "~/shared/config/configure-pro-settings";
+import { useOAuthFlow } from "~/shared/hooks/useOAuthFlow";
+import { buildWebAppUrl } from "~/shared/utils";
 import * as settings from "~/store/tinybase/store/settings";
-
-const WEB_APP_BASE_URL = env.VITE_APP_URL ?? "http://localhost:3000";
 const ACCOUNT_FEATURES = [
   {
     label: "Cloud Services",
@@ -66,25 +66,18 @@ export function SettingsAccount() {
   const auth = useAuth();
   const { plan, isPaid, isPro, isTrialing, trialDaysRemaining } =
     useBillingAccess();
+  const { start: startOAuthFlow } = useOAuthFlow();
 
   const isAuthenticated = !!auth?.session;
-  const [isPending, setIsPending] = useState(false);
-  const [callbackUrl, setCallbackUrl] = useState("");
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      setIsPending(false);
-    }
-  }, [isAuthenticated]);
 
   const handleSignIn = useCallback(async () => {
-    setIsPending(true);
-    try {
-      await auth?.signIn();
-    } catch {
-      setIsPending(false);
-    }
-  }, [auth]);
+    const url = await buildWebAppUrl("/auth");
+    await startOAuthFlow({
+      url,
+      title: "Sign in to Char",
+      description: "Complete sign-in in your browser, then return to Char.",
+    });
+  }, [startOAuthFlow]);
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
@@ -102,46 +95,6 @@ export function SettingsAccount() {
   });
 
   if (!isAuthenticated) {
-    if (isPending) {
-      return (
-        <div className="flex flex-col gap-8">
-          <div>
-            <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
-            <Container
-              title="Finish sign-in"
-              description="Complete the sign-in flow in your browser, then come back here if Char does not reconnect automatically."
-              action={
-                <Button onClick={handleSignIn} variant="outline">
-                  Reopen sign-in page
-                </Button>
-              }
-            >
-              <div className="flex flex-col gap-3">
-                <p className="text-xs text-neutral-500">
-                  Having trouble? Paste the callback URL manually.
-                </p>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    type="text"
-                    className="flex-1 font-mono text-xs"
-                    placeholder="hyprnote://deeplink/auth?access_token=..."
-                    value={callbackUrl}
-                    onChange={(e) => setCallbackUrl(e.target.value)}
-                  />
-                  <Button
-                    onClick={() => auth?.handleAuthCallback(callbackUrl)}
-                    disabled={!callbackUrl}
-                  >
-                    Submit
-                  </Button>
-                </div>
-              </div>
-            </Container>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="flex flex-col gap-8">
         <section className="pb-4">
@@ -202,6 +155,64 @@ export function SettingsAccount() {
         trialDaysRemaining={trialDaysRemaining}
         isPaid={isPaid}
         isPro={isPro}
+      />
+
+      <DeleteAccountSection />
+    </div>
+  );
+}
+
+function DeleteAccountSection() {
+  const auth = useAuth();
+  const [confirmed, setConfirmed] = useState(false);
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const headers = auth?.getHeaders();
+      if (!headers) {
+        throw new Error("Not authenticated");
+      }
+      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+      const { error } = await deleteAccountApi({ client });
+      if (error) {
+        throw error;
+      }
+      await auth?.signOut();
+    },
+  });
+
+  return (
+    <div>
+      <h2 className="mb-4 font-serif text-lg font-semibold">Danger Zone</h2>
+      <Container
+        title="Delete Account"
+        description="Permanently delete your account and all cloud data. Local data remains on your device."
+        action={
+          confirmed ? (
+            <Button
+              variant="outline"
+              onClick={() => deleteAccountMutation.mutate()}
+              disabled={deleteAccountMutation.isPending}
+              className={cn([
+                "border-red-300 bg-red-50 text-red-700 hover:border-red-400 hover:bg-red-100 hover:text-red-800",
+              ])}
+            >
+              {deleteAccountMutation.isPending
+                ? "Deleting..."
+                : "Confirm delete"}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => setConfirmed(true)}
+              className={cn([
+                "border-neutral-200 text-neutral-600 hover:border-red-200 hover:text-red-700",
+              ])}
+            >
+              Delete account
+            </Button>
+          )
+        }
       />
     </div>
   );
@@ -299,7 +310,7 @@ function PlanBillingSection({
 
     const isUpgrade = action.style === "upgrade";
 
-    const handleClick = () => {
+    const handleClick = async () => {
       if (action.label === "Start free trial") {
         startTrialMutation.mutate();
         return;
@@ -312,13 +323,17 @@ function PlanBillingSection({
       });
 
       if (isPaid && action.targetPlan) {
-        openUrl(
-          `${WEB_APP_BASE_URL}/app/switch-plan?targetPlan=${action.targetPlan}&targetPeriod=monthly`,
-        );
+        const url = await buildWebAppUrl("/app/switch-plan", {
+          targetPlan: action.targetPlan,
+          targetPeriod: "monthly",
+        });
+        openUrl(url);
       } else {
-        openUrl(
-          `${WEB_APP_BASE_URL}/app/checkout?plan=${action.targetPlan}&period=monthly`,
-        );
+        const url = await buildWebAppUrl("/app/checkout", {
+          plan: action.targetPlan,
+          period: "monthly",
+        });
+        openUrl(url);
       }
     };
 
@@ -375,7 +390,10 @@ function PlanBillingSection({
         {isPaid && (
           <button
             type="button"
-            onClick={() => openUrl(`${WEB_APP_BASE_URL}/app/account`)}
+            onClick={async () => {
+              const url = await buildWebAppUrl("/app/portal");
+              openUrl(url);
+            }}
             className="text-xs text-neutral-500 transition-colors hover:text-neutral-700"
           >
             Manage billing
@@ -448,7 +466,7 @@ function PlanTierList({
                     {tier.name}
                   </span>
                   {isCurrent && (
-                    <span className="rounded-full bg-stone-600 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
+                    <span className="rounded-full bg-stone-800 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
                       {isTrialing ? "Trial" : "Current"}
                     </span>
                   )}
@@ -546,7 +564,7 @@ function PlanTierList({
                     {tier.period}
                   </span>
                   {isCurrent && (
-                    <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
+                    <span className="rounded-full bg-stone-800 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
                       {isTrialing ? "Trial" : "Current"}
                     </span>
                   )}

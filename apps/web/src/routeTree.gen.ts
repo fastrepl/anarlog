@@ -112,9 +112,11 @@ import { Route as ViewCompanyHandbookSplatRouteImport } from './routes/_view/com
 import { Route as ViewChangelogSlugRouteImport } from './routes/_view/changelog/$slug'
 import { Route as ViewCallbackSignoutRouteImport } from './routes/_view/callback/signout'
 import { Route as ViewCallbackIntegrationRouteImport } from './routes/_view/callback/integration'
+import { Route as ViewCallbackBillingRouteImport } from './routes/_view/callback/billing'
 import { Route as ViewCallbackAuthRouteImport } from './routes/_view/callback/auth'
 import { Route as ViewBlogSlugRouteImport } from './routes/_view/blog/$slug'
 import { Route as ViewAppSwitchPlanRouteImport } from './routes/_view/app/switch-plan'
+import { Route as ViewAppPortalRouteImport } from './routes/_view/app/portal'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
@@ -680,6 +682,11 @@ const ViewCallbackIntegrationRoute = ViewCallbackIntegrationRouteImport.update({
   path: '/callback/integration',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewCallbackBillingRoute = ViewCallbackBillingRouteImport.update({
+  id: '/callback/billing',
+  path: '/callback/billing',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewCallbackAuthRoute = ViewCallbackAuthRouteImport.update({
   id: '/callback/auth',
   path: '/callback/auth',
@@ -693,6 +700,11 @@ const ViewBlogSlugRoute = ViewBlogSlugRouteImport.update({
 const ViewAppSwitchPlanRoute = ViewAppSwitchPlanRouteImport.update({
   id: '/switch-plan',
   path: '/switch-plan',
+  getParentRoute: () => ViewAppRouteRoute,
+} as any)
+const ViewAppPortalRoute = ViewAppPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
   getParentRoute: () => ViewAppRouteRoute,
 } as any)
 const ViewAppIntegrationRoute = ViewAppIntegrationRouteImport.update({
@@ -946,9 +958,11 @@ export interface FileRoutesByFullPath {
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
+  '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -1089,9 +1103,11 @@ export interface FileRoutesByTo {
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
+  '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -1238,9 +1254,11 @@ export interface FileRoutesById {
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
+  '/_view/app/portal': typeof ViewAppPortalRoute
   '/_view/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/_view/blog/$slug': typeof ViewBlogSlugRoute
   '/_view/callback/auth': typeof ViewCallbackAuthRoute
+  '/_view/callback/billing': typeof ViewCallbackBillingRoute
   '/_view/callback/integration': typeof ViewCallbackIntegrationRoute
   '/_view/callback/signout': typeof ViewCallbackSignoutRoute
   '/_view/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -1387,9 +1405,11 @@ export interface FileRouteTypes {
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
+    | '/app/portal'
     | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
+    | '/callback/billing'
     | '/callback/integration'
     | '/callback/signout'
     | '/changelog/$slug'
@@ -1530,9 +1550,11 @@ export interface FileRouteTypes {
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
+    | '/app/portal'
     | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
+    | '/callback/billing'
     | '/callback/integration'
     | '/callback/signout'
     | '/changelog/$slug'
@@ -1678,9 +1700,11 @@ export interface FileRouteTypes {
     | '/_view/app/account'
     | '/_view/app/checkout'
     | '/_view/app/integration'
+    | '/_view/app/portal'
     | '/_view/app/switch-plan'
     | '/_view/blog/$slug'
     | '/_view/callback/auth'
+    | '/_view/callback/billing'
     | '/_view/callback/integration'
     | '/_view/callback/signout'
     | '/_view/changelog/$slug'
@@ -2564,6 +2588,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewCallbackIntegrationRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/callback/billing': {
+      id: '/_view/callback/billing'
+      path: '/callback/billing'
+      fullPath: '/callback/billing'
+      preLoaderRoute: typeof ViewCallbackBillingRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/callback/auth': {
       id: '/_view/callback/auth'
       path: '/callback/auth'
@@ -2583,6 +2614,13 @@ declare module '@tanstack/react-router' {
       path: '/switch-plan'
       fullPath: '/app/switch-plan'
       preLoaderRoute: typeof ViewAppSwitchPlanRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
+    '/_view/app/portal': {
+      id: '/_view/app/portal'
+      path: '/portal'
+      fullPath: '/app/portal'
+      preLoaderRoute: typeof ViewAppPortalRouteImport
       parentRoute: typeof ViewAppRouteRoute
     }
     '/_view/app/integration': {
@@ -2872,6 +2910,7 @@ interface ViewAppRouteRouteChildren {
   ViewAppAccountRoute: typeof ViewAppAccountRoute
   ViewAppCheckoutRoute: typeof ViewAppCheckoutRoute
   ViewAppIntegrationRoute: typeof ViewAppIntegrationRoute
+  ViewAppPortalRoute: typeof ViewAppPortalRoute
   ViewAppSwitchPlanRoute: typeof ViewAppSwitchPlanRoute
   ViewAppIndexRoute: typeof ViewAppIndexRoute
 }
@@ -2880,6 +2919,7 @@ const ViewAppRouteRouteChildren: ViewAppRouteRouteChildren = {
   ViewAppAccountRoute: ViewAppAccountRoute,
   ViewAppCheckoutRoute: ViewAppCheckoutRoute,
   ViewAppIntegrationRoute: ViewAppIntegrationRoute,
+  ViewAppPortalRoute: ViewAppPortalRoute,
   ViewAppSwitchPlanRoute: ViewAppSwitchPlanRoute,
   ViewAppIndexRoute: ViewAppIndexRoute,
 }
@@ -2936,6 +2976,7 @@ interface ViewRouteRouteChildren {
   ViewIndexRoute: typeof ViewIndexRoute
   ViewBlogSlugRoute: typeof ViewBlogSlugRoute
   ViewCallbackAuthRoute: typeof ViewCallbackAuthRoute
+  ViewCallbackBillingRoute: typeof ViewCallbackBillingRoute
   ViewCallbackIntegrationRoute: typeof ViewCallbackIntegrationRoute
   ViewCallbackSignoutRoute: typeof ViewCallbackSignoutRoute
   ViewChangelogSlugRoute: typeof ViewChangelogSlugRoute
@@ -3021,6 +3062,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewIndexRoute: ViewIndexRoute,
   ViewBlogSlugRoute: ViewBlogSlugRoute,
   ViewCallbackAuthRoute: ViewCallbackAuthRoute,
+  ViewCallbackBillingRoute: ViewCallbackBillingRoute,
   ViewCallbackIntegrationRoute: ViewCallbackIntegrationRoute,
   ViewCallbackSignoutRoute: ViewCallbackSignoutRoute,
   ViewChangelogSlugRoute: ViewChangelogSlugRoute,

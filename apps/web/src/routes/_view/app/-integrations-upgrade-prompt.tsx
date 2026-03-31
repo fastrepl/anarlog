@@ -49,10 +49,10 @@ export function UpgradePrompt({
           </button>
         ) : (
           <Link
-            to="/app/account/"
+            to="/"
             className="text-sm text-neutral-500 transition-colors hover:text-neutral-700"
           >
-            Back to account
+            Back
           </Link>
         )}
       </div>

@@ -17,12 +17,14 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import { openIntegrationUrl } from "~/shared/integration";
+import { useOAuthFlow } from "~/shared/hooks/useOAuthFlow";
+import { buildIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
   const { isPro, upgradeToPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPro);
+  const { start: startOAuthFlow } = useOAuthFlow();
   const providerConnections = useMemo(
     () =>
       connections?.filter(
@@ -31,16 +33,20 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
     [connections, config.nangoIntegrationId],
   );
 
-  const handleAddAccount = useCallback(
-    () =>
-      openIntegrationUrl(
-        config.nangoIntegrationId,
-        undefined,
-        "connect",
-        "calendar",
-      ),
-    [config.nangoIntegrationId],
-  );
+  const handleAddAccount = useCallback(async () => {
+    const url = await buildIntegrationUrl(
+      config.nangoIntegrationId,
+      undefined,
+      "connect",
+      "calendar",
+    );
+    if (!url) return;
+    await startOAuthFlow({
+      url,
+      title: `Connect ${config.displayName} Calendar`,
+      description: `Complete the connection in your browser, then return to Char.`,
+    });
+  }, [config.nangoIntegrationId, config.displayName, startOAuthFlow]);
 
   if (!auth.session) {
     return (
@@ -86,22 +92,34 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
           <ReconnectRequiredContent
             key={connection.connection_id}
             config={config}
-            onReconnect={() =>
-              openIntegrationUrl(
+            onReconnect={async () => {
+              const url = await buildIntegrationUrl(
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "reconnect",
                 "calendar",
-              )
-            }
-            onDisconnect={() =>
-              openIntegrationUrl(
+              );
+              if (!url) return;
+              await startOAuthFlow({
+                url,
+                title: `Reconnect ${config.displayName} Calendar`,
+                description: `Complete the reconnection in your browser, then return to Char.`,
+              });
+            }}
+            onDisconnect={async () => {
+              const url = await buildIntegrationUrl(
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "disconnect",
                 "calendar",
-              )
-            }
+              );
+              if (!url) return;
+              await startOAuthFlow({
+                url,
+                title: `Disconnect ${config.displayName} Calendar`,
+                description: `Complete the disconnection in your browser, then return to Char.`,
+              });
+            }}
             errorDescription={connection.last_error_description ?? null}
           />
         ))}
@@ -183,6 +201,7 @@ function ConnectedContent({
 }) {
   const { groups, connectionSourceMap, handleToggle, isLoading } =
     useOAuthCalendarSelection(config);
+  const { start: startOAuthFlow } = useOAuthFlow();
 
   const groupsWithMenus = useMemo(
     () =>
@@ -201,29 +220,50 @@ function ConnectedContent({
             {
               id: `reconnect-${connection.connection_id}`,
               text: "Reconnect",
-              action: () =>
-                void openIntegrationUrl(
+              action: async () => {
+                const url = await buildIntegrationUrl(
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "reconnect",
                   "calendar",
-                ),
+                );
+                if (!url) return;
+                await startOAuthFlow({
+                  url,
+                  title: `Reconnect ${config.displayName} Calendar`,
+                  description: `Complete the reconnection in your browser, then return to Char.`,
+                });
+              },
             },
             {
               id: `disconnect-${connection.connection_id}`,
               text: "Disconnect",
-              action: () =>
-                void openIntegrationUrl(
+              action: async () => {
+                const url = await buildIntegrationUrl(
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "disconnect",
                   "calendar",
-                ),
+                );
+                if (!url) return;
+                await startOAuthFlow({
+                  url,
+                  title: `Disconnect ${config.displayName} Calendar`,
+                  description: `Complete the disconnection in your browser, then return to Char.`,
+                });
+              },
             },
           ],
         };
       }),
-    [config.nangoIntegrationId, connectionSourceMap, connections, groups],
+    [
+      config.nangoIntegrationId,
+      config.displayName,
+      connectionSourceMap,
+      connections,
+      groups,
+      startOAuthFlow,
+    ],
   );
 
   return (

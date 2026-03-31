@@ -1,24 +1,22 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { createCheckoutSession } from "@/functions/billing";
+import { createPortalSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
 const validateSearch = z.object({
-  period: z.enum(["monthly", "yearly"]).catch("monthly"),
-  plan: z.enum(["lite", "pro"]).catch("pro"),
   scheme: desktopSchemeSchema.optional(),
 });
 
-export const Route = createFileRoute("/_view/app/checkout")({
+export const Route = createFileRoute("/_view/app/portal")({
   validateSearch,
   beforeLoad: async ({ search }) => {
     if (!search.scheme) {
       throw redirect({ to: "/download/" });
     }
 
-    const { url } = await createCheckoutSession({
-      data: { period: search.period, plan: search.plan, scheme: search.scheme },
+    const { url } = await createPortalSession({
+      data: { scheme: search.scheme },
     });
 
     if (url) {

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as AppControlRouteImport } from './routes/app/control'
+import { Route as AppBrowserPendingRouteImport } from './routes/app/browser-pending'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
 import { Route as AppMainLayoutIndexRouteImport } from './routes/app/main/_layout.index'
 
@@ -30,6 +31,11 @@ const AppControlRoute = AppControlRouteImport.update({
   path: '/control',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppBrowserPendingRoute = AppBrowserPendingRouteImport.update({
+  id: '/browser-pending',
+  path: '/browser-pending',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppMainLayoutRoute = AppMainLayoutRouteImport.update({
   id: '/main/_layout',
   path: '/main',
@@ -43,6 +49,7 @@ const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
+  '/app/browser-pending': typeof AppBrowserPendingRoute
   '/app/control': typeof AppControlRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/app/main': typeof AppMainLayoutRouteWithChildren
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/app': typeof AppRouteRouteWithChildren
+  '/app/browser-pending': typeof AppBrowserPendingRoute
   '/app/control': typeof AppControlRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/app/main': typeof AppMainLayoutIndexRoute
@@ -57,6 +65,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRouteRouteWithChildren
+  '/app/browser-pending': typeof AppBrowserPendingRoute
   '/app/control': typeof AppControlRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/app/main/_layout': typeof AppMainLayoutRouteWithChildren
@@ -66,15 +75,22 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/app'
+    | '/app/browser-pending'
     | '/app/control'
     | '/auth/callback'
     | '/app/main'
     | '/app/main/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/app' | '/app/control' | '/auth/callback' | '/app/main'
+  to:
+    | '/app'
+    | '/app/browser-pending'
+    | '/app/control'
+    | '/auth/callback'
+    | '/app/main'
   id:
     | '__root__'
     | '/app'
+    | '/app/browser-pending'
     | '/app/control'
     | '/auth/callback'
     | '/app/main/_layout'
@@ -109,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppControlRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/browser-pending': {
+      id: '/app/browser-pending'
+      path: '/browser-pending'
+      fullPath: '/app/browser-pending'
+      preLoaderRoute: typeof AppBrowserPendingRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/main/_layout': {
       id: '/app/main/_layout'
       path: '/main'
@@ -139,11 +162,13 @@ const AppMainLayoutRouteWithChildren = AppMainLayoutRoute._addFileChildren(
 )
 
 interface AppRouteRouteChildren {
+  AppBrowserPendingRoute: typeof AppBrowserPendingRoute
   AppControlRoute: typeof AppControlRoute
   AppMainLayoutRoute: typeof AppMainLayoutRouteWithChildren
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppBrowserPendingRoute: AppBrowserPendingRoute,
   AppControlRoute: AppControlRoute,
   AppMainLayoutRoute: AppMainLayoutRouteWithChildren,
 }

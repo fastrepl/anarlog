@@ -82,7 +82,7 @@ function Component() {
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey[0] === "integration-status",
       });
-      void navigate({ to: "/app/account/" });
+      void navigate({ to: "/" });
     }
   }, [search.flow, navigate, queryClient]);
 

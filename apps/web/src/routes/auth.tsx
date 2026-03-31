@@ -40,7 +40,7 @@ export const Route = createFileRoute("/auth")({
         search.flow === "web" && !!search.provider;
 
       if (search.flow === "web" && !shouldReauthWithProvider) {
-        throw redirect({ to: search.redirect || "/app/account/" } as any);
+        throw redirect({ to: search.redirect || "/" } as any);
       }
 
       if (search.flow === "desktop") {
@@ -557,7 +557,7 @@ function handlePasswordSuccess(
     params.set("refresh_token", refreshToken);
     window.location.href = `/callback/auth?${params.toString()}`;
   } else {
-    window.location.href = redirectPath || "/app/account/";
+    window.location.href = redirectPath || "/";
   }
 }
 
