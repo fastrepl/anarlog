@@ -1,4 +1,6 @@
 import { X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -11,74 +13,131 @@ export function Toast({
   toast: ToastType;
   onDismiss?: () => void;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+  const contentKey = toast.actions ? "actions" : "default";
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+    const measure = () => {
+      if (contentRef.current) {
+        setHeight(contentRef.current.scrollHeight);
+      }
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(contentRef.current);
+    return () => ro.disconnect();
+  }, [contentKey]);
+
   return (
-    <div className="overflow-hidden p-1">
+    <div className="overflow-visible p-1">
       <div
         className={cn([
-          "group relative overflow-hidden rounded-lg",
-          "flex flex-col gap-2",
+          "group relative z-50 overflow-visible rounded-lg",
           "bg-white p-4",
           toast.variant === "error"
-            ? "border border-red-300 shadow-xs shadow-red-200"
-            : "border border-neutral-200 shadow-xs",
+            ? "border border-red-300 shadow-xl shadow-red-200"
+            : "border border-neutral-200 shadow-xl",
         ])}
       >
-        {toast.dismissible && onDismiss && (
+        {onDismiss && (
           <button
             onClick={onDismiss}
             aria-label="Dismiss toast"
             className={cn([
-              "absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-xs",
+              "absolute top-1.5 right-1.5 z-10 flex size-6 items-center justify-center rounded-full",
               "opacity-0 group-hover:opacity-50 hover:opacity-100!",
               "hover:bg-neutral-200",
               "transition-all duration-200",
             ])}
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
 
-        {(toast.icon || toast.title) && (
-          <div className="flex items-center gap-2">
-            {toast.icon}
-            {toast.title && (
-              <h3 className="text-lg font-bold text-neutral-900">
-                {toast.title}
-              </h3>
-            )}
+        <motion.div
+          animate={{ height }}
+          transition={{ duration: 0.25, ease: "easeInOut" }}
+          style={{ overflow: "hidden" }}
+        >
+          <div ref={contentRef}>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={contentKey}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeInOut" }}
+                className="flex flex-col gap-2"
+              >
+                {(toast.icon || toast.title) && (
+                  <div className="flex items-center gap-2">
+                    {toast.icon}
+                    {toast.title && (
+                      <h3 className="text-lg font-bold text-neutral-900">
+                        {toast.title}
+                      </h3>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-sm">{toast.description}</div>
+
+                <div className="mt-1 flex flex-col gap-2">
+                  {toast.progress !== undefined && (
+                    <ProgressBar progress={toast.progress} />
+                  )}
+                  {toast.downloads && toast.downloads.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      {toast.downloads.map((download) => (
+                        <DownloadProgressBar
+                          key={download.model}
+                          download={download}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {toast.actions && toast.actions.length > 0 ? (
+                    toast.actions.map((action) => (
+                      <button
+                        key={action.label}
+                        onClick={action.onClick}
+                        className={cn([
+                          "flex w-full items-center justify-center gap-2",
+                          "rounded-full bg-neutral-200 py-2 text-sm font-medium text-neutral-900",
+                          "duration-150 hover:scale-[1.01] hover:bg-neutral-300 active:scale-[0.99]",
+                        ])}
+                      >
+                        {action.icon}
+                        {action.label}
+                      </button>
+                    ))
+                  ) : (
+                    <>
+                      {toast.primaryAction && (
+                        <button
+                          onClick={toast.primaryAction.onClick}
+                          className="w-full rounded-full border-2 border-stone-600 bg-stone-800 py-2 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
+                        >
+                          {toast.primaryAction.label}
+                        </button>
+                      )}
+                      {toast.secondaryAction && (
+                        <button
+                          onClick={toast.secondaryAction.onClick}
+                          className="w-full rounded-full bg-neutral-200 py-2 text-sm font-medium text-neutral-900 duration-150 hover:scale-[1.01] active:scale-[0.99]"
+                        >
+                          {toast.secondaryAction.label}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
-        )}
-
-        <div className="text-sm">{toast.description}</div>
-
-        <div className="mt-1 flex flex-col gap-2">
-          {toast.progress !== undefined && (
-            <ProgressBar progress={toast.progress} />
-          )}
-          {toast.downloads && toast.downloads.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {toast.downloads.map((download) => (
-                <DownloadProgressBar key={download.model} download={download} />
-              ))}
-            </div>
-          )}
-          {toast.primaryAction && (
-            <button
-              onClick={toast.primaryAction.onClick}
-              className="w-full rounded-full border-2 border-stone-600 bg-stone-800 py-2 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
-            >
-              {toast.primaryAction.label}
-            </button>
-          )}
-          {toast.secondaryAction && (
-            <button
-              onClick={toast.secondaryAction.onClick}
-              className="w-full rounded-full bg-neutral-200 py-2 text-sm font-medium text-neutral-900 duration-150 hover:scale-[1.01] active:scale-[0.99]"
-            >
-              {toast.secondaryAction.label}
-            </button>
-          )}
-        </div>
+        </motion.div>
       </div>
     </div>
   );

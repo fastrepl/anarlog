@@ -1,6 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { Copy } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { cn } from "@hypr/utils";
 
 import { Toast } from "./component";
@@ -10,8 +13,21 @@ import { useDismissedToasts } from "./useDismissedToasts";
 import { useAuth } from "~/auth";
 import { useNotifications } from "~/contexts/notifications";
 import { useConfigValues } from "~/shared/config";
+import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useToastAction } from "~/store/zustand/toast-action";
+import { commands } from "~/types/tauri.gen";
+
+const SHARE_SNOOZE_PREFIX = "share-char-snoozed:";
+
+function parseShareSnoozeCount(dismissedToasts: string[]): number | null {
+  for (const id of dismissedToasts) {
+    if (id.startsWith(SHARE_SNOOZE_PREFIX)) {
+      return parseInt(id.slice(SHARE_SNOOZE_PREFIX.length), 10);
+    }
+  }
+  return null;
+}
 
 export function ToastArea({
   isProfileExpanded,
@@ -19,7 +35,8 @@ export function ToastArea({
   isProfileExpanded: boolean;
 }) {
   const auth = useAuth();
-  const { dismissToast, isDismissed } = useDismissedToasts();
+  const queryClient = useQueryClient();
+  const { dismissToast, dismissedToasts, isDismissed } = useDismissedToasts();
   const shouldShowToast = useShouldShowToast(isProfileExpanded);
   const {
     hasActiveDownload,
@@ -87,6 +104,50 @@ export function ToastArea({
     openAiTab("transcription");
   }, [openAiTab, setToastActionTarget]);
 
+  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
+  const [shareExpanded, setShareExpanded] = useState(false);
+
+  const shareSnoozedAtCount = useMemo(
+    () => parseShareSnoozeCount(dismissedToasts),
+    [dismissedToasts],
+  );
+
+  const handleShareExpand = useCallback(() => {
+    setShareExpanded(true);
+  }, []);
+
+  const handleShareSnooze = useCallback(async () => {
+    const filtered = dismissedToasts.filter(
+      (id) => !id.startsWith(SHARE_SNOOZE_PREFIX),
+    );
+    filtered.push(`${SHARE_SNOOZE_PREFIX}${sessionIds.length}`);
+    await commands.setDismissedToasts(filtered);
+    queryClient.invalidateQueries({ queryKey: ["dismissed_toasts"] });
+    setShareExpanded(false);
+  }, [dismissedToasts, sessionIds.length, queryClient]);
+
+  const handleShareDone = useCallback(() => {
+    dismissToast("share-char");
+    setShareExpanded(false);
+  }, [dismissToast]);
+
+  const handleShareSocial = useCallback(
+    (platform: "x" | "linkedin" | "reddit") => {
+      const text = encodeURIComponent(
+        "I use Char AI notetaker and love it! Try it as well: char.com",
+      );
+      const url = encodeURIComponent("https://char.com");
+      const urls: Record<string, string> = {
+        x: `https://x.com/intent/tweet?text=${text}`,
+        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
+        reddit: `https://www.reddit.com/submit?title=${text}&url=${url}`,
+      };
+      void openerCommands.openUrl(urls[platform], null);
+      handleShareDone();
+    },
+    [handleShareDone],
+  );
+
   const registry = useMemo(
     () =>
       createToastRegistry({
@@ -104,9 +165,13 @@ export function ToastArea({
         activeDownloads,
         localSttStatus,
         isLocalSttModel,
+        sessionCount: sessionIds.length,
+        shareSnoozedAtCount,
         onSignIn: handleSignIn,
         onOpenLLMSettings: handleOpenLLMSettings,
         onOpenSTTSettings: handleOpenSTTSettings,
+        onShareExpand: handleShareExpand,
+        onShareSnooze: handleShareSnooze,
       }),
     [
       isAuthenticated,
@@ -123,9 +188,13 @@ export function ToastArea({
       activeDownloads,
       localSttStatus,
       isLocalSttModel,
+      sessionIds.length,
+      shareSnoozedAtCount,
       handleSignIn,
       handleOpenLLMSettings,
       handleOpenSTTSettings,
+      handleShareExpand,
+      handleShareSnooze,
     ],
   );
 
@@ -140,11 +209,65 @@ export function ToastArea({
     }
   }, [currentToast, dismissToast]);
 
+  const displayToast = useMemo(() => {
+    if (!currentToast) return null;
+    if (currentToast.id === "share-char" && shareExpanded) {
+      return {
+        ...currentToast,
+        title: "Choose a platform",
+        description: "Share your experience with others.",
+        primaryAction: undefined,
+        secondaryAction: undefined,
+        dismissible: false,
+        actions: [
+          {
+            label: "X (Twitter)",
+            icon: <img src="/assets/X logo.svg" alt="X" className="size-5" />,
+            onClick: () => handleShareSocial("x"),
+          },
+          {
+            label: "LinkedIn",
+            icon: (
+              <img
+                src="/assets/linkedin logo.svg"
+                alt="LinkedIn"
+                className="size-5"
+              />
+            ),
+            onClick: () => handleShareSocial("linkedin"),
+          },
+          {
+            label: "Reddit",
+            icon: (
+              <img
+                src="/assets/reddit logo.svg"
+                alt="Reddit"
+                className="size-5"
+              />
+            ),
+            onClick: () => handleShareSocial("reddit"),
+          },
+          {
+            label: "Copy text",
+            icon: <Copy className="size-4" />,
+            onClick: () => {
+              void navigator.clipboard.writeText(
+                "I use Char AI notetaker and love it! Try it as well: char.com",
+              );
+              handleShareDone();
+            },
+          },
+        ],
+      };
+    }
+    return currentToast;
+  }, [currentToast, shareExpanded, handleShareSocial, handleShareDone]);
+
   return (
     <AnimatePresence mode="wait">
-      {shouldShowToast && currentToast ? (
+      {shouldShowToast && displayToast ? (
         <motion.div
-          key={currentToast.id}
+          key={displayToast.id}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
@@ -156,8 +279,14 @@ export function ToastArea({
         >
           <div className="pointer-events-auto">
             <Toast
-              toast={currentToast}
-              onDismiss={currentToast.dismissible ? handleDismiss : undefined}
+              toast={displayToast}
+              onDismiss={
+                displayToast.dismissible
+                  ? handleDismiss
+                  : displayToast.id === "share-char" && shareExpanded
+                    ? () => setShareExpanded(false)
+                    : undefined
+              }
             />
           </div>
         </motion.div>

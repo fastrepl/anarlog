@@ -6,12 +6,14 @@ import { cn } from "@hypr/utils";
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+import { commands } from "~/types/tauri.gen";
 
 export function DevtoolView() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
+        <ToastsCard />
         <CountdownTestCard />
         <ErrorTestCard />
       </div>
@@ -137,6 +139,53 @@ function NavigationCard() {
           ])}
         >
           Changelog
+        </button>
+      </div>
+    </DevtoolCard>
+  );
+}
+
+function ToastsCard() {
+  const handleResetDismissed = useCallback(async () => {
+    await commands.setDismissedToasts([]);
+  }, []);
+
+  const handleResetShareOnly = useCallback(async () => {
+    const result = await commands.getDismissedToasts();
+    if (result.status === "ok") {
+      await commands.setDismissedToasts(
+        result.data.filter(
+          (id: string) =>
+            id !== "share-char" && !id.startsWith("share-char-snoozed:"),
+        ),
+      );
+    }
+  }, []);
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+  ]);
+
+  return (
+    <DevtoolCard title="Toasts">
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() => void handleResetShareOnly()}
+          className={btnClass}
+        >
+          Reset Share Toast
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleResetDismissed()}
+          className={btnClass}
+        >
+          Reset All Dismissed
         </button>
       </div>
     </DevtoolCard>
