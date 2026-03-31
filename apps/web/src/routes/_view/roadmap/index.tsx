@@ -1,14 +1,10 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allRoadmaps } from "content-collections";
-import { useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { DownloadButton } from "@/components/download-button";
-import { GithubStars } from "@/components/github-stars";
-import { Image } from "@/components/image";
-import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
+import { CTASection } from "@/components/cta-section";
 
 export const Route = createFileRoute("/_view/roadmap/")({
   component: Component,
@@ -74,7 +70,6 @@ function getRoadmapItems(): RoadmapItem[] {
 
 function Component() {
   const items = getRoadmapItems();
-  const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="min-h-screen">
@@ -92,7 +87,7 @@ function Component() {
 
           <TableView items={items} />
 
-          <CTASection heroInputRef={heroInputRef} />
+          <CTASection />
         </div>
       </div>
     </div>
@@ -209,99 +204,5 @@ function TableView({ items }: { items: RoadmapItem[] }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function CTASection({
-  heroInputRef,
-}: {
-  heroInputRef: React.RefObject<HTMLInputElement | null>;
-}) {
-  const platform = usePlatform();
-  const platformCTA = getPlatformCTA(platform);
-
-  const getButtonLabel = () => {
-    if (platform === "mobile") {
-      return "Get reminder";
-    }
-    return platformCTA.label;
-  };
-
-  const handleCTAClick = () => {
-    if (platformCTA.action === "waitlist") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      setTimeout(() => {
-        if (heroInputRef.current) {
-          heroInputRef.current.focus();
-          heroInputRef.current.parentElement?.classList.add(
-            "animate-shake",
-            "border-stone-600",
-          );
-          setTimeout(() => {
-            heroInputRef.current?.parentElement?.classList.remove(
-              "animate-shake",
-              "border-stone-600",
-            );
-          }, 500);
-        }
-      }, 500);
-    }
-  };
-
-  return (
-    <section className="-mx-4 mt-16 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-left">
-        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
-          <Image
-            src="/api/images/hyprnote/icon.png"
-            alt="Char"
-            width={144}
-            height={144}
-            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
-          />
-        </div>
-        <h2 className="text-color font-mono text-2xl sm:text-3xl">
-          Where conversations
-          <br className="sm:hidden" /> stay yours
-        </h2>
-        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
-          Start using Char today and bring clarity to your back-to-back meetings
-        </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
-          {platformCTA.action === "download" ? (
-            <DownloadButton />
-          ) : (
-            <button
-              onClick={handleCTAClick}
-              className={cn([
-                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
-                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                "transition-all",
-              ])}
-            >
-              {getButtonLabel()}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="1.5"
-                stroke="currentColor"
-                className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m12.75 15 3-3m0 0-3-3m3 3h-7.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                />
-              </svg>
-            </button>
-          )}
-          <div className="hidden sm:block">
-            <GithubStars />
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

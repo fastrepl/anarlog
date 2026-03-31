@@ -98,6 +98,28 @@ function getSubtitle(props: SocialCardProps): string {
 const TAIL_R = 12;
 const tailMask = `radial-gradient(${TAIL_R}px at 100% 0, #0000 98%, #000 101%)`;
 
+const HIGHLIGHT_RE =
+  /(@tryhyprnote|@getcharnotes|Hyprnote|Hypernote|hyprnote)/gi;
+const HIGHLIGHT_TEST =
+  /^(@tryhyprnote|@getcharnotes|Hyprnote|Hypernote|hyprnote)$/i;
+
+function HighlightedBody({ text }: { text: string }) {
+  const parts = text.split(HIGHLIGHT_RE);
+  return (
+    <>
+      {parts.map((part, i) =>
+        HIGHLIGHT_TEST.test(part) ? (
+          <span key={i} className="text-fg font-semibold">
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 export function SocialCard(props: SocialCardProps) {
   const { platform, author, body, url, className, avatar } = props;
   const config = platformConfig[platform];
@@ -113,7 +135,7 @@ export function SocialCard(props: SocialCardProps) {
       >
         <div className="bg-surface rounded-2xl rounded-bl-none px-5 py-4">
           <p className="text-fg-muted text-base leading-relaxed md:line-clamp-[20]">
-            {body}
+            <HighlightedBody text={body} />
           </p>
         </div>
         <div

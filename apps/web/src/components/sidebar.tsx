@@ -111,7 +111,37 @@ function findActiveSubItem(pathname: string) {
   );
 }
 
-function CharLogo({ className }: { className?: string }) {
+export function CharLogo({
+  className,
+  compact,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <svg
+        width="26"
+        height="30"
+        viewBox="0 0 26 30"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className={className}
+      >
+        <path
+          d="M7.871 4.147C7.871 5.658 7.082 7.039 6.099 8.214C4.65 9.946 3.77 12.161 3.77 14.575C3.77 16.99 4.65 19.205 6.099 20.937C7.082 22.112 7.871 23.493 7.871 25.004V29.151H2.965V24.319C2.965 22.735 2.165 21.249 0.822 20.34L0 19.783V9.235L0.822 8.678C2.165 7.769 2.965 6.284 2.965 4.699V0L7.871 0V4.147Z"
+          fill="currentColor"
+        />
+        <g transform="translate(-76.875, 0)">
+          <path
+            d="M94.746 4.147C94.746 5.658 95.535 7.039 96.519 8.214C97.967 9.946 98.847 12.161 98.847 14.575C98.847 16.99 97.967 19.205 96.519 20.937C95.535 22.112 94.746 23.493 94.746 25.004V29.151H99.653V24.319C99.653 22.735 100.452 21.249 101.795 20.34L102.617 19.783V9.235L101.795 8.678C100.452 7.769 99.653 6.284 99.653 4.699V0L94.746 0V4.147Z"
+            fill="currentColor"
+          />
+        </g>
+      </svg>
+    );
+  }
+
   return (
     <svg
       width="103"
@@ -236,7 +266,8 @@ export function Sidebar() {
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <Link to="/" className="mr-2">
-              <CharLogo className="text-fg h-6 w-auto" />
+              <CharLogo className="text-fg hidden h-6 w-auto lg:block" />
+              <CharLogo compact className="text-fg h-6 w-auto lg:hidden" />
             </Link>
             <Link
               to="/why-char/"
@@ -359,7 +390,7 @@ function TabletDropdown({
       <button
         className={cn(
           [
-            "text-fg-subtle hover:text-fg flex items-center gap-1 py-2 text-sm decoration-dotted transition-all",
+            "flex items-center gap-1 py-2 font-sans text-sm text-neutral-600 decoration-dotted transition-colors hover:text-neutral-800",
           ],
           [MAIN_MENU_LINK_HOVER],
         )}

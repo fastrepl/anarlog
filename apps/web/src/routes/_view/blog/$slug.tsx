@@ -6,11 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { DownloadButton } from "@/components/download-button";
-import { Image } from "@/components/image";
+import { CTASection } from "@/components/cta-section";
 import { defaultMDXComponents } from "@/components/mdx";
 import { useBlogToc } from "@/hooks/use-blog-toc";
-import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 export const Route = createFileRoute("/_view/blog/$slug")({
@@ -202,51 +200,6 @@ function RelatedArticlesSection({
         ))}
       </div>
     </div>
-  );
-}
-
-function CTASection() {
-  const platform = usePlatform();
-  const platformCTA = getPlatformCTA(platform);
-
-  return (
-    <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-left">
-        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
-          <Image
-            src="/api/images/hyprnote/icon.png"
-            alt="Char"
-            width={144}
-            height={144}
-            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
-          />
-        </div>
-        <h2 className="font-mono text-2xl sm:text-3xl">
-          Try Char for yourself
-        </h2>
-        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
-          The AI notepad for people in back-to-back meetings. Local-first,
-          privacy-focused, and open source.
-        </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
-          {platformCTA.action === "download" ? (
-            <DownloadButton />
-          ) : (
-            <Link
-              to="/download/"
-              className={cn([
-                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
-                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                "transition-all",
-              ])}
-            >
-              Download for free
-            </Link>
-          )}
-        </div>
-      </div>
-    </section>
   );
 }
 

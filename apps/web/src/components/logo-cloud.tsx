@@ -83,7 +83,7 @@ function LogoSlot({ logos, delay }: { logos: Logo[]; delay: number }) {
 
 export function LogoCloud() {
   return (
-    <div className="relative grid grid-cols-5">
+    <div className="relative grid grid-cols-2 items-center justify-center gap-2 md:grid-cols-5 md:gap-0">
       <div className="pointer-events-none absolute -top-px left-1/2 w-full -translate-x-1/2" />
       {LOGOS.map((pair, i) => (
         <LogoSlot key={i} logos={pair} delay={i * STAGGER_DELAY} />

@@ -10,7 +10,10 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
 
-import { TranscriptToolCall } from "@/components/ai-feature-panel";
+import {
+  ContactSearchToolCall,
+  TranscriptToolCall,
+} from "@/components/ai-feature-panel";
 import { AppPreviewSection } from "@/components/app-preview";
 import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
@@ -101,7 +104,7 @@ function Component() {
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <main className="min-h-screen flex-1 overflow-x-hidden px-8">
+    <main className="min-h-screen flex-1 overflow-x-hidden px-2 md:px-8">
       <div className="">
         {/* <AnnouncementBanner /> */}
         <HeroSection
@@ -208,12 +211,12 @@ function HeroSection({
           className="isolate flex w-full overflow-visible pt-10 text-left"
         >
           <div className="border-brand-bright items-left relative z-10 flex min-h-[80vh] w-full flex-col content-between rounded-lg border md:flex-row">
-            <div className="flex flex-col justify-between px-6 pt-8 pb-8 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
+            <div className="flex flex-col justify-between px-4 pt-8 pb-8 md:px-6 md:pt-12 md:pr-8 md:pb-12 md:pl-12">
               <div className="flex flex-col gap-2">
                 <h1
                   className="text-color break-words"
                   style={{
-                    fontSize: "clamp(1.5rem, 0.75rem + 3.2vw, 3.75rem)",
+                    fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.75rem)",
                   }}
                 >
                   Meeting Notes <br /> You Own
@@ -321,7 +324,7 @@ function HeroSection({
                     </form.Field>
                   </form>
                 ) : (
-                  <div className="mt-4 flex w-full flex-col items-stretch gap-4 sm:flex-row sm:items-start">
+                  <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
                     <DownloadButton />
                     <GithubStars />
                   </div>
@@ -389,7 +392,7 @@ function HeroSection({
 
 function LogoSection() {
   return (
-    <section className="px-4 py-24">
+    <section className="px-4 py-12 md:py-24">
       <h3 className="text-fg mb-4 font-mono text-xs font-medium tracking-widest uppercase">
         Trusted by people in:
       </h3>
@@ -533,6 +536,16 @@ export function HowItWorksSection() {
   const agentWorkflowGraphicId = useId().replaceAll(":", "");
   const [enhancedLines, setEnhancedLines] = useState(0);
   const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
+  const featureScrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftGrad, setShowLeftGrad] = useState(false);
+  const [showRightGrad, setShowRightGrad] = useState(true);
+
+  const handleFeatureScroll = useCallback(() => {
+    const el = featureScrollRef.current;
+    if (!el) return;
+    setShowLeftGrad(el.scrollLeft > 8);
+    setShowRightGrad(el.scrollLeft + el.offsetWidth < el.scrollWidth - 8);
+  }, []);
 
   useEffect(() => {
     if (!isInView) {
@@ -591,7 +604,7 @@ export function HowItWorksSection() {
   }, [isInView]);
 
   return (
-    <section ref={ref} id="how-it-works" className="px-4 pt-8 pb-24">
+    <section ref={ref} id="how-it-works" className="px-4 pt-8 pb-12 md:pb-24">
       <div className="flex flex-col">
         {/* Header */}
         <div className="border-color-brand border-b py-10">
@@ -602,11 +615,11 @@ export function HowItWorksSection() {
 
         {/* Block 1: Listen & Write */}
         <div className="flex flex-col md:flex-row">
-          <div className="flex flex-col justify-end gap-4 pr-8 pb-16 md:w-1/2">
+          <div className="flex flex-col justify-end gap-4 py-8 md:w-1/2 md:pr-8 md:pb-16">
             <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
               During meeting
             </p>
-            <p className="font-regular text-color text-lg leading-relaxed md:text-3xl">
+            <p className="font-regular text-color text-lg leading-relaxed md:text-2xl lg:text-3xl">
               Char keeps track of everything that happens during the meeting,
               includes context about previous conversations and people you talk
               to.
@@ -622,7 +635,7 @@ export function HowItWorksSection() {
                 hidden: {},
                 visible: { transition: { staggerChildren: 0.3 } },
               }}
-              className="flex flex-col gap-4 p-8"
+              className="flex flex-col gap-4 p-4 lg:p-8"
             >
               <motion.div
                 variants={{
@@ -694,7 +707,7 @@ export function HowItWorksSection() {
                     <h4 className="text-color mb-2 text-sm font-semibold">
                       Active meeting
                     </h4>
-                    <div className="text-color overflow-hidden text-base whitespace-pre-line">
+                    <div className="text-color overflow-hidden text-sm whitespace-pre-line lg:text-base">
                       {"ui update - moble\napi\nnew dash - urgnet"}
                       <motion.span
                         className="text-2xl text-blue-600"
@@ -743,7 +756,7 @@ export function HowItWorksSection() {
                         }}
                       >
                         <div className="border-color-brand absolute top-0 right-0 h-[24px] w-[24px] bg-[var(--color-border)]" />
-                        <p className="text-fg text-sm">{name}</p>
+                        <p className="text-fg text-xs lg:text-sm">{name}</p>
                       </motion.div>
                     ),
                   )}
@@ -798,18 +811,18 @@ export function HowItWorksSection() {
 
         <div className="flex flex-col md:flex-row">
           <div className="md:w-1/2"></div>
-          <div className="bg-lined-notebook flex flex-col justify-center px-8 select-none md:w-1/2">
+          <div className="bg-lined-notebook flex flex-col justify-center px-4 py-8 select-none md:w-1/2 md:px-8 md:py-0">
             <DotWaveTransition />
           </div>
         </div>
 
         {/* Block 2: Summarize */}
         <div className="-mt-px flex flex-col md:flex-row">
-          <div className="flex flex-col justify-start gap-4 pt-16 pr-8 md:w-1/2">
+          <div className="flex flex-col justify-start gap-4 py-8 md:w-1/2 md:pt-16 md:pr-8">
             <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
               After meeting
             </p>
-            <p className="text-color text-lg leading-relaxed md:text-3xl">
+            <p className="font-regular text-color text-lg leading-relaxed md:text-2xl lg:text-3xl">
               After the meeting, Char combines your notes with transcripts to
               create a perfect summary.
             </p>
@@ -821,9 +834,10 @@ export function HowItWorksSection() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
               viewport={{ once: true, amount: 0.6 }}
-              className="flex h-full items-end justify-center p-8"
+              className="flex h-full items-end justify-center p-4 lg:p-8"
             >
-              <div className="surface border-color-brand w-full overflow-hidden rounded-xl border">
+              <div className="surface border-color-brand relative max-h-[500px] w-full overflow-hidden rounded-xl border lg:max-h-none">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-24 bg-gradient-to-t from-white to-transparent lg:hidden" />
                 <div className="border-color-brand bg-surface-subtle relative flex h-[38px] items-center gap-2 border-b px-4">
                   <div className="flex gap-2">
                     <div className="size-3 rounded-full bg-red-400" />
@@ -836,11 +850,11 @@ export function HowItWorksSection() {
                     </span>
                   </div>
                 </div>
-                <div className="relative flex w-full flex-col gap-4 overflow-hidden p-6">
+                <div className="relative flex w-full flex-col gap-4 overflow-hidden p-4 text-sm lg:p-6 lg:text-base">
                   <div className="flex flex-col gap-2">
                     <h4
                       className={cn([
-                        "text-color text-lg font-semibold transition-opacity duration-500",
+                        "text-color text-base font-semibold transition-opacity duration-500 lg:text-lg",
                         enhancedLines >= 1 ? "opacity-100" : "opacity-0",
                       ])}
                     >
@@ -917,198 +931,219 @@ export function HowItWorksSection() {
         </div>
 
         {/* features block */}
-        <div className="border-color-brand flex snap-x snap-mandatory gap-6 overflow-x-auto border-t pt-16 pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4">
-          {/* own your data */}
-          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-32 items-center justify-start gap-2 select-none">
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[3deg] object-contain"
-                draggable={false}
-              />
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[-5deg] object-contain"
-                draggable={false}
-              />
-              <img
-                src="/icons/folderchar.svg"
-                alt=""
-                className="w-14 object-contain"
-                draggable={false}
-              />
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[6deg] object-contain"
-                draggable={false}
-              />
-              <img
-                src="/icons/file.webp"
-                alt=""
-                className="w-10 rotate-[-4deg] object-contain"
-                draggable={false}
-              />
-            </div>
-            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Own your <br /> data
-              </h4>
-              <p className="text-color text-base">
-                Data stays on your device and not locked in a cloud.
-              </p>
-            </div>
-          </div>
-
-          {/* local or cloud */}
-          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-32 items-center gap-4 select-none">
-              <Icon icon="mdi:wifi-off" className="text-fg-muted text-2xl" />
-              <div className="flex rounded-md border border-red-300 bg-red-100 px-2 py-2">
-                <DancingSticks
-                  amplitude={1}
-                  height={24}
-                  width={100}
-                  color="#ef4444"
-                />
-              </div>
-            </div>
-            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Local or cloud,
-                <br /> your choice
-              </h4>
-              <p className="text-color text-base">
-                Run fully local, bring your own API key, or use Char cloud.
-                Switch anytime.
-              </p>
-            </div>
-          </div>
-
-          {/* works everywhere */}
-          <div className="flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-32 items-center select-none">
-              <div className="flex flex-wrap items-center gap-6">
+        <div className="border-color-brand relative border-t">
+          <div
+            className={cn([
+              "from-page pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8 bg-gradient-to-r to-transparent transition-opacity md:hidden",
+              showLeftGrad ? "opacity-100" : "opacity-0",
+            ])}
+          />
+          <div
+            className={cn([
+              "from-page pointer-events-none absolute top-0 right-0 bottom-0 z-10 w-8 bg-gradient-to-l to-transparent transition-opacity md:hidden",
+              showRightGrad ? "opacity-100" : "opacity-0",
+            ])}
+          />
+          <div
+            ref={featureScrollRef}
+            onScroll={handleFeatureScroll}
+            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-6 pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:pt-16 md:pb-0 md:*:min-h-[320px] md:*:py-4"
+          >
+            {/* own your data */}
+            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+              <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
                 <img
-                  src="/icons/zoom.svg"
-                  alt="Zoom"
-                  className="size-10"
+                  src="/icons/file.webp"
+                  alt=""
+                  className="w-10 rotate-[3deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
                 />
                 <img
-                  src="/icons/teams logo.svg"
-                  alt="Teams"
-                  className="size-12"
+                  src="/icons/file.webp"
+                  alt=""
+                  className="w-10 rotate-[-5deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
                 />
                 <img
-                  src="/icons/google-meet logo.svg"
-                  alt="Google Meet"
-                  className="size-12"
+                  src="/icons/folderchar.svg"
+                  alt=""
+                  className="w-14 object-contain md:w-10 lg:w-14"
                   draggable={false}
                 />
                 <img
-                  src="/icons/inperson logo.svg"
-                  alt="In-person"
-                  className="size-14"
+                  src="/icons/file.webp"
+                  alt=""
+                  className="w-10 rotate-[6deg] object-contain md:w-7 lg:w-10"
+                  draggable={false}
+                />
+                <img
+                  src="/icons/file.webp"
+                  alt=""
+                  className="w-10 rotate-[-4deg] object-contain md:w-7 lg:w-10"
                   draggable={false}
                 />
               </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                  Own your <br /> data
+                </h4>
+                <p className="text-color text-base">
+                  Data stays on your device and not locked in a cloud.
+                </p>
+              </div>
             </div>
-            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Works <br /> everywhere
-              </h4>
-              <p className="text-color text-base">
-                Captures system audio. Works on Zoom, Teams, Meet, in-person, or
-                offline.
-              </p>
-            </div>
-          </div>
 
-          {/* upload existing recordings */}
-          <div className="border-brand flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-32 items-center select-none">
-              <div className="relative flex h-16 w-4/5 items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-100 px-2 py-2">
-                <div className="flex size-10 items-center justify-center rounded-full bg-white">
-                  <Icon
-                    icon="mdi:file-upload"
-                    className="text-fg-muted text-xl"
+            {/* local or cloud */}
+            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+              <div className="flex h-32 items-center gap-4 select-none md:h-24 md:gap-3 lg:h-32 lg:gap-4">
+                <Icon
+                  icon="mdi:wifi-off"
+                  className="text-fg-muted text-2xl md:text-xl lg:text-2xl"
+                />
+                <div className="flex rounded-md border border-red-300 bg-red-100 px-2 py-2 md:px-1.5 md:py-1.5 lg:px-2 lg:py-2">
+                  <DancingSticks
+                    amplitude={1}
+                    height={24}
+                    width={100}
+                    color="#ef4444"
                   />
                 </div>
-                <div className="border-color-brand surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md border py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 32 33"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="absolute top-1/2 left-1/2 h-8 w-8"
-                  >
-                    <path
-                      d="M8.58243 2.64649C9.68243 2.23399 11.8595 2.48608 12.4324 3.72358C13.0053 4.96108 13.3491 6.56524 13.372 6.17566C13.3282 4.99155 13.4282 3.8065 13.6699 2.64649C13.9246 1.90357 14.5083 1.31996 15.2512 1.06524C15.9325 0.849761 16.6559 0.802581 17.3595 0.927743C18.0709 1.07418 18.7009 1.4833 19.1241 2.07358C19.6602 3.40992 19.9625 4.82851 20.0178 6.26733C20.0748 5.03958 20.2827 3.8235 20.6366 2.64649C21.0195 2.10692 21.5788 1.71789 22.2178 1.54649C22.9755 1.40797 23.7519 1.40797 24.5095 1.54649C25.1314 1.75288 25.6753 2.14475 26.0678 2.66941C26.5546 3.88434 26.8484 5.16789 26.9387 6.47358C26.9387 6.79441 27.0991 5.57983 27.6033 4.77774C28.0083 3.57537 29.3113 2.92898 30.5137 3.33399C31.716 3.739 32.3624 5.04204 31.9574 6.24441C31.9574 7.73399 31.9574 7.66524 31.9574 8.67358C31.9574 9.68191 31.9574 10.5757 31.9574 11.4236C31.8749 12.7647 31.691 14.0977 31.4074 15.4111C31.0097 16.5737 30.4545 17.6763 29.7574 18.6882C28.645 19.9258 27.7256 21.3242 27.0303 22.8361C26.8607 23.5878 26.7838 24.3574 26.8012 25.1277C26.7989 25.8396 26.8914 26.5486 27.0762 27.2361C26.1393 27.3362 25.1943 27.3362 24.2574 27.2361C23.3637 27.0986 22.2637 25.3111 21.9658 24.7611C21.8184 24.4658 21.5167 24.2792 21.1866 24.2792C20.8565 24.2792 20.5548 24.4658 20.4074 24.7611C19.9033 25.6319 18.7803 27.2132 18.1158 27.3048C16.5803 27.4882 13.3949 27.3048 10.9199 27.3048C10.9199 27.3048 11.3553 25.0132 10.3928 24.1882C9.43034 23.3632 8.49076 22.4007 7.78034 21.759L5.87826 19.6507C4.53693 18.4055 3.55538 16.8224 3.03659 15.0673C2.55534 12.9132 2.60117 11.8819 3.03659 11.0111C3.48069 10.292 4.17416 9.76167 4.98451 9.52149C5.65773 9.39937 6.35076 9.44662 7.00117 9.65899C7.45095 9.84729 7.83967 10.1567 8.12409 10.5527C8.65118 11.2632 8.83451 11.6069 8.60534 10.8277C8.37617 10.0486 7.87201 9.47566 7.61993 8.53608C7.12917 7.42645 6.83453 6.24013 6.74909 5.02983C6.84301 3.94395 7.60118 3.03049 8.65118 2.73816"
-                      fill="white"
-                    />
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M8.58243 2.64649C9.68243 2.23399 11.8595 2.48608 12.4324 3.72358C13.0053 4.96108 13.3491 6.56524 13.372 6.17566C13.3282 4.99155 13.4282 3.8065 13.6699 2.64649C13.9246 1.90357 14.5083 1.31996 15.2512 1.06524C15.9325 0.849761 16.6559 0.802581 17.3595 0.927743C18.0709 1.07418 18.7009 1.4833 19.1241 2.07358C19.6602 3.40992 19.9625 4.82851 20.0178 6.26733C20.0748 5.03958 20.2827 3.8235 20.6366 2.64649C21.0195 2.10692 21.5788 1.71789 22.2178 1.54649C22.9755 1.40797 23.7519 1.40797 24.5095 1.54649C25.1314 1.75288 25.6753 2.14475 26.0678 2.66941C26.5546 3.88434 26.8484 5.16789 26.9387 6.47358C26.9387 6.79441 27.0991 5.57983 27.6033 4.77774C28.0083 3.57537 29.3113 2.92898 30.5137 3.33399C31.716 3.739 32.3624 5.04204 31.9574 6.24441C31.9574 7.73399 31.9574 7.66524 31.9574 8.67358C31.9574 9.68191 31.9574 10.5757 31.9574 11.4236C31.8749 12.7647 31.691 14.0977 31.4074 15.4111C31.0097 16.5737 30.4545 17.6763 29.7574 18.6882C28.645 19.9258 27.7256 21.3242 27.0303 22.8361C26.8607 23.5878 26.7838 24.3574 26.8012 25.1277C26.7989 25.8396 26.8914 26.5486 27.0762 27.2361C26.1393 27.3362 25.1943 27.3362 24.2574 27.2361C23.3637 27.0986 22.2637 25.3111 21.9658 24.7611C21.8184 24.4658 21.5167 24.2792 21.1866 24.2792C20.8565 24.2792 20.5548 24.4658 20.4074 24.7611C19.9033 25.6319 18.7803 27.2132 18.1158 27.3048C16.5803 27.4882 13.3949 27.3048 10.9199 27.3048C10.9199 27.3048 11.3553 25.0132 10.3928 24.1882C9.43034 23.3632 8.49076 22.4007 7.78034 21.759L5.87826 19.6507C4.53693 18.4055 3.55538 16.8224 3.03659 15.0673C2.55534 12.9132 2.60117 11.8819 3.03659 11.0111C3.48069 10.292 4.17416 9.76167 4.98451 9.52149C5.65773 9.39937 6.35076 9.44662 7.00117 9.65899C7.45095 9.84729 7.83967 10.1567 8.12409 10.5527C8.65117 11.2632 8.83451 11.6069 8.60534 10.8277C8.37618 10.0486 7.87201 9.47566 7.61992 8.53608C7.12917 7.42645 6.83453 6.24013 6.74909 5.02983C6.79595 3.92807 7.52955 2.97439 8.58243 2.64649Z"
-                      stroke="black"
-                      strokeWidth="1.71875"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M26.3428 20.2369V12.3266C26.3428 11.8531 25.958 11.4692 25.4834 11.4692C25.0088 11.4692 24.624 11.8531 24.624 12.3266V20.2369C24.624 20.7104 25.0088 21.0942 25.4834 21.0942C25.958 21.0942 26.3428 20.7104 26.3428 20.2369Z"
-                      fill="black"
-                    />
-                    <path
-                      d="M21.8053 20.234L21.7595 12.3196C21.7568 11.8472 21.3698 11.4665 20.8952 11.4693C20.4206 11.472 20.0381 11.8571 20.0408 12.3295L20.0866 20.2439C20.0894 20.7162 20.4763 21.0969 20.9509 21.0942C21.4255 21.0915 21.8081 20.7064 21.8053 20.234Z"
-                      fill="black"
-                    />
-                    <path
-                      d="M15.4575 12.3399L15.5034 20.2337C15.5061 20.7118 15.8931 21.097 16.3678 21.0942C16.8424 21.0914 17.2249 20.7016 17.2221 20.2236L17.1763 12.3297C17.1735 11.8517 16.7865 11.4665 16.3119 11.4693C15.8373 11.472 15.4548 11.8618 15.4575 12.3399Z"
-                      fill="black"
-                    />
-                  </svg>
-                  <Icon
-                    icon="mdi:file-outline"
-                    className="text-fg-muted text-xl"
+              </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                  Local or cloud,
+                  <br /> your choice
+                </h4>
+                <p className="text-color text-base">
+                  Run fully local, bring your own API key, or use Char cloud.
+                  Switch anytime.
+                </p>
+              </div>
+            </div>
+
+            {/* works everywhere */}
+            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+              <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
+                <div className="flex flex-wrap items-center gap-6 md:gap-4 lg:gap-6">
+                  <img
+                    src="/icons/zoom.svg"
+                    alt="Zoom"
+                    className="size-10 md:size-7 lg:size-10"
+                    draggable={false}
                   />
-                  <div className="flex flex-col">
-                    <p className="text-fg-muted text-xs">
-                      Meeting.12.03.26.wav
-                    </p>
-                    <p className="text-fg-subtle text-xs">14:30:25</p>
+                  <img
+                    src="/icons/teams logo.svg"
+                    alt="Teams"
+                    className="size-12 md:size-8 lg:size-12"
+                    draggable={false}
+                  />
+                  <img
+                    src="/icons/google-meet logo.svg"
+                    alt="Google Meet"
+                    className="size-12 md:size-8 lg:size-12"
+                    draggable={false}
+                  />
+                  <img
+                    src="/icons/inperson logo.svg"
+                    alt="In-person"
+                    className="size-14 md:size-10 lg:size-14"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                  Works <br /> everywhere
+                </h4>
+                <p className="text-color text-base">
+                  Captures system audio. Works on Zoom, Teams, Meet, in-person,
+                  or offline.
+                </p>
+              </div>
+            </div>
+
+            {/* upload existing recordings */}
+            <div className="border-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+              <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
+                <div className="relative flex h-16 w-4/5 items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-100 px-2 py-2 md:h-12 md:w-full lg:h-16 lg:w-4/5">
+                  <div className="flex size-10 items-center justify-center rounded-full bg-white md:size-7 lg:size-10">
+                    <Icon
+                      icon="mdi:file-upload"
+                      className="text-fg-muted text-xl"
+                    />
+                  </div>
+                  <div className="border-color-brand surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md border py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 32 33"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="absolute top-1/2 left-1/2 h-8 w-8"
+                    >
+                      <path
+                        d="M8.58243 2.64649C9.68243 2.23399 11.8595 2.48608 12.4324 3.72358C13.0053 4.96108 13.3491 6.56524 13.372 6.17566C13.3282 4.99155 13.4282 3.8065 13.6699 2.64649C13.9246 1.90357 14.5083 1.31996 15.2512 1.06524C15.9325 0.849761 16.6559 0.802581 17.3595 0.927743C18.0709 1.07418 18.7009 1.4833 19.1241 2.07358C19.6602 3.40992 19.9625 4.82851 20.0178 6.26733C20.0748 5.03958 20.2827 3.8235 20.6366 2.64649C21.0195 2.10692 21.5788 1.71789 22.2178 1.54649C22.9755 1.40797 23.7519 1.40797 24.5095 1.54649C25.1314 1.75288 25.6753 2.14475 26.0678 2.66941C26.5546 3.88434 26.8484 5.16789 26.9387 6.47358C26.9387 6.79441 27.0991 5.57983 27.6033 4.77774C28.0083 3.57537 29.3113 2.92898 30.5137 3.33399C31.716 3.739 32.3624 5.04204 31.9574 6.24441C31.9574 7.73399 31.9574 7.66524 31.9574 8.67358C31.9574 9.68191 31.9574 10.5757 31.9574 11.4236C31.8749 12.7647 31.691 14.0977 31.4074 15.4111C31.0097 16.5737 30.4545 17.6763 29.7574 18.6882C28.645 19.9258 27.7256 21.3242 27.0303 22.8361C26.8607 23.5878 26.7838 24.3574 26.8012 25.1277C26.7989 25.8396 26.8914 26.5486 27.0762 27.2361C26.1393 27.3362 25.1943 27.3362 24.2574 27.2361C23.3637 27.0986 22.2637 25.3111 21.9658 24.7611C21.8184 24.4658 21.5167 24.2792 21.1866 24.2792C20.8565 24.2792 20.5548 24.4658 20.4074 24.7611C19.9033 25.6319 18.7803 27.2132 18.1158 27.3048C16.5803 27.4882 13.3949 27.3048 10.9199 27.3048C10.9199 27.3048 11.3553 25.0132 10.3928 24.1882C9.43034 23.3632 8.49076 22.4007 7.78034 21.759L5.87826 19.6507C4.53693 18.4055 3.55538 16.8224 3.03659 15.0673C2.55534 12.9132 2.60117 11.8819 3.03659 11.0111C3.48069 10.292 4.17416 9.76167 4.98451 9.52149C5.65773 9.39937 6.35076 9.44662 7.00117 9.65899C7.45095 9.84729 7.83967 10.1567 8.12409 10.5527C8.65118 11.2632 8.83451 11.6069 8.60534 10.8277C8.37617 10.0486 7.87201 9.47566 7.61993 8.53608C7.12917 7.42645 6.83453 6.24013 6.74909 5.02983C6.84301 3.94395 7.60118 3.03049 8.65118 2.73816"
+                        fill="white"
+                      />
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M8.58243 2.64649C9.68243 2.23399 11.8595 2.48608 12.4324 3.72358C13.0053 4.96108 13.3491 6.56524 13.372 6.17566C13.3282 4.99155 13.4282 3.8065 13.6699 2.64649C13.9246 1.90357 14.5083 1.31996 15.2512 1.06524C15.9325 0.849761 16.6559 0.802581 17.3595 0.927743C18.0709 1.07418 18.7009 1.4833 19.1241 2.07358C19.6602 3.40992 19.9625 4.82851 20.0178 6.26733C20.0748 5.03958 20.2827 3.8235 20.6366 2.64649C21.0195 2.10692 21.5788 1.71789 22.2178 1.54649C22.9755 1.40797 23.7519 1.40797 24.5095 1.54649C25.1314 1.75288 25.6753 2.14475 26.0678 2.66941C26.5546 3.88434 26.8484 5.16789 26.9387 6.47358C26.9387 6.79441 27.0991 5.57983 27.6033 4.77774C28.0083 3.57537 29.3113 2.92898 30.5137 3.33399C31.716 3.739 32.3624 5.04204 31.9574 6.24441C31.9574 7.73399 31.9574 7.66524 31.9574 8.67358C31.9574 9.68191 31.9574 10.5757 31.9574 11.4236C31.8749 12.7647 31.691 14.0977 31.4074 15.4111C31.0097 16.5737 30.4545 17.6763 29.7574 18.6882C28.645 19.9258 27.7256 21.3242 27.0303 22.8361C26.8607 23.5878 26.7838 24.3574 26.8012 25.1277C26.7989 25.8396 26.8914 26.5486 27.0762 27.2361C26.1393 27.3362 25.1943 27.3362 24.2574 27.2361C23.3637 27.0986 22.2637 25.3111 21.9658 24.7611C21.8184 24.4658 21.5167 24.2792 21.1866 24.2792C20.8565 24.2792 20.5548 24.4658 20.4074 24.7611C19.9033 25.6319 18.7803 27.2132 18.1158 27.3048C16.5803 27.4882 13.3949 27.3048 10.9199 27.3048C10.9199 27.3048 11.3553 25.0132 10.3928 24.1882C9.43034 23.3632 8.49076 22.4007 7.78034 21.759L5.87826 19.6507C4.53693 18.4055 3.55538 16.8224 3.03659 15.0673C2.55534 12.9132 2.60117 11.8819 3.03659 11.0111C3.48069 10.292 4.17416 9.76167 4.98451 9.52149C5.65773 9.39937 6.35076 9.44662 7.00117 9.65899C7.45095 9.84729 7.83967 10.1567 8.12409 10.5527C8.65117 11.2632 8.83451 11.6069 8.60534 10.8277C8.37618 10.0486 7.87201 9.47566 7.61992 8.53608C7.12917 7.42645 6.83453 6.24013 6.74909 5.02983C6.79595 3.92807 7.52955 2.97439 8.58243 2.64649Z"
+                        stroke="black"
+                        strokeWidth="1.71875"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M26.3428 20.2369V12.3266C26.3428 11.8531 25.958 11.4692 25.4834 11.4692C25.0088 11.4692 24.624 11.8531 24.624 12.3266V20.2369C24.624 20.7104 25.0088 21.0942 25.4834 21.0942C25.958 21.0942 26.3428 20.7104 26.3428 20.2369Z"
+                        fill="black"
+                      />
+                      <path
+                        d="M21.8053 20.234L21.7595 12.3196C21.7568 11.8472 21.3698 11.4665 20.8952 11.4693C20.4206 11.472 20.0381 11.8571 20.0408 12.3295L20.0866 20.2439C20.0894 20.7162 20.4763 21.0969 20.9509 21.0942C21.4255 21.0915 21.8081 20.7064 21.8053 20.234Z"
+                        fill="black"
+                      />
+                      <path
+                        d="M15.4575 12.3399L15.5034 20.2337C15.5061 20.7118 15.8931 21.097 16.3678 21.0942C16.8424 21.0914 17.2249 20.7016 17.2221 20.2236L17.1763 12.3297C17.1735 11.8517 16.7865 11.4665 16.3119 11.4693C15.8373 11.472 15.4548 11.8618 15.4575 12.3399Z"
+                        fill="black"
+                      />
+                    </svg>
+                    <Icon
+                      icon="mdi:file-outline"
+                      className="text-fg-muted text-xl"
+                    />
+                    <div className="flex flex-col">
+                      <p className="text-fg-muted text-xs">
+                        Meeting.12.03.26.wav
+                      </p>
+                      <p className="text-fg-subtle text-xs">14:30:25</p>
+                    </div>
                   </div>
                 </div>
               </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                  Upload existing recordings
+                </h4>
+                <p className="text-color text-base">
+                  Drop in audio files or transcripts to turn them into
+                  searchable notes.
+                </p>
+              </div>
             </div>
-            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                Upload existing recordings
-              </h4>
-              <p className="text-color text-base">
-                Drop in audio files or transcripts to turn them into searchable
-                notes.
-              </p>
-            </div>
-          </div>
 
-          {/* languages */}
-          <div className="border-brand flex shrink-0 snap-center flex-col gap-2 md:min-w-0 md:shrink">
-            <div className="flex h-32 items-center justify-start select-none">
-              <HelloBubble />
-            </div>
-            <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-              <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                40+ <br /> languages
-              </h4>
-              <p className="text-color text-base">
-                Char uses best-in-class transcription models and updates them
-                continuously. Speak in the language you think in.
-              </p>
+            {/* languages */}
+            <div className="border-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+              <div className="flex h-32 items-center justify-start select-none md:h-24 lg:h-32">
+                <HelloBubble />
+              </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
+                  40+ <br /> languages
+                </h4>
+                <p className="text-color text-base">
+                  Char uses best-in-class transcription models and updates them
+                  continuously. Speak in the language you think in.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1145,7 +1180,6 @@ const helloWords = [
 function HelloBubble() {
   const [index, setIndex] = useState(0);
   const { ref, isInView } = useHasEnteredView<HTMLDivElement>(0.4);
-  const itemHeight = 44;
 
   useEffect(() => {
     if (!isInView) {
@@ -1159,18 +1193,17 @@ function HelloBubble() {
   }, [isInView]);
 
   return (
-    <div ref={ref} className="relative" style={{ height: itemHeight }}>
+    <div ref={ref} className="relative h-[44px] md:h-[34px] lg:h-[44px]">
       <AnimatePresence mode="popLayout">
         <motion.div
           key={index}
-          className="flex items-center rounded-full rounded-bl-sm bg-blue-500 px-6"
-          style={{ height: itemHeight }}
+          className="flex h-full items-center rounded-full rounded-bl-sm bg-blue-500 px-6 md:px-4 lg:px-6"
           initial={{ y: 20, opacity: 0, filter: "blur(4px)" }}
           animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
           exit={{ y: -20, opacity: 0, filter: "blur(4px)" }}
           transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
         >
-          <span className="block text-2xl font-medium whitespace-nowrap text-white">
+          <span className="block text-2xl font-medium whitespace-nowrap text-white md:text-lg lg:text-2xl">
             {helloWords[index].text}
           </span>
         </motion.div>
@@ -1203,8 +1236,8 @@ function ChatBubbleResponse({
 
 function ChatPanel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xl">
-      <div className="flex h-9 shrink-0 items-center border-b border-neutral-200 px-3">
+    <div className="border-color-brand surface flex w-full flex-col overflow-hidden rounded-xl border shadow-xl">
+      <div className="border-color-brand flex h-9 shrink-0 items-center border-b px-3">
         <div className="flex items-center gap-2">
           <Icon
             icon="mdi:message-text-outline"
@@ -1216,12 +1249,12 @@ function ChatPanel({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-[300px] flex-col justify-end p-3">
         {children}
       </div>
-      <div className="shrink-0 border-t border-neutral-200 px-3 py-2.5">
+      <div className="border-color-brand shrink-0 border-t px-3 py-2.5">
         <div className="flex items-center justify-between">
           <span className="text-sm text-neutral-400">
             Ask about your notes...
           </span>
-          <div className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-neutral-200 pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
+          <div className="border-color-brand inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
             <span>Send</span>
             <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
               ⌘ ↩
@@ -1287,7 +1320,7 @@ function CyclingChatGraphic() {
   const pair = cyclingPairs[index];
 
   return (
-    <div ref={ref} className="flex w-full max-w-[420px] flex-col">
+    <div ref={ref} className="flex w-full flex-col">
       <AnimatePresence mode="wait">
         {phase !== "exit" && (
           <motion.div
@@ -1415,8 +1448,65 @@ function LiveChatMessages() {
   );
 }
 
+function BeforeMeetingMessages() {
+  const [step, setStep] = useState(0);
+  const { ref, isInView } = useHasEnteredView<HTMLDivElement>(0.4);
+
+  useEffect(() => {
+    if (!isInView) {
+      return;
+    }
+
+    setStep(0);
+    const t1 = setTimeout(() => setStep(1), 600);
+    const t2 = setTimeout(() => setStep(2), 2400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isInView]);
+
+  const ease = [0.4, 0, 0.2, 1] as const;
+
+  return (
+    <div ref={ref} className="flex flex-col">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+      >
+        <ChatBubbleQuestion text="What was my last conversation with Sarah about?" />
+      </motion.div>
+      <AnimatePresence>
+        {step >= 1 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
+            transition={{ duration: 0.4, ease }}
+            style={{ overflow: "hidden" }}
+          >
+            <ContactSearchToolCall loopKey={0} static />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {step >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginTop: 0 }}
+            animate={{ opacity: 1, height: "auto", marginTop: 8 }}
+            transition={{ duration: 0.4, ease }}
+            style={{ overflow: "hidden" }}
+          >
+            <ChatBubbleResponse text="Your last meeting with Sarah was about Q2 roadmap priorities. She proposed 2 sprints for mobile redesign and you agreed to share updated specs by Friday." />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function AISection() {
-  const [activeBlock, setActiveBlock] = useState<0 | 1>(0);
+  const [activeBlock, setActiveBlock] = useState<0 | 1 | 2>(0);
   const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
 
   return (
@@ -1431,22 +1521,82 @@ export function AISection() {
         </p>
       </div>
 
-      <div className="surface-subtle border-color-brand flex flex-col overflow-hidden rounded-xl border md:min-h-[700px] md:flex-row">
-        <div className="flex flex-col gap-8 pt-8 pr-8 pl-4 md:w-1/2">
-          {/* Block 1: Chat with notes */}
+      <div className="surface-subtle border-color-brand flex flex-col overflow-hidden rounded-xl border md:flex-row">
+        <div className="flex flex-col gap-12 px-2 pt-8 pb-12 md:w-1/2 md:pt-12 md:pr-8 md:pb-32 md:pl-4">
+          {/* Block 0: Before meeting */}
           <div
             className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-2 transition-all duration-200 md:pl-4",
               activeBlock === 0
-                ? "border-l-stone-800"
-                : "border-l-transparent opacity-50 hover:opacity-75",
+                ? "md:border-l-stone-800"
+                : "opacity-50 hover:opacity-75 md:border-l-transparent",
             ])}
             onMouseEnter={() => setActiveBlock(0)}
           >
             <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              Before meeting
+            </p>
+            <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
+              Get a quick brief before the call
+            </p>
+            <p className="text-color-muted text-base leading-relaxed">
+              Get the relevant info about people, goals and previous meetings.
+              Char links contacts and conversations, search through them and get
+              a whole picture.
+            </p>
+          </div>
+
+          {/* Mobile image for block 0 */}
+          <div className="bg-dotted-dark flex min-h-[280px] flex-col justify-center gap-3 p-2 md:hidden">
+            <ChatPanel>
+              <BeforeMeetingMessages />
+            </ChatPanel>
+          </div>
+
+          {/* Block 1: During meeting */}
+          <div
+            className={cn([
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
+              activeBlock === 1
+                ? "md:border-l-stone-800"
+                : "md:border-l-transparent md:opacity-50 md:hover:opacity-75",
+            ])}
+            onMouseEnter={() => setActiveBlock(1)}
+          >
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+              During meeting
+            </p>
+            <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
+              Chat during live meetings
+            </p>
+            <p className="text-color-muted text-base leading-relaxed">
+              Get instant answers from the current transcript and past meeting
+              context without breaking your flow.
+            </p>
+          </div>
+
+          {/* Mobile image for block 1 */}
+          <div className="bg-dotted-dark flex min-h-[280px] flex-col justify-center gap-3 p-8 md:hidden">
+            <MeetingBar animated={isInView} />
+            <ChatPanel>
+              <LiveChatMessages />
+            </ChatPanel>
+          </div>
+
+          {/* Block 2: After meeting */}
+          <div
+            className={cn([
+              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
+              activeBlock === 2
+                ? "border-l-stone-800"
+                : "border-l-transparent opacity-50 hover:opacity-75",
+            ])}
+            onMouseEnter={() => setActiveBlock(2)}
+          >
+            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
               After meeting
             </p>
-            <p className="text-color font-regular text-lg leading-relaxed md:text-3xl">
+            <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
               Chat with your notes
             </p>
             <p className="text-color-muted text-base leading-relaxed">
@@ -1456,40 +1606,10 @@ export function AISection() {
             </p>
           </div>
 
-          {/* Mobile image for block 1 */}
-          <div className="bg-dotted-dark flex min-h-[280px] items-end justify-center p-8 md:hidden">
+          {/* Mobile image for block 2 */}
+          <div className="bg-dotted-dark flex min-h-[320px] items-end justify-center p-8 md:hidden">
             <ChatPanel>
               <CyclingChatGraphic />
-            </ChatPanel>
-          </div>
-
-          {/* Block 2: Live meetings */}
-          <div
-            className={cn([
-              "flex cursor-pointer flex-col gap-2 border-l-2 pl-4 transition-all duration-200",
-              activeBlock === 1
-                ? "border-l-stone-800"
-                : "border-l-transparent opacity-50 hover:opacity-75",
-            ])}
-            onMouseEnter={() => setActiveBlock(1)}
-          >
-            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
-              During meeting
-            </p>
-            <p className="text-color font-regular text-lg leading-relaxed md:text-3xl">
-              Chat during live meetings
-            </p>
-            <p className="text-color-muted text-base leading-relaxed">
-              Get instant answers from the current transcript and past meeting
-              context without breaking your flow.
-            </p>
-          </div>
-
-          {/* Mobile image for block 2 */}
-          <div className="bg-dotted-dark flex min-h-[280px] flex-col justify-center gap-3 p-8 md:hidden">
-            <MeetingBar animated={isInView} />
-            <ChatPanel>
-              <LiveChatMessages />
             </ChatPanel>
           </div>
         </div>
@@ -1511,18 +1631,19 @@ export function AISection() {
           </AnimatePresence>
           <ChatPanel>
             <AnimatePresence mode="wait">
-              {activeBlock === 0 ? (
+              {activeBlock === 0 && (
                 <motion.div
-                  key="cycling"
+                  key="before"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.3 }}
                   className="w-full"
                 >
-                  <CyclingChatGraphic />
+                  <BeforeMeetingMessages />
                 </motion.div>
-              ) : (
+              )}
+              {activeBlock === 1 && (
                 <motion.div
                   key="live"
                   initial={{ opacity: 0 }}
@@ -1532,6 +1653,18 @@ export function AISection() {
                   className="w-full"
                 >
                   <LiveChatMessages />
+                </motion.div>
+              )}
+              {activeBlock === 2 && (
+                <motion.div
+                  key="cycling"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <CyclingChatGraphic />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -2289,7 +2422,7 @@ function SolutionsTabbar() {
   const activeColor = solutionColors[active.id];
 
   return (
-    <section id="solutions" className="px-4 pb-24">
+    <section id="solutions" className="pb-24 pl-4 md:px-4">
       <div className="mb-8 flex flex-col gap-2 pt-16">
         <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
           Build for every conversation
@@ -2312,6 +2445,7 @@ function SolutionsTabbar() {
           const isFirst = i === 0;
           const maskCenter = `radial-gradient(${r}px at ${r}px 0, #0000 98%, #000 101%) calc(-1 * ${r}px) 100% / 100% ${r}px repeat-x, conic-gradient(#000 0 0) padding-box`;
           const maskRight = `radial-gradient(${r}px at 100% 0, #0000 98%, #000 101%) 100% 100% / ${r}px ${r}px no-repeat, conic-gradient(#000 0 0) padding-box`;
+
           return (
             <button
               key={scenario.id}
@@ -2341,7 +2475,7 @@ function SolutionsTabbar() {
                   "padding-bottom 0.15s ease, margin-bottom 0.15s ease",
               }}
               className={cn([
-                "shrink-0 cursor-pointer px-3 py-3 text-sm font-medium transition-colors hover:pb-6 md:px-4 md:text-lg",
+                "min-w-0 flex-1 cursor-pointer px-3 py-3 text-sm font-medium transition-colors hover:pb-6 md:flex-initial md:shrink-0 md:px-4 md:text-lg",
                 isActive ? "pt-2 pb-4" : "",
               ])}
             >
@@ -2370,9 +2504,8 @@ function SolutionsTabbar() {
         <div
           style={{
             backgroundColor: activeColor.accent,
-            borderRadius: "12px 12px 12px 12px",
           }}
-          className="relative z-0 overflow-hidden"
+          className="relative z-0 overflow-hidden rounded-l-xl md:rounded-xl"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

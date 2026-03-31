@@ -22,7 +22,7 @@ export const Route = createFileRoute("/_view/product/flexible-ai")({
 
 function Component() {
   return (
-    <main className="min-h-screen flex-1">
+    <main className="min-h-screen flex-1 md:px-8">
       <div className="mx-auto">
         <HeroSection />
         <AISetupSection />
@@ -37,7 +37,7 @@ function Component() {
 
 function HeroSection() {
   return (
-    <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
+    <section className="">
       <div className="flex flex-col items-center gap-6 px-4 py-24 text-left">
         <div className="flex max-w-4xl flex-col gap-6">
           <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
@@ -71,13 +71,13 @@ function HeroSection() {
 function AISetupSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-left">
+      <div className="border-color-brand border-b text-left">
         <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Pick your AI setup
         </p>
       </div>
       <div className="grid md:grid-cols-3">
-        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-r border-b p-8 md:border-b-0">
           <Icon icon="mdi:cloud" className="mb-4 text-3xl text-stone-600" />
           <h3 className="mb-1 font-mono text-xl text-stone-600">
             Char Cloud ($8/month)
@@ -87,7 +87,7 @@ function AISetupSection() {
             configuration.
           </p>
         </div>
-        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-r border-b p-8 md:border-b-0">
           <Icon
             icon="mdi:key-variant"
             className="mb-4 text-3xl text-stone-700"
@@ -100,7 +100,7 @@ function AISetupSection() {
             others. No markup.
           </p>
         </div>
-        <div className="border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-b p-8 md:border-b-0">
           <Icon icon="mdi:laptop" className="mb-4 text-3xl text-stone-700" />
           <h3 className="mb-1 font-mono text-xl text-stone-700">
             Go fully local if you want to
@@ -117,7 +117,7 @@ function AISetupSection() {
 function LocalFeaturesSection() {
   return (
     <section>
-      <div className="divide-y divide-neutral-100">
+      <div className="divide-color-border divide-y">
         <div className="flex items-start gap-4 p-8">
           <Icon
             icon="mdi:microphone"

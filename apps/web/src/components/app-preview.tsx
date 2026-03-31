@@ -3,8 +3,10 @@ import {
   ArrowLeftIcon,
   CalendarIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ChevronUpIcon,
   CircleHelpIcon,
+  EllipsisIcon,
   FolderOpenIcon,
   MailIcon,
   MessageCircleIcon,
@@ -23,6 +25,8 @@ import { useState } from "react";
 
 import { NoteTab } from "@hypr/ui/components/ui/note-tab";
 import { cn } from "@hypr/utils";
+
+import { CharLogo } from "./sidebar";
 
 type MockNote = {
   id: string;
@@ -356,12 +360,12 @@ function MockDesktopApp() {
                   >
                     <div className="flex items-center gap-2">
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <div className="pointer-events-none truncate text-sm font-normal">
+                        <p className="pointer-events-none truncate text-sm">
                           {note.title}
-                        </div>
-                        <div className="font-mono text-xs text-neutral-500">
+                        </p>
+                        <p className="font-mono text-xs text-neutral-500">
                           {note.time}
-                        </div>
+                        </p>
                       </div>
                     </div>
                   </button>
@@ -444,7 +448,36 @@ function MockDesktopApp() {
               >
                 <div className="w-full pt-1 pr-1 pl-2">
                   <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1" />
+                    <div className="min-w-0 flex-1">
+                      <div className="ml-1.5 flex items-center gap-1 text-xs text-neutral-600">
+                        <span className="shrink-0 text-neutral-500">
+                          Select folder
+                        </span>
+                        <ChevronRightIcon
+                          size={12}
+                          className="shrink-0 text-neutral-400"
+                        />
+                        <span className="truncate text-neutral-700">
+                          {activeNote.title}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center">
+                      <button className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-neutral-900">
+                        <span className="size-1.5 shrink-0 rounded-full bg-red-400" />
+                        <span className="whitespace-nowrap">
+                          Resume listening
+                        </span>
+                      </button>
+                      <button className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-neutral-600">
+                        <CalendarIcon size={14} className="shrink-0" />
+                        <span>2 weeks ago</span>
+                      </button>
+                      <button className="inline-flex size-7 items-center justify-center rounded-md text-neutral-600">
+                        <EllipsisIcon size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -459,6 +492,10 @@ function MockDesktopApp() {
                     >
                       {activeNote.noteContent.title}
                     </div>
+                    <SparklesIcon
+                      size={16}
+                      className="shrink-0 text-neutral-400 opacity-50"
+                    />
                   </div>
                 </div>
 
@@ -482,7 +519,7 @@ function MockDesktopApp() {
                   </div>
                 </div>
 
-                <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+                <div className="mt-2 min-h-0 flex-1 overflow-y-auto px-4 pb-4">
                   {activeEditorTab === 0 && (
                     <div className="mock-summary text-sm leading-relaxed text-neutral-700">
                       {activeNote.noteContent.summary}
@@ -538,7 +575,7 @@ function MockDesktopApp() {
           {chatOpen && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
+              animate={{ width: "30%", opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
               className="shrink-0 overflow-hidden"
@@ -651,9 +688,7 @@ function MockChatPanel({ onClose }: { onClose: () => void }) {
       {/* Top controls */}
       <div className="flex h-9 shrink-0 items-center justify-between">
         <button className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-sm text-neutral-700 hover:bg-neutral-100">
-          <span className="font-mono text-xs font-semibold text-neutral-800">
-            {"{ }"}
-          </span>
+          <CharLogo compact className="h-3 w-auto text-neutral-800" />
           <span className="text-xs">Ask Charlie anything</span>
           <ChevronDownIcon size={12} className="text-neutral-400" />
         </button>
@@ -677,11 +712,9 @@ function MockChatPanel({ onClose }: { onClose: () => void }) {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1" />
 
-        <div className="flex flex-col gap-3 pb-4">
+        <div className="flex flex-col gap-3 px-2 pb-4">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-semibold text-neutral-800">
-              {"{ }"}
-            </span>
+            <CharLogo compact className="h-3.5 w-auto text-neutral-800" />
             <span className="text-sm font-semibold text-neutral-800">
               Charlie
             </span>

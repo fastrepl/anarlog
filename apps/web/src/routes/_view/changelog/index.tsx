@@ -7,6 +7,7 @@ import semver from "semver";
 import { cn } from "@hypr/utils";
 
 import { type ChangelogWithMeta, getChangelogList } from "@/changelog";
+import { CTASection } from "@/components/cta-section";
 import { defaultMDXComponents } from "@/components/mdx";
 import { getDownloadLinks, groupDownloadLinks } from "@/utils/download";
 
@@ -55,7 +56,7 @@ function Component() {
             </div>
           ))}
         </div>
-        <div className="px-4 pb-16 lg:pb-24"></div>
+        <CTASection />
       </div>
     </main>
   );

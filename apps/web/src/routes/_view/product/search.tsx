@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_view/product/search")({
 
 function Component() {
   return (
-    <div className="min-h-screen overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden md:px-8">
       <div className="mx-auto">
         <HeroSection />
         <HowItWorksSection />
@@ -59,8 +59,8 @@ const searchQueries = [
 function HeroSection() {
   return (
     <div>
-      <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto text-left">
+      <div className="py-12 lg:py-20">
+        <header className="text-left">
           <h1 className="text-color mb-6 font-mono text-2xl tracking-wide sm:text-5xl">
             Search your entire meeting history in seconds
           </h1>
@@ -74,14 +74,14 @@ function HeroSection() {
         </header>
       </div>
 
-      <div className="px-4 pb-8">
+      <div className="pb-8">
         <div
           className="border-border bg-surface-subtle overflow-hidden rounded-xl border bg-cover bg-center"
           style={{
             backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
           }}
         >
-          <div className="px-6 py-16">
+          <div className="py-16">
             <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
               <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
                 <SearchIcon className="size-5 shrink-0 text-stone-400" />

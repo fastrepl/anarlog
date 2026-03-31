@@ -29,13 +29,22 @@ export const Route = createFileRoute("/_view")({
 
 function Component() {
   const router = useRouterState();
-  const isDocsPage = router.location.pathname.startsWith("/docs");
-  const isHandbookPage =
-    router.location.pathname.startsWith("/company-handbook");
-  const isChoosePage = router.location.pathname.startsWith("/choose");
-  const isHomePage = router.location.pathname === "/";
+  const pathname = router.location.pathname;
+  const isDocsPage = pathname.startsWith("/docs");
+  const isHandbookPage = pathname.startsWith("/company-handbook");
+  const isChoosePage = pathname.startsWith("/choose");
+  const isHomePage = pathname === "/";
   const hasHeroCTA =
-    isHomePage || router.location.pathname.startsWith("/product/ai-notetaking");
+    isHomePage || pathname.startsWith("/product/ai-notetaking");
+  const isResourcePage = [
+    "/docs",
+    "/blog",
+    "/gallery",
+    "/updates",
+    "/changelog",
+    "/roadmap",
+    "/company-handbook",
+  ].some((path) => pathname.startsWith(path));
   const [onTrigger, setOnTrigger] = useState<(() => void) | null>(null);
   const [isDocsDrawerOpen, setIsDocsDrawerOpen] = useState(false);
   const [isHandbookDrawerOpen, setIsHandbookDrawerOpen] = useState(false);
@@ -81,7 +90,7 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
-                {!isDocsPage && (
+                {!isResourcePage && (
                   <>
                     <div
                       aria-hidden="true"

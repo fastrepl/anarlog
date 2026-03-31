@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -6,10 +7,11 @@ import {
   GITHUB_LAST_SEEN_FORKS,
   GITHUB_LAST_SEEN_STARS,
   GITHUB_ORG_REPO,
+  useGitHubStargazers,
   useGitHubStats,
 } from "../queries";
 
-const CURATED_PROFILES = [
+export const CURATED_PROFILES = [
   {
     username: "tobi",
     avatar: "https://avatars.githubusercontent.com/u/347?v=4",
@@ -248,7 +250,7 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
       href={`https://github.com/${username}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="size-10 shrink-0 cursor-pointer overflow-hidden rounded-xs border-2 border-neutral-200 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400"
+      className="size-[40px] shrink-0 cursor-pointer overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400"
     >
       <img
         src={avatar}
@@ -259,15 +261,63 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
   );
 }
 
+export function RotatingAvatarGrid({
+  profiles,
+}: {
+  profiles: { username: string; avatar: string }[];
+}) {
+  const DISPLAY_COUNT = 50;
+  const [visible, setVisible] = useState(() =>
+    profiles.slice(0, DISPLAY_COUNT),
+  );
+  const poolRef = useRef(DISPLAY_COUNT);
+
+  const pickNext = useCallback(() => {
+    const idx = poolRef.current % profiles.length;
+    poolRef.current = idx + 1;
+    return profiles[idx];
+  }, [profiles]);
+
+  useEffect(() => {
+    if (profiles.length <= DISPLAY_COUNT) return;
+
+    const interval = setInterval(() => {
+      setVisible((prev) => {
+        const next = [...prev];
+        const count = 1 + Math.floor(Math.random() * 2);
+        for (let i = 0; i < count; i++) {
+          const idx = Math.floor(Math.random() * next.length);
+          next[idx] = pickNext();
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [profiles.length, pickNext]);
+
+  return (
+    <div className="mt-12 flex flex-wrap gap-1">
+      {visible.map((profile, i) => (
+        <Avatar
+          key={`${i}-${profile.username}`}
+          username={profile.username}
+          avatar={profile.avatar}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function GitHubOpenSource() {
   const githubStats = useGitHubStats();
+  const { data: stargazers = [] } = useGitHubStargazers();
 
   const STARS_COUNT = githubStats.data?.stars ?? GITHUB_LAST_SEEN_STARS;
   const FORKS_COUNT = githubStats.data?.forks ?? GITHUB_LAST_SEEN_FORKS;
 
   return (
     <section id="opensource">
-      <div className="mx-auto max-w-5xl px-4 py-16">
+      <div className="px-4 py-16">
         <h2 className="text-fg border-color-brand mb-8 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
           Open source
         </h2>
@@ -303,15 +353,9 @@ export function GitHubOpenSource() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-wrap justify-start gap-1">
-          {CURATED_PROFILES.map((profile) => (
-            <Avatar
-              key={profile.username}
-              username={profile.username}
-              avatar={profile.avatar}
-            />
-          ))}
-        </div>
+        <RotatingAvatarGrid
+          profiles={stargazers.length > 0 ? stargazers : CURATED_PROFILES}
+        />
       </div>
     </section>
   );

@@ -145,6 +145,68 @@ export function JiraToolCall({ loopKey }: { loopKey: number }) {
   );
 }
 
+export function ContactSearchToolCall({
+  loopKey,
+  static: isStatic,
+}: {
+  loopKey: number;
+  static?: boolean;
+}) {
+  const [phase, setPhase] = useState(isStatic ? 2 : 0);
+
+  useEffect(() => {
+    if (isStatic) return;
+    setPhase(0);
+    const t1 = setTimeout(() => setPhase(1), 600);
+    const t2 = setTimeout(() => setPhase(2), 1200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [loopKey, isStatic]);
+
+  return (
+    <div className="border-color-brand surface rounded-xl border px-3 py-2.5">
+      <div className="flex items-center gap-2 text-xs text-neutral-500">
+        <div
+          className={cn([
+            "size-2 rounded-full",
+            phase < 2 ? "animate-pulse bg-violet-400" : "bg-violet-400",
+          ])}
+        />
+        <span>{phase < 2 ? "Looking up contacts..." : "Contact found"}</span>
+      </div>
+      <AnimatePresence>
+        {phase >= 1 && (
+          <motion.div
+            initial={isStatic ? false : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="mt-2 flex items-center justify-between overflow-hidden"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-500">
+                S
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-stone-700">
+                  Sarah Chen
+                </span>
+                <span className="text-[11px] text-neutral-400">
+                  Product Lead · Acme Inc
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] text-neutral-400">
+              3 meetings together
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function TranscriptToolCall({
   loopKey,
   static: isStatic,

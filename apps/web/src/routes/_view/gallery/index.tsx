@@ -175,10 +175,7 @@ function Component() {
           itemsByCategory={filteredItemsByCategory}
           filteredItems={filteredItems}
         />
-        <CTASection
-          title="Ready to transform your meetings?"
-          description="Download Char and start using these templates and shortcuts to capture perfect meeting notes with AI."
-        />
+        <CTASection />
       </div>
     </div>
   );

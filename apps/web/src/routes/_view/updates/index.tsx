@@ -3,6 +3,7 @@ import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allUpdates, type Update } from "content-collections";
 
+import { CTASection } from "@/components/cta-section";
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
 import { defaultMDXComponents } from "@/components/mdx";
 
@@ -59,9 +60,7 @@ function Component() {
           ))}
         </div>
         <div className="border-t border-neutral-100" />
-        <div className="mx-auto max-w-3xl px-4 py-16 lg:py-24">
-          <SubscribeSection />
-        </div>
+        <CTASection />
       </div>
     </main>
   );
@@ -75,24 +74,6 @@ function HeroSection() {
       </h1>
       <p className="text-fg-muted text-lg sm:text-xl">
         Weekly updates from the Char team
-      </p>
-      <EmailSubscribeField
-        className="w-full max-w-md"
-        formClassName="w-full"
-        variant="hero"
-      />
-    </div>
-  );
-}
-
-function SubscribeSection() {
-  return (
-    <div className="flex flex-col items-center gap-4 text-left">
-      <h2 className="text-color font-mono text-3xl">
-        Get updates in your inbox
-      </h2>
-      <p className="text-fg-muted">
-        Subscribe to get weekly updates from the Char team.
       </p>
       <EmailSubscribeField
         className="w-full max-w-md"
@@ -126,11 +107,11 @@ function UpdateSection({ update }: { update: Update }) {
           <article className="prose prose-stone prose-sm prose-headings:font-mono prose-headings:font-semibold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-ul:my-2 prose-li:my-0.5 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono prose-code:text-stone-700 prose-img:rounded prose-img:border prose-img:border-neutral-200 prose-img:my-3 max-w-none">
             <MDXContent code={update.mdx} components={defaultMDXComponents} />
           </article>
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-white via-white/90 to-transparent" />
+          <div className="from-page via-page/90 pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t to-transparent" />
           <Link
             to="/updates/$slug/"
             params={{ slug: update.slug }}
-            className="absolute bottom-1 left-0 z-10 inline-flex items-center gap-1 bg-white/95 pr-2 text-sm text-stone-600 transition-colors hover:text-stone-900"
+            className="bg-page/95 absolute bottom-1 left-0 z-10 inline-flex items-center gap-1 pr-2 text-sm text-stone-600 transition-colors hover:text-stone-900"
           >
             Read more
             <Icon icon="mdi:arrow-right" className="text-base" />
