@@ -79,7 +79,7 @@ export function ChatMessageInput({
         <div className="mb-1 min-h-0 flex-1">
           <ChatEditor
             ref={editorRef}
-            className="max-h-[40vh] overflow-y-auto overscroll-contain"
+            className="max-h-[40vh] overflow-y-auto overscroll-contain text-sm"
             initialContent={initialContent}
             mentionConfig={mentionConfig}
             placeholder={chatPlaceholder}
