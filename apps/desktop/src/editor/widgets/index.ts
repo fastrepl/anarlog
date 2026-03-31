@@ -1,8 +1,7 @@
 export {
   type MentionConfig,
   MentionSuggestion,
-  isMentionActive,
+  findMention,
   mentionSkipPlugin,
-  mentionSuggestionPlugin,
 } from "./mention";
 export { SlashCommandMenu } from "./slash-command";

@@ -95,7 +95,7 @@ export const MentionNodeView = forwardRef<HTMLElement, NodeViewComponentProps>(
     );
 
     return (
-      <span ref={ref as any} {...htmlAttrs}>
+      <span ref={ref} {...htmlAttrs}>
         <a
           className="mention"
           data-mention="true"

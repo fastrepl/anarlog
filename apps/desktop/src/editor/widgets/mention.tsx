@@ -10,6 +10,8 @@ import {
 import {
   useEditorEffect,
   useEditorEventCallback,
+  useEditorEventListener,
+  useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
   Building2Icon,
@@ -40,28 +42,18 @@ export type MentionConfig = {
 };
 
 // ---------------------------------------------------------------------------
-// Suggestion plugin
+// Derive mention state from EditorState (no plugin needed)
 // ---------------------------------------------------------------------------
-interface SuggestionState {
-  active: boolean;
+interface MentionState {
   query: string;
   from: number;
   to: number;
 }
 
-export const mentionSuggestionKey = new PluginKey<SuggestionState>(
-  "mentionSuggestion",
-);
-
-export function isMentionActive(state: EditorState): boolean {
-  const pluginState = mentionSuggestionKey.getState(state);
-  return pluginState?.active === true;
-}
-
-function findSuggestion(
+export function findMention(
   state: EditorState,
   trigger: string,
-): SuggestionState | null {
+): MentionState | null {
   const { $from } = state.selection;
   if (!state.selection.empty) return null;
 
@@ -82,52 +74,7 @@ function findSuggestion(
   const from = $from.start() + triggerIndex;
   const to = $from.pos;
 
-  return { active: true, query, from, to };
-}
-
-export function mentionSuggestionPlugin(trigger: string) {
-  return new Plugin<SuggestionState>({
-    key: mentionSuggestionKey,
-    state: {
-      init: () => ({ active: false, query: "", from: 0, to: 0 }),
-      apply(tr, prev, _oldState, newState) {
-        const meta = tr.getMeta(mentionSuggestionKey);
-        if (meta?.deactivate) {
-          return { active: false, query: "", from: 0, to: 0 };
-        }
-        if (tr.docChanged || tr.selectionSet) {
-          return (
-            findSuggestion(newState, trigger) ?? {
-              active: false,
-              query: "",
-              from: 0,
-              to: 0,
-            }
-          );
-        }
-        return prev;
-      },
-    },
-    props: {
-      handleKeyDown(view, event) {
-        const state = mentionSuggestionKey.getState(view.state);
-        if (!state?.active) return false;
-
-        if (event.key === "Escape") {
-          view.dispatch(
-            view.state.tr.setMeta(mentionSuggestionKey, { deactivate: true }),
-          );
-          return true;
-        }
-
-        if (["ArrowUp", "ArrowDown", "Enter"].includes(event.key)) {
-          return true;
-        }
-
-        return false;
-      },
-    },
-  });
+  return { query, from, to };
 }
 
 // ---------------------------------------------------------------------------
@@ -136,15 +83,28 @@ export function mentionSuggestionPlugin(trigger: string) {
 export function MentionSuggestion({ config }: { config: MentionConfig }) {
   const [items, setItems] = useState<MentionItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [active, setActive] = useState(false);
-  const [query, setQuery] = useState("");
+  const [dismissedFrom, setDismissedFrom] = useState<number | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
+  const editorState = useEditorState();
+  const mentionState = editorState
+    ? findMention(editorState, config.trigger)
+    : null;
+
+  const dismissed =
+    mentionState !== null && dismissedFrom === mentionState.from;
+  const active = mentionState !== null && !dismissed;
+
+  if (!active && selectedIndex !== 0) {
+    setSelectedIndex(0);
+  }
+  if (mentionState === null && dismissedFrom !== null) {
+    setDismissedFrom(null);
+  }
+
   const insertMention = useEditorEventCallback((view, item: MentionItem) => {
-    if (!view) return;
-    const state = mentionSuggestionKey.getState(view.state);
-    if (!state?.active) return;
+    if (!view || !mentionState) return;
 
     const { schema } = view.state;
     const mentionNode = schema.nodes["mention-@"].create({
@@ -154,23 +114,50 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     });
     const space = schema.text(" ");
 
-    const tr = view.state.tr
-      .replaceWith(state.from, state.to, [mentionNode, space])
-      .setMeta(mentionSuggestionKey, { deactivate: true });
+    const tr = view.state.tr.replaceWith(mentionState.from, mentionState.to, [
+      mentionNode,
+      space,
+    ]);
 
     view.dispatch(tr);
     view.focus();
+    setDismissedFrom(mentionState.from);
+  });
+
+  useEditorEventListener("keydown", (_view, event) => {
+    if (!active || items.length === 0) return false;
+
+    if (event.key === "Escape") {
+      if (mentionState) setDismissedFrom(mentionState.from);
+      return true;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setSelectedIndex(
+        (prev) => (prev + items.length - 1) % Math.max(items.length, 1),
+      );
+      return true;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setSelectedIndex((prev) => (prev + 1) % Math.max(items.length, 1));
+      return true;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const item = items[selectedIndex];
+      if (item) insertMention(item);
+      return true;
+    }
+
+    return false;
   });
 
   useEditorEffect((view) => {
-    if (!view) return;
-    const state = mentionSuggestionKey.getState(view.state);
-    const isActive = state?.active ?? false;
-
-    setActive(isActive);
-    setQuery(state?.query ?? "");
-
-    if (!isActive) {
+    if (!view || !active || items.length === 0) {
       cleanupRef.current?.();
       cleanupRef.current = null;
       return;
@@ -179,7 +166,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     const popup = popupRef.current;
     if (!popup) return;
 
-    const coords = view.coordsAtPos(state!.from);
+    const coords = view.coordsAtPos(mentionState!.from);
     const referenceEl: VirtualElement = {
       getBoundingClientRect: () =>
         new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top),
@@ -210,7 +197,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     }
 
     config
-      .handleSearch(query)
+      .handleSearch(mentionState!.query)
       .then((results) => {
         setItems(results.slice(0, 5));
         setSelectedIndex(0);
@@ -218,30 +205,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
       .catch(() => {
         setItems([]);
       });
-  }, [active, query, config]);
-
-  useEffect(() => {
-    if (!active) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex(
-          (prev) => (prev + items.length - 1) % Math.max(items.length, 1),
-        );
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((prev) => (prev + 1) % Math.max(items.length, 1));
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        const item = items[selectedIndex];
-        if (item) insertMention(item);
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown, true);
-    return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [active, items, selectedIndex, insertMention]);
+  }, [active, mentionState?.query, config]);
 
   if (!active || items.length === 0) return null;
 

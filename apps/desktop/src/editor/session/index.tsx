@@ -56,7 +56,6 @@ import {
   MentionSuggestion,
   SlashCommandMenu,
   mentionSkipPlugin,
-  mentionSuggestionPlugin,
 } from "../widgets";
 import { buildInputRules, buildKeymap } from "./keymap";
 import { schema } from "./schema";
@@ -302,12 +301,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
         clearMarksOnEnterPlugin(),
         clipPastePlugin(),
         linkBoundaryGuardPlugin(),
-        ...(mentionConfig
-          ? [
-              mentionSuggestionPlugin(mentionConfig.trigger),
-              mentionSkipPlugin(),
-            ]
-          : []),
+        ...(mentionConfig ? [mentionSkipPlugin()] : []),
         ...(fileHandlerConfig ? [fileHandlerPlugin(fileHandlerConfig)] : []),
       ],
       [

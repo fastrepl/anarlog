@@ -1,3 +1,5 @@
+import "prosemirror-view/style/prosemirror.css";
+
 import {
   ProseMirror,
   ProseMirrorDoc,
@@ -24,14 +26,16 @@ import { EditorState, Plugin, PluginKey } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
+import "@hypr/tiptap/styles.css";
+import { cn } from "@hypr/utils";
+
 import { AttachmentChipView, MentionNodeView } from "../node-views";
 import { type PlaceholderFunction, placeholderPlugin } from "../plugins";
 import {
   type MentionConfig,
   MentionSuggestion,
-  isMentionActive,
+  findMention,
   mentionSkipPlugin,
-  mentionSuggestionPlugin,
 } from "../widgets";
 import { chatSchema } from "./schema";
 
@@ -200,7 +204,9 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           "Mod-Shift-z": redo,
           ...(!mac ? { "Mod-y": redo } : {}),
           "Mod-Enter": (state: EditorState) => {
-            if (isMentionActive(state)) return false;
+            if (mentionConfig && findMention(state, mentionConfig.trigger)) {
+              return false;
+            }
             onSubmitRef.current?.();
             return true;
           },
@@ -229,12 +235,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         }),
         history(),
         placeholderPlugin(placeholder),
-        ...(mentionConfig
-          ? [
-              mentionSuggestionPlugin(mentionConfig.trigger),
-              mentionSkipPlugin(),
-            ]
-          : []),
+        ...(mentionConfig ? [mentionSkipPlugin()] : []),
         fileHandlerPlugin(),
       ],
       [mentionConfig, placeholder],
@@ -271,7 +272,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           autocapitalize: "off",
           role: "textbox",
         }}
-        className={className}
+        className={cn(className, "tiptap")}
       >
         <ProseMirrorDoc />
         <ViewCapture viewRef={viewRef} />

@@ -212,18 +212,7 @@ const nodes: Record<string, NodeSpec> = {
     },
     parseDOM: [
       {
-        tag: 'a.mention[data-mention="true"]',
-        getAttrs(dom) {
-          const el = dom as HTMLElement;
-          return {
-            id: el.getAttribute("data-id"),
-            type: el.getAttribute("data-type"),
-            label: el.getAttribute("data-label"),
-          };
-        },
-      },
-      {
-        tag: "mention",
+        tag: 'span.mention[data-mention="true"]',
         getAttrs(dom) {
           const el = dom as HTMLElement;
           return {
@@ -236,14 +225,13 @@ const nodes: Record<string, NodeSpec> = {
     ],
     toDOM(node) {
       return [
-        "a",
+        "span",
         {
           class: "mention",
           "data-mention": "true",
           "data-id": node.attrs.id,
           "data-type": node.attrs.type,
           "data-label": node.attrs.label,
-          href: "javascript:void(0)",
         },
         node.attrs.label || "",
       ];
