@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type {
-  JSONContent,
-  SlashCommandConfig,
-  TiptapEditor,
-} from "@hypr/tiptap/chat";
 import { EMPTY_TIPTAP_DOC } from "@hypr/tiptap/shared";
 
 import type { ContextRef } from "~/chat/context/entities";
+import type { ChatEditorHandle, JSONContent } from "~/editor/chat";
+import type { MentionConfig } from "~/editor/widgets";
 import { useSearchEngine } from "~/search/contexts/engine";
 import * as main from "~/store/tinybase/store/main";
 
@@ -56,7 +53,7 @@ export function useSubmit({
   onContextRefsChange,
 }: {
   draftKey: string;
-  editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
+  editorRef: React.RefObject<ChatEditorHandle | null>;
   disabled?: boolean;
   isStreaming?: boolean;
   onSendMessage: (
@@ -67,7 +64,7 @@ export function useSubmit({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   return useCallback(() => {
-    const json = editorRef.current?.editor?.getJSON();
+    const json = editorRef.current?.getJSON();
     const text = tiptapJsonToText(json).trim();
     const mentionRefs = extractContextRefsFromTiptapJson(json);
 
@@ -77,7 +74,7 @@ export function useSubmit({
 
     void analyticsCommands.event({ event: "message_sent" });
     onSendMessage(text, [{ type: "text", text }], mentionRefs);
-    editorRef.current?.editor?.commands.clearContent();
+    editorRef.current?.clearContent();
     draftsByKey.delete(draftKey);
     onContextRefsChange?.([]);
   }, [
@@ -95,7 +92,7 @@ export function useAutoFocusEditor({
   disabled,
   shouldFocus = true,
 }: {
-  editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
+  editorRef: React.RefObject<ChatEditorHandle | null>;
   disabled?: boolean;
   shouldFocus?: boolean;
 }) {
@@ -108,11 +105,9 @@ export function useAutoFocusEditor({
     let attempts = 0;
     const maxAttempts = 20;
 
-    const focusWhenReady = () => {
-      const editor = editorRef.current?.editor;
-
-      if (editor && !editor.isDestroyed && editor.isInitialized) {
-        editor.commands.focus();
+    const tryFocus = () => {
+      if (editorRef.current) {
+        editorRef.current.focus();
         return;
       }
 
@@ -121,10 +116,10 @@ export function useAutoFocusEditor({
       }
 
       attempts += 1;
-      rafId = window.requestAnimationFrame(focusWhenReady);
+      rafId = window.requestAnimationFrame(tryFocus);
     };
 
-    focusWhenReady();
+    tryFocus();
 
     return () => {
       if (rafId !== null) {
@@ -134,7 +129,7 @@ export function useAutoFocusEditor({
   }, [editorRef, disabled, shouldFocus]);
 }
 
-export function useSlashCommandConfig(): SlashCommandConfig {
+export function useMentionConfig(): MentionConfig {
   const sessions = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
     main.STORE_ID,
@@ -151,6 +146,7 @@ export function useSlashCommandConfig(): SlashCommandConfig {
 
   return useMemo(
     () => ({
+      trigger: "@",
       handleSearch: async (query: string) => {
         const results: {
           id: string;

@@ -3,11 +3,12 @@ import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 
-import NoteEditor, {
+import {
+  NoteEditor,
   type JSONContent,
   type NoteEditorRef,
   type PlaceholderFunction,
-} from "~/editor";
+} from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { useImageUpload } from "~/shared/hooks/useImageUpload";
 import * as main from "~/store/tinybase/store/main";

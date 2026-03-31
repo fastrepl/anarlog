@@ -8,7 +8,7 @@ import { forwardRef, type ReactNode } from "react";
 export const TaskItemView = forwardRef<
   HTMLLIElement,
   NodeViewComponentProps & { children?: ReactNode }
->(({ nodeProps, children, ...htmlAttrs }, ref) => {
+>(function TaskItemView({ nodeProps, children, ...htmlAttrs }, ref) {
   const { node, getPos } = nodeProps;
   const checked = node.attrs.checked;
 
@@ -47,5 +47,3 @@ export const TaskItemView = forwardRef<
     </li>
   );
 });
-
-TaskItemView.displayName = "TaskItemView";

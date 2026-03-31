@@ -30,15 +30,11 @@ import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
 
-import { ResizableImageView } from "./image-view";
-import { buildInputRules, buildKeymap } from "./keymap";
 import {
-  type MentionConfig,
   MentionNodeView,
-  MentionSuggestion,
-  mentionSkipPlugin,
-  mentionSuggestionPlugin,
-} from "./mention";
+  ResizableImageView,
+  TaskItemView,
+} from "../node-views";
 import {
   type FileHandlerConfig,
   type PlaceholderFunction,
@@ -54,10 +50,16 @@ import {
   searchReplaceAll,
   searchReplaceCurrent,
   setSearchState,
-} from "./plugins";
+} from "../plugins";
+import {
+  type MentionConfig,
+  MentionSuggestion,
+  SlashCommandMenu,
+  mentionSkipPlugin,
+  mentionSuggestionPlugin,
+} from "../widgets";
+import { buildInputRules, buildKeymap } from "./keymap";
 import { schema } from "./schema";
-import { SlashCommandMenu } from "./slash-command";
-import { TaskItemView } from "./task-item-view";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };
@@ -253,131 +255,137 @@ function EditorCommandsBridge({
   return null;
 }
 
-const NoteEditor = forwardRef<NoteEditorRef, EditorProps>((props, ref) => {
-  const {
-    handleChange,
-    initialContent,
-    mentionConfig,
-    placeholderComponent,
-    fileHandlerConfig,
-    onNavigateToTitle,
-  } = props;
+export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
+  function NoteEditor(props, ref) {
+    const {
+      handleChange,
+      initialContent,
+      mentionConfig,
+      placeholderComponent,
+      fileHandlerConfig,
+      onNavigateToTitle,
+    } = props;
 
-  const previousContentRef = useRef<JSONContent | undefined>(initialContent);
-  const viewRef = useRef<EditorView | null>(null);
-  const commandsRef = useRef<EditorCommands>(noopCommands);
+    const previousContentRef = useRef<JSONContent | undefined>(initialContent);
+    const viewRef = useRef<EditorView | null>(null);
+    const commandsRef = useRef<EditorCommands>(noopCommands);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      get view() {
-        return viewRef.current;
-      },
-      get commands() {
-        return commandsRef.current;
-      },
-    }),
-    [],
-  );
+    useImperativeHandle(
+      ref,
+      () => ({
+        get view() {
+          return viewRef.current;
+        },
+        get commands() {
+          return commandsRef.current;
+        },
+      }),
+      [],
+    );
 
-  const onUpdate = useDebounceCallback((view: EditorView) => {
-    if (!handleChange) return;
-    handleChange(view.state.doc.toJSON() as JSONContent);
-  }, 500);
+    const onUpdate = useDebounceCallback((view: EditorView) => {
+      if (!handleChange) return;
+      handleChange(view.state.doc.toJSON() as JSONContent);
+    }, 500);
 
-  const plugins = useMemo(
-    () => [
-      reactKeys(),
-      buildInputRules(),
-      buildKeymap(onNavigateToTitle),
-      history(),
-      dropCursor(),
-      gapCursor(),
-      hashtagPlugin(),
-      searchPlugin(),
-      placeholderPlugin(placeholderComponent),
-      clearMarksOnEnterPlugin(),
-      clipPastePlugin(),
-      linkBoundaryGuardPlugin(),
-      ...(mentionConfig
-        ? [mentionSuggestionPlugin(mentionConfig.trigger), mentionSkipPlugin()]
-        : []),
-      ...(fileHandlerConfig ? [fileHandlerPlugin(fileHandlerConfig)] : []),
-    ],
-    [placeholderComponent, fileHandlerConfig, mentionConfig, onNavigateToTitle],
-  );
+    const plugins = useMemo(
+      () => [
+        reactKeys(),
+        buildInputRules(),
+        buildKeymap(onNavigateToTitle),
+        history(),
+        dropCursor(),
+        gapCursor(),
+        hashtagPlugin(),
+        searchPlugin(),
+        placeholderPlugin(placeholderComponent),
+        clearMarksOnEnterPlugin(),
+        clipPastePlugin(),
+        linkBoundaryGuardPlugin(),
+        ...(mentionConfig
+          ? [
+              mentionSuggestionPlugin(mentionConfig.trigger),
+              mentionSkipPlugin(),
+            ]
+          : []),
+        ...(fileHandlerConfig ? [fileHandlerPlugin(fileHandlerConfig)] : []),
+      ],
+      [
+        placeholderComponent,
+        fileHandlerConfig,
+        mentionConfig,
+        onNavigateToTitle,
+      ],
+    );
 
-  const defaultState = useMemo(() => {
-    let doc: PMNode;
-    try {
-      doc =
-        initialContent && initialContent.type === "doc"
-          ? PMNode.fromJSON(schema, initialContent)
-          : schema.node("doc", null, [schema.node("paragraph")]);
-    } catch {
-      doc = schema.node("doc", null, [schema.node("paragraph")]);
-    }
-    return EditorState.create({ doc, plugins });
-  }, []);
-
-  useEffect(() => {
-    const view = viewRef.current;
-    if (!view) return;
-    if (previousContentRef.current === initialContent) return;
-    previousContentRef.current = initialContent;
-
-    if (!initialContent || initialContent.type !== "doc") return;
-
-    if (!view.hasFocus()) {
+    const defaultState = useMemo(() => {
+      let doc: PMNode;
       try {
-        const doc = PMNode.fromJSON(schema, initialContent);
-        const state = EditorState.create({
-          doc,
-          plugins: view.state.plugins,
-        });
-        view.updateState(state);
+        doc =
+          initialContent && initialContent.type === "doc"
+            ? PMNode.fromJSON(schema, initialContent)
+            : schema.node("doc", null, [schema.node("paragraph")]);
       } catch {
-        // invalid content
+        doc = schema.node("doc", null, [schema.node("paragraph")]);
       }
-    }
-  }, [initialContent]);
+      return EditorState.create({ doc, plugins });
+    }, []);
 
-  const onViewReady = useCallback(
-    (view: EditorView) => {
-      onUpdate(view);
-    },
-    [onUpdate],
-  );
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      if (previousContentRef.current === initialContent) return;
+      previousContentRef.current = initialContent;
 
-  return (
-    <ProseMirror
-      defaultState={defaultState}
-      nodeViews={nodeViews}
-      dispatchTransaction={function (this: EditorView, tr: Transaction) {
-        const newState = this.state.apply(tr);
-        this.updateState(newState);
-        if (tr.docChanged) {
-          onUpdate(this);
+      if (!initialContent || initialContent.type !== "doc") return;
+
+      if (!view.hasFocus()) {
+        try {
+          const doc = PMNode.fromJSON(schema, initialContent);
+          const state = EditorState.create({
+            doc,
+            plugins: view.state.plugins,
+          });
+          view.updateState(state);
+        } catch {
+          // invalid content
         }
-      }}
-      attributes={{
-        spellcheck: "false",
-        autocomplete: "off",
-        autocorrect: "off",
-        autocapitalize: "off",
-        role: "textbox",
-      }}
-      className="tiptap"
-    >
-      <ProseMirrorDoc />
-      <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
-      <EditorCommandsBridge commandsRef={commandsRef} />
-      <SlashCommandMenu />
-      {mentionConfig && <MentionSuggestion config={mentionConfig} />}
-    </ProseMirror>
-  );
-});
+      }
+    }, [initialContent]);
 
-NoteEditor.displayName = "NoteEditor";
+    const onViewReady = useCallback(
+      (view: EditorView) => {
+        onUpdate(view);
+      },
+      [onUpdate],
+    );
 
-export default NoteEditor;
+    return (
+      <ProseMirror
+        defaultState={defaultState}
+        nodeViews={nodeViews}
+        dispatchTransaction={function (this: EditorView, tr: Transaction) {
+          const newState = this.state.apply(tr);
+          this.updateState(newState);
+          if (tr.docChanged) {
+            onUpdate(this);
+          }
+        }}
+        attributes={{
+          spellcheck: "false",
+          autocomplete: "off",
+          autocorrect: "off",
+          autocapitalize: "off",
+          role: "textbox",
+        }}
+        className="tiptap"
+      >
+        <ProseMirrorDoc />
+        <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+        <EditorCommandsBridge commandsRef={commandsRef} />
+        <SlashCommandMenu />
+        {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+      </ProseMirror>
+    );
+  },
+);

@@ -1,22 +1,21 @@
 import { SquareIcon } from "lucide-react";
 import { useRef } from "react";
 
-import type { TiptapEditor } from "@hypr/tiptap/chat";
-import ChatEditor from "@hypr/tiptap/chat";
-import type { PlaceholderFunction } from "@hypr/tiptap/shared";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import {
   useAutoFocusEditor,
   useDraftState,
-  useSlashCommandConfig,
+  useMentionConfig,
   useSubmit,
 } from "./hooks";
 import { type McpIndicator, McpIndicatorBadge } from "./mcp";
 
 import type { ContextRef } from "~/chat/context/entities";
 import { useShell } from "~/contexts/shell";
+import { ChatEditor, type ChatEditorHandle } from "~/editor/chat";
+import type { PlaceholderFunction } from "~/editor/plugins";
 
 export type { McpIndicator } from "./mcp";
 
@@ -44,7 +43,7 @@ export function ChatMessageInput({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const { chat } = useShell();
-  const editorRef = useRef<{ editor: TiptapEditor | null }>(null);
+  const editorRef = useRef<ChatEditorHandle>(null);
   const disabled =
     typeof disabledProp === "object" ? disabledProp.disabled : disabledProp;
   const shouldFocus =
@@ -63,7 +62,7 @@ export function ChatMessageInput({
     onContextRefsChange,
   });
   useAutoFocusEditor({ editorRef, disabled, shouldFocus });
-  const slashCommandConfig = useSlashCommandConfig();
+  const mentionConfig = useMentionConfig();
 
   return (
     <Container
@@ -81,10 +80,9 @@ export function ChatMessageInput({
           <ChatEditor
             ref={editorRef}
             className="max-h-[40vh] overflow-y-auto overscroll-contain"
-            editable={!disabled}
             initialContent={initialContent}
-            placeholderComponent={ChatPlaceholder}
-            slashCommandConfig={slashCommandConfig}
+            mentionConfig={mentionConfig}
+            placeholder={chatPlaceholder}
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
           />
@@ -171,14 +169,9 @@ function Container({
   );
 }
 
-const ChatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
-  "use no memo";
+const chatPlaceholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
-    return (
-      <p className="text-sm text-neutral-400">
-        Ask & search about anything, or be creative!
-      </p>
-    );
+    return "Ask & search about anything, or be creative!";
   }
   return "";
 };

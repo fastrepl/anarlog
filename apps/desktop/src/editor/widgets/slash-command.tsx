@@ -34,7 +34,7 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
-import { schema } from "./schema";
+import { schema } from "../session/schema";
 
 // ---------------------------------------------------------------------------
 // Slash command items

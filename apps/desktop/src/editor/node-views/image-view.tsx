@@ -15,7 +15,7 @@ import { cn } from "@hypr/utils";
 export const ResizableImageView = forwardRef<
   HTMLDivElement,
   NodeViewComponentProps
->(({ nodeProps, ...htmlAttrs }, ref) => {
+>(function ResizableImageView({ nodeProps, ...htmlAttrs }, ref) {
   const { node, getPos } = nodeProps;
   const [isHovered, setIsHovered] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -161,5 +161,3 @@ export const ResizableImageView = forwardRef<
     </div>
   );
 });
-
-ResizableImageView.displayName = "ResizableImageView";

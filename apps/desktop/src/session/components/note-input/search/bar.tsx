@@ -19,7 +19,7 @@ import { cn } from "@hypr/utils";
 
 import { useSearch } from "./context";
 
-import type { NoteEditorRef } from "~/editor";
+import type { NoteEditorRef } from "~/editor/session";
 
 function ToggleButton({
   active,

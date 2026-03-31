@@ -7,7 +7,7 @@ import { StreamingView } from "./streaming";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
-import type { NoteEditorRef } from "~/editor";
+import type { NoteEditorRef } from "~/editor/session";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 

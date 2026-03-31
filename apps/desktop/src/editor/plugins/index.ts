@@ -11,7 +11,7 @@ import {
   resolveYouTubeClipUrl,
 } from "@hypr/tiptap/shared";
 
-import { schema } from "./schema";
+import { schema } from "../session/schema";
 
 // ---------------------------------------------------------------------------
 // Hashtag decorations

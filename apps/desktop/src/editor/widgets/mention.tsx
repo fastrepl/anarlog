@@ -8,11 +8,9 @@ import {
   type VirtualElement,
 } from "@floating-ui/dom";
 import {
-  type NodeViewComponentProps,
   useEditorEffect,
   useEditorEventCallback,
 } from "@handlewithcare/react-prosemirror";
-import { Facehash, stringHash } from "facehash";
 import {
   Building2Icon,
   MessageSquareIcon,
@@ -26,14 +24,8 @@ import {
   PluginKey,
   TextSelection,
 } from "prosemirror-state";
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-
-import { cn } from "@hypr/utils";
-
-import { schema } from "./schema";
-
-const GLOBAL_NAVIGATE_FUNCTION = "__HYPR_NAVIGATE__";
 
 export interface MentionItem {
   id: string;
@@ -141,65 +133,6 @@ export function mentionSuggestionPlugin(trigger: string) {
 // ---------------------------------------------------------------------------
 // Mention popup
 // ---------------------------------------------------------------------------
-const FACEHASH_BG_CLASSES = [
-  "bg-amber-50",
-  "bg-rose-50",
-  "bg-violet-50",
-  "bg-blue-50",
-  "bg-teal-50",
-  "bg-green-50",
-  "bg-cyan-50",
-  "bg-fuchsia-50",
-  "bg-indigo-50",
-  "bg-yellow-50",
-];
-
-function getMentionFacehashBgClass(name: string) {
-  const hash = stringHash(name);
-  return FACEHASH_BG_CLASSES[hash % FACEHASH_BG_CLASSES.length];
-}
-
-function MentionAvatar({
-  id,
-  type,
-  label,
-}: {
-  id: string;
-  type: string;
-  label: string;
-}) {
-  if (type === "human") {
-    const facehashName = label || id || "?";
-    const bgClass = getMentionFacehashBgClass(facehashName);
-    return (
-      <span className={cn(["mention-avatar", bgClass])}>
-        <Facehash
-          name={facehashName}
-          size={16}
-          showInitial={true}
-          interactive={false}
-          colorClasses={[bgClass]}
-        />
-      </span>
-    );
-  }
-
-  const Icon =
-    type === "session"
-      ? StickyNoteIcon
-      : type === "organization"
-        ? Building2Icon
-        : type === "chat_shortcut"
-          ? MessageSquareIcon
-          : UserIcon;
-
-  return (
-    <span className="mention-avatar mention-avatar-icon">
-      <Icon className="mention-inline-icon" />
-    </span>
-  );
-}
-
 export function MentionSuggestion({ config }: { config: MentionConfig }) {
   const [items, setItems] = useState<MentionItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -213,6 +146,7 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     const state = mentionSuggestionKey.getState(view.state);
     if (!state?.active) return;
 
+    const { schema } = view.state;
     const mentionNode = schema.nodes["mention-@"].create({
       id: item.id,
       type: item.type,
@@ -340,57 +274,6 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     document.body,
   );
 }
-
-// ---------------------------------------------------------------------------
-// Mention node view
-// ---------------------------------------------------------------------------
-export const MentionNodeView = forwardRef<HTMLElement, NodeViewComponentProps>(
-  ({ nodeProps, ...htmlAttrs }, ref) => {
-    const { node } = nodeProps;
-    const { id, type, label } = node.attrs;
-    const mentionId = String(id ?? "");
-    const mentionType = String(type ?? "");
-    const mentionLabel = String(label ?? "");
-    const MAX_MENTION_LENGTH = 20;
-    const displayLabel =
-      mentionLabel.length > MAX_MENTION_LENGTH
-        ? mentionLabel.slice(0, MAX_MENTION_LENGTH) + "…"
-        : mentionLabel;
-    const path = `/app/${mentionType}/${mentionId}`;
-
-    const handleClick = useCallback(
-      (e: React.MouseEvent) => {
-        e.preventDefault();
-        const navigate = (window as any)[GLOBAL_NAVIGATE_FUNCTION];
-        if (navigate) navigate(path);
-      },
-      [path],
-    );
-
-    return (
-      <span ref={ref as any} {...htmlAttrs}>
-        <a
-          className="mention"
-          data-mention="true"
-          data-id={mentionId}
-          data-type={mentionType}
-          data-label={mentionLabel}
-          href="javascript:void(0)"
-          onClick={handleClick}
-        >
-          <MentionAvatar
-            id={mentionId}
-            type={mentionType}
-            label={mentionLabel}
-          />
-          <span className="mention-text">{displayLabel}</span>
-        </a>
-      </span>
-    );
-  },
-);
-
-MentionNodeView.displayName = "MentionNodeView";
 
 // ---------------------------------------------------------------------------
 // Mention keyboard skip plugin

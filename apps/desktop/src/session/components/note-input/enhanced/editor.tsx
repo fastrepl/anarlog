@@ -2,7 +2,11 @@ import { forwardRef, useMemo } from "react";
 
 import { parseJsonContent } from "@hypr/tiptap/shared";
 
-import NoteEditor, { type JSONContent, type NoteEditorRef } from "~/editor";
+import {
+  NoteEditor,
+  type JSONContent,
+  type NoteEditorRef,
+} from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { useImageUpload } from "~/shared/hooks/useImageUpload";
 import * as main from "~/store/tinybase/store/main";
