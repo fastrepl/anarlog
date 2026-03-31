@@ -131,6 +131,18 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test("openNew defaults bare settings tabs to app", () => {
+    useTabs.getState().openNew({ type: "settings" });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "app" },
+    });
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "app" } },
+    ]);
+  });
+
   test("select toggles active flag without changing history", () => {
     const tabA = createSessionTab({ active: true });
     const tabB = createSessionTab({ active: false });

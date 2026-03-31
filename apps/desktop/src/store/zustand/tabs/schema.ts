@@ -214,7 +214,7 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return {
         ...base,
         type: "settings",
-        state: { tab: (tab.state?.tab as SettingsTab) ?? "account" },
+        state: { tab: (tab.state?.tab as SettingsTab) ?? "app" },
       };
     case "chat_support":
       return {

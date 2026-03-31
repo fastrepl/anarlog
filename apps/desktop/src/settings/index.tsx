@@ -64,7 +64,7 @@ export function TabContentSettings({
 }
 
 function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
-  const activeTab = tab.state.tab ?? "account";
+  const activeTab = tab.state.tab ?? "app";
   const ref = useRef<HTMLDivElement>(null);
   const { atStart, atEnd } = useScrollFade(ref, "vertical", [activeTab]);
 

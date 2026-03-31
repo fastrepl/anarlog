@@ -91,9 +91,7 @@ export function SettingsNav() {
   const showDontUseThis = isDev || isStaging;
 
   const activeTab =
-    currentTab?.type === "settings"
-      ? (currentTab.state.tab ?? "account")
-      : "account";
+    currentTab?.type === "settings" ? (currentTab.state.tab ?? "app") : "app";
 
   const setActiveTab = useCallback(
     (tab: SettingsTab) => {
