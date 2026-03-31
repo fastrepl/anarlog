@@ -6,9 +6,9 @@ description: "Learn about analytics in Char"
 
 ## Scope
 
-This is a code-derived inventory of what Char sends to PostHog across:
+This is a code-derived inventory of Char's analytics integrations. Most product and backend analytics go to PostHog. The website also loads Google Analytics (GA4) for consented browser traffic.
 
-- `apps/web` (browser events)
+- `apps/web` (browser events and consented website analytics)
 - `apps/desktop` + `plugins/analytics` (desktop events)
 - `apps/api` + proxy/subscription crates (server-side events)
 
@@ -22,6 +22,13 @@ This is a code-derived inventory of what Char sends to PostHog across:
 - Enabled options:
   - `autocapture: true`
   - `capture_pageview: true`
+- Google Analytics (GA4) is initialized in `apps/web/src/router.tsx` only when:
+  - website analytics consent is enabled
+  - build is not dev (`!import.meta.env.DEV`)
+  - pathname does not start with `/admin`
+- Implementation:
+  - loads `https://www.googletagmanager.com/gtag/js?id=G-4CDGPKJ8JB`
+  - calls `gtag("config", "G-4CDGPKJ8JB")`
 
 ### Desktop (`apps/desktop` + `plugins/analytics`)
 
@@ -41,6 +48,7 @@ This is a code-derived inventory of what Char sends to PostHog across:
 |--------|-------------|-------------------|
 | Desktop custom events | Machine fingerprint (`hypr_host::fingerprint()`) | `identify(userId, payload)` sends PostHog `$identify` with `$anon_distinct_id` = machine fingerprint. |
 | Web custom/autocapture events | PostHog browser distinct ID | Auth callback calls `posthog.identify(userId, { email })`. |
+| Web Google Analytics | GA4 browser client ID | No explicit identify call; website traffic remains anonymous in GA4. |
 | API `$ai_generation` | `x-device-fingerprint` if present, else `generation_id` | Optional `user_id` also included as event property. |
 | API `$stt_request` | `x-device-fingerprint` if present, else random UUID | Optional `user_id` also included as event property. |
 | API trial events | `x-device-fingerprint` if present (desktop), else authenticated `user_id` | `user_id` is included as an event property when distinct ID is fingerprint. No separate `$identify` call here. |
@@ -74,6 +82,7 @@ This enrichment applies to desktop frontend events and Rust plugin `event_fire_a
 Notes:
 
 - PostHog autocapture and pageview are also on (production only), so PostHog default browser events are collected in addition to the custom events above.
+- Google Analytics is also loaded for consented non-admin web sessions, but there are no custom GA events emitted in app code today.
 - Web auth callback calls `identify(userId, { email })` in `apps/web/src/routes/_view/callback/auth.tsx`.
 
 ### Desktop product events
@@ -126,7 +135,7 @@ Notes:
 
 ## User journey funnel
 
-The user lifecycle is divided into 8 stages. Each stage lists the PostHog events that measure it, how identity linking works at that point, and known gaps.
+The user lifecycle is divided into 8 stages. Each stage lists the analytics signals that measure it, how identity linking works at that point, and known gaps.
 
 ### Stage 1: Acquisition (website visits)
 
@@ -134,13 +143,14 @@ Goal: measure traffic to the website.
 
 | Event | Properties | Notes |
 |-------|------------|-------|
+| Google Analytics pageview/session tracking | automatic | Standard GA4 browser analytics on consented non-admin web sessions. |
 | PostHog autocapture | automatic | Page clicks, form interactions. Production only. |
 | PostHog pageview | automatic | Every page load. Production only. |
 | `hero_section_viewed` | `timestamp` | Explicit signal that a visitor saw the main landing section. |
 | `reminder_requested` | `platform`, `timestamp`, `email` | Mobile app waitlist signup. |
 | `os_waitlist_joined` | `platform`, `timestamp`, `email` | Desktop waitlist signup. |
 
-Identity: anonymous PostHog browser distinct ID. No user identity yet.
+Identity: anonymous browser identifiers in PostHog and GA4. No user identity yet.
 
 ### Stage 2: Converting visits to installs
 
@@ -317,7 +327,8 @@ PostHog user properties are set via `$set`, `$set_once`, and `$identify` payload
   - Source: `plugins/analytics/src/lib.rs`, `crates/analytics/src/lib.rs`.
 - Web:
   - PostHog is not initialized in dev mode.
-  - Source: `apps/web/src/providers/posthog.tsx`.
+  - Google Analytics is initialized only after website analytics consent is granted, only outside `/admin`, and not in dev mode.
+  - Source: `apps/web/src/providers/posthog.tsx`, `apps/web/src/router.tsx`.
 - API:
   - PostHog client is active only in non-debug builds (production requires `POSTHOG_API_KEY`).
   - Source: `apps/api/src/main.rs`.
@@ -341,5 +352,6 @@ If a feature uses `FlagStrategy::Posthog(key)`, the check resolves via `is_featu
    - `analyticsCommands.identify(`
    - `AnalyticsPayload::builder("...`)`
    - `posthog.capture(` / `posthog.identify(`
+   - `gtag(` / `googletagmanager.com/gtag/js`
 2. Verify payload keys at each callsite (watch for nested objects like `properties: {...}`).
 3. Re-run this inventory after any analytics refactor in `plugins/analytics`, `crates/analytics`, `crates/llm-proxy`, `crates/transcribe-proxy`, or `crates/api-subscription`.

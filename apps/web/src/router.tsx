@@ -15,6 +15,49 @@ import { routeTree } from "./routeTree.gen";
 const ZENDESK_SNIPPET_ID = "ze-snippet";
 const ZENDESK_SNIPPET_SRC =
   "https://static.zdassets.com/ekr/snippet.js?key=15949e47-ed5a-4e52-846e-200dd0b8f4b9";
+const GOOGLE_TAG_ID = "google-tag";
+const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
+
+type AnalyticsWindow = Window &
+  typeof globalThis & {
+    dataLayer?: unknown[];
+    gtag?: (...args: unknown[]) => void;
+  };
+
+function MaybeGoogleAnalytics({ enabled }: { enabled: boolean }) {
+  useEffect(() => {
+    if (
+      typeof document === "undefined" ||
+      import.meta.env.DEV ||
+      !enabled ||
+      window.location.pathname.startsWith("/admin")
+    ) {
+      return;
+    }
+
+    if (document.getElementById(GOOGLE_TAG_ID)) {
+      return;
+    }
+
+    const analyticsWindow = window as AnalyticsWindow;
+    analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
+    analyticsWindow.gtag =
+      analyticsWindow.gtag ??
+      function gtag(...args) {
+        analyticsWindow.dataLayer?.push(args);
+      };
+    analyticsWindow.gtag("js", new Date());
+    analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID);
+
+    const script = document.createElement("script");
+    script.id = GOOGLE_TAG_ID;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
+    script.async = true;
+    document.head.appendChild(script);
+  }, [enabled]);
+
+  return null;
+}
 
 function MaybeZendeskWidget({ enabled }: { enabled: boolean }) {
   useEffect(() => {
@@ -54,6 +97,7 @@ function ConsentAwareProviders({
     <PostHogProvider enabled={analyticsEnabled}>
       <QueryClientProvider client={queryClient}>
         {children}
+        <MaybeGoogleAnalytics enabled={analyticsEnabled} />
         <MaybeZendeskWidget enabled={analyticsEnabled} />
       </QueryClientProvider>
     </PostHogProvider>
