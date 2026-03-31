@@ -6,13 +6,30 @@ import {
 import type { NodeSpec } from "prosemirror-model";
 import { forwardRef, useCallback, useRef, useState } from "react";
 
-import {
-  DEFAULT_EDITOR_WIDTH,
-  normalizeEditorWidth,
-  parseImageTitleMetadata,
-  stripEditorWidthFromTitle,
-} from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
+
+const MIN_IMAGE_WIDTH = 15;
+const MAX_IMAGE_WIDTH = 100;
+const DEFAULT_IMAGE_WIDTH = 80;
+
+function clampImageWidth(value: number) {
+  if (Number.isNaN(value)) return DEFAULT_IMAGE_WIDTH;
+  return Math.min(
+    MAX_IMAGE_WIDTH,
+    Math.max(MIN_IMAGE_WIDTH, Math.round(value)),
+  );
+}
+
+export function parseImageMetadata(title?: string) {
+  const match = title?.match(/^char-editor-width=(\d{1,3})(?:\|(.*))?$/s);
+  return {
+    editorWidth:
+      match && match.length >= 1
+        ? clampImageWidth(parseInt(match[1], 10))
+        : undefined,
+    title: match && match.length >= 2 ? match[2] : title,
+  };
+}
 
 export const imageNodeSpec: NodeSpec = {
   group: "block",
@@ -22,26 +39,27 @@ export const imageNodeSpec: NodeSpec = {
     alt: { default: null },
     title: { default: null },
     attachmentId: { default: null },
-    editorWidth: { default: DEFAULT_EDITOR_WIDTH },
+    editorWidth: { default: DEFAULT_IMAGE_WIDTH },
   },
   parseDOM: [
     {
       tag: "img[src]",
       getAttrs(dom) {
         const el = dom as HTMLElement;
-        const title = el.getAttribute("title");
-        const metadata = parseImageTitleMetadata(title);
+        const title = el.getAttribute("title") ?? undefined;
+        const metadata = parseImageMetadata(title);
         return {
           src: el.getAttribute("src"),
           alt: el.getAttribute("alt"),
-          title: stripEditorWidthFromTitle(title),
+          title: metadata.title,
           attachmentId: el.getAttribute("data-attachment-id"),
-          editorWidth:
-            normalizeEditorWidth(
-              Number(el.getAttribute("data-editor-width")),
-            ) ??
-            metadata.editorWidth ??
-            DEFAULT_EDITOR_WIDTH,
+          editorWidth: clampImageWidth(
+            parseInt(
+              el.getAttribute("data-editor-width") ??
+                String(metadata.editorWidth),
+              10,
+            ),
+          ),
         };
       },
     },
@@ -129,7 +147,7 @@ export const ResizableImageView = forwardRef<
         window.removeEventListener("pointerup", handlePointerUp);
 
         updateAttributes({
-          editorWidth: normalizeEditorWidth((currentWidth / maxWidth) * 100),
+          editorWidth: clampImageWidth((currentWidth / maxWidth) * 100),
         });
 
         setIsResizing(false);
@@ -143,8 +161,7 @@ export const ResizableImageView = forwardRef<
   );
 
   const showControls = isHovered || isSelected || isResizing;
-  const editorWidth =
-    normalizeEditorWidth(node.attrs.editorWidth) ?? DEFAULT_EDITOR_WIDTH;
+  const editorWidth = clampImageWidth(node.attrs.editorWidth);
   const imageWidth =
     draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
 
@@ -165,7 +182,7 @@ export const ResizableImageView = forwardRef<
           ref={imageRef}
           src={node.attrs.src}
           alt={node.attrs.alt || ""}
-          title={stripEditorWidthFromTitle(node.attrs.title)}
+          title={parseImageMetadata(node.attrs.title).title ?? undefined}
           className={cn([
             "tiptap-image max-w-full rounded-md bg-white transition-[box-shadow,border-color] select-none",
             isSelected

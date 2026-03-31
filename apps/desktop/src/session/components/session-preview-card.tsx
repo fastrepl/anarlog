@@ -5,7 +5,6 @@ import { defaultRehypePlugins, Streamdown } from "streamdown";
 import {
   isValidTiptapContent,
   json2md,
-  parseImageTitleMetadata,
   streamdownComponents,
 } from "@hypr/tiptap/shared";
 import {
@@ -15,6 +14,7 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
+import { parseImageMetadata } from "~/editor/node-views";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import {
   useEnhancedNote,
@@ -45,7 +45,7 @@ const previewCardComponents: typeof streamdownComponents = {
     </h4>
   ),
   img: (props) => {
-    const { editorWidth, title } = parseImageTitleMetadata(props.title);
+    const { editorWidth, title } = parseImageMetadata(props.title);
 
     return (
       <img
