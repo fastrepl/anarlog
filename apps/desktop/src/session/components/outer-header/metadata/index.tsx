@@ -20,7 +20,6 @@ import {
 
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
-import { TagsDisplay } from "./tags";
 
 import { useConfigValue } from "~/shared/config";
 import { useSessionEvent } from "~/store/tinybase/hooks";
@@ -108,11 +107,9 @@ function ContentInner({ sessionId }: { sessionId: string }) {
       {eventDisplayData && (
         <EventDisplay event={eventDisplayData}>
           <ParticipantsDisplay sessionId={sessionId} />
-          <TagsDisplay sessionId={sessionId} />
         </EventDisplay>
       )}
       {!eventDisplayData && <ParticipantsDisplay sessionId={sessionId} />}
-      {!eventDisplayData && <TagsDisplay sessionId={sessionId} />}
     </div>
   );
 }
