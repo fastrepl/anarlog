@@ -1,9 +1,8 @@
 import { useMemo } from "react";
 
-import { type JSONContent } from "@hypr/tiptap/editor";
-import NoteEditor from "@hypr/tiptap/editor";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 
+import { type JSONContent, NoteEditor } from "~/editor/session";
 import * as main from "~/store/tinybase/store/main";
 
 export function DailyNoteEditor({ date }: { date: string }) {
