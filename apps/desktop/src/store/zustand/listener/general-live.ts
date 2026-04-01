@@ -139,6 +139,13 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
     const stoppedSessionId = get().live.sessionId;
     const stoppedSeconds = get().live.seconds;
+    const stoppedContext = {
+      requestedTranscriptionMode: get().live.requestedTranscriptionMode,
+      currentTranscriptionMode: get().live.currentTranscriptionMode,
+      recordingMode: get().live.recordingMode,
+      degraded: get().live.degraded,
+      error: payload.error ?? null,
+    };
     const { onStopped } = get();
 
     clearLiveEventUnlisteners(get().live.eventUnlisteners);
@@ -153,7 +160,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
     get().resetTranscript();
 
     if (stoppedSessionId && onStopped) {
-      onStopped(stoppedSessionId, stoppedSeconds);
+      onStopped(stoppedSessionId, stoppedSeconds, stoppedContext);
     }
   },
   progress: (payload) => {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { upsertSpeakerAssignment } from "./utils";
+import {
+  replaceTranscriptWithBatchResult,
+  upsertSpeakerAssignment,
+} from "./utils";
 
 import type { SegmentKey } from "~/stt/live-segment";
 
@@ -214,6 +217,88 @@ describe("upsertSpeakerAssignment", () => {
         word_id: "speaker-2-word-new",
         type: "user_speaker_assignment",
         value: JSON.stringify({ human_id: "carol" }),
+      },
+    ]);
+  });
+});
+
+describe("replaceTranscriptWithBatchResult", () => {
+  it("replaces existing transcript words and speaker hints with batch output", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "live-word",
+          text: " partial",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "live-word:provider_speaker_index",
+          word_id: "live-word",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 0, speaker_index: 1 }),
+        },
+      ]),
+    });
+
+    let nextId = 0;
+    replaceTranscriptWithBatchResult(
+      store,
+      "transcript-1",
+      [
+        {
+          text: " final",
+          start_ms: 100,
+          end_ms: 200,
+          channel: 0,
+        },
+      ],
+      [
+        {
+          wordIndex: 0,
+          data: {
+            type: "provider_speaker_index",
+            provider: "deepgram",
+            channel: 0,
+            speaker_index: 2,
+          },
+        },
+      ],
+      "deepgram",
+      () => `id-${nextId++}`,
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "words") as string,
+      ),
+    ).toEqual([
+      {
+        id: "id-0",
+        text: " final",
+        start_ms: 100,
+        end_ms: 200,
+        channel: 0,
+      },
+    ]);
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "id-1",
+        word_id: "id-0",
+        type: "provider_speaker_index",
+        value: JSON.stringify({
+          provider: "deepgram",
+          channel: 0,
+          speaker_index: 2,
+        }),
       },
     ]);
   });

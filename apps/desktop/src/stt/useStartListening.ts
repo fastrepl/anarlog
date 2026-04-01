@@ -7,6 +7,7 @@ import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
+import { useRunBatch } from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { getEnhancerService } from "~/services/enhancer";
@@ -19,7 +20,11 @@ import type {
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { applyLiveTranscriptDelta, parseTranscriptWords } from "~/stt/utils";
+import {
+  applyLiveTranscriptDelta,
+  parseTranscriptWords,
+  replaceTranscriptWithBatchResult,
+} from "~/stt/utils";
 
 const MIN_DURATION_SECONDS = 10;
 const MIN_WORD_COUNT = 5;
@@ -40,6 +45,7 @@ export function useStartListening(
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
+  const runBatch = useRunBatch(sessionId);
 
   const keywords = useKeywords(sessionId);
   const transcriptionMode = options?.transcriptionMode ?? "live";
@@ -67,7 +73,11 @@ export function useStartListening(
 
     store.setRow("transcripts", transcriptId, transcriptRow);
 
-    const onStopped: OnStoppedCallback = (_sessionId, durationSeconds) => {
+    const onStopped: OnStoppedCallback = (
+      _sessionId,
+      durationSeconds,
+      context,
+    ) => {
       const words = parseTranscriptWords(store, transcriptId);
 
       if (
@@ -101,6 +111,41 @@ export function useStartListening(
             view: null,
           });
         }
+        return;
+      }
+
+      if (
+        context.requestedTranscriptionMode === "live" &&
+        context.currentTranscriptionMode === "batch"
+      ) {
+        void (async () => {
+          const audioPath = await fsSyncCommands.audioPath(sessionId);
+
+          try {
+            if (audioPath.status === "error") {
+              throw new Error(audioPath.error);
+            }
+
+            await runBatch(audioPath.data, {
+              handlePersist: (batchWords, batchHints) => {
+                replaceTranscriptWithBatchResult(
+                  store,
+                  transcriptId,
+                  batchWords,
+                  batchHints,
+                  conn.provider,
+                );
+              },
+            });
+          } catch (error) {
+            console.error(
+              "[listener] failed to rebuild transcript from batch fallback audio",
+              error,
+            );
+          } finally {
+            getEnhancerService()?.queueAutoEnhance(sessionId);
+          }
+        })();
         return;
       }
 
@@ -175,6 +220,7 @@ export function useStartListening(
     indexes,
     sessionId,
     start,
+    runBatch,
     keywords,
     user_id,
     languages,

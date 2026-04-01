@@ -21,7 +21,7 @@ use crate::{
 use adapters::spawn_rx_task;
 
 pub(super) const LISTEN_STREAM_TIMEOUT: Duration = Duration::from_secs(15 * 60);
-pub(super) const FINALIZE_STREAM_TIMEOUT: Duration = Duration::from_secs(2);
+pub(super) const FINALIZE_STREAM_TIMEOUT: Duration = Duration::from_secs(8);
 pub(super) const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
 
 pub enum ListenerMsg {

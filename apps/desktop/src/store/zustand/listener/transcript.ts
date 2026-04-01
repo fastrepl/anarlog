@@ -2,9 +2,12 @@ import { create as mutate } from "mutative";
 import type { StoreApi } from "zustand";
 
 import type {
+  DegradedError,
   LiveTranscriptDelta,
   LiveTranscriptSegment,
   LiveTranscriptSegmentDelta,
+  RecordingMode,
+  TranscriptionMode,
 } from "@hypr/plugin-listener";
 
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
@@ -16,6 +19,14 @@ export type BatchPersistCallback = (
   hints: RuntimeSpeakerHint[],
 ) => void;
 
+export type StoppedSessionContext = {
+  requestedTranscriptionMode: TranscriptionMode | null;
+  currentTranscriptionMode: TranscriptionMode | null;
+  recordingMode: RecordingMode | null;
+  degraded: DegradedError | null;
+  error: string | null;
+};
+
 export type LiveTranscriptPersistCallback = (
   delta: LiveTranscriptDelta,
 ) => void;
@@ -23,6 +34,7 @@ export type LiveTranscriptPersistCallback = (
 export type OnStoppedCallback = (
   sessionId: string,
   durationSeconds: number,
+  context: StoppedSessionContext,
 ) => void;
 
 export type TranscriptState = {

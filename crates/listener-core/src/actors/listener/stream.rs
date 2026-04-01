@@ -31,7 +31,12 @@ pub(super) async fn process_stream<S, E, H>(
                 loop {
                     tokio::select! {
                         _ = &mut finalize_timeout => {
-                            tracing::warn!(hyprnote.timeout.reached = true, "break_timeout");
+                            tracing::warn!(
+                                hyprnote.timeout.reached = true,
+                                finalize_count,
+                                expected_count,
+                                "break_timeout"
+                            );
                             break;
                         }
                         result = listen_stream.next() => {

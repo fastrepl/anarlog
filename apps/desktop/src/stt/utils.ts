@@ -3,6 +3,7 @@ import type { LiveTranscriptDelta } from "@hypr/plugin-listener";
 import type { SpeakerHintWithId, WordWithId } from "./types";
 
 import type { SegmentKey } from "~/stt/live-segment";
+import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 interface TranscriptStore {
   getCell(
@@ -69,6 +70,51 @@ export function updateTranscriptHints(
     "speaker_hints",
     JSON.stringify(hints),
   );
+}
+
+export function replaceTranscriptWithBatchResult(
+  store: TranscriptStore,
+  transcriptId: string,
+  words: WordLike[],
+  hints: RuntimeSpeakerHint[],
+  provider: string,
+  createId: () => string = () => crypto.randomUUID(),
+): void {
+  const nextWords: WordWithId[] = words.map((word) => ({
+    id: createId(),
+    text: word.text,
+    start_ms: word.start_ms,
+    end_ms: word.end_ms,
+    channel: word.channel,
+  }));
+  const wordIds = nextWords.map((word) => word.id);
+
+  const nextHints: SpeakerHintWithId[] = hints.flatMap((hint) => {
+    if (hint.data.type !== "provider_speaker_index") {
+      return [];
+    }
+
+    const wordId = wordIds[hint.wordIndex];
+    if (!wordId) {
+      return [];
+    }
+
+    return [
+      {
+        id: createId(),
+        word_id: wordId,
+        type: "provider_speaker_index",
+        value: JSON.stringify({
+          provider: hint.data.provider ?? provider,
+          channel: hint.data.channel,
+          speaker_index: hint.data.speaker_index,
+        }),
+      },
+    ];
+  });
+
+  updateTranscriptWords(store, transcriptId, nextWords);
+  updateTranscriptHints(store, transcriptId, nextHints);
 }
 
 export function applyLiveTranscriptDelta(
