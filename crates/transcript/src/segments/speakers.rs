@@ -91,9 +91,6 @@ pub(super) fn assign_complete_channel_human_id(segment: &mut ProtoSegment, state
     }
 
     let channel = segment.key.channel;
-    if !state.complete_channels.contains(&channel) {
-        return;
-    }
 
     if let Some(human_id) = state.human_id_by_channel.get(&channel) {
         segment.key = SegmentKey {
@@ -120,7 +117,6 @@ fn apply_identity_rules(
     }
 
     if identity.human_id.is_none()
-        && state.complete_channels.contains(&word.channel)
         && let Some(human_id) = state.human_id_by_channel.get(&word.channel)
     {
         identity.human_id = Some(human_id.clone());

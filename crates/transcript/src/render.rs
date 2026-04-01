@@ -71,11 +71,11 @@ pub fn render_transcript_segments(
             .map(|started_at| started_at - base_started_at)
             .unwrap_or(0);
 
-        let (words, mut assignments) =
+        let (words, user_assignments) =
             offset_transcript_data(transcript.words, transcript.assignments, offset);
-        let channel_assignments =
+        let mut assignments =
             channel_assignments_for_participants(&participant_human_ids, self_human_id.as_deref());
-        assignments.extend(channel_assignments);
+        assignments.extend(user_assignments);
 
         let segments = build_segments(&words, &[], &assignments, Some(&segment_options));
         all_segments.extend(segments);
@@ -462,6 +462,40 @@ mod tests {
         assert_eq!(segments[0].speaker_label, "Me");
         assert_eq!(segments[1].speaker_label, "Remote");
         assert_eq!(segments[1].text, "remote more");
+    }
+
+    #[test]
+    fn user_assignment_overrides_auto_channel_assignment() {
+        let segments = render_transcript_segments(RenderTranscriptRequest {
+            transcripts: vec![RenderTranscriptInput {
+                started_at: Some(0),
+                words: vec![
+                    word("w1", " hello", 0, 100, 0),
+                    word("w2", " remote", 120, 220, 1),
+                ],
+                assignments: vec![channel_assignment("override", ChannelProfile::RemoteParty)],
+            }],
+            participant_human_ids: vec!["self".to_string(), "auto-remote".to_string()],
+            self_human_id: Some("self".to_string()),
+            humans: vec![
+                RenderTranscriptHuman {
+                    human_id: "self".to_string(),
+                    name: "Me".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "auto-remote".to_string(),
+                    name: "Auto".to_string(),
+                },
+                RenderTranscriptHuman {
+                    human_id: "override".to_string(),
+                    name: "Override".to_string(),
+                },
+            ],
+        });
+
+        assert_eq!(segments.len(), 2);
+        assert_eq!(segments[0].speaker_label, "Me");
+        assert_eq!(segments[1].speaker_label, "Override");
     }
 
     #[test]

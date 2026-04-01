@@ -406,6 +406,16 @@ fn propagates_remote_party_identity_when_channel_marked_complete() {
 }
 
 #[test]
+fn applies_channel_assignment_even_without_complete_channel() {
+    let finals = vec![fw("0", 0, 100, 1), fw("1", 200, 300, 1)];
+    let assignments = vec![channel_human("remote", ChannelProfile::RemoteParty)];
+    // Default options only mark DirectMic as complete, not RemoteParty
+    let result = build_segments(&finals, &[], &assignments, None);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("remote"));
+}
+
+#[test]
 fn partial_word_ignores_its_own_runtime_hint_and_keeps_previous_segment_key() {
     let finals = vec![fw_si("0", 0, 100, 0, 0)];
     let partials = vec![pw_si("1", 150, 250, 0, 1)];
