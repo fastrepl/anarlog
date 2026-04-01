@@ -1199,9 +1199,9 @@ function Sidebar({
           />
         </div>
       </div>
-      <div className="border-b border-neutral-200 px-2 py-2">
+      <div className="border-b border-neutral-200 bg-neutral-50">
         <div className="scrollbar-hide overflow-x-auto">
-          <div className="inline-flex min-w-max items-center gap-1">
+          <div className="inline-flex min-w-max items-stretch">
             {collections.map((collection) => {
               const isActive = activeCollection.name === collection.name;
 
@@ -1211,25 +1211,26 @@ function Sidebar({
                   type="button"
                   onClick={() => onCollectionChange(collection.name)}
                   className={cn([
-                    "shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                    "relative flex h-10 shrink-0 items-center gap-2 border-r border-b border-neutral-200 px-4 text-sm transition-colors",
                     isActive
-                      ? ["border-neutral-300 bg-neutral-100 text-neutral-900"]
+                      ? [
+                          "bg-white text-neutral-900",
+                          "after:absolute after:right-0 after:bottom-0 after:left-0 after:h-px after:bg-white after:content-['']",
+                        ]
                       : [
-                          "border-transparent bg-transparent text-neutral-600",
-                          "hover:border-neutral-200 hover:bg-neutral-50 hover:text-neutral-900",
+                          "bg-neutral-50 text-neutral-600",
+                          "hover:bg-neutral-100 hover:text-neutral-900",
                         ],
                   ])}
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={cn([
-                        "size-2 rounded-full bg-neutral-300",
-                        isActive && "bg-neutral-600",
-                      ])}
-                    />
-                    <span className="whitespace-nowrap">
-                      {collection.label}
-                    </span>
+                  <span
+                    className={cn([
+                      "size-2 rounded-full bg-neutral-300",
+                      isActive && "bg-neutral-600",
+                    ])}
+                  />
+                  <span className="font-medium whitespace-nowrap">
+                    {collection.label}
                   </span>
                 </button>
               );
