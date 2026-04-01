@@ -85,9 +85,41 @@ fn check_zoom_mute_state() -> Option<bool> {
     None
 }
 
-fn is_zoom_using_mic() -> bool {
-    let apps = crate::list_mic_using_apps();
-    apps.iter().any(|app| app.id == ZOOM_BUNDLE_ID)
+fn is_zoom_using_mic() -> Result<bool, crate::Error> {
+    crate::list_mic_using_apps().map(|apps| apps.iter().any(|app| app.id == ZOOM_BUNDLE_ID))
+}
+
+fn reconcile_zoom_mute_state(
+    state: &mut WatcherState,
+    mic_usage: Result<bool, crate::Error>,
+    mute_state: Option<bool>,
+) -> Option<DetectEvent> {
+    match mic_usage {
+        Ok(false) => {
+            if state.last_mute_state.is_some() {
+                tracing::debug!("zoom no longer using mic, clearing state");
+                state.last_mute_state = None;
+            }
+            None
+        }
+        Err(error) => {
+            tracing::warn!(?error, "zoom_mic_usage_check_failed");
+            None
+        }
+        Ok(true) => {
+            let Some(muted) = mute_state else {
+                return None;
+            };
+
+            if state.last_mute_state == Some(muted) {
+                return None;
+            }
+
+            tracing::info!(muted = muted, "zoom mute state changed");
+            state.last_mute_state = Some(muted);
+            Some(DetectEvent::ZoomMuteStateChanged { value: muted })
+        }
+    }
 }
 
 impl crate::Observer for ZoomMuteWatcher {
@@ -113,22 +145,14 @@ impl crate::Observer for ZoomMuteWatcher {
                             break;
                         }
 
-                        if !is_zoom_using_mic() {
-                            if state.last_mute_state.is_some() {
-                                tracing::debug!("zoom no longer using mic, clearing state");
-                                state.last_mute_state = None;
-                            }
-                            continue;
-                        }
+                        let mic_usage = is_zoom_using_mic();
+                        let mute_state = match mic_usage {
+                            Ok(true) => check_zoom_mute_state(),
+                            Ok(false) | Err(_) => None,
+                        };
 
-                        if let Some(muted) = check_zoom_mute_state() {
-                            if state.last_mute_state != Some(muted) {
-                                tracing::info!(muted = muted, "zoom mute state changed");
-                                state.last_mute_state = Some(muted);
-
-                                let event = DetectEvent::ZoomMuteStateChanged { value: muted };
-                                f(event);
-                            }
+                        if let Some(event) = reconcile_zoom_mute_state(&mut state, mic_usage, mute_state) {
+                            f(event);
                         }
 
                         state.last_check = Instant::now();
@@ -150,6 +174,45 @@ mod tests {
     use super::*;
     use crate::{Observer, new_callback};
     use std::time::Duration;
+
+    #[test]
+    fn test_reconcile_zoom_mute_state_keeps_state_on_mic_usage_error() {
+        let mut state = WatcherState::new();
+        state.last_mute_state = Some(true);
+
+        let event = reconcile_zoom_mute_state(
+            &mut state,
+            Err(crate::Error::AudioProcessState(
+                "snapshot failed".to_string(),
+            )),
+            None,
+        );
+
+        assert!(event.is_none());
+        assert_eq!(state.last_mute_state, Some(true));
+    }
+
+    #[test]
+    fn test_reconcile_zoom_mute_state_does_not_duplicate_after_error() {
+        let mut state = WatcherState::new();
+        state.last_mute_state = Some(true);
+
+        let event = reconcile_zoom_mute_state(&mut state, Ok(true), Some(true));
+
+        assert!(event.is_none());
+        assert_eq!(state.last_mute_state, Some(true));
+    }
+
+    #[test]
+    fn test_reconcile_zoom_mute_state_clears_state_when_zoom_stops_using_mic() {
+        let mut state = WatcherState::new();
+        state.last_mute_state = Some(false);
+
+        let event = reconcile_zoom_mute_state(&mut state, Ok(false), None);
+
+        assert!(event.is_none());
+        assert_eq!(state.last_mute_state, None);
+    }
 
     // cargo test --package detect --lib --features mic,list,zoom -- zoom::tests::test_watcher --exact --nocapture --ignored
     #[tokio::test]

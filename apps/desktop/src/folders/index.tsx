@@ -1,10 +1,12 @@
 import { FolderIcon, FoldersIcon, StickyNoteIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
+import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import { Section } from "./shared";
 
+import { useBillingAccess } from "~/auth/billing";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import {
@@ -138,8 +140,18 @@ const TabItemFolderSpecific: TabItem<Extract<Tab, { type: "folders" }>> = ({
 };
 
 export function TabContentFolder({ tab }: { tab: Tab }) {
+  const { isPro, upgradeToPro } = useBillingAccess();
+
   if (tab.type !== "folders") {
     return null;
+  }
+
+  if (!isPro) {
+    return (
+      <StandardTabWrapper>
+        <FolderUpgradeState onUpgrade={upgradeToPro} />
+      </StandardTabWrapper>
+    );
   }
 
   return (
@@ -150,6 +162,23 @@ export function TabContentFolder({ tab }: { tab: Tab }) {
         <TabContentFolderSpecific folderId={tab.id} />
       )}
     </StandardTabWrapper>
+  );
+}
+
+function FolderUpgradeState({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="flex max-w-sm flex-col items-center gap-3 text-center">
+        <FoldersIcon className="h-10 w-10 text-neutral-500" />
+        <h1 className="text-lg font-semibold text-neutral-900">
+          Folders are available on Pro
+        </h1>
+        <p className="text-sm text-neutral-600">
+          Upgrade to Pro to open folder tabs and organize notes into folders.
+        </p>
+        <Button onClick={onUpgrade}>Upgrade to Pro</Button>
+      </div>
+    </div>
   );
 }
 

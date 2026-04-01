@@ -58,6 +58,18 @@ vi.mock("./renderer", () => ({
   TranscriptViewer: () => <div data-testid="transcript-viewer" />,
 }));
 
+vi.mock("~/stt/useUploadFile", () => ({
+  useUploadFile: vi.fn(() => ({
+    uploadAudio: vi.fn(),
+    uploadTranscript: vi.fn(),
+    processFile: vi.fn(),
+  })),
+}));
+
+vi.mock("~/stt/pending-upload", () => ({
+  consumePendingUpload: vi.fn(() => null),
+}));
+
 describe("Transcript", () => {
   const sessionId = "session-1";
   const transcriptId = "transcript-1";
@@ -71,6 +83,7 @@ describe("Transcript", () => {
       currentTranscriptionMode: "live";
       recordingMode: "disk";
     };
+    liveSegments: unknown[];
     partialWordsByChannel: Record<number, unknown[]>;
     partialHintsByChannel: Record<number, unknown[]>;
   };
@@ -94,6 +107,7 @@ describe("Transcript", () => {
         currentTranscriptionMode: "live",
         recordingMode: "disk",
       },
+      liveSegments: [],
       partialWordsByChannel: {},
       partialHintsByChannel: {},
     };
@@ -122,11 +136,7 @@ describe("Transcript", () => {
   it("switches to transcript viewer after transcript words persist", () => {
     const scrollRef = createRef<HTMLDivElement>();
     const view = render(
-      <Transcript
-        sessionId={sessionId}
-        isEditing={false}
-        scrollRef={scrollRef}
-      />,
+      <Transcript sessionId={sessionId} scrollRef={scrollRef} />,
     );
 
     expect(screen.getByTestId("listening-state").textContent).toBe("listening");
@@ -138,13 +148,7 @@ describe("Transcript", () => {
       },
     };
 
-    view.rerender(
-      <Transcript
-        sessionId={sessionId}
-        isEditing={false}
-        scrollRef={scrollRef}
-      />,
-    );
+    view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
     expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
   });

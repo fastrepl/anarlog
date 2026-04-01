@@ -31,7 +31,7 @@ jobs:
           platform: linux
       - run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libclang-dev
+          sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libclang-dev libpipewire-0.3-dev libpulse-dev
       - run: |
           pip3 install --break-system-packages huggingface-hub
           pip3 install --break-system-packages -e cactus/python/ --no-deps
@@ -40,7 +40,7 @@ jobs:
           path: cactus/weights/
           key: cactus-models-${{ matrix.model.name }}-arm-v1
       - run: cactus download ${{ matrix.model.repo }}
-      - run: cargo test -p transcribe-cactus -- --ignored --nocapture
+      - run: cargo test -p transcribe-cactus -- --ignored --nocapture --skip snapshot
         env:
           CACTUS_STT_MODEL: ${{ github.workspace }}/cactus/weights/${{ matrix.model.name }}
           CACTUS_CLOUD_API_KEY: ${{ secrets.CACTUS_CLOUD_API_KEY }}

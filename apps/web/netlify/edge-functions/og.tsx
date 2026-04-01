@@ -287,7 +287,7 @@ function renderChangelogTemplate(params: z.infer<typeof changelogSchema>) {
             display: "flex",
           }}
         >
-          The AI notepad for private meetings
+          Meeting Notes You Own
         </div>
         <div
           style={{
@@ -385,7 +385,7 @@ function renderChangelogTemplate(params: z.infer<typeof changelogSchema>) {
           display: "flex",
         }}
       >
-        The AI notepad for private meetings
+        Meeting Notes You Own
       </div>
       <div
         style={{
@@ -519,7 +519,7 @@ function renderBlogTemplate(params: z.infer<typeof blogSchema>) {
             wordWrap: "break-word",
           }}
         >
-          The AI notepad for private meetings
+          Meeting Notes You Own
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img

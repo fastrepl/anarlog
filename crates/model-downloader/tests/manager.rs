@@ -5,13 +5,15 @@ use std::time::Duration;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use model_downloader::{DownloadableModel, Error, ModelDownloadManager, ModelDownloaderRuntime};
+use model_downloader::{
+    DownloadStatus, DownloadableModel, Error, ModelDownloadManager, ModelDownloaderRuntime,
+};
 
 // --- test fixtures ---
 
 struct TestRuntime {
     temp_dir: Arc<tempfile::TempDir>,
-    progress_log: Arc<Mutex<Vec<(String, i8)>>>,
+    progress_log: Arc<Mutex<Vec<(String, model_downloader::DownloadStatus)>>>,
 }
 
 impl TestRuntime {
@@ -22,12 +24,12 @@ impl TestRuntime {
         })
     }
 
-    fn progress_values(&self) -> Vec<i8> {
+    fn progress_statuses(&self) -> Vec<model_downloader::DownloadStatus> {
         self.progress_log
             .lock()
             .unwrap()
             .iter()
-            .map(|(_, p)| *p)
+            .map(|(_, s)| s.clone())
             .collect()
     }
 }
@@ -37,11 +39,11 @@ impl ModelDownloaderRuntime<TestModel> for TestRuntime {
         Ok(self.temp_dir.path().to_path_buf())
     }
 
-    fn emit_progress(&self, model: &TestModel, progress: i8) {
+    fn emit_progress(&self, model: &TestModel, status: model_downloader::DownloadStatus) {
         self.progress_log
             .lock()
             .unwrap()
-            .push((model.download_key(), progress));
+            .push((model.download_key(), status));
     }
 }
 
@@ -235,11 +237,14 @@ async fn download_success() {
     assert!(manager.is_downloaded(&model).await.unwrap());
     assert!(!manager.is_downloading(&model).await);
 
-    let events = runtime.progress_values();
-    assert!(events.contains(&0), "should emit 0 (started): {events:?}");
+    let events = runtime.progress_statuses();
     assert!(
-        events.contains(&100),
-        "should emit 100 (finished): {events:?}"
+        events.contains(&DownloadStatus::Downloading(0)),
+        "should emit Downloading(0) (started): {events:?}"
+    );
+    assert!(
+        events.contains(&DownloadStatus::Completed),
+        "should emit Completed: {events:?}"
     );
 }
 
@@ -327,7 +332,9 @@ async fn cancel_download_returns_true_and_cleans_up() {
     assert!(!manager.is_downloading(&model).await);
     assert!(!manager.is_downloaded(&model).await.unwrap());
     assert!(
-        runtime.progress_values().contains(&-1),
+        runtime
+            .progress_statuses()
+            .contains(&DownloadStatus::Failed),
         "should emit -1 on cancellation"
     );
     assert!(
@@ -363,7 +370,9 @@ async fn download_failure_cleans_up_part_file() {
     assert!(!manager.is_downloading(&model).await);
     assert!(!manager.is_downloaded(&model).await.unwrap());
     assert!(
-        runtime.progress_values().contains(&-1),
+        runtime
+            .progress_statuses()
+            .contains(&DownloadStatus::Failed),
         "should emit -1 on download failure"
     );
     assert!(
@@ -387,7 +396,9 @@ async fn checksum_mismatch_cleans_up_part_file() {
     assert!(!manager.is_downloading(&model).await);
     assert!(!manager.is_downloaded(&model).await.unwrap());
     assert!(
-        runtime.progress_values().contains(&-1),
+        runtime
+            .progress_statuses()
+            .contains(&DownloadStatus::Failed),
         "should emit -1 on checksum mismatch"
     );
     assert!(
@@ -413,7 +424,9 @@ async fn cancel_download_immediately_after_start_returns_true() {
     assert!(cancelled);
     assert!(!manager.is_downloading(&model).await);
     assert!(
-        runtime.progress_values().contains(&-1),
+        runtime
+            .progress_statuses()
+            .contains(&DownloadStatus::Failed),
         "should emit -1 on cancellation"
     );
 }

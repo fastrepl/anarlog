@@ -2,32 +2,10 @@ import { CreditCardIcon } from "lucide-react";
 
 import { cn } from "@hypr/utils";
 
-import {
-  ToolCard,
-  ToolCardBody,
-  ToolCardFooters,
-  ToolCardHeader,
-  useMcpOutput,
-  useToolState,
-} from "./shared";
+import { defineTool } from "./define-tool";
+import { ToolCardBody } from "./shared";
 
-import type { ToolRenderer } from "~/chat/components/message/types";
 import { parseListSubscriptionsOutput } from "~/chat/mcp/support-mcp-tools";
-
-type Renderer = ToolRenderer<"tool-list_subscriptions">;
-
-function headerLabel(
-  running: boolean,
-  failed: boolean,
-  statusFilter: string,
-  parsed: ReturnType<typeof parseListSubscriptionsOutput>,
-): string {
-  if (running) return `Fetching subscriptions (${statusFilter})...`;
-  if (failed) return "Subscription lookup failed";
-  if (parsed)
-    return `${parsed.length} subscription${parsed.length === 1 ? "" : "s"}`;
-  return "List subscriptions";
-}
 
 function statusClass(status: string): string {
   const s = status.toLowerCase();
@@ -45,67 +23,55 @@ function formatTimestamp(value: number | null): string {
   return new Date(value * 1000).toLocaleDateString();
 }
 
-export const ToolListSubscriptions: Renderer = ({ part }) => {
-  const { running, failed, done } = useToolState(part);
-  const { parsed, rawText } = useMcpOutput(
-    done,
-    part.output,
-    parseListSubscriptionsOutput,
-  );
-  const statusFilter = part.input?.status ?? "active";
-
-  return (
-    <ToolCard failed={failed}>
-      <ToolCardHeader
-        icon={<CreditCardIcon />}
-        running={running}
-        failed={failed}
-        done={!!parsed}
-        label={headerLabel(running, failed, statusFilter, parsed)}
-      />
-
-      {parsed && parsed.length > 0 ? (
-        <ToolCardBody>
-          {parsed.map((sub) => (
-            <div
-              key={sub.id}
-              className="flex flex-col gap-1 rounded-md border border-neutral-200 p-2"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-xs font-medium text-neutral-800">
-                  {sub.id}
-                </span>
-                <span
-                  className={cn([
-                    "inline-flex shrink-0 items-center rounded-full border px-2 py-0 text-[10px] font-medium",
-                    statusClass(sub.status),
-                  ])}
-                >
-                  {sub.status}
-                </span>
-              </div>
-              <p className="text-[11px] text-neutral-500">
-                Start: {formatTimestamp(sub.start_date)} | Trial end:{" "}
-                {formatTimestamp(sub.trial_end)}
-              </p>
-            </div>
-          ))}
-        </ToolCardBody>
-      ) : null}
-
-      {parsed && parsed.length === 0 ? (
+export const ToolListSubscriptions = defineTool({
+  icon: <CreditCardIcon />,
+  parseFn: parseListSubscriptionsOutput,
+  label: ({ running, failed, parsed, input }) => {
+    if (running)
+      return `Fetching subscriptions (${input?.status ?? "active"})...`;
+    if (failed) return "Subscription lookup failed";
+    if (parsed)
+      return `${parsed.length} subscription${parsed.length === 1 ? "" : "s"}`;
+    return "List subscriptions";
+  },
+  renderBody: (_, parsed) => {
+    if (!parsed) return null;
+    if (parsed.length === 0) {
+      return (
         <ToolCardBody>
           <p className="py-1 text-center text-xs text-neutral-500">
             No subscriptions found
           </p>
         </ToolCardBody>
-      ) : null}
-
-      <ToolCardFooters
-        failed={failed}
-        errorText={part.errorText}
-        rawText={rawText}
-      />
-    </ToolCard>
-  );
-};
+      );
+    }
+    return (
+      <ToolCardBody>
+        {parsed.map((sub) => (
+          <div
+            key={sub.id}
+            className="flex flex-col gap-1 rounded-md border border-neutral-200 p-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-xs font-medium text-neutral-800">
+                {sub.id}
+              </span>
+              <span
+                className={cn([
+                  "inline-flex shrink-0 items-center rounded-full border px-2 py-0 text-[10px] font-medium",
+                  statusClass(sub.status),
+                ])}
+              >
+                {sub.status}
+              </span>
+            </div>
+            <p className="text-[11px] text-neutral-500">
+              Start: {formatTimestamp(sub.start_date)} | Trial end:{" "}
+              {formatTimestamp(sub.trial_end)}
+            </p>
+          </div>
+        ))}
+      </ToolCardBody>
+    );
+  },
+});

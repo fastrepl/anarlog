@@ -4,7 +4,7 @@ use std::time::Duration;
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CactusAdapter, DashScopeAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
-    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter,
+    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, WhisperCppAdapter,
 };
 use owhisper_interface::{ControlMessage, MixedMessage};
 use ractor::{ActorProcessingErr, ActorRef};
@@ -30,6 +30,16 @@ pub(super) async fn spawn_batch_task(
     ),
     ActorProcessingErr,
 > {
+    use super::BatchProvider;
+
+    if matches!(args.provider, BatchProvider::WhisperLocal) {
+        return spawn_whispercpp_batch_task(args, myself).await;
+    }
+
+    if matches!(args.provider, BatchProvider::Cactus) {
+        return spawn_cactus_batch_task(args, myself).await;
+    }
+
     let adapter_kind = AdapterKind::from_url_and_languages(
         &args.base_url,
         &args.listen_params.languages,
@@ -171,6 +181,57 @@ async fn spawn_cactus_batch_task(
     Ok((rx_task, shutdown_tx))
 }
 
+async fn spawn_whispercpp_batch_task(
+    args: BatchArgs,
+    myself: ActorRef<BatchMsg>,
+) -> Result<
+    (
+        tokio::task::JoinHandle<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ),
+    ActorProcessingErr,
+> {
+    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let span = tracing::info_span!(
+        "whispercpp_batch",
+        hyprnote.session.id = %args.session_id,
+        url.full = %args.base_url,
+        hyprnote.file.path = %args.file_path,
+    );
+
+    let rx_task = tokio::spawn(
+        async move {
+            let stream = match WhisperCppAdapter::transcribe_file_streaming(
+                &args.base_url,
+                &args.listen_params,
+                &args.file_path,
+            )
+            .await
+            {
+                Ok(stream) => {
+                    notify_start_result(&args.start_notifier, Ok(()));
+                    stream
+                }
+                Err(err) => {
+                    report_stream_start_failure(
+                        &myself,
+                        &args.start_notifier,
+                        &err,
+                        "whispercpp batch failed to start stream",
+                    );
+                    return;
+                }
+            };
+
+            process_provider_stream(stream, myself, shutdown_rx, "whispercpp batch").await;
+        }
+        .instrument(span),
+    );
+
+    Ok((rx_task, shutdown_tx))
+}
+
 async fn spawn_batch_task_with_adapter<A: RealtimeSttAdapter>(
     args: BatchArgs,
     myself: ActorRef<BatchMsg>,
@@ -218,51 +279,110 @@ async fn spawn_batch_task_with_adapter<A: RealtimeSttAdapter>(
                 sample_rate: chunked_audio.metadata.sample_rate,
                 ..args.listen_params.clone()
             };
-            let client = owhisper_client::ListenClient::builder()
-                .adapter::<A>()
-                .api_base(args.base_url.clone())
-                .api_key(args.api_key.clone())
-                .params(listen_params)
-                .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
-                .build_with_channels(channels.clamp(1, 2))
-                .await;
-
             let chunk_interval = stream_config.chunk_interval();
-            let audio_stream =
-                tokio_stream::iter(chunked_audio.chunks.into_iter().map(MixedMessage::Audio));
-            let finalize_stream =
-                tokio_stream::iter(vec![MixedMessage::Control(ControlMessage::Finalize)]);
-            let outbound = TokioStreamExt::throttle(
-                TokioStreamExt::chain(audio_stream, finalize_stream),
-                chunk_interval,
-            );
 
-            tracing::info!(
-                "batch task: starting audio stream with {} chunks + finalize message",
-                chunk_count
-            );
-            let (listen_stream, _handle) =
-                match client.from_realtime_audio(Box::pin(outbound)).await {
-                    Ok(result) => result,
-                    Err(err) => {
-                        report_stream_start_failure(
-                            &myself,
-                            &args.start_notifier,
-                            &err,
-                            "batch task failed to start audio stream",
-                        );
-                        return;
-                    }
-                };
+            if channels >= 2 {
+                let client = owhisper_client::ListenClient::builder()
+                    .adapter::<A>()
+                    .api_base(args.base_url.clone())
+                    .api_key(args.api_key.clone())
+                    .params(listen_params)
+                    .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
+                    .build_dual()
+                    .await;
 
-            notify_start_result(&args.start_notifier, Ok(()));
-            futures_util::pin_mut!(listen_stream);
-            process_batch_stream(listen_stream, myself, shutdown_rx, audio_duration_secs).await;
+                let audio_stream =
+                    tokio_stream::iter(chunked_audio.chunks.into_iter().map(|chunk| {
+                        let (mic, spk) = split_stereo_i16_bytes(&chunk);
+                        MixedMessage::Audio((mic, spk))
+                    }));
+                let finalize_stream =
+                    tokio_stream::iter(vec![MixedMessage::Control(ControlMessage::Finalize)]);
+                let outbound = TokioStreamExt::throttle(
+                    TokioStreamExt::chain(audio_stream, finalize_stream),
+                    chunk_interval,
+                );
+
+                tracing::info!(
+                    "batch task (dual): starting audio stream with {} chunks + finalize message",
+                    chunk_count
+                );
+                let (listen_stream, _handle) =
+                    match client.from_realtime_audio(Box::pin(outbound)).await {
+                        Ok(result) => result,
+                        Err(err) => {
+                            report_stream_start_failure(
+                                &myself,
+                                &args.start_notifier,
+                                &err,
+                                "batch task (dual) failed to start audio stream",
+                            );
+                            return;
+                        }
+                    };
+
+                notify_start_result(&args.start_notifier, Ok(()));
+                futures_util::pin_mut!(listen_stream);
+                process_batch_stream(listen_stream, myself, shutdown_rx, audio_duration_secs, 2)
+                    .await;
+            } else {
+                let client = owhisper_client::ListenClient::builder()
+                    .adapter::<A>()
+                    .api_base(args.base_url.clone())
+                    .api_key(args.api_key.clone())
+                    .params(listen_params)
+                    .extra_header(DEVICE_FINGERPRINT_HEADER, hypr_host::fingerprint())
+                    .build_with_channels(channels.clamp(1, 2))
+                    .await;
+
+                let audio_stream =
+                    tokio_stream::iter(chunked_audio.chunks.into_iter().map(MixedMessage::Audio));
+                let finalize_stream =
+                    tokio_stream::iter(vec![MixedMessage::Control(ControlMessage::Finalize)]);
+                let outbound = TokioStreamExt::throttle(
+                    TokioStreamExt::chain(audio_stream, finalize_stream),
+                    chunk_interval,
+                );
+
+                tracing::info!(
+                    "batch task: starting audio stream with {} chunks + finalize message",
+                    chunk_count
+                );
+                let (listen_stream, _handle) =
+                    match client.from_realtime_audio(Box::pin(outbound)).await {
+                        Ok(result) => result,
+                        Err(err) => {
+                            report_stream_start_failure(
+                                &myself,
+                                &args.start_notifier,
+                                &err,
+                                "batch task failed to start audio stream",
+                            );
+                            return;
+                        }
+                    };
+
+                notify_start_result(&args.start_notifier, Ok(()));
+                futures_util::pin_mut!(listen_stream);
+                process_batch_stream(listen_stream, myself, shutdown_rx, audio_duration_secs, 1)
+                    .await;
+            }
         }
         .instrument(span),
     );
 
     Ok((rx_task, shutdown_tx))
+}
+
+fn split_stereo_i16_bytes(data: &[u8]) -> (bytes::Bytes, bytes::Bytes) {
+    let frame_count = data.len() / 4;
+    let mut mic = bytes::BytesMut::with_capacity(frame_count * 2);
+    let mut spk = bytes::BytesMut::with_capacity(frame_count * 2);
+    for frame in data.chunks_exact(4) {
+        mic.extend_from_slice(&frame[0..2]);
+        spk.extend_from_slice(&frame[2..4]);
+    }
+    (mic.freeze(), spk.freeze())
 }
 
 #[derive(Clone, Copy)]

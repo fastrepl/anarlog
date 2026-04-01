@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 hypr-google-calendar = { workspace = true }
 hypr-outlook-calendar = { workspace = true }
+hypr-ticket-interface = { workspace = true }
 
 chrono = { workspace = true, features = ["serde"] }
 progenitor-client = { workspace = true }

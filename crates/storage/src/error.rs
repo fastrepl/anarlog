@@ -12,6 +12,8 @@ pub enum Error {
     PathNotValidUtf8,
     #[error("path exists but is not a directory")]
     PathIsNotDirectory,
+    #[error("cannot move vault to a non-empty directory")]
+    VaultBaseIsNotEmpty,
     #[error("cannot move vault to a subdirectory of the current location")]
     VaultBaseIsSubdirectory,
     #[error("cannot move vault to a parent directory of the current location")]

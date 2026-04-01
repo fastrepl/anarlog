@@ -1,5 +1,5 @@
 use owhisper_interface::batch::Response as BatchResponse;
-use owhisper_interface::stream::StreamResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 
 use crate::BatchRunMode;
 
@@ -38,8 +38,7 @@ pub enum BatchEvent {
     #[serde(rename = "batchProgress")]
     BatchResponseStreamed {
         session_id: String,
-        response: StreamResponse,
-        percentage: f64,
+        event: BatchStreamEvent,
     },
     #[serde(rename = "batchFailed")]
     BatchFailed {

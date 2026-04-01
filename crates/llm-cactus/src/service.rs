@@ -15,13 +15,15 @@ use tower::Service;
 
 use crate::ModelManager;
 
+type CactusModelManager = ModelManager<hypr_cactus::Model>;
+
 #[derive(Clone)]
 pub struct CompleteService {
-    manager: ModelManager,
+    manager: CactusModelManager,
 }
 
 impl CompleteService {
-    pub fn new(manager: ModelManager) -> Self {
+    pub fn new(manager: CactusModelManager) -> Self {
         Self { manager }
     }
 }

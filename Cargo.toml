@@ -25,6 +25,8 @@ exclude = [
 ]
 
 [workspace.dependencies]
+hypr-activity-capture-interface = { path = "crates/activity-capture-interface", package = "activity-capture-interface" }
+hypr-activity-capture-macos = { path = "crates/activity-capture-macos", package = "activity-capture-macos" }
 hypr-aec = { path = "crates/aec", package = "aec" }
 hypr-afconvert = { path = "crates/afconvert", package = "afconvert" }
 hypr-agc = { path = "crates/agc", package = "agc" }
@@ -32,10 +34,12 @@ hypr-am = { path = "crates/am", package = "am" }
 hypr-analytics = { path = "crates/analytics", package = "analytics" }
 hypr-api-auth = { path = "crates/api-auth", package = "api-auth" }
 hypr-api-bot = { path = "crates/api-bot", package = "api-bot" }
+hypr-api-cactus = { path = "crates/api-cactus", package = "api-cactus" }
 hypr-api-calendar = { path = "crates/api-calendar", package = "api-calendar" }
 hypr-api-client = { path = "crates/api-client", package = "api-client" }
 hypr-api-env = { path = "crates/api-env", package = "api-env" }
 hypr-api-error = { path = "crates/api-error", package = "api-error" }
+hypr-api-mail = { path = "crates/api-mail", package = "api-mail" }
 hypr-api-messenger = { path = "crates/api-messenger", package = "api-messenger" }
 hypr-api-nango = { path = "crates/api-nango", package = "api-nango" }
 hypr-api-research = { path = "crates/api-research", package = "api-research" }
@@ -43,25 +47,39 @@ hypr-api-storage = { path = "crates/api-storage", package = "api-storage" }
 hypr-api-subscription = { path = "crates/api-subscription", package = "api-subscription" }
 hypr-api-support = { path = "crates/api-support", package = "api-support" }
 hypr-api-sync = { path = "crates/api-sync", package = "api-sync" }
+hypr-api-ticket = { path = "crates/api-ticket", package = "api-ticket" }
 hypr-apple-calendar = { path = "crates/apple-calendar", package = "apple-calendar" }
 hypr-apple-note = { path = "crates/apple-note", package = "apple-note" }
+hypr-apple-todo = { path = "crates/apple-todo", package = "apple-todo" }
 hypr-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
+hypr-audacity = { path = "crates/audacity", package = "audacity" }
 hypr-audio = { path = "crates/audio", package = "audio" }
+hypr-audio-actual = { path = "crates/audio-actual", package = "audio-actual" }
 hypr-audio-device = { path = "crates/audio-device", package = "audio-device" }
 hypr-audio-interface = { path = "crates/audio-interface", package = "audio-interface" }
 hypr-audio-mime = { path = "crates/audio-mime", package = "audio-mime" }
+hypr-audio-mock = { path = "crates/audio-mock", package = "audio-mock" }
+hypr-audio-norm = { path = "crates/audio-norm", package = "audio-norm" }
 hypr-audio-snapshot = { path = "crates/audio-snapshot", package = "audio-snapshot" }
+hypr-audio-sync = { path = "crates/audio-sync", package = "audio-sync" }
 hypr-audio-utils = { path = "crates/audio-utils", package = "audio-utils" }
 hypr-buffer = { path = "crates/buffer", package = "buffer" }
 hypr-bundle = { path = "crates/bundle", package = "bundle" }
 hypr-cactus = { path = "crates/cactus", package = "cactus" }
 hypr-cactus-model = { path = "crates/cactus-model", package = "cactus-model" }
+hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }
+hypr-claude = { path = "crates/claude", package = "claude" }
+hypr-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
+hypr-codex = { path = "crates/codex", package = "codex" }
 hypr-data = { path = "crates/data", package = "data" }
+hypr-db-app = { path = "crates/db-app", package = "db-app" }
 hypr-db-core = { path = "crates/db-core", package = "db-core" }
+hypr-db-core2 = { path = "crates/db-core2", package = "db-core2" }
 hypr-db-parser = { path = "crates/db-parser", package = "db-parser" }
 hypr-db-user = { path = "crates/db-user", package = "db-user" }
+hypr-db-watch = { path = "crates/db-watch", package = "db-watch" }
 hypr-denoise = { path = "crates/denoise", package = "denoise" }
 hypr-detect = { path = "crates/detect", package = "detect" }
 hypr-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
@@ -76,10 +94,14 @@ hypr-fs-format = { path = "crates/fs-format", package = "fs-format" }
 hypr-fs-sync-core = { path = "crates/fs-sync-core", package = "fs-sync-core" }
 hypr-gbnf = { path = "crates/gbnf", package = "gbnf" }
 hypr-gguf = { path = "crates/gguf", package = "gguf" }
+hypr-github-issues = { path = "crates/github-issues", package = "github-issues" }
 hypr-google-calendar = { path = "crates/google-calendar", package = "google-calendar" }
 hypr-google-drive = { path = "crates/google-drive", package = "google-drive" }
+hypr-google-mail = { path = "crates/google-mail", package = "google-mail" }
 hypr-granola = { path = "crates/granola", package = "granola" }
 hypr-hf = { path = "crates/hf", package = "hf" }
+hypr-hid-host = { path = "crates/hid-host", package = "hid-host" }
+hypr-hid-interface = { path = "crates/hid-interface", package = "hid-interface" }
 hypr-hooks = { path = "crates/hooks", package = "hooks" }
 hypr-host = { path = "crates/host", package = "host" }
 hypr-http = { path = "crates/http", package = "hypr-http-utils" }
@@ -87,6 +109,7 @@ hypr-importer-core = { path = "crates/importer-core", package = "importer-core" 
 hypr-intercept = { path = "crates/intercept", package = "intercept" }
 hypr-jina = { path = "crates/jina", package = "jina" }
 hypr-language = { path = "crates/language", package = "language" }
+hypr-linear = { path = "crates/linear", package = "linear" }
 hypr-listener-core = { path = "crates/listener-core", package = "listener-core" }
 hypr-listener2-core = { path = "crates/listener2-core", package = "listener2-core" }
 hypr-llm-cactus = { path = "crates/llm-cactus", package = "llm-cactus" }
@@ -102,13 +125,16 @@ hypr-mac = { path = "crates/mac", package = "mac" }
 hypr-mcp = { path = "crates/mcp", package = "mcp" }
 hypr-mobile-bridge = { path = "crates/mobile-bridge", package = "mobile-bridge" }
 hypr-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
+hypr-model-manager = { path = "crates/model-manager", package = "model-manager" }
 hypr-mp3 = { path = "crates/mp3", package = "mp3" }
 hypr-nango = { path = "crates/nango", package = "nango" }
 hypr-notification = { path = "crates/notification", package = "notification" }
 hypr-notification-interface = { path = "crates/notification-interface", package = "notification-interface" }
+hypr-notification-macos2 = { path = "crates/notification-macos2", package = "notification-macos2" }
 hypr-notion = { path = "crates/notion", package = "notion" }
 hypr-observability = { path = "crates/observability", package = "observability" }
 hypr-onnx = { path = "crates/onnx", package = "onnx" }
+hypr-opencode = { path = "crates/opencode", package = "opencode" }
 hypr-openrouter = { path = "crates/openrouter", package = "openrouter" }
 hypr-openstatus = { path = "crates/openstatus", package = "openstatus" }
 hypr-outlook-calendar = { path = "crates/outlook-calendar", package = "outlook-calendar" }
@@ -119,6 +145,7 @@ hypr-recall = { path = "crates/recall", package = "recall" }
 hypr-resampler = { path = "crates/resampler", package = "resampler" }
 hypr-s3 = { path = "crates/s3", package = "s3" }
 hypr-segmentation = { path = "crates/segmentation", package = "segmentation" }
+hypr-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 hypr-slack-web = { path = "crates/slack-web", package = "slack-web" }
 hypr-storage = { path = "crates/storage", package = "storage" }
 hypr-supabase-auth = { path = "crates/supabase-auth", package = "supabase-auth" }
@@ -128,10 +155,13 @@ hypr-tcc = { path = "crates/tcc", package = "tcc" }
 hypr-teems = { path = "crates/teems", package = "teems" }
 hypr-template-app = { path = "crates/template-app", package = "template-app" }
 hypr-template-app-legacy = { path = "crates/template-app-legacy", package = "template-app-legacy" }
+hypr-template-cli = { path = "crates/template-cli", package = "template-cli" }
 hypr-template-eval = { path = "crates/template-eval", package = "template-eval" }
 hypr-template-support = { path = "crates/template-support", package = "template-support" }
+hypr-ticket-interface = { path = "crates/ticket-interface", package = "ticket-interface" }
 hypr-tiptap = { path = "crates/tiptap", package = "tiptap" }
 hypr-transcribe-cactus = { path = "crates/transcribe-cactus", package = "transcribe-cactus" }
+hypr-transcribe-core = { path = "crates/transcribe-core", package = "transcribe-core" }
 hypr-transcribe-proxy = { path = "crates/transcribe-proxy", package = "transcribe-proxy" }
 hypr-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 hypr-transcript = { path = "crates/transcript", package = "transcript" }
@@ -172,6 +202,7 @@ tauri-plugin-store = "2.4"
 tauri-plugin-updater = "2.10"
 tauri-plugin-window-state = "2.4"
 
+tauri-plugin-activity-capture = { path = "plugins/activity-capture" }
 tauri-plugin-analytics = { path = "plugins/analytics" }
 tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
 tauri-plugin-auth = { path = "plugins/auth" }
@@ -212,6 +243,7 @@ tauri-plugin-sidecar2 = { path = "plugins/sidecar2" }
 tauri-plugin-store2 = { path = "plugins/store2" }
 tauri-plugin-tantivy = { path = "plugins/tantivy" }
 tauri-plugin-template = { path = "plugins/template" }
+tauri-plugin-todo = { path = "plugins/todo" }
 tauri-plugin-tracing = { path = "plugins/tracing" }
 tauri-plugin-tray = { path = "plugins/tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
@@ -246,7 +278,7 @@ base64 = "0.22.1"
 bytes = "1.11"
 cached = "0.55.1"
 clap = "4"
-clap_mangen = "0.2"
+clap_complete = "4"
 codes-iso-639 = "0.1.5"
 dirs = "6.0.0"
 dotenvy = "0.15.7"
@@ -276,6 +308,7 @@ statig = "0.4"
 strum = "0.27"
 tempfile = "3"
 thiserror = "2"
+toml = "0.8"
 url = "2"
 urlencoding = "2.1"
 uuid = "1"
@@ -324,8 +357,8 @@ tracing-opentelemetry = "0.31"
 tracing-subscriber = "0.3"
 tracing-test = "0.2"
 
-apalis = "0.7.0"
-apalis-cron = "0.7.0"
+apalis = "1.0.0-rc.6"
+apalis-cron = "1.0.0-rc.6"
 
 specta = "2.0.0-rc.22"
 specta-typescript = "0.0.9"
@@ -343,12 +376,13 @@ mp3lame-encoder = "0.2.2"
 ratatui = "0.30"
 realfft = "3.5.0"
 ringbuf = "0.4.8"
-rodio = "0.21"
-tui-textarea = { version = "0.7", default-features = false, features = ["no-backend"] }
+rodio = "0.22"
+tachyonfx = "0.25"
 vorbis_rs = "0.5.5"
 
 deepgram = { version = "0.7", default-features = false }
 hf-hub = { git = "https://github.com/huggingface/hf-hub", rev = "5510260", default-features = false, features = ["tokio"] }
+hidapi = { version = "2.6.5", features = ["macos-shared-device"] }
 libsql = "0.9.24"
 
 block2 = "0.6"
@@ -359,6 +393,7 @@ objc2-av-foundation = "0.3.2"
 objc2-contacts = "0.3.2"
 objc2-core-foundation = "0.3.2"
 objc2-core-graphics = "0.3.2"
+objc2-core-location = "0.3.2"
 objc2-event-kit = "0.3.2"
 objc2-foundation = "0.3.2"
 objc2-user-notifications = "0.3.2"

@@ -73,6 +73,7 @@ mod tests {
 
     - Notes and transcript may contain errors made by human and STT, respectively. Make the best out of every material.
     - Do not include meeting note title, attendee lists nor explanatory notes about the output structure.
+    - Do not create generic opening sections such as "Overview", "Meeting Overview", "Introduction", or "Participants" unless the meeting itself was explicitly about those topics.
     - Use Pre-Meeting Notes to understand the user's intent and agenda. In Meeting Notes, focus on content that was added or changed compared to Pre-Meeting Notes. Naturally integrate entries into relevant sections instead of forcefully converting them into headers.
     - Preserve essential details; avoid excessive abstraction. Ensure content remains concrete and specific.
     - Pay close attention to emphasized text in notes. Users highlight information using four styles: bold(**text**), italic(_text_), underline(<u>text</u>), strikethrough(~~text~~).

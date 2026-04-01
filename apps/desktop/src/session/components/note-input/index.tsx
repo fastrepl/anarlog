@@ -1,4 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
   useCallback,
@@ -11,7 +12,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import type { TiptapEditor } from "@hypr/tiptap/editor";
 import {
   ScrollFadeOverlay,
   useScrollFade,
@@ -22,40 +22,55 @@ import { type Attachment, Attachments } from "./attachments";
 import { Enhanced } from "./enhanced";
 import { Header, useAttachments, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
+import { SearchBar } from "./search/bar";
+import { useSearch } from "./search/context";
 import { Transcript } from "./transcript";
-import { SearchBar } from "./transcript/search/bar";
-import { useSearchSync } from "./use-search-sync";
 
+import type { NoteEditorRef } from "~/editor/session";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
 import { useCurrentNoteTab } from "~/session/components/shared";
 import { useScrollPreservation } from "~/shared/hooks/useScrollPreservation";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { type EditorView } from "~/store/zustand/tabs/schema";
+import { type EditorView as TabEditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
+export interface NoteInputHandle {
+  focus: () => void;
+  focusAtStart: () => void;
+  focusAtPixelWidth: (pixelWidth: number) => void;
+  insertAtStartAndFocus: (content: string) => void;
+}
+
 export const NoteInput = forwardRef<
-  { editor: TiptapEditor | null },
+  NoteInputHandle,
   {
     tab: Extract<Tab, { type: "sessions" }>;
-    onNavigateToTitle?: () => void;
+    onNavigateToTitle?: (pixelWidth?: number) => void;
   }
 >(({ tab, onNavigateToTitle }, ref) => {
   const editorTabs = useEditorTabs({ sessionId: tab.id });
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-  const internalEditorRef = useRef<{ editor: TiptapEditor | null }>(null);
+  const internalEditorRef = useRef<NoteEditorRef>(null);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const [editor, setEditor] = useState<TiptapEditor | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [view, setView] = useState<EditorView | null>(null);
 
   const sessionId = tab.id;
 
   const tabRef = useRef(tab);
   tabRef.current = tab;
 
-  const currentTab: EditorView = useCurrentNoteTab(tab);
+  const currentTab: TabEditorView = useCurrentNoteTab(tab);
+
   useImperativeHandle(
     ref,
-    () => internalEditorRef.current ?? { editor: null },
+    () => ({
+      focus: () => internalEditorRef.current?.commands.focus(),
+      focusAtStart: () => internalEditorRef.current?.commands.focusAtStart(),
+      focusAtPixelWidth: (px) =>
+        internalEditorRef.current?.commands.focusAtPixelWidth(px),
+      insertAtStartAndFocus: (content) =>
+        internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+    }),
     [currentTab],
   );
 
@@ -78,11 +93,11 @@ export const NoteInput = forwardRef<
   const { atStart, atEnd } = useScrollFade(fadeRef, "vertical", [currentTab]);
 
   const handleTabChange = useCallback(
-    (view: EditorView) => {
+    (tabView: TabEditorView) => {
       onBeforeTabChange();
       updateSessionTabState(tabRef.current, {
         ...tabRef.current.state,
-        view,
+        view: tabView,
       });
     },
     [onBeforeTabChange, updateSessionTabState],
@@ -96,132 +111,38 @@ export const NoteInput = forwardRef<
 
   useEffect(() => {
     if (currentTab.type === "transcript" || currentTab.type === "attachments") {
-      internalEditorRef.current = { editor: null };
-      setEditor(null);
+      setView(null);
     } else if (currentTab.type === "raw" && isMeetingInProgress) {
       requestAnimationFrame(() => {
-        internalEditorRef.current?.editor?.commands.focus();
+        internalEditorRef.current?.commands.focus();
       });
     }
   }, [currentTab, isMeetingInProgress]);
 
   useEffect(() => {
-    const editorInstance = internalEditorRef.current?.editor ?? null;
-    if (editorInstance !== editor) {
-      setEditor(editorInstance);
+    const editorView = internalEditorRef.current?.view ?? null;
+    if (editorView !== view) {
+      setView(editorView);
     }
   });
 
-  useEffect(() => {
-    const handleContentTransfer = (e: Event) => {
-      const customEvent = e as CustomEvent<{ content: string }>;
-      const content = customEvent.detail.content;
-      const editorInstance = internalEditorRef.current?.editor;
-
-      if (editorInstance && content) {
-        editorInstance.commands.insertContentAt(0, content);
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
-      }
-    };
-
-    const handleMoveToEditorStart = () => {
-      const editorInstance = internalEditorRef.current?.editor;
-      if (editorInstance) {
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
-      }
-    };
-
-    const handleMoveToEditorPosition = (e: Event) => {
-      const customEvent = e as CustomEvent<{ pixelWidth: number }>;
-      const pixelWidth = customEvent.detail.pixelWidth;
-      const editorInstance = internalEditorRef.current?.editor;
-
-      if (editorInstance) {
-        const editorDom = editorInstance.view.dom;
-        const firstTextNode = editorDom.querySelector(".ProseMirror > *");
-
-        if (firstTextNode) {
-          const editorStyle = window.getComputedStyle(firstTextNode);
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-
-          if (ctx) {
-            ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
-
-            const firstBlock = editorInstance.state.doc.firstChild;
-            if (firstBlock && firstBlock.textContent) {
-              const text = firstBlock.textContent;
-              let charPos = 0;
-
-              for (let i = 0; i <= text.length; i++) {
-                const currentWidth = ctx.measureText(text.slice(0, i)).width;
-                if (currentWidth >= pixelWidth) {
-                  charPos = i;
-                  break;
-                }
-                charPos = i;
-              }
-
-              const targetPos = Math.min(
-                charPos,
-                editorInstance.state.doc.content.size - 1,
-              );
-              editorInstance.commands.setTextSelection(targetPos);
-              editorInstance.commands.focus();
-              return;
-            }
-          }
-        }
-
-        editorInstance.commands.setTextSelection(0);
-        editorInstance.commands.focus();
-      }
-    };
-
-    window.addEventListener("title-content-transfer", handleContentTransfer);
-    window.addEventListener(
-      "title-move-to-editor-start",
-      handleMoveToEditorStart,
-    );
-    window.addEventListener(
-      "title-move-to-editor-position",
-      handleMoveToEditorPosition,
-    );
-    return () => {
-      window.removeEventListener(
-        "title-content-transfer",
-        handleContentTransfer,
-      );
-      window.removeEventListener(
-        "title-move-to-editor-start",
-        handleMoveToEditorStart,
-      );
-      window.removeEventListener(
-        "title-move-to-editor-position",
-        handleMoveToEditorPosition,
-      );
-    };
-  }, []);
-
   useCaretNearBottom({
-    editor,
+    view,
     container,
     enabled:
       currentTab.type !== "transcript" && currentTab.type !== "attachments",
   });
 
-  const { showSearchBar } = useSearchSync({
-    editor,
-    currentTab,
-    sessionId,
-    editorRef: internalEditorRef,
-  });
+  const search = useSearch();
+  const showSearchBar = search?.isVisible ?? false;
+
+  useEffect(() => {
+    search?.close();
+  }, [currentTab]);
 
   const handleContainerClick = () => {
     if (currentTab.type !== "transcript" && currentTab.type !== "attachments") {
-      internalEditorRef.current?.editor?.commands.focus();
+      internalEditorRef.current?.commands.focus();
     }
   };
 
@@ -233,14 +154,15 @@ export const NoteInput = forwardRef<
           editorTabs={editorTabs}
           currentTab={currentTab}
           handleTabChange={handleTabChange}
-          isEditing={isEditing}
-          setIsEditing={setIsEditing}
         />
       </div>
 
       {showSearchBar && (
         <div className="px-3 pt-1">
-          <SearchBar />
+          <SearchBar
+            editorRef={internalEditorRef}
+            isTranscript={currentTab.type === "transcript"}
+          />
         </div>
       )}
 
@@ -283,11 +205,7 @@ export const NoteInput = forwardRef<
             />
           )}
           {currentTab.type === "transcript" && (
-            <Transcript
-              sessionId={sessionId}
-              isEditing={isEditing}
-              scrollRef={scrollRef}
-            />
+            <Transcript sessionId={sessionId} scrollRef={scrollRef} />
           )}
           {currentTab.type === "attachments" && (
             <AttachmentsContent sessionId={sessionId} />
@@ -305,9 +223,9 @@ function useTabShortcuts({
   currentTab,
   handleTabChange,
 }: {
-  editorTabs: EditorView[];
-  currentTab: EditorView;
-  handleTabChange: (view: EditorView) => void;
+  editorTabs: TabEditorView[];
+  currentTab: TabEditorView;
+  handleTabChange: (view: TabEditorView) => void;
 }) {
   useHotkeys(
     "alt+s",

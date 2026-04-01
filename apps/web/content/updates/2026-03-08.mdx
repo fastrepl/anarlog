@@ -3,7 +3,7 @@ title: "Char Weekly: March 8, 2026"
 date: "2026-03-08"
 ---
 
-Three releases this week — v1.0.11, v1.0.12, and v1.0.13-nightly.1 — covering Google Calendar sync, chat that can edit your notes, a rebuilt WebSocket client, custom storage locations, and a new speaker segmentation engine. Under the hood: major observability improvements, audio pipeline optimizations, and the CLI continues to take shape.
+Two stable releases shipped this week: v1.0.11 and v1.0.12. Google Calendar sync is now in beta, chat can edit notes directly, and batch transcription is much more reliable.
 
 ## Google Calendar sync
 
@@ -11,64 +11,21 @@ Google Calendar events now sync into Char alongside Apple Calendar. If your team
 
 ## Chat edits your notes directly
 
-Chat can now edit your summaries in place. Ask it to revise a section, reformat bullet points, or expand on a topic, and it applies the changes directly to your notes. A new context indicator shows which session the chat is working with, so you always know what it has access to. Chat also suggests one-click starter prompts — summaries, action items, follow-up emails, key decisions — so you can get useful output without typing a prompt from scratch.
+Chat can now edit your summaries in place. Ask it to revise a section, reformat bullets, or expand on a topic, and it applies the changes directly to your notes. A new context indicator shows which session chat is working with, and starter prompts make common actions one click away.
 
-## Custom storage location
+## Notes and export
 
-You can now choose where Char stores your content. In Settings, pick any folder on your device — a synced drive, a NAS, wherever you want your files to live. When you move your content, Char copies existing sessions to the new location before restarting. This is a direct response to users who want their markdown files in a specific place — an Obsidian vault, a Dropbox folder, or a company-managed directory.
-
-## Search moves to the sidebar
-
-Search now lives in the left sidebar instead of opening as a separate view. You can switch between recent activity and search results without losing your place. It's a small layout change but makes the common flow — glance at timeline, search for something, go back — much smoother.
+This week also added Org mode export, proper code block support in the editor, richer session preview cards, plain-text mention export for Markdown, and short tips while AI is generating summaries.
 
 ## Batch transcription reliability
 
-Batch transcription got significant work this week across multiple PRs. Local model transcription (Cactus) is more reliable for multi-channel recordings, with better error handling for provider failures. Failed transcript runs now show clearer error messages when you retry, and re-running a transcript no longer clears the old one before the new run starts. The batch processing pipeline was restructured with a proper accumulator, dedicated actor, and bootstrap module.
-
-## Custom vocabulary for local models
-
-Cactus now supports custom vocabulary. If you have domain-specific terms — product names, technical jargon, acronyms — you can tell the local STT engine about them so it transcribes them correctly. This works for both batch and streaming transcription.
-
-## New export format: Org mode
-
-Org mode (`.org`) is now available as an export format alongside PDF, TXT, and Markdown. If you live in Emacs, your meeting notes can go straight into your org workflow.
-
-## Transcript post-processing with JSON Patch
-
-A new experimental feature uses AI to post-process transcripts via JSON Patch operations. Instead of regenerating the entire transcript, the AI suggests targeted corrections — fixing names, technical terms, or formatting — that are applied as patches. This keeps the original transcript intact while improving accuracy where it matters.
-
-## WebSocket client rebuild
-
-The WebSocket client used for cloud transcription providers was rebuilt with proper retry logic, structured error types, and configurable connection policies. Connections now recover gracefully from transient failures instead of dropping the session. Backpressure handling was added to the WebSocket utilities so audio streams don't overwhelm slower consumers.
-
-## Audio pipeline optimizations
-
-The audio capture pipeline got a performance pass. New async and real-time ring buffer implementations replace the previous approach, with dedicated optimizations for both microphone and speaker capture paths. The resampler was extracted into its own crate and upgraded to Rubato v1. These changes reduce latency and CPU usage during live transcription.
-
-## Speaker segmentation engine
-
-A new ONNX-based speaker segmentation crate landed. This is the foundation for improved speaker diarization — telling apart who said what in a multi-person conversation. The segmentation model runs locally and includes benchmarks and snapshot tests for English and Korean audio. An embedding crate was also added for speaker identification.
-
-## Observability across the stack
-
-OpenTelemetry instrumentation was added across the API server, desktop app, and web app. Every transcription request, LLM call, and API interaction now produces structured traces. This doesn't change anything for end users, but it means we can diagnose issues faster when something goes wrong with cloud transcription or AI generation. The desktop app sends trace context with AI requests so we can correlate frontend actions with backend processing.
-
-## Timeline timezone awareness
-
-The Today timeline now places the current-time marker more accurately, including during ongoing events. It also respects your selected timezone, so the "now" indicator is correct even if your system timezone differs from your calendar timezone.
+Batch transcription is more reliable, especially when providers fail or you retry an existing run. Re-running a transcript no longer clears the old transcript before the new one actually starts, and Parakeet is now available as a local transcription model option in Cactus.
 
 ## Other improvements
 
-- Session preview cards show richer previews with enhanced notes and Markdown formatting
-- Hashtag parsing now correctly ignores URL fragments (no more false hashtags from links)
-- Clickable links in calendar event descriptions
-- Code blocks properly supported in the note editor
-- Mentions exported as plain text in Markdown
-- Short tips displayed while AI generates summaries
-- Floating chat modal resize constraints removed for more flexible positioning
-- Outlook Calendar plugin added (early stage)
-- Chrome extension gained unit tests with DOM fixture generation for Google Meet
-- Privacy FAQ updated to explain network activity more clearly
-- Parakeet added as a new local transcription model option in Cactus
+- Calendar event descriptions now render clickable links
+- Search and replace behaves more reliably across notes and transcripts
+- Folders get a cleaner placeholder state while we prepare a larger update
+- Failed batch transcription no longer resets the in-progress work
 
 Full version details on the [changelog](/changelog).

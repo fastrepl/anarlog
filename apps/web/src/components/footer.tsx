@@ -8,6 +8,7 @@ import { cn } from "@hypr/utils";
 
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
 import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
+import { CookiePreferencesButton } from "@/components/privacy-consent";
 
 const vsList = [
   { slug: "otter", name: "Otter.ai" },
@@ -198,6 +199,8 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         >
           Privacy
         </Link>
+        {" · "}
+        <CookiePreferencesButton />
       </p>
       <p className="text-fg mt-2 text-sm opacity-30">
         Fastrepl © {currentYear}
@@ -544,11 +547,10 @@ function ToolsLinks() {
         </li>
         <li>
           <Link
-            to="/file-transcription/"
-            search={{ id: undefined }}
+            to="/product/notepad/"
             className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
-            Audio Transcription
+            Notepad
           </Link>
         </li>
         <li>

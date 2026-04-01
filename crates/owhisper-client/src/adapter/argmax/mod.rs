@@ -1,10 +1,10 @@
-#[cfg(feature = "argmax")]
+#[cfg(feature = "local")]
 mod batch;
 pub(crate) mod keywords;
 pub(crate) mod language;
 mod live;
 
-#[cfg(feature = "argmax")]
+#[cfg(feature = "local")]
 pub use batch::StreamingBatchConfig;
 
 pub use language::PARAKEET_V3_LANGS;

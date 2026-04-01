@@ -104,7 +104,7 @@ fn test_stream_transcriber() {
     let chunk_size = 32000; // 1 second at 16kHz 16-bit mono
     let mut had_confirmed = false;
 
-    for chunk in pcm.chunks(chunk_size).take(10) {
+    for chunk in pcm.chunks(chunk_size).take(30) {
         let r = transcriber.process(chunk).unwrap();
         if !r.confirmed.is_empty() {
             had_confirmed = true;
@@ -116,6 +116,89 @@ fn test_stream_transcriber() {
     println!("final: {:?}", final_result.confirmed);
 
     assert!(had_confirmed, "expected at least one confirmed segment");
+}
+
+// cargo test -p cactus --test stt test_stream_transcriber_segments -- --ignored --nocapture
+#[ignore]
+#[test]
+fn test_stream_transcriber_segments() {
+    let model = stt_model();
+    let pcm = hypr_data::english_1::AUDIO;
+    let options = en_options();
+
+    let mut transcriber = Transcriber::new(&model, &options, CloudConfig::default()).unwrap();
+
+    let mut first_segmented = None;
+    let mut first_confirmed_with_segments = None;
+
+    for chunk in pcm.chunks(32000).take(30) {
+        let r = transcriber.process(chunk).unwrap();
+
+        if first_segmented.is_none() && !r.segments.is_empty() {
+            first_segmented = Some(r.clone());
+        }
+
+        if first_confirmed_with_segments.is_none()
+            && !r.confirmed.trim().is_empty()
+            && !r.segments.is_empty()
+        {
+            first_confirmed_with_segments = Some(r.clone());
+            break;
+        }
+    }
+
+    let segmented = first_segmented.expect("expected at least one streaming result with segments");
+    for segment in &segmented.segments {
+        assert!(
+            segment.end >= segment.start,
+            "segment end ({}) should be >= start ({})",
+            segment.end,
+            segment.start
+        );
+        assert!(!segment.text.is_empty(), "segment text should not be empty");
+    }
+
+    let confirmed =
+        first_confirmed_with_segments.expect("expected a confirmed streaming result with segments");
+    assert!(
+        !confirmed.confirmed.trim().is_empty(),
+        "confirmed text should not be empty"
+    );
+    assert!(
+        confirmed.buffer_duration_ms > 0.0,
+        "buffer_duration_ms should be positive, got {}",
+        confirmed.buffer_duration_ms
+    );
+
+    let first_segment = confirmed.segments.first().unwrap();
+    assert!(
+        first_segment.start >= 0.0,
+        "first segment start should be non-negative, got {}",
+        first_segment.start
+    );
+
+    let last_segment = confirmed.segments.last().unwrap();
+    let last_segment_end = last_segment.end as f64;
+    assert!(
+        last_segment_end > 0.0,
+        "expected positive segment end timestamp, got {last_segment_end}"
+    );
+    assert!(
+        (last_segment_end - confirmed.buffer_duration_ms / 1000.0).abs() < 0.25,
+        "last segment end ({last_segment_end}) should roughly match buffer duration ({}s)",
+        confirmed.buffer_duration_ms / 1000.0
+    );
+
+    for pair in confirmed.segments.windows(2) {
+        assert!(
+            pair[1].start >= pair[0].start,
+            "segments should be ordered: {} came after {}",
+            pair[0].start,
+            pair[1].start
+        );
+    }
+
+    let _ = transcriber.stop().unwrap();
 }
 
 // cargo test -p cactus --test stt test_stream_transcriber_drop -- --ignored --nocapture

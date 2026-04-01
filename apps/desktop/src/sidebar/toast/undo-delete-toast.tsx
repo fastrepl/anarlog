@@ -296,20 +296,20 @@ function ToastPill({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, y: -20, scale: 0.95 }}
       animate={{
         opacity: isTop ? 1 : 0.7,
-        y: -stackOffset,
+        y: stackOffset,
         scale: 1,
       }}
-      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      exit={{ opacity: 0, y: -20, scale: 0.95 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
       style={{
         zIndex: 50 + index,
         pointerEvents: isTop ? "auto" : "none",
         left: `calc(50% + ${contentOffset}px)`,
       }}
-      className="fixed bottom-6 -translate-x-1/2"
+      className="fixed top-14 -translate-x-1/2"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -320,7 +320,7 @@ function ToastPill({
           "border border-neutral-200 shadow-lg",
         ])}
       >
-        <span className="max-w-[200px] truncate text-sm text-neutral-600">
+        <span className="max-w-50 truncate text-sm text-neutral-600">
           {label}...
         </span>
 
@@ -329,12 +329,12 @@ function ToastPill({
           className={cn([
             "rounded-full px-3 py-1.5 text-xs font-medium",
             "whitespace-nowrap",
-            "bg-neutral-100 text-neutral-500",
+            "bg-red-50 text-red-500",
             "hover:bg-red-100 hover:text-red-600",
             "transition-colors",
           ])}
         >
-          yes
+          Delete
         </button>
 
         <button
@@ -342,12 +342,12 @@ function ToastPill({
           className={cn([
             "rounded-full px-3 py-1.5 text-xs font-medium",
             "whitespace-nowrap",
-            "bg-neutral-900 text-white",
-            "hover:bg-neutral-800",
+            "border border-neutral-200 bg-white text-neutral-700",
+            "hover:bg-neutral-50",
             "transition-colors",
           ])}
         >
-          undo {seconds}s
+          Undo {seconds}s
         </button>
       </div>
     </motion.div>

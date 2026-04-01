@@ -166,6 +166,7 @@ impl LocalModel {
             LocalModel::Am(AmModel::WhisperLargeV3) => "am-whisper-large-v3",
             LocalModel::Cactus(model) => match model {
                 CactusSttModel::WhisperSmallInt4 => "cactus-whisper-small-int4",
+                CactusSttModel::WhisperSmallInt4Apple => "cactus-whisper-small-int4-apple",
                 CactusSttModel::WhisperSmallInt8 => "cactus-whisper-small-int8",
                 CactusSttModel::WhisperSmallInt8Apple => "cactus-whisper-small-int8-apple",
                 CactusSttModel::WhisperMediumInt4 => "cactus-whisper-medium-int4",
@@ -177,7 +178,13 @@ impl LocalModel {
                 CactusSttModel::ParakeetCtc0_6bInt8 => "cactus-parakeet-ctc-0.6b-int8",
                 CactusSttModel::ParakeetCtc0_6bInt8Apple => "cactus-parakeet-ctc-0.6b-int8-apple",
                 CactusSttModel::ParakeetTdt0_6bV3Int4 => "cactus-parakeet-tdt-0.6b-v3-int4",
+                CactusSttModel::ParakeetTdt0_6bV3Int4Apple => {
+                    "cactus-parakeet-tdt-0.6b-v3-int4-apple"
+                }
                 CactusSttModel::ParakeetTdt0_6bV3Int8 => "cactus-parakeet-tdt-0.6b-v3-int8",
+                CactusSttModel::ParakeetTdt0_6bV3Int8Apple => {
+                    "cactus-parakeet-tdt-0.6b-v3-int8-apple"
+                }
             },
             LocalModel::GgufLlm(GgufLlmModel::Llama3p2_3bQ4) => "llm-llama3-2-3b-q4",
             LocalModel::GgufLlm(GgufLlmModel::HyprLLM) => "llm-hypr-llm",
@@ -231,14 +238,14 @@ impl LocalModel {
     }
 
     pub fn is_available_on_current_platform(&self) -> bool {
+        let is_macos = cfg!(target_os = "macos");
         let is_apple_silicon = cfg!(target_arch = "aarch64") && cfg!(target_os = "macos");
 
         match self {
-            LocalModel::Whisper(_) | LocalModel::Am(_) => is_apple_silicon,
+            LocalModel::Whisper(_) => is_macos,
+            LocalModel::Am(_) => is_apple_silicon,
             LocalModel::Cactus(model) => {
-                if model.is_cross_platform() {
-                    true
-                } else if model.is_apple() {
+                if model.is_apple() {
                     is_apple_silicon
                 } else {
                     !is_apple_silicon

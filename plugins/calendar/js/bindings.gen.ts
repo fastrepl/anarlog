@@ -56,6 +56,9 @@ async createEvent(provider: CalendarProviderType, input: CreateEventInput) : Pro
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async parseMeetingLink(text: string) : Promise<string | null> {
+    return await TAURI_INVOKE("plugin:calendar|parse_meeting_link", { text });
 }
 }
 

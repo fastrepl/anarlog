@@ -1,9 +1,20 @@
-import { GripVertical as HandleIcon, Plus, X } from "lucide-react";
+import {
+  GripVertical as HandleIcon,
+  MoreHorizontalIcon,
+  Plus,
+} from "lucide-react";
 import { Reorder, useDragControls } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 
 import type { TemplateSection } from "@hypr/store";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@hypr/ui/components/ui/dropdown-menu";
 import { Input } from "@hypr/ui/components/ui/input";
 import { cn } from "@hypr/utils";
 
@@ -89,6 +100,36 @@ function useEditableSections({
     [commitDrafts],
   );
 
+  const insertSectionAt = useCallback(
+    (index: number) => {
+      commitDrafts((prev) => {
+        const next = [...prev];
+        next.splice(index, 0, createDraft({ title: "", description: "" }));
+        return next;
+      });
+    },
+    [commitDrafts],
+  );
+
+  const moveSection = useCallback(
+    (key: string, direction: -1 | 1) => {
+      commitDrafts((prev) => {
+        const currentIndex = prev.findIndex((section) => section.key === key);
+        const targetIndex = currentIndex + direction;
+
+        if (currentIndex < 0 || targetIndex < 0 || targetIndex >= prev.length) {
+          return prev;
+        }
+
+        const next = [...prev];
+        const [section] = next.splice(currentIndex, 1);
+        next.splice(targetIndex, 0, section);
+        return next;
+      });
+    },
+    [commitDrafts],
+  );
+
   const reorderSections = useCallback(
     (next: SectionDraft[]) => {
       if (disabled) {
@@ -111,6 +152,8 @@ function useEditableSections({
     addSection,
     changeSection,
     deleteSection,
+    insertSectionAt,
+    moveSection,
     reorderSections,
   };
 }
@@ -125,24 +168,36 @@ export function SectionsList({
   onChange: (items: TemplateSection[]) => void;
 }) {
   const controls = useDragControls();
-  const { drafts, addSection, changeSection, deleteSection, reorderSections } =
-    useEditableSections({
-      disabled,
-      initialItems: _items,
-      onChange,
-    });
+  const {
+    drafts,
+    addSection,
+    changeSection,
+    deleteSection,
+    insertSectionAt,
+    moveSection,
+    reorderSections,
+  } = useEditableSections({
+    disabled,
+    initialItems: _items,
+    onChange,
+  });
 
   return (
     <div className="flex flex-col gap-3">
       <Reorder.Group values={drafts} onReorder={reorderSections}>
         <div className="flex flex-col gap-2">
-          {drafts.map((draft) => (
+          {drafts.map((draft, index) => (
             <Reorder.Item key={draft.key} value={draft}>
               <SectionItem
                 disabled={disabled}
+                index={index}
+                total={drafts.length}
                 item={draft}
                 onChange={changeSection}
                 onDelete={deleteSection}
+                onInsertAbove={insertSectionAt}
+                onInsertBelow={insertSectionAt}
+                onMove={moveSection}
                 dragControls={controls}
               />
             </Reorder.Item>
@@ -154,7 +209,7 @@ export function SectionsList({
         <Button
           variant="outline"
           size="sm"
-          className="w-full text-sm"
+          className="h-auto w-fit rounded-full border-neutral-200 bg-white px-4 py-2.5 text-sm text-stone-800 shadow-[0_2px_6px_rgba(87,83,78,0.08),0_10px_18px_-10px_rgba(87,83,78,0.22)] hover:bg-stone-50"
           onClick={addSection}
           disabled={disabled}
         >
@@ -168,15 +223,25 @@ export function SectionsList({
 
 function SectionItem({
   disabled,
+  index,
+  total,
   item,
   onChange,
   onDelete,
+  onInsertAbove,
+  onInsertBelow,
+  onMove,
   dragControls,
 }: {
   disabled: boolean;
+  index: number;
+  total: number;
   item: SectionDraft;
   onChange: (item: SectionDraft) => void;
   onDelete: (key: string) => void;
+  onInsertAbove: (index: number) => void;
+  onInsertBelow: (index: number) => void;
+  onMove: (key: string, direction: -1 | 1) => void;
   dragControls: ReturnType<typeof useDragControls>;
 }) {
   const [isFocused, setIsFocused] = useState(false);
@@ -185,6 +250,7 @@ function SectionItem({
     <div className="group relative bg-white">
       {!disabled && (
         <button
+          type="button"
           className="absolute top-2.5 -left-5 cursor-move opacity-0 transition-opacity group-hover:opacity-30 hover:opacity-60"
           onPointerDown={(event) => dragControls.start(event)}
           disabled={disabled}
@@ -194,16 +260,60 @@ function SectionItem({
       )}
 
       {!disabled && (
-        <button
-          className="absolute top-2 right-2 opacity-0 transition-all group-hover:opacity-30 hover:opacity-100"
-          onClick={() => onDelete(item.key)}
-          disabled={disabled}
-        >
-          <X size={16} />
-        </button>
+        <div className="absolute top-2 right-2 opacity-0 transition-all group-hover:opacity-100">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-neutral-400 hover:text-neutral-700"
+                aria-label="Section actions"
+              >
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent variant="app" align="end">
+              <AppFloatingPanel className="overflow-hidden p-1">
+                <DropdownMenuItem
+                  onClick={() => onInsertAbove(index)}
+                  className="cursor-pointer"
+                >
+                  Insert above
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onInsertBelow(index + 1)}
+                  className="cursor-pointer"
+                >
+                  Insert below
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onMove(item.key, -1)}
+                  disabled={index === 0}
+                  className="cursor-pointer"
+                >
+                  Move up
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onMove(item.key, 1)}
+                  disabled={index === total - 1}
+                  className="cursor-pointer"
+                >
+                  Move down
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onDelete(item.key)}
+                  className="cursor-pointer text-red-600 focus:text-red-600"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </AppFloatingPanel>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 pr-9">
         <Input
           disabled={disabled}
           value={item.title}

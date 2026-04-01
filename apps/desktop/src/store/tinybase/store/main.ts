@@ -138,6 +138,10 @@ export const StoreComponent = () => {
           ({ select }) => {
             select("title");
             select("description");
+            select("pinned");
+            select("pin_order");
+            select("category");
+            select("targets");
             select("sections");
           },
         )
@@ -194,6 +198,10 @@ export const StoreComponent = () => {
           ({ select, where, param }) => {
             select("title");
             select("description");
+            select("pinned");
+            select("pin_order");
+            select("category");
+            select("targets");
             select("sections");
             select("user_id");
             where("user_id", (param("user_id") as string) ?? "");

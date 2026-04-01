@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CheckCircle2, XCircle } from "lucide-react";
 import { motion } from "motion/react";
 
+import { MARKETING_PLAN_TIERS, type MarketingPlanData } from "@hypr/pricing";
+import { PlanFeatureList } from "@hypr/pricing/ui";
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
@@ -9,108 +10,6 @@ import { Image } from "@/components/image";
 export const Route = createFileRoute("/_view/pricing")({
   component: Component,
 });
-
-interface PricingPlan {
-  name: string;
-  price: { monthly: number; yearly?: number };
-  description: string;
-  popular?: boolean;
-  cta: { label: string; href: string };
-  features: Array<{
-    label: string;
-    included: boolean;
-    tooltip?: string;
-  }>;
-}
-
-const pricingPlans: PricingPlan[] = [
-  {
-    name: "Free",
-    price: { monthly: 0 },
-    description:
-      "Fully functional with your own API keys. Perfect for individuals who want complete control.",
-    cta: { label: "Download for free", href: "/download/" },
-    features: [
-      { label: "On-device Transcription", included: true },
-      { label: "Save Audio Recordings", included: true },
-      { label: "Audio Player", included: true },
-      { label: "Bring Your Own Key", included: true },
-      { label: "Export to Various Formats", included: true },
-      {
-        label: "Custom Default Folder",
-        included: true,
-        tooltip: "Move your default folder location to anywhere you prefer.",
-      },
-      { label: "Chat", included: true },
-      { label: "Contacts View", included: true },
-      { label: "Calendar View", included: true },
-      { label: "Transcript Editor", included: true },
-      { label: "Templates", included: true },
-      { label: "Shortcuts", included: true },
-      { label: "Cloud Services (STT & LLM)", included: false },
-      { label: "Speaker Identification", included: false },
-    ],
-  },
-  {
-    name: "Lite",
-    price: { monthly: 8 },
-    description:
-      "Unlimited cloud transcription and AI models without the complexity. No API keys needed — just sign in and go.",
-    cta: {
-      label: "Get Started",
-      href: "/app/checkout/?plan=lite&period=monthly",
-    },
-    features: [
-      { label: "Everything in Free", included: true },
-      { label: "Cloud Services (STT & LLM)", included: true },
-      { label: "Speaker Identification", included: true },
-      { label: "Change Playback Rates", included: true },
-      { label: "Integrations", included: false },
-      { label: "Advanced Templates", included: false },
-      { label: "Folders View", included: false },
-      { label: "Cloud Sync", included: false },
-      { label: "Shareable Links", included: false },
-    ],
-  },
-  {
-    name: "Pro",
-    price: { monthly: 25, yearly: 250 },
-    description:
-      "Everything in Lite, plus advanced sharing and team features out of the box.",
-    popular: true,
-    cta: {
-      label: "Get Started",
-      href: "/app/checkout/?plan=pro&period=monthly",
-    },
-    features: [
-      { label: "Everything in Lite", included: true },
-      { label: "Change Playback Rates", included: true },
-      {
-        label: "Integrations",
-        included: true,
-        tooltip:
-          "Google Calendar is available now. Additional integrations are in progress.",
-      },
-      { label: "Advanced Templates", included: true },
-      { label: "Folders View", included: true },
-      {
-        label: "Connect to OpenClaw",
-        included: true,
-        tooltip: "Select which notes to sync",
-      },
-      {
-        label: "Cloud Sync",
-        included: true,
-        tooltip: "Select which notes to sync",
-      },
-      {
-        label: "Shareable Links",
-        included: true,
-        tooltip: "DocSend-like: view tracking, expiration, revocation",
-      },
-    ],
-  },
-];
 
 function Component() {
   return (
@@ -133,7 +32,8 @@ function HeroSection() {
           Pricing
         </h1>
         <p className="text-fg text-lg sm:text-xl">
-          Start for free, upgrade when you need cloud features.
+          Download the app, then upgrade in desktop when you need cloud
+          features.
         </p>
       </div>
     </section>
@@ -143,18 +43,16 @@ function HeroSection() {
 function PricingCardsSection() {
   return (
     <section className="py-16">
-      <div className="mx-auto grid grid-cols-1 gap-4 md:grid-cols-3">
-        {pricingPlans.map((plan) => (
-          <PricingCard key={plan.name} plan={plan} />
+      <div className="mx-auto grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
+        {MARKETING_PLAN_TIERS.map((plan) => (
+          <PricingCard key={plan.id} plan={plan} />
         ))}
       </div>
     </section>
   );
 }
 
-function PricingCard({ plan }: { plan: PricingPlan }) {
-  const isPaid = plan.price.monthly > 0;
-
+function PricingCard({ plan }: { plan: MarketingPlanData }) {
   return (
     <motion.div
       whileHover={{ scale: 1.02, shadow: "0 0 10px 1 rgba(0, 0, 4, 0.35)" }}
@@ -176,81 +74,49 @@ function PricingCard({ plan }: { plan: PricingPlan }) {
               </div>
             )}
           </div>
-          <p className="text-fg mb-4 text-sm opacity-60">{plan.description}</p>
+          <p className="text-fg mb-4 min-h-[80px] text-sm opacity-60">
+            {plan.description}
+          </p>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex items-baseline gap-2">
-              <span className="text-fg font-mono text-4xl font-medium">
-                ${plan.price.monthly}
-              </span>
-              <span className="text-fg-muted">/month</span>
-            </div>
-            {plan.price.yearly && (
-              <div className="text-fg-muted text-sm">
-                or ${plan.price.yearly}/year
+          <div className="min-h-[64px]">
+            {plan.price ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-fg font-mono text-4xl font-medium">
+                    ${plan.price.monthly}
+                  </span>
+                  <span className="text-fg-muted">/month</span>
+                  {plan.price.yearly != null ? (
+                    <span className="text-fg-muted text-sm">
+                      or ${plan.price.yearly}/year
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-baseline gap-2">
+                <span className="text-fg font-mono text-4xl font-medium">$0</span>
+                <span className="text-fg-muted">per month</span>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col gap-2">
-          {plan.features.map((feature, idx) => {
-            const IconComponent = feature.included ? CheckCircle2 : XCircle;
+        <PlanFeatureList features={plan.features} />
 
-            return (
-              <div key={idx} className="flex items-start gap-2">
-                <IconComponent
-                  className={cn([
-                    "mt-0.5 size-4.5 shrink-0",
-                    feature.included ? "text-green-700" : "text-neutral-300",
-                  ])}
-                />
-                <div className="flex-1">
-                  <span
-                    className={cn([
-                      "text-sm",
-                      feature.included
-                        ? "text-neutral-900"
-                        : "text-neutral-400",
-                    ])}
-                  >
-                    {feature.label}
-                  </span>
-                  {feature.tooltip && (
-                    <div className="mt-0.5 text-xs text-neutral-500 italic">
-                      {feature.tooltip}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {isPaid ? (
-          <div className="mt-8 rounded-full bg-gradient-to-b from-gray-100 to-gray-700 shadow-sm transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]">
-            <a
-              href={plan.cta.href}
-              className="surface-dark relative flex h-10 w-full items-center justify-center overflow-hidden rounded-full text-sm font-medium text-white"
-            >
-              <div
-                className="pointer-events-none absolute -top-4 left-1/2 h-10 w-full -translate-x-1/2 opacity-40"
-                style={{
-                  background:
-                    "radial-gradient(50% 100% at 50% 0%, white, transparent)",
-                }}
-              />
-              <span className="relative">{plan.cta.label}</span>
-            </a>
-          </div>
-        ) : (
-          <a
-            href={plan.cta.href}
-            className="mt-8 flex h-10 w-full cursor-pointer items-center justify-center rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-sm font-medium text-neutral-900 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
+        <div className="mt-auto pt-8">
+          <Link
+            to="/download/"
+            className={cn([
+              "flex h-10 w-full cursor-pointer items-center justify-center text-sm font-medium transition-all",
+              plan.popular
+                ? "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+                : "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
+            ])}
           >
-            {plan.cta.label}
-          </a>
-        )}
+            {plan.price ? "Get Started on Desktop" : "Download for free"}
+          </Link>
+        </div>
       </div>
     </motion.div>
   );

@@ -9,12 +9,13 @@ export const Route = createFileRoute("/_view/company-handbook/$")({
   beforeLoad: ({ params }) => {
     const splat = params._splat || "";
     const normalizedSplat = splat.replace(/\/$/, "");
+    const defaultPage = handbookStructure.defaultPages[normalizedSplat];
 
-    if (handbookStructure.defaultPages[normalizedSplat]) {
+    if (defaultPage && defaultPage !== normalizedSplat) {
       throw redirect({
         to: "/company-handbook/$/",
         params: {
-          _splat: handbookStructure.defaultPages[normalizedSplat],
+          _splat: defaultPage,
         },
       });
     }

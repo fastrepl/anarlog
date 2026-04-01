@@ -55,6 +55,18 @@ export type CalendarData = {
   sessionIdsByDate: Record<string, string[]>;
 };
 
+function compareNullableDates(a: string | undefined, b: string | undefined) {
+  const aDate = a ? safeParseDate(a) : null;
+  const bDate = b ? safeParseDate(b) : null;
+
+  if (aDate && bDate) {
+    return aDate.getTime() - bDate.getTime();
+  }
+  if (aDate) return -1;
+  if (bDate) return 1;
+  return 0;
+}
+
 export function useCalendarData(): CalendarData {
   const tz = useTimezone();
 
@@ -87,7 +99,21 @@ export function useCalendarData(): CalendarData {
         ids.sort((a, b) => {
           const aAllDay = eventsTable[a]?.is_all_day ? 0 : 1;
           const bAllDay = eventsTable[b]?.is_all_day ? 0 : 1;
-          return aAllDay - bAllDay;
+          const allDayCompare = aAllDay - bAllDay;
+          if (allDayCompare !== 0) return allDayCompare;
+
+          const startCompare = compareNullableDates(
+            eventsTable[a]?.started_at as string | undefined,
+            eventsTable[b]?.started_at as string | undefined,
+          );
+          if (startCompare !== 0) return startCompare;
+
+          const titleCompare = String(
+            eventsTable[a]?.title ?? "",
+          ).localeCompare(String(eventsTable[b]?.title ?? ""));
+          if (titleCompare !== 0) return titleCompare;
+
+          return a.localeCompare(b);
         });
       }
     }
@@ -99,6 +125,23 @@ export function useCalendarData(): CalendarData {
         if (!raw) continue;
         const key = format(toTz(raw, tz), "yyyy-MM-dd");
         (sessionIdsByDate[key] ??= []).push(sessionId);
+      }
+
+      for (const ids of Object.values(sessionIdsByDate)) {
+        ids.sort((a, b) => {
+          const createdAtCompare = compareNullableDates(
+            sessionsTable[a]?.created_at as string | undefined,
+            sessionsTable[b]?.created_at as string | undefined,
+          );
+          if (createdAtCompare !== 0) return createdAtCompare;
+
+          const titleCompare = String(
+            sessionsTable[a]?.title ?? "",
+          ).localeCompare(String(sessionsTable[b]?.title ?? ""));
+          if (titleCompare !== 0) return titleCompare;
+
+          return a.localeCompare(b);
+        });
       }
     }
 

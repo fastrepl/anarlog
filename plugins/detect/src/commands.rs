@@ -12,8 +12,8 @@ pub(crate) async fn list_installed_applications<R: tauri::Runtime>(
 #[specta::specta]
 pub(crate) async fn list_mic_using_applications<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<Vec<hypr_detect::InstalledApp>, String> {
-    Ok(app.detect().list_mic_using_applications())
+) -> Result<Vec<hypr_detect::InstalledApp>, crate::Error> {
+    app.detect().list_mic_using_applications()
 }
 
 #[tauri::command]
@@ -31,6 +31,16 @@ pub(crate) async fn set_ignored_bundle_ids<R: tauri::Runtime>(
     bundle_ids: Vec<String>,
 ) -> Result<(), String> {
     app.detect().set_ignored_bundle_ids(bundle_ids);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_included_bundle_ids<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    bundle_ids: Vec<String>,
+) -> Result<(), String> {
+    app.detect().set_included_bundle_ids(bundle_ids);
     Ok(())
 }
 

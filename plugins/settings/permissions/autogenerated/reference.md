@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-global-base`
 - `allow-vault-base`
 - `allow-copy-vault`
+- `allow-move-vault`
 - `allow-set-vault-base`
 - `allow-obsidian-vaults`
 - `allow-path`
@@ -96,6 +97,32 @@ Enables the load command without any pre-configured scope.
 <td>
 
 Denies the load command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`settings:allow-move-vault`
+
+</td>
+<td>
+
+Enables the move_vault command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`settings:deny-move-vault`
+
+</td>
+<td>
+
+Denies the move_vault command without any pre-configured scope.
 
 </td>
 </tr>

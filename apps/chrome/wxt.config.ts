@@ -6,7 +6,7 @@ const NO_BROWSER = process.env.WXT_NO_BROWSER === "1";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   vite: () => ({
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss() as any],
   }),
   webExt: NO_BROWSER ? { disabled: true } : undefined,
   manifest: {

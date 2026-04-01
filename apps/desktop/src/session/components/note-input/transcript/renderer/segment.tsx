@@ -1,12 +1,13 @@
 import { memo, useMemo } from "react";
 
-import type { Operations, Segment, SegmentWord } from "@hypr/transcript";
-import { SpeakerLabelManager } from "@hypr/transcript";
-import { groupWordsIntoLines } from "@hypr/transcript/ui";
 import { cn } from "@hypr/utils";
 
 import { SegmentHeader } from "./segment-header";
+import { groupWordsIntoLines } from "./utils";
 import { WordSpan } from "./word-span";
+
+import type { Segment, SegmentWord } from "~/stt/live-segment";
+import { SpeakerLabelManager } from "~/stt/live-segment";
 
 function getSegmentTimeRange(
   segment: Segment,
@@ -22,21 +23,17 @@ function getSegmentTimeRange(
 
 export const SegmentRenderer = memo(
   ({
-    editable,
     segment,
     offsetMs,
-    operations,
-    sessionId,
+    transcriptId,
     speakerLabelManager,
     currentMs,
     seekAndPlay,
     audioExists,
   }: {
-    editable: boolean;
     segment: Segment;
     offsetMs: number;
-    operations?: Operations;
-    sessionId?: string;
+    transcriptId: string;
     speakerLabelManager?: SpeakerLabelManager;
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;
@@ -51,15 +48,14 @@ export const SegmentRenderer = memo(
       <section>
         <SegmentHeader
           segment={segment}
-          operations={operations}
-          sessionId={sessionId}
+          transcriptId={transcriptId}
           speakerLabelManager={speakerLabelManager}
         />
 
         <div
           className={cn([
             "overflow-wrap-anywhere mt-1.5 text-sm leading-relaxed wrap-break-word",
-            editable && "select-text-deep",
+            "select-text-deep",
           ])}
         >
           {lines.map((line, lineIdx) => {
@@ -84,8 +80,8 @@ export const SegmentRenderer = memo(
                   <WordSpan
                     key={word.id ?? `${word.start_ms}-${idx}`}
                     word={word}
+                    displayText={word.text}
                     audioExists={audioExists}
-                    operations={operations}
                     onClickWord={seekAndPlay}
                   />
                 ))}
@@ -98,11 +94,9 @@ export const SegmentRenderer = memo(
   },
   (prev, next) => {
     if (
-      prev.editable !== next.editable ||
       prev.segment !== next.segment ||
       prev.offsetMs !== next.offsetMs ||
-      prev.operations !== next.operations ||
-      prev.sessionId !== next.sessionId ||
+      prev.transcriptId !== next.transcriptId ||
       prev.speakerLabelManager !== next.speakerLabelManager ||
       prev.audioExists !== next.audioExists ||
       prev.seekAndPlay !== next.seekAndPlay

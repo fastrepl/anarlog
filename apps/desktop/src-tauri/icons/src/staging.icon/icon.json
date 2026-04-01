@@ -1,0 +1,213 @@
+{
+  "fill": {
+    "automatic-gradient": "display-p3:0.89804,0.89804,0.89020,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ],
+          "hidden-specializations": [
+            {
+              "value": false
+            },
+            {
+              "idiom": "square",
+              "value": false
+            }
+          ],
+          "image-name-specializations": [
+            {
+              "value": "char-dev icon 4.svg"
+            },
+            {
+              "idiom": "square",
+              "value": "char-dev icon.svg"
+            }
+          ],
+          "name": "char-dev icon light",
+          "position": {
+            "scale": 3.2,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": "automatic"
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "extended-srgb:0.00000,0.53333,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": false
+            }
+          ],
+          "image-name": "char-dev icon pattern.svg",
+          "name": "char-dev icon pattern",
+          "opacity": 0.4,
+          "position": {
+            "scale": 3.2,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "display-p3:0.93379,0.96783,0.92137,1.00000"
+              }
+            }
+          ],
+          "glass-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ],
+          "hidden-specializations": [
+            {
+              "value": false
+            },
+            {
+              "idiom": "square",
+              "value": false
+            }
+          ],
+          "image-name-specializations": [
+            {
+              "value": "char-dev icon 4.svg"
+            },
+            {
+              "idiom": "square",
+              "value": "char-dev icon bg.svg"
+            }
+          ],
+          "name": "char-dev icon light",
+          "opacity-specializations": [
+            {
+              "value": 0.3
+            },
+            {
+              "appearance": "dark",
+              "value": 0.3
+            }
+          ],
+          "position": {
+            "scale": 3.2,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "fill-specializations": [
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ],
+          "glass-specializations": [
+            {
+              "value": false
+            },
+            {
+              "appearance": "tinted",
+              "value": true
+            }
+          ],
+          "image-name-specializations": [
+            {
+              "value": "grid 3.svg"
+            },
+            {
+              "idiom": "square",
+              "value": "grid.svg"
+            }
+          ],
+          "name": "grid",
+          "opacity-specializations": [
+            {
+              "appearance": "dark",
+              "value": 0.3
+            }
+          ],
+          "position-specializations": [
+            {
+              "value": {
+                "scale": 3.21,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            },
+            {
+              "idiom": "square",
+              "value": {
+                "scale": 3.2,
+                "translation-in-points": [
+                  0,
+                  0
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
+  }
+}

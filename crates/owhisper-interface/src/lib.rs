@@ -1,5 +1,6 @@
 pub mod batch;
 pub mod batch_sse;
+pub mod batch_stream;
 #[cfg(feature = "openapi")]
 pub mod openapi;
 pub mod progress;

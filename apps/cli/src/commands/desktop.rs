@@ -13,7 +13,6 @@ const DESKTOP_DATA_FOLDERS: &[&str] = &[
     "com.hyprnote.staging",
     "com.hyprnote.nightly",
     "com.hyprnote.stable",
-    "com.hyprnote.Hyprnote",
 ];
 
 pub enum DesktopAction {
@@ -24,7 +23,7 @@ pub enum DesktopAction {
 pub fn run() -> CliResult<DesktopAction> {
     if !desktop_app_exists() {
         if let Err(e) = open::that(DOWNLOAD_URL) {
-            return Err(CliError::external_action_failed(
+            return Err(CliError::operation_failed(
                 "open desktop app or download page",
                 format!("{e}\nPlease visit: {DOWNLOAD_URL}"),
             ));
@@ -39,7 +38,7 @@ pub fn run() -> CliResult<DesktopAction> {
         }
     }
 
-    Err(CliError::external_action_failed(
+    Err(CliError::operation_failed(
         "open desktop app",
         "Desktop app appears to be installed, but no registered deeplink responded".to_string(),
     ))

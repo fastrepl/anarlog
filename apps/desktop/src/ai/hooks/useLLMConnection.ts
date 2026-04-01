@@ -6,11 +6,12 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { extractReasoningMiddleware, wrapLanguageModel } from "ai";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import type { CharTask } from "@hypr/api-client";
 import type { AIProviderStorage } from "@hypr/store";
 
+import { createAuthFetch } from "../auth-fetch";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
 import { useAuth } from "~/auth";
@@ -54,10 +55,26 @@ type LLMConnectionResult = {
 
 export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
   const { conn } = useLLMConnection();
-  return useMemo(
-    () => (conn ? createLanguageModel(conn, task) : null),
-    [conn, task],
-  );
+  const { session } = useAuth();
+
+  // Auth is resolved at fetch time (not model construction) so token
+  // refreshes take effect without recreating the chat transport chain.
+  const accessTokenRef = useRef(session?.access_token);
+  accessTokenRef.current = session?.access_token;
+
+  return useMemo(() => {
+    if (!conn) return null;
+
+    const hostedFetch =
+      conn.providerId === "hyprnote"
+        ? createAuthFetch(
+            task ? createTracedFetch(task) : tracedFetch,
+            () => accessTokenRef.current,
+          )
+        : undefined;
+
+    return createLanguageModel(conn, task, hostedFetch);
+  }, [conn, task]);
 };
 
 export const useLLMConnection = (): LLMConnectionResult => {
@@ -80,11 +97,11 @@ export const useLLMConnection = (): LLMConnectionResult => {
         modelId: current_llm_model,
         providerConfig,
         session: auth?.session,
-        isPro: billing.isPro,
+        isPaid: billing.isPaid,
       }),
     [
       auth,
-      billing.isPro,
+      billing.isPaid,
       current_llm_model,
       current_llm_provider,
       providerConfig,
@@ -102,14 +119,14 @@ const resolveLLMConnection = (params: {
   modelId: string | undefined;
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
-  isPro: boolean;
+  isPaid: boolean;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
     modelId,
     providerConfig,
     session,
-    isPro,
+    isPaid,
   } = params;
 
   if (!rawProviderId) {
@@ -149,7 +166,7 @@ const resolveLLMConnection = (params: {
 
   const context: ProviderEligibilityContext = {
     isAuthenticated: !!session,
-    isPro,
+    isPaid,
     config: { base_url: baseUrl, api_key: apiKey },
   };
 
@@ -205,17 +222,19 @@ const resolveLLMConnection = (params: {
 
 export const useFeedbackLanguageModel = (): LanguageModelV3 => {
   const { session } = useAuth();
-  const apiKey = session?.access_token ?? "CANT_BE_EMPTY";
+
+  const accessTokenRef = useRef(session?.access_token);
+  accessTokenRef.current = session?.access_token;
 
   return useMemo(() => {
     const baseUrl = new URL("/support/llm", env.VITE_API_URL).toString();
     const provider = createOpenRouter({
-      fetch: tauriFetch,
+      fetch: createAuthFetch(tauriFetch, () => accessTokenRef.current),
       baseURL: baseUrl,
-      apiKey,
+      apiKey: session?.access_token ?? "CANT_BE_EMPTY",
     });
     return wrapWithThinkingMiddleware(provider.chat("unused"));
-  }, [apiKey]);
+  }, []);
 };
 
 const wrapWithThinkingMiddleware = (
@@ -233,11 +252,12 @@ const wrapWithThinkingMiddleware = (
 const createLanguageModel = (
   conn: LLMConnectionInfo,
   task?: CharTask,
+  hostedFetch?: typeof fetch,
 ): LanguageModelV3 => {
   switch (conn.providerId) {
     case "hyprnote": {
       const provider = createOpenRouter({
-        fetch: task ? createTracedFetch(task) : tracedFetch,
+        fetch: hostedFetch ?? (task ? createTracedFetch(task) : tracedFetch),
         baseURL: conn.baseUrl,
         apiKey: conn.apiKey,
       });

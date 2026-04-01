@@ -57,7 +57,11 @@ impl AppCategory {
                 "com.loom.desktop",
                 "com.obsproject.obs-studio",
             ],
-            Self::AIAssistant => &["com.openai.chat", "com.anthropic.claudefordesktop"],
+            Self::AIAssistant => &[
+                "com.openai.chat",
+                "com.openai.codex",
+                "com.anthropic.claudefordesktop",
+            ],
             Self::Other => &[
                 "com.raycast.macos",
                 "com.apple.garageband10",
@@ -110,12 +114,17 @@ pub struct MicNotificationPolicy {
     pub respect_dnd: bool,
     pub ignored_categories: Vec<AppCategory>,
     pub user_ignored_bundle_ids: HashSet<String>,
+    pub user_included_bundle_ids: HashSet<String>,
 }
 
 impl MicNotificationPolicy {
     pub fn should_track_app(&self, app_id: &str) -> bool {
-        AppCategory::find_category(app_id).is_none()
-            && !self.user_ignored_bundle_ids.contains(app_id)
+        if self.user_ignored_bundle_ids.contains(app_id) {
+            return false;
+        }
+
+        self.user_included_bundle_ids.contains(app_id)
+            || AppCategory::find_category(app_id).is_none()
     }
 
     fn filter_apps(
@@ -136,8 +145,12 @@ impl MicNotificationPolicy {
         let filtered_apps: Vec<_> = apps
             .iter()
             .filter(|app| {
-                !self.user_ignored_bundle_ids.contains(&app.id)
-                    && !ignored_from_categories.contains(app.id.as_str())
+                if self.user_ignored_bundle_ids.contains(&app.id) {
+                    return false;
+                }
+
+                self.user_included_bundle_ids.contains(&app.id)
+                    || !ignored_from_categories.contains(app.id.as_str())
             })
             .cloned()
             .collect();
@@ -174,6 +187,7 @@ impl Default for MicNotificationPolicy {
             respect_dnd: false,
             ignored_categories: AppCategory::all().to_vec(),
             user_ignored_bundle_ids: HashSet::new(),
+            user_included_bundle_ids: HashSet::new(),
         }
     }
 }
@@ -297,6 +311,15 @@ mod tests {
     }
 
     #[test]
+    fn test_should_track_user_included_categorized_app() {
+        let policy = MicNotificationPolicy {
+            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
+            ..Default::default()
+        };
+        assert!(policy.should_track_app("com.microsoft.VSCode"));
+    }
+
+    #[test]
     fn test_user_ignored_does_not_affect_other_apps() {
         let policy = MicNotificationPolicy {
             user_ignored_bundle_ids: HashSet::from(["us.zoom.xos".to_string()]),
@@ -350,6 +373,33 @@ mod tests {
             policy.evaluate(&ctx).unwrap_err(),
             SkipReason::AllAppsFiltered
         );
+    }
+
+    #[test]
+    fn test_evaluate_keeps_user_included_default_app() {
+        let policy = MicNotificationPolicy {
+            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
+            ..Default::default()
+        };
+        let apps = vec![app("com.microsoft.VSCode")];
+        let ctx = PolicyContext {
+            apps: &apps,
+            is_dnd: false,
+            event_type: MicEventType::Started,
+        };
+        let result = policy.evaluate(&ctx).unwrap();
+        assert_eq!(result.filtered_apps.len(), 1);
+        assert_eq!(result.filtered_apps[0].id, "com.microsoft.VSCode");
+    }
+
+    #[test]
+    fn test_user_ignored_overrides_user_included() {
+        let policy = MicNotificationPolicy {
+            user_ignored_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
+            user_included_bundle_ids: HashSet::from(["com.microsoft.VSCode".to_string()]),
+            ..Default::default()
+        };
+        assert!(!policy.should_track_app("com.microsoft.VSCode"));
     }
 
     #[test]

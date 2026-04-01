@@ -63,6 +63,7 @@ mod test {
                 "test.pdf",
                 ExportInput {
                     enhanced_md: "# Test Document\n\nThis is a test.".to_string(),
+                    memo_md: None,
                     transcript: Some(Transcript {
                         items: vec![TranscriptItem {
                             speaker: Some("Speaker 1".to_string()),

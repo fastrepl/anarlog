@@ -37,6 +37,7 @@ pub async fn router(config: SupportConfig) -> Router {
 
     let chatwoot_routes = Router::new()
         .route("/contact", post(chatwoot::create_contact))
+        .route("/callback", post(chatwoot::callback))
         .route(
             "/conversations",
             post(chatwoot::create_conversation).get(chatwoot::list_conversations),

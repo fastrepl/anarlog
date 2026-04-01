@@ -47,6 +47,32 @@ pub async fn copy_vault_items(src: &Path, dst: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn is_empty_or_missing_dir(path: &Path) -> std::io::Result<bool> {
+    if !path.exists() {
+        return Ok(true);
+    }
+
+    Ok(std::fs::read_dir(path)?.next().transpose()?.is_none())
+}
+
+pub async fn remove_vault_items(path: &Path) -> std::io::Result<()> {
+    for dir_name in VAULT_DIRECTORIES {
+        let dir = path.join(dir_name);
+        if dir.exists() && dir.is_dir() {
+            tokio::fs::remove_dir_all(&dir).await?;
+        }
+    }
+
+    for file_name in VAULT_FILES {
+        let file = path.join(file_name);
+        if file.exists() && file.is_file() {
+            tokio::fs::remove_file(&file).await?;
+        }
+    }
+
+    Ok(())
+}
+
 pub fn set_vault_path(config: &mut serde_json::Value, path: &Path) {
     if let Some(obj) = config.as_object_mut() {
         obj.insert(
@@ -108,6 +134,33 @@ mod tests {
 
         assert!(dst.join("events.json").exists());
         assert!(!dst.join("sessions").exists());
+    }
+
+    #[test]
+    fn is_empty_or_missing_dir_accepts_missing_path() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("missing");
+
+        assert!(is_empty_or_missing_dir(&path).unwrap());
+    }
+
+    #[test]
+    fn is_empty_or_missing_dir_accepts_empty_directory() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("empty");
+        fs::create_dir_all(&path).unwrap();
+
+        assert!(is_empty_or_missing_dir(&path).unwrap());
+    }
+
+    #[test]
+    fn is_empty_or_missing_dir_rejects_populated_directory() {
+        let temp = tempdir().unwrap();
+        let path = temp.path().join("populated");
+        fs::create_dir_all(&path).unwrap();
+        fs::write(path.join("note.md"), "note").unwrap();
+
+        assert!(!is_empty_or_missing_dir(&path).unwrap());
     }
 
     #[test]

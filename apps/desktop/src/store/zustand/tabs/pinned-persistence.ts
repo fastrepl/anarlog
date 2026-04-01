@@ -29,7 +29,23 @@ const serializePinnedTabs = (tabs: Tab[]): string => {
 
 const deserializePinnedTabs = (data: string): PinnedTab[] => {
   try {
-    return JSON.parse(data) as PinnedTab[];
+    const parsed = JSON.parse(data) as PinnedTab[];
+    return parsed.flatMap((tab) => {
+      if ((tab as any).type === "ai") {
+        return {
+          ...tab,
+          type: "settings",
+          state: { tab: (tab as any).state?.tab ?? "transcription" },
+        } as PinnedTab;
+      }
+
+      const tabType = (tab as { type: string }).type;
+      if (tabType === "extension" || tabType === "extensions") {
+        return [];
+      }
+
+      return [tab];
+    });
   } catch {
     return [];
   }

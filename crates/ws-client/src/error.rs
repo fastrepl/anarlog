@@ -14,6 +14,7 @@ pub enum Error {
         is_auth: bool,
         status_code: Option<u16>,
         retryable: bool,
+        retry_after_secs: Option<u64>,
     },
     #[error("connect retries exhausted after {attempts} attempts: {last_error}")]
     ConnectRetriesExhausted { attempts: usize, last_error: String },
@@ -62,10 +63,11 @@ impl std::fmt::Debug for Error {
                 is_auth,
                 status_code,
                 retryable,
+                retry_after_secs,
             } => {
                 write!(
                     f,
-                    "ConnectFailed({attempt}/{max_attempts}, auth={is_auth}, status={status_code:?}, retryable={retryable}, {message})"
+                    "ConnectFailed({attempt}/{max_attempts}, auth={is_auth}, status={status_code:?}, retryable={retryable}, retry_after={retry_after_secs:?}, {message})"
                 )
             }
             Error::ConnectRetriesExhausted {
@@ -151,6 +153,7 @@ impl Error {
             is_auth: is_http_auth_error(error),
             status_code: http_status(error),
             retryable: is_retryable_handshake_error(error),
+            retry_after_secs: extract_retry_after(error),
         }
     }
 
@@ -210,6 +213,17 @@ fn http_status(error: &tokio_tungstenite::tungstenite::Error) -> Option<u16> {
 
 fn is_retryable_http_status(status: u16) -> bool {
     matches!(status, 408 | 425 | 429) || (500..=599).contains(&status)
+}
+
+fn extract_retry_after(error: &tokio_tungstenite::tungstenite::Error) -> Option<u64> {
+    if let tokio_tungstenite::tungstenite::Error::Http(response) = error {
+        return response
+            .headers()
+            .get("retry-after")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse::<u64>().ok());
+    }
+    None
 }
 
 fn is_retryable_handshake_error(error: &tokio_tungstenite::tungstenite::Error) -> bool {

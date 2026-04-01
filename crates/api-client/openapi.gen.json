@@ -299,6 +299,49 @@
         ],
         "type": "string"
       },
+      "CollectionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionRef"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "CollectionRef": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "description": "Short identifier. GitHub: \"owner/repo\", Linear: team key (e.g., \"ENG\").",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name. GitHub: \"owner/repo\", Linear: team name.",
+            "type": "string"
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
       "ConferenceCreateRequest": {
         "properties": {
           "conferenceSolutionKey": {
@@ -961,6 +1004,67 @@
         ],
         "type": "string"
       },
+      "GitHubListReposRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "limit": {
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "GitHubListTicketsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "limit": {
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "state": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "owner",
+          "repo"
+        ],
+        "type": "object"
+      },
       "GoogleListCalendarsRequest": {
         "properties": {
           "connection_id": {
@@ -1040,6 +1144,75 @@
             "nullable": true
           }
         },
+        "type": "object"
+      },
+      "LabelRef": {
+        "properties": {
+          "color": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "LinearListTeamsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "limit": {
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "LinearListTicketsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "nullable": true,
+            "type": "string"
+          },
+          "limit": {
+            "format": "int32",
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "query": {
+            "nullable": true,
+            "type": "string"
+          },
+          "team_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "team_id"
+        ],
         "type": "object"
       },
       "ListConnectionsResponse": {
@@ -1317,6 +1490,27 @@
         },
         "type": "object"
       },
+      "PersonRef": {
+        "properties": {
+          "avatar_url": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "PhysicalAddress": {
         "properties": {
           "city": {
@@ -1340,6 +1534,37 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "PullRequestDetail": {
+        "properties": {
+          "is_draft": {
+            "type": "boolean"
+          },
+          "is_merged": {
+            "type": "boolean"
+          },
+          "merged_at": {
+            "nullable": true,
+            "type": "string"
+          },
+          "merged_by": {
+            "$ref": "#/components/schemas/PersonRef",
+            "nullable": true
+          },
+          "source_branch": {
+            "nullable": true,
+            "type": "string"
+          },
+          "target_branch": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "is_draft",
+          "is_merged"
+        ],
         "type": "object"
       },
       "Recipient": {
@@ -1585,6 +1810,153 @@
         ],
         "type": "object"
       },
+      "TicketKind": {
+        "enum": [
+          "issue",
+          "pull_request"
+        ],
+        "type": "string"
+      },
+      "TicketPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TicketSummary"
+            },
+            "type": "array"
+          },
+          "next_cursor": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "TicketPriority": {
+        "enum": [
+          "urgent",
+          "high",
+          "medium",
+          "low",
+          "none"
+        ],
+        "type": "string"
+      },
+      "TicketProviderType": {
+        "enum": [
+          "github",
+          "linear"
+        ],
+        "type": "string"
+      },
+      "TicketState": {
+        "enum": [
+          "backlog",
+          "open",
+          "in_progress",
+          "done",
+          "closed"
+        ],
+        "type": "string"
+      },
+      "TicketSummary": {
+        "properties": {
+          "assignees": {
+            "items": {
+              "$ref": "#/components/schemas/PersonRef"
+            },
+            "type": "array"
+          },
+          "author": {
+            "$ref": "#/components/schemas/PersonRef",
+            "nullable": true
+          },
+          "closed_at": {
+            "description": "ISO 8601.",
+            "nullable": true,
+            "type": "string"
+          },
+          "collection": {
+            "$ref": "#/components/schemas/CollectionRef"
+          },
+          "created_at": {
+            "description": "ISO 8601.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Provider-specific unique ID.",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TicketKind"
+          },
+          "labels": {
+            "items": {
+              "$ref": "#/components/schemas/LabelRef"
+            },
+            "type": "array"
+          },
+          "number": {
+            "description": "Numeric identifier (GitHub: number, Linear: number).",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true,
+            "type": "integer"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/TicketPriority",
+            "nullable": true
+          },
+          "provider": {
+            "$ref": "#/components/schemas/TicketProviderType"
+          },
+          "pull_request": {
+            "$ref": "#/components/schemas/PullRequestDetail",
+            "description": "Present only when kind == PullRequest.",
+            "nullable": true
+          },
+          "raw": {
+            "description": "Raw provider JSON for forward compatibility.",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TicketState"
+          },
+          "state_detail": {
+            "description": "Provider's original state string for display (e.g. \"In Review\", \"merged\").",
+            "nullable": true,
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "ISO 8601.",
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "kind",
+          "id",
+          "collection",
+          "title",
+          "state",
+          "assignees",
+          "labels",
+          "url",
+          "created_at",
+          "updated_at",
+          "raw"
+        ],
+        "type": "object"
+      },
       "Transparency": {
         "enum": [
           "opaque",
@@ -1624,6 +1996,47 @@
           "unknown"
         ],
         "type": "string"
+      },
+      "WhoAmIItem": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "nullable": true,
+            "type": "string"
+          },
+          "error": {
+            "nullable": true,
+            "type": "string"
+          },
+          "integration_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "integration_id",
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "WhoAmIResponse": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/WhoAmIItem"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "type": "object"
       },
       "WorkingLocationProperties": {
         "properties": {
@@ -2587,6 +3000,37 @@
         ]
       }
     },
+    "/nango/whoami": {
+      "get": {
+        "operationId": "whoami",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoAmIResponse"
+                }
+              }
+            },
+            "description": "User info for all connections"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "nango"
+        ]
+      }
+    },
     "/subscription/can-start-trial": {
       "get": {
         "operationId": "can_start_trial",
@@ -2881,6 +3325,170 @@
           "chatwoot"
         ]
       }
+    },
+    "/ticket/github/list-repos": {
+      "post": {
+        "operationId": "github_list_repos",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubListReposRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            },
+            "description": "GitHub repositories fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "ticket"
+        ]
+      }
+    },
+    "/ticket/github/list-tickets": {
+      "post": {
+        "operationId": "github_list_tickets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubListTicketsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            },
+            "description": "GitHub tickets fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "ticket"
+        ]
+      }
+    },
+    "/ticket/linear/list-teams": {
+      "post": {
+        "operationId": "linear_list_teams",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearListTeamsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            },
+            "description": "Linear teams fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "ticket"
+        ]
+      }
+    },
+    "/ticket/linear/list-tickets": {
+      "post": {
+        "operationId": "linear_list_tickets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearListTicketsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            },
+            "description": "Linear tickets fetched"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "ticket"
+        ]
+      }
     }
   },
   "tags": [
@@ -2895,6 +3503,14 @@
     {
       "description": "Calendar management",
       "name": "calendar"
+    },
+    {
+      "description": "Mail management",
+      "name": "mail"
+    },
+    {
+      "description": "Ticket management",
+      "name": "ticket"
     },
     {
       "description": "Integration management via Nango",

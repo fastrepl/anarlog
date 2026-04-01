@@ -8,6 +8,47 @@ import { ChatView } from "./chat-panel";
 
 import { useShell } from "~/contexts/shell";
 
+const FLOATING_CHAT_PADDING_PX = 32;
+const FLOATING_CHAT_MIN_WIDTH_PX = 320;
+const FLOATING_CHAT_MIN_HEIGHT_PX = 400;
+const DEFAULT_FLOATING_CHAT_WIDTH_PX = 400;
+const DEFAULT_FLOATING_CHAT_HEIGHT_RATIO = 0.7;
+
+function getFloatingViewportSize() {
+  return {
+    width: Math.max(window.innerWidth - FLOATING_CHAT_PADDING_PX, 1),
+    height: Math.max(window.innerHeight - FLOATING_CHAT_PADDING_PX, 1),
+  };
+}
+
+function clampFloatingSize(size: { width: number; height: number }) {
+  const viewport = getFloatingViewportSize();
+
+  return {
+    width: Math.min(
+      Math.max(
+        size.width,
+        Math.min(FLOATING_CHAT_MIN_WIDTH_PX, viewport.width),
+      ),
+      viewport.width,
+    ),
+    height: Math.min(
+      Math.max(
+        size.height,
+        Math.min(FLOATING_CHAT_MIN_HEIGHT_PX, viewport.height),
+      ),
+      viewport.height,
+    ),
+  };
+}
+
+function getDefaultFloatingSize() {
+  return clampFloatingSize({
+    width: DEFAULT_FLOATING_CHAT_WIDTH_PX,
+    height: window.innerHeight * DEFAULT_FLOATING_CHAT_HEIGHT_RATIO,
+  });
+}
+
 export function PersistentChatPanel({
   panelContainerRef,
 }: {
@@ -20,10 +61,7 @@ export function PersistentChatPanel({
   const isVisible = isFloating || isPanel;
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const [floatingSize, setFloatingSize] = useState({
-    width: 400,
-    height: window.innerHeight * 0.7,
-  });
+  const [floatingSize, setFloatingSize] = useState(getDefaultFloatingSize);
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -33,30 +71,28 @@ export function PersistentChatPanel({
     }
   }, [isVisible, hasBeenOpened]);
 
-  useEffect(() => {
-    if (!isFloating) return;
-
-    const handleResize = () => {
-      setFloatingSize((prev) => ({
-        ...prev,
-        height: window.innerHeight * 0.7,
-      }));
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isFloating]);
-
   useHotkeys(
     "esc",
     () => chat.sendEvent({ type: "CLOSE" }),
     {
-      enabled: isFloating,
+      enabled: isVisible,
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [chat, isFloating],
+    [chat, isVisible],
+  );
+
+  useHotkeys(
+    "mod+r",
+    () => chat.sendEvent({ type: "SHIFT" }),
+    {
+      enabled: isVisible,
+      preventDefault: true,
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+    },
+    [chat, isVisible],
   );
 
   useLayoutEffect(() => {
@@ -121,10 +157,12 @@ export function PersistentChatPanel({
         onResizeStop={
           isFloating
             ? (_, __, ___, d) => {
-                setFloatingSize((prev) => ({
-                  width: prev.width + d.width,
-                  height: prev.height + d.height,
-                }));
+                setFloatingSize((prev) =>
+                  clampFloatingSize({
+                    width: prev.width + d.width,
+                    height: prev.height + d.height,
+                  }),
+                );
               }
             : undefined
         }
@@ -142,15 +180,14 @@ export function PersistentChatPanel({
               }
             : false
         }
-        minWidth={isFloating ? 320 : undefined}
-        minHeight={isFloating ? 400 : undefined}
-        maxWidth={isFloating ? window.innerWidth - 32 : undefined}
-        maxHeight={isFloating ? window.innerHeight - 32 : undefined}
+        minWidth={isFloating ? FLOATING_CHAT_MIN_WIDTH_PX : undefined}
+        minHeight={isFloating ? FLOATING_CHAT_MIN_HEIGHT_PX : undefined}
         bounds={isFloating ? "window" : undefined}
+        boundsByDirection={isFloating}
         className={cn([
-          "pointer-events-auto flex flex-col",
+          "pointer-events-auto flex min-h-0 min-w-0 flex-col overflow-hidden",
           isFloating && [
-            "overflow-hidden rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
+            "overflow-hidden rounded-t-xl rounded-b-2xl bg-stone-50 shadow-2xl",
             "border border-neutral-200",
           ],
           isPanel && "h-full w-full",

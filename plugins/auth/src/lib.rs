@@ -1,8 +1,10 @@
 mod commands;
 mod ext;
+mod migrate;
 
 pub use ext::*;
 pub use hypr_supabase_auth::client::{Error, Result};
+use tauri::Manager;
 
 const PLUGIN_NAME: &str = "auth";
 
@@ -27,62 +29,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            use tauri::Manager;
-            use tauri_plugin_settings::SettingsPluginExt;
-
-            let base = app.settings().global_base().map_err(|e| e.to_string())?;
-            let auth_path = std::path::Path::new(base.as_str()).join("auth.json");
-
-            if !auth_path.exists() {
-                migrate_from_store_json(
-                    &std::path::Path::new(base.as_str()).join("store.json"),
-                    &auth_path,
-                )
-                .ok();
-            }
-
+            let auth_path = migrate::auth_path(app)?;
             app.manage(hypr_supabase_auth::client::store::AuthStore::load(
                 auth_path,
             ));
             Ok(())
         })
         .build()
-}
-
-fn migrate_from_store_json(
-    store_json_path: &std::path::Path,
-    auth_path: &std::path::Path,
-) -> std::io::Result<()> {
-    if !store_json_path.exists() {
-        return Ok(());
-    }
-
-    let content = std::fs::read_to_string(store_json_path)?;
-    let mut store: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&content).map_err(invalid_data)?;
-
-    let auth_str = match store
-        .remove(PLUGIN_NAME)
-        .and_then(|v| v.as_str().map(|s| s.to_owned()))
-    {
-        Some(s) => s,
-        None => return Ok(()),
-    };
-
-    let _: std::collections::HashMap<String, String> =
-        serde_json::from_str(&auth_str).map_err(invalid_data)?;
-
-    hypr_storage::fs::atomic_write(auth_path, &auth_str)?;
-    hypr_storage::fs::atomic_write(
-        store_json_path,
-        &serde_json::to_string(&store).map_err(invalid_data)?,
-    )?;
-
-    Ok(())
-}
-
-fn invalid_data(e: impl std::fmt::Display) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
 }
 
 #[cfg(test)]

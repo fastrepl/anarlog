@@ -1,0 +1,60 @@
+---
+import type { CommandDoc } from "../lib/types";
+import OptionRow from "./OptionRow.astro";
+
+interface Props {
+  cmd: CommandDoc;
+}
+
+const { cmd } = Astro.props;
+const shortName = cmd.name.split(" ").pop();
+const hasSubs = (cmd.subcommands?.length ?? 0) > 0;
+---
+
+<details class="border-b border-neutral-800/30 last:border-b-0">
+  <summary class="group flex w-full cursor-pointer items-center justify-between px-4 py-3 text-left">
+    <span class="flex items-center gap-2">
+      <span class="text-[10px] text-neutral-700 transition-transform duration-200 group-open:rotate-90">&#9656;</span>
+      <code class="text-sm text-neutral-200 transition-colors group-hover:text-white">{shortName}</code>
+    </span>
+    {cmd.about && <span class="text-sm text-neutral-600">{cmd.about}</span>}
+  </summary>
+  <div class="pr-4 pb-5 pl-10">
+    <pre class="mb-4 overflow-x-auto rounded border border-neutral-800/40 bg-neutral-950/50 px-4 py-3 text-xs text-neutral-500">{cmd.synopsis}</pre>
+
+    {(cmd.options?.length ?? 0) > 0 && (
+      <div class="mb-5">
+        <p class="mb-2 text-[11px] font-medium tracking-widest text-neutral-600 uppercase">Options</p>
+        {cmd.options!.map((opt) => (
+          <OptionRow opt={opt} />
+        ))}
+      </div>
+    )}
+
+    {(cmd.arguments?.length ?? 0) > 0 && (
+      <div class="mb-5">
+        <p class="mb-2 text-[11px] font-medium tracking-widest text-neutral-600 uppercase">Arguments</p>
+        {cmd.arguments!.map((arg) => (
+          <div class="flex gap-4 py-0.5 text-sm">
+            <code class="shrink-0 text-neutral-300">&lt;{arg.name}&gt;</code>
+            <span class="text-neutral-600">
+              {arg.help}
+              {arg.default && <span class="ml-1 text-neutral-700">[{arg.default}]</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {hasSubs && (
+      <div class="mt-4">
+        <p class="mb-2 text-[11px] font-medium tracking-widest text-neutral-600 uppercase">Subcommands</p>
+        <div class="rounded border border-neutral-800/30 bg-neutral-900/30">
+          {cmd.subcommands!.map((sub) => (
+            <Astro.self cmd={sub} />
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</details>

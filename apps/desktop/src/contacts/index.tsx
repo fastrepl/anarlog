@@ -1,15 +1,8 @@
 import { Contact2Icon } from "lucide-react";
 import { useCallback, useEffect } from "react";
-import { useShallow } from "zustand/shallow";
 
 import type { ContactsSelection } from "@hypr/plugin-windows";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@hypr/ui/components/ui/resizable";
 
-import { ContactsListColumn } from "./contacts-list";
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
 
@@ -61,12 +54,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
   const updateContactsTabState = useTabs(
     (state) => state.updateContactsTabState,
   );
-  const { openCurrent, invalidateResource } = useTabs(
-    useShallow((state) => ({
-      openCurrent: state.openCurrent,
-      invalidateResource: state.invalidateResource,
-    })),
-  );
+  const openCurrent = useTabs((state) => state.openCurrent);
 
   const selected = tab.state.selected;
 
@@ -82,36 +70,6 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
       openCurrent({ type: "sessions", id });
     },
     [openCurrent],
-  );
-
-  const deletePersonFromStore = main.UI.useDelRowCallback(
-    "humans",
-    (human_id: string) => human_id,
-    main.STORE_ID,
-  );
-
-  const handleDeletePerson = useCallback(
-    (id: string) => {
-      invalidateResource("humans", id);
-      deletePersonFromStore(id);
-      setSelected(null);
-    },
-    [invalidateResource, deletePersonFromStore, setSelected],
-  );
-
-  const deleteOrganizationFromStore = main.UI.useDelRowCallback(
-    "organizations",
-    (org_id: string) => org_id,
-    main.STORE_ID,
-  );
-
-  const handleDeleteOrganization = useCallback(
-    (id: string) => {
-      invalidateResource("organizations" as const, id);
-      deleteOrganizationFromStore(id);
-      setSelected(null);
-    },
-    [invalidateResource, deleteOrganizationFromStore, setSelected],
   );
 
   const allHumanIds = main.UI.useResultSortedRowIds(
@@ -143,31 +101,20 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
   }, [allHumanIds, allOrgIds, selected, setSelected]);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-        <ContactsListColumn
-          selected={selected}
-          setSelected={setSelected}
-          onDeletePerson={handleDeletePerson}
-          onDeleteOrganization={handleDeleteOrganization}
+    <div className="h-full">
+      {selected?.type === "organization" ? (
+        <OrganizationDetailsColumn
+          selectedOrganizationId={selected.id}
+          onPersonClick={(personId) =>
+            setSelected({ type: "person", id: personId })
+          }
         />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel defaultSize={70} minSize={40}>
-        {selected?.type === "organization" ? (
-          <OrganizationDetailsColumn
-            selectedOrganizationId={selected.id}
-            onPersonClick={(personId) =>
-              setSelected({ type: "person", id: personId })
-            }
-          />
-        ) : (
-          <DetailsColumn
-            selectedHumanId={selected?.type === "person" ? selected.id : null}
-            handleSessionClick={handleSessionClick}
-          />
-        )}
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      ) : (
+        <DetailsColumn
+          selectedHumanId={selected?.type === "person" ? selected.id : null}
+          handleSessionClick={handleSessionClick}
+        />
+      )}
+    </div>
   );
 }

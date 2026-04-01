@@ -2,7 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowLeftIcon, MailIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
@@ -36,7 +36,10 @@ export const Route = createFileRoute("/auth")({
     const user = await fetchUser();
 
     if (user) {
-      if (search.flow === "web") {
+      const shouldReauthWithProvider =
+        search.flow === "web" && !!search.provider;
+
+      if (search.flow === "web" && !shouldReauthWithProvider) {
         throw redirect({ to: search.redirect || "/app/account/" } as any);
       }
 
@@ -78,6 +81,27 @@ function Component() {
           email={existingUser.email}
           scheme={scheme ?? "hyprnote"}
         />
+      </Container>
+    );
+  }
+
+  if (existingUser && flow === "web" && provider) {
+    return (
+      <Container>
+        <Header />
+        <div className="flex flex-col gap-4">
+          <p className="text-center text-sm text-neutral-600">
+            Refreshing your {provider} access for admin actions.
+          </p>
+          <OAuthButton
+            flow={flow}
+            scheme={scheme}
+            redirect={redirect}
+            provider={provider}
+            rra={rra}
+            autoStart
+          />
+        </div>
       </Container>
     );
   }
@@ -631,12 +655,14 @@ function OAuthButton({
   redirect,
   provider,
   rra,
+  autoStart = false,
 }: {
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
   redirect?: string;
   provider: "google" | "github";
   rra?: boolean;
+  autoStart?: boolean;
 }) {
   const oauthMutation = useMutation({
     mutationFn: (provider: "google" | "github") =>
@@ -655,10 +681,20 @@ function OAuthButton({
       }
     },
   });
+  const { mutate, isPending } = oauthMutation;
+  const hasAutoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (autoStart && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      mutate(provider);
+    }
+  }, [autoStart, mutate, provider]);
+
   return (
     <button
-      onClick={() => oauthMutation.mutate(provider)}
-      disabled={oauthMutation.isPending}
+      onClick={() => mutate(provider)}
+      disabled={isPending}
       className={cn([
         "w-full cursor-pointer px-4 py-2",
         "border border-neutral-300",

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 hypr-cactus = { workspace = true }
 hypr-llm-types = { workspace = true }
+hypr-model-manager = { workspace = true, features = ["cactus"] }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -17,7 +18,3 @@ futures-util = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tower = { workspace = true }
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["test-util", "macros", "rt"] }
-uuid = { workspace = true, features = ["v4"] }

@@ -20,6 +20,9 @@ use actor::run_batch_streaming;
 #[strum(serialize_all = "lowercase")]
 pub enum BatchProvider {
     Argmax,
+    #[serde(rename = "whispercpp")]
+    #[strum(serialize = "whispercpp")]
+    WhisperLocal,
     Deepgram,
     Soniox,
     AssemblyAI,
@@ -147,7 +150,7 @@ async fn run_batch_inner(
     };
 
     match params.provider {
-        BatchProvider::Am | BatchProvider::Cactus => {
+        BatchProvider::Am | BatchProvider::WhisperLocal | BatchProvider::Cactus => {
             run_batch_streaming(runtime, params, listen_params).await
         }
         BatchProvider::Argmax => run_batch_simple::<ArgmaxAdapter>(params, listen_params).await,

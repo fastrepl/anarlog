@@ -46,7 +46,7 @@ export function ChatTrigger({
       onClick={onClick}
       className={cn([
         "fixed right-4 z-40",
-        "flex h-14 flex-row items-center justify-center gap-1 rounded-full px-4",
+        "flex h-14 flex-row items-center justify-center gap-2 rounded-full px-4",
         "bg-white shadow-lg hover:shadow-xl",
         "border border-neutral-200",
         "transition-all duration-200 ease-out",
@@ -59,9 +59,9 @@ export function ChatTrigger({
       ])}
     >
       <img
-        src="/assets/dynamic.gif"
-        alt="Chat Assistant"
-        className="size-8 object-contain"
+        src="/assets/char-logo-icon-black.svg"
+        alt="Char"
+        className="size-[18px] shrink-0 object-contain"
       />
       <span className="text-md font-medium">Chat with notes</span>
     </button>,

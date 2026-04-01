@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use owhisper_interface::batch::Response as BatchResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
 
 use super::{BatchRunMode, BatchRunOutput};
@@ -10,6 +12,7 @@ pub(super) struct StreamBatchAccumulator {
     max_duration_secs: f64,
     terminal_duration_secs: Option<f64>,
     terminal_channels: Option<u32>,
+    final_response: Option<BatchResponse>,
 }
 
 #[derive(Default)]
@@ -26,74 +29,100 @@ impl StreamBatchAccumulator {
         Self::default()
     }
 
-    pub(super) fn observe(&mut self, response: &StreamResponse) {
-        match response {
-            StreamResponse::TranscriptResponse {
-                start,
-                duration,
-                from_finalize,
-                channel,
-                channel_index,
-                ..
-            } => {
-                self.max_duration_secs = self.max_duration_secs.max((*start + *duration).max(0.0));
+    pub(super) fn observe(&mut self, event: &BatchStreamEvent) {
+        match event {
+            BatchStreamEvent::Progress { .. } => {}
+            BatchStreamEvent::Segment {
+                response,
+                percentage: _,
+            } => match response {
+                StreamResponse::TranscriptResponse {
+                    start,
+                    duration,
+                    from_finalize,
+                    channel,
+                    channel_index,
+                    ..
+                } => {
+                    self.max_duration_secs =
+                        self.max_duration_secs.max((*start + *duration).max(0.0));
 
-                let channel_id = channel_index.first().copied().unwrap_or(0);
-                let Some(alternative) = channel.alternatives.first() else {
-                    return;
-                };
+                    let channel_id = channel_index.first().copied().unwrap_or(0);
+                    let Some(alternative) = channel.alternatives.first() else {
+                        return;
+                    };
 
-                let state = self.channels.entry(channel_id).or_default();
-                let transcript = alternative.transcript.trim();
+                    let state = self.channels.entry(channel_id).or_default();
+                    let transcript = alternative.transcript.trim();
 
-                if !alternative.words.is_empty() {
-                    let words = alternative
-                        .words
-                        .iter()
-                        .cloned()
-                        .map(owhisper_interface::batch::Word::from)
-                        .collect::<Vec<_>>();
+                    if !alternative.words.is_empty() {
+                        let mut words = alternative
+                            .words
+                            .iter()
+                            .cloned()
+                            .map(owhisper_interface::batch::Word::from)
+                            .collect::<Vec<_>>();
+                        for word in &mut words {
+                            word.channel = channel_id;
+                        }
 
-                    let should_replace = *from_finalize
-                        && *start <= 0.0
-                        && words.last().map(|word| word.end).unwrap_or_default()
-                            >= state.words.last().map(|word| word.end).unwrap_or_default();
+                        let should_replace = *from_finalize
+                            && *start <= 0.0
+                            && words.last().map(|word| word.end).unwrap_or_default()
+                                >= state.words.last().map(|word| word.end).unwrap_or_default();
 
-                    if should_replace {
-                        state.words = words;
-                    } else {
-                        append_non_overlapping_words(&mut state.words, words);
+                        if should_replace {
+                            state.words = words;
+                        } else {
+                            append_non_overlapping_words(&mut state.words, words);
+                        }
+                    }
+
+                    if !transcript.is_empty() {
+                        if *from_finalize {
+                            state.final_transcript = Some(transcript.to_string());
+                        } else if state
+                            .transcript_segments
+                            .last()
+                            .is_none_or(|existing| existing != transcript)
+                        {
+                            state.transcript_segments.push(transcript.to_string());
+                        }
+                    }
+
+                    if alternative.confidence.is_finite() {
+                        state.confidence_sum += alternative.confidence;
+                        state.confidence_count += 1;
                     }
                 }
-
-                if !transcript.is_empty() {
-                    if *from_finalize {
-                        state.final_transcript = Some(transcript.to_string());
-                    } else if state
-                        .transcript_segments
-                        .last()
-                        .is_none_or(|existing| existing != transcript)
-                    {
-                        state.transcript_segments.push(transcript.to_string());
-                    }
-                }
-
-                if alternative.confidence.is_finite() {
-                    state.confidence_sum += alternative.confidence;
-                    state.confidence_count += 1;
-                }
-            }
-            StreamResponse::TerminalResponse {
+                StreamResponse::TerminalResponse { .. } => {}
+                StreamResponse::ErrorResponse { .. }
+                | StreamResponse::SpeechStartedResponse { .. }
+                | StreamResponse::UtteranceEndResponse { .. } => {}
+                _ => {}
+            },
+            BatchStreamEvent::Terminal {
                 duration, channels, ..
             } => {
                 self.terminal_duration_secs = Some(*duration);
                 self.terminal_channels = Some(*channels);
             }
-            _ => {}
+            BatchStreamEvent::Result { response } => {
+                self.final_response = Some(response.clone());
+            }
+            BatchStreamEvent::Error { .. } => {}
         }
     }
 
     pub(super) fn finish(self, session_id: &str) -> BatchRunOutput {
+        if let Some(response) = self.final_response {
+            return BatchRunOutput {
+                session_id: session_id.to_string(),
+                mode: BatchRunMode::Streamed,
+                response,
+            };
+        }
+
         let channel_count = self
             .terminal_channels
             .map(|count| count as usize)
@@ -183,6 +212,7 @@ fn append_non_overlapping_words(
 
 #[cfg(test)]
 mod test {
+    use owhisper_interface::batch_stream::BatchStreamEvent;
     use owhisper_interface::stream::{Alternatives, Channel, Metadata, ModelInfo, Word};
 
     use super::*;
@@ -191,17 +221,23 @@ mod test {
     fn streamed_accumulator_uses_finalize_transcript_without_duplication() {
         let mut accumulator = StreamBatchAccumulator::new();
 
-        accumulator.observe(&transcript_response(
-            0.0,
-            2.0,
-            false,
-            "hello world",
-            vec![
-                stream_word("hello", 0.0, 0.8),
-                stream_word("world", 0.9, 1.5),
-            ],
+        accumulator.observe(&segment_response(
+            transcript_response(
+                0.0,
+                2.0,
+                false,
+                "hello world",
+                vec![
+                    stream_word("hello", 0.0, 0.8),
+                    stream_word("world", 0.9, 1.5),
+                ],
+            ),
+            0.5,
         ));
-        accumulator.observe(&transcript_response(0.0, 2.0, true, "hello world", vec![]));
+        accumulator.observe(&segment_response(
+            transcript_response(0.0, 2.0, true, "hello world", vec![]),
+            1.0,
+        ));
 
         let output = accumulator.finish("session-1");
         let channel = &output.response.results.channels[0].alternatives[0];
@@ -215,22 +251,28 @@ mod test {
     fn streamed_accumulator_replaces_words_with_full_finalize_snapshot() {
         let mut accumulator = StreamBatchAccumulator::new();
 
-        accumulator.observe(&transcript_response(
-            1.0,
-            1.0,
-            false,
-            "world",
-            vec![stream_word("world", 1.0, 1.5)],
+        accumulator.observe(&segment_response(
+            transcript_response(
+                1.0,
+                1.0,
+                false,
+                "world",
+                vec![stream_word("world", 1.0, 1.5)],
+            ),
+            0.5,
         ));
-        accumulator.observe(&transcript_response(
-            0.0,
-            2.0,
-            true,
-            "hello world",
-            vec![
-                stream_word("hello", 0.0, 0.8),
-                stream_word("world", 1.0, 1.5),
-            ],
+        accumulator.observe(&segment_response(
+            transcript_response(
+                0.0,
+                2.0,
+                true,
+                "hello world",
+                vec![
+                    stream_word("hello", 0.0, 0.8),
+                    stream_word("world", 1.0, 1.5),
+                ],
+            ),
+            1.0,
         ));
 
         let output = accumulator.finish("session-2");
@@ -239,6 +281,13 @@ mod test {
         assert_eq!(channel.transcript, "hello world");
         assert_eq!(channel.words.len(), 2);
         assert_eq!(channel.words[0].word, "hello");
+    }
+
+    fn segment_response(response: StreamResponse, percentage: f64) -> BatchStreamEvent {
+        BatchStreamEvent::Segment {
+            response,
+            percentage,
+        }
     }
 
     fn transcript_response(

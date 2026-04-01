@@ -212,7 +212,7 @@ pub(super) async fn handle_hyprnote_batch(
         .into_response()
 }
 
-async fn transcribe_with_retry(
+pub(super) async fn transcribe_with_retry(
     selected: &SelectedProvider,
     params: ListenParams,
     audio_bytes: Bytes,

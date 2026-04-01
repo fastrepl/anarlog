@@ -80,14 +80,17 @@ export function useLocalModelDownload(
   useEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       if (event.payload.model === model) {
-        if (event.payload.progress < 0) {
+        const { status } = event.payload;
+        if (status === "failed") {
           setHasError(true);
           setIsStarting(false);
           setProgress(0);
-        } else {
+        } else if (status === "completed") {
           setHasError(false);
-          const next = Math.max(0, Math.min(100, event.payload.progress));
-          setProgress(next);
+          setProgress(100);
+        } else if (typeof status === "object" && "downloading" in status) {
+          setHasError(false);
+          setProgress(Math.max(0, Math.min(100, status.downloading)));
         }
       }
     });

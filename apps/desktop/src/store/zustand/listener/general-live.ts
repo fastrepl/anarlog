@@ -8,13 +8,14 @@ import { commands as iconCommands } from "@hypr/plugin-icon";
 import {
   commands as listenerCommands,
   events as listenerEvents,
+  type LiveTranscriptDelta,
+  type LiveTranscriptSegmentDelta,
   type SessionDataEvent,
   type SessionErrorEvent,
   type SessionLifecycleEvent,
   type SessionParams,
   type SessionProgressEvent,
   type StopSessionParams,
-  type StreamResponse,
 } from "@hypr/plugin-listener";
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 
@@ -29,7 +30,7 @@ import {
   updateLiveError,
   updateLiveProgress,
 } from "./general-shared";
-import type { TranscriptActions } from "./transcript";
+import type { TranscriptActions, TranscriptState } from "./transcript";
 
 import { buildSessionPath } from "~/store/tinybase/persister/shared/paths";
 import { fromResult } from "~/stt/fromResult";
@@ -41,7 +42,7 @@ type EventListeners = {
   data: (payload: SessionDataEvent) => void;
 };
 
-type LiveStore = GeneralState & TranscriptActions;
+type LiveStore = GeneralState & TranscriptState & TranscriptActions;
 
 const listenToAllSessionEvents = (
   handlers: EventListeners,
@@ -136,6 +137,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
+    const stoppedSessionId = get().live.sessionId;
+    const stoppedSeconds = get().live.seconds;
+    const { onStopped } = get();
+
     clearLiveEventUnlisteners(get().live.eventUnlisteners);
     clearLiveInterval(get().live.intervalId);
 
@@ -146,6 +151,10 @@ const createSessionEventHandlers = <T extends LiveStore>(
     });
 
     get().resetTranscript();
+
+    if (stoppedSessionId && onStopped) {
+      onStopped(stoppedSessionId, stoppedSeconds);
+    }
   },
   progress: (payload) => {
     if (payload.session_id !== targetSessionId) {
@@ -177,9 +186,16 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
-    if (payload.type === "stream_response") {
-      get().handleTranscriptResponse(
-        payload.response as unknown as StreamResponse,
+    if (payload.type === "transcript_delta") {
+      get().handleTranscriptDelta(
+        payload.delta as unknown as LiveTranscriptDelta,
+      );
+      return;
+    }
+
+    if (payload.type === "transcript_segment_delta") {
+      get().handleTranscriptSegmentDelta(
+        payload.delta as unknown as LiveTranscriptSegmentDelta,
       );
       return;
     }

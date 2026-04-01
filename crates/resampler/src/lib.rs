@@ -5,7 +5,10 @@ mod driver;
 #[cfg(feature = "async-source")]
 pub use async_source::*;
 pub use driver::RubatoChunkResampler;
-pub use rubato::{Async, FixedAsync, PolynomialDegree, Resampler};
+pub use rubato::{
+    Async, FixedAsync, Indexing, PolynomialDegree, Resampler, SincInterpolationParameters,
+    SincInterpolationType, WindowFunction,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

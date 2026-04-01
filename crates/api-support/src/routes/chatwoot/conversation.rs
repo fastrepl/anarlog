@@ -91,7 +91,7 @@ pub async fn list_conversations(
         .into_iter()
         .map(|c| ConversationSummary {
             id: c.id.unwrap_or_default(),
-            inbox_id: c.inbox_id.clone(),
+            inbox_id: c.inbox_id.map(|v| v.to_string()),
         })
         .collect();
 

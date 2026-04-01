@@ -1,0 +1,29 @@
+[package]
+name = "tauri-plugin-activity-capture"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-activity-capture"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tauri-plugin-activity-capture = { path = "." }
+
+[dependencies]
+futures-util = { workspace = true }
+hypr-activity-capture-interface = { workspace = true }
+hypr-activity-capture-macos = { workspace = true }
+
+tauri = { workspace = true, features = ["specta", "test"] }
+
+specta = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

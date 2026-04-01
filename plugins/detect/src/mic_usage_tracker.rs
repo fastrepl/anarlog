@@ -3,34 +3,20 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use crate::{DetectEvent, ProcessorState, env::Env};
+use crate::{DetectEvent, ProcessorState, env::Env, timer_registry::TimerRegistry};
 
 pub(crate) const DEFAULT_MIC_ACTIVE_THRESHOLD_SECS: u64 = 15;
 pub(crate) const COOLDOWN_DURATION: Duration = Duration::from_mins(10);
 
-struct TimerEntry {
-    generation: u64,
-    token: CancellationToken,
-}
-
 #[derive(Default)]
 pub struct MicUsageTracker {
-    timers: HashMap<String, TimerEntry>,
+    timers: TimerRegistry,
     cooldowns: HashMap<String, tokio::time::Instant>,
-    next_gen: u64,
-}
-
-impl Drop for MicUsageTracker {
-    fn drop(&mut self) {
-        for (_, entry) in self.timers.drain() {
-            entry.token.cancel();
-        }
-    }
 }
 
 impl MicUsageTracker {
     pub fn is_tracking(&self, app_id: &str) -> bool {
-        self.timers.contains_key(app_id)
+        self.timers.contains(app_id)
     }
 
     pub fn is_in_cooldown(&mut self, app_id: &str) -> bool {
@@ -48,17 +34,11 @@ impl MicUsageTracker {
     }
 
     pub fn start_tracking(&mut self, app_id: String, token: CancellationToken) -> u64 {
-        let generation = self.next_gen;
-        self.next_gen += 1;
-        if let Some(old) = self.timers.insert(app_id, TimerEntry { generation, token }) {
-            old.token.cancel();
-        }
-        generation
+        self.timers.start_replace(app_id, token)
     }
 
     pub fn cancel_app(&mut self, app_id: &str) {
-        if let Some(entry) = self.timers.remove(app_id) {
-            entry.token.cancel();
+        if self.timers.cancel(app_id) {
             tracing::info!(app_id = %app_id, "cancelled_mic_active_timer");
         }
     }
@@ -67,14 +47,12 @@ impl MicUsageTracker {
     /// preventing a stale timer from claiming an entry replaced by a newer one.
     /// On success, sets a cooldown so the same app won't be re-tracked for a while.
     pub fn claim(&mut self, app_id: &str, generation: u64) -> bool {
-        match self.timers.get(app_id) {
-            Some(entry) if entry.generation == generation => {
-                self.timers.remove(app_id);
-                self.cooldowns
-                    .insert(app_id.to_string(), tokio::time::Instant::now());
-                true
-            }
-            _ => false,
+        if self.timers.claim(app_id, generation) {
+            self.cooldowns
+                .insert(app_id.to_string(), tokio::time::Instant::now());
+            true
+        } else {
+            false
         }
     }
 }
@@ -126,61 +104,6 @@ pub(crate) fn spawn_timer<E: Env>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_claim_matching_generation() {
-        let _rt = tokio::runtime::Runtime::new().unwrap();
-        let _guard = _rt.enter();
-
-        let mut tracker = MicUsageTracker::default();
-        let token = CancellationToken::new();
-        let generation = tracker.start_tracking("app.x".to_string(), token);
-
-        assert!(tracker.claim("app.x", generation));
-        assert!(!tracker.is_tracking("app.x"));
-    }
-
-    #[test]
-    fn test_claim_stale_generation_rejected() {
-        let _rt = tokio::runtime::Runtime::new().unwrap();
-        let _guard = _rt.enter();
-
-        let mut tracker = MicUsageTracker::default();
-
-        let generation_0 = tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-        let generation_1 = tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-
-        assert!(!tracker.claim("app.x", generation_0));
-        assert!(tracker.is_tracking("app.x"));
-
-        assert!(tracker.claim("app.x", generation_1));
-        assert!(!tracker.is_tracking("app.x"));
-    }
-
-    #[test]
-    fn test_claim_after_cancel_returns_false() {
-        let _rt = tokio::runtime::Runtime::new().unwrap();
-        let _guard = _rt.enter();
-
-        let mut tracker = MicUsageTracker::default();
-        let generation = tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-
-        tracker.cancel_app("app.x");
-        assert!(!tracker.claim("app.x", generation));
-    }
-
-    #[test]
-    fn test_start_tracking_cancels_old_token() {
-        let mut tracker = MicUsageTracker::default();
-        let token1 = CancellationToken::new();
-        let token1_clone = token1.clone();
-
-        tracker.start_tracking("app.x".to_string(), token1);
-        assert!(!token1_clone.is_cancelled());
-
-        tracker.start_tracking("app.x".to_string(), CancellationToken::new());
-        assert!(token1_clone.is_cancelled());
-    }
 
     #[tokio::test(start_paused = true)]
     async fn test_cooldown_blocks_retracking() {

@@ -1,0 +1,7 @@
+---
+import Command from "./Command.astro";
+interface Props { command: string; label?: string; }
+const { command, label } = Astro.props;
+---
+
+<Command command={command} label={label} />

@@ -9,14 +9,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const validSources: ReadonlySet<string> = new Set(CONTEXT_ENTITY_SOURCES);
 
 export function isContextRef(value: unknown): value is ContextRef {
-  return (
-    isRecord(value) &&
-    value.kind === "session" &&
-    typeof value.key === "string" &&
-    typeof value.sessionId === "string" &&
-    (value.source === undefined ||
-      (typeof value.source === "string" && validSources.has(value.source)))
-  );
+  if (!isRecord(value) || typeof value.key !== "string") {
+    return false;
+  }
+
+  if (
+    value.source !== undefined &&
+    (typeof value.source !== "string" || !validSources.has(value.source))
+  ) {
+    return false;
+  }
+
+  if (value.kind === "session") {
+    return typeof value.sessionId === "string";
+  }
+
+  if (value.kind === "human") {
+    return typeof value.humanId === "string";
+  }
+
+  if (value.kind === "organization") {
+    return typeof value.organizationId === "string";
+  }
+
+  return false;
 }
 
 export function getContextRefs(metadata: unknown): ContextRef[] {

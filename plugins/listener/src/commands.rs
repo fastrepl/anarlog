@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use crate::ListenerPluginExt;
 use hypr_listener_core::{StopSessionParams, actors::SessionParams};
+use hypr_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 
 #[tauri::command]
 #[specta::specta]
@@ -147,4 +148,12 @@ pub async fn list_documented_language_codes_live<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {
     Ok(owhisper_client::documented_language_codes_live())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn render_transcript_segments(
+    params: RenderTranscriptRequest,
+) -> Result<Vec<RenderedTranscriptSegment>, String> {
+    Ok(hypr_transcript::render_transcript_segments(params))
 }

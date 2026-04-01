@@ -3,21 +3,20 @@ import { vi } from "vitest";
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
 
-Object.defineProperty(globalThis, "window", {
+Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
   value: {
-    ...globalThis.window,
-    __TAURI_INTERNALS__: {
-      metadata: {
-        currentWindow: {
-          label: "main",
-        },
-        currentWebview: {
-          label: "main",
-        },
+    metadata: {
+      currentWindow: {
+        label: "main",
+      },
+      currentWebview: {
+        label: "main",
       },
     },
+    invoke: vi.fn().mockRejectedValue(new Error("not available in test")),
   },
   writable: true,
+  configurable: true,
 });
 
 vi.mock("@tauri-apps/api/path", () => ({

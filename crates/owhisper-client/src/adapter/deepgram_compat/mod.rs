@@ -138,9 +138,8 @@ where
     );
     builder
         .add("model", model)
-        .add("encoding", "linear16")
         .add_bool("diarize", true)
-        .add_bool("multichannel", false)
+        .add_bool("multichannel", params.channels > 1)
         .add_bool("punctuate", true)
         .add_bool("smart_format", true)
         .add_bool("utterances", true)

@@ -1,14 +1,12 @@
-use anyhow::{Context, Result, bail};
+mod mobile_bridge;
+mod prepare_binaries;
+mod toml_util;
+
+use anyhow::{Result, bail};
 use std::{
     env,
-    ffi::OsStr,
-    fs,
     path::{Path, PathBuf},
-    process::Command,
 };
-use xshell::{Shell, cmd};
-
-type TomlTable = toml::map::Map<String, toml::Value>;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -19,13 +17,13 @@ fn main() -> Result<()> {
     }
 
     match args.first().map(String::as_str) {
-        Some("prepare-binaries") => prepare_binaries(),
+        Some("prepare-binaries") => prepare_binaries::prepare_binaries(),
         Some("mobile-bridge") => match args.get(1).map(String::as_str) {
-            None | Some("ios") => mobile_bridge_ios(),
+            None | Some("ios") => mobile_bridge::mobile_bridge_ios(),
             Some(arg) => bail!("unknown mobile-bridge target: {arg}"),
         },
-        Some("supabase-patch") => supabase_patch(),
-        Some("toml-set") => toml_set(&args[1..]),
+        Some("supabase-patch") => toml_util::supabase_patch(),
+        Some("toml-set") => toml_util::toml_set(&args[1..]),
         None => {
             print_help();
             Ok(())
@@ -40,318 +38,10 @@ fn print_help() {
     );
 }
 
-// Patches supabase/config.toml for local dev. Reads OAuth credentials from env.
-fn supabase_patch() -> Result<()> {
-    let path = repo_root().join("supabase/config.toml");
-    let mut config: toml::Table = fs::read_to_string(&path)
-        .context("read supabase/config.toml")?
-        .parse()
-        .context("parse supabase/config.toml")?;
-
-    toml_set_key(&mut config, "db.major_version", 17.into());
-    toml_set_key(&mut config, "auth.site_url", "http://localhost:3000".into());
-    toml_set_key(
-        &mut config,
-        "auth.additional_redirect_urls",
-        toml::Value::Array(vec!["http://localhost:3000/callback/auth".into()]),
-    );
-
-    toml_ensure_table(&mut config, "auth.external.github");
-    toml_ensure_table(&mut config, "auth.external.google");
-    toml_ensure_table(&mut config, "auth.hook.custom_access_token");
-
-    if let (Ok(id), Ok(secret)) = (
-        env::var("GITHUB_CLIENT_ID"),
-        env::var("GITHUB_CLIENT_SECRET"),
-    ) {
-        toml_set_key(&mut config, "auth.external.github.enabled", true.into());
-        toml_set_key(&mut config, "auth.external.github.client_id", id.into());
-        toml_set_key(&mut config, "auth.external.github.secret", secret.into());
-        toml_set_key(&mut config, "auth.external.github.redirect_uri", "".into());
-    }
-
-    if let (Ok(id), Ok(secret)) = (
-        env::var("GOOGLE_CLIENT_ID"),
-        env::var("GOOGLE_CLIENT_SECRET"),
-    ) {
-        toml_set_key(&mut config, "auth.external.google.enabled", true.into());
-        toml_set_key(&mut config, "auth.external.google.client_id", id.into());
-        toml_set_key(&mut config, "auth.external.google.secret", secret.into());
-        toml_set_key(
-            &mut config,
-            "auth.external.google.skip_nonce_check",
-            false.into(),
-        );
-    }
-
-    toml_set_key(
-        &mut config,
-        "auth.hook.custom_access_token.enabled",
-        true.into(),
-    );
-    toml_set_key(
-        &mut config,
-        "auth.hook.custom_access_token.uri",
-        "pg-functions://postgres/public/custom_access_token_hook".into(),
-    );
-
-    fs::write(
-        &path,
-        toml::to_string_pretty(&config).context("serialize TOML")?,
-    )
-    .context("write supabase/config.toml")
-}
-
-// General-purpose TOML setter.
-// Args: <file> <key> <toml-value> [<key> <toml-value> ...]
-// Values are inline TOML: true, 42, "string", ["a","b"], etc.
-fn toml_set(args: &[String]) -> Result<()> {
-    let (path_str, pairs) = args
-        .split_first()
-        .context("usage: toml-set <file> <key> <value> ...")?;
-    anyhow::ensure!(pairs.len() % 2 == 0, "key/value args must come in pairs");
-
-    let path = Path::new(path_str);
-    let mut config: toml::Table = fs::read_to_string(path)
-        .with_context(|| format!("read {path_str}"))?
-        .parse()
-        .with_context(|| format!("parse {path_str}"))?;
-
-    for chunk in pairs.chunks_exact(2) {
-        let (key, val_str) = (&chunk[0], &chunk[1]);
-        let value = format!("x={val_str}")
-            .parse::<toml::Table>()
-            .with_context(|| format!("invalid TOML value: {val_str}"))?
-            .remove("x")
-            .unwrap();
-        toml_set_key(&mut config, key, value);
-    }
-
-    fs::write(
-        path,
-        toml::to_string_pretty(&config).context("serialize TOML")?,
-    )
-    .with_context(|| format!("write {path_str}"))
-}
-
-fn toml_set_key(table: &mut TomlTable, key: &str, value: toml::Value) {
-    match key.split_once('.') {
-        None => {
-            table.insert(key.to_string(), value);
-        }
-        Some((k, rest)) => {
-            let sub = table
-                .entry(k)
-                .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-            if let toml::Value::Table(t) = sub {
-                toml_set_key(t, rest, value);
-            }
-        }
-    }
-}
-
-fn toml_ensure_table(table: &mut TomlTable, key: &str) {
-    match key.split_once('.') {
-        None => {
-            table
-                .entry(key)
-                .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        }
-        Some((k, rest)) => {
-            let sub = table
-                .entry(k)
-                .or_insert_with(|| toml::Value::Table(toml::Table::new()));
-            if let toml::Value::Table(t) = sub {
-                toml_ensure_table(t, rest);
-            }
-        }
-    }
-}
-
-fn repo_root() -> PathBuf {
+pub(crate) fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(|p| p.parent())
         .map(Path::to_path_buf)
         .expect("xtask crate lives under crates/")
-}
-
-fn prepare_binaries() -> Result<()> {
-    let root_dir = repo_root();
-    let src_tauri = root_dir.join("apps/desktop/src-tauri");
-    let binaries_dir = src_tauri.join("binaries");
-
-    let triple = match env::var("TAURI_ENV_TARGET_TRIPLE") {
-        Ok(v) => v,
-        Err(_) => rustc_host_triple()?,
-    };
-    let ext = if triple.contains("windows") {
-        ".exe"
-    } else {
-        ""
-    };
-    let cargo = env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
-
-    let sh = Shell::new()?;
-    sh.change_dir(&src_tauri);
-    cmd!(
-        sh,
-        "{cargo} build --release --target {triple} -p chrome-native-host"
-    )
-    .run()?;
-
-    fs::create_dir_all(&binaries_dir).context("create binaries/")?;
-
-    let src = src_tauri
-        .join("target")
-        .join(&triple)
-        .join("release")
-        .join(format!("char-chrome-native-host{ext}"));
-    let dst = binaries_dir.join(format!("char-chrome-native-host-{triple}{ext}"));
-    fs::copy(&src, &dst).with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
-
-    println!("prepare-binaries: binaries/char-chrome-native-host-{triple}{ext}");
-    Ok(())
-}
-
-fn rustc_host_triple() -> Result<String> {
-    let out = Command::new("rustc")
-        .arg("-vV")
-        .output()
-        .context("run rustc -vV")?;
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    let host_line = stdout
-        .lines()
-        .find(|l| l.starts_with("host:"))
-        .context("no host line in rustc -vV")?;
-    let triple = host_line
-        .split_whitespace()
-        .nth(1)
-        .context("malformed host line")?;
-    Ok(triple.to_owned())
-}
-
-fn mobile_bridge_ios() -> Result<()> {
-    let sh = Shell::new()?;
-    let root_dir = repo_root();
-    sh.change_dir(&root_dir);
-
-    let out_dir = root_dir.join("apps/mobile");
-    let generated_dir = out_dir.join("ios/HyprMobile/Generated");
-    let xcframework_dir = out_dir.join("ios/HyprMobile/MobileBridge.xcframework");
-
-    if generated_dir.exists() {
-        fs::remove_dir_all(&generated_dir).context("remove Generated/")?;
-    }
-    fs::create_dir_all(&generated_dir).context("create Generated/")?;
-
-    if xcframework_dir.exists() {
-        fs::remove_dir_all(&xcframework_dir).context("remove existing xcframework")?;
-    }
-
-    cmd!(sh, "cargo build -p mobile-bridge --release").run()?;
-
-    let host_lib = root_dir.join("target/release/libmobile_bridge.dylib");
-    if !host_lib.exists() {
-        bail!("expected host library at {}", host_lib.display());
-    }
-
-    cmd!(
-        sh,
-        "cargo build -p mobile-bridge --target aarch64-apple-ios --release"
-    )
-    .run()?;
-    cmd!(
-        sh,
-        "cargo build -p mobile-bridge --target aarch64-apple-ios-sim --release"
-    )
-    .run()?;
-
-    cmd!(
-        sh,
-        "cargo run -p uniffi-bindgen --bin uniffi-bindgen -- generate --library {host_lib} --language swift --out-dir {generated_dir}"
-    )
-    .run()?;
-
-    let ffi_header = find_single_file(&generated_dir, |p| {
-        p.file_name()
-            .and_then(OsStr::to_str)
-            .is_some_and(|n| n.ends_with("FFI.h"))
-    })
-    .context("locate generated FFI header")?;
-    let ffi_module_name = ffi_header
-        .file_stem()
-        .and_then(OsStr::to_str)
-        .context("ffi header stem")?
-        .to_owned();
-    let ffi_header_name = ffi_header
-        .file_name()
-        .and_then(OsStr::to_str)
-        .context("ffi header filename")?
-        .to_owned();
-
-    let device_lib = root_dir.join("target/aarch64-apple-ios/release/libmobile_bridge.a");
-    let sim_lib = root_dir.join("target/aarch64-apple-ios-sim/release/libmobile_bridge.a");
-    if !device_lib.exists() {
-        bail!("expected iOS device library at {}", device_lib.display());
-    }
-    if !sim_lib.exists() {
-        bail!("expected iOS simulator library at {}", sim_lib.display());
-    }
-
-    let device_headers = tempfile::tempdir().context("create device headers dir")?;
-    let sim_headers = tempfile::tempdir().context("create sim headers dir")?;
-
-    fs::copy(
-        generated_dir.join(&ffi_header_name),
-        device_headers.path().join(&ffi_header_name),
-    )
-    .context("copy device header")?;
-    fs::copy(
-        generated_dir.join(&ffi_header_name),
-        sim_headers.path().join(&ffi_header_name),
-    )
-    .context("copy sim header")?;
-
-    let modulemap = format!(
-        "module {ffi_module_name} {{\n    header \"{ffi_header_name}\"\n    export *\n}}\n",
-    );
-    fs::write(
-        device_headers.path().join("module.modulemap"),
-        modulemap.as_bytes(),
-    )
-    .context("write device modulemap")?;
-    fs::write(
-        sim_headers.path().join("module.modulemap"),
-        modulemap.as_bytes(),
-    )
-    .context("write sim modulemap")?;
-
-    let device_headers_dir = device_headers.path();
-    let sim_headers_dir = sim_headers.path();
-
-    cmd!(
-        sh,
-        "xcodebuild -create-xcframework -library {device_lib} -headers {device_headers_dir} -library {sim_lib} -headers {sim_headers_dir} -output {xcframework_dir}"
-    )
-    .run()?;
-
-    Ok(())
-}
-
-fn find_single_file(dir: &Path, mut predicate: impl FnMut(&Path) -> bool) -> Result<PathBuf> {
-    let mut matches = Vec::new();
-    for entry in fs::read_dir(dir).with_context(|| format!("read dir {}", dir.display()))? {
-        let entry = entry.context("read dir entry")?;
-        let path = entry.path();
-        if path.is_file() && predicate(&path) {
-            matches.push(path);
-        }
-    }
-
-    match matches.len() {
-        1 => Ok(matches.remove(0)),
-        0 => bail!("no matching files found in {}", dir.display()),
-        n => bail!("expected 1 matching file in {}, found {n}", dir.display()),
-    }
 }

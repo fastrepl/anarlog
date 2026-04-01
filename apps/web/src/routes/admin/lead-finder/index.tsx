@@ -15,11 +15,19 @@ import { useCallback, useMemo, useState } from "react";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
-import type { StarLead } from "@/functions/github-stars";
+import type { StarLead, StarLeadDigest } from "@/functions/github-stars";
 
 export const Route = createFileRoute("/admin/lead-finder/")({
   component: LeadFinderPage,
 });
+
+function leadNeedsResearch(lead: StarLead) {
+  if (!lead.researched_at) {
+    return true;
+  }
+
+  return Date.parse(lead.researched_at) < Date.parse(lead.event_at);
+}
 
 function LeadFinderPage() {
   const queryClient = useQueryClient();
@@ -44,6 +52,16 @@ function LeadFinderPage() {
     staleTime: 30000,
   });
 
+  const { data: digestData } = useQuery({
+    queryKey: ["star-lead-digest"],
+    queryFn: async () => {
+      const response = await fetch("/api/admin/stars/digest");
+      if (!response.ok) throw new Error("Failed to fetch digest");
+      return response.json() as Promise<{ digest: StarLeadDigest }>;
+    },
+    staleTime: 30000,
+  });
+
   const fetchMutation = useMutation({
     mutationFn: async (source: "stargazers" | "activity") => {
       const response = await fetch("/api/admin/stars/fetch", {
@@ -52,10 +70,16 @@ function LeadFinderPage() {
         body: JSON.stringify({ source }),
       });
       if (!response.ok) throw new Error("Failed to fetch");
-      return response.json() as Promise<{ added: number; total: number }>;
+      return response.json() as Promise<{
+        source: "stargazers" | "activity";
+        added: number;
+        newLeads: number;
+        total: number;
+      }>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["star-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["star-lead-digest"] });
     },
   });
 
@@ -75,8 +99,66 @@ function LeadFinderPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["star-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["star-lead-digest"] });
       if (data.lead) {
         setSelectedLead(data.lead);
+      }
+    },
+  });
+
+  const pipelineMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/admin/stars/pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          includeStargazers: true,
+          includeActivity: true,
+          maxResearch: 10,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        sync: Array<{
+          source: "stargazers" | "activity";
+          added: number;
+          newLeads: number;
+          total: number;
+        }>;
+        research: {
+          attempted: number;
+          completed: number;
+          failed: Array<{ username: string; error: string }>;
+          leads: StarLead[];
+        };
+        digest: StarLeadDigest;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to run stars pipeline");
+      }
+
+      return payload as {
+        sync: Array<{
+          source: "stargazers" | "activity";
+          added: number;
+          newLeads: number;
+          total: number;
+        }>;
+        research: {
+          attempted: number;
+          completed: number;
+          failed: Array<{ username: string; error: string }>;
+          leads: StarLead[];
+        };
+        digest: StarLeadDigest;
+      };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["star-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["star-lead-digest"] });
+      if (data.research.leads[0]) {
+        setSelectedLead(data.research.leads[0]);
       }
     },
   });
@@ -84,6 +166,14 @@ function LeadFinderPage() {
   const leads = data?.leads ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
+  const digest = digestData?.digest;
+  const pipelineSummary = pipelineMutation.data?.sync.reduce(
+    (acc, result) => ({
+      added: acc.added + result.added,
+      newLeads: acc.newLeads + result.newLeads,
+    }),
+    { added: 0, newLeads: 0 },
+  );
 
   const filteredLeads = useMemo(() => {
     if (!searchQuery) return leads;
@@ -97,7 +187,7 @@ function LeadFinderPage() {
   }, [leads, searchQuery]);
 
   const handleResearchAll = useCallback(async () => {
-    const unresearched = leads.filter((l) => !l.researched_at);
+    const unresearched = leads.filter(leadNeedsResearch);
     for (const lead of unresearched.slice(0, 10)) {
       await researchMutation.mutateAsync(lead.github_username);
     }
@@ -146,6 +236,19 @@ function LeadFinderPage() {
             </span>
             <button
               type="button"
+              onClick={() => pipelineMutation.mutate()}
+              disabled={pipelineMutation.isPending}
+              className="flex h-8 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-sm text-white transition-colors hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {pipelineMutation.isPending ? (
+                <Spinner size={14} color="white" />
+              ) : (
+                <SparklesIcon className="h-3.5 w-3.5" />
+              )}
+              Catch Stars
+            </button>
+            <button
+              type="button"
               onClick={() => fetchMutation.mutate("stargazers")}
               disabled={fetchMutation.isPending}
               className="flex h-8 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-sm transition-colors hover:bg-neutral-50 disabled:opacity-50"
@@ -185,6 +288,74 @@ function LeadFinderPage() {
             </button>
           </div>
         </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <LeadMetricCard
+            label="Tracked leads"
+            value={digest?.counts.totalLeads ?? total}
+            detail="Unique GitHub users"
+          />
+          <LeadMetricCard
+            label="Matched"
+            value={digest?.counts.matchedLeads ?? 0}
+            detail="Qualified as worth following up"
+          />
+          <LeadMetricCard
+            label="Need research"
+            value={digest?.counts.needsResearch ?? 0}
+            detail="Fresh or stale records"
+          />
+          <LeadMetricCard
+            label="Active this week"
+            value={digest?.counts.activeLast7Days ?? 0}
+            detail="Leads with recent activity"
+          />
+        </div>
+
+        {digest?.topLeads.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {digest.topLeads.slice(0, 5).map((lead) => (
+              <button
+                key={lead.id}
+                type="button"
+                onClick={() => setSelectedLead(lead)}
+                className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                {(lead.name || lead.github_username) +
+                  ` · ${lead.score ?? 0}/100`}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {digest?.summary ? (
+          <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="mb-1 text-xs font-medium text-neutral-500">
+              Digest
+            </div>
+            <div className="text-sm whitespace-pre-wrap text-neutral-700">
+              {digest.summary}
+            </div>
+          </div>
+        ) : null}
+
+        {pipelineMutation.isSuccess && pipelineSummary ? (
+          <div className="mt-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            Synced {pipelineSummary.added} new events and{" "}
+            {pipelineSummary.newLeads} new leads. Researched{" "}
+            {pipelineMutation.data.research.completed} of{" "}
+            {pipelineMutation.data.research.attempted} leads.
+            {pipelineMutation.data.research.failed.length > 0
+              ? ` ${pipelineMutation.data.research.failed.length} lead(s) failed research.`
+              : ""}
+          </div>
+        ) : null}
+
+        {pipelineMutation.isError ? (
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {pipelineMutation.error.message}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -293,6 +464,24 @@ function LeadFinderPage() {
   );
 }
 
+function LeadMetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2">
+      <div className="text-xs font-medium text-neutral-500">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-neutral-900">{value}</div>
+      <div className="text-xs text-neutral-500">{detail}</div>
+    </div>
+  );
+}
+
 function LeadRow({
   lead,
   isSelected,
@@ -306,6 +495,8 @@ function LeadRow({
   onResearch: () => void;
   isResearching: boolean;
 }) {
+  const needsResearch = leadNeedsResearch(lead);
+
   return (
     <tr
       onClick={onSelect}
@@ -381,7 +572,7 @@ function LeadRow({
       </td>
       <td className="px-4 py-2 text-right">
         <div className="flex items-center justify-end gap-1">
-          {!lead.researched_at && (
+          {needsResearch && (
             <button
               type="button"
               onClick={(e) => {
@@ -427,6 +618,8 @@ function LeadDetail({
   onResearch: () => void;
   isResearching: boolean;
 }) {
+  const needsResearch = leadNeedsResearch(lead);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
@@ -545,7 +738,7 @@ function LeadDetail({
           </div>
         )}
 
-        {!lead.researched_at && (
+        {needsResearch && (
           <button
             type="button"
             onClick={onResearch}

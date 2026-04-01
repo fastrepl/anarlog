@@ -1,30 +1,38 @@
-use std::fmt::{Display, Formatter};
+use thiserror::Error;
 
 pub type CliResult<T> = Result<T, CliError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Error)]
 pub enum CliError {
+    #[error("{0}")]
     Message(String),
-    RequiredArgument {
-        name: &'static str,
-    },
+
+    #[error("{name} is required{}", hint_suffix(.hint))]
+    RequiredArgument { name: String, hint: Option<String> },
+
+    #[error("invalid {name} '{value}': {reason}{}", hint_suffix(.hint))]
     InvalidArgument {
         name: &'static str,
         value: String,
         reason: String,
+        hint: Option<String>,
     },
-    ExternalActionFailed {
-        action: &'static str,
-        reason: String,
-    },
+
+    #[error("{action} failed: {reason}")]
     OperationFailed {
         action: &'static str,
         reason: String,
     },
-    NotFound {
-        what: String,
-        hint: Option<String>,
-    },
+
+    #[error("{what} not found{}", hint_suffix(.hint))]
+    NotFound { what: String, hint: Option<String> },
+}
+
+fn hint_suffix(hint: &Option<String>) -> String {
+    match hint {
+        Some(h) => format!("\n  hint: {h}"),
+        None => String::new(),
+    }
 }
 
 impl CliError {
@@ -32,8 +40,18 @@ impl CliError {
         Self::Message(message.into())
     }
 
-    pub fn required_argument(name: &'static str) -> Self {
-        Self::RequiredArgument { name }
+    pub fn required_argument(name: impl Into<String>) -> Self {
+        Self::RequiredArgument {
+            name: name.into(),
+            hint: None,
+        }
+    }
+
+    pub fn required_argument_with_hint(name: impl Into<String>, hint: impl Into<String>) -> Self {
+        Self::RequiredArgument {
+            name: name.into(),
+            hint: Some(hint.into()),
+        }
     }
 
     pub fn invalid_argument(
@@ -45,13 +63,7 @@ impl CliError {
             name,
             value: value.into(),
             reason: reason.into(),
-        }
-    }
-
-    pub fn external_action_failed(action: &'static str, reason: impl Into<String>) -> Self {
-        Self::ExternalActionFailed {
-            action,
-            reason: reason.into(),
+            hint: None,
         }
     }
 
@@ -70,38 +82,36 @@ impl CliError {
     }
 }
 
-impl Display for CliError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Message(message) => f.write_str(message),
-            Self::RequiredArgument { name } => {
-                write!(f, "{name} is required")
-            }
-            Self::InvalidArgument {
-                name,
-                value,
-                reason,
-            } => {
-                write!(f, "invalid {name} '{value}': {reason}")
-            }
-            Self::ExternalActionFailed { action, reason } => {
-                write!(f, "{action} failed: {reason}")
-            }
-            Self::OperationFailed { action, reason } => {
-                write!(f, "{action} failed: {reason}")
-            }
-            Self::NotFound { what, hint } => {
-                if let Some(hint) = hint {
-                    write!(f, "{what} not found\n{hint}")
-                } else {
-                    write!(f, "{what} not found")
-                }
-            }
+/// Returns the closest match from `candidates` if one exceeds a 0.7 Jaro-Winkler threshold.
+pub fn did_you_mean<'a>(input: &str, candidates: &[&'a str]) -> Option<&'a str> {
+    candidates
+        .iter()
+        .filter_map(|c| {
+            let sim = strsim::jaro_winkler(input, c);
+            if sim > 0.7 { Some((*c, sim)) } else { None }
+        })
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(c, _)| c)
+}
+
+#[macro_export]
+macro_rules! db {
+    ($expr:expr, $op:literal) => {
+        $expr
+            .await
+            .map_err(|e| $crate::error::CliError::operation_failed($op, e.to_string()))?
+    };
+}
+
+#[cfg(feature = "desktop")]
+impl From<hypr_db_app::CrudCliError> for CliError {
+    fn from(e: hypr_db_app::CrudCliError) -> Self {
+        Self::OperationFailed {
+            action: e.action,
+            reason: e.message,
         }
     }
 }
-
-impl std::error::Error for CliError {}
 
 impl From<String> for CliError {
     fn from(message: String) -> Self {
@@ -128,6 +138,7 @@ mod tests {
                 name,
                 value,
                 reason,
+                ..
             } => {
                 assert_eq!(name, "--language");
                 assert_eq!(value, "xx");
@@ -135,6 +146,15 @@ mod tests {
             }
             _ => panic!("expected invalid argument variant"),
         }
+    }
+
+    #[test]
+    fn did_you_mean_finds_close_match() {
+        let candidates = &["deepgram", "soniox", "whispercpp", "cactus"];
+        assert_eq!(did_you_mean("deepgran", candidates), Some("deepgram"));
+        assert_eq!(did_you_mean("sonix", candidates), Some("soniox"));
+        assert_eq!(did_you_mean("whispr", candidates), Some("whispercpp"));
+        assert_eq!(did_you_mean("completely-wrong", candidates), None);
     }
 
     #[test]
@@ -146,6 +166,6 @@ mod tests {
 
         let rendered = error.to_string();
         assert!(rendered.contains("model 'foo' not found"));
-        assert!(rendered.contains("char model list"));
+        assert!(rendered.contains("hint:"));
     }
 }

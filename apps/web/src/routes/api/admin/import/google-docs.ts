@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { generateJSON } from "@tiptap/html";
-import { Markdown } from "@tiptap/markdown";
+import { Markdown, MarkdownManager } from "@tiptap/markdown";
 import type { JSONContent } from "@tiptap/react";
 
-import { getExtensions, json2md } from "@hypr/tiptap/shared";
+import { ClipNode, getExtensions } from "@hypr/tiptap/shared";
 
 import { fetchAdminUser } from "@/functions/admin";
 import { getSupabaseServerClient } from "@/functions/supabase";
@@ -233,6 +233,27 @@ function removeTabTitleFromContent(html: string): string {
   return html.replace(bodyMatch[1], bodyContent);
 }
 
+function getBlogImportExtensions() {
+  return [
+    ...getExtensions().map((ext) =>
+      ext.name === "underline"
+        ? ext.extend({
+            renderMarkdown(
+              _node: Record<string, unknown>,
+              helpers: {
+                renderChildren: (node: Record<string, unknown>) => string;
+              },
+            ) {
+              return helpers.renderChildren(_node);
+            },
+          })
+        : ext,
+    ),
+    ClipNode,
+    Markdown,
+  ];
+}
+
 export const Route = createFileRoute("/api/admin/import/google-docs")({
   server: {
     handlers: {
@@ -310,10 +331,12 @@ export const Route = createFileRoute("/api/admin/import/google-docs")({
           let bodyContent = bodyMatch ? bodyMatch[1] : html;
           bodyContent = bodyContent.replace(/&nbsp;/g, " ");
 
-          const rawJson: JSONContent = generateJSON(bodyContent, [
-            ...getExtensions(),
-            Markdown,
-          ]);
+          const blogImportExtensions = getBlogImportExtensions();
+
+          const rawJson: JSONContent = generateJSON(
+            bodyContent,
+            blogImportExtensions,
+          );
           clean(rawJson);
           cleanGoogleRedirectUrls(rawJson);
 
@@ -346,7 +369,9 @@ export const Route = createFileRoute("/api/admin/import/google-docs")({
             }
           }
 
-          const md = json2md(rawJson);
+          const md = new MarkdownManager({
+            extensions: blogImportExtensions,
+          }).serialize(rawJson);
 
           const today = new Date().toISOString().split("T")[0];
           const finalAuthor = author || "Unknown";

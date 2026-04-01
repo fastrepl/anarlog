@@ -165,6 +165,7 @@ fn convert_response(response: MistralBatchResponse) -> BatchResponse {
                     start: w.start,
                     end: w.end,
                     confidence: 1.0,
+                    channel: 0,
                     speaker: None,
                     punctuated_word: Some(w.word),
                 }
@@ -199,6 +200,7 @@ fn convert_response(response: MistralBatchResponse) -> BatchResponse {
                             start: word_start,
                             end: word_end,
                             confidence: 1.0,
+                            channel: 0,
                             speaker: None,
                             punctuated_word: Some(w.to_string()),
                         }

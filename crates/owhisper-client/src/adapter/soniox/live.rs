@@ -236,6 +236,7 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
         start_ms: Option<u64>,
         end_ms: Option<u64>,
         speaker: Option<i32>,
+        language: Option<String>,
         confidence_sum: f64,
         confidence_count: u32,
     }
@@ -250,6 +251,9 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
 
             if self.speaker.is_none() {
                 self.speaker = token.speaker.as_ref().and_then(|speaker| speaker.as_i32());
+            }
+            if self.language.is_none() {
+                self.language = token.language.clone();
             }
 
             self.confidence_sum += token.confidence.unwrap_or(1.0);
@@ -273,6 +277,7 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
                     .end(ms_to_secs_opt(self.end_ms))
                     .confidence(confidence)
                     .speaker(self.speaker)
+                    .language(self.language)
                     .build(),
             )
         }
@@ -293,9 +298,9 @@ fn build_words(tokens: &[&soniox::Token]) -> Vec<owhisper_interface::stream::Wor
         .collect()
 }
 
-fn partition_tokens_by_word_finality<'a>(
-    tokens: &'a [soniox::Token],
-) -> (Vec<&'a soniox::Token>, Vec<&'a soniox::Token>) {
+fn partition_tokens_by_word_finality(
+    tokens: &[soniox::Token],
+) -> (Vec<&soniox::Token>, Vec<&soniox::Token>) {
     let mut final_tokens = Vec::new();
     let mut non_final_tokens = Vec::new();
     for group in token_groups_from_values(tokens) {

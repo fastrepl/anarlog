@@ -10,7 +10,7 @@ import { useSTTConnection } from "./useSTTConnection";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
+import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
@@ -21,7 +21,7 @@ import {
 } from "~/stt/utils";
 
 type RunOptions = {
-  handlePersist?: HandlePersistCallback;
+  handlePersist?: BatchPersistCallback;
   model?: string;
   baseUrl?: string;
   apiKey?: string;
@@ -100,7 +100,7 @@ export const useRunBatch = (sessionId: string) => {
       const memoMd = store.getCell("sessions", sessionId, "raw_md");
       let transcriptId: string | null = null;
 
-      const handlePersist: HandlePersistCallback | undefined =
+      const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
 
       const persist =

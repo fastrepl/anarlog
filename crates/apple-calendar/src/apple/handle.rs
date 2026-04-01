@@ -3,13 +3,15 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use backon::{BlockingRetryable, ConstantBuilder};
+use block2::RcBlock;
 use itertools::Itertools;
+use objc2::runtime::Bool;
 use objc2::{AllocAnyThread, rc::Retained};
 use objc2_event_kit::{
     EKAuthorizationStatus, EKCalendar, EKEntityType, EKEvent, EKEventStore, EKSpan,
 };
 use objc2_foundation::NSString;
-use objc2_foundation::{NSArray, NSDate};
+use objc2_foundation::{NSArray, NSDate, NSError};
 
 use crate::error::Error;
 use crate::types::{AppleCalendar, AppleEvent};
@@ -40,6 +42,13 @@ pub(crate) fn shared_event_store() -> &'static EKEventStore {
         .0
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CalendarAuthStatus {
+    NotDetermined,
+    Authorized,
+    Denied,
+}
+
 pub struct Handle {
     contact_fetcher: Option<Box<dyn ContactFetcher>>,
 }
@@ -55,6 +64,31 @@ impl Handle {
         Self {
             contact_fetcher: Some(contact_fetcher),
         }
+    }
+
+    pub fn authorization_status() -> CalendarAuthStatus {
+        let status = unsafe { EKEventStore::authorizationStatusForEntityType(EKEntityType::Event) };
+        match status {
+            EKAuthorizationStatus::NotDetermined => CalendarAuthStatus::NotDetermined,
+            EKAuthorizationStatus::FullAccess => CalendarAuthStatus::Authorized,
+            _ => CalendarAuthStatus::Denied,
+        }
+    }
+
+    pub fn request_full_access() -> bool {
+        let event_store = shared_event_store();
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let block = RcBlock::new(move |granted: Bool, _error: *mut NSError| {
+            let _ = tx.send(granted.as_bool());
+        });
+
+        unsafe {
+            let ptr = &*block as *const block2::Block<_> as *mut block2::Block<_>;
+            event_store.requestFullAccessToEventsWithCompletion(ptr);
+        }
+
+        rx.recv_timeout(Duration::from_secs(60)).unwrap_or(false)
     }
 }
 

@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 import type { AmModel, LocalModel } from "@hypr/plugin-local-stt";
 
 import { env } from "~/env";
+import { CharProviderIcon } from "~/settings/ai/shared";
 import {
   type ProviderRequirement,
   requiresEntitlement,
@@ -94,7 +95,7 @@ const _PROVIDERS = [
     id: "hyprnote",
     displayName: "Char",
     badge: "Recommended",
-    icon: <img src="/assets/icon.png" alt="Char" className="size-5" />,
+    icon: <CharProviderIcon />,
     baseUrl: new URL("/stt", env.VITE_API_URL).toString(),
     models: [
       "cloud",

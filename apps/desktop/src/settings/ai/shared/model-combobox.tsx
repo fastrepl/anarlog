@@ -18,6 +18,7 @@ import {
   CommandList,
 } from "@hypr/ui/components/ui/command";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -170,155 +171,162 @@ export function ModelCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="p-0"
+        variant="app"
         style={{ width: "var(--radix-popover-trigger-width)" }}
       >
-        <Command filter={filterFunction}>
-          <CommandInput
-            placeholder="Search or create new"
-            value={query}
-            onValueChange={(value: string) => setQuery(value)}
-            onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-              }
-            }}
-          />
-          <CommandEmpty>
-            <div className="text-muted-foreground px-2 py-1.5 text-sm">
-              {trimmedQuery.length > 0 ? (
-                <p>No results found.</p>
-              ) : hasIgnoredOptions ? (
-                <p>No models ready to use.</p>
-              ) : (
-                <p>No models available.</p>
-              )}
-            </div>
-          </CommandEmpty>
+        <AppFloatingPanel className="overflow-hidden">
+          <Command
+            filter={filterFunction}
+            className="rounded-[inherit] border-0 bg-transparent"
+          >
+            <CommandInput
+              placeholder="Search or create new"
+              value={query}
+              onValueChange={(value: string) => setQuery(value)}
+              onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                }
+              }}
+            />
+            <CommandEmpty>
+              <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                {trimmedQuery.length > 0 ? (
+                  <p>No results found.</p>
+                ) : hasIgnoredOptions ? (
+                  <p>No models ready to use.</p>
+                ) : (
+                  <p>No models available.</p>
+                )}
+              </div>
+            </CommandEmpty>
 
-          <CommandList>
-            <CommandGroup className="overflow-y-auto">
-              {options.map((option) => (
-                <CommandItem
-                  key={option}
-                  tabIndex={0}
-                  value={option}
-                  onSelect={() => {
-                    handleSelect(option);
-                  }}
-                  onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
-                    if (event.key === "Enter") {
-                      event.stopPropagation();
-                      handleSelect(option);
-                    }
-                  }}
-                  className={cn([
-                    "cursor-pointer",
-                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
-                  ])}
-                >
-                  <span className="truncate">
-                    {getDisplayName(providerId, option)}
-                  </span>
-                </CommandItem>
-              ))}
-
-              {showIgnored &&
-                ignoredOptions.map((option) => (
+            <CommandList>
+              <CommandGroup className="overflow-y-auto">
+                {options.map((option) => (
                   <CommandItem
-                    key={`ignored-${option.id}`}
+                    key={option}
                     tabIndex={0}
-                    value={option.id}
+                    value={option}
                     onSelect={() => {
-                      handleSelect(option.id);
+                      handleSelect(option);
                     }}
                     onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
                       if (event.key === "Enter") {
                         event.stopPropagation();
-                        handleSelect(option.id);
+                        handleSelect(option);
                       }
                     }}
                     className={cn([
-                      "cursor-pointer opacity-50",
+                      "cursor-pointer",
                       "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
                     ])}
                   >
-                    <Tooltip delayDuration={10}>
-                      <TooltipTrigger asChild>
-                        <span className="w-full truncate">{option.id}</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="text-xs">
-                        <div className="flex flex-col gap-0.5">
-                          {option.reasons.map((reason) => (
-                            <div key={reason}>
-                              • {formatIgnoreReason(reason)}
-                            </div>
-                          ))}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
+                    <span className="truncate">
+                      {getDisplayName(providerId, option)}
+                    </span>
                   </CommandItem>
                 ))}
 
-              {canSelectFreeform && (
-                <CommandItem
-                  key={`freeform-${trimmedQuery}`}
-                  tabIndex={0}
-                  value={trimmedQuery}
-                  onSelect={() => {
-                    handleSelect(trimmedQuery);
-                  }}
-                  onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
-                    if (event.key === "Enter") {
-                      event.stopPropagation();
+                {showIgnored &&
+                  ignoredOptions.map((option) => (
+                    <CommandItem
+                      key={`ignored-${option.id}`}
+                      tabIndex={0}
+                      value={option.id}
+                      onSelect={() => {
+                        handleSelect(option.id);
+                      }}
+                      onKeyDown={(
+                        event: React.KeyboardEvent<HTMLDivElement>,
+                      ) => {
+                        if (event.key === "Enter") {
+                          event.stopPropagation();
+                          handleSelect(option.id);
+                        }
+                      }}
+                      className={cn([
+                        "cursor-pointer opacity-50",
+                        "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                      ])}
+                    >
+                      <Tooltip delayDuration={10}>
+                        <TooltipTrigger asChild>
+                          <span className="w-full truncate">{option.id}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="text-xs">
+                          <div className="flex flex-col gap-0.5">
+                            {option.reasons.map((reason) => (
+                              <div key={reason}>
+                                • {formatIgnoreReason(reason)}
+                              </div>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CommandItem>
+                  ))}
+
+                {canSelectFreeform && (
+                  <CommandItem
+                    key={`freeform-${trimmedQuery}`}
+                    tabIndex={0}
+                    value={trimmedQuery}
+                    onSelect={() => {
                       handleSelect(trimmedQuery);
-                    }
-                  }}
-                  className={cn([
-                    "cursor-pointer",
-                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
-                  ])}
-                >
-                  <CirclePlus className="mr-2 h-4 w-4" />
-                  <span className="truncate">Select "{trimmedQuery}"</span>
-                </CommandItem>
+                    }}
+                    onKeyDown={(event: React.KeyboardEvent<HTMLDivElement>) => {
+                      if (event.key === "Enter") {
+                        event.stopPropagation();
+                        handleSelect(trimmedQuery);
+                      }
+                    }}
+                    className={cn([
+                      "cursor-pointer",
+                      "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                    ])}
+                  >
+                    <CirclePlus className="mr-2 h-4 w-4" />
+                    <span className="truncate">Select "{trimmedQuery}"</span>
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            </CommandList>
+
+            <div className="text-muted-foreground flex items-center justify-between border-t px-2 py-1.5 text-xs">
+              <button
+                type="button"
+                onClick={toggleShowIgnored}
+                className="hover:text-foreground mr-1 flex items-center gap-1 text-xs transition-colors"
+              >
+                {showIgnored ? (
+                  <EyeOff className="h-3 w-3" />
+                ) : (
+                  <Eye className="h-3 w-3" />
+                )}
+              </button>
+
+              {hasIgnoredOptions && (
+                <span>
+                  {showIgnored
+                    ? `Showing total of ${options.length} models.`
+                    : `${ignoredOptions.length} items ignored.`}
+                </span>
               )}
-            </CommandGroup>
-          </CommandList>
 
-          <div className="text-muted-foreground flex items-center justify-between border-t px-2 py-1.5 text-xs">
-            <button
-              type="button"
-              onClick={toggleShowIgnored}
-              className="hover:text-foreground mr-1 flex items-center gap-1 text-xs transition-colors"
-            >
-              {showIgnored ? (
-                <EyeOff className="h-3 w-3" />
-              ) : (
-                <Eye className="h-3 w-3" />
-              )}
-            </button>
-
-            {hasIgnoredOptions && (
-              <span>
-                {showIgnored
-                  ? `Showing total of ${options.length} models.`
-                  : `${ignoredOptions.length} items ignored.`}
-              </span>
-            )}
-
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="hover:text-foreground ml-auto flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
-            >
-              <RefreshCcw
-                className={cn(["h-3 w-3", isFetching && "animate-spin"])}
-              />
-            </button>
-          </div>
-        </Command>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="hover:text-foreground ml-auto flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
+              >
+                <RefreshCcw
+                  className={cn(["h-3 w-3", isFetching && "animate-spin"])}
+                />
+              </button>
+            </div>
+          </Command>
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

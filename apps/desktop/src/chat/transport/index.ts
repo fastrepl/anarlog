@@ -28,6 +28,10 @@ import {
   type ToolOutputPart,
 } from "./helpers";
 
+export type ResolvedChatContext =
+  | { kind: "session"; context: SessionContext }
+  | { kind: "text"; text: string };
+
 export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
   constructor(
     private model: LanguageModel,
@@ -35,7 +39,7 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     private systemPrompt?: string,
     private resolveContextRef?: (
       ref: ContextRef,
-    ) => Promise<SessionContext | null>,
+    ) => Promise<ResolvedChatContext | null>,
   ) {}
 
   private async renderContextBlock(
@@ -52,24 +56,45 @@ export class CustomChatTransport implements ChatTransport<HyprUIMessage> {
     }
 
     const seen = new Set<string>();
-    const contexts: SessionContext[] = [];
+    const sessionContexts: SessionContext[] = [];
+    const textContexts: string[] = [];
     for (const ref of contextRefs) {
       if (seen.has(ref.key)) continue;
       seen.add(ref.key);
       const context = await this.resolveContextRef(ref);
-      if (context) contexts.push(context);
+      if (!context) {
+        continue;
+      }
+
+      if (context.kind === "session") {
+        sessionContexts.push(context.context);
+      } else if (context.text.trim()) {
+        textContexts.push(context.text.trim());
+      }
     }
 
-    if (contexts.length === 0) {
+    if (sessionContexts.length === 0 && textContexts.length === 0) {
       cache.set(cacheKey, null);
       return null;
     }
 
-    // Rendered by Rust-side template engine via Tauri plugin
-    const rendered = await templateCommands.render({
-      contextBlock: { contexts },
-    });
-    const result = rendered.status === "ok" ? rendered.data : null;
+    const blocks: string[] = [];
+
+    if (sessionContexts.length > 0) {
+      // Rendered by Rust-side template engine via Tauri plugin
+      const rendered = await templateCommands.render({
+        contextBlock: { contexts: sessionContexts },
+      });
+      if (rendered.status === "ok" && rendered.data.trim()) {
+        blocks.push(rendered.data.trim());
+      }
+    }
+
+    if (textContexts.length > 0) {
+      blocks.push(textContexts.join("\n\n"));
+    }
+
+    const result = blocks.length > 0 ? blocks.join("\n\n") : null;
     cache.set(cacheKey, result);
     return result;
   }

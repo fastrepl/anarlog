@@ -113,7 +113,7 @@ export function OnboardingSection({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="-mx-5 -mb-5 overflow-hidden px-5 pb-5"
+            className="-mx-5 -mt-3 -mb-5 overflow-hidden px-5 pt-3 pb-5"
           >
             {children}
           </motion.div>
@@ -123,13 +123,35 @@ export function OnboardingSection({
   );
 }
 
-export function OnboardingButton(
-  props: React.ButtonHTMLAttributes<HTMLButtonElement>,
-) {
+export function OnboardingButton({
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
-      className="w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 py-2.5 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
+      className={cn([
+        "w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 py-2.5 text-sm font-medium text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] transition-all duration-200 hover:bg-stone-700",
+        className,
+      ])}
+    />
+  );
+}
+
+export function OnboardingCharIcon({
+  inverted = false,
+}: {
+  inverted?: boolean;
+}) {
+  return (
+    <img
+      src="/assets/char-logo-icon-black.svg"
+      alt=""
+      aria-hidden="true"
+      className={cn([
+        "size-4 object-contain",
+        inverted && "brightness-0 invert",
+      ])}
     />
   );
 }

@@ -53,10 +53,6 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.6,
         changeFrequency: "weekly",
       },
-      "/file-transcription": {
-        priority: 0.7,
-        changeFrequency: "monthly",
-      },
       "/free": {
         priority: 0.7,
         changeFrequency: "monthly",

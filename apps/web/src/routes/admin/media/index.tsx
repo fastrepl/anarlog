@@ -1,3 +1,4 @@
+import MuxPlayer from "@mux/mux-player-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
@@ -72,6 +73,16 @@ interface Tab {
   isHome?: boolean;
 }
 
+const HOME_TAB: Tab = {
+  id: "home",
+  type: "folder",
+  name: "Home",
+  path: "",
+  pinned: true,
+  active: true,
+  isHome: true,
+};
+
 export const Route = createFileRoute("/admin/media/")({
   component: MediaLibrary,
 });
@@ -84,14 +95,74 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+function HoverMarqueeText({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [overflowWidth, setOverflowWidth] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const containerWidth = containerRef.current?.clientWidth ?? 0;
+      const textWidth = textRef.current?.scrollWidth ?? 0;
+      setOverflowWidth(Math.max(0, textWidth - containerWidth));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [text]);
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(["overflow-hidden whitespace-nowrap", className])}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={text}
+    >
+      <span
+        ref={textRef}
+        className="inline-block whitespace-nowrap"
+        style={{
+          transform:
+            isHovered && overflowWidth > 0
+              ? `translateX(-${overflowWidth}px)`
+              : "translateX(0)",
+          transitionDuration: `${Math.max(1.8, overflowWidth / 40)}s`,
+          transitionTimingFunction: "linear",
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
 function getRelativePath(fullPath: string): string {
   return fullPath;
+}
+
+function getAdminMediaDownloadUrl(path: string): string {
+  return `/api/admin/media/download?path=${encodeURIComponent(path)}`;
+}
+
+function getFolderPathForTab(tab: Tab | undefined): string {
+  if (!tab) return "";
+  if (tab.type === "folder") return tab.path;
+  return tab.path.split("/").slice(0, -1).join("/");
 }
 
 function MediaLibrary() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>(() => [HOME_TAB]);
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [rootLoaded, setRootLoaded] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -134,36 +205,20 @@ function MediaLibrary() {
       }));
       setTreeNodes(children);
       setRootLoaded(true);
-
-      // Add permanent Home tab
-      setTabs([
-        {
-          id: "home",
-          type: "folder",
-          name: "Home",
-          path: "",
-          pinned: true,
-          active: true,
-          isHome: true,
-        },
-      ]);
     }
   }, [rootQuery.data, rootLoaded]);
 
   const currentTab = tabs.find((t) => t.active);
+  const currentFolderPath = getFolderPathForTab(currentTab);
 
   const currentPathQuery = useQuery({
-    queryKey: ["mediaItems", currentTab?.path || "", currentTab?.type],
-    queryFn: async () => {
-      if (currentTab?.type === "file") {
-        const parentPath = currentTab.path.split("/").slice(0, -1).join("/");
-        const items = await fetchMediaItems(parentPath);
-        return items.filter((i) => i.path === currentTab.path);
-      }
-      return fetchMediaItems(currentTab?.path || "");
-    },
+    queryKey: ["mediaItems", currentFolderPath],
+    queryFn: () => fetchMediaItems(currentFolderPath),
     enabled: isMounted && currentTab !== undefined,
   });
+
+  const currentItems = currentPathQuery.data || [];
+  const isCurrentPathLoading = !isMounted || currentPathQuery.isLoading;
 
   const loadFolderContents = async (path: string) => {
     setLoadingPaths((prev) => new Set(prev).add(path));
@@ -249,53 +304,73 @@ function MediaLibrary() {
     });
   };
 
-  const openTab = useCallback(
-    (
-      type: "folder" | "file",
-      name: string,
-      path: string,
-      options: { pinned?: boolean; forceNewTab?: boolean } = {},
-    ) => {
-      const { pinned = false, forceNewTab = false } = options;
-      setTabs((prev) => {
-        // If opening the home/root folder, just activate the Home tab
-        if (type === "folder" && path === "") {
-          return prev.map((t) => ({ ...t, active: t.isHome === true }));
-        }
+  const openFileTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "file" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
 
-        const existingIndex = prev.findIndex(
-          (t) => t.type === type && t.path === path,
+      const newTab: Tab = {
+        id: `file-${path}-${Date.now()}`,
+        type: "file",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
+
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
+
+  const openFolderTab = useCallback((name: string, path: string) => {
+    setTabs((prev) => {
+      if (path === "") {
+        return prev.map((tab) => ({ ...tab, active: tab.isHome === true }));
+      }
+
+      const existingIndex = prev.findIndex(
+        (tab) => tab.type === "folder" && tab.path === path,
+      );
+      if (existingIndex !== -1) {
+        return prev.map((tab, index) => ({
+          ...tab,
+          active: index === existingIndex,
+        }));
+      }
+
+      const activeFolderTab = prev.find(
+        (tab) =>
+          tab.active && tab.type === "folder" && !tab.isHome && !tab.pinned,
+      );
+      if (activeFolderTab) {
+        return prev.map((tab) =>
+          tab.id === activeFolderTab.id
+            ? { ...tab, name, path, active: true }
+            : { ...tab, active: false },
         );
-        if (existingIndex !== -1) {
-          return prev.map((t, i) => ({ ...t, active: i === existingIndex }));
-        }
+      }
 
-        const newTab: Tab = {
-          id: `${type}-${path}-${Date.now()}`,
-          type,
-          name,
-          path,
-          pinned,
-          active: true,
-        };
+      const newTab: Tab = {
+        id: `folder-${path}-${Date.now()}`,
+        type: "folder",
+        name,
+        path,
+        pinned: false,
+        active: true,
+      };
 
-        if (forceNewTab) {
-          return [...prev.map((t) => ({ ...t, active: false })), newTab];
-        }
-
-        const unpinnedIndex = prev.findIndex((t) => !t.pinned && !t.isHome);
-        if (unpinnedIndex !== -1 && prev.length > 0) {
-          return prev.map((t, i) =>
-            i === unpinnedIndex ? newTab : { ...t, active: false },
-          );
-        }
-
-        return [...prev.map((t) => ({ ...t, active: false })), newTab];
-      });
-      setSelectedItems(new Set());
-    },
-    [],
-  );
+      return [...prev.map((tab) => ({ ...tab, active: false })), newTab];
+    });
+    setSelectedItems(new Set());
+  }, []);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs((prev) => {
@@ -345,9 +420,9 @@ function MediaLibrary() {
         setHistoryIndex((prev) => Math.min(prev + 1, 49));
       }
       isNavigatingRef.current = false;
-      openTab("folder", name || "Home", path);
+      openFolderTab(name || "Home", path);
     },
-    [historyIndex, openTab],
+    [historyIndex, openFolderTab],
   );
 
   const handleNavigateBack = useCallback(() => {
@@ -355,18 +430,18 @@ function MediaLibrary() {
       isNavigatingRef.current = true;
       const prevEntry = navigationHistory[historyIndex - 1];
       setHistoryIndex(historyIndex - 1);
-      openTab("folder", prevEntry.name, prevEntry.path);
+      openFolderTab(prevEntry.name, prevEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const handleNavigateForward = useCallback(() => {
     if (historyIndex < navigationHistory.length - 1) {
       isNavigatingRef.current = true;
       const nextEntry = navigationHistory[historyIndex + 1];
       setHistoryIndex(historyIndex + 1);
-      openTab("folder", nextEntry.name, nextEntry.path);
+      openFolderTab(nextEntry.name, nextEntry.path);
     }
-  }, [historyIndex, navigationHistory, openTab]);
+  }, [historyIndex, navigationHistory, openFolderTab]);
 
   const {
     uploadMutation,
@@ -460,24 +535,33 @@ function MediaLibrary() {
     deleteMutation.mutate(Array.from(selectedItems));
   };
 
-  const handleDownload = (publicUrl: string, filename: string) => {
+  const handleDownload = async (path: string, filename: string) => {
+    const response = await fetch(getAdminMediaDownloadUrl(path), {
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download ${filename}`);
+    }
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = publicUrl;
+    link.href = blobUrl;
     link.download = filename;
-    link.target = "_blank";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
   };
 
-  const handleDownloadSelected = () => {
-    const currentItems = currentPathQuery.data || [];
-    selectedItems.forEach((path) => {
+  const handleDownloadSelected = async () => {
+    for (const path of selectedItems) {
       const item = currentItems.find((i) => i.path === path);
       if (item && item.type === "file") {
-        handleDownload(item.publicUrl, item.name);
+        await handleDownload(item.path, item.name);
       }
-    });
+    }
   };
 
   const handleReplace = (file: File, path: string) => {
@@ -542,8 +626,8 @@ function MediaLibrary() {
             onSearchChange={setSearchQuery}
             loadingPaths={loadingPaths}
             filteredTreeNodes={filteredTreeNodes}
-            onOpenFolder={(path, name) => openTab("folder", name, path)}
-            onOpenFile={(path, name) => openTab("file", name, path)}
+            onOpenFolder={navigateToFolder}
+            onOpenFile={openFileTab}
             onToggleNodeExpanded={toggleNodeExpanded}
             uploadPending={uploadMutation.isPending}
             fileInputRef={fileInputRef}
@@ -593,15 +677,15 @@ function MediaLibrary() {
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            isLoading={currentPathQuery.isLoading}
+            isLoading={isCurrentPathLoading}
             error={currentPathQuery.error}
-            items={currentPathQuery.data || []}
+            items={currentItems}
             onToggleSelection={toggleSelection}
             onCopyToClipboard={copyToClipboard}
             onDownload={handleDownload}
             onReplace={handleReplace}
             onDeleteSingle={handleDeleteSingle}
-            onOpenPreview={(path, name) => openTab("file", name, path)}
+            onOpenPreview={openFileTab}
             onOpenFolder={(path, name) => navigateToFolder(path, name)}
             onMove={openMoveModal}
             onRename={handleRename}
@@ -1220,7 +1304,7 @@ function ContentPanel({
   items: MediaItem[];
   onToggleSelection: (path: string) => void;
   onCopyToClipboard: (text: string) => void;
-  onDownload: (publicUrl: string, filename: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
@@ -1301,6 +1385,7 @@ function ContentPanel({
                 selectedItems={selectedItems}
                 onToggleSelection={onToggleSelection}
                 onCopyToClipboard={onCopyToClipboard}
+                onDownload={onDownload}
                 onReplace={onReplace}
                 onDeleteSingle={onDeleteSingle}
                 onOpenPreview={onOpenPreview}
@@ -1316,6 +1401,7 @@ function ContentPanel({
               />
             ) : (
               <FilePreview
+                isLoading={isLoading}
                 item={items.find((i) => i.path === currentTab.path)}
               />
             )}
@@ -1565,7 +1651,7 @@ function HeaderBar({
   deletePending: boolean;
   currentFile?: MediaItem;
   onCopyToClipboard: (text: string) => void;
-  onDownload: (publicUrl: string, filename: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onCreateFolder: () => void;
@@ -1589,7 +1675,7 @@ function HeaderBar({
 
   return (
     <div className="flex h-10 items-center justify-between border-b border-neutral-200 px-4">
-      <div className="flex items-center gap-1 text-sm text-neutral-500">
+      <div className="flex min-w-0 flex-1 items-center gap-1 text-sm text-neutral-500">
         <div className="mr-2 flex items-center gap-0.5">
           <button
             type="button"
@@ -1654,12 +1740,20 @@ function HeaderBar({
           const isLast = index === breadcrumbs.length - 1;
           const folderPath = breadcrumbs.slice(0, index + 1).join("/");
           const isDropTarget = draggingItem && dropTargetPath === folderPath;
+          const isFileName = currentTab.type === "file" && isLast;
           return (
-            <span key={index} className="flex items-center gap-1">
+            <span key={index} className="flex min-w-0 items-center gap-1">
               <ChevronRightIcon className="size-4 text-neutral-300" />
               {isLast ? (
-                <span className="px-1.5 py-0.5 font-medium text-neutral-700">
-                  {crumb}
+                <span className="min-w-0 px-1.5 py-0.5 font-medium text-neutral-700">
+                  {isFileName ? (
+                    <HoverMarqueeText
+                      text={crumb}
+                      className="max-w-[min(42rem,52vw)]"
+                    />
+                  ) : (
+                    crumb
+                  )}
                 </span>
               ) : (
                 <span
@@ -1693,7 +1787,7 @@ function HeaderBar({
         })}
         {currentFile && (
           <span className="ml-2 text-xs text-neutral-400">
-            {formatFileSize(currentFile.size)} • {currentFile.mimeType}
+            {formatFileSize(currentFile.size)}
           </span>
         )}
       </div>
@@ -1793,7 +1887,7 @@ function HeaderBar({
             <CopyIcon className="size-4" />
           </button>
           <button
-            onClick={() => onDownload(currentFile.publicUrl, currentFile.name)}
+            onClick={() => onDownload(currentFile.path, currentFile.name)}
             className="rounded p-1.5 text-neutral-400 transition-colors hover:text-neutral-600"
             title="Download"
           >
@@ -1843,6 +1937,7 @@ function FolderView({
   selectedItems,
   onToggleSelection,
   onCopyToClipboard,
+  onDownload,
   onReplace,
   onDeleteSingle,
   onOpenPreview,
@@ -1866,6 +1961,7 @@ function FolderView({
   selectedItems: Set<string>;
   onToggleSelection: (path: string) => void;
   onCopyToClipboard: (text: string) => void;
+  onDownload: (path: string, filename: string) => void;
   onReplace: (file: File, path: string) => void;
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
@@ -1919,6 +2015,7 @@ function FolderView({
               isSelected={selectedItems.has(item.path)}
               onSelect={() => onToggleSelection(item.path)}
               onCopyPath={() => onCopyToClipboard(item.publicUrl)}
+              onDownload={() => onDownload(item.path, item.name)}
               onReplace={(file) => onReplace(file, item.path)}
               onDelete={() => onDeleteSingle(item.path)}
               onOpenPreview={() => onOpenPreview(item.path, item.name)}
@@ -1951,6 +2048,7 @@ function MediaItemCard({
   isSelected,
   onSelect,
   onCopyPath,
+  onDownload,
   onReplace,
   onDelete,
   onOpenPreview,
@@ -1969,6 +2067,7 @@ function MediaItemCard({
   isSelected: boolean;
   onSelect: () => void;
   onCopyPath: () => void;
+  onDownload: () => void;
   onReplace: (file: File) => void;
   onDelete: () => void;
   onOpenPreview: () => void;
@@ -2244,9 +2343,9 @@ function MediaItemCard({
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
@@ -2267,30 +2366,46 @@ function MediaItemCard({
       onClick={onOpenPreview}
       onContextMenu={handleContextMenu}
     >
-      <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
+      <div
+        className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
+        style={{ backgroundImage: "url(/patterns/dots.svg)" }}
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
         {isImage && item.publicUrl ? (
           <img
             src={item.publicUrl}
             alt={item.name}
-            className="h-full w-full object-cover"
+            className="relative z-10 h-full w-full object-contain p-4"
             loading="lazy"
           />
+        ) : isVideo && item.thumbnailUrl ? (
+          <div className="relative z-10 h-full w-full">
+            <img
+              src={item.thumbnailUrl}
+              alt={item.name}
+              className="h-full w-full object-contain p-4"
+              loading="lazy"
+            />
+            <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+              Video
+            </span>
+          </div>
         ) : isVideo ? (
-          <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
             <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Video
             </span>
           </div>
         ) : isAudio ? (
-          <div className="relative flex h-full w-full items-center justify-center bg-neutral-900">
+          <div className="relative z-10 flex h-full w-full items-center justify-center">
             <FileIcon className="size-12 text-neutral-400" />
             <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
               Audio
             </span>
           </div>
         ) : (
-          <FileIcon className="size-12 text-neutral-400" />
+          <FileIcon className="relative z-10 size-12 text-neutral-400" />
         )}
       </div>
 
@@ -2351,15 +2466,16 @@ function MediaItemCard({
                 <CopyIcon className="size-4" />
                 Copy URL
               </button>
-              <a
-                href={item.publicUrl}
-                download={item.name}
-                onClick={() => setShowMenu(false)}
+              <button
+                onClick={() => {
+                  setShowMenu(false);
+                  onDownload();
+                }}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
               >
                 <DownloadIcon className="size-4" />
                 Download
-              </a>
+              </button>
               <button
                 onClick={handleReplace}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
@@ -2448,15 +2564,16 @@ function MediaItemCard({
               <CopyIcon className="size-4" />
               Copy URL
             </button>
-            <a
-              href={item.publicUrl}
-              download={item.name}
-              onClick={closeContextMenu}
+            <button
+              onClick={() => {
+                closeContextMenu();
+                onDownload();
+              }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
             >
               <DownloadIcon className="size-4" />
               Download
-            </a>
+            </button>
             <button
               onClick={() => {
                 closeContextMenu();
@@ -2495,7 +2612,22 @@ function MediaItemCard({
   );
 }
 
-function FilePreview({ item }: { item: MediaItem | undefined }) {
+function FilePreview({
+  item,
+  isLoading,
+}: {
+  item: MediaItem | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center text-neutral-500">
+        <Spinner size={24} className="mr-2" />
+        Loading...
+      </div>
+    );
+  }
+
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center text-neutral-500">
@@ -2504,34 +2636,50 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
     );
   }
 
-  const isImage = item.mimeType?.startsWith("image/");
-  const isVideo = item.mimeType?.startsWith("video/");
-  const isAudio = item.mimeType?.startsWith("audio/");
+  const isImage = item.kind === "image" || item.mimeType?.startsWith("image/");
+  const isVideo = item.kind === "video" || item.mimeType?.startsWith("video/");
+  const isAudio = item.kind === "audio" || item.mimeType?.startsWith("audio/");
 
   return (
     <div
-      className="flex h-full flex-1 items-center justify-center overflow-hidden bg-neutral-50 p-4"
+      className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-white p-4"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
       {isImage && (
         <img
           src={item.publicUrl}
           alt={item.name}
-          className="max-h-full max-w-full object-scale-down"
+          className="relative z-10 max-h-full max-w-full object-scale-down"
         />
       )}
       {isVideo && (
-        <video
-          src={item.publicUrl}
-          controls
-          className="max-h-full max-w-full object-contain"
-        />
+        <>
+          {item.playbackId ? (
+            <div className="relative z-10 w-full max-w-5xl overflow-hidden rounded-lg border border-neutral-200 bg-black">
+              <MuxPlayer
+                playbackId={item.playbackId}
+                className="aspect-video w-full"
+              />
+            </div>
+          ) : (
+            <video
+              src={item.publicUrl}
+              controls
+              className="relative z-10 max-h-full max-w-full object-contain"
+            />
+          )}
+        </>
       )}
       {isAudio && (
-        <audio src={item.publicUrl} controls className="w-full max-w-md" />
+        <audio
+          src={item.publicUrl}
+          controls
+          className="relative z-10 w-full max-w-md"
+        />
       )}
       {!isImage && !isVideo && !isAudio && (
-        <div className="text-center">
+        <div className="relative z-10 text-center">
           <FileIcon className="mb-4 size-16 text-neutral-400" />
           <p className="text-sm text-neutral-600">{item.name}</p>
           <p className="mt-1 text-xs text-neutral-400">

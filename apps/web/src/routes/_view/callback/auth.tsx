@@ -1,4 +1,3 @@
-import { useOutlit } from "@outlit/browser/react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -132,12 +131,11 @@ export const Route = createFileRoute("/_view/callback/auth")({
 function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { identify: identifyOutlit, isInitialized } = useOutlit();
   const { identify: identifyPosthog } = useAnalytics();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!search.access_token || !isInitialized) return;
+    if (!search.access_token) return;
 
     try {
       const payload = JSON.parse(atob(search.access_token.split(".")[1]));
@@ -145,19 +143,12 @@ function Component() {
       const userId = payload.sub;
 
       if (email && userId) {
-        identifyOutlit({
-          email,
-          userId,
-          traits: {
-            auth_provider: payload.app_metadata?.provider,
-          },
-        });
         identifyPosthog(userId, { email });
       }
     } catch (e) {
       console.error("Failed to decode JWT for identify:", e);
     }
-  }, [search.access_token, identifyOutlit, isInitialized]);
+  }, [search.access_token, identifyPosthog]);
 
   const getDeeplink = () => {
     if (search.access_token && search.refresh_token) {

@@ -18,12 +18,13 @@ export function ApplePermissions() {
   return (
     <div className="flex flex-col gap-1">
       <AccessPermissionRow
-        title="Calendar"
+        title="Apple Calendar"
         status={calendar.status}
         isPending={calendar.isPending}
         onOpen={calendar.open}
         onRequest={calendar.request}
         onReset={calendar.reset}
+        showActionButton={false}
       />
     </div>
   );
@@ -60,6 +61,7 @@ export function AccessPermissionRow({
   onOpen,
   onRequest,
   onReset,
+  showActionButton = true,
 }: {
   title: string;
   status: PermissionStatus | undefined;
@@ -67,6 +69,7 @@ export function AccessPermissionRow({
   onOpen: () => void;
   onRequest: () => void;
   onReset: () => void;
+  showActionButton?: boolean;
 }) {
   const isAuthorized = status === "authorized";
   const isDenied = status === "denied";
@@ -80,7 +83,14 @@ export function AccessPermissionRow({
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
+    <div
+      className={cn([
+        "flex gap-4 py-2",
+        showActionButton
+          ? "items-center justify-between"
+          : "items-start justify-start",
+      ])}
+    >
       <div className="flex-1">
         <div
           className={cn([
@@ -98,27 +108,29 @@ export function AccessPermissionRow({
           isPending={isPending}
         />
       </div>
-      <Button
-        variant={isAuthorized ? "outline" : "default"}
-        size="icon"
-        onClick={handleButtonClick}
-        disabled={isPending}
-        className={cn([
-          "size-8",
-          isAuthorized && "bg-stone-100 text-stone-800 hover:bg-stone-200",
-        ])}
-        aria-label={
-          isAuthorized
-            ? `Open ${title.toLowerCase()} settings`
-            : `Request ${title.toLowerCase()}`
-        }
-      >
-        {isAuthorized ? (
-          <CheckIcon className="size-5" />
-        ) : (
-          <ArrowRightIcon className="size-5" />
-        )}
-      </Button>
+      {showActionButton && (
+        <Button
+          variant={isAuthorized ? "outline" : "default"}
+          size="icon"
+          onClick={handleButtonClick}
+          disabled={isPending}
+          className={cn([
+            "size-8",
+            isAuthorized && "bg-stone-100 text-stone-800 hover:bg-stone-200",
+          ])}
+          aria-label={
+            isAuthorized
+              ? `Open ${title.toLowerCase()} settings`
+              : `Request ${title.toLowerCase()}`
+          }
+        >
+          {isAuthorized ? (
+            <CheckIcon className="size-5" />
+          ) : (
+            <ArrowRightIcon className="size-5" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }
@@ -128,15 +140,17 @@ export function TroubleShootingLink({
   onReset,
   onOpen,
   isPending,
+  className,
 }: {
   onRequest: () => void;
   onReset: () => void;
   onOpen: () => void;
   isPending: boolean;
+  className?: string;
 }) {
   const [showActions, setShowActions] = useState(false);
   return (
-    <div className="text-xs text-neutral-600">
+    <div className={cn(["text-xs text-neutral-600", className])}>
       {!showActions ? (
         <button
           type="button"

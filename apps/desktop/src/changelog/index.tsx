@@ -1,7 +1,7 @@
 import { CalendarIcon, ExternalLinkIcon, SparklesIcon } from "lucide-react";
-import { useRef } from "react";
-import { Streamdown } from "streamdown";
+import { useEffect, useRef } from "react";
 
+import { ChangelogContent } from "@hypr/changelog";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import {
   Breadcrumb,
@@ -17,9 +17,9 @@ import {
 } from "@hypr/ui/components/ui/scroll-fade";
 import { safeFormat } from "@hypr/utils";
 
-import { changelogComponents } from "./components";
 import { useChangelogContent } from "./data";
 
+import { useShell } from "~/contexts/shell";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { type Tab } from "~/store/zustand/tabs";
@@ -57,6 +57,14 @@ export function TabContentChangelog({
   tab: Extract<Tab, { type: "changelog" }>;
 }) {
   const { current } = tab.state;
+  const { leftsidebar, chat } = useShell();
+
+  useEffect(() => {
+    leftsidebar.setExpanded(false);
+    if (chat.mode === "RightPanelOpen" || chat.mode === "FloatingOpen") {
+      chat.sendEvent({ type: "CLOSE" });
+    }
+  }, []);
 
   const { content, date, loading } = useChangelogContent(current);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -79,27 +87,97 @@ export function TabContentChangelog({
           {!atStart && <ScrollFadeOverlay position="top" />}
           {!atEnd && <ScrollFadeOverlay position="bottom" />}
           <div ref={scrollRef} className="h-full overflow-y-auto px-3 pb-4">
-            {loading ? (
-              <p className="text-neutral-500">Loading...</p>
-            ) : content ? (
-              <Streamdown
-                components={changelogComponents}
-                allowedTags={{ banner: ["title", "variant"] }}
-                isAnimating={false}
-                linkSafety={{ enabled: false }}
-              >
-                {content}
-              </Streamdown>
-            ) : (
-              <p className="text-neutral-500">
-                No changelog available for this version.
-              </p>
-            )}
+            <ChangelogBody
+              version={current}
+              content={content}
+              loading={loading}
+            />
           </div>
         </div>
       </div>
     </StandardTabWrapper>
   );
+}
+
+function ExternalLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      className="text-blue-600 underline hover:text-blue-800"
+      href={href}
+      onClick={(e) => {
+        e.preventDefault();
+        void openerCommands.openUrl(href, null);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function ChangelogBody({
+  version,
+  content,
+  loading,
+}: {
+  version: string;
+  content: string | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <p className="text-neutral-500">Loading...</p>;
+  }
+
+  if (content) {
+    return (
+      <ChangelogContent
+        content={content}
+        components={{
+          a: ({
+            href,
+            children,
+          }: {
+            href?: string;
+            children?: React.ReactNode;
+          }) =>
+            href ? (
+              <ExternalLink href={href}>{children}</ExternalLink>
+            ) : (
+              <>{children}</>
+            ),
+        }}
+      />
+    );
+  }
+
+  if (isNightly(version)) {
+    return (
+      <p className="text-neutral-500">
+        This is a nightly build. See the{" "}
+        <ExternalLink href={githubReleaseUrl(version)}>
+          GitHub release
+        </ExternalLink>{" "}
+        for details.
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-neutral-500">No changelog available for this version.</p>
+  );
+}
+
+function isNightly(version: string) {
+  return version.includes("nightly");
+}
+
+function githubReleaseUrl(version: string) {
+  return `https://github.com/fastrepl/char/releases/tag/desktop_v${version}`;
 }
 
 function ChangelogHeader({
@@ -110,6 +188,9 @@ function ChangelogHeader({
   date: string | null;
 }) {
   const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
+  const webUrl = isNightly(version)
+    ? githubReleaseUrl(version)
+    : `https://char.com/changelog/${version}`;
 
   return (
     <div className="w-full pt-1">
@@ -143,12 +224,7 @@ function ChangelogHeader({
             size="sm"
             variant="ghost"
             className="gap-1.5 text-neutral-600 hover:text-black"
-            onClick={() =>
-              openerCommands.openUrl(
-                `https://char.com/changelog/${version}`,
-                null,
-              )
-            }
+            onClick={() => openerCommands.openUrl(webUrl, null)}
           >
             <ExternalLinkIcon size={14} />
             <span>Open in web</span>

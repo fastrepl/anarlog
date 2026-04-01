@@ -161,6 +161,53 @@ describe("processTranscriptFile", () => {
     });
   });
 
+  test("rounds imported transcript timings to integer milliseconds", () => {
+    const result = createEmptyLoadedSessionData();
+    const content = JSON.stringify({
+      transcripts: [
+        {
+          id: "transcript-1",
+          user_id: "user-1",
+          created_at: "2024-01-01T00:00:00Z",
+          session_id: "session-1",
+          started_at: 1000.6,
+          ended_at: 2000.4,
+          words: [
+            {
+              id: "w1",
+              text: "hello",
+              start_ms: 10.4,
+              end_ms: 19.6,
+              channel: 0,
+            },
+          ],
+          speaker_hints: [],
+        },
+      ],
+    });
+
+    processTranscriptFile("/path/to/transcript.json", content, result);
+
+    expect(result.transcripts["transcript-1"]).toEqual({
+      user_id: "user-1",
+      created_at: "2024-01-01T00:00:00Z",
+      session_id: "session-1",
+      started_at: 1001,
+      ended_at: 2000,
+      memo_md: "",
+      words: JSON.stringify([
+        {
+          id: "w1",
+          text: "hello",
+          start_ms: 10,
+          end_ms: 20,
+          channel: 0,
+        },
+      ]),
+      speaker_hints: JSON.stringify([]),
+    });
+  });
+
   test("normalizes legacy null and omitted transcript fields", () => {
     const result = createEmptyLoadedSessionData();
     const content = JSON.stringify({

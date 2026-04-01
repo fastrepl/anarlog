@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-control-set-always-on-top"
+description = "Enables the control_set_always_on_top command without any pre-configured scope."
+commands.allow = ["control_set_always_on_top"]
+
+[[permission]]
+identifier = "deny-control-set-always-on-top"
+description = "Denies the control_set_always_on_top command without any pre-configured scope."
+commands.deny = ["control_set_always_on_top"]

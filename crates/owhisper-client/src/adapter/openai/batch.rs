@@ -173,6 +173,7 @@ fn convert_response(response: OpenAIVerboseResponse) -> BatchResponse {
                     start: w.start,
                     end: w.end,
                     confidence: 1.0,
+                    channel: 0,
                     speaker: None,
                     punctuated_word: Some(w.word),
                 }

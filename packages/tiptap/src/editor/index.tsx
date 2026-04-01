@@ -1,6 +1,5 @@
 import "../../styles.css";
 
-import { isNodeActive } from "@tiptap/core";
 import {
   EditorContent,
   type JSONContent,
@@ -39,7 +38,7 @@ interface EditorProps {
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
   extensionOptions?: ExtensionOptions;
-  onNavigateToTitle?: () => void;
+  onNavigateToTitle?: (pixelWidth?: number) => void;
 }
 
 const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
@@ -143,16 +142,8 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
                 if (ctx) {
                   ctx.font = `${editorStyle.fontWeight} ${editorStyle.fontSize} ${editorStyle.fontFamily}`;
                   const editorWidth = ctx.measureText(textBeforeCursor).width;
-
-                  setTimeout(() => {
-                    const navEvent = new CustomEvent(
-                      "editor-move-to-title-position",
-                      {
-                        detail: { pixelWidth: editorWidth },
-                      },
-                    );
-                    window.dispatchEvent(navEvent);
-                  }, 0);
+                  onNavigateToTitle(editorWidth);
+                  return true;
                 }
               }
             }
@@ -162,9 +153,7 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
           }
 
           if (event.key === "Tab" && event.shiftKey) {
-            const isInListItem =
-              isNodeActive(state, "listItem") ||
-              isNodeActive(state, "taskItem");
+            const isInListItem = shared.isSelectionInListItem(state);
             if (!isInListItem && isInFirstBlock && onNavigateToTitle) {
               event.preventDefault();
               onNavigateToTitle();
@@ -180,9 +169,7 @@ const Editor = forwardRef<{ editor: TiptapEditor | null }, EditorProps>(
           }
 
           if (event.key === "Tab") {
-            const isInListItem =
-              isNodeActive(state, "listItem") ||
-              isNodeActive(state, "taskItem");
+            const isInListItem = shared.isSelectionInListItem(state);
             if (isInListItem) {
               return false;
             }

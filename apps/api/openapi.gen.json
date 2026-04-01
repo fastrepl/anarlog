@@ -266,6 +266,334 @@
         }
       }
     },
+    "/mail/google/get-attachment": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_get_attachment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleGetAttachmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail attachment fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Attachment"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/get-message": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_get_message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleGetMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail message fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/get-profile": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_get_profile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleGetProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail profile fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/get-thread": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_get_thread",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleGetThreadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail thread fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Thread"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/list-history": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_list_history",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListHistoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail history fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListHistoryResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/list-labels": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_list_labels",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListLabelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail labels fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListLabelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/list-messages": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_list_messages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListMessagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail messages fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListMessagesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/mail/google/list-threads": {
+      "post": {
+        "tags": [
+          "mail"
+        ],
+        "operationId": "google_list_threads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleListThreadsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Google mail threads fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListThreadsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/nango/connections": {
       "get": {
         "tags": [
@@ -404,6 +732,37 @@
             "description": "Invalid signature"
           }
         }
+      }
+    },
+    "/nango/whoami": {
+      "get": {
+        "tags": [
+          "nango"
+        ],
+        "operationId": "whoami",
+        "responses": {
+          "200": {
+            "description": "User info for all connections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoAmIResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       }
     },
     "/stt/listen": {
@@ -920,6 +1279,170 @@
           }
         }
       }
+    },
+    "/ticket/github/list-repos": {
+      "post": {
+        "tags": [
+          "ticket"
+        ],
+        "operationId": "github_list_repos",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubListReposRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "GitHub repositories fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/ticket/github/list-tickets": {
+      "post": {
+        "tags": [
+          "ticket"
+        ],
+        "operationId": "github_list_tickets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitHubListTicketsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "GitHub tickets fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/ticket/linear/list-teams": {
+      "post": {
+        "tags": [
+          "ticket"
+        ],
+        "operationId": "linear_list_teams",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearListTeamsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Linear teams fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/ticket/linear/list-tickets": {
+      "post": {
+        "tags": [
+          "ticket"
+        ],
+        "operationId": "linear_list_tickets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearListTicketsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Linear tickets fetched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -933,6 +1456,25 @@
           "owner",
           "unknown"
         ]
+      },
+      "Attachment": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "AttendeeResponseStatus": {
         "type": "string",
@@ -1465,6 +2007,55 @@
           "doNotDisturb",
           "unknown"
         ]
+      },
+      "CollectionPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CollectionRef"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CollectionRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Short identifier. GitHub: \"owner/repo\", Linear: team key (e.g., \"ENG\")."
+          },
+          "name": {
+            "type": "string",
+            "description": "Display name. GitHub: \"owner/repo\", Linear: team name."
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "ConferenceCreateRequest": {
         "type": "object",
@@ -2308,6 +2899,229 @@
           "unknown"
         ]
       },
+      "GetMessageRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "format": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageFormat"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata_headers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GetThreadRequest": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "format": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageFormat"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata_headers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GitHubListReposRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "GitHubListTicketsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "owner",
+          "repo"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "labels": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "owner": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GoogleGetAttachmentRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "message_id",
+          "attachment_id"
+        ],
+        "properties": {
+          "attachment_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleGetMessageRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata_headers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GoogleGetProfileRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleGetThreadRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "metadata_headers": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "GoogleListCalendarsRequest": {
         "type": "object",
         "required": [
@@ -2372,6 +3186,259 @@
           }
         }
       },
+      "GoogleListHistoryRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "start_history_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "history_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "label_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_history_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleListLabelsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleListMessagesRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "include_spam_trash": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "GoogleListThreadsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "include_spam_trash": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "History": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "labelsAdded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryLabelAdded"
+            }
+          },
+          "labelsRemoved": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryLabelRemoved"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "messagesAdded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryMessageAdded"
+            }
+          },
+          "messagesDeleted": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryMessageDeleted"
+            }
+          }
+        }
+      },
+      "HistoryLabelAdded": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        }
+      },
+      "HistoryLabelRemoved": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        }
+      },
+      "HistoryMessageAdded": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        }
+      },
+      "HistoryMessageDeleted": {
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/Message"
+          }
+        }
+      },
+      "HistoryType": {
+        "type": "string",
+        "enum": [
+          "messageAdded",
+          "messageDeleted",
+          "labelAdded",
+          "labelRemoved"
+        ]
+      },
       "Importance": {
         "type": "string",
         "enum": [
@@ -2406,6 +3473,208 @@
                 "$ref": "#/components/schemas/BodyType"
               }
             ]
+          }
+        }
+      },
+      "Label": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "color": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LabelColor"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "labelListVisibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LabelListVisibility"
+              }
+            ]
+          },
+          "messageListVisibility": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageListVisibility"
+              }
+            ]
+          },
+          "messagesTotal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "messagesUnread": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string"
+          },
+          "threadsTotal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "threadsUnread": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LabelType"
+              }
+            ]
+          }
+        }
+      },
+      "LabelColor": {
+        "type": "object",
+        "properties": {
+          "backgroundColor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "textColor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "LabelListVisibility": {
+        "type": "string",
+        "enum": [
+          "labelShow",
+          "labelShowIfUnread",
+          "labelHide",
+          "unknown"
+        ]
+      },
+      "LabelRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "color": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "LabelType": {
+        "type": "string",
+        "enum": [
+          "system",
+          "user",
+          "unknown"
+        ]
+      },
+      "LinearListTeamsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "LinearListTicketsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "team_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "query": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "type": "string"
           }
         }
       },
@@ -2541,6 +3810,210 @@
           }
         }
       },
+      "ListHistoryRequest": {
+        "type": "object",
+        "required": [
+          "start_history_id"
+        ],
+        "properties": {
+          "history_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/HistoryType"
+            }
+          },
+          "label_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "start_history_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ListHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/History"
+            }
+          },
+          "historyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "nextPageToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ListLabelsResponse": {
+        "type": "object",
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Label"
+            }
+          }
+        }
+      },
+      "ListMessagesRequest": {
+        "type": "object",
+        "properties": {
+          "include_spam_trash": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ListMessagesResponse": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessageRef"
+            }
+          },
+          "nextPageToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resultSizeEstimate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "ListThreadsRequest": {
+        "type": "object",
+        "properties": {
+          "include_spam_trash": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label_ids": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_results": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "page_token": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ListThreadsResponse": {
+        "type": "object",
+        "properties": {
+          "nextPageToken": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resultSizeEstimate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "threads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ThreadRef"
+            }
+          }
+        }
+      },
       "ListenCallbackRequest": {
         "type": "object",
         "required": [
@@ -2631,6 +4104,186 @@
           "postalAddress",
           "unknown"
         ]
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "id",
+          "threadId"
+        ],
+        "properties": {
+          "historyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "internalDate": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "labelIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "payload": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessagePart"
+              }
+            ]
+          },
+          "raw": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sizeEstimate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "threadId": {
+            "type": "string"
+          }
+        }
+      },
+      "MessageFormat": {
+        "type": "string",
+        "enum": [
+          "full",
+          "metadata",
+          "minimal",
+          "raw"
+        ]
+      },
+      "MessageListVisibility": {
+        "type": "string",
+        "enum": [
+          "show",
+          "hide",
+          "unknown"
+        ]
+      },
+      "MessagePart": {
+        "type": "object",
+        "properties": {
+          "body": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessagePartBody"
+              }
+            ]
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "headers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessagePartHeader"
+            }
+          },
+          "mimeType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "partId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessagePart"
+            }
+          }
+        }
+      },
+      "MessagePartBody": {
+        "type": "object",
+        "properties": {
+          "attachmentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "data": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "MessagePartHeader": {
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "MessageRef": {
+        "type": "object",
+        "required": [
+          "id",
+          "threadId"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "threadId": {
+            "type": "string"
+          }
+        }
       },
       "MessageResponse": {
         "type": "object",
@@ -2914,6 +4567,35 @@
           }
         }
       },
+      "PersonRef": {
+        "type": "object",
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "PhysicalAddress": {
         "type": "object",
         "properties": {
@@ -2956,6 +4638,82 @@
           "done",
           "error"
         ]
+      },
+      "Profile": {
+        "type": "object",
+        "required": [
+          "emailAddress"
+        ],
+        "properties": {
+          "emailAddress": {
+            "type": "string"
+          },
+          "historyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messagesTotal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "threadsTotal": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "PullRequestDetail": {
+        "type": "object",
+        "required": [
+          "is_draft",
+          "is_merged"
+        ],
+        "properties": {
+          "is_draft": {
+            "type": "boolean"
+          },
+          "is_merged": {
+            "type": "boolean"
+          },
+          "merged_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "merged_by": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              }
+            ]
+          },
+          "source_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "target_branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
       },
       "Recipient": {
         "type": "object",
@@ -3603,6 +5361,231 @@
           }
         }
       },
+      "Thread": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "historyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ThreadRef": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "historyId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TicketKind": {
+        "type": "string",
+        "enum": [
+          "issue",
+          "pull_request"
+        ]
+      },
+      "TicketPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TicketPriority": {
+        "type": "string",
+        "enum": [
+          "urgent",
+          "high",
+          "medium",
+          "low",
+          "none"
+        ]
+      },
+      "TicketProviderType": {
+        "type": "string",
+        "enum": [
+          "github",
+          "linear"
+        ]
+      },
+      "TicketState": {
+        "type": "string",
+        "enum": [
+          "backlog",
+          "open",
+          "in_progress",
+          "done",
+          "closed"
+        ]
+      },
+      "TicketSummary": {
+        "type": "object",
+        "required": [
+          "provider",
+          "kind",
+          "id",
+          "collection",
+          "title",
+          "state",
+          "assignees",
+          "labels",
+          "url",
+          "created_at",
+          "updated_at",
+          "raw"
+        ],
+        "properties": {
+          "assignees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonRef"
+            }
+          },
+          "author": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PersonRef"
+              }
+            ]
+          },
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO 8601."
+          },
+          "collection": {
+            "$ref": "#/components/schemas/CollectionRef"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "ISO 8601."
+          },
+          "id": {
+            "type": "string",
+            "description": "Provider-specific unique ID."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TicketKind"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LabelRef"
+            }
+          },
+          "number": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Numeric identifier (GitHub: number, Linear: number).",
+            "minimum": 0
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          },
+          "provider": {
+            "$ref": "#/components/schemas/TicketProviderType"
+          },
+          "pull_request": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PullRequestDetail",
+                "description": "Present only when kind == PullRequest."
+              }
+            ]
+          },
+          "raw": {
+            "type": "string",
+            "description": "Raw provider JSON for forward compatibility."
+          },
+          "state": {
+            "$ref": "#/components/schemas/TicketState"
+          },
+          "state_detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Provider's original state string for display (e.g. \"In Review\", \"merged\")."
+          },
+          "title": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "ISO 8601."
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
       "Transparency": {
         "type": "string",
         "enum": [
@@ -3642,6 +5625,53 @@
           "last",
           "unknown"
         ]
+      },
+      "WhoAmIItem": {
+        "type": "object",
+        "required": [
+          "integration_id",
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "integration_id": {
+            "type": "string"
+          }
+        }
+      },
+      "WhoAmIResponse": {
+        "type": "object",
+        "required": [
+          "accounts"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WhoAmIItem"
+            }
+          }
+        }
       },
       "WorkingLocationProperties": {
         "type": "object",
@@ -4936,6 +6966,14 @@
     {
       "name": "calendar",
       "description": "Calendar management"
+    },
+    {
+      "name": "mail",
+      "description": "Mail management"
+    },
+    {
+      "name": "ticket",
+      "description": "Ticket management"
     },
     {
       "name": "nango",

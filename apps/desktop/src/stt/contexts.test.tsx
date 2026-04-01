@@ -41,7 +41,7 @@ describe("ListenerProvider detect events", () => {
     listenMock.mockResolvedValue(() => {});
   });
 
-  test("does not stop listening when MicStopped arrives", async () => {
+  test("stops listening when MicStopped arrives", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -65,7 +65,7 @@ describe("ListenerProvider detect events", () => {
       },
     });
 
-    expect(stopSpy).not.toHaveBeenCalled();
+    expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
   test("stops listening when sleep starts", async () => {

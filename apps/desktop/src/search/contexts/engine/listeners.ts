@@ -9,6 +9,7 @@ import {
 import {
   collectCells,
   collectEnhancedNotesContent,
+  getSessionSearchTimestamp,
   toEpochMs,
   toTrimmedString,
 } from "./utils";
@@ -32,6 +33,7 @@ export function createSessionListener(): RowListener<
         const fields = [
           "user_id",
           "created_at",
+          "event_json",
           "title",
           "raw_md",
           "transcript",
@@ -47,7 +49,7 @@ export function createSessionListener(): RowListener<
             language: null,
             title,
             content: createSessionSearchableContent(row),
-            created_at: toEpochMs(row.created_at),
+            created_at: getSessionSearchTimestamp(row),
             facets: [],
           },
           null,

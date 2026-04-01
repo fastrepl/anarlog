@@ -1,29 +1,40 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type {
-  JSONContent,
-  SlashCommandConfig,
-  TiptapEditor,
-} from "@hypr/tiptap/chat";
 import { EMPTY_TIPTAP_DOC } from "@hypr/tiptap/shared";
 
+import type { ContextRef } from "~/chat/context/entities";
+import type { ChatEditorHandle, JSONContent } from "~/editor/chat";
+import type { MentionConfig } from "~/editor/widgets";
 import { useSearchEngine } from "~/search/contexts/engine";
 import * as main from "~/store/tinybase/store/main";
 
 const draftsByKey = new Map<string, JSONContent>();
 
-export function useDraftState({ draftKey }: { draftKey: string }) {
+export function useDraftState({
+  draftKey,
+  onContextRefsChange,
+}: {
+  draftKey: string;
+  onContextRefsChange?: (refs: ContextRef[]) => void;
+}) {
   const [hasContent, setHasContent] = useState(false);
   const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_TIPTAP_DOC);
+
+  useEffect(() => {
+    onContextRefsChange?.(
+      extractContextRefsFromTiptapJson(initialContent.current),
+    );
+  }, [onContextRefsChange]);
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
       const text = tiptapJsonToText(json).trim();
       setHasContent(text.length > 0);
       draftsByKey.set(draftKey, json);
+      onContextRefsChange?.(extractContextRefsFromTiptapJson(json));
     },
-    [draftKey],
+    [draftKey, onContextRefsChange],
   );
 
   return {
@@ -39,40 +50,54 @@ export function useSubmit({
   disabled,
   isStreaming,
   onSendMessage,
+  onContextRefsChange,
 }: {
   draftKey: string;
-  editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
+  editorRef: React.RefObject<ChatEditorHandle | null>;
   disabled?: boolean;
   isStreaming?: boolean;
   onSendMessage: (
     content: string,
     parts: Array<{ type: "text"; text: string }>,
+    contextRefs?: ContextRef[],
   ) => void;
+  onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   return useCallback(() => {
-    const json = editorRef.current?.editor?.getJSON();
+    const json = editorRef.current?.getJSON();
     const text = tiptapJsonToText(json).trim();
+    const mentionRefs = extractContextRefsFromTiptapJson(json);
 
     if (!text || disabled || isStreaming) {
       return;
     }
 
     void analyticsCommands.event({ event: "message_sent" });
-    onSendMessage(text, [{ type: "text", text }]);
-    editorRef.current?.editor?.commands.clearContent();
+    onSendMessage(text, [{ type: "text", text }], mentionRefs);
+    editorRef.current?.clearContent();
     draftsByKey.delete(draftKey);
-  }, [draftKey, editorRef, disabled, isStreaming, onSendMessage]);
+    onContextRefsChange?.([]);
+  }, [
+    draftKey,
+    editorRef,
+    disabled,
+    isStreaming,
+    onSendMessage,
+    onContextRefsChange,
+  ]);
 }
 
 export function useAutoFocusEditor({
   editorRef,
   disabled,
+  shouldFocus = true,
 }: {
-  editorRef: React.RefObject<{ editor: TiptapEditor | null } | null>;
+  editorRef: React.RefObject<ChatEditorHandle | null>;
   disabled?: boolean;
+  shouldFocus?: boolean;
 }) {
   useEffect(() => {
-    if (disabled) {
+    if (disabled || !shouldFocus) {
       return;
     }
 
@@ -80,11 +105,9 @@ export function useAutoFocusEditor({
     let attempts = 0;
     const maxAttempts = 20;
 
-    const focusWhenReady = () => {
-      const editor = editorRef.current?.editor;
-
-      if (editor && !editor.isDestroyed && editor.isInitialized) {
-        editor.commands.focus();
+    const tryFocus = () => {
+      if (editorRef.current) {
+        editorRef.current.focus();
         return;
       }
 
@@ -93,20 +116,20 @@ export function useAutoFocusEditor({
       }
 
       attempts += 1;
-      rafId = window.requestAnimationFrame(focusWhenReady);
+      rafId = window.requestAnimationFrame(tryFocus);
     };
 
-    focusWhenReady();
+    tryFocus();
 
     return () => {
       if (rafId !== null) {
         window.cancelAnimationFrame(rafId);
       }
     };
-  }, [editorRef, disabled]);
+  }, [editorRef, disabled, shouldFocus]);
 }
 
-export function useSlashCommandConfig(): SlashCommandConfig {
+export function useMentionConfig(): MentionConfig {
   const sessions = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
     main.STORE_ID,
@@ -123,6 +146,7 @@ export function useSlashCommandConfig(): SlashCommandConfig {
 
   return useMemo(
     () => ({
+      trigger: "@",
       handleSearch: async (query: string) => {
         const results: {
           id: string;
@@ -177,7 +201,7 @@ function tiptapJsonToText(json: any): string {
     return json.text || "";
   }
 
-  if (json.type === "mention") {
+  if (typeof json.type === "string" && json.type.startsWith("mention-")) {
     return `@${json.attrs?.label || json.attrs?.id || ""}`;
   }
 
@@ -186,4 +210,66 @@ function tiptapJsonToText(json: any): string {
   }
 
   return "";
+}
+
+function extractContextRefsFromTiptapJson(
+  json: JSONContent | undefined,
+): ContextRef[] {
+  const refs: ContextRef[] = [];
+  const seen = new Set<string>();
+
+  const visit = (node: JSONContent | undefined) => {
+    if (!node || typeof node !== "object") {
+      return;
+    }
+
+    if (typeof node.type === "string" && node.type.startsWith("mention-")) {
+      const mentionType =
+        typeof node.attrs?.type === "string" ? node.attrs.type : null;
+      const mentionId =
+        typeof node.attrs?.id === "string" ? node.attrs.id : null;
+
+      if (!mentionType || !mentionId) {
+        return;
+      }
+
+      let ref: ContextRef | null = null;
+      if (mentionType === "session") {
+        ref = {
+          kind: "session",
+          key: `session:manual:${mentionId}`,
+          source: "manual",
+          sessionId: mentionId,
+        };
+      } else if (mentionType === "human") {
+        ref = {
+          kind: "human",
+          key: `human:manual:${mentionId}`,
+          source: "manual",
+          humanId: mentionId,
+        };
+      } else if (mentionType === "organization") {
+        ref = {
+          kind: "organization",
+          key: `organization:manual:${mentionId}`,
+          source: "manual",
+          organizationId: mentionId,
+        };
+      }
+
+      if (ref && !seen.has(ref.key)) {
+        seen.add(ref.key);
+        refs.push(ref);
+      }
+    }
+
+    if (Array.isArray(node.content)) {
+      for (const child of node.content) {
+        visit(child);
+      }
+    }
+  };
+
+  visit(json);
+  return refs;
 }

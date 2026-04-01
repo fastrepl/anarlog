@@ -379,6 +379,18 @@
           "markdownDescription": "Denies the list_microphone_devices command without any pre-configured scope."
         },
         {
+          "description": "Enables the render_transcript_segments command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-render-transcript-segments",
+          "markdownDescription": "Enables the render_transcript_segments command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the render_transcript_segments command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-render-transcript-segments",
+          "markdownDescription": "Denies the render_transcript_segments command without any pre-configured scope."
+        },
+        {
           "description": "Enables the run_batch command without any pre-configured scope.",
           "type": "string",
           "const": "allow-run-batch",
@@ -451,10 +463,10 @@
           "markdownDescription": "Denies the suggest_providers_for_languages_live command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-set-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-run-batch`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-set-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-run-batch`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-set-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-run-batch`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-set-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-run-batch`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`"
         }
       ]
     }

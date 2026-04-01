@@ -7,7 +7,15 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { Reorder } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/shallow";
@@ -23,10 +31,9 @@ import {
 import { cn } from "@hypr/utils";
 
 import { TabContentEmpty, TabItemEmpty } from "./empty";
-import { HeaderListenButton } from "./header-listen-button";
-import { useNewNoteAndListen } from "./useNewNote";
+import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 
-import { TabContentAI, TabItemAI } from "~/ai";
+import { useBillingAccess } from "~/auth/billing";
 import { TabContentCalendar, TabItemCalendar } from "~/calendar";
 import { TabContentChangelog, TabItemChangelog } from "~/changelog";
 import { ChatFloatingButton } from "~/chat/components/floating-button";
@@ -37,14 +44,13 @@ import { TabContentContact, TabItemContact } from "~/contacts";
 import { TabContentHuman, TabItemHuman } from "~/contacts/humans";
 import { useNotifications } from "~/contexts/notifications";
 import { useShell } from "~/contexts/shell";
+import { TabContentDaily, TabItemDaily } from "~/daily";
 import { TabContentEdit, TabItemEdit } from "~/edit";
 import { TabContentFolder, TabItemFolder } from "~/folders";
 import { TabContentOnboarding, TabItemOnboarding } from "~/onboarding";
-import { TabContentPlugin, TabItemPlugin } from "~/plugins";
-import { loadPlugins } from "~/plugins/loader";
-import { TabContentSearch, TabItemSearch } from "~/search/advanced";
 import { TabContentNote, TabItemNote } from "~/session";
 import { useCaretPosition } from "~/session/components/caret-position-context";
+import { useShouldShowListeningFab } from "~/session/components/floating";
 import { TabContentSettings, TabItemSettings } from "~/settings";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { NotificationBadge } from "~/shared/ui/notification-badge";
@@ -54,6 +60,24 @@ import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { TabContentTemplate, TabItemTemplate } from "~/templates";
 
+const MainChromeContext = createContext({
+  showFloatingChatButton: true,
+});
+
+export function MainChromeProvider({
+  children,
+  showFloatingChatButton = true,
+}: {
+  children: React.ReactNode;
+  showFloatingChatButton?: boolean;
+}) {
+  return (
+    <MainChromeContext.Provider value={{ showFloatingChatButton }}>
+      {children}
+    </MainChromeContext.Provider>
+  );
+}
+
 export function Body() {
   const { tabs, currentTab } = useTabs(
     useShallow((state) => ({
@@ -61,10 +85,6 @@ export function Body() {
       currentTab: state.currentTab,
     })),
   );
-
-  useEffect(() => {
-    void loadPlugins();
-  }, []);
 
   if (!currentTab) {
     return null;
@@ -74,7 +94,7 @@ export function Body() {
     <div className="relative flex h-full flex-1 flex-col gap-1">
       <Header tabs={tabs} />
       <div className="flex-1 overflow-auto">
-        <ContentWrapper key={uniqueIdfromTab(currentTab)} tab={currentTab} />
+        <MainTabContent key={uniqueIdfromTab(currentTab)} tab={currentTab} />
       </div>
     </div>
   );
@@ -82,7 +102,9 @@ export function Body() {
 
 function Header({ tabs }: { tabs: Tab[] }) {
   const { leftsidebar } = useShell();
-  const isLinux = platform() === "linux";
+  const currentPlatform = platform();
+  const isLinux = currentPlatform === "linux";
+  const chatShortcutLabel = currentPlatform === "macos" ? "⌘ J" : "Ctrl J";
   const notifications = useNotifications();
   const currentTab = useTabs((state) => state.currentTab);
   const isOnboarding = currentTab?.type === "onboarding";
@@ -140,10 +162,21 @@ function Header({ tabs }: { tabs: Tab[] }) {
 
   const tabsScrollContainerRef = useRef<HTMLDivElement>(null);
   const handleNewEmptyTab = useNewEmptyTab();
+  const handleNewNote = useNewNote();
   const handleNewNoteAndListen = useNewNoteAndListen();
+  const newNoteAccelerator = currentPlatform === "macos" ? "Cmd+N" : "Ctrl+N";
   const showNewTabMenu = useNativeContextMenu([
-    { id: "empty-tab", text: "Open Empty Tab", action: handleNewEmptyTab },
-    { id: "new-note", text: "Create New Note", action: handleNewNoteAndListen },
+    {
+      id: "new-note",
+      text: "Create Empty Note",
+      accelerator: newNoteAccelerator,
+      action: handleNewNote,
+    },
+    {
+      id: "new-meeting",
+      text: "Start New Meeting",
+      action: handleNewNoteAndListen,
+    },
   ]);
 
   const scrollState = useScrollState(
@@ -152,7 +185,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
   );
 
   const setTabRef = useScrollActiveTabIntoView(regularTabs);
-  useTabsShortcuts();
+  useMainTabsShortcuts();
 
   return (
     <div
@@ -208,7 +241,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
 
       {listeningTab && (
         <div className="mr-1 flex h-full shrink-0 items-center">
-          <TabItem
+          <MainTabItem
             tab={listeningTab}
             handleClose={close}
             handleSelect={select}
@@ -264,7 +297,7 @@ function Header({ tabs }: { tabs: Tab[] }) {
                   className="z-10 h-full"
                   transition={{ layout: { duration: 0.15 } }}
                 >
-                  <TabItem
+                  <MainTabItem
                     tab={tab}
                     handleClose={close}
                     handleSelect={select}
@@ -310,15 +343,20 @@ function Header({ tabs }: { tabs: Tab[] }) {
         </Button>
 
         <div className="ml-auto flex h-full items-center gap-1">
-          <HeaderListenButton />
           <Update />
+          {currentTab?.type === "sessions" && (
+            <HeaderTabChatButton
+              shortcutLabel={chatShortcutLabel}
+              tab={currentTab}
+            />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function TabItem({
+export function MainTabItem({
   tab,
   handleClose,
   handleSelect,
@@ -432,20 +470,6 @@ function TabItem({
       />
     );
   }
-  if (tab.type === "extension") {
-    return (
-      <TabItemPlugin
-        tab={tab}
-        tabIndex={tabIndex}
-        handleCloseThis={handleClose}
-        handleSelectThis={handleSelect}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={handlePinThis}
-        handleUnpinThis={handleUnpinThis}
-      />
-    );
-  }
   if (tab.type === "changelog") {
     return (
       <TabItemChangelog
@@ -463,20 +487,6 @@ function TabItem({
   if (tab.type === "settings") {
     return (
       <TabItemSettings
-        tab={tab}
-        tabIndex={tabIndex}
-        handleCloseThis={handleClose}
-        handleSelectThis={handleSelect}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={handlePinThis}
-        handleUnpinThis={handleUnpinThis}
-      />
-    );
-  }
-  if (tab.type === "ai") {
-    return (
-      <TabItemAI
         tab={tab}
         tabIndex={tabIndex}
         handleCloseThis={handleClose}
@@ -516,20 +526,6 @@ function TabItem({
       />
     );
   }
-  if (tab.type === "search") {
-    return (
-      <TabItemSearch
-        tab={tab}
-        tabIndex={tabIndex}
-        handleCloseThis={handleClose}
-        handleSelectThis={handleSelect}
-        handleCloseOthers={handleCloseOthers}
-        handleCloseAll={handleCloseAll}
-        handlePinThis={handlePinThis}
-        handleUnpinThis={handleUnpinThis}
-      />
-    );
-  }
   if (tab.type === "chat_support") {
     return (
       <TabItemChat
@@ -558,6 +554,20 @@ function TabItem({
       />
     );
   }
+  if (tab.type === "daily") {
+    return (
+      <TabItemDaily
+        tab={tab}
+        tabIndex={tabIndex}
+        handleCloseThis={handleClose}
+        handleSelectThis={handleSelect}
+        handleCloseOthers={handleCloseOthers}
+        handleCloseAll={handleCloseAll}
+        handlePinThis={handlePinThis}
+        handleUnpinThis={handleUnpinThis}
+      />
+    );
+  }
   if (tab.type === "edit") {
     return (
       <TabItemEdit
@@ -575,7 +585,7 @@ function TabItem({
   return null;
 }
 
-function ContentWrapper({ tab }: { tab: Tab }) {
+export function MainTabContent({ tab }: { tab: Tab }) {
   if (tab.type === "sessions") {
     return <TabContentNote tab={tab} />;
   }
@@ -595,17 +605,11 @@ function ContentWrapper({ tab }: { tab: Tab }) {
   if (tab.type === "calendar") {
     return <TabContentCalendar />;
   }
-  if (tab.type === "extension") {
-    return <TabContentPlugin tab={tab} />;
-  }
   if (tab.type === "changelog") {
     return <TabContentChangelog tab={tab} />;
   }
   if (tab.type === "settings") {
     return <TabContentSettings tab={tab} />;
-  }
-  if (tab.type === "ai") {
-    return <TabContentAI tab={tab} />;
   }
   if (tab.type === "templates") {
     return <TabContentTemplate tab={tab} />;
@@ -613,14 +617,14 @@ function ContentWrapper({ tab }: { tab: Tab }) {
   if (tab.type === "chat_shortcuts") {
     return <TabContentChatShortcut tab={tab} />;
   }
-  if (tab.type === "search") {
-    return <TabContentSearch tab={tab} />;
-  }
   if (tab.type === "chat_support") {
     return <TabContentChat tab={tab} />;
   }
   if (tab.type === "onboarding") {
     return <TabContentOnboarding tab={tab} />;
+  }
+  if (tab.type === "daily") {
+    return <TabContentDaily />;
   }
   if (tab.type === "edit") {
     return <TabContentEdit tab={tab} />;
@@ -631,12 +635,20 @@ function ContentWrapper({ tab }: { tab: Tab }) {
 function TabChatButton({
   isCaretNearBottom = false,
   showTimeline = false,
+  placement = "floating",
+  shortcutLabel,
 }: {
   isCaretNearBottom?: boolean;
   showTimeline?: boolean;
+  placement?: "floating" | "tabbar";
+  shortcutLabel?: string;
 }) {
   const { chat } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
+  const isChatOpen =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
+  const isRightPanelOpen = chat.mode === "RightPanelOpen";
+  const isTabbarSelected = placement === "tabbar" && isChatOpen;
 
   const { data: isChatEnabled } = useQuery({
     refetchInterval: 10_000,
@@ -654,17 +666,63 @@ function TabChatButton({
     return null;
   }
 
-  if (chat.mode === "RightPanelOpen" || chat.mode === "FullTab") {
+  if (chat.mode === "FullTab") {
+    return null;
+  }
+
+  if (placement !== "tabbar" && isRightPanelOpen) {
     return null;
   }
 
   if (
-    currentTab?.type === "ai" ||
     currentTab?.type === "settings" ||
     currentTab?.type === "chat_support" ||
-    currentTab?.type === "onboarding"
+    currentTab?.type === "onboarding" ||
+    currentTab?.type === "changelog"
   ) {
     return null;
+  }
+
+  const buttonTitle = isTabbarSelected ? "Close chat" : "Chat with notes";
+
+  const handleClick = () =>
+    chat.sendEvent(isTabbarSelected ? { type: "TOGGLE" } : { type: "OPEN" });
+
+  if (placement === "tabbar") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            onClick={handleClick}
+            variant="ghost"
+            size="icon"
+            className={cn([
+              "text-neutral-600",
+              isTabbarSelected &&
+                "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+            ])}
+            aria-label={buttonTitle}
+            aria-pressed={isTabbarSelected}
+            title={buttonTitle}
+          >
+            <img
+              src="/assets/char-logo-icon-black.svg"
+              alt="Char"
+              className={cn([
+                "size-[13px] shrink-0 object-contain opacity-65",
+                isTabbarSelected && "opacity-100",
+              ])}
+            />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="flex items-center gap-2">
+          <span>{buttonTitle}</span>
+          {shortcutLabel && (
+            <Kbd className="animate-kbd-press">{shortcutLabel}</Kbd>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    );
   }
 
   return (
@@ -673,6 +731,22 @@ function TabChatButton({
       showTimeline={showTimeline}
     />
   );
+}
+
+function HeaderTabChatButton({
+  shortcutLabel,
+  tab,
+}: {
+  shortcutLabel: string;
+  tab: Extract<Tab, { type: "sessions" }>;
+}) {
+  const shouldShowListeningFab = useShouldShowListeningFab(tab);
+
+  if (!shouldShowListeningFab) {
+    return null;
+  }
+
+  return <TabChatButton placement="tabbar" shortcutLabel={shortcutLabel} />;
 }
 
 export function StandardTabWrapper({
@@ -686,12 +760,16 @@ export function StandardTabWrapper({
   floatingButton?: React.ReactNode;
   showTimeline?: boolean;
 }) {
+  const { showFloatingChatButton } = useContext(MainChromeContext);
+
   return (
     <div className="flex h-full flex-col">
       <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
         {children}
         {floatingButton}
-        <StandardTabChatButton showTimeline={showTimeline} />
+        {showFloatingChatButton && (
+          <StandardTabChatButton showTimeline={showTimeline} />
+        )}
       </div>
       {afterBorder && <div className="mt-1">{afterBorder}</div>}
     </div>
@@ -705,6 +783,40 @@ function StandardTabChatButton({
 }) {
   const caretPosition = useCaretPosition();
   const isCaretNearBottom = caretPosition?.isCaretNearBottom ?? false;
+  const currentTab = useTabs((state) => state.currentTab);
+
+  if (currentTab?.type === "sessions") {
+    return (
+      <SessionTabFloatingChatButton
+        tab={currentTab}
+        isCaretNearBottom={isCaretNearBottom}
+        showTimeline={showTimeline}
+      />
+    );
+  }
+
+  return (
+    <TabChatButton
+      isCaretNearBottom={isCaretNearBottom}
+      showTimeline={showTimeline}
+    />
+  );
+}
+
+function SessionTabFloatingChatButton({
+  tab,
+  isCaretNearBottom,
+  showTimeline,
+}: {
+  tab: Extract<Tab, { type: "sessions" }>;
+  isCaretNearBottom: boolean;
+  showTimeline: boolean;
+}) {
+  const shouldShowListeningFab = useShouldShowListeningFab(tab);
+
+  if (shouldShowListeningFab) {
+    return null;
+  }
 
   return (
     <TabChatButton
@@ -793,7 +905,7 @@ function useScrollActiveTabIntoView(tabs: Tab[]) {
   return setTabRef;
 }
 
-function useTabsShortcuts() {
+export function useMainTabsShortcuts() {
   const {
     tabs,
     currentTab,
@@ -822,19 +934,25 @@ function useTabsShortcuts() {
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isListening = liveStatus === "active" || liveStatus === "finalizing";
+  const { isPro } = useBillingAccess();
   const { chat } = useShell();
 
-  const newNoteAndListen = useNewNoteAndListen();
-  const newNoteAndListenCurrent = useNewNoteAndListen({ behavior: "current" });
+  const newNote = useNewNote();
+  const newNoteCurrent = useNewNote({ behavior: "current" });
   const newEmptyTab = useNewEmptyTab();
 
   useHotkeys(
     "mod+n",
     () => {
+      if (isPersistentChatInputFocused(chat.mode)) {
+        chat.startNewChat();
+        return;
+      }
+
       if (currentTab?.type === "empty") {
-        newNoteAndListenCurrent();
+        newNoteCurrent();
       } else {
-        newNoteAndListen();
+        newNote();
       }
     },
     {
@@ -842,7 +960,7 @@ function useTabsShortcuts() {
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [currentTab, newNoteAndListen, newNoteAndListenCurrent],
+    [chat, currentTab, newNote, newNoteCurrent],
   );
 
   useHotkeys(
@@ -972,7 +1090,7 @@ function useTabsShortcuts() {
 
   useHotkeys(
     "mod+shift+comma",
-    () => openNew({ type: "ai" }),
+    () => openNew({ type: "settings", state: { tab: "transcription" } }),
     {
       preventDefault: true,
       enableOnFormTags: true,
@@ -983,24 +1101,32 @@ function useTabsShortcuts() {
 
   useHotkeys(
     "mod+shift+l",
-    () => openNew({ type: "folders", id: null }),
+    () => {
+      if (!isPro) {
+        return;
+      }
+
+      openNew({ type: "folders", id: null });
+    },
     {
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [openNew],
+    [isPro, openNew],
   );
 
+  const newNoteAndListen = useNewNoteAndListen();
+
   useHotkeys(
-    "mod+shift+f",
-    () => openNew({ type: "search" }),
+    "mod+shift+n",
+    () => newNoteAndListen(),
     {
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [openNew],
+    [newNoteAndListen],
   );
 
   return {};
@@ -1014,4 +1140,23 @@ function useNewEmptyTab() {
   }, [openNew]);
 
   return handler;
+}
+
+function isPersistentChatInputFocused(
+  mode: ReturnType<typeof useShell>["chat"]["mode"],
+) {
+  if (mode !== "FloatingOpen" && mode !== "RightPanelOpen") {
+    return false;
+  }
+
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement)) {
+    return false;
+  }
+
+  return activeElement.closest("[data-chat-message-input]") !== null;
 }

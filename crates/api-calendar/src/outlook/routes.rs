@@ -1,6 +1,6 @@
 use axum::{Extension, Json};
 use hypr_api_auth::AuthContext;
-use hypr_api_nango::{NangoConnectionState, NangoIntegrationId, OutlookCalendar};
+use hypr_api_nango::{NangoConnectionState, NangoIntegrationId, Outlook};
 use hypr_outlook_calendar::{ListCalendarsResponse, ListEventsResponse, OutlookCalendarClient};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -47,10 +47,11 @@ pub async fn list_calendars(
         .build_http_client(
             &auth.token,
             &auth.claims.sub,
-            OutlookCalendar::ID,
+            Outlook::ID,
             &req.connection_id,
         )
-        .await?;
+        .await?
+        .with_base_url_override("https://graph.microsoft.com/v1.0");
 
     let client = OutlookCalendarClient::new(http);
 
@@ -83,10 +84,11 @@ pub async fn list_events(
         .build_http_client(
             &auth.token,
             &auth.claims.sub,
-            OutlookCalendar::ID,
+            Outlook::ID,
             &req.connection_id,
         )
-        .await?;
+        .await?
+        .with_base_url_override("https://graph.microsoft.com/v1.0");
 
     let client = OutlookCalendarClient::new(http);
 

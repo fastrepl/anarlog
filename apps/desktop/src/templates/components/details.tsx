@@ -1,5 +1,8 @@
+import { Pencil } from "lucide-react";
+
 import type { TemplateSection } from "@hypr/store";
 
+import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 import { TemplateForm } from "./template-form";
 
@@ -22,21 +25,25 @@ export function TemplateDetailsColumn({
   selectedMineId,
   selectedWebTemplate,
   handleDeleteTemplate,
+  handleDuplicateTemplate,
   handleCloneTemplate,
 }: {
   isWebMode: boolean;
   selectedMineId: string | null;
   selectedWebTemplate: WebTemplate | null;
   handleDeleteTemplate: (id: string) => void;
+  handleDuplicateTemplate: (id: string) => void;
   handleCloneTemplate: (template: {
     title: string;
     description: string;
+    category?: string;
+    targets?: string[];
     sections: TemplateSection[];
   }) => void;
 }) {
   if (isWebMode) {
     if (!selectedWebTemplate) {
-      return <ResourceDetailEmpty message="Select a template to preview" />;
+      return <ResourceDetailEmpty message="No community templates available" />;
     }
     return (
       <WebTemplatePreview
@@ -47,7 +54,7 @@ export function TemplateDetailsColumn({
   }
 
   if (!selectedMineId) {
-    return <ResourceDetailEmpty message="Select a template to view details" />;
+    return <ResourceDetailEmpty message="No templates yet" />;
   }
 
   return (
@@ -55,6 +62,7 @@ export function TemplateDetailsColumn({
       key={selectedMineId}
       id={selectedMineId}
       handleDeleteTemplate={handleDeleteTemplate}
+      handleDuplicateTemplate={handleDuplicateTemplate}
     />
   );
 }
@@ -67,6 +75,8 @@ function WebTemplatePreview({
   onClone: (template: {
     title: string;
     description: string;
+    category?: string;
+    targets?: string[];
     sections: TemplateSection[];
   }) => void;
 }) {
@@ -77,27 +87,28 @@ function WebTemplatePreview({
         description={template.description}
         category={template.category}
         targets={template.targets}
+        actionLabel="Edit"
+        actionIcon={<Pencil size={14} className="shrink-0" />}
+        actionVariant="ghost"
+        actionClassName="shrink-0 text-neutral-600 hover:text-black"
         onClone={() =>
           onClone({
             title: template.title ?? "",
             description: template.description ?? "",
+            category: template.category,
+            targets: template.targets,
             sections: template.sections ?? [],
           })
         }
       />
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
-          <h3 className="mb-3 text-sm font-medium text-neutral-600">
-            Sections
-          </h3>
-          <SectionsList
-            disabled={true}
-            items={template.sections ?? []}
-            onChange={() => {}}
-          />
-        </div>
-      </div>
+      <TemplateDetailScrollArea>
+        <SectionsList
+          disabled={true}
+          items={template.sections ?? []}
+          onChange={() => {}}
+        />
+      </TemplateDetailScrollArea>
     </div>
   );
 }

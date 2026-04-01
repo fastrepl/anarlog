@@ -8,10 +8,24 @@ mod supervisor;
 use ext::*;
 use store::*;
 
-#[cfg(target_os = "macos")]
 use tauri::Manager;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
+
+fn create_audio_provider() -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
+    #[cfg(feature = "dev")]
+    {
+        let selection: u32 = std::env::var("MOCK_AUDIO")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+
+        if selection > 0 {
+            return std::sync::Arc::new(hypr_audio_mock::MockAudio::new(selection));
+        }
+    }
+    std::sync::Arc::new(hypr_audio_actual::ActualAudio)
+}
 
 #[tokio::main]
 pub async fn main() {
@@ -60,7 +74,9 @@ pub async fn main() {
         .as_ref()
         .map(|client| tauri_plugin_sentry::minidump::init(client));
 
-    let mut builder = tauri::Builder::default();
+    let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> = create_audio_provider();
+
+    let mut builder = tauri::Builder::default().manage(audio);
 
     // https://docs.crabnebula.dev/plugins/tauri-e2e-tests/#macos-support
     #[cfg(all(target_os = "macos", feature = "automation"))]
@@ -81,9 +97,11 @@ pub async fn main() {
         .plugin(tauri_plugin_opener2::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_analytics::init())
+        .plugin(tauri_plugin_activity_capture::init())
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
+        .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init())
         .plugin(tauri_plugin_db2::init())
         .plugin(tauri_plugin_tracing::init())
@@ -254,17 +272,6 @@ pub async fn main() {
     #[cfg(target_os = "macos")]
     hypr_intercept::setup_force_quit_handler();
 
-    #[cfg(target_os = "macos")]
-    {
-        let handle = app.handle().clone();
-        hypr_intercept::set_close_handler(move || {
-            for (_, window) in handle.webview_windows() {
-                let _ = window.close();
-            }
-            let _ = handle.set_activation_policy(tauri::ActivationPolicy::Accessory);
-        });
-    }
-
     #[allow(unused_variables)]
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
@@ -352,7 +359,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
-            commands::list_plugins::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

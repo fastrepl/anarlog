@@ -1,9 +1,17 @@
 import { useCallback, useRef, useState } from "react";
 
-import type { Segment } from "@hypr/transcript";
-
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+
+type SummarySegment = {
+  key: {
+    speaker_human_id?: string | null;
+    speaker_index?: number | null;
+  };
+  words: Array<{
+    text: string;
+  }>;
+};
 
 const SYSTEM_PROMPT = `You are an expert at creating structured, comprehensive meeting summaries.
 
@@ -26,7 +34,7 @@ const SYSTEM_PROMPT = `You are an expert at creating structured, comprehensive m
 - Preserve essential details; avoid excessive abstraction. Ensure content remains concrete and specific.
 - Do not include meeting note title, attendee lists nor explanatory notes about the output structure.`;
 
-function segmentsToText(segments: Segment[]): string {
+function segmentsToText(segments: SummarySegment[]): string {
   return segments
     .map((seg) => {
       const label =
@@ -43,7 +51,7 @@ function segmentsToText(segments: Segment[]): string {
     .join("\n");
 }
 
-function buildUserPrompt(segments: Segment[]): string {
+function buildUserPrompt(segments: SummarySegment[]): string {
   return `# Transcript
 
 ${segmentsToText(segments)}
@@ -67,7 +75,7 @@ export function useSummaryStream() {
   }, []);
 
   const generate = useCallback(
-    async (segments: Segment[]) => {
+    async (segments: SummarySegment[]) => {
       cancel();
 
       setSummary("");

@@ -1,5 +1,5 @@
 import { createMergeableStore } from "tinybase/with-schemas";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { type Mock, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { SCHEMA } from "@hypr/store";
 
@@ -14,7 +14,7 @@ function createTestStore(): Store {
 
 describe("importData", () => {
   let store: Store;
-  let onPersistComplete: ReturnType<typeof vi.fn>;
+  let onPersistComplete: Mock<() => Promise<void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();

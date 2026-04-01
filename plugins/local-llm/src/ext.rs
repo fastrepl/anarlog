@@ -23,7 +23,19 @@ impl<R: Runtime> ModelDownloaderRuntime<crate::SupportedModel> for TauriModelRun
             .unwrap_or_else(|_| dirs::data_dir().unwrap_or_default().join("models")))
     }
 
-    fn emit_progress(&self, model: &crate::SupportedModel, progress: i8) {
+    fn emit_progress(
+        &self,
+        model: &crate::SupportedModel,
+        status: hypr_model_downloader::DownloadStatus,
+    ) {
+        use hypr_model_downloader::DownloadStatus;
+
+        let progress: i8 = match &status {
+            DownloadStatus::Downloading(p) => *p as i8,
+            DownloadStatus::Completed => 100,
+            DownloadStatus::Failed => -1,
+        };
+
         let key = model.download_key();
         let mut guard = self.channels.lock().unwrap();
 
@@ -32,7 +44,7 @@ impl<R: Runtime> ModelDownloaderRuntime<crate::SupportedModel> for TauriModelRun
         };
 
         let send_result = channel.send(progress);
-        let is_terminal = !(0..100).contains(&progress);
+        let is_terminal = matches!(status, DownloadStatus::Completed | DownloadStatus::Failed);
         if send_result.is_err() || is_terminal {
             guard.remove(&key);
         }

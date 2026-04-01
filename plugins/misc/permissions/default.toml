@@ -5,5 +5,4 @@ permissions = [
     "allow-get-fingerprint",
     "allow-get-device-info",
     "allow-opinionated-md-to-html",
-    "allow-parse-meeting-link",
 ]

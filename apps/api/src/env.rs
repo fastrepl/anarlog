@@ -32,6 +32,7 @@ pub struct Env {
     #[serde(flatten)]
     pub chatwoot: hypr_api_support::ChatwootEnv,
 
+    pub cactus_api_key: String,
     pub exa_api_key: String,
     pub jina_api_key: String,
 

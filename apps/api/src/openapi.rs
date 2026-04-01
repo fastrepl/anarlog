@@ -15,6 +15,8 @@ use utoipa::{Modify, OpenApi};
         (name = "stt", description = "Speech-to-text transcription endpoints"),
         (name = "llm", description = "LLM chat completions endpoints"),
         (name = "calendar", description = "Calendar management"),
+        (name = "mail", description = "Mail management"),
+        (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "subscription", description = "Subscription and trial management")
     ),
@@ -28,6 +30,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let stt_doc = hypr_transcribe_proxy::openapi();
     let llm_doc = hypr_llm_proxy::openapi();
     let calendar_doc = with_path_prefix(hypr_api_calendar::openapi(), "/calendar");
+    let mail_doc = with_path_prefix(hypr_api_mail::openapi(), "/mail");
+    let ticket_doc = with_path_prefix(hypr_api_ticket::openapi(), "/ticket");
     let nango_doc = with_path_prefix(hypr_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(hypr_api_subscription::openapi(), "/subscription");
     let support_doc = hypr_api_support::openapi();
@@ -35,6 +39,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(stt_doc);
     doc.merge(llm_doc);
     doc.merge(calendar_doc);
+    doc.merge(mail_doc);
+    doc.merge(ticket_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(support_doc);
@@ -100,6 +106,8 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
         }
 
         if path.starts_with("/calendar")
+            || path.starts_with("/mail")
+            || path.starts_with("/ticket")
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
         {

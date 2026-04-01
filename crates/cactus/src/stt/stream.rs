@@ -18,18 +18,18 @@ pub struct TranscribeEvent {
     pub chunk_duration_secs: f64,
 }
 
+struct AudioStreamConfig {
+    chunk_size_ms: u32,
+    sample_rate: u32,
+}
+
 pub struct TranscriptionSession {
-    audio_tx: tokio::sync::mpsc::Sender<Vec<f32>>,
     inner: ReceiverStream<Result<TranscribeEvent>>,
     cancellation_token: CancellationToken,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl TranscriptionSession {
-    pub fn audio_tx(&self) -> &tokio::sync::mpsc::Sender<Vec<f32>> {
-        &self.audio_tx
-    }
-
     pub fn cancellation_token(&self) -> &CancellationToken {
         &self.cancellation_token
     }
@@ -70,7 +70,7 @@ pub fn transcribe_stream(
     cloud: CloudConfig,
     chunk_size_ms: u32,
     sample_rate: u32,
-) -> TranscriptionSession {
+) -> (tokio::sync::mpsc::Sender<Vec<f32>>, TranscriptionSession) {
     let (audio_tx, audio_rx) = tokio::sync::mpsc::channel::<Vec<f32>>(64);
     let (event_tx, event_rx) = tokio::sync::mpsc::channel(64);
     let cancellation_token = CancellationToken::new();
@@ -83,8 +83,10 @@ pub fn transcribe_stream(
                 model,
                 options,
                 cloud,
-                chunk_size_ms,
-                sample_rate,
+                AudioStreamConfig {
+                    chunk_size_ms,
+                    sample_rate,
+                },
                 audio_rx,
                 event_tx,
                 worker_token,
@@ -105,20 +107,24 @@ pub fn transcribe_stream(
     });
 
     let inner = ReceiverStream::new(event_rx);
-    TranscriptionSession {
+    // Return audio_tx separately so the caller is the sole owner. If the session
+    // held it, the channel would stay open as long as the stream is polled,
+    // preventing the worker from seeing a closed channel and terminating.
+    (
         audio_tx,
-        inner,
-        cancellation_token,
-        handle: Some(handle),
-    }
+        TranscriptionSession {
+            inner,
+            cancellation_token,
+            handle: Some(handle),
+        },
+    )
 }
 
 fn run_transcribe_worker(
     model: Arc<Model>,
     options: TranscribeOptions,
     cloud: CloudConfig,
-    chunk_size_ms: u32,
-    sample_rate: u32,
+    audio_config: AudioStreamConfig,
     mut audio_rx: tokio::sync::mpsc::Receiver<Vec<f32>>,
     event_tx: tokio::sync::mpsc::Sender<Result<TranscribeEvent>>,
     cancellation_token: CancellationToken,
@@ -131,7 +137,8 @@ fn run_transcribe_worker(
         }
     };
 
-    let samples_per_chunk = (sample_rate as usize * chunk_size_ms as usize) / 1000;
+    let sample_rate = audio_config.sample_rate;
+    let samples_per_chunk = (sample_rate as usize * audio_config.chunk_size_ms as usize) / 1000;
     let mut buffer: Vec<f32> = Vec::with_capacity(samples_per_chunk * 2);
     let mut aborted = false;
 

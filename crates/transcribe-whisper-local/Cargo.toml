@@ -14,22 +14,30 @@ metal = ["hypr-whisper-local/metal"]
 vulkan = ["hypr-whisper-local/vulkan"]
 openmp = ["hypr-whisper-local/openmp"]
 [dev-dependencies]
+bytes = { workspace = true }
 dirs = { workspace = true }
 futures-util = { workspace = true }
 hypr-data = { workspace = true }
 owhisper-client = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+tokio-tungstenite = { workspace = true }
 
 [dependencies]
+hypr-audio-interface = { workspace = true }
 hypr-audio-utils = { workspace = true }
+hypr-model-manager = { workspace = true, features = ["whisper-local"] }
 hypr-pyannote-local = { workspace = true }
+hypr-transcribe-core = { workspace = true }
 hypr-vad-chunking = { workspace = true }
 hypr-whisper = { workspace = true }
 hypr-whisper-local = { workspace = true }
 hypr-ws-utils = { workspace = true }
 owhisper-interface = { workspace = true }
 
+bytes = { workspace = true }
+serde_html_form = { workspace = true }
 serde_json = { workspace = true }
-serde_qs = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 
 axum = { workspace = true, features = ["ws"] }

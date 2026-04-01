@@ -14,23 +14,23 @@ export function HyprProviderRow({ children }: { children: React.ReactNode }) {
 }
 
 export function HyprCloudCTAButton({
-  isPro,
+  isPaid,
   canStartTrial,
   highlight,
   onClick,
 }: {
-  isPro: boolean;
+  isPaid: boolean;
   canStartTrial: boolean | undefined;
   highlight?: boolean;
   onClick: () => void;
 }) {
-  const buttonLabel = isPro
+  const buttonLabel = isPaid
     ? "Ready to use"
     : canStartTrial
       ? "Start Free Trial"
-      : "Upgrade to Pro";
+      : "Upgrade";
 
-  const showShimmer = highlight && !isPro;
+  const showShimmer = highlight && !isPaid;
 
   return (
     <button
@@ -39,7 +39,7 @@ export function HyprCloudCTAButton({
         "relative h-8.5 w-fit overflow-hidden",
         "rounded-full px-4 text-center font-mono text-xs",
         "transition-all duration-150",
-        isPro
+        isPaid
           ? "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:shadow-md"
           : "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
       ])}

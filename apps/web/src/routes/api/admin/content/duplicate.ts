@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
-import { duplicateContentFile } from "@/functions/github-content";
+import {
+  duplicateContentFile,
+  ensureContentEditBranch,
+  getCollectionFromPath,
+} from "@/functions/github-content";
 
 interface DuplicateRequest {
   sourcePath: string;
   newFilename?: string;
+  branch?: string;
 }
 
 export const Route = createFileRoute("/api/admin/content/duplicate")({
@@ -33,7 +38,7 @@ export const Route = createFileRoute("/api/admin/content/duplicate")({
           });
         }
 
-        const { sourcePath, newFilename } = body;
+        const { sourcePath, newFilename, branch } = body;
 
         if (!sourcePath) {
           return new Response(
@@ -42,7 +47,28 @@ export const Route = createFileRoute("/api/admin/content/duplicate")({
           );
         }
 
-        const result = await duplicateContentFile(sourcePath, newFilename);
+        const collection = getCollectionFromPath(sourcePath);
+        let targetBranch = branch;
+        let pendingPR: Awaited<
+          ReturnType<typeof ensureContentEditBranch>
+        > | null = null;
+
+        if (!targetBranch && collection && collection !== "articles") {
+          pendingPR = await ensureContentEditBranch(sourcePath);
+          if (!pendingPR.success || !pendingPR.branchName) {
+            return new Response(JSON.stringify({ error: pendingPR.error }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          targetBranch = pendingPR.branchName;
+        }
+
+        const result = await duplicateContentFile(
+          sourcePath,
+          newFilename,
+          targetBranch,
+        );
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {
@@ -52,7 +78,13 @@ export const Route = createFileRoute("/api/admin/content/duplicate")({
         }
 
         return new Response(
-          JSON.stringify({ success: true, path: result.path }),
+          JSON.stringify({
+            success: true,
+            path: result.path,
+            branch: targetBranch,
+            prNumber: pendingPR?.prNumber,
+            prUrl: pendingPR?.prUrl,
+          }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       },

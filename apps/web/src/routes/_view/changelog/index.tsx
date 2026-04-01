@@ -1,14 +1,12 @@
-import { MDXContent } from "@content-collections/mdx/react";
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Download } from "lucide-react";
-import semver from "semver";
 
+import { ChangelogContent, fixImageUrls } from "@hypr/changelog";
 import { cn } from "@hypr/utils";
 
 import { type ChangelogWithMeta, getChangelogList } from "@/changelog";
 import { CTASection } from "@/components/cta-section";
-import { defaultMDXComponents } from "@/components/mdx";
 import { getDownloadLinks, groupDownloadLinks } from "@/utils/download";
 
 export const Route = createFileRoute("/_view/changelog/")({
@@ -76,41 +74,13 @@ function HeroSection() {
 }
 
 function ChangelogSection({ changelog }: { changelog: ChangelogWithMeta }) {
-  const currentVersion = semver.parse(changelog.version);
-  const isPrerelease = currentVersion && currentVersion.prerelease.length > 0;
-  const nightlyNumber =
-    isPrerelease && currentVersion?.prerelease[0] === "nightly"
-      ? currentVersion.prerelease[1]
-      : null;
-
   return (
     <section className="grid grid-cols-1 gap-6 md:grid-cols-[160px_1fr] md:gap-12">
       <div className="flex flex-col gap-6 md:sticky md:top-24 md:self-start">
         <div className="flex flex-col gap-1">
-          {!isPrerelease && (
-            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-linear-to-t from-stone-200 to-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-700">
-              <Icon icon="ri:rocket-fill" className="text-xs" />
-              Stable
-            </span>
-          )}
-          {isPrerelease && (
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-b from-[#03BCF1] to-[#127FE5] px-1.5 py-0.5 text-xs font-medium text-white">
-                <Icon icon="ri:moon-fill" className="text-xs" />
-                Beta
-              </span>
-              {nightlyNumber !== null && (
-                <span className="inline-flex items-center rounded-full bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">
-                  #{nightlyNumber}
-                </span>
-              )}
-            </div>
-          )}
           <Link to="/changelog/$slug/" params={{ slug: changelog.slug }}>
             <h2 className="cursor-pointer font-mono text-4xl font-medium text-stone-700 transition-colors hover:text-stone-900">
-              {currentVersion
-                ? `${currentVersion.major}.${currentVersion.minor}.${currentVersion.patch}`
-                : changelog.version}
+              {changelog.version}
             </h2>
           </Link>
           <time
@@ -129,8 +99,8 @@ function ChangelogSection({ changelog }: { changelog: ChangelogWithMeta }) {
       </div>
 
       <div>
-        <article className="prose prose-stone prose-sm prose-headings:font-mono prose-headings:font-semibold prose-h2:text-lg prose-h2:mt-4 prose-h2:mb-2 prose-h3:text-base prose-h3:mt-3 prose-h3:mb-1 prose-ul:my-2 prose-li:my-0.5 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono prose-code:text-stone-700 prose-img:rounded prose-img:border prose-img:border-neutral-200 prose-img:my-3 max-w-none">
-          <MDXContent code={changelog.mdx} components={defaultMDXComponents} />
+        <article className="max-w-none text-sm [&_h2]:font-mono [&_h3]:font-mono">
+          <ChangelogContent content={fixImageUrls(changelog.content)} />
         </article>
 
         <Link

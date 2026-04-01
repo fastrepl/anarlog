@@ -6,6 +6,11 @@ export type ClientOptions = {
 
 export type AccessRole = 'freeBusyReader' | 'reader' | 'writer' | 'owner' | 'unknown';
 
+export type Attachment = {
+    data?: string | null;
+    size?: number | null;
+};
+
 export type AttendeeResponseStatus = 'needsAction' | 'declined' | 'tentative' | 'accepted' | 'unknown';
 
 export type AttendeeType = 'required' | 'optional' | 'resource' | 'unknown';
@@ -116,6 +121,24 @@ export type CanStartTrialResponse = {
 export type CharTask = 'chat' | 'enhance' | 'title';
 
 export type ChatStatus = 'available' | 'doNotDisturb' | 'unknown';
+
+export type CollectionPage = {
+    items: Array<CollectionRef>;
+    next_cursor?: string | null;
+};
+
+export type CollectionRef = {
+    id: string;
+    /**
+     * Short identifier. GitHub: "owner/repo", Linear: team key (e.g., "ENG").
+     */
+    key?: string | null;
+    /**
+     * Display name. GitHub: "owner/repo", Linear: team name.
+     */
+    name: string;
+    url?: string | null;
+};
 
 export type ConferenceCreateRequest = {
     conferenceSolutionKey?: null | ConferenceSolutionKey;
@@ -330,6 +353,58 @@ export type Gadget = {
 
 export type GadgetDisplay = 'chip' | 'icon' | 'unknown';
 
+export type GetMessageRequest = {
+    format?: null | MessageFormat;
+    id: string;
+    metadata_headers?: Array<string> | null;
+};
+
+export type GetThreadRequest = {
+    format?: null | MessageFormat;
+    id: string;
+    metadata_headers?: Array<string> | null;
+};
+
+export type GitHubListReposRequest = {
+    connection_id: string;
+    cursor?: string | null;
+    limit?: number | null;
+};
+
+export type GitHubListTicketsRequest = {
+    connection_id: string;
+    cursor?: string | null;
+    labels?: Array<string> | null;
+    limit?: number | null;
+    owner: string;
+    repo: string;
+    state?: string | null;
+};
+
+export type GoogleGetAttachmentRequest = {
+    attachment_id: string;
+    connection_id: string;
+    message_id: string;
+};
+
+export type GoogleGetMessageRequest = {
+    connection_id: string;
+    format?: string | null;
+    id: string;
+    metadata_headers?: Array<string> | null;
+};
+
+export type GoogleGetProfileRequest = {
+    connection_id: string;
+};
+
+export type GoogleGetThreadRequest = {
+    connection_id: string;
+    format?: string | null;
+    id: string;
+    metadata_headers?: Array<string> | null;
+};
+
 export type GoogleListCalendarsRequest = {
     connection_id: string;
 };
@@ -345,6 +420,66 @@ export type GoogleListEventsRequest = {
     time_min?: string | null;
 };
 
+export type GoogleListHistoryRequest = {
+    connection_id: string;
+    history_types?: Array<string> | null;
+    label_id?: string | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    start_history_id: string;
+};
+
+export type GoogleListLabelsRequest = {
+    connection_id: string;
+};
+
+export type GoogleListMessagesRequest = {
+    connection_id: string;
+    include_spam_trash?: boolean | null;
+    label_ids?: Array<string> | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    q?: string | null;
+};
+
+export type GoogleListThreadsRequest = {
+    connection_id: string;
+    include_spam_trash?: boolean | null;
+    label_ids?: Array<string> | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    q?: string | null;
+};
+
+export type History = {
+    id: string;
+    labelsAdded?: Array<HistoryLabelAdded>;
+    labelsRemoved?: Array<HistoryLabelRemoved>;
+    messages?: Array<Message>;
+    messagesAdded?: Array<HistoryMessageAdded>;
+    messagesDeleted?: Array<HistoryMessageDeleted>;
+};
+
+export type HistoryLabelAdded = {
+    labelIds?: Array<string>;
+    message: Message;
+};
+
+export type HistoryLabelRemoved = {
+    labelIds?: Array<string>;
+    message: Message;
+};
+
+export type HistoryMessageAdded = {
+    message: Message;
+};
+
+export type HistoryMessageDeleted = {
+    message: Message;
+};
+
+export type HistoryType = 'messageAdded' | 'messageDeleted' | 'labelAdded' | 'labelRemoved';
+
 export type Importance = 'low' | 'normal' | 'high' | 'unknown';
 
 export type Interval = 'monthly' | 'yearly';
@@ -352,6 +487,48 @@ export type Interval = 'monthly' | 'yearly';
 export type ItemBody = {
     content?: string | null;
     contentType?: null | BodyType;
+};
+
+export type Label = {
+    color?: null | LabelColor;
+    id: string;
+    labelListVisibility?: null | LabelListVisibility;
+    messageListVisibility?: null | MessageListVisibility;
+    messagesTotal?: number | null;
+    messagesUnread?: number | null;
+    name: string;
+    threadsTotal?: number | null;
+    threadsUnread?: number | null;
+    type?: null | LabelType;
+};
+
+export type LabelColor = {
+    backgroundColor?: string | null;
+    textColor?: string | null;
+};
+
+export type LabelListVisibility = 'labelShow' | 'labelShowIfUnread' | 'labelHide' | 'unknown';
+
+export type LabelRef = {
+    color?: string | null;
+    id: string;
+    name: string;
+};
+
+export type LabelType = 'system' | 'user' | 'unknown';
+
+export type LinearListTeamsRequest = {
+    connection_id: string;
+    cursor?: string | null;
+    limit?: number | null;
+};
+
+export type LinearListTicketsRequest = {
+    connection_id: string;
+    cursor?: string | null;
+    limit?: number | null;
+    query?: string | null;
+    team_id: string;
 };
 
 export type ListConnectionsResponse = {
@@ -380,6 +557,52 @@ export type ListEventsRequest = {
     updated_min?: string | null;
 };
 
+export type ListHistoryRequest = {
+    history_types?: Array<HistoryType> | null;
+    label_id?: string | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    start_history_id: string;
+};
+
+export type ListHistoryResponse = {
+    history?: Array<History>;
+    historyId?: string | null;
+    nextPageToken?: string | null;
+};
+
+export type ListLabelsResponse = {
+    labels?: Array<Label>;
+};
+
+export type ListMessagesRequest = {
+    include_spam_trash?: boolean | null;
+    label_ids?: Array<string> | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    q?: string | null;
+};
+
+export type ListMessagesResponse = {
+    messages?: Array<MessageRef>;
+    nextPageToken?: string | null;
+    resultSizeEstimate?: number | null;
+};
+
+export type ListThreadsRequest = {
+    include_spam_trash?: boolean | null;
+    label_ids?: Array<string> | null;
+    max_results?: number | null;
+    page_token?: string | null;
+    q?: string | null;
+};
+
+export type ListThreadsResponse = {
+    nextPageToken?: string | null;
+    resultSizeEstimate?: number | null;
+    threads?: Array<ThreadRef>;
+};
+
 export type ListenCallbackRequest = {
     url: string;
 };
@@ -398,6 +621,47 @@ export type Location = {
 };
 
 export type LocationType = 'default' | 'conferenceRoom' | 'homeAddress' | 'businessAddress' | 'geoCoordinates' | 'streetAddress' | 'hotel' | 'restaurant' | 'localBusiness' | 'postalAddress' | 'unknown';
+
+export type Message = {
+    historyId?: string | null;
+    id: string;
+    internalDate?: string | null;
+    labelIds?: Array<string>;
+    payload?: null | MessagePart;
+    raw?: string | null;
+    sizeEstimate?: number | null;
+    snippet?: string | null;
+    threadId: string;
+};
+
+export type MessageFormat = 'full' | 'metadata' | 'minimal' | 'raw';
+
+export type MessageListVisibility = 'show' | 'hide' | 'unknown';
+
+export type MessagePart = {
+    body?: null | MessagePartBody;
+    filename?: string | null;
+    headers?: Array<MessagePartHeader>;
+    mimeType?: string | null;
+    partId?: string | null;
+    parts?: Array<MessagePart>;
+};
+
+export type MessagePartBody = {
+    attachmentId?: string | null;
+    data?: string | null;
+    size?: number | null;
+};
+
+export type MessagePartHeader = {
+    name: string;
+    value: string;
+};
+
+export type MessageRef = {
+    id: string;
+    threadId: string;
+};
 
 export type MessageResponse = {
     content?: string | null;
@@ -463,6 +727,13 @@ export type PatternedRecurrence = {
     range?: null | RecurrenceRange;
 };
 
+export type PersonRef = {
+    avatar_url?: string | null;
+    email?: string | null;
+    id?: string | null;
+    name?: string | null;
+};
+
 export type PhysicalAddress = {
     city?: string | null;
     countryOrRegion?: string | null;
@@ -472,6 +743,22 @@ export type PhysicalAddress = {
 };
 
 export type PipelineStatus = 'processing' | 'done' | 'error';
+
+export type Profile = {
+    emailAddress: string;
+    historyId?: string | null;
+    messagesTotal?: number | null;
+    threadsTotal?: number | null;
+};
+
+export type PullRequestDetail = {
+    is_draft: boolean;
+    is_merged: boolean;
+    merged_at?: string | null;
+    merged_by?: null | PersonRef;
+    source_branch?: string | null;
+    target_branch?: string | null;
+};
 
 export type Recipient = {
     emailAddress?: null | EmailAddress;
@@ -618,6 +905,74 @@ export type SttStatusResponse = {
     status: PipelineStatus;
 };
 
+export type Thread = {
+    historyId?: string | null;
+    id: string;
+    messages?: Array<Message>;
+    snippet?: string | null;
+};
+
+export type ThreadRef = {
+    historyId?: string | null;
+    id: string;
+    snippet?: string | null;
+};
+
+export type TicketKind = 'issue' | 'pull_request';
+
+export type TicketPage = {
+    items: Array<TicketSummary>;
+    next_cursor?: string | null;
+};
+
+export type TicketPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+
+export type TicketProviderType = 'github' | 'linear';
+
+export type TicketState = 'backlog' | 'open' | 'in_progress' | 'done' | 'closed';
+
+export type TicketSummary = {
+    assignees: Array<PersonRef>;
+    author?: null | PersonRef;
+    /**
+     * ISO 8601.
+     */
+    closed_at?: string | null;
+    collection: CollectionRef;
+    /**
+     * ISO 8601.
+     */
+    created_at: string;
+    /**
+     * Provider-specific unique ID.
+     */
+    id: string;
+    kind: TicketKind;
+    labels: Array<LabelRef>;
+    /**
+     * Numeric identifier (GitHub: number, Linear: number).
+     */
+    number?: number | null;
+    priority?: null | TicketPriority;
+    provider: TicketProviderType;
+    pull_request?: null | PullRequestDetail;
+    /**
+     * Raw provider JSON for forward compatibility.
+     */
+    raw: string;
+    state: TicketState;
+    /**
+     * Provider's original state string for display (e.g. "In Review", "merged").
+     */
+    state_detail?: string | null;
+    title: string;
+    /**
+     * ISO 8601.
+     */
+    updated_at: string;
+    url: string;
+};
+
 export type Transparency = 'opaque' | 'transparent' | 'unknown';
 
 export type Visibility = 'default' | 'public' | 'private' | 'confidential' | 'unknown';
@@ -627,6 +982,18 @@ export type WebhookResponse = {
 };
 
 export type WeekIndex = 'first' | 'second' | 'third' | 'fourth' | 'last' | 'unknown';
+
+export type WhoAmIItem = {
+    connection_id: string;
+    display_name?: string | null;
+    email?: string | null;
+    error?: string | null;
+    integration_id: string;
+};
+
+export type WhoAmIResponse = {
+    accounts: Array<WhoAmIItem>;
+};
 
 export type WorkingLocationProperties = {
     customLocation?: null | CustomLocation;
@@ -1002,6 +1369,222 @@ export type LlmChatCompletionsResponses = {
     200: unknown;
 };
 
+export type GoogleGetAttachmentData = {
+    body: GoogleGetAttachmentRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/get-attachment';
+};
+
+export type GoogleGetAttachmentErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleGetAttachmentResponses = {
+    /**
+     * Google mail attachment fetched
+     */
+    200: Attachment;
+};
+
+export type GoogleGetAttachmentResponse = GoogleGetAttachmentResponses[keyof GoogleGetAttachmentResponses];
+
+export type GoogleGetMessageData = {
+    body: GoogleGetMessageRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/get-message';
+};
+
+export type GoogleGetMessageErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleGetMessageResponses = {
+    /**
+     * Google mail message fetched
+     */
+    200: Message;
+};
+
+export type GoogleGetMessageResponse = GoogleGetMessageResponses[keyof GoogleGetMessageResponses];
+
+export type GoogleGetProfileData = {
+    body: GoogleGetProfileRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/get-profile';
+};
+
+export type GoogleGetProfileErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleGetProfileResponses = {
+    /**
+     * Google mail profile fetched
+     */
+    200: Profile;
+};
+
+export type GoogleGetProfileResponse = GoogleGetProfileResponses[keyof GoogleGetProfileResponses];
+
+export type GoogleGetThreadData = {
+    body: GoogleGetThreadRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/get-thread';
+};
+
+export type GoogleGetThreadErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleGetThreadResponses = {
+    /**
+     * Google mail thread fetched
+     */
+    200: Thread;
+};
+
+export type GoogleGetThreadResponse = GoogleGetThreadResponses[keyof GoogleGetThreadResponses];
+
+export type GoogleListHistoryData = {
+    body: GoogleListHistoryRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/list-history';
+};
+
+export type GoogleListHistoryErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleListHistoryResponses = {
+    /**
+     * Google mail history fetched
+     */
+    200: ListHistoryResponse;
+};
+
+export type GoogleListHistoryResponse = GoogleListHistoryResponses[keyof GoogleListHistoryResponses];
+
+export type GoogleListLabelsData = {
+    body: GoogleListLabelsRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/list-labels';
+};
+
+export type GoogleListLabelsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleListLabelsResponses = {
+    /**
+     * Google mail labels fetched
+     */
+    200: ListLabelsResponse;
+};
+
+export type GoogleListLabelsResponse = GoogleListLabelsResponses[keyof GoogleListLabelsResponses];
+
+export type GoogleListMessagesData = {
+    body: GoogleListMessagesRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/list-messages';
+};
+
+export type GoogleListMessagesErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleListMessagesResponses = {
+    /**
+     * Google mail messages fetched
+     */
+    200: ListMessagesResponse;
+};
+
+export type GoogleListMessagesResponse = GoogleListMessagesResponses[keyof GoogleListMessagesResponses];
+
+export type GoogleListThreadsData = {
+    body: GoogleListThreadsRequest;
+    path?: never;
+    query?: never;
+    url: '/mail/google/list-threads';
+};
+
+export type GoogleListThreadsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleListThreadsResponses = {
+    /**
+     * Google mail threads fetched
+     */
+    200: ListThreadsResponse;
+};
+
+export type GoogleListThreadsResponse = GoogleListThreadsResponses[keyof GoogleListThreadsResponses];
+
 export type DeleteConnectionData = {
     body: DeleteConnectionRequest;
     path?: never;
@@ -1113,6 +1696,33 @@ export type NangoWebhookResponses = {
 };
 
 export type NangoWebhookResponse = NangoWebhookResponses[keyof NangoWebhookResponses];
+
+export type WhoamiData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/nango/whoami';
+};
+
+export type WhoamiErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type WhoamiResponses = {
+    /**
+     * User info for all connections
+     */
+    200: WhoAmIResponse;
+};
+
+export type WhoamiResponse = WhoamiResponses[keyof WhoamiResponses];
 
 export type SttListenStreamData = {
     body?: never;
@@ -1467,3 +2077,111 @@ export type SendMessageResponses = {
 };
 
 export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
+
+export type GithubListReposData = {
+    body: GitHubListReposRequest;
+    path?: never;
+    query?: never;
+    url: '/ticket/github/list-repos';
+};
+
+export type GithubListReposErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GithubListReposResponses = {
+    /**
+     * GitHub repositories fetched
+     */
+    200: CollectionPage;
+};
+
+export type GithubListReposResponse = GithubListReposResponses[keyof GithubListReposResponses];
+
+export type GithubListTicketsData = {
+    body: GitHubListTicketsRequest;
+    path?: never;
+    query?: never;
+    url: '/ticket/github/list-tickets';
+};
+
+export type GithubListTicketsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GithubListTicketsResponses = {
+    /**
+     * GitHub tickets fetched
+     */
+    200: TicketPage;
+};
+
+export type GithubListTicketsResponse = GithubListTicketsResponses[keyof GithubListTicketsResponses];
+
+export type LinearListTeamsData = {
+    body: LinearListTeamsRequest;
+    path?: never;
+    query?: never;
+    url: '/ticket/linear/list-teams';
+};
+
+export type LinearListTeamsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type LinearListTeamsResponses = {
+    /**
+     * Linear teams fetched
+     */
+    200: CollectionPage;
+};
+
+export type LinearListTeamsResponse = LinearListTeamsResponses[keyof LinearListTeamsResponses];
+
+export type LinearListTicketsData = {
+    body: LinearListTicketsRequest;
+    path?: never;
+    query?: never;
+    url: '/ticket/linear/list-tickets';
+};
+
+export type LinearListTicketsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type LinearListTicketsResponses = {
+    /**
+     * Linear tickets fetched
+     */
+    200: TicketPage;
+};
+
+export type LinearListTicketsResponse = LinearListTicketsResponses[keyof LinearListTicketsResponses];

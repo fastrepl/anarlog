@@ -1,17 +1,23 @@
 import { forwardRef, useMemo } from "react";
 
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { type JSONContent, TiptapEditor } from "@hypr/tiptap/editor";
-import NoteEditor from "@hypr/tiptap/editor";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 
+import {
+  NoteEditor,
+  type JSONContent,
+  type NoteEditorRef,
+} from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { useImageUpload } from "~/shared/hooks/useImageUpload";
 import * as main from "~/store/tinybase/store/main";
 
 export const EnhancedEditor = forwardRef<
-  { editor: TiptapEditor | null },
-  { sessionId: string; enhancedNoteId: string; onNavigateToTitle?: () => void }
+  NoteEditorRef,
+  {
+    sessionId: string;
+    enhancedNoteId: string;
+    onNavigateToTitle?: (pixelWidth?: number) => void;
+  }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const onImageUpload = useImageUpload(sessionId);
   const content = main.UI.useCell(
@@ -88,15 +94,6 @@ export const EnhancedEditor = forwardRef<
 
   const fileHandlerConfig = useMemo(() => ({ onImageUpload }), [onImageUpload]);
 
-  const extensionOptions = useMemo(
-    () => ({
-      onLinkOpen: (url: string) => {
-        void openerCommands.openUrl(url, null);
-      },
-    }),
-    [],
-  );
-
   return (
     <div className="h-full">
       <NoteEditor
@@ -107,7 +104,6 @@ export const EnhancedEditor = forwardRef<
         mentionConfig={mentionConfig}
         onNavigateToTitle={onNavigateToTitle}
         fileHandlerConfig={fileHandlerConfig}
-        extensionOptions={extensionOptions}
       />
     </div>
   );

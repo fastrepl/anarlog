@@ -1,0 +1,14 @@
+[package]
+name = "audio-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+realfft = { workspace = true }
+
+[dev-dependencies]
+approx = { workspace = true }
+dasp = { workspace = true }
+rodio = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

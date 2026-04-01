@@ -22,6 +22,7 @@ import {
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as miscCommands } from "@hypr/plugin-misc";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { openUrlWithInstruction } from "@hypr/plugin-windows";
 
 import { supabase } from "./client";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
@@ -35,7 +36,8 @@ import {
 
 type AuthState = {
   supabase: SupabaseClient | null;
-  session: Session | null;
+  // undefined = initial load in progress, null = known unauthenticated
+  session: Session | null | undefined;
   isRefreshingSession: boolean;
 };
 
@@ -95,16 +97,19 @@ async function initSession(
     if (error) {
       if (isFatalSessionError(error)) {
         await onClear();
+      } else {
+        setSession(null);
       }
       return;
     }
 
-    if (data.session) {
-      setSession(data.session);
-    }
+    // Always resolve to null so session never stays undefined after init
+    setSession(data.session ?? null);
   } catch (e) {
     if (isFatalSessionError(e)) {
       await onClear();
+    } else {
+      setSession(null);
     }
   }
 }
@@ -145,7 +150,7 @@ async function trackAuthEvent(
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
   // Prevents double initSession in React StrictMode, which can cause refresh token races
   const initStartedRef = useRef(false);
@@ -272,7 +277,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async () => {
     const url = await buildWebAppUrl("/auth");
-    await openerCommands.openUrl(url, null);
+    await openUrlWithInstruction(url, "sign-in", (u) =>
+      openerCommands.openUrl(u, null),
+    );
   }, []);
 
   const signOut = useCallback(async () => {
@@ -287,17 +294,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error instanceof AuthRetryableFetchError ||
           error instanceof AuthSessionMissingError
         ) {
+          trackedUserId = null;
           await clearAuthStorage();
           setSession(null);
           return;
         }
         console.error(error);
+        return;
       }
+
+      trackedUserId = null;
+      await clearAuthStorage();
+      setSession(null);
     } catch (e) {
       if (
         e instanceof AuthRetryableFetchError ||
         e instanceof AuthSessionMissingError
       ) {
+        trackedUserId = null;
         await clearAuthStorage();
         setSession(null);
       }

@@ -1,9 +1,8 @@
-import { MDXContent } from "@content-collections/mdx/react";
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Download } from "lucide-react";
-import semver from "semver";
 
+import { ChangelogContent, fixImageUrls } from "@hypr/changelog";
 import { cn } from "@hypr/utils";
 
 import {
@@ -11,7 +10,6 @@ import {
   getChangelogBySlug,
   getChangelogList,
 } from "@/changelog";
-import { defaultMDXComponents } from "@/components/mdx";
 import { NotFoundContent } from "@/components/not-found";
 import { getDownloadLinks, groupDownloadLinks } from "@/utils/download";
 
@@ -42,11 +40,9 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
     if (!loaderData) return {};
 
     const { changelog } = loaderData;
-    const currentVersion = semver.parse(changelog.version);
-    const isNightly = currentVersion && currentVersion.prerelease.length > 0;
 
     const title = `Version ${changelog.version} - Char Changelog`;
-    const description = `Explore what's new in Char version ${changelog.version}${isNightly ? " (Nightly)" : ""}.`;
+    const description = `Explore what's new in Char version ${changelog.version}.`;
     const url = `https://char.com/changelog/${changelog.slug}`;
     const ogImageUrl = `https://char.com/og?type=changelog&version=${encodeURIComponent(changelog.version)}&v=1`;
 
@@ -76,11 +72,6 @@ export const Route = createFileRoute("/_view/changelog/$slug")({
 function Component() {
   const { changelog, allChangelogs, diffUrl } = Route.useLoaderData();
 
-  const currentVersion = semver.parse(changelog.version);
-  const isPrerelease = !!(
-    currentVersion && currentVersion.prerelease.length > 0
-  );
-
   return (
     <main className="min-h-screen flex-1">
       <div className="mx-auto">
@@ -88,11 +79,7 @@ function Component() {
           <div className="hidden gap-12 md:flex md:flex-col md:items-center">
             <div className="flex flex-col items-center gap-6">
               <img
-                src={
-                  isPrerelease
-                    ? "/api/images/icons/nightly-icon.png"
-                    : "/api/images/icons/stable-icon.png"
-                }
+                src="/api/images/icons/stable-icon.png"
                 alt="Char"
                 className="size-32 rounded-2xl"
               />
@@ -119,11 +106,7 @@ function Component() {
           <div className="text-left md:hidden">
             <div className="mb-8 flex flex-col items-center gap-3">
               <img
-                src={
-                  isPrerelease
-                    ? "/api/images/icons/nightly-icon.png"
-                    : "/api/images/icons/stable-icon.png"
-                }
+                src="/api/images/icons/stable-icon.png"
                 alt="Char"
                 className="size-16 rounded-2xl"
               />
@@ -147,11 +130,8 @@ function Component() {
             <DownloadLinksHeroMobile version={changelog.version} />
           </div>
 
-          <article className="prose prose-stone prose-headings:font-mono prose-headings:font-semibold prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h4:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-a:text-stone-700 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-lg prose-img:border prose-img:border-neutral-200 prose-img:my-6 mt-12 max-w-none">
-            <MDXContent
-              code={changelog.mdx}
-              components={defaultMDXComponents}
-            />
+          <article className="mt-12 max-w-none [&_h2]:font-mono [&_h3]:font-mono">
+            <ChangelogContent content={fixImageUrls(changelog.content)} />
           </article>
         </div>
 
@@ -299,12 +279,6 @@ function RelatedReleases({
 
       <div className="flex gap-4 overflow-x-auto sm:grid sm:grid-cols-5 sm:overflow-visible">
         {relatedChangelogs.map((release) => {
-          const version = semver.parse(release.version);
-          const isPrerelease = version && version.prerelease.length > 0;
-          const nightlyNumber =
-            isPrerelease && version?.prerelease[0] === "nightly"
-              ? version.prerelease[1]
-              : null;
           const isCurrent = release.slug === currentSlug;
 
           return (
@@ -324,11 +298,7 @@ function RelatedReleases({
                 ])}
               >
                 <img
-                  src={
-                    isPrerelease
-                      ? "/api/images/icons/nightly-icon.png"
-                      : "/api/images/icons/stable-icon.png"
-                  }
+                  src="/api/images/icons/stable-icon.png"
                   alt="Char"
                   className={cn([
                     "size-12 rounded-xl transition-all duration-300",
@@ -336,23 +306,14 @@ function RelatedReleases({
                   ])}
                 />
 
-                <div className="flex items-center gap-1.5">
-                  <h3
-                    className={cn([
-                      "font-mono text-sm font-medium text-stone-700 transition-colors",
-                      !isCurrent && "group-hover:text-stone-800",
-                    ])}
-                  >
-                    {version
-                      ? `${version.major}.${version.minor}.${version.patch}`
-                      : release.version}
-                  </h3>
-                  {nightlyNumber !== null && (
-                    <span className="inline-flex items-center rounded-full bg-stone-200 px-1.5 py-0.5 text-xs font-medium text-stone-700">
-                      #{nightlyNumber}
-                    </span>
-                  )}
-                </div>
+                <h3
+                  className={cn([
+                    "font-mono text-sm font-medium text-stone-700 transition-colors",
+                    !isCurrent && "group-hover:text-stone-800",
+                  ])}
+                >
+                  {release.version}
+                </h3>
               </article>
             </Link>
           );

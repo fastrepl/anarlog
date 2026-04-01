@@ -1,0 +1,23 @@
+---
+interface Props { name: string }
+const { name } = Astro.props;
+const org = name.replace("@", "").split("/")[0];
+---
+
+<a
+  href={`https://github.com/${name.replace("@", "")}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  class:list={[
+    "text-neutral-500",
+    "underline underline-offset-2 decoration-neutral-700 hover:decoration-neutral-400",
+    "transition-colors",
+  ]}
+>
+  <img
+    src={`https://github.com/${org}.png?size=48`}
+    alt={`@${org}`}
+    class="inline size-3.5 rounded-full"
+  />
+  {name}
+</a>

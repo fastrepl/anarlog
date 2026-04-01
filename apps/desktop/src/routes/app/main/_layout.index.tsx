@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 
 import {
   type ImperativePanelHandle,
@@ -8,6 +8,7 @@ import {
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
 
+import { SyncProvider } from "~/calendar/components/context";
 import { PersistentChatPanel } from "~/chat/components/persistent-chat";
 import { useShell } from "~/contexts/shell";
 import { useSearch } from "~/search/contexts/ui";
@@ -32,13 +33,35 @@ function Component() {
   const bodyPanelRef = useRef<ImperativePanelHandle>(null);
   const chatPanelContainerRef = useRef<HTMLDivElement>(null);
 
+  const isCalendarMode = currentTab?.type === "calendar";
+  const hasCustomSidebar =
+    currentTab?.type === "calendar" ||
+    currentTab?.type === "settings" ||
+    currentTab?.type === "contacts" ||
+    currentTab?.type === "templates";
+  const savedExpandedRef = useRef<boolean | null>(null);
+  const wasCustomSidebarRef = useRef(false);
+
   const isChatOpen = chat.mode === "RightPanelOpen";
+  const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
 
   useEffect(() => {
-    if (isOnboarding && leftsidebar.expanded) {
-      leftsidebar.setExpanded(false);
+    if (hasCustomSidebar && !wasCustomSidebarRef.current) {
+      savedExpandedRef.current = leftsidebar.expanded;
+      if (!leftsidebar.expanded) {
+        leftsidebar.setExpanded(true);
+        commands.resizeWindowForSidebar().catch(console.error);
+      }
+      leftsidebar.setLocked(true);
+    } else if (!hasCustomSidebar && wasCustomSidebarRef.current) {
+      leftsidebar.setLocked(false);
+      if (savedExpandedRef.current !== null) {
+        leftsidebar.setExpanded(savedExpandedRef.current);
+      }
+      savedExpandedRef.current = null;
     }
-  }, [isOnboarding, leftsidebar]);
+    wasCustomSidebarRef.current = hasCustomSidebar;
+  }, [hasCustomSidebar, leftsidebar]);
 
   useEffect(() => {
     const isOpeningRightPanel =
@@ -63,40 +86,48 @@ function Component() {
     }
 
     previousQueryRef.current = query;
-  }, [query, leftsidebar]);
+  }, [query, leftsidebar, isOnboarding]);
 
   return (
-    <div
-      className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
-      data-testid="main-app-shell"
-    >
-      {leftsidebar.expanded && !isOnboarding && <LeftSidebar />}
-
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="flex flex-1 overflow-hidden"
-        autoSaveId="main-chat"
+    <SyncWrapper>
+      <div
+        className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
+        data-testid="main-app-shell"
       >
-        <ResizablePanel ref={bodyPanelRef} className="flex-1 overflow-hidden">
-          <Body />
-        </ResizablePanel>
-        {isChatOpen && (
-          <>
-            <ResizableHandle className="w-0" />
-            <ResizablePanel
-              defaultSize={30}
-              minSize={20}
-              maxSize={50}
-              className="pl-1"
-              style={{ minWidth: CHAT_MIN_WIDTH_PX }}
-            >
-              <div ref={chatPanelContainerRef} className="h-full" />
-            </ResizablePanel>
-          </>
-        )}
-      </ResizablePanelGroup>
+        {leftsidebar.expanded && !isOnboarding && <LeftSidebar />}
 
-      <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
-    </div>
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="flex min-h-0 flex-1 overflow-hidden"
+          autoSaveId="main-chat"
+        >
+          <ResizablePanel
+            ref={bodyPanelRef}
+            className="min-h-0 flex-1 overflow-hidden"
+          >
+            <Body />
+          </ResizablePanel>
+          {isChatOpen && (
+            <>
+              <ResizableHandle className="w-0" />
+              <ResizablePanel
+                defaultSize={30}
+                minSize={20}
+                maxSize={50}
+                className="min-h-0 overflow-hidden"
+                style={{ minWidth: CHAT_MIN_WIDTH_PX }}
+              >
+                <div
+                  ref={chatPanelContainerRef}
+                  className="mx-2 -mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden"
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+
+        <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
+      </div>
+    </SyncWrapper>
   );
 }

@@ -26,14 +26,28 @@ where
 #[derive(Debug, Clone, Default)]
 pub struct CloudConfig {
     pub api_key: Option<String>,
+    pub base_url: Option<String>,
     pub threshold: Option<f32>,
+    pub headers: Vec<(String, String)>,
 }
 
 impl CloudConfig {
     pub(super) fn prepare_env(&self) {
+        // SAFETY: called under inference_lock, matching the C++ read.
         if let Some(key) = &self.api_key {
-            // SAFETY: called under inference_lock, matching the C++ read.
             unsafe { std::env::set_var("CACTUS_CLOUD_API_KEY", key) };
+        }
+        if let Some(url) = &self.base_url {
+            unsafe { std::env::set_var("CACTUS_CLOUD_API_BASE", url) };
+        }
+        if !self.headers.is_empty() {
+            let value = self
+                .headers
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            unsafe { std::env::set_var("CACTUS_CLOUD_HEADERS", value) };
         }
     }
 }
@@ -56,11 +70,23 @@ pub struct Transcriber<'a> {
 unsafe impl Send for Transcriber<'_> {}
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct StreamSegment {
+    #[serde(default)]
+    pub start: f32,
+    #[serde(default)]
+    pub end: f32,
+    #[serde(default)]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct StreamResult {
     #[serde(default)]
     pub confirmed: String,
     #[serde(default)]
     pub pending: String,
+    #[serde(default)]
+    pub segments: Vec<StreamSegment>,
     #[serde(default)]
     pub language: Option<String>,
     #[serde(default)]

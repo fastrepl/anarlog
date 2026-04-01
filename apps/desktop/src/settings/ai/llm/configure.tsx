@@ -14,6 +14,7 @@ import { ProviderId, PROVIDERS } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import {
+  CharProviderIcon,
   HyprCloudCTAButton,
   HyprProviderRow,
   NonHyprProviderCard,
@@ -37,7 +38,7 @@ export function ConfigureProviders() {
         <HyprProviderCard
           providerId="hyprnote"
           providerName="Char"
-          icon={<img src="/assets/icon.png" alt="Char" className="size-5" />}
+          icon={<CharProviderIcon />}
           badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
         />
         {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
@@ -102,7 +103,7 @@ function HyprProviderCard({
 }
 
 function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
-  const { isPro, canStartTrial, upgradeToPro } = useBillingAccess();
+  const { isPaid, canStartTrial, upgradeToPro } = useBillingAccess();
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
     "current_llm_provider",
@@ -119,13 +120,13 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
   );
 
   const handleClick = useCallback(() => {
-    if (!isPro) {
+    if (!isPaid) {
       upgradeToPro();
     } else {
       handleSelectProvider("hyprnote");
       handleSelectModel("Auto");
     }
-  }, [isPro, upgradeToPro, handleSelectProvider, handleSelectModel]);
+  }, [isPaid, upgradeToPro, handleSelectProvider, handleSelectModel]);
 
   return (
     <HyprProviderRow>
@@ -136,7 +137,7 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
         </p>
       </div>
       <HyprCloudCTAButton
-        isPro={isPro}
+        isPaid={isPaid}
         canStartTrial={canStartTrial.data}
         highlight={highlight}
         onClick={handleClick}

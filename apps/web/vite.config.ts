@@ -5,14 +5,12 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { generateSitemap } from "tanstack-router-sitemap";
 import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 
 import { getSitemap } from "./src/utils/sitemap";
 
 const config = defineConfig(() => ({
   plugins: [
     contentCollections(),
-    viteTsConfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
     tanstackStart({
       sitemap: {
@@ -50,6 +48,9 @@ const config = defineConfig(() => ({
       "react-tweet",
       "@content-collections/mdx",
     ],
+  },
+  resolve: {
+    tsconfigPaths: true,
   },
   preview: {
     host: "127.0.0.1",

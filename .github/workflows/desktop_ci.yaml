@@ -19,6 +19,7 @@ on:
       - Cargo.lock
 jobs:
   desktop_ci:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     defaults:
       run:
         shell: bash
@@ -63,6 +64,7 @@ jobs:
             --exclude mac \
             --exclude notch \
             --exclude notification-macos \
+            --exclude notification-macos2 \
             --exclude tcc \
             --exclude apple-note \
             --exclude notification-linux \
@@ -139,7 +141,11 @@ jobs:
             --exclude tauri-plugin-tray \
             --exclude tauri-plugin-updater2 \
             --exclude tauri-plugin-webhook \
-            --exclude tauri-plugin-windows
+            --exclude tauri-plugin-windows \
+            --exclude db3 \
+            --exclude db-core2 \
+            --exclude activity-capture-macos \
+            --exclude tauri-plugin-activity-capture
 
   ci:
     if: always()

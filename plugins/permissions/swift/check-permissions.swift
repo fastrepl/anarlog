@@ -4,7 +4,8 @@ import EventKit
 import Foundation
 
 guard CommandLine.arguments.count > 1 else {
-  fputs("Usage: check-permissions <calendar|contacts|microphone|accessibility>\n", stderr)
+  fputs(
+    "Usage: check-permissions <calendar|contacts|microphone|systemAudio|accessibility>\n", stderr)
   exit(1)
 }
 
@@ -35,6 +36,23 @@ case "microphone":
   case .denied: print("denied")
   case .authorized: print("authorized")
   @unknown default: print("unknown")
+  }
+case "systemAudio":
+  let TCC_PATH = "/System/Library/PrivateFrameworks/TCC.framework/Versions/A/TCC"
+  guard let handle = dlopen(TCC_PATH, RTLD_NOW),
+    let sym = dlsym(handle, "TCCAccessPreflight")
+  else {
+    print("error")
+    exit(1)
+  }
+  typealias PreflightFunc = @convention(c) (CFString, CFDictionary?) -> Int
+  let preflight = unsafeBitCast(sym, to: PreflightFunc.self)
+  let result = preflight("kTCCServiceAudioCapture" as CFString, nil)
+  switch result {
+  case 0: print("authorized")
+  case 1: print("denied")
+  case 2: print("notDetermined")
+  default: print("unknown")
   }
 case "accessibility":
   print(AXIsProcessTrusted() ? "trusted" : "untrusted")

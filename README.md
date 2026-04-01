@@ -23,7 +23,7 @@ You can also use it for taking notes for lectures or organizing your thoughts.
 ## Installation
 
 ```bash
-brew install --cask fastrepl/fastrepl/char@nightly
+brew install --cask fastrepl/fastrepl/char
 ```
 
 - [macOS](https://char.com/download) (public beta)

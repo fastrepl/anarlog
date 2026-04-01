@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
   type ReactNode,
@@ -13,6 +13,8 @@ import {
 import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+
+import { useBillingAccess } from "~/auth/billing";
 
 type AudioPlayerState = "playing" | "paused" | "stopped";
 
@@ -73,6 +75,8 @@ interface AudioPlayerContextValue {
   audioExists: boolean;
   playbackRate: number;
   setPlaybackRate: (rate: number) => void;
+  deleteRecording: () => Promise<void>;
+  isDeletingRecording: boolean;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextValue | null>(null);
@@ -99,6 +103,8 @@ export function AudioPlayerProvider({
   url: string;
   children: ReactNode;
 }) {
+  const queryClient = useQueryClient();
+  const { isPro } = useBillingAccess();
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [wavesurfer, setWavesurfer] = useState<WaveSurfer | null>(null);
   const [state, setState] = useState<AudioPlayerState>("stopped");
@@ -254,13 +260,45 @@ export function AudioPlayerProvider({
 
   const setPlaybackRate = useCallback(
     (rate: number) => {
+      if (!isPro && rate !== 1) {
+        return;
+      }
       if (wavesurfer) {
         wavesurfer.setPlaybackRate(rate);
       }
       setPlaybackRateState(rate);
     },
-    [wavesurfer],
+    [isPro, wavesurfer],
   );
+
+  useEffect(() => {
+    if (isPro || playbackRate === 1) {
+      return;
+    }
+    if (wavesurfer) {
+      wavesurfer.setPlaybackRate(1);
+    }
+    setPlaybackRateState(1);
+  }, [isPro, playbackRate, wavesurfer]);
+
+  const deleteRecordingMutation = useMutation({
+    mutationFn: async () => {
+      const result = await fsSyncCommands.audioDelete(sessionId);
+      if (result.status === "error") {
+        throw new Error(result.error);
+      }
+    },
+    onSuccess: () => {
+      stop();
+      timeStoreRef.current.reset();
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", sessionId, "exist"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["audio", sessionId, "url"],
+      });
+    },
+  });
 
   const audioExistsValue = Boolean(url) || (audioExists.data ?? false);
 
@@ -278,6 +316,8 @@ export function AudioPlayerProvider({
       audioExists: audioExistsValue,
       playbackRate,
       setPlaybackRate,
+      deleteRecording: deleteRecordingMutation.mutateAsync,
+      isDeletingRecording: deleteRecordingMutation.isPending,
     }),
     [
       registerContainer,
@@ -291,6 +331,8 @@ export function AudioPlayerProvider({
       audioExistsValue,
       playbackRate,
       setPlaybackRate,
+      deleteRecordingMutation.mutateAsync,
+      deleteRecordingMutation.isPending,
     ],
   );
 

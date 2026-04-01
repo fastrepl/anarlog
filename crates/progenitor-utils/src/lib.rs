@@ -10,6 +10,10 @@ pub struct OpenApiSpec {
 }
 
 impl OpenApiSpec {
+    pub fn inner_mut(&mut self) -> &mut Value {
+        &mut self.inner
+    }
+
     pub fn from_path(path: &str) -> Self {
         let raw = std::fs::read_to_string(path).expect("failed to read OpenAPI spec");
         let inner: Value = serde_json::from_str(&raw).expect("invalid JSON");

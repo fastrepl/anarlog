@@ -6,6 +6,7 @@ import { createClient } from "@hypr/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -15,7 +16,7 @@ export function DisconnectFlow() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
-  >("idle");
+  >("loading");
 
   const display = getIntegrationDisplay(search.integration_id);
 
@@ -72,6 +73,10 @@ export function DisconnectFlow() {
     });
   };
 
+  useMountEffect(() => {
+    void handleDisconnect();
+  });
+
   return (
     <IntegrationPageLayout>
       <div className="flex flex-col gap-3">
@@ -79,26 +84,18 @@ export function DisconnectFlow() {
           Disconnect {display.name}
         </h1>
         <p className="text-neutral-600">
-          This will stop syncing data from {display.name}.
+          {status === "error"
+            ? `Could not disconnect ${display.name}.`
+            : `Disconnecting ${display.name}...`}
         </p>
       </div>
-
-      {status !== "error" && (
-        <IntegrationButton
-          variant="danger"
-          onClick={handleDisconnect}
-          disabled={status === "loading" || !search.connection_id}
-        >
-          {status === "loading" ? "Disconnecting..." : "Disconnect"}
-        </IntegrationButton>
-      )}
 
       {status === "error" && (
         <div className="flex flex-col gap-4">
           <p className="text-red-600">
             Could not disconnect this integration. Please try again.
           </p>
-          <IntegrationButton onClick={handleDisconnect}>
+          <IntegrationButton variant="danger" onClick={handleDisconnect}>
             Try again
           </IntegrationButton>
         </div>

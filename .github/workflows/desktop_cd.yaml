@@ -121,6 +121,7 @@ jobs:
       - run: |
           TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
           ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-chrome-native-host"
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/check-permissions"
       # - run: ./scripts/resource.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "resources/libonnxruntime.dylib"
       - uses: ./.github/actions/apple_cert
         id: apple-cert
@@ -143,10 +144,9 @@ jobs:
           CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AM_API_KEY: ${{ matrix.include_am && secrets.AM_API_KEY || '' }}
-          CACTUS_API_KEY: ${{ secrets.CACTUS_API_KEY }}
+          CACTUS_CLOUD_API_BASE: "https://api.char.com/cactus"
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          OUTLIT_PUBLIC_KEY: ${{ secrets.OUTLIT_PUBLIC_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -163,6 +163,22 @@ jobs:
           VITE_API_URL: "https://api.char.com"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - id: find-dmg
+        shell: bash
+        run: |
+          DMG_FILE=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/" -name "*.dmg" -type f | head -1)
+          if [[ -z "$DMG_FILE" ]]; then
+            echo "::error::No DMG found in bundle output"
+            exit 1
+          fi
+          echo "path=$DMG_FILE" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/macos_notarize_dmg
+        with:
+          dmg-path: ${{ steps.find-dmg.outputs.path }}
+          signing-identity: ${{ steps.apple-cert.outputs.cert-id }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
       - run: |
           mkdir -p target/release/
           find target/${{ matrix.target }}/release -type f -not -path "*/\.*" -exec cp {} target/release/ \;
@@ -236,6 +252,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
       - if: ${{ needs.build-macos.result == 'success' }}
         uses: ./.github/actions/cn_download
         with:
@@ -274,9 +294,47 @@ jobs:
             ARTIFACTS="$ARTIFACTS,${{ steps.checksums.outputs.checksum_files }}"
           fi
           echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
+      - id: release-body
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          if [[ "$CHANNEL" != "nightly" ]]; then
+            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="desktop_v$VERSION"
+          PREV_TAG=""
+          LAST_TAG=""
+          LAST_NIGHTLY_TAG=""
+
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$CURRENT_TAG" ]]; then
+              PREV_TAG="$LAST_NIGHTLY_TAG"
+              if [[ -z "$PREV_TAG" ]]; then
+                PREV_TAG="$LAST_TAG"
+              fi
+              break
+            fi
+
+            if [[ "$tag" == *"-nightly."* ]]; then
+              LAST_NIGHTLY_TAG="$tag"
+            fi
+
+            LAST_TAG="$tag"
+          done < <(git tag -l 'desktop_v*' --sort=v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
       - uses: ncipollo/release-action@v1
         with:
           tag: desktop_v${{ needs.compute-version.outputs.version }}
           name: desktop_v${{ needs.compute-version.outputs.version }}
-          body: "https://char.com/changelog/${{ needs.compute-version.outputs.version }}"
+          body: ${{ steps.release-body.outputs.value }}
+          prerelease: ${{ inputs.channel == 'nightly' }}
+          makeLatest: ${{ inputs.channel == 'nightly' && 'false' || 'true' }}
           artifacts: ${{ steps.artifacts.outputs.list }}

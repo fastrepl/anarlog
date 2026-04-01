@@ -3,7 +3,7 @@ use std::sync::Arc;
 use owhisper_client::{
     AssemblyAIAdapter, Auth, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
     FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, RealtimeSttAdapter,
-    SonioxAdapter,
+    SonioxAdapter, normalize_listen_params,
 };
 use owhisper_interface::ListenParams;
 
@@ -18,14 +18,14 @@ use super::session::init_session;
 use super::{AnalyticsContext, ProxyBuildError, build_on_close_callback, parse_param};
 
 fn build_listen_params(params: &QueryParams) -> ListenParams {
-    ListenParams {
+    normalize_listen_params(ListenParams {
         model: params.get_first("model").map(|s| s.to_string()),
         languages: params.get_languages(),
         sample_rate: parse_param(params, "sample_rate", 16000),
         channels: parse_param(params, "channels", 1),
         keywords: params.parse_keywords(),
         ..Default::default()
-    }
+    })
 }
 
 fn build_upstream_url_with_adapter(
@@ -306,6 +306,28 @@ mod tests {
         assert_eq!(listen_params.sample_rate, 16000);
         assert_eq!(listen_params.channels, 1);
         assert!(listen_params.keywords.is_empty());
+    }
+
+    #[test]
+    fn test_build_listen_params_normalizes_duplicate_base_languages() {
+        let mut params = QueryParams::default();
+        params.insert(
+            "language".to_string(),
+            QueryValue::Multi(vec![
+                "en-US".to_string(),
+                "en-GB".to_string(),
+                "en".to_string(),
+                "ko-KR".to_string(),
+            ]),
+        );
+
+        let listen_params = build_listen_params(&params);
+
+        assert_eq!(listen_params.languages.len(), 2);
+        assert_eq!(listen_params.languages[0].iso639(), ISO639::En);
+        assert_eq!(listen_params.languages[0].region(), None);
+        assert_eq!(listen_params.languages[1].iso639(), ISO639::Ko);
+        assert_eq!(listen_params.languages[1].region(), Some("KR"));
     }
 
     #[test]

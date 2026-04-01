@@ -10,12 +10,14 @@ import {
   CommandList,
 } from "@hypr/ui/components/ui/command";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuSubContent,
   DropdownMenuTrigger,
 } from "@hypr/ui/components/ui/dropdown-menu";
 
+import { useBillingAccess } from "~/auth/billing";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
 import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
@@ -57,7 +59,7 @@ export function SearchableFolderDropdown({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-50 p-0">
+      <DropdownMenuContent variant="app" align="start" className="w-50">
         {Object.keys(folders).length ? (
           <SearchableFolderContent
             folders={folders}
@@ -69,9 +71,9 @@ export function SearchableFolderDropdown({
             setOpen={setOpen}
           />
         ) : (
-          <div className="text-muted-foreground py-6 text-center text-sm">
+          <AppFloatingPanel className="py-6 text-center text-sm text-neutral-500">
             No folders available
-          </div>
+          </AppFloatingPanel>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -93,7 +95,7 @@ export function SearchableFolderSubmenuContent({
   const handleSelectFolder = useMoveSessionToFolder(sessionId);
 
   return (
-    <DropdownMenuSubContent className="w-50 p-0">
+    <DropdownMenuSubContent variant="app" className="w-50">
       {Object.keys(folders).length ? (
         <SearchableFolderContent
           folders={folders}
@@ -105,9 +107,9 @@ export function SearchableFolderSubmenuContent({
           setOpen={setOpen}
         />
       ) : (
-        <div className="text-muted-foreground py-6 text-center text-sm">
+        <AppFloatingPanel className="py-6 text-center text-sm text-neutral-500">
           No folders available
-        </div>
+        </AppFloatingPanel>
       )}
     </DropdownMenuSubContent>
   );
@@ -149,30 +151,36 @@ function SearchableFolderContent({
   };
 
   return (
-    <Command>
-      <CommandInput placeholder="Search folders..." autoFocus className="h-9" />
-      <CommandList>
-        <CommandEmpty>No folders found.</CommandEmpty>
-        <CommandGroup>
-          {Object.entries(folders).map(([folderId, folder]) => (
-            <CommandItem
-              key={folderId}
-              value={folder.name}
-              disabled={!!disabledReason || folderId === currentFolderId}
-              onSelect={() => handleSelect(folderId)}
-            >
-              <FolderIcon />
-              {folder.name}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        {(disabledReason || error) && (
-          <div className="px-2 py-2 text-xs text-red-500">
-            {error ?? disabledReason}
-          </div>
-        )}
-      </CommandList>
-    </Command>
+    <AppFloatingPanel className="overflow-hidden">
+      <Command className="rounded-[inherit] border-0 bg-transparent">
+        <CommandInput
+          placeholder="Search folders..."
+          autoFocus
+          className="h-9"
+        />
+        <CommandList>
+          <CommandEmpty>No folders found.</CommandEmpty>
+          <CommandGroup>
+            {Object.entries(folders).map(([folderId, folder]) => (
+              <CommandItem
+                key={folderId}
+                value={folder.name}
+                disabled={!!disabledReason || folderId === currentFolderId}
+                onSelect={() => handleSelect(folderId)}
+              >
+                <FolderIcon />
+                {folder.name}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          {(disabledReason || error) && (
+            <div className="px-2 py-2 text-xs text-red-500">
+              {error ?? disabledReason}
+            </div>
+          )}
+        </CommandList>
+      </Command>
+    </AppFloatingPanel>
   );
 }
 
@@ -194,7 +202,12 @@ function useSessionFolderId(sessionId: string) {
 }
 
 function useMoveDisabledReason(sessionId: string) {
+  const { isPro } = useBillingAccess();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+
+  if (!isPro) {
+    return "Upgrade to Pro to move notes into folders.";
+  }
 
   if (sessionMode === "active" || sessionMode === "finalizing") {
     return "Stop listening before moving this note.";

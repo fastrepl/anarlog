@@ -5,83 +5,79 @@ import {
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbList,
-  BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@hypr/ui/components/ui/tooltip";
 
-import { SearchableFolderDropdown } from "./searchable-dropdown";
-
+import { useBillingAccess } from "~/auth/billing";
 import { FolderBreadcrumb } from "~/shared/ui/folder-breadcrumb";
 import * as main from "~/store/tinybase/store/main";
-import { useSessionTitle } from "~/store/zustand/live-title";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function FolderChain({ sessionId }: { sessionId: string }) {
+  const { isPro } = useBillingAccess();
   const folderId = main.UI.useCell(
     "sessions",
     sessionId,
     "folder_id",
     main.STORE_ID,
   );
-  const storeTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  ) as string | undefined;
-  const title = useSessionTitle(sessionId, storeTitle);
 
-  const handleChangeTitle = main.UI.useSetPartialRowCallback(
-    "sessions",
-    sessionId,
-    (title: string) => ({ title }),
-    [],
-    main.STORE_ID,
-  );
+  if (!folderId) {
+    return <UnassignedFolderBreadcrumb />;
+  }
 
   return (
-    <Breadcrumb className="ml-1.5 min-w-0">
-      <BreadcrumbList className="flex-nowrap gap-0.5 overflow-hidden text-xs text-neutral-700">
-        {folderId && <FolderIcon className="mr-1 h-3 w-3 shrink-0" />}
-        {!folderId ? (
-          <RenderIfRootNotExist
-            title={title}
-            handleChangeTitle={handleChangeTitle}
-            sessionId={sessionId}
-          />
-        ) : (
-          <RenderIfRootExist
-            title={title}
-            handleChangeTitle={handleChangeTitle}
-            folderId={folderId}
-          />
-        )}
+    <Breadcrumb className="ml-1.5 w-full min-w-0">
+      <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden font-mono text-xs text-neutral-700">
+        <FolderIcon className="mr-1 h-3 w-3 shrink-0" />
+        <RenderFolderBreadcrumb folderId={folderId} isPro={isPro} />
       </BreadcrumbList>
     </Breadcrumb>
   );
 }
 
-function RenderIfRootExist({
+function UnassignedFolderBreadcrumb() {
+  return (
+    <Breadcrumb className="ml-1.5 w-full min-w-0">
+      <BreadcrumbList className="w-full flex-nowrap gap-0.5 overflow-hidden font-mono text-xs text-neutral-700">
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <BreadcrumbItem className="flex items-center gap-1.5 text-neutral-400">
+              <FolderIcon className="h-3 w-3 shrink-0" />
+              <span className="cursor-default">Unassigned</span>
+            </BreadcrumbItem>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Coming soon</TooltipContent>
+        </Tooltip>
+      </BreadcrumbList>
+    </Breadcrumb>
+  );
+}
+
+function RenderFolderBreadcrumb({
   folderId,
-  title,
-  handleChangeTitle,
+  isPro,
 }: {
   folderId: string;
-  title: string;
-  handleChangeTitle: (title: string) => void;
+  isPro: boolean;
 }) {
   const openNew = useTabs((state) => state.openNew);
 
   return (
-    <>
-      <FolderBreadcrumb
-        folderId={folderId}
-        renderSeparator={({ index }) =>
-          index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null
-        }
-        renderCrumb={({ id, name }) => (
-          <BreadcrumbItem className="overflow-hidden">
+    <FolderBreadcrumb
+      folderId={folderId}
+      renderSeparator={({ index }) =>
+        index > 0 ? <BreadcrumbSeparator className="shrink-0" /> : null
+      }
+      renderCrumb={({ id, name }) => (
+        <BreadcrumbItem className="overflow-hidden">
+          {isPro ? (
             <BreadcrumbLink asChild>
               <Button
                 size="sm"
@@ -92,64 +88,11 @@ function RenderIfRootExist({
                 {name}
               </Button>
             </BreadcrumbLink>
-          </BreadcrumbItem>
-        )}
-      />
-      <BreadcrumbSeparator className="shrink-0" />
-      <BreadcrumbItem className="overflow-hidden">
-        <BreadcrumbPage>
-          <TitleInput title={title} handleChangeTitle={handleChangeTitle} />
-        </BreadcrumbPage>
-      </BreadcrumbItem>
-    </>
-  );
-}
-
-function RenderIfRootNotExist({
-  title,
-  handleChangeTitle,
-  sessionId,
-}: {
-  title: string;
-  handleChangeTitle: (title: string) => void;
-  sessionId: string;
-}) {
-  return (
-    <>
-      <BreadcrumbItem className="shrink-0">
-        <SearchableFolderDropdown
-          sessionId={sessionId}
-          trigger={
-            <button className="text-neutral-500 outline-hidden transition-colors hover:text-neutral-700">
-              Select folder
-            </button>
-          }
-        />
-      </BreadcrumbItem>
-      <BreadcrumbSeparator className="shrink-0" />
-      <BreadcrumbItem className="overflow-hidden">
-        <BreadcrumbPage>
-          <TitleInput title={title} handleChangeTitle={handleChangeTitle} />
-        </BreadcrumbPage>
-      </BreadcrumbItem>
-    </>
-  );
-}
-
-function TitleInput({
-  title,
-  handleChangeTitle,
-}: {
-  title: string;
-  handleChangeTitle: (title: string) => void;
-}) {
-  return (
-    <input
-      type="text"
-      placeholder="Untitled"
-      className="w-full min-w-0 truncate border-none bg-transparent text-neutral-700 focus:underline focus:outline-hidden"
-      value={title ?? ""}
-      onChange={(e) => handleChangeTitle(e.target.value)}
+          ) : (
+            <span className="truncate text-neutral-600">{name}</span>
+          )}
+        </BreadcrumbItem>
+      )}
     />
   );
 }

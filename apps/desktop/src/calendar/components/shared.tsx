@@ -18,9 +18,15 @@ const _PROVIDERS = [
   {
     disabled: false,
     id: "apple",
-    displayName: "Apple",
+    displayName: "Apple Calendar",
     badge: "",
-    icon: <Icon icon="logos:apple" width={20} height={20} />,
+    icon: (
+      <img
+        src="/assets/apple-calendar.png"
+        alt="Apple Calendar"
+        className="size-5 rounded-[4px] object-cover"
+      />
+    ),
     platform: "macos",
     docsPath: "https://char.com/docs/calendar/apple",
     nangoIntegrationId: undefined,
@@ -29,21 +35,21 @@ const _PROVIDERS = [
     disabled: false,
     id: "google",
     displayName: "Google",
-    badge: "Internal Use Only",
+    badge: "Beta",
     icon: <Icon icon="logos:google-calendar" width={20} height={20} />,
     platform: "all",
     docsPath: "https://char.com/docs/calendar/gcal",
     nangoIntegrationId: "google-calendar",
   },
   {
-    disabled: true,
+    disabled: false,
     id: "outlook",
     displayName: "Outlook",
-    badge: "Coming soon",
+    badge: "Beta",
     icon: <OutlookIcon size={20} />,
     platform: "all",
     docsPath: "https://char.com/docs/calendar/outlook",
-    nangoIntegrationId: undefined,
+    nangoIntegrationId: "outlook",
   },
 ] as const satisfies readonly CalendarProvider[];
 

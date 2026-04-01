@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { AlertCircleIcon, ArrowRightIcon, CheckIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -128,6 +129,8 @@ function PermissionRow({
 }
 
 export function Permissions() {
+  const isMacos = platform() === "macos";
+  const calendar = usePermission("calendar");
   const mic = usePermission("microphone");
   const systemAudio = usePermission("systemAudio");
   const accessibility = usePermission("accessibility");
@@ -163,6 +166,17 @@ export function Permissions() {
           onReset={accessibility.reset}
           onOpen={accessibility.open}
         />
+        {isMacos && (
+          <PermissionRow
+            title="Calendar"
+            description="Required to sync Apple Calendar events into Char"
+            status={calendar.status}
+            isPending={calendar.isPending}
+            onRequest={calendar.request}
+            onReset={calendar.reset}
+            onOpen={calendar.open}
+          />
+        )}
       </div>
     </div>
   );

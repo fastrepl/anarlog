@@ -5,10 +5,10 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 use reqwest_middleware::ClientWithMiddleware;
 
-use crate::DeepgramAdapter;
 use crate::adapter::{BatchSttAdapter, append_provider_param, is_hyprnote_proxy};
 use crate::error::Error;
 use crate::http_client::create_client;
+use crate::{DeepgramAdapter, ListenClientBuilder, normalize_listen_params};
 
 pub struct BatchClientBuilder<A: BatchSttAdapter = DeepgramAdapter> {
     api_base: Option<String>,
@@ -94,6 +94,8 @@ impl<A: BatchSttAdapter> BatchClient<A> {
 
     pub fn new(api_base: String, api_key: String, params: ListenParams) -> Self {
         let api_base = Self::normalize_api_base(api_base);
+        let params = normalize_listen_params(params);
+
         Self {
             client: create_client(),
             api_base,
@@ -119,10 +121,19 @@ impl<A: BatchSttAdapter> BatchClient<A> {
     }
 }
 
+impl<A: crate::RealtimeSttAdapter + BatchSttAdapter> ListenClientBuilder<A> {
+    pub fn build_batch(self) -> BatchClient<A> {
+        let params = self.normalized_params();
+        let api_base = self.api_base.expect("api_base is required");
+        BatchClient::new(api_base, self.api_key.unwrap_or_default(), params)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{DeepgramAdapter, HyprnoteAdapter, OpenAIAdapter};
+    use hypr_language::{ISO639, Language};
 
     #[test]
     fn injects_provider_for_hyprnote_proxy() {
@@ -164,5 +175,28 @@ mod tests {
         assert!(client.api_base.contains("provider=openai"));
         assert!(!client.api_base.contains("provider=hyprnote"));
         assert!(client.api_base.contains("model=whisper-1"));
+    }
+
+    #[test]
+    fn normalizes_languages_when_constructed() {
+        let client = BatchClient::<DeepgramAdapter>::builder()
+            .api_base("https://api.deepgram.com/v1")
+            .api_key("test")
+            .params(ListenParams {
+                languages: vec![
+                    Language::with_region(ISO639::En, "US"),
+                    Language::with_region(ISO639::En, "GB"),
+                    ISO639::En.into(),
+                    Language::with_region(ISO639::Ko, "KR"),
+                ],
+                ..Default::default()
+            })
+            .build();
+
+        assert_eq!(client.params.languages.len(), 2);
+        assert_eq!(client.params.languages[0].iso639(), ISO639::En);
+        assert_eq!(client.params.languages[0].region(), None);
+        assert_eq!(client.params.languages[1].iso639(), ISO639::Ko);
+        assert_eq!(client.params.languages[1].region(), Some("KR"));
     }
 }

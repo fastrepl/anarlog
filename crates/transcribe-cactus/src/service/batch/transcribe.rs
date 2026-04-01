@@ -1,19 +1,22 @@
 use std::io::Write;
 use std::path::Path;
 
-use owhisper_interface::ListenParams;
-use owhisper_interface::batch;
-use owhisper_interface::batch_sse::BatchSseMessage;
-use owhisper_interface::progress::{InferencePhase, InferenceProgress};
 use rodio::Source;
 use tokio::sync::mpsc;
 
-use super::chunk::{TARGET_SAMPLE_RATE, chunk_mono_audio};
-use super::response::{build_batch_words, build_segment_stream_response};
 use hypr_audio_utils::content_type_to_extension;
+use hypr_transcribe_core::{
+    ProgressTracker, TARGET_SAMPLE_RATE, channel_duration_sec, chunk_channel_audio,
+    initial_resolved_until, next_resolved_until, split_resampled_channels,
+};
+use owhisper_interface::ListenParams;
+use owhisper_interface::batch;
+use owhisper_interface::batch_sse::BatchSseMessage;
+
+use super::response::{build_batch_words, build_segment_stream_response};
 
 #[tracing::instrument(
-    skip(audio_data, event_tx),
+    skip(audio_data, model, event_tx),
     fields(
         hyprnote.audio.size_bytes = audio_data.len(),
         hyprnote.file.mime_type = content_type,
@@ -24,6 +27,7 @@ pub(super) fn transcribe_batch(
     audio_data: &[u8],
     content_type: &str,
     params: &ListenParams,
+    model: &hypr_cactus::Model,
     model_path: &Path,
     event_tx: Option<mpsc::UnboundedSender<BatchSseMessage>>,
 ) -> Result<batch::Response, crate::Error> {
@@ -37,7 +41,7 @@ pub(super) fn transcribe_batch(
     temp_file.flush()?;
 
     let source = hypr_audio_utils::source_from_path(temp_file.path())?;
-    let channel_count = source.channels().max(1) as usize;
+    let channel_count = u16::from(source.channels()).max(1) as usize;
     let resampled = hypr_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE)?;
     let channel_samples = split_resampled_channels(&resampled, channel_count);
     let total_duration = channel_samples
@@ -45,18 +49,7 @@ pub(super) fn transcribe_batch(
         .map(|samples| channel_duration_sec(samples))
         .fold(0.0_f64, f64::max);
 
-    let model = match crate::service::build_model(model_path, &params.keywords) {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::error!(error = %e, "failed_to_load_model");
-            return Err(e.into());
-        }
-    };
-
-    let options = hypr_cactus::TranscribeOptions {
-        language: hypr_cactus::constrain_to(&params.languages),
-        ..Default::default()
-    };
+    let options = crate::service::build_transcribe_options(params, None);
 
     let metadata = crate::service::build_metadata(model_path);
     let channel_durations = channel_samples
@@ -65,25 +58,16 @@ pub(super) fn transcribe_batch(
         .collect::<Vec<_>>();
     let channel_chunks = channel_samples
         .iter()
-        .map(|samples| chunk_channel_audio(samples))
+        .map(|samples| chunk_channel_audio::<crate::Error>(samples))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut resolved_until = channel_chunks
+    let resolved_until = channel_chunks
         .iter()
         .zip(channel_durations.iter().copied())
         .map(|(chunks, channel_duration)| initial_resolved_until(chunks, channel_duration))
         .collect::<Vec<_>>();
     let mut response_channels = Vec::with_capacity(channel_samples.len().max(1));
-    let mut last_progress = 0.0;
-
-    if let Some(ref tx) = event_tx {
-        emit_progress_update(
-            tx,
-            &mut last_progress,
-            overall_resolved_audio(&resolved_until),
-            total_duration,
-            None,
-        );
-    }
+    let mut progress = ProgressTracker::new(resolved_until, total_duration, event_tx);
+    progress.emit(None);
 
     for (channel_idx, chunks) in channel_chunks.iter().enumerate() {
         let channel_index = [channel_idx as i32, channel_samples.len() as i32];
@@ -96,12 +80,9 @@ pub(super) fn transcribe_batch(
                 channel_idx,
                 chunks,
                 channel_duration,
-                &model,
+                model,
                 &options,
-                &mut resolved_until,
-                total_duration,
-                &mut last_progress,
-                event_tx.clone(),
+                &mut progress,
                 &metadata,
                 &channel_index,
             )?
@@ -133,40 +114,14 @@ pub(super) fn transcribe_batch(
     })
 }
 
-fn split_resampled_channels(samples: &[f32], channel_count: usize) -> Vec<Vec<f32>> {
-    if channel_count <= 1 {
-        return vec![samples.to_vec()];
-    }
-
-    hypr_audio_utils::deinterleave(samples, channel_count)
-}
-
-fn channel_duration_sec(samples: &[f32]) -> f64 {
-    samples.len() as f64 / TARGET_SAMPLE_RATE as f64
-}
-
-fn chunk_channel_audio(
-    samples: &[f32],
-) -> Result<Vec<hypr_vad_chunking::AudioChunk>, crate::Error> {
-    match tokio::runtime::Handle::try_current() {
-        Ok(handle) => handle.block_on(chunk_mono_audio(samples)),
-        Err(_) => tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?
-            .block_on(chunk_mono_audio(samples)),
-    }
-}
-
+#[allow(clippy::too_many_arguments)]
 fn transcribe_chunks(
     channel_idx: usize,
     chunks: &[hypr_vad_chunking::AudioChunk],
     channel_duration: f64,
     model: &hypr_cactus::Model,
     options: &hypr_cactus::TranscribeOptions,
-    resolved_until: &mut [f64],
-    total_duration: f64,
-    last_progress: &mut f64,
-    event_tx: Option<mpsc::UnboundedSender<BatchSseMessage>>,
+    progress: &mut ProgressTracker,
     metadata: &owhisper_interface::stream::Metadata,
     channel_index: &[i32],
 ) -> Result<(Vec<batch::Word>, String, f64), crate::Error> {
@@ -181,10 +136,9 @@ fn transcribe_chunks(
         let chunk_start_sec = chunk.start_timestamp_ms as f64 / 1000.0;
         let chunk_duration_sec =
             (chunk.end_timestamp_ms - chunk.start_timestamp_ms) as f64 / 1000.0;
-        resolved_until[channel_idx] = chunk_start_sec;
+        progress.update_channel(channel_idx, chunk_start_sec);
 
-        let cactus_response = if let Some(ref tx) = event_tx {
-            let tx = tx.clone();
+        let cactus_response = if progress.has_tx() {
             let completed_text: String = all_transcripts.join(" ");
 
             model.transcribe_pcm_with_callback(&pcm_bytes, options, |token| {
@@ -197,21 +151,12 @@ fn transcribe_chunks(
                     partial.push_str(token);
                 }
 
-                emit_progress_update(
-                    &tx,
-                    last_progress,
-                    overall_resolved_with_channel(
-                        resolved_until,
-                        channel_idx,
-                        resolved_audio_for_chunk_progress(
-                            chunk_start_sec,
-                            chunk_duration_sec,
-                            ChunkProgress::Start,
-                        ),
-                    ),
-                    total_duration,
-                    Some(partial),
+                let resolved = resolved_audio_for_chunk_progress(
+                    chunk_start_sec,
+                    chunk_duration_sec,
+                    ChunkProgress::Start,
                 );
+                progress.emit_for_channel(channel_idx, resolved, Some(partial));
 
                 true
             })?
@@ -225,6 +170,7 @@ fn transcribe_chunks(
                 &chunk_text,
                 chunk_duration_sec,
                 cactus_response.confidence as f64,
+                channel_idx as i32,
             );
             for w in &mut words {
                 w.start += chunk_start_sec;
@@ -232,33 +178,29 @@ fn transcribe_chunks(
             }
             all_words.extend(words);
 
-            if let Some(ref tx) = event_tx {
-                let segment_resp = build_segment_stream_response(
-                    &chunk_text,
-                    chunk_start_sec,
-                    chunk_duration_sec,
-                    cactus_response.confidence as f64,
-                    metadata,
-                    channel_index,
-                );
-                let _ = tx.send(BatchSseMessage::Segment {
-                    response: segment_resp,
-                });
+            if progress.has_tx() {
+                let seg = crate::service::Segment {
+                    text: &chunk_text,
+                    start: chunk_start_sec,
+                    duration: chunk_duration_sec,
+                    confidence: cactus_response.confidence as f64,
+                };
+                let segment_resp = build_segment_stream_response(&seg, metadata, channel_index);
+                if let Some(tx) = progress.event_tx() {
+                    let _ = tx.send(BatchSseMessage::Segment {
+                        response: segment_resp,
+                    });
+                }
             }
 
             all_transcripts.push(chunk_text);
         }
 
-        resolved_until[channel_idx] = next_resolved_until(chunks, chunk_idx, channel_duration);
-        if let Some(ref tx) = event_tx {
-            emit_progress_update(
-                tx,
-                last_progress,
-                overall_resolved_audio(resolved_until),
-                total_duration,
-                Some(all_transcripts.join(" ")),
-            );
-        }
+        progress.update_channel(
+            channel_idx,
+            next_resolved_until(chunks, chunk_idx, channel_duration),
+        );
+        progress.emit(Some(all_transcripts.join(" ")));
 
         cumulative_confidence += cactus_response.confidence as f64;
     }
@@ -289,80 +231,14 @@ fn resolved_audio_for_chunk_progress(
     }
 }
 
-fn initial_resolved_until(chunks: &[hypr_vad_chunking::AudioChunk], channel_duration: f64) -> f64 {
-    chunks
-        .first()
-        .map(|chunk| chunk.start_timestamp_ms as f64 / 1000.0)
-        .unwrap_or(channel_duration)
-}
-
-fn next_resolved_until(
-    chunks: &[hypr_vad_chunking::AudioChunk],
-    chunk_idx: usize,
-    channel_duration: f64,
-) -> f64 {
-    chunks
-        .get(chunk_idx + 1)
-        .map(|chunk| chunk.start_timestamp_ms as f64 / 1000.0)
-        .unwrap_or(channel_duration)
-}
-
-fn overall_resolved_audio(resolved_until: &[f64]) -> f64 {
-    resolved_until
-        .iter()
-        .copied()
-        .reduce(f64::min)
-        .unwrap_or(0.0)
-}
-
-fn overall_resolved_with_channel(resolved_until: &[f64], channel_idx: usize, resolved: f64) -> f64 {
-    resolved_until
-        .iter()
-        .enumerate()
-        .map(|(idx, value)| if idx == channel_idx { resolved } else { *value })
-        .reduce(f64::min)
-        .unwrap_or(resolved)
-}
-
-fn record_progress(resolved_audio: f64, total_duration: f64, last_progress: &mut f64) -> f64 {
-    let raw = if total_duration > 0.0 {
-        (resolved_audio / total_duration).clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-
-    let progress = raw.max(*last_progress).min(0.99);
-    *last_progress = progress;
-    progress
-}
-
-fn emit_progress_update(
-    tx: &mpsc::UnboundedSender<BatchSseMessage>,
-    last_progress: &mut f64,
-    resolved_audio: f64,
-    total_duration: f64,
-    partial_text: Option<String>,
-) {
-    let previous = *last_progress;
-    let percentage = record_progress(resolved_audio, total_duration, last_progress);
-    if percentage <= previous {
-        return;
-    }
-
-    let _ = tx.send(BatchSseMessage::Progress {
-        progress: InferenceProgress {
-            percentage,
-            partial_text,
-            phase: InferencePhase::Decoding,
-        },
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
     use hypr_language::ISO639;
+    use hypr_transcribe_core::{
+        overall_resolved_audio, overall_resolved_with_channel, record_progress,
+    };
     use owhisper_interface::ListenParams;
 
     use super::*;
@@ -404,17 +280,17 @@ mod tests {
     }
 
     #[test]
-    fn overall_resolved_audio_uses_slowest_channel() {
+    fn overall_resolved_audio_averages_channels() {
         let resolved = overall_resolved_audio(&[40.0, 18.0, 25.0]);
 
-        assert_eq!(resolved, 18.0);
+        assert!((resolved - 83.0 / 3.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn overall_resolved_with_channel_substitutes_current_channel() {
         let resolved = overall_resolved_with_channel(&[40.0, 10.0], 1, 22.0);
 
-        assert_eq!(resolved, 22.0);
+        assert!((resolved - 31.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -487,7 +363,10 @@ mod tests {
             ..Default::default()
         };
 
-        let response = transcribe_batch(&wav_bytes, "audio/wav", &params, model_path, None)
+        let model = hypr_cactus::Model::new(model_path)
+            .unwrap_or_else(|e| panic!("failed to load model: {e}"));
+
+        let response = transcribe_batch(&wav_bytes, "audio/wav", &params, &model, model_path, None)
             .unwrap_or_else(|e| panic!("real-model batch transcription failed: {e}"));
 
         let Some(channel) = response.results.channels.first() else {

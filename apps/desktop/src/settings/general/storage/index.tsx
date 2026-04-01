@@ -1,12 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
-import {
-  ArrowDownIcon,
-  FolderIcon,
-  type LucideIcon,
-  Settings2Icon,
-} from "lucide-react";
-import { type ReactNode, useEffect } from "react";
+import { FolderIcon, type LucideIcon, Settings2Icon } from "lucide-react";
+import { type ReactNode } from "react";
 import { useState } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
@@ -29,7 +24,7 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
-import { displayPath, shortenPath } from "./path-utils";
+import { displayPath } from "./path-utils";
 import { useChangeContentPathWizard } from "./use-storage-wizard";
 
 export function StorageSettingsView() {
@@ -118,8 +113,8 @@ function ChangeContentPathDialog({
   const {
     selectedPath,
     selectPath,
-    copyVault,
-    setCopyVault,
+    moveVault,
+    setMoveVault,
     chooseFolder,
     apply,
     isPending,
@@ -155,18 +150,17 @@ function ChangeContentPathDialog({
     },
   });
 
-  useEffect(() => {
-    if (isNewPathEmpty !== undefined) {
-      setCopyVault(isNewPathEmpty);
-    }
-  }, [isNewPathEmpty, setCopyVault]);
-
   const disabledReason = (() => {
     if (!selectedPath || selectedPath === currentPath)
       return "Select a different folder";
     if (isCheckingNewPath) return "Checking folder...";
+    if (moveVault && isNewPathEmpty === false) {
+      return "Moving existing data requires an empty folder. Uncheck Move to switch locations without migrating files.";
+    }
     return null;
   })();
+  const showMoveToggle =
+    !!selectedPath && selectedPath !== currentPath && !isCheckingNewPath;
 
   return (
     <Dialog
@@ -185,44 +179,31 @@ function ChangeContentPathDialog({
         </DialogHeader>
 
         <div className="mb-4 flex flex-col">
-          <PathBox label="Current" path={displayPath(currentPath, home)} />
-          <div className="flex justify-center py-2 text-neutral-400">
-            <ArrowDownIcon className="size-4" />
-          </div>
           <div>
-            <p className="mb-1.5 text-xs font-medium tracking-wide text-neutral-500 uppercase">
-              New
-            </p>
             <div
               className={cn([
-                "flex items-center gap-3 rounded-lg border bg-neutral-50 px-3 py-2",
+                "flex items-center gap-3 rounded-lg border px-3 py-2",
                 isNewPathChosen && isNewPathEmpty === false
-                  ? "border-yellow-400"
-                  : "border-neutral-200",
+                  ? "border-yellow-400 bg-neutral-50"
+                  : "border-neutral-900",
               ])}
             >
               <div className="min-w-0 flex-1">
-                <p
-                  className={cn([
-                    "text-sm",
-                    selectedPath && selectedPath !== currentPath
-                      ? "text-neutral-700"
-                      : "text-neutral-400",
-                  ])}
-                >
+                <p className="text-sm text-neutral-700">
                   {selectedPath
                     ? displayPath(selectedPath, home)
-                    : "Select a folder"}
+                    : displayPath(currentPath, home)}
                 </p>
                 {isNewPathChosen && isNewPathEmpty === false && (
                   <p className="mt-1 text-xs text-yellow-600">
-                    Folder is not empty. Consider creating a dedicated empty
-                    folder (e.g. "meetings") inside it instead.
+                    Folder is not empty. Uncheck Move to use it as-is, or pick a
+                    dedicated empty folder (for example "meetings") for a full
+                    migration.
                   </p>
                 )}
               </div>
               <Button
-                variant="outline"
+                variant={isNewPathChosen ? "outline" : "default"}
                 size="sm"
                 className="shrink-0"
                 onClick={() => chooseFolder()}
@@ -239,7 +220,7 @@ function ChangeContentPathDialog({
                   <button
                     key={vault.path}
                     onClick={() => selectPath(vault.path)}
-                    className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:border-neutral-300 hover:bg-neutral-100"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-500 transition-colors hover:bg-neutral-100"
                   >
                     <img
                       src="/assets/obsidian-icon.svg"
@@ -260,15 +241,15 @@ function ChangeContentPathDialog({
 
         {isNewPathChosen && (
           <DialogFooter className="items-center">
-            {!disabledReason && (
+            {showMoveToggle && (
               <label className="mr-auto flex cursor-pointer items-center gap-2">
                 <Checkbox
-                  checked={copyVault}
-                  onCheckedChange={(v) => setCopyVault(v === true)}
+                  checked={moveVault}
+                  onCheckedChange={(v) => setMoveVault(v === true)}
                 />
                 <div className="flex flex-row gap-1">
                   <span className="text-sm font-semibold text-neutral-600">
-                    Copy
+                    Move
                   </span>
                   <span className="text-sm text-neutral-600">
                     existing data to new location
@@ -304,19 +285,6 @@ function ChangeContentPathDialog({
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function PathBox({ label, path }: { label: string; path: string }) {
-  return (
-    <div>
-      <p className="mb-1.5 text-xs font-medium tracking-wide text-neutral-500 uppercase">
-        {label}
-      </p>
-      <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2">
-        <p className="text-sm text-neutral-700">{shortenPath(path)}</p>
-      </div>
-    </div>
   );
 }
 

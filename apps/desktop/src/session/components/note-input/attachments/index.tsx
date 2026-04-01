@@ -1,6 +1,13 @@
+import { invoke } from "@tauri-apps/api/core";
+import { platform } from "@tauri-apps/plugin-os";
 import { ImageIcon, LinkIcon, X } from "lucide-react";
+import { useCallback, useMemo } from "react";
 
+import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { formatDistanceToNow } from "@hypr/utils";
+
+import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
 export type ImageAttachment = {
   attachmentId: string;
@@ -24,6 +31,9 @@ export type LinkAttachment = {
 
 export type Attachment = ImageAttachment | LinkAttachment;
 
+const REVEAL_IMAGE_LABEL =
+  platform() === "macos" ? "Reveal in Finder" : "Reveal in File Manager";
+
 function AttachmentCard({
   attachment,
   onRemove,
@@ -31,46 +41,107 @@ function AttachmentCard({
   attachment: Attachment;
   onRemove?: (attachmentId: string) => void;
 }) {
-  const addedLabel = formatAttachmentTimestamp(attachment.addedAt);
-
   if (attachment.type === "link") {
-    return (
-      <div className="relative flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 transition-colors hover:bg-neutral-50">
-        {onRemove && (
-          <button
-            type="button"
-            onClick={() => onRemove(attachment.attachmentId)}
-            className="absolute top-2 right-2 rounded-full border border-neutral-200 bg-white/80 p-1 transition-colors hover:bg-white"
-            aria-label="Remove attachment"
-          >
-            <X className="h-3 w-3 text-neutral-600" />
-          </button>
-        )}
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded bg-neutral-100">
-            <LinkIcon className="h-6 w-6 text-neutral-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-neutral-900">
-              {attachment.title}
-            </div>
-            <div className="mt-0.5 text-xs text-neutral-500">{addedLabel}</div>
-          </div>
-        </div>
-        <a
-          href={attachment.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="truncate text-xs text-blue-600 underline hover:text-blue-700"
-        >
-          {attachment.url}
-        </a>
-      </div>
-    );
+    return <LinkAttachmentCard attachment={attachment} onRemove={onRemove} />;
   }
+
+  return <ImageAttachmentCard attachment={attachment} onRemove={onRemove} />;
+}
+
+function LinkAttachmentCard({
+  attachment,
+  onRemove,
+}: {
+  attachment: LinkAttachment;
+  onRemove?: (attachmentId: string) => void;
+}) {
+  const addedLabel = formatAttachmentTimestamp(attachment.addedAt);
 
   return (
     <div className="relative flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 transition-colors hover:bg-neutral-50">
+      {onRemove && (
+        <button
+          type="button"
+          onClick={() => onRemove(attachment.attachmentId)}
+          className="absolute top-2 right-2 rounded-full border border-neutral-200 bg-white/80 p-1 transition-colors hover:bg-white"
+          aria-label="Remove attachment"
+        >
+          <X className="h-3 w-3 text-neutral-600" />
+        </button>
+      )}
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded bg-neutral-100">
+          <LinkIcon className="h-6 w-6 text-neutral-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium text-neutral-900">
+            {attachment.title}
+          </div>
+          <div className="mt-0.5 text-xs text-neutral-500">{addedLabel}</div>
+        </div>
+      </div>
+      <a
+        href={attachment.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="truncate text-xs text-blue-600 underline hover:text-blue-700"
+      >
+        {attachment.url}
+      </a>
+    </div>
+  );
+}
+
+function ImageAttachmentCard({
+  attachment,
+  onRemove,
+}: {
+  attachment: ImageAttachment;
+  onRemove?: (attachmentId: string) => void;
+}) {
+  const addedLabel = formatAttachmentTimestamp(attachment.addedAt);
+
+  const handleCopyImage = useCallback(async () => {
+    try {
+      await invoke("plugin:clipboard-manager|write_image", {
+        image: attachment.path,
+      });
+      sonnerToast.success("Image copied to clipboard");
+    } catch (error) {
+      console.error("Failed to copy image to clipboard", error);
+      sonnerToast.error("Failed to copy image");
+    }
+  }, [attachment.path]);
+
+  const handleRevealImage = useCallback(() => {
+    void openerCommands.revealItemInDir(attachment.path);
+  }, [attachment.path]);
+
+  const contextMenu = useMemo(
+    () => [
+      {
+        id: `copy-image-${attachment.attachmentId}`,
+        text: "Copy Image",
+        action: () => {
+          void handleCopyImage();
+        },
+      },
+      {
+        id: `reveal-image-${attachment.attachmentId}`,
+        text: REVEAL_IMAGE_LABEL,
+        action: handleRevealImage,
+      },
+    ],
+    [attachment.attachmentId, handleCopyImage, handleRevealImage],
+  );
+
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  return (
+    <div
+      onContextMenu={showContextMenu}
+      className="relative flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-4 transition-colors hover:bg-neutral-50"
+    >
       {onRemove && (
         <button
           type="button"

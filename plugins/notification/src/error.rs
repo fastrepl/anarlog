@@ -13,9 +13,7 @@ impl Serialize for Error {
 }
 
 impl Error {
-    pub fn as_worker_error(&self) -> apalis::prelude::Error {
-        apalis::prelude::Error::Failed(std::sync::Arc::new(Box::new(std::io::Error::other(
-            self.to_string(),
-        ))))
+    pub fn as_worker_error(&self) -> Box<dyn std::error::Error + Send + Sync> {
+        Box::new(std::io::Error::other(self.to_string()))
     }
 }

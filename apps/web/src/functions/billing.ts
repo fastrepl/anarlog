@@ -57,8 +57,17 @@ const getStripeCustomerIdForUser = async (
   return stripeCustomerId;
 };
 
+const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
+  if (scheme) {
+    return `${env.VITE_APP_URL}/callback/billing?scheme=${scheme}`;
+  }
+
+  return `${env.VITE_APP_URL}/app/account`;
+};
+
 const createCheckoutSessionInput = z.object({
   period: z.enum(["monthly", "yearly"]),
+  plan: z.enum(["lite", "pro"]).default("pro"),
   scheme: desktopSchemeSchema.optional(),
 });
 
@@ -93,7 +102,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       );
 
       if (activeSubscription) {
-        return { url: null };
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: stripeCustomerId,
+          return_url: getBillingReturnUrl(data.scheme),
+        });
+        return { url: portalSession.url };
       }
     }
 
@@ -121,18 +134,27 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     }
 
     const priceId =
-      data.period === "yearly"
-        ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
-        : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+      data.plan === "lite"
+        ? requireEnv(
+            env.STRIPE_LITE_MONTHLY_PRICE_ID,
+            "STRIPE_LITE_MONTHLY_PRICE_ID",
+          )
+        : data.period === "yearly"
+          ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+          : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
 
     const successParams = new URLSearchParams({ success: "true" });
     if (data.scheme) {
       successParams.set("scheme", data.scheme);
     }
 
+    const successUrl = data.scheme
+      ? getBillingReturnUrl(data.scheme)
+      : `${env.VITE_APP_URL}/app/account?${successParams.toString()}`;
+
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
-      success_url: `${env.VITE_APP_URL}/app/account?${successParams.toString()}`,
+      success_url: successUrl,
       cancel_url: `${env.VITE_APP_URL}/app/account`,
       line_items: [
         {
@@ -146,8 +168,98 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     return { url: checkout.url };
   });
 
-export const createPortalSession = createServerFn({ method: "POST" }).handler(
-  async () => {
+const createPlanSwitchSessionInput = z.object({
+  targetPlan: z.enum(["lite", "pro"]),
+  targetPeriod: z.enum(["monthly", "yearly"]).default("monthly"),
+  scheme: desktopSchemeSchema.optional(),
+});
+
+export const createPlanSwitchSession = createServerFn({ method: "POST" })
+  .inputValidator(createPlanSwitchSessionInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+
+    const stripeCustomerId = await getStripeCustomerIdForUser(supabase, {
+      id: user.id,
+      user_metadata: user.user_metadata,
+    });
+
+    if (!stripeCustomerId) {
+      return { url: null };
+    }
+
+    const subscriptions = await stripe.subscriptions.list({
+      customer: stripeCustomerId,
+      status: "all",
+      limit: 1,
+    });
+
+    const activeSubscription = subscriptions.data.find((sub) =>
+      ["active", "trialing"].includes(sub.status),
+    );
+
+    if (!activeSubscription) {
+      return { url: null };
+    }
+
+    if (!activeSubscription.items.data[0]) {
+      return { url: null };
+    }
+
+    const subscriptionItemId = activeSubscription.items.data[0].id;
+
+    const targetPriceId =
+      data.targetPlan === "lite"
+        ? requireEnv(
+            env.STRIPE_LITE_MONTHLY_PRICE_ID,
+            "STRIPE_LITE_MONTHLY_PRICE_ID",
+          )
+        : data.targetPeriod === "yearly"
+          ? requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID")
+          : requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+
+    const returnUrl = getBillingReturnUrl(data.scheme);
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: stripeCustomerId,
+      return_url: returnUrl,
+      flow_data: {
+        type: "subscription_update_confirm",
+        subscription_update_confirm: {
+          subscription: activeSubscription.id,
+          items: [
+            {
+              id: subscriptionItemId,
+              price: targetPriceId,
+            },
+          ],
+        },
+        after_completion: {
+          type: "redirect",
+          redirect: { return_url: returnUrl },
+        },
+      },
+    });
+
+    return { url: portalSession.url };
+  });
+
+const createPortalSessionInput = z.object({
+  scheme: desktopSchemeSchema.optional(),
+});
+
+export const createPortalSession = createServerFn({ method: "POST" })
+  .inputValidator(createPortalSessionInput)
+  .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
     const {
       data: { user },
@@ -170,12 +282,11 @@ export const createPortalSession = createServerFn({ method: "POST" }).handler(
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${env.VITE_APP_URL}/app/account`,
+      return_url: getBillingReturnUrl(data.scheme),
     });
 
     return { url: portalSession.url };
-  },
-);
+  });
 
 export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
   async () => {
@@ -217,7 +328,7 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
     return {
       subscriptionId: subscription.id,
       status: subscription.status,
-      priceId: subscription.items.data[0].price.id,
+      priceId: subscription.items.data[0]?.price.id ?? null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
     };
   },

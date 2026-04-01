@@ -2593,6 +2593,94 @@ function FAQSection() {
   );
 }
 
+function ManifestoSection() {
+  return (
+    <section
+      id="manifesto"
+      className="laptop:px-0 bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-16"
+    >
+      <div className="mx-auto max-w-4xl">
+        <div
+          className="border border-neutral-200 p-4"
+          style={{
+            backgroundImage: "url(/api/images/texture/white-leather.png)",
+          }}
+        >
+          <div
+            className="rounded-xs border border-neutral-200 bg-stone-50 p-8 sm:p-12"
+            style={{
+              backgroundImage: "url(/api/images/texture/paper.png)",
+            }}
+          >
+            <h2 className="mb-4 font-serif text-2xl text-stone-700 sm:text-3xl">
+              Our manifesto
+            </h2>
+
+            <div className="flex flex-col gap-4 leading-relaxed text-neutral-700">
+              <p>
+                We believe in the power of notetaking, not notetakers. Meetings
+                should be moments of presence, not passive attendance. If you
+                are not adding value, your time is better spent elsewhere for
+                you and your team.
+              </p>
+              <p>
+                Char exists to preserve what makes us human: conversations that
+                spark ideas, collaborations that move work forward. We build
+                tools that amplify human agency, not replace it. No ghost bots.
+                No silent note lurkers. Just people, thinking together.
+              </p>
+              <p>
+                We stand with those who value real connection and purposeful
+                collaboration.
+              </p>
+            </div>
+
+            <div className="mt-12 mb-4 flex gap-2">
+              <Image
+                src="/api/images/team/john.png"
+                alt="John Jeong"
+                width={32}
+                height={32}
+                className="rounded-full border border-neutral-200 object-cover"
+              />
+              <Image
+                src="/api/images/team/yujong.png"
+                alt="Yujong Lee"
+                width={32}
+                height={32}
+                className="rounded-full border border-neutral-200 object-cover"
+              />
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="font-serif text-base font-medium text-neutral-600 italic">
+                  Char
+                </p>
+                <p className="text-sm text-neutral-500">
+                  John Jeong, Yujong Lee
+                </p>
+              </div>
+
+              <div>
+                <Image
+                  src="/char-signature.svg"
+                  alt="Char Signature"
+                  width={124}
+                  height={60}
+                  layout="constrained"
+                  className="object-contain opacity-80"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
 function BlogSection() {
   const sortedArticles = [...allArticles]
     .sort((a, b) => {
