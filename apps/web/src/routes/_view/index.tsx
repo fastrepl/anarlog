@@ -2680,7 +2680,6 @@ function ManifestoSection() {
   );
 }
 
-
 function BlogSection() {
   const sortedArticles = [...allArticles]
     .sort((a, b) => {

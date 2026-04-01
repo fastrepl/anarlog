@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
-import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
 import { CookiePreferencesButton } from "@/components/privacy-consent";
+import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
 
 const vsList = [
   { slug: "otter", name: "Otter.ai" },

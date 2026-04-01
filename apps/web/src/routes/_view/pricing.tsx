@@ -95,7 +95,9 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
               </div>
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="text-fg font-mono text-4xl font-medium">$0</span>
+                <span className="text-fg font-mono text-4xl font-medium">
+                  $0
+                </span>
                 <span className="text-fg-muted">per month</span>
               </div>
             )}
