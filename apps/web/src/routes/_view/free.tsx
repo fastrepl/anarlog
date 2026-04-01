@@ -434,7 +434,7 @@ function CTASection() {
           </span>
           <span className="flex items-center gap-2">
             <Icon icon="mdi:microsoft-windows" className="text-lg" />
-            Windows (coming soon)
+            Windows (Q2 2026)
           </span>
         </div>
       </div>

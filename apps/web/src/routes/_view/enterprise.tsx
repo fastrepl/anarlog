@@ -39,7 +39,7 @@ const deploymentFeatures = [
     text: "Air-gap compatible, works without internet connectivity in isolated networks",
   },
   {
-    text: "Desktop apps (macOS now, Windows/Linux coming), web interface, mobile, or bot integration",
+    text: "Desktop apps (macOS now, Windows/Linux in Q2 2026), web interface, mobile, or bot integration",
   },
   {
     text: "Bring your own models, swap STT and LLM providers anytime (local or cloud)",

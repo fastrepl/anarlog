@@ -79,7 +79,7 @@ const technicalSpecs = [
   },
   {
     feature: "Supported Platforms",
-    details: "macOS (stable), Linux (via Flatpak), Windows (coming soon)",
+    details: "macOS (stable), Linux and Windows (Q2 2026)",
   },
   {
     feature: "AI Providers",
