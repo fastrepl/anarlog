@@ -40,7 +40,7 @@ impl AppWindow {
     fn frame(&self, app: &AppHandle<tauri::Wry>) -> Result<Option<SavedFrame>, crate::Error> {
         #[cfg(target_os = "macos")]
         {
-            return self.with_ns_window(app, |ns_window| {
+            self.with_ns_window(app, |ns_window| {
                 let frame = ns_window.frame();
                 SavedFrame {
                     x: frame.origin.x,
@@ -48,7 +48,7 @@ impl AppWindow {
                     w: frame.size.width,
                     h: frame.size.height,
                 }
-            });
+            })
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -67,21 +67,20 @@ impl AppWindow {
             use objc2::MainThreadMarker;
             use objc2_app_kit::NSScreen;
 
-            return self
-                .with_ns_window(app, |ns_window| {
-                    let mtm =
-                        MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
-                    let screen = ns_window.screen().or_else(|| NSScreen::mainScreen(mtm))?;
-                    let frame = screen.visibleFrame();
+            self.with_ns_window(app, |ns_window| {
+                let mtm =
+                    MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
+                let screen = ns_window.screen().or_else(|| NSScreen::mainScreen(mtm))?;
+                let frame = screen.visibleFrame();
 
-                    Some(SavedFrame {
-                        x: frame.origin.x,
-                        y: frame.origin.y,
-                        w: frame.size.width,
-                        h: frame.size.height,
-                    })
+                Some(SavedFrame {
+                    x: frame.origin.x,
+                    y: frame.origin.y,
+                    w: frame.size.width,
+                    h: frame.size.height,
                 })
-                .map(|frame| frame.flatten());
+            })
+            .map(|frame| frame.flatten())
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -108,7 +107,7 @@ impl AppWindow {
                 ns_window.setFrame_display_animate(frame, true, true);
             })?;
 
-            return Ok(());
+            Ok(())
         }
 
         #[cfg(not(target_os = "macos"))]
@@ -315,12 +314,12 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Windows<'a, tauri::Wry, M> {
         {
             let app = self.manager.app_handle().clone();
             let lookup_app = app.clone();
-            return run_on_main_thread(&app, move || {
+            run_on_main_thread(&app, move || {
                 window
                     .get(&lookup_app)
                     .and_then(|w| w.is_focused().ok())
                     .unwrap_or(false)
-            });
+            })
         }
 
         #[cfg(not(target_os = "macos"))]

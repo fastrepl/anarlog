@@ -124,12 +124,12 @@ pub async fn window_set_frame_animated(
         .map_err(|e| e.to_string())?;
 
     if let Some(screen) = visible_frame {
-        if matches!(window, AppWindow::Main) {
-            if let Some(window_handle) = window.get(&app) {
-                window_handle
-                    .set_always_on_top(true)
-                    .map_err(|e| e.to_string())?;
-            }
+        if matches!(window, AppWindow::Main)
+            && let Some(window_handle) = window.get(&app)
+        {
+            window_handle
+                .set_always_on_top(true)
+                .map_err(|e| e.to_string())?;
         }
 
         let margin = 8.0_f64;
@@ -204,12 +204,12 @@ pub async fn window_restore_frame_animated(
             .map_err(|e| e.to_string())?;
     }
 
-    if matches!(window, AppWindow::Main) {
-        if let Some(window_handle) = window.get(&app) {
-            window_handle
-                .set_always_on_top(false)
-                .map_err(|e| e.to_string())?;
-        }
+    if matches!(window, AppWindow::Main)
+        && let Some(window_handle) = window.get(&app)
+    {
+        window_handle
+            .set_always_on_top(false)
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(())
