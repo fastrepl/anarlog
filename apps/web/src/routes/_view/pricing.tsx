@@ -5,7 +5,6 @@ import { MARKETING_PLAN_TIERS, type MarketingPlanData } from "@hypr/pricing";
 import { PlanFeatureList } from "@hypr/pricing/ui";
 import { cn } from "@hypr/utils";
 
-
 export const Route = createFileRoute("/_view/pricing")({
   component: Component,
 });
