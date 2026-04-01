@@ -171,7 +171,7 @@ extension NotificationManager {
     }
   }
 
-  func calculateYPosition(screen: NSScreen? = nil) -> CGFloat {
+  func calculateYPosition(screen: NSScreen? = nil, hasFooter: Bool = false) -> CGFloat {
     guard let targetScreen = screen ?? getTargetScreen() else { return 0 }
     let screenRect = targetScreen.visibleFrame
     let nativeOffset = nativeNotificationOccupiedHeight(on: targetScreen)
@@ -181,7 +181,9 @@ extension NotificationManager {
       occupiedHeight += notification.panel.frame.height + notificationSpacing
     }
 
-    let baseY = screenRect.maxY - panelHeight() - Layout.topMargin + buttonOverhang() - nativeOffset
+    let baseY =
+      screenRect.maxY - panelHeight(hasFooter: hasFooter) - Layout.topMargin + buttonOverhang()
+      - nativeOffset
     return baseY - occupiedHeight
   }
 
@@ -189,8 +191,11 @@ extension NotificationManager {
     Layout.notificationWidth + buttonOverhang()
   }
 
-  func panelHeight(expanded: Bool = false) -> CGFloat {
-    let contentHeight = expanded ? Layout.expandedNotificationHeight : Layout.notificationHeight
+  func panelHeight(expanded: Bool = false, hasFooter: Bool = false) -> CGFloat {
+    let contentHeight =
+      expanded
+      ? Layout.expandedNotificationHeight
+      : Layout.notificationHeight + (hasFooter ? Layout.compactFooterHeight : 0)
     return contentHeight + buttonOverhang()
   }
 }

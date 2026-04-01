@@ -107,13 +107,13 @@ const useHandleDetectEvents = (store: ListenerStore) => {
 
           void notificationCommands.showNotification({
             key: payload.key,
-            title: "Meeting in progress?",
-            message:
-              "Noticed microphone usage for certain period of time. Start listening?",
+            title: "Are you in a meeting?",
+            message: "",
             timeout: { secs: 15, nanos: 0 },
             source: {
               type: "mic_detected",
               app_names: payload.apps.map((a) => a.name),
+              app_ids: payload.apps.map((a) => a.id),
               event_ids: nearbyEvents.map((e) => e.id),
             },
             start_time: null,
@@ -121,6 +121,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             event_details: null,
             action_label: null,
             options,
+            footer: null,
+            icon: null,
           });
         } else if (payload.type === "micStopped") {
           stop();

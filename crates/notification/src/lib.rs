@@ -12,6 +12,21 @@ static NOTIFICATION_CONTEXT: OnceLock<NotificationContextMap> = OnceLock::new();
 const DEDUPE_WINDOW: Duration = Duration::from_mins(1);
 const CONTEXT_TTL: Duration = Duration::from_mins(10);
 
+fn resolve_default_icon(
+    notification: &hypr_notification_interface::Notification,
+) -> hypr_notification_interface::Notification {
+    let mut resolved = notification.clone();
+
+    if resolved.icon.is_none() {
+        resolved.icon = resolved
+            .source
+            .as_ref()
+            .and_then(NotificationSource::default_icon);
+    }
+
+    resolved
+}
+
 pub enum NotificationMutation {
     Confirm,
     Dismiss,
@@ -49,8 +64,10 @@ fn show_inner(notification: &hypr_notification_interface::Notification) {
 }
 
 pub fn show(notification: &hypr_notification_interface::Notification) {
+    let resolved_notification = resolve_default_icon(notification);
+
     let Some(key) = &notification.key else {
-        show_inner(notification);
+        show_inner(&resolved_notification);
         return;
     };
 
@@ -76,7 +93,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
     }
 
     store_context(key, notification.source.clone());
-    show_inner(notification);
+    show_inner(&resolved_notification);
 }
 
 pub fn clear() {
@@ -198,6 +215,23 @@ where
         let f = f.clone();
         hypr_notification_macos::setup_option_selected_handler(move |key, tag| {
             f(get_context(&key), tag);
+        });
+    }
+
+    let _ = f;
+}
+
+pub fn setup_footer_action_handler<F>(f: F)
+where
+    F: Fn(NotificationContext) + Send + Sync + 'static,
+{
+    let f = std::sync::Arc::new(f);
+
+    #[cfg(all(feature = "legacy", target_os = "macos"))]
+    {
+        let f = f.clone();
+        hypr_notification_macos::setup_footer_action_handler(move |key, _tag| {
+            f(get_context(&key));
         });
     }
 

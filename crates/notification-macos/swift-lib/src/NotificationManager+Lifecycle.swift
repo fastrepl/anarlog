@@ -3,14 +3,14 @@ import Cocoa
 extension NotificationManager {
   func createAndShowNotification(payload: NotificationPayload) {
     guard let screen = getTargetScreen() else { return }
+    let hasFooter = payload.footer != nil
 
     manageNotificationLimit()
 
-    let yPosition = calculateYPosition(screen: screen)
-    let panel = createPanel(screen: screen, yPosition: yPosition)
-    let clickableView = createClickableView()
+    let yPosition = calculateYPosition(screen: screen, hasFooter: hasFooter)
+    let panel = createPanel(screen: screen, yPosition: yPosition, hasFooter: hasFooter)
+    let clickableView = createClickableView(hasFooter: hasFooter)
     let container = createContainer(clickableView: clickableView)
-    let (effectView, backgroundView) = createEffectView(container: container)
 
     let notification = NotificationInstance(
       payload: payload,
@@ -20,11 +20,9 @@ extension NotificationManager {
     )
     nextCreationIndex += 1
     clickableView.notification = notification
-    notification.progressBar = backgroundView
 
-    if payload.isPersistent {
-      backgroundView.isProgressHidden = true
-    }
+    let (effectView, _) = createEffectView(container: container)
+    notification.effectView = effectView
 
     clickableView.addSubview(container)
     panel.contentView = clickableView
@@ -58,14 +56,10 @@ extension NotificationManager {
     effectView.addSubview(contentView)
 
     NSLayoutConstraint.activate([
-      contentView.leadingAnchor.constraint(
-        equalTo: effectView.leadingAnchor, constant: Layout.contentPaddingHorizontal),
-      contentView.trailingAnchor.constraint(
-        equalTo: effectView.trailingAnchor, constant: -Layout.contentPaddingHorizontal),
-      contentView.topAnchor.constraint(
-        equalTo: effectView.topAnchor, constant: Layout.contentPaddingVertical),
-      contentView.bottomAnchor.constraint(
-        equalTo: effectView.bottomAnchor, constant: -Layout.contentPaddingVertical),
+      contentView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+      contentView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+      contentView.topAnchor.constraint(equalTo: effectView.topAnchor),
+      contentView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
     ])
 
     notification.compactContentView = contentView

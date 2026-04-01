@@ -7,13 +7,14 @@ extension NotificationManager {
     let screenRect = screen.visibleFrame
     let finalX = screenRect.maxX - panelWidth() - Layout.rightMargin + buttonOverhang()
     let y = notification.panel.frame.minY
+    let hasFooter = notification.payload.footer != nil
 
     notification.panel.setFrame(
       NSRect(
         x: screenRect.maxX + Layout.slideInOffset,
         y: y,
         width: panelWidth(),
-        height: panelHeight()
+        height: panelHeight(hasFooter: hasFooter)
       ),
       display: false
     )
@@ -23,7 +24,8 @@ extension NotificationManager {
 
     animate(duration: Timing.slideIn, timing: .easeOut) {
       notification.panel.animator().setFrame(
-        NSRect(x: finalX, y: y, width: self.panelWidth(), height: self.panelHeight()),
+        NSRect(
+          x: finalX, y: y, width: self.panelWidth(), height: self.panelHeight(hasFooter: hasFooter)),
         display: true
       )
       notification.panel.animator().alphaValue = 1.0
@@ -38,7 +40,8 @@ extension NotificationManager {
 
   func animateExpansion(notification: NotificationInstance, isExpanded: Bool) {
     let currentFrame = notification.panel.frame
-    let targetHeight = panelHeight(expanded: isExpanded)
+    let targetHeight = panelHeight(
+      expanded: isExpanded, hasFooter: notification.payload.footer != nil)
     let newFrame = NSRect(
       x: currentFrame.minX,
       y: currentFrame.minY - (targetHeight - currentFrame.height),
@@ -108,7 +111,10 @@ extension NotificationManager {
   }
 
   private func findEffectView(in notification: NotificationInstance) -> NSVisualEffectView? {
-    notification.clickableView.subviews.first?.subviews.first as? NSVisualEffectView
+    if let effectView = notification.effectView {
+      return effectView
+    }
+    return notification.clickableView.subviews.first?.subviews.first as? NSVisualEffectView
   }
 
   private func pinToEdges(_ view: NSView, in container: NSView) {

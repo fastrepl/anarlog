@@ -6,6 +6,8 @@ class NotificationInstance {
   let clickableView: ClickableView
   let creationIndex: Int
   private var timeoutSeconds: Double = 0
+  private var remainingDismissSeconds: Double = 0
+  private var dismissStartTime: Date?
 
   var key: String { payload.key }
 
@@ -13,17 +15,13 @@ class NotificationInstance {
   var isAnimating: Bool = false
   var compactContentView: NSView?
   var expandedContentView: NSView?
+  weak var effectView: NSVisualEffectView?
+  weak var compactActionButton: CompactActionButton?
 
   var countdownTimer: Timer?
+  var dismissTimer: Timer?
   var meetingStartTime: Date?
   weak var timerLabel: NSTextField?
-  weak var progressBar: NotificationBackgroundView? {
-    didSet {
-      progressBar?.onProgressComplete = { [weak self] in
-        self?.dismissWithTimeout()
-      }
-    }
-  }
 
   init(
     payload: NotificationPayload, panel: NSPanel, clickableView: ClickableView, creationIndex: Int
@@ -83,25 +81,59 @@ class NotificationInstance {
 
   func startDismissTimer(timeoutSeconds: Double) {
     self.timeoutSeconds = timeoutSeconds
-    progressBar?.startProgress(duration: timeoutSeconds)
+    remainingDismissSeconds = timeoutSeconds
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: timeoutSeconds)
+
+    if let compactActionButton {
+      compactActionButton.startProgress(duration: timeoutSeconds)
+    }
   }
 
   func pauseDismissTimer() {
-    progressBar?.pauseProgress()
+    guard timeoutSeconds > 0 else { return }
+    if let dismissStartTime {
+      let elapsed = Date().timeIntervalSince(dismissStartTime)
+      remainingDismissSeconds = max(0, remainingDismissSeconds - elapsed)
+      self.dismissStartTime = nil
+    }
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+
+    if let compactActionButton {
+      compactActionButton.pauseProgress()
+    }
   }
 
   func resumeDismissTimer() {
-    progressBar?.resumeProgress()
+    guard timeoutSeconds > 0, remainingDismissSeconds > 0 else { return }
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: remainingDismissSeconds)
+
+    if let compactActionButton {
+      compactActionButton.resumeProgress()
+    }
   }
 
   func restartDismissTimer() {
     guard timeoutSeconds > 0 else { return }
-    progressBar?.startProgress(duration: timeoutSeconds)
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+    remainingDismissSeconds = timeoutSeconds
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: timeoutSeconds)
+
+    if let compactActionButton {
+      compactActionButton.startProgress(duration: timeoutSeconds)
+    }
   }
 
   func dismiss() {
-    progressBar?.onProgressComplete = nil
-    progressBar?.resetProgress()
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+    dismissStartTime = nil
+    remainingDismissSeconds = 0
+    compactActionButton?.resetProgress()
     stopCountdown()
 
     NSAnimationContext.runAnimationGroup({ context in
@@ -124,8 +156,17 @@ class NotificationInstance {
     dismiss()
   }
 
+  private func scheduleDismissTimer(after duration: Double) {
+    guard duration > 0 else { return }
+    dismissTimer?.invalidate()
+    dismissTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) {
+      [weak self] _ in
+      self?.dismissWithTimeout()
+    }
+  }
+
   deinit {
-    progressBar?.onProgressComplete = nil
     countdownTimer?.invalidate()
+    dismissTimer?.invalidate()
   }
 }

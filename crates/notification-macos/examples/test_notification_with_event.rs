@@ -2,13 +2,11 @@ mod common;
 
 use notification_macos::*;
 
-use std::ops::Add;
 use std::time::Duration;
 
 fn main() {
     common::run_app(|| {
         std::thread::sleep(Duration::from_millis(200));
-        let timeout = Duration::from_secs(5);
 
         setup_expanded_accept_handler(|id, _tag| {
             println!("expanded_accept: {}", id);
@@ -59,18 +57,20 @@ fn main() {
             + 120;
 
         let notification = Notification::builder()
-            .key("test_notification")
+            .key("event:apple-discovery-call")
             .title("Test Notification")
-            .message("Meeting starting soon")
-            .timeout(timeout)
+            .message("")
+            .source(NotificationSource::CalendarEvent {
+                event_id: "apple-discovery-call".to_string(),
+            })
             .participants(participants)
             .event_details(event_details)
-            .action_label("Join Zoom & Start listening")
+            .action_label("Take Notes")
             .start_time(start_time)
             .build();
 
         show(&notification);
-        std::thread::sleep(timeout.add(Duration::from_secs(5)));
+        std::thread::sleep(Duration::from_secs(60));
         std::process::exit(0);
     });
 }
