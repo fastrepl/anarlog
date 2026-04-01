@@ -21,16 +21,21 @@ import {
 } from "prosemirror-commands";
 import { history, redo, undo } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
-import { Node as PMNode } from "prosemirror-model";
-import { EditorState, Plugin, PluginKey } from "prosemirror-state";
+import { EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 import "@hypr/tiptap/styles.css";
 import { cn } from "@hypr/utils";
 
+import { isApplePlatform } from "../keyboard";
 import { AttachmentChipView, MentionNodeView } from "../node-views";
-import { type PlaceholderFunction, placeholderPlugin } from "../plugins";
+import {
+  createDropPasteFileHandlerPlugin,
+  type PlaceholderFunction,
+  placeholderPlugin,
+} from "../plugins";
+import { createEditorState, useManagedEditorState } from "../state";
 import {
   type MentionConfig,
   MentionSuggestion,
@@ -70,6 +75,10 @@ const nodeViews = {
   attachment: AttachmentChipView,
 };
 
+function createEmptyChatDoc() {
+  return chatSchema.node("doc", null, [chatSchema.node("paragraph")]);
+}
+
 function ViewCapture({
   viewRef,
 }: {
@@ -83,29 +92,13 @@ function ViewCapture({
   return null;
 }
 
-const mac =
-  typeof navigator !== "undefined"
-    ? /Mac|iP(hone|[oa]d)/.test(navigator.platform)
-    : false;
+const mac = isApplePlatform();
 
 function fileHandlerPlugin() {
-  return new Plugin({
-    key: new PluginKey("chatFileHandler"),
-    props: {
-      handleDrop(view, event) {
-        const files = Array.from(event.dataTransfer?.files ?? []);
-        if (files.length === 0) return false;
-        event.preventDefault();
-        insertFiles(view, files);
-        return true;
-      },
-      handlePaste(view, event) {
-        const files = Array.from(event.clipboardData?.files ?? []);
-        if (files.length === 0) return false;
-        insertFiles(view, files);
-        return true;
-      },
-    },
+  return createDropPasteFileHandlerPlugin({
+    key: "chatFileHandler",
+    shouldHandleFile: () => true,
+    handleFiles: insertFiles,
   });
 }
 
@@ -169,7 +162,11 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
     const onSubmitRef = useRef(onSubmit);
     onSubmitRef.current = onSubmit;
     const onUpdateRef = useRef(onUpdate);
+    const placeholderRef = useRef(placeholder);
+    const mentionConfigRef = useRef(mentionConfig);
     onUpdateRef.current = onUpdate;
+    placeholderRef.current = placeholder;
+    mentionConfigRef.current = mentionConfig;
 
     useImperativeHandle(
       ref,
@@ -181,16 +178,14 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           return viewRef.current?.state.doc.toJSON() as JSONContent | undefined;
         },
         clearContent() {
-          const view = viewRef.current;
-          if (!view) return;
-          const doc = chatSchema.node("doc", null, [
-            chatSchema.node("paragraph"),
-          ]);
-          const state = EditorState.create({
-            doc,
-            plugins: view.state.plugins,
+          setEditorState((currentState) => {
+            const nextState = createEditorState(
+              createEmptyChatDoc(),
+              currentState.plugins,
+            );
+            onUpdateRef.current?.(nextState.doc.toJSON() as JSONContent);
+            return nextState;
           });
-          view.updateState(state);
         },
       }),
       [],
@@ -204,7 +199,11 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           "Mod-Shift-z": redo,
           ...(!mac ? { "Mod-y": redo } : {}),
           "Mod-Enter": (state: EditorState) => {
-            if (mentionConfig && findMention(state, mentionConfig.trigger)) {
+            const currentMentionConfig = mentionConfigRef.current;
+            if (
+              currentMentionConfig &&
+              findMention(state, currentMentionConfig.trigger)
+            ) {
               return false;
             }
             onSubmitRef.current?.();
@@ -234,33 +233,28 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           "Mod-a": selectAll,
         }),
         history(),
-        placeholderPlugin(placeholder),
+        placeholderPlugin((props) => placeholderRef.current?.(props) ?? ""),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
         fileHandlerPlugin(),
       ],
-      [mentionConfig, placeholder],
+      [Boolean(mentionConfig)],
     );
 
-    const defaultState = useMemo(() => {
-      let doc: PMNode;
-      try {
-        doc =
-          initialContent && initialContent.type === "doc"
-            ? PMNode.fromJSON(chatSchema, initialContent)
-            : chatSchema.node("doc", null, [chatSchema.node("paragraph")]);
-      } catch {
-        doc = chatSchema.node("doc", null, [chatSchema.node("paragraph")]);
-      }
-      return EditorState.create({ doc, plugins });
-    }, []);
+    const { editorState, setEditorState } = useManagedEditorState({
+      schema: chatSchema,
+      initialContent,
+      plugins,
+      createEmptyDoc: createEmptyChatDoc,
+      viewRef,
+    });
 
     return (
       <ProseMirror
-        defaultState={defaultState}
+        state={editorState}
         nodeViews={nodeViews}
         dispatchTransaction={function (this: EditorView, tr) {
           const newState = this.state.apply(tr);
-          this.updateState(newState);
+          setEditorState(newState);
           if (tr.docChanged) {
             onUpdateRef.current?.(newState.doc.toJSON() as JSONContent);
           }

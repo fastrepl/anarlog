@@ -18,6 +18,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
+import { isPlainArrowKey } from "~/editor/keyboard";
 import * as main from "~/store/tinybase/store/main";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
@@ -217,7 +218,7 @@ const TitleInputInner = memo(
       );
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === "ArrowUp") {
+        if (isPlainArrowKey(e, "ArrowUp")) {
           e.preventDefault();
           return;
         }
@@ -254,7 +255,7 @@ const TitleInputInner = memo(
             e.preventDefault();
             setTimeout(() => onFocusEditorAtStart?.(), 0);
           }
-        } else if (e.key === "ArrowDown") {
+        } else if (isPlainArrowKey(e, "ArrowDown")) {
           e.preventDefault();
           const input = internalRef.current;
           if (!input) return;

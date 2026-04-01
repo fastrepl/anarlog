@@ -10,7 +10,6 @@ import {
 import { dropCursor } from "prosemirror-dropcursor";
 import { gapCursor } from "prosemirror-gapcursor";
 import { history } from "prosemirror-history";
-import { Node as PMNode } from "prosemirror-model";
 import {
   EditorState,
   Selection,
@@ -18,14 +17,7 @@ import {
   type Transaction,
 } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-} from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import { useDebounceCallback } from "usehooks-ts";
 
 import "@hypr/tiptap/styles.css";
@@ -51,6 +43,7 @@ import {
   searchReplaceCurrent,
   setSearchState,
 } from "../plugins";
+import { useManagedEditorState } from "../state";
 import {
   type MentionConfig,
   MentionSuggestion,
@@ -108,6 +101,10 @@ const nodeViews = {
   "mention-@": MentionNodeView,
   taskItem: TaskItemView,
 };
+
+function createEmptyNoteDoc() {
+  return schema.node("doc", null, [schema.node("paragraph")]);
+}
 
 function ViewCapture({
   viewRef,
@@ -265,9 +262,16 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       onNavigateToTitle,
     } = props;
 
-    const previousContentRef = useRef<JSONContent | undefined>(initialContent);
     const viewRef = useRef<EditorView | null>(null);
     const commandsRef = useRef<EditorCommands>(noopCommands);
+    const handleChangeRef = useRef(handleChange);
+    const placeholderRef = useRef(placeholderComponent);
+    const fileHandlerConfigRef = useRef(fileHandlerConfig);
+    const onNavigateToTitleRef = useRef(onNavigateToTitle);
+    handleChangeRef.current = handleChange;
+    placeholderRef.current = placeholderComponent;
+    fileHandlerConfigRef.current = fileHandlerConfig;
+    onNavigateToTitleRef.current = onNavigateToTitle;
 
     useImperativeHandle(
       ref,
@@ -282,87 +286,70 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       [],
     );
 
-    const onUpdate = useDebounceCallback((view: EditorView) => {
-      if (!handleChange) return;
-      handleChange(view.state.doc.toJSON() as JSONContent);
+    const onUpdate = useDebounceCallback((state: EditorState) => {
+      handleChangeRef.current?.(state.doc.toJSON() as JSONContent);
     }, 500);
 
     const plugins = useMemo(
       () => [
         reactKeys(),
         buildInputRules(),
-        buildKeymap(onNavigateToTitle),
+        buildKeymap((pixelWidth) => onNavigateToTitleRef.current?.(pixelWidth)),
         history(),
         dropCursor(),
         gapCursor(),
         hashtagPlugin(),
         searchPlugin(),
-        placeholderPlugin(placeholderComponent),
+        placeholderPlugin((props) => placeholderRef.current?.(props) ?? ""),
         clearMarksOnEnterPlugin(),
         clipPastePlugin(),
         linkBoundaryGuardPlugin(),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
-        ...(fileHandlerConfig ? [fileHandlerPlugin(fileHandlerConfig)] : []),
+        ...(fileHandlerConfig
+          ? [
+              fileHandlerPlugin({
+                onDrop(files, pos) {
+                  return fileHandlerConfigRef.current?.onDrop?.(files, pos);
+                },
+                onPaste(files) {
+                  return fileHandlerConfigRef.current?.onPaste?.(files);
+                },
+                ...(fileHandlerConfig.onImageUpload
+                  ? {
+                      async onImageUpload(file: File) {
+                        return await fileHandlerConfigRef.current!
+                          .onImageUpload!(file);
+                      },
+                    }
+                  : {}),
+              }),
+            ]
+          : []),
       ],
       [
-        placeholderComponent,
-        fileHandlerConfig,
-        mentionConfig,
-        onNavigateToTitle,
+        Boolean(fileHandlerConfig),
+        Boolean(fileHandlerConfig?.onImageUpload),
+        Boolean(mentionConfig),
       ],
     );
 
-    const defaultState = useMemo(() => {
-      let doc: PMNode;
-      try {
-        doc =
-          initialContent && initialContent.type === "doc"
-            ? PMNode.fromJSON(schema, initialContent)
-            : schema.node("doc", null, [schema.node("paragraph")]);
-      } catch {
-        doc = schema.node("doc", null, [schema.node("paragraph")]);
-      }
-      return EditorState.create({ doc, plugins });
-    }, []);
-
-    useEffect(() => {
-      const view = viewRef.current;
-      if (!view) return;
-      if (previousContentRef.current === initialContent) return;
-      previousContentRef.current = initialContent;
-
-      if (!initialContent || initialContent.type !== "doc") return;
-
-      if (!view.hasFocus()) {
-        try {
-          const doc = PMNode.fromJSON(schema, initialContent);
-          const state = EditorState.create({
-            doc,
-            plugins: view.state.plugins,
-          });
-          view.updateState(state);
-        } catch {
-          // invalid content
-        }
-      }
-    }, [initialContent]);
-
-    const onViewReady = useCallback(
-      (view: EditorView) => {
-        onUpdate(view);
-      },
-      [onUpdate],
-    );
+    const { editorState, setEditorState } = useManagedEditorState({
+      schema,
+      initialContent,
+      plugins,
+      createEmptyDoc: createEmptyNoteDoc,
+      viewRef,
+    });
 
     return (
       <ProseMirror
-        defaultState={defaultState}
+        state={editorState}
         nodeViews={nodeViews}
         dispatchTransaction={function (this: EditorView, tr: Transaction) {
           const newState = this.state.apply(tr);
-          this.updateState(newState);
+          setEditorState(newState);
           if (tr.docChanged) {
-            onUpdate(this);
+            onUpdate(newState);
           }
         }}
         attributes={{
@@ -375,7 +362,12 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
         className="tiptap"
       >
         <ProseMirrorDoc />
-        <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+        <ViewCapture
+          viewRef={viewRef}
+          onViewReady={(view) => {
+            onUpdate(view.state);
+          }}
+        />
         <EditorCommandsBridge commandsRef={commandsRef} />
         <SlashCommandMenu />
         {mentionConfig && <MentionSuggestion config={mentionConfig} />}

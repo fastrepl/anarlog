@@ -7,7 +7,11 @@ export {
   parseYouTubeUrl,
   resolveYouTubeClipUrl,
 } from "./clip-paste";
-export { type FileHandlerConfig, fileHandlerPlugin } from "./file-handler";
+export {
+  createDropPasteFileHandlerPlugin,
+  type FileHandlerConfig,
+  fileHandlerPlugin,
+} from "./file-handler";
 export { findHashtags, hashtagPlugin, hashtagPluginKey } from "./hashtag";
 export { linkBoundaryGuardPlugin } from "./link-boundary-guard";
 export {

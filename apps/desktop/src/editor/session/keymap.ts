@@ -37,6 +37,7 @@ import {
   type EditorState,
 } from "prosemirror-state";
 
+import { isApplePlatform } from "../keyboard";
 import { schema } from "./schema";
 
 function isInListItem(state: EditorState): string | null {
@@ -122,10 +123,7 @@ export function buildInputRules() {
 // ---------------------------------------------------------------------------
 // Keymaps
 // ---------------------------------------------------------------------------
-const mac =
-  typeof navigator !== "undefined"
-    ? /Mac|iP(hone|[oa]d)/.test(navigator.platform)
-    : false;
+const mac = isApplePlatform();
 
 export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   const hardBreak = schema.nodes.hardBreak;

@@ -11,6 +11,59 @@ export type FileHandlerConfig = {
 
 const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
+type SharedFileHandlerConfig = {
+  key: string;
+  shouldHandleFile: (file: File) => boolean;
+  onDrop?: (files: File[], pos?: number) => boolean | void;
+  onPaste?: (files: File[]) => boolean | void;
+  handleFiles: (view: EditorView, files: File[], pos?: number) => void;
+};
+
+export function createDropPasteFileHandlerPlugin(
+  config: SharedFileHandlerConfig,
+) {
+  return new Plugin({
+    key: new PluginKey(config.key),
+    props: {
+      handleDrop(view, event) {
+        const files = Array.from(event.dataTransfer?.files ?? []).filter(
+          (file) => config.shouldHandleFile(file),
+        );
+        if (files.length === 0) return false;
+
+        event.preventDefault();
+        const pos = view.posAtCoords({
+          left: event.clientX,
+          top: event.clientY,
+        })?.pos;
+
+        if (config.onDrop) {
+          const result = config.onDrop(files, pos);
+          if (result === false) return false;
+        }
+
+        config.handleFiles(view, files, pos);
+        return true;
+      },
+
+      handlePaste(view, event) {
+        const files = Array.from(event.clipboardData?.files ?? []).filter(
+          (file) => config.shouldHandleFile(file),
+        );
+        if (files.length === 0) return false;
+
+        if (config.onPaste) {
+          const result = config.onPaste(files);
+          if (result === false) return false;
+        }
+
+        config.handleFiles(view, files);
+        return true;
+      },
+    },
+  });
+}
+
 export function fileHandlerPlugin(config: FileHandlerConfig) {
   function insertImage(
     view: EditorView,
@@ -48,44 +101,11 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
     }
   }
 
-  return new Plugin({
-    key: new PluginKey("fileHandler"),
-    props: {
-      handleDrop(view, event) {
-        const files = Array.from(event.dataTransfer?.files ?? []).filter((f) =>
-          IMAGE_MIME_TYPES.includes(f.type),
-        );
-        if (files.length === 0) return false;
-
-        event.preventDefault();
-        const pos = view.posAtCoords({
-          left: event.clientX,
-          top: event.clientY,
-        })?.pos;
-
-        if (config.onDrop) {
-          const result = config.onDrop(files, pos);
-          if (result === false) return false;
-        }
-
-        handleFiles(view, files, pos);
-        return true;
-      },
-
-      handlePaste(view, event) {
-        const files = Array.from(event.clipboardData?.files ?? []).filter((f) =>
-          IMAGE_MIME_TYPES.includes(f.type),
-        );
-        if (files.length === 0) return false;
-
-        if (config.onPaste) {
-          const result = config.onPaste(files);
-          if (result === false) return false;
-        }
-
-        handleFiles(view, files);
-        return true;
-      },
-    },
+  return createDropPasteFileHandlerPlugin({
+    key: "fileHandler",
+    shouldHandleFile: (file) => IMAGE_MIME_TYPES.includes(file.type),
+    onDrop: config.onDrop,
+    onPaste: config.onPaste,
+    handleFiles,
   });
 }
