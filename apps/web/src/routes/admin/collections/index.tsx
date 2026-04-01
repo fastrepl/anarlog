@@ -905,7 +905,10 @@ function CollectionsPage() {
   });
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
+    <ResizablePanelGroup
+      direction="horizontal"
+      className="h-full min-h-0 min-w-0"
+    >
       <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
         <Sidebar
           collections={collections}
@@ -966,7 +969,7 @@ function CollectionsPage() {
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel defaultSize={80} minSize={50}>
-        <div className="flex h-full flex-col">
+        <div className="flex h-full min-h-0 min-w-0 flex-col">
           <ContentPanel
             tabs={tabs}
             currentTab={currentTab}
@@ -2190,9 +2193,9 @@ function ContentPanel({
   }, [currentTab, getCurrentEditorData, publish]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {currentTab ? (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <EditorHeader
             tabs={tabs}
             currentTab={currentTab}
@@ -4085,9 +4088,12 @@ const FileEditor = React.forwardRef<
     return (
       <>
         {pendingPRBanner}
-        <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="min-h-0 min-w-0 flex-1"
+        >
           <ResizablePanel defaultSize={50} minSize={30}>
-            <div className="flex h-full flex-col">
+            <div className="flex h-full min-h-0 min-w-0 flex-col">
               {collection === "articles" ? (
                 <MetadataPanel
                   isExpanded={isMetadataExpanded}
@@ -4127,7 +4133,10 @@ const FileEditor = React.forwardRef<
   return (
     <>
       {pendingPRBanner}
-      <ResizablePanelGroup direction="horizontal" className="min-h-0 flex-1">
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="min-h-0 min-w-0 flex-1"
+      >
         <ResizablePanel defaultSize={70} minSize={50}>
           <BlogEditor
             editor={editor}
@@ -4138,7 +4147,7 @@ const FileEditor = React.forwardRef<
         </ResizablePanel>
         <ResizableHandle className="w-px bg-neutral-200" />
         <ResizablePanel defaultSize={30} minSize={20}>
-          <div className="h-full overflow-y-auto">
+          <div className="h-full min-w-0 overflow-y-auto">
             {collection === "articles" ? (
               <MetadataSidePanel
                 filePath={filePath}
