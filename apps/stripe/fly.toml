@@ -1,0 +1,49 @@
+# fly.toml app configuration file generated for hyprnote-stripe on 2026-02-05T16:52:13+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'hyprnote-stripe'
+primary_region = 'sjc'
+kill_signal = 'SIGTERM'
+kill_timeout = '30s'
+swap_size_mb = 512
+
+[build]
+dockerfile = 'Dockerfile'
+
+[deploy]
+strategy = 'bluegreen'
+
+[env]
+BUN_ENV = 'production'
+PORT = '8080'
+
+[processes]
+web = 'bun src/index.ts'
+
+[http_service]
+internal_port = 8080
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 1
+processes = ['web']
+
+[http_service.concurrency]
+type = 'requests'
+hard_limit = 200
+soft_limit = 150
+
+[[http_service.checks]]
+interval = '15s'
+timeout = '4s'
+grace_period = '20s'
+method = 'GET'
+path = '/health'
+protocol = 'http'
+
+[[vm]]
+memory = '512mb'
+cpus = 1
+cpu_kind = 'shared'

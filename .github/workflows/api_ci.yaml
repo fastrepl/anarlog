@@ -5,36 +5,19 @@ on:
       - main
     paths:
       - apps/api/**
+      - crates/llm-proxy/**
+      - crates/transcribe-proxy/**
   pull_request:
-    branches-ignore:
-      - "**/graphite-base/**"
     paths:
       - apps/api/**
+      - crates/llm-proxy/**
+      - crates/transcribe-proxy/**
 jobs:
-  optimize_ci:
-    runs-on: ubuntu-latest
-    outputs:
-      skip: ${{ steps.check_skip.outputs.skip }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check_skip
-        uses: ./.github/actions/graphite_optimizer
-        with:
-          graphite_token: ${{ secrets.GRAPHITE_TOKEN }}
-
   ci:
-    needs: optimize_ci
-    if: needs.optimize_ci.outputs.skip == 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/pnpm_install
-      - uses: ./.github/actions/bun_install
-      - run: pnpm -F @hypr/api typecheck
-      - name: Run tests if they exist
-        run: |
-          if find apps/api/src -name "*.test.ts" -o -name "*.spec.ts" | grep -q .; then
-            pnpm -F @hypr/api test
-          else
-            echo "No test files found, skipping tests"
-          fi
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - run: cargo check -p api

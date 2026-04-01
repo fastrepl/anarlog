@@ -10,12 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/app/route'
-import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
-import { Route as AppExtHostRouteImport } from './routes/app/ext-host'
+import { Route as AppInstructionRouteImport } from './routes/app/instruction'
 import { Route as AppControlRouteImport } from './routes/app/control'
-import { Route as AppOnboardingLayoutRouteImport } from './routes/app/onboarding/_layout'
+import { Route as AppMain2LayoutRouteImport } from './routes/app/main2/_layout'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
-import { Route as AppOnboardingLayoutIndexRouteImport } from './routes/app/onboarding/_layout.index'
+import { Route as AppMain2LayoutIndexRouteImport } from './routes/app/main2/_layout.index'
 import { Route as AppMainLayoutIndexRouteImport } from './routes/app/main/_layout.index'
 
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -23,14 +22,9 @@ const AppRouteRoute = AppRouteRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/auth/callback',
-  path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppExtHostRoute = AppExtHostRouteImport.update({
-  id: '/ext-host',
-  path: '/ext-host',
+const AppInstructionRoute = AppInstructionRouteImport.update({
+  id: '/instruction',
+  path: '/instruction',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppControlRoute = AppControlRouteImport.update({
@@ -38,9 +32,9 @@ const AppControlRoute = AppControlRouteImport.update({
   path: '/control',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppOnboardingLayoutRoute = AppOnboardingLayoutRouteImport.update({
-  id: '/onboarding/_layout',
-  path: '/onboarding',
+const AppMain2LayoutRoute = AppMain2LayoutRouteImport.update({
+  id: '/main2/_layout',
+  path: '/main2',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppMainLayoutRoute = AppMainLayoutRouteImport.update({
@@ -48,12 +42,11 @@ const AppMainLayoutRoute = AppMainLayoutRouteImport.update({
   path: '/main',
   getParentRoute: () => AppRouteRoute,
 } as any)
-const AppOnboardingLayoutIndexRoute =
-  AppOnboardingLayoutIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AppOnboardingLayoutRoute,
-  } as any)
+const AppMain2LayoutIndexRoute = AppMain2LayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppMain2LayoutRoute,
+} as any)
 const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -63,66 +56,54 @@ const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/app/ext-host': typeof AppExtHostRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main': typeof AppMainLayoutRouteWithChildren
-  '/app/onboarding': typeof AppOnboardingLayoutRouteWithChildren
+  '/app/main2': typeof AppMain2LayoutRouteWithChildren
   '/app/main/': typeof AppMainLayoutIndexRoute
-  '/app/onboarding/': typeof AppOnboardingLayoutIndexRoute
+  '/app/main2/': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/app/ext-host': typeof AppExtHostRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main': typeof AppMainLayoutIndexRoute
-  '/app/onboarding': typeof AppOnboardingLayoutIndexRoute
+  '/app/main2': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/app/ext-host': typeof AppExtHostRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main/_layout': typeof AppMainLayoutRouteWithChildren
-  '/app/onboarding/_layout': typeof AppOnboardingLayoutRouteWithChildren
+  '/app/main2/_layout': typeof AppMain2LayoutRouteWithChildren
   '/app/main/_layout/': typeof AppMainLayoutIndexRoute
-  '/app/onboarding/_layout/': typeof AppOnboardingLayoutIndexRoute
+  '/app/main2/_layout/': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/app'
     | '/app/control'
-    | '/app/ext-host'
-    | '/auth/callback'
+    | '/app/instruction'
     | '/app/main'
-    | '/app/onboarding'
+    | '/app/main2'
     | '/app/main/'
-    | '/app/onboarding/'
+    | '/app/main2/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/app'
-    | '/app/control'
-    | '/app/ext-host'
-    | '/auth/callback'
-    | '/app/main'
-    | '/app/onboarding'
+  to: '/app' | '/app/control' | '/app/instruction' | '/app/main' | '/app/main2'
   id:
     | '__root__'
     | '/app'
     | '/app/control'
-    | '/app/ext-host'
-    | '/auth/callback'
+    | '/app/instruction'
     | '/app/main/_layout'
-    | '/app/onboarding/_layout'
+    | '/app/main2/_layout'
     | '/app/main/_layout/'
-    | '/app/onboarding/_layout/'
+    | '/app/main2/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -134,18 +115,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app/ext-host': {
-      id: '/app/ext-host'
-      path: '/ext-host'
-      fullPath: '/app/ext-host'
-      preLoaderRoute: typeof AppExtHostRouteImport
+    '/app/instruction': {
+      id: '/app/instruction'
+      path: '/instruction'
+      fullPath: '/app/instruction'
+      preLoaderRoute: typeof AppInstructionRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/control': {
@@ -155,11 +129,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppControlRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/app/onboarding/_layout': {
-      id: '/app/onboarding/_layout'
-      path: '/onboarding'
-      fullPath: '/app/onboarding'
-      preLoaderRoute: typeof AppOnboardingLayoutRouteImport
+    '/app/main2/_layout': {
+      id: '/app/main2/_layout'
+      path: '/main2'
+      fullPath: '/app/main2'
+      preLoaderRoute: typeof AppMain2LayoutRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/main/_layout': {
@@ -169,12 +143,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMainLayoutRouteImport
       parentRoute: typeof AppRouteRoute
     }
-    '/app/onboarding/_layout/': {
-      id: '/app/onboarding/_layout/'
+    '/app/main2/_layout/': {
+      id: '/app/main2/_layout/'
       path: '/'
-      fullPath: '/app/onboarding/'
-      preLoaderRoute: typeof AppOnboardingLayoutIndexRouteImport
-      parentRoute: typeof AppOnboardingLayoutRoute
+      fullPath: '/app/main2/'
+      preLoaderRoute: typeof AppMain2LayoutIndexRouteImport
+      parentRoute: typeof AppMain2LayoutRoute
     }
     '/app/main/_layout/': {
       id: '/app/main/_layout/'
@@ -198,29 +172,30 @@ const AppMainLayoutRouteWithChildren = AppMainLayoutRoute._addFileChildren(
   AppMainLayoutRouteChildren,
 )
 
-interface AppOnboardingLayoutRouteChildren {
-  AppOnboardingLayoutIndexRoute: typeof AppOnboardingLayoutIndexRoute
+interface AppMain2LayoutRouteChildren {
+  AppMain2LayoutIndexRoute: typeof AppMain2LayoutIndexRoute
 }
 
-const AppOnboardingLayoutRouteChildren: AppOnboardingLayoutRouteChildren = {
-  AppOnboardingLayoutIndexRoute: AppOnboardingLayoutIndexRoute,
+const AppMain2LayoutRouteChildren: AppMain2LayoutRouteChildren = {
+  AppMain2LayoutIndexRoute: AppMain2LayoutIndexRoute,
 }
 
-const AppOnboardingLayoutRouteWithChildren =
-  AppOnboardingLayoutRoute._addFileChildren(AppOnboardingLayoutRouteChildren)
+const AppMain2LayoutRouteWithChildren = AppMain2LayoutRoute._addFileChildren(
+  AppMain2LayoutRouteChildren,
+)
 
 interface AppRouteRouteChildren {
   AppControlRoute: typeof AppControlRoute
-  AppExtHostRoute: typeof AppExtHostRoute
+  AppInstructionRoute: typeof AppInstructionRoute
   AppMainLayoutRoute: typeof AppMainLayoutRouteWithChildren
-  AppOnboardingLayoutRoute: typeof AppOnboardingLayoutRouteWithChildren
+  AppMain2LayoutRoute: typeof AppMain2LayoutRouteWithChildren
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppControlRoute: AppControlRoute,
-  AppExtHostRoute: AppExtHostRoute,
+  AppInstructionRoute: AppInstructionRoute,
   AppMainLayoutRoute: AppMainLayoutRouteWithChildren,
-  AppOnboardingLayoutRoute: AppOnboardingLayoutRouteWithChildren,
+  AppMain2LayoutRoute: AppMain2LayoutRouteWithChildren,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -229,7 +204,6 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,0 +1,76 @@
+---
+meta_title: "OpenRouter Data Retention Policy: What You Need to Know"
+meta_description: "OpenRouter routes your requests across dozens of AI providers. That means two data retention questions, not one. Here's how to think about both."
+author:
+  - "John Jeong"
+  - "Harshika"
+featured: false
+category: "Guides"
+date: "2026-03-20"
+---
+
+OpenRouter is an aggregator that routes your API requests to dozens of underlying providers, including OpenAI, Anthropic, Mistral, Google, and many others.
+
+That creates a data retention question with two layers. What does OpenRouter itself store? And what does the provider your request gets routed to store?
+
+Both matter. Here is how each works.
+
+## What OpenRouter Itself Keeps From Your Requests
+
+By default, OpenRouter does not log your prompts or completions. What it does store is request metadata: timestamps, the model you used, token counts, and latency. That information is retained for billing and operational purposes.
+
+Your actual conversation content is not retained by OpenRouter unless you specifically opt in to prompt logging.
+
+## Why You Should Never Enable Prompt Logging
+
+OpenRouter offers a 1% discount on usage costs in exchange for enabling prompt logging. If you turn this on, OpenRouter stores your prompts and completions.
+
+There is a significant term attached to this. [OpenRouter's privacy policy](https://openrouter.ai/privacy) states that enabling prompt logging grants OpenRouter an irrevocable right to commercial use of those inputs and outputs. That language is broader than most providers use. It means logged data could be used for purposes beyond just displaying your history in the dashboard.
+
+If you are evaluating OpenRouter for any use case involving confidential information, sensitive conversations, or regulated data, do not enable prompt logging. The 1% discount is not worth the data rights you are granting.
+
+## How to Make Sure OpenRouter Never Logs Your Requests
+
+OpenRouter supports ZDR at the request level. You can pass the zdr parameter in individual API calls to prevent OpenRouter from logging that specific request, regardless of your account-wide settings. It also works as an account-wide setting.
+
+This gives you granular control if you need it. For most use cases, simply not enabling prompt logging achieves the same result for OpenRouter's own data handling.
+
+## What OpenRouter's Underlying Provider Stores
+
+This is where OpenRouter's data policy gets more complicated.
+
+When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, [OpenAI's 30-day abuse monitoring window](https://char.com/blog/chatgpt-data-retention-policy/) applies. If it goes to Anthropic's API, [Anthropic's 7-day window](https://char.com/blog/anthropic-data-retention-policy/) applies.
+
+OpenRouter displays the data retention policy for each provider endpoint in its interface. Before routing sensitive data through a model, check the provider policy shown for that endpoint.
+
+By default, OpenRouter does not guarantee which specific provider instance handles your request. It selects based on availability, price, and performance. You can specify a preferred provider using routing parameters in your API call, but unless you do, the selection is automatic.
+
+## How to Keep Your Data in the EU
+
+For enterprise customers, OpenRouter supports EU in-region routing. When enabled, your prompts and completions are processed within the European Union and do not leave the EU. This is relevant for organizations operating under GDPR or with contractual data residency requirements.
+
+EU routing is not enabled by default and requires an enterprise account configuration. Contact OpenRouter's team to enable it.
+
+## Is OpenRouter Safe for Regulated Industries?
+
+OpenRouter does not publish a HIPAA Business Associate Agreement. If your use case involves protected health information, OpenRouter is not the right routing layer without a BAA in place. The same applies to other regulated data categories.
+
+For compliance-sensitive deployments, the multi-provider nature of OpenRouter adds complexity. You are not just evaluating OpenRouter's compliance posture but also the compliance posture of every provider your requests might be routed to. Unless you lock routing to a specific provider with known compliance certifications, the compliance surface is difficult to bound.
+
+## **When OpenRouter Works for Sensitive Work and When It Does Not**
+
+OpenRouter's value is flexibility and cost optimization across providers. For non-sensitive workloads where you want access to a broad model catalog, routing optimization, and fallback handling, it is a practical tool.
+
+For sensitive work, the two-layer data question requires more active management. You need to be specific about which provider your requests go to, verify that provider's data policy, confirm that OpenRouter ZDR is enabled, and ensure prompt logging is off. That is manageable, but it requires deliberate configuration rather than relying on defaults.
+
+The defaults at OpenRouter are reasonably privacy-conscious. Prompts are not logged out of the box. But the flexibility that makes OpenRouter useful also makes its data handling harder to audit than a direct provider relationship.
+
+## Using OpenRouter Through Char
+
+Char supports OpenRouter as an API provider option. When you bring your own OpenRouter API key, your meeting data routes through OpenRouter under your account settings.
+
+If you configure OpenRouter with ZDR enabled and prompt logging off, those settings apply to requests Char sends through your account. If you have locked routing to a specific provider within OpenRouter, requests from Char will follow that configuration.
+
+As with all Char integrations, your meeting notes are stored on your device. The AI provider processes your data to generate a summary, but the output lives locally. Switching from OpenRouter to a direct provider relationship, or to a local model, does not require any changes to how your notes are organized.
+
+[Download Char for MacOS](https://char.com/download) and use the AI provider your security team actually approves.

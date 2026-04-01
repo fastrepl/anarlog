@@ -3,7 +3,7 @@ import {
   createFolderEntityParser,
   getChangedIds,
   type TablesContent,
-} from "../shared";
+} from "~/store/tinybase/persister/shared";
 
 export type ChatChangeResult = {
   changedChatGroupIds: Set<string>;

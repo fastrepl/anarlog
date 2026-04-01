@@ -1,0 +1,72 @@
+---
+title: "Warp"
+section: "Onboarding"
+summary: "Set up Warp — a modern terminal that makes command-line work less intimidating"
+---
+
+## What it is
+
+[Warp](https://www.warp.dev) is a modern terminal application. If you've never used a terminal before, think of it as a text-based interface to your computer — you type commands instead of clicking buttons. Warp makes this less intimidating with features like autocomplete, AI command search, and a clean interface.
+
+## Why a terminal?
+
+Even non-engineers need a terminal at Char. You'll use it to:
+
+- Install tools (via Homebrew)
+- Run the website locally to preview content changes
+- Use Claude Code for AI-assisted editing
+- Push code/content changes
+
+Warp makes all of this easier than the default Mac terminal.
+
+## Install
+
+```bash
+brew install --cask warp
+```
+
+Or download from [warp.dev](https://www.warp.dev).
+
+If you don't have Homebrew yet, install Warp from the website first, then use Warp to [install Homebrew](/company-handbook/onboarding/homebrew).
+
+## First launch
+
+1. Open Warp
+2. Sign in (free account)
+3. It will ask to be your default terminal — say yes
+
+## Key features
+
+**AI Command Search** — Press `Ctrl + ~` (or click the AI icon) and describe what you want to do in plain English. Warp will suggest the right command.
+
+**Autocomplete** — Start typing a command and Warp suggests completions. Press Tab to accept.
+
+**Blocks** — Each command and its output is grouped into a "block". You can copy, share, or bookmark individual blocks.
+
+**Workflows** — Save frequently used commands as reusable workflows.
+
+## Essential commands
+
+If you're new to the terminal, here are the commands you'll use most:
+
+```bash
+cd <folder>       # Go to a folder (e.g., cd ~/Dev/hyprnote)
+ls                # List files in the current folder
+pwd               # Show where you are
+```
+
+You don't need to memorize much beyond this. Use Warp's AI search for everything else, or use Claude Code which handles commands for you.
+
+## macOS permissions
+
+Warp needs some system permissions to work with Char in development:
+
+1. Go to **System Settings > Privacy & Security**
+2. Grant Warp access to **Microphone** (for testing audio features)
+3. Grant Warp access to **Accessibility** (for system-level features)
+
+See the [developer setup docs](/docs/developers/setup) for more details on permissions.
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

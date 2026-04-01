@@ -1,0 +1,32 @@
+---
+title: "Staging Builds"
+section: "Onboarding"
+summary: "How to download and trigger staging builds for testing"
+---
+
+## Downloading staging builds
+
+Staging builds are created when testing new features before they go to nightly or stable releases.
+
+**Easiest method:**
+
+1. Go to the [Download Latest Staging Build workflow](https://github.com/fastrepl/char/actions/workflows/download_staging.yaml)
+2. Click "Run workflow"
+3. Select the platform (currently `macos-aarch64` for Apple Silicon Macs)
+4. Click "Run workflow"
+5. Once complete, download the artifact from the workflow run
+
+Staging builds are stored in R2 with filenames like `hyprnote-staging-{timestamp}-{commit}-macos-aarch64.dmg`.
+
+**Alternative:** Download directly from [desktop_cd workflow](https://github.com/fastrepl/char/actions/workflows/desktop_cd.yaml) artifacts — look for `hyprnote-staging-macos-silicon`.
+
+## Triggering staging builds
+
+**From a PR:** Comment `/staging` on the PR. The bot will trigger a staging build and reply with a link to the workflow run.
+
+**Manually:**
+
+1. Go to [desktop_cd.yaml workflow](https://github.com/fastrepl/char/actions/workflows/desktop_cd.yaml)
+2. Click "Run workflow"
+3. Select the branch and choose "staging" as the channel
+4. Click "Run workflow"

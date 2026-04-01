@@ -1,0 +1,29 @@
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/cli/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/cli_desktop_ci.yml"
+      - ".github/actions/install_cli_deps/**"
+
+jobs:
+  check:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/install_cli_deps
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check -p cli --features desktop
+      - run: cargo clippy -p cli --features desktop -- -D warnings
+      - run: cargo test -p cli --features desktop

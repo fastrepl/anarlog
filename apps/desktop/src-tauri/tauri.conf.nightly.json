@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Hyprnote Nightly",
-  "mainBinaryName": "hyprnote-nightly",
+  "productName": "Char Nightly",
+  "mainBinaryName": "char-nightly",
   "identifier": "com.hyprnote.nightly",
   "plugins": {
     "deep-link": {
@@ -23,6 +23,10 @@
       "icons/nightly/icon.ico"
     ],
     "macOS": {
+      "files": {
+        "Resources/AppIcon.incs": "resources/nightly/AppIcon.icns",
+        "Resources/Assets.car": "resources/nightly/Assets.car"
+      },
       "dmg": {
         "background": "assets/dmg-background-nightly.png"
       }

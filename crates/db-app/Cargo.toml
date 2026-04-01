@@ -1,0 +1,20 @@
+[package]
+name = "db-app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { workspace = true, features = ["derive"], optional = true }
+hypr-db-core2 = { workspace = true }
+hypr-transcript = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled", "macros", "migrate"] }
+uuid = { workspace = true, features = ["v4"], optional = true }
+
+[features]
+default = []
+cli = ["dep:serde", "dep:serde_json", "dep:clap", "dep:uuid"]
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros"] }

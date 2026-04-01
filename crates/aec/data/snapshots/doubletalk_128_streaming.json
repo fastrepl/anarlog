@@ -1,0 +1,10 @@
+{
+  "sample_count": 170720,
+  "rms_energy": 0.06564695,
+  "peak_amplitude": 0.75292325,
+  "zero_crossing_rate": 0.12549862,
+  "spectral_centroid": 711.9515,
+  "band_energy_low": 46.85181,
+  "band_energy_mid": 30.440863,
+  "band_energy_high": 7.502265
+}

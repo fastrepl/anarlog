@@ -9,6 +9,7 @@ pub(super) struct TranscriptRaw {
     pub inline_hints: Option<String>,
 }
 
+#[derive(Clone)]
 pub(super) struct WordWithTranscript {
     pub transcript_id: String,
     pub word: crate::types::Word,

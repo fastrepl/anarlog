@@ -4,7 +4,7 @@ import JSZip from "jszip";
 
 import { env } from "../../env";
 
-const REPO = "hyprnote";
+const REPO = "char";
 const OWNER = "fastrepl";
 
 export const Route = createFileRoute("/api/k6-reports")({

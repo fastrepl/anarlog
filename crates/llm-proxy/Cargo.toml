@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 hypr-analytics = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-observability = { workspace = true }
+hypr-openrouter = { workspace = true }
 
 async-stream = { workspace = true }
 axum = { workspace = true }
@@ -18,7 +21,9 @@ backon = { workspace = true }
 bytes = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
+utoipa = { workspace = true }
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }

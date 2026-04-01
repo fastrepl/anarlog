@@ -4,7 +4,7 @@ import * as path from "path";
 
 import { getSupabaseServerClient } from "@/functions/supabase";
 
-const GITHUB_REPO = "fastrepl/hyprnote";
+const GITHUB_REPO = "fastrepl/char";
 const GITHUB_BRANCH = "main";
 const CONTENT_PATH = "apps/web/content";
 
@@ -25,6 +25,15 @@ const VALID_FOLDERS = [
   "templates",
 ];
 
+export const REVIEWABLE_CONTENT_FOLDERS = [
+  "articles",
+  "docs",
+  "handbook",
+] as const;
+
+export type ReviewableContentFolder =
+  (typeof REVIEWABLE_CONTENT_FOLDERS)[number];
+
 const GITHUB_USERNAME_TO_AUTHOR: Record<
   string,
   { name: string; email: string }
@@ -42,6 +51,7 @@ interface CommitBody {
   message: string;
   content?: string;
   sha?: string;
+  branch?: string;
   author?: { name: string; email: string };
   committer?: { name: string; email: string };
 }
@@ -49,13 +59,14 @@ interface CommitBody {
 function buildCommitBody(
   message: string,
   author?: { name: string; email: string },
-  options?: { content?: string; sha?: string },
+  options?: { content?: string; sha?: string; branch?: string },
 ): CommitBody {
   const body: CommitBody = {
     message,
   };
   if (options?.content !== undefined) body.content = options.content;
   if (options?.sha) body.sha = options.sha;
+  if (options?.branch) body.branch = options.branch;
   if (author) {
     body.author = author;
     body.committer = author;
@@ -97,6 +108,106 @@ function sanitizeFilename(filename: string): string {
     .toLowerCase();
 }
 
+function sanitizePathSegment(segment: string): string {
+  return segment
+    .replace(/[^a-zA-Z0-9-_.]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+}
+
+function sanitizeRelativeFilePath(relativePath: string): string {
+  return relativePath
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => {
+      if (segment === ".gitkeep") {
+        return segment;
+      }
+
+      const hasExtension = segment.endsWith(".mdx");
+      const baseName = hasExtension ? segment.slice(0, -4) : segment;
+      const sanitized = sanitizePathSegment(baseName) || "untitled";
+      return hasExtension ? `${sanitized}.mdx` : sanitized;
+    })
+    .join("/");
+}
+
+export function getCollectionFromPath(
+  filePath: string,
+): ReviewableContentFolder | undefined {
+  const normalizedPath = filePath.replace(/^apps\/web\/content\//, "");
+  const folder = normalizedPath.split("/")[0];
+
+  if ((REVIEWABLE_CONTENT_FOLDERS as readonly string[]).includes(folder)) {
+    return folder as ReviewableContentFolder;
+  }
+
+  return undefined;
+}
+
+function getBranchToken(filePath: string): string {
+  const normalizedPath = filePath
+    .replace(/^apps\/web\/content\//, "")
+    .replace(/\.mdx$/, "");
+
+  const [, ...rest] = normalizedPath.split("/");
+  const token = rest.join("-").replace(/[^a-zA-Z0-9-]/g, "-");
+
+  return token.replace(/-+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+}
+
+function getBranchPrefix(collection: ReviewableContentFolder): string {
+  switch (collection) {
+    case "articles":
+      return "blog";
+    case "docs":
+      return "content/docs";
+    case "handbook":
+      return "content/handbook";
+  }
+}
+
+function buildDraftBranchName(filePath: string): string {
+  const collection = getCollectionFromPath(filePath);
+  if (!collection) {
+    return generateBranchName(filePath);
+  }
+
+  const token = getBranchToken(filePath);
+  const prefix = getBranchPrefix(collection);
+  if (collection === "articles") {
+    return `${prefix}/${token}`;
+  }
+
+  return `${prefix}/${token}-${Date.now()}`;
+}
+
+function buildPublishedEditBranchName(filePath: string): string {
+  const collection = getCollectionFromPath(filePath);
+  if (!collection) {
+    return generateBranchName(filePath);
+  }
+
+  const token = getBranchToken(filePath);
+  const prefix = getBranchPrefix(collection);
+
+  if (collection === "articles") {
+    return `${prefix}/${token}-${Date.now()}`;
+  }
+
+  return `${prefix}/${token}-${Date.now()}`;
+}
+
+function getExistingBranchPrefix(filePath: string): string {
+  const collection = getCollectionFromPath(filePath);
+  if (!collection) {
+    return `blog/${getBranchToken(filePath)}-`;
+  }
+
+  return `${getBranchPrefix(collection)}/${getBranchToken(filePath)}-`;
+}
+
 function getFullPath(folder: string, filename: string): string {
   return `${CONTENT_PATH}/${folder}/${filename}`;
 }
@@ -110,10 +221,10 @@ function getDefaultFrontmatter(folder: string): string {
 meta_title: ""
 display_title: ""
 meta_description: ""
-author: "John Jeong"
+author:
+- "John Jeong"
 featured: false
-published: false
-category: ""
+category: "Product"
 date: "${today}"
 ---
 
@@ -128,6 +239,7 @@ date: "${today}"
       return `---
 title: ""
 section: ""
+description: ""
 ---
 
 `;
@@ -135,6 +247,7 @@ section: ""
       return `---
 title: ""
 section: ""
+summary: ""
 ---
 
 `;
@@ -177,7 +290,7 @@ export async function createContentFile(
     };
   }
 
-  let safeFilename = sanitizeFilename(filename);
+  let safeFilename = sanitizeRelativeFilePath(filename);
   if (!safeFilename.endsWith(".mdx")) {
     safeFilename = `${safeFilename}.mdx`;
   }
@@ -362,6 +475,7 @@ export async function createContentFolder(
 export async function renameContentFile(
   fromPath: string,
   toPath: string,
+  branchName?: string,
 ): Promise<{ success: boolean; newPath?: string; error?: string }> {
   if (isDev()) {
     try {
@@ -399,6 +513,7 @@ export async function renameContentFile(
   }
   const { token: githubToken, author } = credentials;
 
+  const targetBranch = branchName || GITHUB_BRANCH;
   const fullFromPath = fromPath.startsWith("apps/web/content")
     ? fromPath
     : `${CONTENT_PATH}/${fromPath}`;
@@ -408,7 +523,7 @@ export async function renameContentFile(
 
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullFromPath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullFromPath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -440,6 +555,7 @@ export async function renameContentFile(
         body: JSON.stringify(
           buildCommitBody(`Rename ${fromPath} to ${toPath} via admin`, author, {
             content,
+            branch: targetBranch,
           }),
         ),
       },
@@ -466,7 +582,7 @@ export async function renameContentFile(
           buildCommitBody(
             `Rename ${fromPath} to ${toPath} via admin (delete original)`,
             author,
-            { sha },
+            { sha, branch: targetBranch },
           ),
         ),
       },
@@ -479,7 +595,7 @@ export async function renameContentFile(
       };
     }
 
-    return { success: true, newPath: fullToPath };
+    return { success: true, newPath: toPath };
   } catch (error) {
     return {
       success: false,
@@ -490,6 +606,7 @@ export async function renameContentFile(
 
 export async function deleteContentFile(
   filePath: string,
+  branchName?: string,
 ): Promise<{ success: boolean; error?: string }> {
   if (isDev()) {
     try {
@@ -512,6 +629,7 @@ export async function deleteContentFile(
     return { success: false, error: "GitHub token not configured" };
   }
   const { token: githubToken, author } = credentials;
+  const targetBranch = branchName || GITHUB_BRANCH;
 
   const fullPath = filePath.startsWith("apps/web/content")
     ? filePath
@@ -519,7 +637,7 @@ export async function deleteContentFile(
 
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullPath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -548,7 +666,10 @@ export async function deleteContentFile(
           Accept: "application/vnd.github.v3+json",
         },
         body: JSON.stringify(
-          buildCommitBody(`Delete ${filePath} via admin`, author, { sha }),
+          buildCommitBody(`Delete ${filePath} via admin`, author, {
+            sha,
+            branch: targetBranch,
+          }),
         ),
       },
     );
@@ -661,6 +782,7 @@ export async function updateContentFile(
 export async function duplicateContentFile(
   sourcePath: string,
   newFilename?: string,
+  branchName?: string,
 ): Promise<{ success: boolean; path?: string; error?: string }> {
   if (isDev()) {
     try {
@@ -716,13 +838,14 @@ export async function duplicateContentFile(
   }
   const { token: githubToken, author } = credentials;
 
+  const targetBranch = branchName || GITHUB_BRANCH;
   const fullSourcePath = sourcePath.startsWith("apps/web/content")
     ? sourcePath
     : `${CONTENT_PATH}/${sourcePath}`;
 
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullSourcePath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${fullSourcePath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -759,7 +882,7 @@ export async function duplicateContentFile(
     const targetPath = `${folder}/${targetFilename}`;
 
     const checkResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/contents/${targetPath}?ref=${GITHUB_BRANCH}`,
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${targetPath}?ref=${targetBranch}`,
       {
         headers: {
           Authorization: `Bearer ${githubToken}`,
@@ -788,7 +911,7 @@ export async function duplicateContentFile(
           buildCommitBody(
             `Duplicate ${sourcePath} as ${targetFilename} via admin`,
             author,
-            { content },
+            { content, branch: targetBranch },
           ),
         ),
       },
@@ -802,7 +925,10 @@ export async function duplicateContentFile(
       };
     }
 
-    return { success: true, path: targetPath };
+    return {
+      success: true,
+      path: targetPath.replace(`${CONTENT_PATH}/`, ""),
+    };
   } catch (error) {
     return {
       success: false,
@@ -811,8 +937,10 @@ export async function duplicateContentFile(
   }
 }
 
-export function generateBranchName(slug: string): string {
-  const sanitizedSlug = slug
+export function generateBranchName(slugOrPath: string): string {
+  const sanitizedSlug = slugOrPath
+    .replace(/^apps\/web\/content\//, "")
+    .replace(/^articles\//, "")
     .replace(/\.mdx$/, "")
     .replace(/[^a-zA-Z0-9-]/g, "-")
     .toLowerCase();
@@ -840,7 +968,18 @@ export async function getBranchSha(
     );
 
     if (!response.ok) {
-      return { success: false, error: `Branch not found: ${branchName}` };
+      let message = `GitHub API error: ${response.status}`;
+      try {
+        const error = await response.json();
+        if (typeof error?.message === "string" && error.message.length > 0) {
+          message = error.message;
+        }
+      } catch {}
+
+      return {
+        success: false,
+        error: `Failed to access branch ref "${branchName}" (${response.status}): ${message}`,
+      };
     }
 
     const data = await response.json();
@@ -1002,53 +1141,6 @@ export async function createPullRequest(
   }
 }
 
-export async function convertDraftToReady(prNumber: number): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  if (isDev()) {
-    return { success: true };
-  }
-
-  const credentials = await getGitHubCredentials();
-  if (!credentials) {
-    return { success: false, error: "GitHub token not configured" };
-  }
-  const { token: githubToken } = credentials;
-
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_REPO}/pulls/${prNumber}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${githubToken}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          draft: false,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      return {
-        success: false,
-        error: error.message || `GitHub API error: ${response.status}`,
-      };
-    }
-
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: `Failed to convert draft to ready: ${(error as Error).message}`,
-    };
-  }
-}
-
 export async function createContentFileOnBranch(
   folder: string,
   filename: string,
@@ -1067,12 +1159,13 @@ export async function createContentFileOnBranch(
     };
   }
 
-  let safeFilename = sanitizeFilename(filename);
+  let safeFilename = sanitizeRelativeFilePath(filename);
   if (!safeFilename.endsWith(".mdx")) {
     safeFilename = `${safeFilename}.mdx`;
   }
 
-  const targetBranch = branchName || generateBranchName(safeFilename);
+  const targetFilePath = `${folder}/${safeFilename}`;
+  const targetBranch = branchName || buildDraftBranchName(targetFilePath);
   const defaultContent = content || getDefaultFrontmatter(folder);
 
   if (isDev()) {
@@ -1091,7 +1184,7 @@ export async function createContentFileOnBranch(
       fs.writeFileSync(localPath, defaultContent);
       return {
         success: true,
-        path: `${folder}/${safeFilename}`,
+        path: targetFilePath,
         branch: targetBranch,
       };
     } catch (error) {
@@ -1160,7 +1253,7 @@ export async function createContentFileOnBranch(
 
     return {
       success: true,
-      path: `${folder}/${safeFilename}`,
+      path: targetFilePath,
       branch: targetBranch,
     };
   } catch (error) {
@@ -1261,7 +1354,7 @@ export async function updateContentFileOnBranch(
   }
 }
 
-export async function findExistingEditPR(slug: string): Promise<{
+export async function findExistingEditPRForPath(filePath: string): Promise<{
   found: boolean;
   branchName?: string;
   prNumber?: number;
@@ -1293,7 +1386,7 @@ export async function findExistingEditPR(slug: string): Promise<{
     }
 
     const prs = await response.json();
-    const editPrefix = `blog/${slug}-`;
+    const editPrefix = getExistingBranchPrefix(filePath);
 
     for (const pr of prs) {
       const headRef = pr.head?.ref || "";
@@ -1313,7 +1406,16 @@ export async function findExistingEditPR(slug: string): Promise<{
   }
 }
 
-export async function getExistingEditPRForArticle(filePath: string): Promise<{
+export async function findExistingEditPR(slug: string): Promise<{
+  found: boolean;
+  branchName?: string;
+  prNumber?: number;
+  prUrl?: string;
+}> {
+  return findExistingEditPRForPath(`articles/${slug}.mdx`);
+}
+
+export async function getExistingEditPRForContent(filePath: string): Promise<{
   success: boolean;
   hasPendingPR: boolean;
   prNumber?: number;
@@ -1321,13 +1423,11 @@ export async function getExistingEditPRForArticle(filePath: string): Promise<{
   branchName?: string;
   error?: string;
 }> {
-  const slug = filePath.replace(/\.mdx$/, "").replace(/^articles\//, "");
-
   if (isDev()) {
     return { success: true, hasPendingPR: false };
   }
 
-  const existingPR = await findExistingEditPR(slug);
+  const existingPR = await findExistingEditPRForPath(filePath);
   if (existingPR.found) {
     return {
       success: true,
@@ -1341,25 +1441,35 @@ export async function getExistingEditPRForArticle(filePath: string): Promise<{
   return { success: true, hasPendingPR: false };
 }
 
-export async function savePublishedArticleWithPR(
+export async function getExistingEditPRForArticle(filePath: string): Promise<{
+  success: boolean;
+  hasPendingPR: boolean;
+  prNumber?: number;
+  prUrl?: string;
+  branchName?: string;
+  error?: string;
+}> {
+  return getExistingEditPRForContent(filePath);
+}
+
+async function savePublishedContentToBranchInternal(
   filePath: string,
   content: string,
-  metadata: {
-    meta_title?: string;
-    display_title?: string;
-    author?: string;
-  },
-  options?: { isDraft?: boolean },
 ): Promise<{
   success: boolean;
   prNumber?: number;
   prUrl?: string;
   branchName?: string;
   isExistingPR?: boolean;
-  isDraft?: boolean;
   error?: string;
 }> {
-  const slug = filePath.replace(/\.mdx$/, "").replace(/^articles\//, "");
+  const branchResult = await ensureContentEditBranch(filePath);
+  if (!branchResult.success || !branchResult.branchName) {
+    return {
+      success: false,
+      error: branchResult.error || "Failed to create branch",
+    };
+  }
 
   if (isDev()) {
     try {
@@ -1379,22 +1489,8 @@ export async function savePublishedArticleWithPR(
     return { success: false, error: "GitHub token not configured" };
   }
   const { token: githubToken, author } = credentials;
-
-  const existingPR = await findExistingEditPR(slug);
-  let branchName: string;
-  let isExistingPR = false;
-
-  if (existingPR.found && existingPR.branchName) {
-    branchName = existingPR.branchName;
-    isExistingPR = true;
-  } else {
-    const timestamp = Date.now();
-    branchName = `blog/${slug}-${timestamp}`;
-    const branchResult = await createBranch(branchName, GITHUB_BRANCH);
-    if (!branchResult.success) {
-      return { success: false, error: branchResult.error };
-    }
-  }
+  const branchName = branchResult.branchName;
+  const isExistingPR = branchResult.isExistingPR;
 
   const fullPath = `${CONTENT_PATH}/${filePath}`;
 
@@ -1447,34 +1543,13 @@ export async function savePublishedArticleWithPR(
       };
     }
 
-    if (isExistingPR) {
-      return {
-        success: true,
-        prNumber: existingPR.prNumber,
-        prUrl: existingPR.prUrl,
-        branchName,
-        isExistingPR: true,
-      };
-    }
-
-    const title = `Update: ${metadata.display_title || metadata.meta_title || slug}`;
-    const body = `## Article Update
-
-**Title:** ${metadata.display_title || metadata.meta_title || "Untitled"}
-**Author:** ${metadata.author || "Unknown"}
-**File:** apps/web/content/${filePath}
-
----
-Auto-generated PR from admin panel.`;
-
-    const prResult = await createPullRequest(
+    return {
+      success: true,
       branchName,
-      GITHUB_BRANCH,
-      title,
-      body,
-      { isDraft: options?.isDraft ?? true },
-    );
-    return { ...prResult, branchName, isExistingPR: false };
+      isExistingPR,
+      prNumber: branchResult.prNumber,
+      prUrl: branchResult.prUrl,
+    };
   } catch (error) {
     return {
       success: false,
@@ -1483,12 +1558,85 @@ Auto-generated PR from admin panel.`;
   }
 }
 
+export async function ensureContentEditBranch(filePath: string): Promise<{
+  success: boolean;
+  branchName?: string;
+  prNumber?: number;
+  prUrl?: string;
+  isExistingPR?: boolean;
+  error?: string;
+}> {
+  if (isDev()) {
+    return {
+      success: true,
+      branchName: buildPublishedEditBranchName(filePath),
+      isExistingPR: false,
+    };
+  }
+
+  const existingPR = await findExistingEditPRForPath(filePath);
+  if (existingPR.found && existingPR.branchName) {
+    return {
+      success: true,
+      branchName: existingPR.branchName,
+      prNumber: existingPR.prNumber,
+      prUrl: existingPR.prUrl,
+      isExistingPR: true,
+    };
+  }
+
+  const branchName = buildPublishedEditBranchName(filePath);
+  const branchResult = await createBranch(branchName, GITHUB_BRANCH);
+  if (!branchResult.success) {
+    return { success: false, error: branchResult.error };
+  }
+
+  return {
+    success: true,
+    branchName,
+    isExistingPR: false,
+  };
+}
+
+export async function savePublishedArticleToBranch(
+  filePath: string,
+  content: string,
+  _metadata: {
+    meta_title?: string;
+    display_title?: string;
+    author?: string | string[];
+  },
+): Promise<{
+  success: boolean;
+  prNumber?: number;
+  prUrl?: string;
+  branchName?: string;
+  isExistingPR?: boolean;
+  error?: string;
+}> {
+  return savePublishedContentToBranchInternal(filePath, content);
+}
+
+export async function savePublishedContentToBranch(
+  filePath: string,
+  content: string,
+): Promise<{
+  success: boolean;
+  prNumber?: number;
+  prUrl?: string;
+  branchName?: string;
+  isExistingPR?: boolean;
+  error?: string;
+}> {
+  return savePublishedContentToBranchInternal(filePath, content);
+}
+
 export async function publishArticle(
   filePath: string,
   branchName: string,
   metadata: {
     meta_title?: string;
-    author?: string;
+    author?: string | string[];
     date?: string;
     category?: string;
   },
@@ -1506,10 +1654,71 @@ export async function publishArticle(
   const body = `## Article ${statusText}
 
 **Title:** ${metadata.meta_title || "Untitled"}
-**Author:** ${metadata.author || "Unknown"}
+**Author:** ${Array.isArray(metadata.author) ? metadata.author.join(", ") : metadata.author || "Unknown"}
 **Date:** ${metadata.date || "Not set"}
 **Category:** ${metadata.category || "Uncategorized"}
 
+**Branch:** ${branchName}
+**File:** apps/web/content/${filePath}
+
+---
+Auto-generated PR from admin panel.`;
+
+  const prResult = await createPullRequest(
+    branchName,
+    GITHUB_BRANCH,
+    title,
+    body,
+  );
+
+  if (prResult.success && prResult.prNumber) {
+    const credentials = await getGitHubCredentials();
+    if (credentials?.token) {
+      try {
+        await fetch(
+          `https://api.github.com/repos/${GITHUB_REPO}/pulls/${prResult.prNumber}/requested_reviewers`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${credentials.token}`,
+              Accept: "application/vnd.github.v3+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reviewers: ["harshikaalagh-netizen"],
+            }),
+          },
+        );
+      } catch {}
+    }
+  }
+
+  return prResult;
+}
+
+export async function publishContentPR(
+  filePath: string,
+  branchName: string,
+  metadata: { title?: string; description?: string; summary?: string },
+): Promise<{
+  success: boolean;
+  prNumber?: number;
+  prUrl?: string;
+  error?: string;
+}> {
+  const collection = getCollectionFromPath(filePath);
+  const contentLabel =
+    collection === "docs"
+      ? "Documentation"
+      : collection === "handbook"
+        ? "Company Handbook"
+        : "Content";
+  const title = `${contentLabel}: ${metadata.title || filePath}`;
+  const description = metadata.description || metadata.summary || "Not set";
+  const body = `## ${contentLabel} Update
+
+**Title:** ${metadata.title || "Untitled"}
+**Description:** ${description}
 **Branch:** ${branchName}
 **File:** apps/web/content/${filePath}
 

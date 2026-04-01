@@ -1,8 +1,9 @@
 import { createContext, useContext } from "react";
 
-import { useChatMode } from "./chat";
 import { useLeftSidebar } from "./leftsidebar";
 import { useSettings } from "./settings";
+
+import { useChatMode } from "~/chat/state/use-chat-mode";
 
 interface ShellContextType {
   chat: ReturnType<typeof useChatMode>;

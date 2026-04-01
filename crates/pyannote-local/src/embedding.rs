@@ -29,8 +29,14 @@ impl EmbeddingExtractor {
     ) -> Result<Vec<f32>, crate::Error> {
         let samples_f32 = samples.map(|s| s.to_sample_()).collect::<Vec<_>>();
 
-        let features: Array2<f32> = knf_rs::compute_fbank(&samples_f32)
+        let features_knf = knf_rs::compute_fbank(&samples_f32)
             .map_err(|s| crate::Error::KnfError(s.to_string()))?;
+        let shape = features_knf.shape().to_vec();
+        let features: Array2<f32> = ndarray::Array2::from_shape_vec(
+            (shape[0], shape[1]),
+            features_knf.iter().copied().collect(),
+        )
+        .map_err(|e| crate::Error::KnfError(e.to_string()))?;
 
         let features = features.insert_axis(ndarray::Axis(0));
         let inputs = ort::inputs! ["feats" => TensorRef::from_array_view(features.view())?];

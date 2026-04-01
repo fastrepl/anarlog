@@ -23,6 +23,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_properties::<tauri::Wry>,
             commands::set_disabled::<tauri::Wry>,
             commands::is_disabled::<tauri::Wry>,
+            commands::identify::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -47,15 +48,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                 }
             };
 
-            let outlit_key = option_env!("OUTLIT_PUBLIC_KEY");
-
             let client = {
                 let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
                 if let Some(key) = posthog_key {
                     builder = builder.with_posthog(key);
-                }
-                if let Some(key) = outlit_key {
-                    builder = builder.with_outlit(key);
                 }
 
                 builder.build()

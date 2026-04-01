@@ -1,9 +1,4 @@
-# fly.toml app configuration file generated for hyprnote-api on 2025-11-15T10:28:09+09:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'hyprnote-api'
+app = 'hyprnote-ai'
 primary_region = 'sjc'
 kill_signal = 'SIGTERM'
 kill_timeout = 30
@@ -13,16 +8,11 @@ swap_size_mb = 512
 strategy = "bluegreen"
 
 [env]
-BUN_ENV = "production"
-PORT = "8787"
-
-[processes]
-web = "bun src/index.ts"
-cron = "supercronic /app/crontab"
+PORT = "3001"
 
 [http_service]
-processes = ['web']
-internal_port = 8787
+processes = ['app']
+internal_port = 3001
 force_https = true
 auto_stop_machines = 'stop'
 auto_start_machines = true
@@ -42,6 +32,7 @@ protocol = "http"
 timeout = "4s"
 
 [[vm]]
+processes = ['app']
 memory = '1gb'
 cpu_kind = 'shared'
 cpus = 1

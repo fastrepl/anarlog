@@ -2,6 +2,7 @@
 description = "Default permissions for the plugin"
 permissions = [
     "allow-run-batch",
+    "allow-run-denoise",
     "allow-parse-subtitle",
     "allow-export-to-vtt",
     "allow-is-supported-languages-batch",

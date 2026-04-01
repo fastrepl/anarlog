@@ -1,0 +1,11 @@
+[package]
+name = "api-cactus"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { workspace = true }
+bytes = { workspace = true }
+reqwest = { workspace = true, features = ["json", "stream"] }
+serde = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }

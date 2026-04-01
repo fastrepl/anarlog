@@ -22,6 +22,14 @@ async getFingerprint() : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getDeviceInfo(locale: string | null) : Promise<Result<DeviceInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:misc|get_device_info", { locale }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async opinionatedMdToHtml(text: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:misc|opinionated_md_to_html", { text }) };
@@ -29,9 +37,6 @@ async opinionatedMdToHtml(text: string) : Promise<Result<string, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async parseMeetingLink(text: string) : Promise<string | null> {
-    return await TAURI_INVOKE("plugin:misc|parse_meeting_link", { text });
 }
 }
 
@@ -45,7 +50,7 @@ async parseMeetingLink(text: string) : Promise<string | null> {
 
 /** user-defined types **/
 
-
+export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
 
 /** tauri-specta globals **/
 

@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_view/product/notepad")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Notepad - Hyprnote" },
+      { title: "Notepad - Char" },
       {
         name: "description",
         content:
@@ -45,31 +45,31 @@ function Component() {
 
   return (
     <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white sm:h-[calc(100vh-65px)] overflow-hidden"
+      className="overflow-hidden bg-linear-to-b from-white via-stone-50/20 to-white sm:h-[calc(100vh-65px)]"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
-      <div className="max-w-6xl mx-auto border-x border-neutral-100 bg-white h-full relative flex flex-col">
-        <div className="flex-1 bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6 py-12 flex items-center justify-center relative z-10">
-          <div className="text-center max-w-4xl mx-auto pointer-events-auto">
-            <h1 className="text-4xl sm:text-5xl font-serif tracking-tight text-stone-600 mb-6 max-w-2xl mx-auto">
+      <div className="relative mx-auto flex h-full max-w-6xl flex-col border-x border-neutral-100 bg-white">
+        <div className="relative z-10 flex flex-1 items-center justify-center bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6 py-12">
+          <div className="pointer-events-auto mx-auto max-w-4xl text-center">
+            <h1 className="mx-auto mb-6 max-w-2xl font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Your private notepad. <br className="hidden sm:inline" />
               No bots. Local-first.
             </h1>
-            <p className="text-lg sm:text-xl text-neutral-600 mb-8 max-w-2xl mx-auto">
-              Hyprnote takes your memos and transcripts to make crazy good notes
+            <p className="mx-auto mb-8 max-w-2xl text-lg text-neutral-600 sm:text-xl">
+              Char takes your memos and transcripts to make crazy good notes
             </p>
 
             <AnimatedNotesDemo />
 
-            <div className="flex flex-row gap-4 justify-center items-center">
+            <div className="flex flex-row items-center justify-center gap-4">
               {primaryCTA.isDownload ? (
                 <a
                   href={primaryCTA.href}
                   download
                   className={cn([
-                    "inline-block px-8 py-3 text-base font-medium rounded-full",
+                    "inline-block rounded-full px-8 py-3 text-base font-medium",
                     "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                    "hover:scale-105 active:scale-95 transition-transform",
+                    "transition-transform hover:scale-105 active:scale-95",
                   ])}
                 >
                   <span className="hidden sm:inline">
@@ -81,9 +81,9 @@ function Component() {
                 <Link
                   to={primaryCTA.href}
                   className={cn([
-                    "inline-block px-8 py-3 text-base font-medium rounded-full",
+                    "inline-block rounded-full px-8 py-3 text-base font-medium",
                     "bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                    "hover:scale-105 active:scale-95 transition-transform",
+                    "transition-transform hover:scale-105 active:scale-95",
                   ])}
                 >
                   <span className="hidden sm:inline">
@@ -95,8 +95,8 @@ function Component() {
               <Link
                 to="/product/ai-notetaking/"
                 className={cn([
-                  "inline-block px-8 py-3 text-base font-medium rounded-full",
-                  "bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 rounded-full shadow-xs hover:shadow-md hover:scale-[102%] active:scale-[98%]",
+                  "inline-block rounded-full px-8 py-3 text-base font-medium",
+                  "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs hover:scale-[102%] hover:shadow-md active:scale-[98%]",
                   "transition-all",
                 ])}
               >
@@ -178,9 +178,9 @@ function AnimatedNotesDemo() {
     return (
       <MockWindow
         variant="desktop"
-        className="mb-8 rounded-lg border-b w-full sm:w-[420px] md:w-[480px] lg:w-[540px] mx-auto"
+        className="mx-auto mb-8 w-full rounded-lg border-b sm:w-[420px] md:w-[480px] lg:w-[540px]"
       >
-        <div className="p-6 flex flex-col gap-4 h-96 overflow-hidden text-left">
+        <div className="flex h-96 flex-col gap-4 overflow-hidden p-6 text-left">
           <div className="flex flex-col gap-2">
             <h4
               className={cn([
@@ -190,7 +190,7 @@ function AnimatedNotesDemo() {
             >
               Mobile UI Update and API Adjustments
             </h4>
-            <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-5">
+            <ul className="flex list-disc flex-col gap-2 pl-5 text-neutral-700">
               <li
                 className={cn([
                   "transition-opacity duration-500",
@@ -232,7 +232,7 @@ function AnimatedNotesDemo() {
             >
               New Dashboard – Urgent Priority
             </h4>
-            <ul className="flex flex-col gap-2 text-neutral-700 list-disc pl-5">
+            <ul className="flex list-disc flex-col gap-2 pl-5 text-neutral-700">
               <li
                 className={cn([
                   "transition-opacity duration-500",
@@ -253,14 +253,14 @@ function AnimatedNotesDemo() {
     <MockWindow
       showAudioIndicator
       variant="desktop"
-      className="mb-8 rounded-lg border-b w-full sm:w-[420px] md:w-[480px] lg:w-[540px] mx-auto"
+      className="mx-auto mb-8 w-full rounded-lg border-b sm:w-[420px] md:w-[480px] lg:w-[540px]"
     >
-      <div className="p-6 h-96 overflow-hidden text-left">
+      <div className="h-96 overflow-hidden p-6 text-left">
         <div className="text-neutral-700">ui update - mobile</div>
         <div className="text-neutral-700">api</div>
-        <div className="text-neutral-700 mt-4">new dash - urgent</div>
+        <div className="mt-4 text-neutral-700">new dash - urgent</div>
         <div className="text-neutral-700">a/b test next wk</div>
-        <div className="text-neutral-700 mt-4">
+        <div className="mt-4 text-neutral-700">
           {typedText1}
           {typedText1 && typedText1.length < text1.length && (
             <span className="animate-pulse">|</span>

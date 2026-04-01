@@ -54,12 +54,12 @@ export function SocialCard({
   return (
     <div
       className={cn([
-        "block border border-neutral-100 bg-white p-6 transition-all duration-200 text-left hover:bg-neutral-50",
+        "block border border-neutral-100 bg-white p-6 text-left transition-all duration-200 hover:bg-neutral-50",
         className,
       ])}
     >
       <div className="flex flex-col gap-4 text-left">
-        <div className="flex justify-between items-start">
+        <div className="flex items-start justify-between">
           <div>
             <p className="font-semibold text-neutral-900">
               {config.userPrefix}
@@ -73,7 +73,7 @@ export function SocialCard({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:opacity-70 transition-opacity"
+            className="transition-opacity hover:opacity-70"
             onClick={(e) => e.stopPropagation()}
           >
             <svg
@@ -85,7 +85,7 @@ export function SocialCard({
             </svg>
           </a>
         </div>
-        <p className="text-neutral-700 leading-relaxed line-clamp-4 md:line-clamp-15 overflow-hidden">
+        <p className="line-clamp-4 overflow-hidden leading-relaxed text-neutral-700 md:line-clamp-15">
           {body}
         </p>
       </div>

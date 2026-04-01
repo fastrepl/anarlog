@@ -1,7 +1,9 @@
 use owhisper_client::AdapterKind;
 use std::str::FromStr;
 
-use crate::{ListenerPluginExt, actors::SessionParams};
+use crate::ListenerPluginExt;
+use hypr_listener_core::{StopSessionParams, actors::SessionParams};
+use hypr_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
 
 #[tauri::command]
 #[specta::specta]
@@ -47,14 +49,21 @@ pub async fn start_session<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     params: SessionParams,
 ) -> Result<(), String> {
-    app.listener().start_session(params).await;
-    Ok(())
+    app.listener()
+        .start_session(params)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_session<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
-    app.listener().stop_session().await;
+pub async fn stop_session<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    params: Option<StopSessionParams>,
+) -> Result<(), String> {
+    app.listener()
+        .stop_session(params.unwrap_or_default())
+        .await;
     Ok(())
 }
 
@@ -62,7 +71,7 @@ pub async fn stop_session<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result
 #[specta::specta]
 pub async fn get_state<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-) -> Result<crate::fsm::State, String> {
+) -> Result<hypr_listener_core::State, String> {
     Ok(app.listener().get_state().await)
 }
 
@@ -74,7 +83,7 @@ pub async fn is_supported_languages_live<R: tauri::Runtime>(
     model: Option<String>,
     languages: Vec<String>,
 ) -> Result<bool, String> {
-    if provider == "custom" || provider == "hyprnote" {
+    if provider == "custom" {
         return Ok(true);
     }
 
@@ -110,6 +119,8 @@ pub async fn suggest_providers_for_languages_live<R: tauri::Runtime>(
         AdapterKind::OpenAI,
         AdapterKind::Gladia,
         AdapterKind::ElevenLabs,
+        AdapterKind::DashScope,
+        AdapterKind::Mistral,
     ];
 
     let mut with_support: Vec<_> = all_providers
@@ -137,4 +148,12 @@ pub async fn list_documented_language_codes_live<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
 ) -> Result<Vec<String>, String> {
     Ok(owhisper_client::documented_language_codes_live())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn render_transcript_segments(
+    params: RenderTranscriptRequest,
+) -> Result<Vec<RenderedTranscriptSegment>, String> {
+    Ok(hypr_transcript::render_transcript_segments(params))
 }

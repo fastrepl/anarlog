@@ -66,6 +66,28 @@ impl LoopClient {
             .await?;
         Ok(res)
     }
+
+    // https://loops.so/docs/api-reference/delete-contact
+    pub async fn delete_contact_by_email(
+        &self,
+        email: &str,
+    ) -> Result<DeleteContactResponse, Error> {
+        let url = {
+            let mut url = self.api_base.clone();
+            url.set_path("api/v1/contacts/delete");
+            url
+        };
+
+        let res = self
+            .client
+            .post(url)
+            .json(&serde_json::json!({ "email": email }))
+            .send()
+            .await?
+            .json()
+            .await?;
+        Ok(res)
+    }
 }
 
 #[cfg(test)]

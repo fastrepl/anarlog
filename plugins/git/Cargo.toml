@@ -1,0 +1,28 @@
+[package]
+name = "tauri-plugin-git"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-git"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+tokio = { workspace = true, features = ["macros"] }
+
+[dependencies]
+gix = { version = "0.72", default-features = false, features = ["basic", "index", "status", "blob-diff", "dirwalk", "excludes", "blocking-network-client", "blocking-http-transport-reqwest", "credentials", "worktree-mutation"] }
+
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true }
+
+thiserror = { workspace = true }
+walkdir = "2"

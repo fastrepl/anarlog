@@ -1,0 +1,64 @@
+---
+title: "GitButler"
+section: "Onboarding"
+summary: "Set up GitButler — the visual git client we use for branching and commits"
+---
+
+## What it is
+
+[GitButler](https://gitbutler.com) is a git client that makes branching, committing, and pushing visual and intuitive. Instead of memorizing git commands, you drag changes into branches, write commit messages, and push — all from a GUI.
+
+We use GitButler for daily git workflow. You don't need to learn raw git commands to contribute at Char.
+
+## Why not just use Git in the terminal?
+
+You can, and some people do. But GitButler is better for most workflows because:
+
+- You can see all your changes at a glance
+- You can organize changes into multiple branches simultaneously (virtual branches)
+- Committing and pushing is one click, not three commands
+- It handles merge conflicts visually
+
+## Install
+
+Download from [gitbutler.com](https://gitbutler.com) or install via Homebrew:
+
+```bash
+brew install --cask gitbutler
+```
+
+## First launch
+
+1. Open GitButler
+2. Sign in with your GitHub account
+3. Add the Char repo: click "Add Repository" and select your `hyprnote` folder
+4. GitButler will detect the existing git state and show your workspace
+
+## Key concepts
+
+**Virtual Branches** — GitButler lets you have multiple branches active at the same time. Changes in your working directory can be dragged between branches. This is different from traditional git where you switch between branches.
+
+**Workspace** — Your current set of active virtual branches. Everything you see in GitButler is your workspace.
+
+**Commit and Push** — Select files or hunks, write a commit message, click commit. Then push to get it to GitHub.
+
+## Daily workflow
+
+1. Open GitButler to see what files you've changed
+2. Drag changes into the right branch (or create a new one)
+3. Write a commit message and commit
+4. Push when ready for review
+
+## For non-engineers
+
+If you're editing content (blog posts, docs, handbook):
+
+1. Make your edits in Cursor
+2. Open GitButler — your changed files will appear
+3. Write a short description of what you changed (e.g., "Updated blog post about product launch")
+4. Click commit, then push
+5. GitButler will create a PR on GitHub automatically if configured, or you can create one from GitHub
+
+## Back to checklist
+
+[Return to Tooling Checklist](/company-handbook/onboarding/tooling-checklist)

@@ -5,9 +5,14 @@ edition = "2024"
 
 [dependencies]
 hypr-analytics = { workspace = true }
+hypr-api-auth = { workspace = true }
+hypr-api-env = { workspace = true }
+hypr-audio-mime = { workspace = true }
 hypr-language = { workspace = true }
+hypr-observability = { workspace = true }
+hypr-supabase-storage = { workspace = true }
 owhisper-client = { workspace = true }
-owhisper-interface = { workspace = true }
+owhisper-interface = { workspace = true, features = ["openapi"] }
 
 axum = { workspace = true, features = ["ws"] }
 futures-util = { workspace = true }
@@ -29,13 +34,21 @@ serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }
+urlencoding = { workspace = true }
+utoipa = { workspace = true }
 
 [dev-dependencies]
 hypr-audio-utils = { workspace = true }
 hypr-data = { workspace = true }
 hypr-language = { workspace = true }
-owhisper-interface = { workspace = true }
+owhisper-interface = { workspace = true, features = ["openapi"] }
 
 rodio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing-subscriber = { workspace = true }
+
+codes-iso-639 = { workspace = true }
+insta = { workspace = true }
+itertools = { workspace = true }
+quickcheck = { workspace = true }
+quickcheck_macros = { workspace = true }

@@ -15,7 +15,7 @@ specta-typescript = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { workspace = true }
-objc2-app-kit = { workspace = true }
+objc2-app-kit = { workspace = true, features = ["NSWindow", "NSColor", "NSScreen"] }
 objc2-foundation = { workspace = true }
 
 [dependencies]
@@ -35,7 +35,10 @@ tauri-plugin-os = { workspace = true }
 tauri-plugin-sfx = { workspace = true }
 tauri-plugin-window-state = { workspace = true }
 
-once_cell = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
+
+[features]
+default = []
+new = []

@@ -1,344 +1,175 @@
 ---
-title: "Extensions"
+title: "Plugins"
 section: "Developers"
-description: "Learn how to create and develop extensions for Hyprnote"
+description: "Learn how to create and develop plugins for Char"
 ---
 
 # Overview
 
-Extensions allow you to add custom functionality to Hyprnote through panels that appear in the sidebar. Each extension can define one or more panels with custom React-based UIs that integrate seamlessly with the application.
+Plugins let you add custom functionality to Char as first-class tabs. A plugin ships a JavaScript bundle that Char loads at startup, then your plugin registers one or more tab views.
 
-Extensions consist of two main parts: a runtime script (`main.js`) that runs in a sandboxed Deno environment, and optional UI panels (`ui.tsx`) that render React components within the Hyprnote interface.
+The current plugin system is intentionally minimal and focused on getting a clean foundation in place.
 
-# Extension Structure
+# Plugin Structure
 
-A typical extension has the following structure:
+A typical plugin looks like this:
 
 ```
-my-extension/
-├── extension.json    # Extension manifest
-├── main.js          # Runtime script (Deno)
-├── ui.tsx           # Panel UI component (React)
+my-plugin/
+├── plugin.json       # Plugin manifest
+├── src/main.tsx      # Source file (optional)
+├── build.mjs         # Local build script (optional)
 └── dist/
-    └── ui.js        # Built panel UI (generated)
+    └── main.js       # Built plugin bundle (IIFE)
 ```
 
 # Manifest
 
-The `extension.json` manifest defines your extension's metadata and configuration:
+The `plugin.json` file defines the plugin metadata and entry script:
 
 ```json
 {
-  "id": "my-extension",
-  "name": "My Extension",
+  "id": "my-plugin",
+  "name": "My Plugin",
   "version": "0.1.0",
-  "api_version": "0.1",
-  "description": "A custom extension for Hyprnote",
-  "entry": "main.js",
-  "panels": [
-    {
-      "id": "my-extension.main",
-      "title": "My Extension",
-      "entry": "dist/ui.js"
-    }
-  ],
-  "permissions": {}
+  "main": "dist/main.js"
 }
 ```
 
-The manifest fields are:
+Manifest fields:
 
-- `id`: Unique identifier for your extension (lowercase, hyphenated)
-- `name`: Display name shown in the UI
-- `version`: Semantic version of your extension
-- `api_version`: Hyprnote extension API version (currently `0.1`)
-- `description`: Brief description of what your extension does
-- `entry`: Path to the runtime script
-- `panels`: Array of panel definitions
-- `permissions`: Required permissions (reserved for future use)
+- `id`: unique plugin identifier (lowercase, hyphenated)
+- `name`: display name in the UI
+- `version`: semantic version
+- `main`: relative path to the built bundle
 
-Each panel definition includes:
+# Lifecycle
 
-- `id`: Unique panel identifier (typically `extension-id.panel-name`)
-- `title`: Display title shown in the panel tab
-- `entry`: Path to the built UI bundle
+Plugins register themselves by calling `window.__char_plugins.register(...)`.
 
-# Runtime Script
+The registered object supports:
 
-The runtime script (`main.js`) runs in a sandboxed Deno environment and handles extension lifecycle events. The runtime provides a `hypr.log` API for logging:
+- `onload(ctx)`: called after the plugin script is loaded
+- `onunload()`: optional cleanup hook (reserved for future plugin teardown)
 
-```javascript
-__hypr_extension.activate = function (context) {
-  hypr.log.info(`Activating ${context.manifest.name} v${context.manifest.version}`);
-  hypr.log.info(`Extension path: ${context.extensionPath}`);
-};
+## PluginContext
 
-__hypr_extension.deactivate = function () {
-  hypr.log.info("Deactivating extension");
-};
+`onload` receives a context object with:
 
-__hypr_extension.customMethod = function (arg) {
-  hypr.log.info(`Called with: ${arg}`);
-  return `Result: ${arg}`;
-};
-```
+- `registerView(viewId, factory)`: register a React view factory for a plugin tab
+- `openTab(pluginId?, state?)`: open a plugin tab
 
-The `context` object passed to `activate` contains:
-
-- `manifest`: The parsed extension manifest
-- `extensionPath`: Absolute path to the extension directory
-
-The runtime script is required in the manifest but currently serves primarily for logging and future extensibility. The main extension functionality comes from the panel UI.
-
-# Panel UI
-
-Panel UIs are React components that render within the Hyprnote interface. Create a `ui.tsx` file with a default export:
+Example:
 
 ```tsx
-import { useState } from "react";
-import { Button } from "@hypr/ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@hypr/ui/components/ui/card";
+const React = window.__char_react;
 
-export interface ExtensionViewProps {
-  extensionId: string;
-  state?: Record<string, unknown>;
-}
-
-export default function MyExtensionView({ extensionId }: ExtensionViewProps) {
-  const [count, setCount] = useState(0);
+function MyPluginView() {
+  const [count, setCount] = React.useState(0);
 
   return (
-    <div className="p-4 h-full">
-      <Card>
-        <CardHeader>
-          <CardTitle>My Extension</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>Counter: {count}</p>
-          <Button onClick={() => setCount((c) => c + 1)}>Increment</Button>
-        </CardContent>
-      </Card>
+    <div>
+      <h1>My plugin view</h1>
+      <button onClick={() => setCount((value) => value + 1)} type="button">
+        Count: {count}
+      </button>
     </div>
   );
 }
+
+window.__char_plugins.register({
+  id: "my-plugin",
+  onload(ctx) {
+    ctx.registerView("my-plugin", () => <MyPluginView />);
+    ctx.openTab("my-plugin");
+  },
+});
 ```
 
 # Available Globals
 
-Extension UIs have access to the following globals provided by Hyprnote:
+Plugins run in the same webview context as the app. Char currently injects:
 
-## React and UI
+- `window.__char_react`: shared React instance from the app
+- `window.__char_plugins.register(...)`: plugin registration API
 
-- `react` - React library
-- `react-dom` - React DOM library
-- `@hypr/ui` - Hyprnote UI component library (Button, ButtonGroup, Card, Checkbox, Popover)
-- `@hypr/utils` - Hyprnote utility functions (cn, date-fns helpers, etc.)
+Use the shared React instance instead of bundling a separate React copy.
 
-## State Management
+# Building
 
-- `tinybase/ui-react` - TinyBase React hooks for synchronized state (useRow, useStore, useSetRowCallback, etc.)
+Bundle your plugin entry file to an IIFE script and point `plugin.json` at it.
 
-## Navigation
+Example `build.mjs`:
 
-- `@hypr/tabs` - Tab management for opening new views
+```js
+import * as esbuild from "esbuild";
 
-Import these as you would in a normal React application:
-
-```tsx
-import { useState, useEffect } from "react";
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
-import { useRow, useSetRowCallback, useStore } from "tinybase/ui-react";
-import { useTabs } from "@hypr/tabs";
+await esbuild.build({
+  bundle: true,
+  entryPoints: ["src/main.tsx"],
+  format: "iife",
+  outfile: "dist/main.js",
+  platform: "browser",
+});
 ```
-
-# State Synchronization
-
-Extensions can read state from the main Hyprnote application using TinyBase. The synchronization happens automatically via postMessage between the iframe and parent window.
-
-## Reading State
-
-Use TinyBase hooks to read from the synchronized store:
-
-```tsx
-import { useStore } from "tinybase/ui-react";
-
-function MyExtension({ extensionId }: ExtensionViewProps) {
-  const store = useStore();
-
-  // Read app data (calendars, events, sessions, etc.)
-  const calendarIds = store?.getRowIds("calendars") ?? [];
-
-  return <div>Calendars: {calendarIds.length}</div>;
-}
-```
-
-# Opening Tabs
-
-Extensions can open new tabs in the main application using the `useTabs` hook:
-
-```tsx
-import { useTabs } from "@hypr/tabs";
-
-function MyExtension() {
-  const openNew = useTabs((state) => state.openNew);
-
-  const handleOpenSession = (sessionId: string) => {
-    openNew({ type: "sessions", id: sessionId });
-  };
-
-  const handleOpenCalendar = () => {
-    openNew({ type: "calendars", month: new Date() });
-  };
-
-  return (
-    <div>
-      <Button onClick={() => handleOpenSession("session-123")}>
-        Open Session
-      </Button>
-      <Button onClick={handleOpenCalendar}>Open Calendar</Button>
-    </div>
-  );
-}
-```
-
-# Building Extensions
-
-Extensions are built using the build script in the `extensions/` directory. The build process compiles TypeScript/TSX files into browser-compatible JavaScript bundles.
-
-## Commands
-
-```bash
-# Build all extensions
-pnpm -F @hypr/extensions build
-
-# Build a specific extension
-pnpm -F @hypr/extensions build:hello-world
-
-# Or using the build script directly
-node build.mjs build              # Build all
-node build.mjs build hello-world  # Build specific extension
-node build.mjs clean              # Remove all dist folders
-node build.mjs install            # Install to app data directory
-```
-
-## Build Output
-
-The build process generates:
-
-- `dist/ui.js` - Bundled panel UI (IIFE format)
-- `dist/ui.js.map` - Source map for debugging
 
 # Development Workflow
 
-Follow these steps to develop and test an extension:
-
-## 1. Create Extension Directory
+## 1. Create plugin directory
 
 ```bash
-mkdir extensions/my-extension
-cd extensions/my-extension
+mkdir -p examples/plugins/my-plugin
+cd examples/plugins/my-plugin
 ```
 
-## 2. Create Manifest
+## 2. Create manifest
 
-Create `extension.json` with your extension configuration.
+Create `plugin.json` with your plugin metadata.
 
-## 3. Create Runtime Script
+## 3. Create plugin source
 
-Create `main.js` with lifecycle handlers.
+Create `src/main.tsx` and register your plugin from that entry file.
 
-## 4. Create Panel UI
+## 4. Build
 
-Create `ui.tsx` with your React component.
+Bundle `src/main.tsx` into `dist/main.js`.
 
-## 5. Build
+## 5. Install for development
 
-```bash
-pnpm -F @hypr/extensions build my-extension
-```
-
-## 6. Install for Development
-
-Copy the extension to the app data directory:
+Install your plugin into Char's plugin directory:
 
 ```bash
-# Using the build script
-pnpm -F @hypr/extensions install:dev
+# helper command in this repository
+pnpm run plugin:hello-world:install
 
-# Or manually (macOS)
-cp -r extensions/my-extension ~/Library/Application\ Support/com.hyprnote.dev/extensions/
+# or manually (macOS)
+cp -r examples/plugins/my-plugin ~/Library/Application\ Support/com.hyprnote.dev/plugins/
 
 # Linux
-cp -r extensions/my-extension ~/.local/share/com.hyprnote.dev/extensions/
+cp -r examples/plugins/my-plugin ~/.local/share/com.hyprnote.dev/plugins/
 
 # Windows
-cp -r extensions/my-extension %APPDATA%/com.hyprnote.dev/extensions/
+cp -r examples/plugins/my-plugin %APPDATA%/com.hyprnote.dev/plugins/
 ```
 
-## 7. Test
+## 6. Test
 
-Launch Hyprnote in development mode and navigate to your extension panel.
-
-# Security Model
-
-Extension UIs run in sandboxed iframes with restricted capabilities. The security model relies on several trust boundaries and validation checks.
-
-## Iframe Sandbox
-
-Extension iframes use the `sandbox="allow-scripts"` attribute, which restricts the iframe from accessing the parent window's DOM, making top-level navigations, or accessing same-origin storage. Extensions communicate with the parent exclusively through the TinyBase postMessage synchronizer.
-
-## Tauri API Isolation
-
-In iframe contexts, Tauri's `__TAURI_INTERNALS__` is polyfilled with a minimal stub that rejects all invoke calls. This prevents extensions from directly calling Tauri commands. The polyfill runs before any module imports to ensure consistent behavior.
-
-## Script Loading
-
-When an extension panel is loaded, the parent window constructs the script URL using Tauri's `convertFileSrc` API. This converts the local file path from the extension registry into a URL that the iframe can fetch. The `entry_path` originates from the trusted backend extension registry, which only includes extensions that have been explicitly installed by the user.
-
-The iframe host route validates incoming search parameters to ensure `extensionId` and `scriptUrl` are well-formed strings and that `scriptUrl` is a valid URL (rejecting potentially dangerous protocols like `javascript:`). Before executing the fetched script, the host also validates that the response content-type includes `javascript` to avoid executing non-JS payloads.
-
-## State Synchronization Security
-
-The TinyBase synchronizer uses postMessage with origin validation. Messages are only accepted from the expected origin (same as the parent window), and the message format is validated before processing. This prevents malicious iframes from injecting state into the main application.
-
-## Export Validation
-
-After script execution, the host checks that the extension exported a valid React component via `__hypr_panel_exports.default`. Extensions that fail to export a default component will display an error rather than rendering.
+Launch Char in development mode. Your plugin's `onload` can open its own tab with `ctx.openTab(...)`.
 
 # Example: Hello World
 
-The `hello-world` extension in the repository demonstrates a complete extension with:
+The reference plugin lives at `examples/plugins/hello-world` and demonstrates:
 
-- Extension manifest with panel definition
-- Runtime script with lifecycle handlers
-- React UI with local and synchronized state using TinyBase
-- Usage of @hypr/ui components
+- `plugin.json` manifest
+- `window.__char_plugins.register(...)`
+- `onload(ctx)` lifecycle hook
+- `registerView(...)` + `openTab(...)`
+- React rendering through `window.__char_react`
 
-To try it:
-
-```bash
-cd extensions
-pnpm install
-pnpm build:hello-world
-pnpm install:dev
-```
-
-Then launch Hyprnote with `ONBOARDING=0 pnpm -F desktop tauri dev` and click on the profile area (shows "Unknown" by default) to expand the menu, then click "Hello World" to see the extension panel.
-
-# Example: Calendar
-
-The `calendar` extension demonstrates a more complex extension that:
-
-- Reads calendar and event data from the main app's store
-- Uses the `@hypr/tabs` API to open sessions
-- Implements a full calendar UI with month navigation
-
-To try it:
+Try it:
 
 ```bash
-cd extensions
-pnpm install
-pnpm build:calendar
-pnpm install:dev
+pnpm --dir examples/plugins/hello-world build
+pnpm run plugin:hello-world:install
+ONBOARDING=0 pnpm -F @hypr/desktop tauri:dev
 ```

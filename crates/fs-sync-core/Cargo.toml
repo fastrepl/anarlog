@@ -1,0 +1,40 @@
+[package]
+name = "fs-sync-core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = []
+tauri-event = ["dep:tauri-specta"]
+
+[dependencies]
+hypr-audio-norm = { workspace = true }
+hypr-audio-utils = { workspace = true }
+hypr-frontmatter = { workspace = true }
+hypr-fs-format = { workspace = true }
+hypr-tiptap = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+specta = { workspace = true, features = ["derive", "serde_json"] }
+tauri-specta = { workspace = true, optional = true, features = ["derive"] }
+
+glob = "0.3"
+rayon = { workspace = true }
+
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+assert_fs = "1"
+criterion = { workspace = true }
+hypr-data = { workspace = true }
+predicates = "3"
+tempfile = { workspace = true }
+
+[[bench]]
+name = "audio_import"
+harness = false

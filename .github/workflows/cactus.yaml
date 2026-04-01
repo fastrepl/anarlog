@@ -1,0 +1,44 @@
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - crates/cactus/**
+      - crates/cactus-sys/**
+  pull_request:
+    paths:
+      - crates/cactus/**
+      - crates/cactus-sys/**
+
+jobs:
+  cactus:
+    runs-on: depot-ubuntu-24.04-arm-8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - run: git clone --depth 1 --branch v1.7 https://github.com/cactus-compute/cactus.git cactus
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential libcurl4-openssl-dev libclang-dev
+      - run: |
+          pip3 install --break-system-packages huggingface-hub
+          pip3 install --break-system-packages -e cactus/python/ --no-deps
+      - uses: actions/cache@v4
+        with:
+          path: cactus/weights/
+          key: cactus-models-arm-v1
+      - run: |
+          cactus download google/gemma-3-270m-it
+          cactus download UsefulSensors/moonshine-base
+      - run: cargo test -p cactus --test vad
+      - run: cargo test -p cactus --test llm -- --ignored --nocapture
+        env:
+          CACTUS_LLM_MODEL: ${{ github.workspace }}/cactus/weights/gemma-3-270m-it
+      - run: cargo test -p cactus --test stt -- --ignored --nocapture
+        env:
+          CACTUS_STT_MODEL: ${{ github.workspace }}/cactus/weights/moonshine-base

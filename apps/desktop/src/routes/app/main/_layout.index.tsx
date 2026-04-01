@@ -1,19 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
-import type { ComponentRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 
 import {
+  type ImperativePanelHandle,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
 
-import { ChatView } from "../../../components/chat/view";
-import { Body } from "../../../components/main/body";
-import { LeftSidebar } from "../../../components/main/sidebar";
-import { useSearch } from "../../../contexts/search/ui";
-import { useShell } from "../../../contexts/shell";
-import { commands } from "../../../types/tauri.gen";
+import { SyncProvider } from "~/calendar/components/context";
+import { PersistentChatPanel } from "~/chat/components/persistent-chat";
+import { useShell } from "~/contexts/shell";
+import { useSearch } from "~/search/contexts/ui";
+import { Body } from "~/shared/main";
+import { LeftSidebar } from "~/sidebar";
+import { useTabs } from "~/store/zustand/tabs";
+import { commands } from "~/types/tauri.gen";
 
 export const Route = createFileRoute("/app/main/_layout/")({
   component: Component,
@@ -24,11 +26,42 @@ const CHAT_MIN_WIDTH_PX = 280;
 function Component() {
   const { leftsidebar, chat } = useShell();
   const { query } = useSearch();
+  const currentTab = useTabs((state) => state.currentTab);
+  const isOnboarding = currentTab?.type === "onboarding";
   const previousModeRef = useRef(chat.mode);
   const previousQueryRef = useRef(query);
-  const bodyPanelRef = useRef<ComponentRef<typeof ResizablePanel>>(null);
+  const bodyPanelRef = useRef<ImperativePanelHandle>(null);
+  const chatPanelContainerRef = useRef<HTMLDivElement>(null);
+
+  const isCalendarMode = currentTab?.type === "calendar";
+  const hasCustomSidebar =
+    currentTab?.type === "calendar" ||
+    currentTab?.type === "settings" ||
+    currentTab?.type === "contacts" ||
+    currentTab?.type === "templates";
+  const savedExpandedRef = useRef<boolean | null>(null);
+  const wasCustomSidebarRef = useRef(false);
 
   const isChatOpen = chat.mode === "RightPanelOpen";
+  const SyncWrapper = isCalendarMode ? SyncProvider : Fragment;
+
+  useEffect(() => {
+    if (hasCustomSidebar && !wasCustomSidebarRef.current) {
+      savedExpandedRef.current = leftsidebar.expanded;
+      if (!leftsidebar.expanded) {
+        leftsidebar.setExpanded(true);
+        commands.resizeWindowForSidebar().catch(console.error);
+      }
+      leftsidebar.setLocked(true);
+    } else if (!hasCustomSidebar && wasCustomSidebarRef.current) {
+      leftsidebar.setLocked(false);
+      if (savedExpandedRef.current !== null) {
+        leftsidebar.setExpanded(savedExpandedRef.current);
+      }
+      savedExpandedRef.current = null;
+    }
+    wasCustomSidebarRef.current = hasCustomSidebar;
+  }, [hasCustomSidebar, leftsidebar]);
 
   useEffect(() => {
     const isOpeningRightPanel =
@@ -38,7 +71,6 @@ function Component() {
     if (isOpeningRightPanel && bodyPanelRef.current) {
       const currentSize = bodyPanelRef.current.getSize();
       bodyPanelRef.current.resize(currentSize);
-      commands.resizeWindowForChat();
     }
 
     previousModeRef.current = chat.mode;
@@ -48,44 +80,54 @@ function Component() {
     const isStartingSearch =
       query.trim() !== "" && previousQueryRef.current.trim() === "";
 
-    if (isStartingSearch && !leftsidebar.expanded) {
+    if (isStartingSearch && !leftsidebar.expanded && !isOnboarding) {
       leftsidebar.setExpanded(true);
       commands.resizeWindowForSidebar().catch(console.error);
     }
 
     previousQueryRef.current = query;
-  }, [query, leftsidebar]);
+  }, [query, leftsidebar, isOnboarding]);
 
   return (
-    <div
-      className="flex h-full overflow-hidden gap-1 p-1"
-      data-testid="main-app-shell"
-    >
-      {leftsidebar.expanded && <LeftSidebar />}
-
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="flex-1 overflow-hidden flex"
-        autoSaveId="main-chat"
+    <SyncWrapper>
+      <div
+        className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
+        data-testid="main-app-shell"
       >
-        <ResizablePanel ref={bodyPanelRef} className="flex-1 overflow-hidden">
-          <Body />
-        </ResizablePanel>
-        {isChatOpen && (
-          <>
-            <ResizableHandle className="w-0" />
-            <ResizablePanel
-              defaultSize={30}
-              minSize={20}
-              maxSize={50}
-              className="pl-1"
-              style={{ minWidth: CHAT_MIN_WIDTH_PX }}
-            >
-              <ChatView />
-            </ResizablePanel>
-          </>
-        )}
-      </ResizablePanelGroup>
-    </div>
+        {leftsidebar.expanded && !isOnboarding && <LeftSidebar />}
+
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="flex min-h-0 flex-1 overflow-hidden"
+          autoSaveId="main-chat"
+        >
+          <ResizablePanel
+            ref={bodyPanelRef}
+            className="min-h-0 flex-1 overflow-hidden"
+          >
+            <Body />
+          </ResizablePanel>
+          {isChatOpen && (
+            <>
+              <ResizableHandle className="w-0" />
+              <ResizablePanel
+                defaultSize={30}
+                minSize={20}
+                maxSize={50}
+                className="min-h-0 overflow-hidden"
+                style={{ minWidth: CHAT_MIN_WIDTH_PX }}
+              >
+                <div
+                  ref={chatPanelContainerRef}
+                  className="mx-2 -mb-1 h-[calc(100%+0.25rem)] min-h-0 overflow-hidden"
+                />
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+
+        <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
+      </div>
+    </SyncWrapper>
   );
 }

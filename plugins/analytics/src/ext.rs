@@ -105,6 +105,25 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         Ok(())
     }
+
+    pub async fn identify(
+        &self,
+        user_id: impl Into<String>,
+        payload: hypr_analytics::PropertiesPayload,
+    ) -> Result<(), crate::Error> {
+        if !self.is_disabled()? {
+            let machine_id = hypr_host::fingerprint();
+            let user_id = user_id.into();
+
+            let client = self.manager.state::<crate::ManagedState>();
+            client
+                .identify(user_id, machine_id, payload)
+                .await
+                .map_err(crate::Error::HyprAnalytics)?;
+        }
+
+        Ok(())
+    }
 }
 
 pub trait AnalyticsPluginExt<R: tauri::Runtime> {

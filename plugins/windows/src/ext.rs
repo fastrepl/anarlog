@@ -1,9 +1,124 @@
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_specta::Event;
 
-use crate::{AppWindow, WindowImpl, WindowReadyState, events};
+use crate::{AppWindow, SavedFrame, WindowImpl, WindowReadyState, events};
+
+#[cfg(target_os = "macos")]
+pub(crate) fn run_on_main_thread<R: Send + 'static>(
+    app: &AppHandle<tauri::Wry>,
+    f: impl FnOnce() -> R + Send + 'static,
+) -> Result<R, crate::Error> {
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+
+    app.run_on_main_thread(move || {
+        let _ = tx.send(f());
+    })?;
+
+    rx.recv().map_err(|_| crate::Error::MainThreadRecvFailed)
+}
 
 impl AppWindow {
+    #[cfg(target_os = "macos")]
+    fn with_ns_window<R: Send + 'static>(
+        &self,
+        app: &AppHandle<tauri::Wry>,
+        f: impl FnOnce(&objc2_app_kit::NSWindow) -> R + Send + 'static,
+    ) -> Result<Option<R>, crate::Error> {
+        let Some(window) = self.get(app) else {
+            return Ok(None);
+        };
+
+        run_on_main_thread(app, move || {
+            let Ok(ns_win) = window.ns_window() else {
+                return None;
+            };
+
+            Some(unsafe { f(&*(ns_win as *mut objc2_app_kit::NSWindow)) })
+        })
+    }
+
+    fn frame(&self, app: &AppHandle<tauri::Wry>) -> Result<Option<SavedFrame>, crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            return self.with_ns_window(app, |ns_window| {
+                let frame = ns_window.frame();
+                SavedFrame {
+                    x: frame.origin.x,
+                    y: frame.origin.y,
+                    w: frame.size.width,
+                    h: frame.size.height,
+                }
+            });
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+            Ok(None)
+        }
+    }
+
+    fn visible_frame(
+        &self,
+        app: &AppHandle<tauri::Wry>,
+    ) -> Result<Option<SavedFrame>, crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            use objc2::MainThreadMarker;
+            use objc2_app_kit::NSScreen;
+
+            return self
+                .with_ns_window(app, |ns_window| {
+                    let mtm =
+                        MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
+                    let screen = ns_window.screen().or_else(|| NSScreen::mainScreen(mtm))?;
+                    let frame = screen.visibleFrame();
+
+                    Some(SavedFrame {
+                        x: frame.origin.x,
+                        y: frame.origin.y,
+                        w: frame.size.width,
+                        h: frame.size.height,
+                    })
+                })
+                .map(|frame| frame.flatten());
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+            Ok(None)
+        }
+    }
+
+    fn set_frame_animated(
+        &self,
+        app: &AppHandle<tauri::Wry>,
+        frame: SavedFrame,
+    ) -> Result<(), crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+            self.with_ns_window(app, move |ns_window| {
+                let frame = NSRect::new(
+                    NSPoint::new(frame.x, frame.y),
+                    NSSize::new(frame.w, frame.h),
+                );
+                ns_window.setFrame_display_animate(frame, true, true);
+            })?;
+
+            return Ok(());
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+            let _ = frame;
+            Ok(())
+        }
+    }
+
     fn emit_navigate(
         &self,
         app: &AppHandle<tauri::Wry>,
@@ -196,6 +311,19 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Windows<'a, tauri::Wry, M> {
     }
 
     pub fn is_focused(&self, window: AppWindow) -> Result<bool, crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            let app = self.manager.app_handle().clone();
+            let lookup_app = app.clone();
+            return run_on_main_thread(&app, move || {
+                window
+                    .get(&lookup_app)
+                    .and_then(|w| w.is_focused().ok())
+                    .unwrap_or(false)
+            });
+        }
+
+        #[cfg(not(target_os = "macos"))]
         Ok(window
             .get(self.manager.app_handle())
             .and_then(|w| w.is_focused().ok())
@@ -216,6 +344,22 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Windows<'a, tauri::Wry, M> {
 
     pub fn navigate(&self, window: AppWindow, path: impl AsRef<str>) -> Result<(), crate::Error> {
         window.navigate(self.manager.app_handle(), path)
+    }
+
+    pub fn frame(&self, window: AppWindow) -> Result<Option<SavedFrame>, crate::Error> {
+        window.frame(self.manager.app_handle())
+    }
+
+    pub fn visible_frame(&self, window: AppWindow) -> Result<Option<SavedFrame>, crate::Error> {
+        window.visible_frame(self.manager.app_handle())
+    }
+
+    pub fn set_frame_animated(
+        &self,
+        window: AppWindow,
+        frame: SavedFrame,
+    ) -> Result<(), crate::Error> {
+        window.set_frame_animated(self.manager.app_handle(), frame)
     }
 
     pub fn close_all(&self) -> Result<(), crate::Error> {

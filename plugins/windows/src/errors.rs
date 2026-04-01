@@ -4,6 +4,8 @@ use serde::{Serialize, ser::Serializer};
 pub enum Error {
     #[error(transparent)]
     TauriError(#[from] tauri::Error),
+    #[error("failed to receive result from the main thread")]
+    MainThreadRecvFailed,
     #[error("monitor not found")]
     MonitorNotFound,
 }

@@ -12,16 +12,15 @@ tauri-plugin = { workspace = true, features = ["build"] }
 vergen-gix = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-indoc = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
 hypr-buffer = { workspace = true }
 hypr-host = { workspace = true }
+hypr-template-support = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-lazy_static = { workspace = true }
-regex = { workspace = true }
 specta = { workspace = true }
+sysinfo = { workspace = true }

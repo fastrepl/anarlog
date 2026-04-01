@@ -82,7 +82,7 @@ impl crate::Observer for Detector {
                                 if mic_in_use {
                                     let cb = callback_for_subscribe.clone();
                                     std::thread::spawn(move || {
-                                        let apps = crate::list_mic_using_apps();
+                                        let apps = crate::list_mic_using_apps().unwrap_or_default();
                                         tracing::info!("mic_started_detected: {:?}", apps);
 
                                         if let Ok(guard) = cb.lock() {

@@ -1,7 +1,8 @@
+import "./test-matchers";
+
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { type Tab, useTabs } from ".";
-import "./test-matchers";
 import {
   createContactsTab,
   createSessionTab,
@@ -84,9 +85,8 @@ describe("State Updater Actions", () => {
 
   describe("updateContactsTabState", () => {
     const newContactsState = {
-      selectedOrganization: "org-1",
-      selectedPerson: "person-1",
-    } as const;
+      selected: { type: "person" as const, id: "person-1" },
+    };
 
     test("updates contacts tab and current tab state", () => {
       const contacts = createContactsTab({ active: true });

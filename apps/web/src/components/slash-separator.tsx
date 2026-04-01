@@ -1,7 +1,7 @@
 export function SlashSeparator() {
   return (
     <div
-      className="border-y border-neutral-100 bg-neutral-50 h-4"
+      className="h-4 border-y border-neutral-100 bg-neutral-50"
       style={{ backgroundImage: "url(/patterns/slash.svg)" }}
     />
   );

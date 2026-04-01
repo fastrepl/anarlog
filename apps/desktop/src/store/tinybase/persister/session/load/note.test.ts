@@ -28,7 +28,7 @@ describe("processMdFile", () => {
       created_at: "2024-01-01T00:00:00Z",
       title: "Test Session",
       folder_id: "/sessions",
-      event_id: "",
+      event_json: "",
       raw_md: "",
     };
 

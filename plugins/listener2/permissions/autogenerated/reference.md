@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-run-batch`
+- `allow-run-denoise`
 - `allow-parse-subtitle`
 - `allow-export-to-vtt`
 - `allow-is-supported-languages-batch`
@@ -146,6 +147,32 @@ Enables the run_batch command without any pre-configured scope.
 <td>
 
 Denies the run_batch command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`listener2:allow-run-denoise`
+
+</td>
+<td>
+
+Enables the run_denoise command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`listener2:deny-run-denoise`
+
+</td>
+<td>
+
+Denies the run_denoise command without any pre-configured scope.
 
 </td>
 </tr>

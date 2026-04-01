@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-mic-active-threshold"
+description = "Enables the set_mic_active_threshold command without any pre-configured scope."
+commands.allow = ["set_mic_active_threshold"]
+
+[[permission]]
+identifier = "deny-set-mic-active-threshold"
+description = "Denies the set_mic_active_threshold command without any pre-configured scope."
+commands.deny = ["set_mic_active_threshold"]

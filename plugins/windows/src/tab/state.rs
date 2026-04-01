@@ -20,9 +20,18 @@ crate::common_derives! {
 }
 
 crate::common_derives! {
+    #[serde(tag = "type")]
+    pub enum ContactsSelection {
+        #[serde(rename = "person")]
+        Person { id: String },
+        #[serde(rename = "organization")]
+        Organization { id: String },
+    }
+}
+
+crate::common_derives! {
     pub struct ContactsState {
-        pub selected_organization: Option<String>,
-        pub selected_person: Option<String>,
+        pub selected: Option<ContactsSelection>,
     }
 }
 
@@ -64,18 +73,15 @@ crate::common_derives! {
 
 crate::common_derives! {
     #[derive(Default)]
-    pub enum AiTab {
-        #[default]
-        #[serde(rename = "transcription")]
-        Transcription,
-        #[serde(rename = "intelligence")]
-        Intelligence,
+    pub struct SettingsState {
+        pub tab: Option<String>,
     }
 }
 
 crate::common_derives! {
     #[derive(Default)]
-    pub struct AiState {
-        pub tab: Option<AiTab>,
+    pub struct ChatState {
+        pub group_id: Option<String>,
+        pub initial_message: Option<String>,
     }
 }

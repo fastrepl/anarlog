@@ -1,8 +1,7 @@
-import { MDXContent } from "@content-collections/mdx/react";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { allLegals } from "content-collections";
 
-import { defaultMDXComponents } from "@/components/mdx";
+import { LegalLayout } from "./-components";
 
 export const Route = createFileRoute("/_view/legal/$slug")({
   component: Component,
@@ -20,11 +19,11 @@ export const Route = createFileRoute("/_view/legal/$slug")({
     }
 
     const { doc } = loaderData;
-    const url = `https://hyprnote.com/legal/${doc.slug}`;
+    const url = `https://char.com/legal/${doc.slug}`;
 
     return {
       meta: [
-        { title: `${doc.title} - Hyprnote` },
+        { title: `${doc.title} - Char` },
         { name: "description", content: doc.summary },
         { property: "og:title", content: doc.title },
         { property: "og:description", content: doc.summary },
@@ -41,27 +40,5 @@ export const Route = createFileRoute("/_view/legal/$slug")({
 function Component() {
   const { doc } = Route.useLoaderData();
 
-  return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-x border-neutral-100 bg-white">
-        <article className="prose prose-stone prose-lg max-w-none">
-          <h1>{doc.title}</h1>
-
-          <p className="text-xl text-neutral-600 mb-8">
-            Last updated:{" "}
-            {new Date(doc.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-
-          <MDXContent code={doc.mdx} components={defaultMDXComponents} />
-        </article>
-      </div>
-    </div>
-  );
+  return <LegalLayout doc={doc} />;
 }

@@ -1,0 +1,63 @@
+{
+	auto_https off
+}
+
+:{$PORT} {
+	log {
+		output stdout
+		format json
+	}
+	log_skip /healthz
+
+	request_body /v1/traces {
+		max_size 2MB
+	}
+
+	@trace_options_allowed {
+		method OPTIONS
+		path /v1/traces
+		expression `{http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_APP}" || {http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_WWW}" || {http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_LOCAL}"`
+	}
+	handle @trace_options_allowed {
+		header Access-Control-Allow-Origin "{http.request.header.Origin}"
+		header Vary "Origin"
+		header Vary "Access-Control-Request-Headers"
+		header Access-Control-Allow-Methods "POST, OPTIONS"
+		header Access-Control-Allow-Headers "{http.request.header.Access-Control-Request-Headers}"
+		header Access-Control-Max-Age "600"
+		respond 204
+	}
+
+	@trace_options_denied {
+		method OPTIONS
+		path /v1/traces
+	}
+	handle @trace_options_denied {
+		respond "forbidden" 403
+	}
+
+	@traces_allowed {
+		method POST
+		path /v1/traces
+		expression `{http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_APP}" || {http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_WWW}" || {http.request.header.Origin} == "{$OTEL_ALLOWED_ORIGIN_LOCAL}"`
+	}
+	handle @traces_allowed {
+		header Access-Control-Allow-Origin "{http.request.header.Origin}"
+		header Vary "Origin"
+		reverse_proxy http://{$OTEL_COLLECTOR_HOST}:4318
+	}
+
+	@traces_denied {
+		method POST
+		path /v1/traces
+	}
+	handle @traces_denied {
+		respond "forbidden" 403
+	}
+
+	handle /healthz {
+		reverse_proxy http://{$OTEL_COLLECTOR_HOST}:13133
+	}
+
+	respond "not found" 404
+}

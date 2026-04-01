@@ -48,20 +48,20 @@
     "react-hotkeys-hook": "^4.6.2",
     "react-resizable-panels": "^2.1.9",
     "sonner": "^1.7.4",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.18",
     "@tailwindcss/postcss": "^4.1.18",
-    "@tanstack/react-query": "^5.90.17",
-    "@types/node": "^22.19.7",
-    "@types/react": "^19.2.8",
+    "@tanstack/react-query": "^5.90.20",
+    "@types/node": "^22.19.11",
+    "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "clsx": "^2.1.1",
     "postcss": "^8.5.6",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "tailwind-merge": "^2.6.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^2.6.1",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.6.3"
   }

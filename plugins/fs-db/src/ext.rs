@@ -7,7 +7,11 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> FsDb<'a, R, M> {
     pub fn ensure_version_file(&self) -> crate::Result<()> {
         use tauri_plugin_settings::SettingsPluginExt;
 
-        let base_dir = self.manager.app_handle().settings().fresh_vault_base()?;
+        let base_dir = self
+            .manager
+            .app_handle()
+            .settings()
+            .resolve_startup_vault_base()?;
 
         if crate::version::known::exists(&base_dir) {
             return Ok(());

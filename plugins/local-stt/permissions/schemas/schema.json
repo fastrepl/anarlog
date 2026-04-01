@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the cactus_models_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cactus-models-dir",
+          "markdownDescription": "Enables the cactus_models_dir command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cactus_models_dir command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cactus-models-dir",
+          "markdownDescription": "Denies the cactus_models_dir command without any pre-configured scope."
+        },
+        {
           "description": "Enables the cancel_download command without any pre-configured scope.",
           "type": "string",
           "const": "allow-cancel-download",
@@ -307,6 +319,18 @@
           "markdownDescription": "Denies the cancel_download command without any pre-configured scope."
         },
         {
+          "description": "Enables the delete_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-delete-model",
+          "markdownDescription": "Enables the delete_model command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-delete-model",
+          "markdownDescription": "Denies the delete_model command without any pre-configured scope."
+        },
+        {
           "description": "Enables the download_model command without any pre-configured scope.",
           "type": "string",
           "const": "allow-download-model",
@@ -317,6 +341,18 @@
           "type": "string",
           "const": "deny-download-model",
           "markdownDescription": "Denies the download_model command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_server_for_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-server-for-model",
+          "markdownDescription": "Enables the get_server_for_model command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_server_for_model command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-server-for-model",
+          "markdownDescription": "Denies the get_server_for_model command without any pre-configured scope."
         },
         {
           "description": "Enables the get_servers command without any pre-configured scope.",
@@ -427,10 +463,10 @@
           "markdownDescription": "Denies the stop_server command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`\n- `allow-cactus-models-dir`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`\n- `allow-cactus-models-dir`"
         }
       ]
     }

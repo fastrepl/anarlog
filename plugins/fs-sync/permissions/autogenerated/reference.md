@@ -17,8 +17,10 @@ Default permissions for the fs-sync plugin
 - `allow-audio-exist`
 - `allow-audio-delete`
 - `allow-audio-import`
+- `allow-audio-source-metadata`
 - `allow-audio-path`
 - `allow-session-dir`
+- `allow-load-session-content`
 - `allow-delete-session-folder`
 - `allow-scan-and-read`
 - `allow-chat-dir`
@@ -214,6 +216,32 @@ Enables the audio_path command without any pre-configured scope.
 <td>
 
 Denies the audio_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-audio-source-metadata`
+
+</td>
+<td>
+
+Enables the audio_source_metadata command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-audio-source-metadata`
+
+</td>
+<td>
+
+Denies the audio_source_metadata command without any pre-configured scope.
 
 </td>
 </tr>
@@ -422,6 +450,32 @@ Enables the list_folders command without any pre-configured scope.
 <td>
 
 Denies the list_folders command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-load-session-content`
+
+</td>
+<td>
+
+Enables the load_session_content command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-load-session-content`
+
+</td>
+<td>
+
+Denies the load_session_content command without any pre-configured scope.
 
 </td>
 </tr>

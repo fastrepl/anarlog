@@ -12,12 +12,12 @@ import {
   commands as localSttCommands,
   events as localSttEvents,
   type ServerStatus,
-  type SupportedSttModel,
+  type LocalModel,
 } from "@hypr/plugin-local-stt";
 
-import type { DownloadProgress } from "../components/main/sidebar/toast/types";
-import { useConfigValues } from "../config/use-config";
-import { useTabs } from "../store/zustand/tabs";
+import { useConfigValues } from "~/shared/config";
+import type { DownloadProgress } from "~/sidebar/toast/types";
+import { useTabs } from "~/store/zustand/tabs";
 
 interface NotificationState {
   hasActiveBanner: boolean;
@@ -34,7 +34,7 @@ interface NotificationState {
 
 const NotificationContext = createContext<NotificationState | null>(null);
 
-const MODEL_DISPLAY_NAMES: Partial<Record<SupportedSttModel, string>> = {
+const MODEL_DISPLAY_NAMES: Partial<Record<LocalModel, string>> = {
   "am-parakeet-v2": "Parakeet v2",
   "am-parakeet-v3": "Parakeet v3",
   "am-whisper-large-v3": "Whisper Large v3",
@@ -63,9 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const sttModel = current_stt_model as string | undefined;
   const isLocalSttModel =
-    current_stt_provider === "hyprnote" &&
-    !!sttModel &&
-    (sttModel.startsWith("am-") || sttModel.startsWith("Quantized"));
+    current_stt_provider === "hyprnote" && !!sttModel && sttModel !== "cloud";
 
   const localSttQuery = useQuery({
     enabled: isLocalSttModel,
@@ -74,34 +72,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     queryFn: async () => {
       if (!sttModel) return null;
 
-      const servers = await localSttCommands.getServers();
-      if (servers.status !== "ok") return null;
+      const serverResult = await localSttCommands.getServerForModel(
+        sttModel as LocalModel,
+      );
+      if (serverResult.status !== "ok") return null;
 
-      const isInternalModel = sttModel.startsWith("Quantized");
-      const server = isInternalModel
-        ? servers.data.internal
-        : servers.data.external;
-
-      return server?.status ?? null;
+      return serverResult.data?.status ?? null;
     },
   });
 
   const localSttStatus = isLocalSttModel ? (localSttQuery.data ?? null) : null;
 
   const [activeDownloads, setActiveDownloads] = useState<
-    Map<SupportedSttModel, number>
+    Map<LocalModel, number>
   >(new Map());
 
   useEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
-      const { model: eventModel, progress: eventProgress } = event.payload;
+      const { model: eventModel, status } = event.payload;
 
       setActiveDownloads((prev) => {
         const next = new Map(prev);
-        if (eventProgress < 0 || eventProgress >= 100) {
+        if (status === "failed" || status === "completed") {
           next.delete(eventModel);
-        } else {
-          next.set(eventModel, Math.max(0, Math.min(100, eventProgress)));
+        } else if (typeof status === "object" && "downloading" in status) {
+          next.set(eventModel, Math.max(0, Math.min(100, status.downloading)));
         }
         return next;
       });
@@ -119,7 +114,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       currentTab: ReturnType<typeof useTabs.getState>["currentTab"];
     }) => state.currentTab,
   );
-  const isAiTab = currentTab?.type === "ai";
+  const isAiTab =
+    currentTab?.type === "settings" &&
+    ["transcription", "intelligence", "memory"].includes(
+      currentTab.state?.tab ?? "",
+    );
 
   const value = useMemo<NotificationState>(() => {
     const hasActiveBanner = hasConfigBanner && !isAiTab;

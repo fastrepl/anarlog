@@ -17,6 +17,14 @@ pub type FirstMessageTransformer = Arc<dyn Fn(String) -> String + Send + Sync>;
 pub type InitialMessage = Arc<String>;
 pub type ResponseTransformer = Arc<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
+pub type ClientMessageFilter = Arc<dyn Fn(String) -> Option<String> + Send + Sync>;
+
+#[derive(Clone, Debug)]
+pub enum ShutdownSignal {
+    Close { code: u16, reason: String },
+    Abort,
+}
+
 pub type UpstreamSender = SplitSink<
     WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
     tokio_tungstenite::tungstenite::Message,

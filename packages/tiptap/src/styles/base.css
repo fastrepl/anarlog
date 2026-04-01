@@ -9,19 +9,6 @@
   min-height: 100%;
 }
 
-.blog-editor.tiptap-root {
-  height: auto;
-  min-height: 0;
-}
-
-.blog-editor.tiptap-root .tiptap {
-  min-height: 0;
-}
-
-.blog-editor.tiptap-root .tiptap p {
-  margin-bottom: 1rem;
-}
-
 .tiptap {
   word-break: break-word;
   overflow-wrap: break-word;
@@ -43,11 +30,14 @@
 
   p {
     margin-bottom: 0.25rem;
+    text-wrap: wrap;
+    line-height: 20px;
   }
 
   .node-image {
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
+    overflow: visible;
   }
 
   > .node-image:first-child {
@@ -58,7 +48,7 @@
     padding-bottom: 0;
   }
 
-  .node-image.ProseMirror-selectednode .image-component {
+  .node-image.ProseMirror-selectednode {
     outline: none;
   }
 
@@ -66,5 +56,8 @@
     max-width: 100%;
     height: auto;
     display: block;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
   }
 }

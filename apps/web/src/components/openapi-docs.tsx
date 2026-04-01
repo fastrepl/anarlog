@@ -143,19 +143,19 @@ export function OpenAPIDocs({ apiUrl }: { apiUrl: string }) {
 
       {spec.tags && spec.tags.length > 0 && (
         <div className="flex flex-col gap-4">
-          <h3 className="text-lg font-serif text-stone-600">API Categories</h3>
+          <h3 className="font-serif text-lg text-stone-700">API Categories</h3>
           <div className="grid gap-3">
             {spec.tags.map((tag) => (
               <div
                 key={tag.name}
                 className={cn(
-                  "p-3 rounded-xs border",
-                  TAG_COLORS[tag.name] || "bg-gray-50 border-gray-200",
+                  "rounded-xs border p-3",
+                  TAG_COLORS[tag.name] || "border-gray-200 bg-gray-50",
                 )}
               >
                 <span className="font-medium capitalize">{tag.name}</span>
                 {tag.description && (
-                  <p className="text-sm mt-1 opacity-80">{tag.description}</p>
+                  <p className="mt-1 text-sm opacity-80">{tag.description}</p>
                 )}
               </div>
             ))}
@@ -165,31 +165,31 @@ export function OpenAPIDocs({ apiUrl }: { apiUrl: string }) {
 
       {Object.entries(groupedPaths).map(([tag, endpoints]) => (
         <div key={tag} className="flex flex-col gap-4">
-          <h3 className="text-lg font-serif text-stone-600 capitalize">
+          <h3 className="font-serif text-lg text-stone-700 capitalize">
             {tag} Endpoints
           </h3>
           <div className="flex flex-col gap-3">
             {endpoints.map(({ path, method, operation }) => (
               <div
                 key={`${method}-${path}`}
-                className="border border-neutral-200 rounded-xs overflow-hidden"
+                className="overflow-hidden rounded-xs border border-neutral-200"
               >
-                <div className="flex items-center gap-3 p-3 bg-neutral-50">
+                <div className="flex items-center gap-3 bg-neutral-50 p-3">
                   <span
                     className={cn(
-                      "px-2 py-1 text-xs font-mono font-medium uppercase rounded border",
+                      "rounded border px-2 py-1 font-mono text-xs font-medium uppercase",
                       METHOD_COLORS[method] || "bg-gray-100 text-gray-800",
                     )}
                   >
                     {method}
                   </span>
-                  <code className="text-sm font-mono text-stone-700">
+                  <code className="font-mono text-sm text-stone-700">
                     {path}
                   </code>
                   {operation.security && operation.security.length > 0 && (
-                    <span className="ml-auto text-xs text-neutral-500 flex items-center gap-1">
+                    <span className="ml-auto flex items-center gap-1 text-xs text-neutral-500">
                       <svg
-                        className="w-3 h-3"
+                        className="h-3 w-3"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -205,7 +205,7 @@ export function OpenAPIDocs({ apiUrl }: { apiUrl: string }) {
                     </span>
                   )}
                 </div>
-                <div className="p-3 flex flex-col gap-2">
+                <div className="flex flex-col gap-2 p-3">
                   {operation.summary && (
                     <p className="font-medium text-stone-700">
                       {operation.summary}
@@ -218,7 +218,7 @@ export function OpenAPIDocs({ apiUrl }: { apiUrl: string }) {
                   )}
                   {operation.responses && (
                     <div className="mt-3">
-                      <p className="text-xs font-medium text-neutral-500 uppercase mb-2">
+                      <p className="mb-2 text-xs font-medium text-neutral-500 uppercase">
                         Responses
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -227,14 +227,14 @@ export function OpenAPIDocs({ apiUrl }: { apiUrl: string }) {
                             <span
                               key={code}
                               className={cn(
-                                "px-2 py-1 text-xs rounded border",
+                                "rounded border px-2 py-1 text-xs",
                                 code.startsWith("2")
-                                  ? "bg-green-50 text-green-700 border-green-200"
+                                  ? "border-green-200 bg-green-50 text-green-700"
                                   : code.startsWith("4")
-                                    ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                    ? "border-yellow-200 bg-yellow-50 text-yellow-700"
                                     : code.startsWith("5")
-                                      ? "bg-red-50 text-red-700 border-red-200"
-                                      : "bg-gray-50 text-gray-700 border-gray-200",
+                                      ? "border-red-200 bg-red-50 text-red-700"
+                                      : "border-gray-200 bg-gray-50 text-gray-700",
                               )}
                               title={response.description}
                             >

@@ -11,6 +11,7 @@ const COMMANDS: &[&str] = &[
     "is_supported_languages_live",
     "suggest_providers_for_languages_live",
     "list_documented_language_codes_live",
+    "render_transcript_segments",
 ];
 
 fn main() {

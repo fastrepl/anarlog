@@ -1,0 +1,9 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-capabilities",
+    "allow-snapshot",
+    "allow-start",
+    "allow-stop",
+    "allow-is-running",
+]

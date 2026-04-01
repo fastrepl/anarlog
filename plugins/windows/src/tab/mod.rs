@@ -64,11 +64,23 @@ common_derives! {
         #[serde(rename = "changelog")]
         Changelog { state: ChangelogState },
         #[serde(rename = "settings")]
-        Settings,
-        #[serde(rename = "ai")]
-        Ai {
+        Settings {
             #[serde(skip_serializing_if = "Option::is_none")]
-            state: Option<AiState>,
+            state: Option<SettingsState>,
+        },
+        #[serde(rename = "chat_support")]
+        ChatSupport {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            state: Option<ChatState>,
+        },
+        #[serde(rename = "onboarding")]
+        Onboarding,
+        #[serde(rename = "daily")]
+        Daily,
+        #[serde(rename = "edit")]
+        Edit {
+            #[serde(rename = "requestId")]
+            request_id: String,
         },
     }
 }

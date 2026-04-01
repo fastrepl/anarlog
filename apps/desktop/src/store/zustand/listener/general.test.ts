@@ -1,3 +1,4 @@
+import { create as mutate } from "mutative";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { createListenerStore } from ".";
@@ -39,35 +40,13 @@ describe("General Listener Slice", () => {
       const sessionId = "session-456";
       const { handleBatchResponseStreamed, getSessionMode } = store.getState();
 
-      const mockResponse = {
-        type: "Results" as const,
-        start: 0,
-        duration: 5,
-        is_final: false,
-        speech_final: false,
-        from_finalize: false,
-        channel: {
-          alternatives: [
-            {
-              transcript: "test",
-              words: [],
-              confidence: 0.9,
-            },
-          ],
-        },
-        metadata: {
-          request_id: "test-request",
-          model_info: {
-            name: "test-model",
-            version: "1.0",
-            arch: "test-arch",
-          },
-          model_uuid: "test-uuid",
-        },
-        channel_index: [0],
+      const mockEvent = {
+        type: "progress" as const,
+        percentage: 0.5,
+        partial_text: "test",
       };
 
-      handleBatchResponseStreamed(sessionId, mockResponse, 0.5);
+      handleBatchResponseStreamed(sessionId, mockEvent);
       expect(getSessionMode(sessionId)).toBe("running_batch");
     });
   });
@@ -78,42 +57,83 @@ describe("General Listener Slice", () => {
       const { handleBatchResponseStreamed, clearBatchSession } =
         store.getState();
 
-      const mockResponse = {
-        type: "Results" as const,
-        start: 0,
-        duration: 5,
-        is_final: false,
-        speech_final: false,
-        from_finalize: false,
-        channel: {
-          alternatives: [
-            {
-              transcript: "test",
-              words: [],
-              confidence: 0.9,
-            },
-          ],
-        },
-        metadata: {
-          request_id: "test-request",
-          model_info: {
-            name: "test-model",
-            version: "1.0",
-            arch: "test-arch",
+      const mockEvent = {
+        type: "segment" as const,
+        percentage: 0.5,
+        response: {
+          type: "Results" as const,
+          start: 0,
+          duration: 5,
+          is_final: false,
+          speech_final: false,
+          from_finalize: false,
+          channel: {
+            alternatives: [
+              {
+                transcript: "test",
+                languages: [],
+                words: [
+                  {
+                    word: "test",
+                    punctuated_word: "test",
+                    start: 0,
+                    end: 0.5,
+                    confidence: 0.9,
+                    speaker: null,
+                    language: null,
+                  },
+                ],
+                confidence: 0.9,
+              },
+            ],
           },
-          model_uuid: "test-uuid",
+          metadata: {
+            request_id: "test-request",
+            model_info: {
+              name: "test-model",
+              version: "1.0",
+              arch: "test-arch",
+            },
+            model_uuid: "test-uuid",
+          },
+          channel_index: [0],
         },
-        channel_index: [0],
       };
 
-      handleBatchResponseStreamed(sessionId, mockResponse, 0.5);
+      handleBatchResponseStreamed(sessionId, mockEvent);
       expect(store.getState().batch[sessionId]).toEqual({
         percentage: 0.5,
         isComplete: false,
+        phase: "transcribing",
       });
+      expect(
+        store.getState().batchPreview[sessionId]?.wordsByChannel[0],
+      ).toEqual([
+        {
+          text: " test",
+          start_ms: 0,
+          end_ms: 500,
+          channel: 0,
+        },
+      ]);
 
       clearBatchSession(sessionId);
       expect(store.getState().batch[sessionId]).toBeUndefined();
+      expect(store.getState().batchPreview[sessionId]).toBeUndefined();
+    });
+
+    test("handleBatchFailed preserves batch error for UI surfaces", () => {
+      const sessionId = "session-batch-error";
+      const { handleBatchFailed, getSessionMode } = store.getState();
+
+      handleBatchFailed(sessionId, "batch start failed: connection refused");
+
+      expect(store.getState().batch[sessionId]).toEqual({
+        percentage: 0,
+        error: "batch start failed: connection refused",
+        isComplete: false,
+      });
+      expect(getSessionMode(sessionId)).toBe("inactive");
     });
   });
 
@@ -128,6 +148,31 @@ describe("General Listener Slice", () => {
     test("start action exists and is callable", () => {
       const start = store.getState().start;
       expect(typeof start).toBe("function");
+    });
+
+    test("start returns false while another session is finalizing", async () => {
+      store.setState((state) =>
+        mutate(state, (draft) => {
+          draft.live.status = "finalizing";
+          draft.live.loading = true;
+          draft.live.sessionId = "session-a";
+        }),
+      );
+
+      const result = await store.getState().start({
+        session_id: "session-b",
+        languages: [],
+        onboarding: false,
+        transcription_mode: "live",
+        recording_mode: "disk",
+        model: "test-model",
+        base_url: "http://localhost",
+        api_key: "test-key",
+        keywords: [],
+      });
+
+      expect(result).toBe(false);
+      expect(store.getState().live.sessionId).toBe("session-a");
     });
   });
 });

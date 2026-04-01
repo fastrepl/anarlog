@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-copy-vault"
+description = "Enables the copy_vault command without any pre-configured scope."
+commands.allow = ["copy_vault"]
+
+[[permission]]
+identifier = "deny-copy-vault"
+description = "Denies the copy_vault command without any pre-configured scope."
+commands.deny = ["copy_vault"]

@@ -46,9 +46,9 @@ async listFolders() : Promise<Result<ListFoldersResult, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async moveSession(sessionId: string, targetFolderPath: string) : Promise<Result<null, string>> {
+async moveSession(sessionId: string, fromFolderPath: string, targetFolderPath: string) : Promise<Result<MoveSessionResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|move_session", { sessionId, targetFolderPath }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|move_session", { sessionId, fromFolderPath, targetFolderPath }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -62,7 +62,7 @@ async createFolder(folderPath: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async renameFolder(oldPath: string, newPath: string) : Promise<Result<null, string>> {
+async renameFolder(oldPath: string, newPath: string) : Promise<Result<RenameFolderResult, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|rename_folder", { oldPath, newPath }) };
 } catch (e) {
@@ -110,6 +110,14 @@ async audioImport(sessionId: string, sourcePath: string) : Promise<Result<string
     else return { status: "error", error: e  as any };
 }
 },
+async audioSourceMetadata(sourcePath: string) : Promise<Result<AudioSourceMetadata, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_source_metadata", { sourcePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async audioPath(sessionId: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_path", { sessionId }) };
@@ -121,6 +129,14 @@ async audioPath(sessionId: string) : Promise<Result<string, string>> {
 async sessionDir(sessionId: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|session_dir", { sessionId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async loadSessionContent(sessionId: string) : Promise<Result<SessionContentData, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|load_session_content", { sessionId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -187,6 +203,11 @@ async attachmentRemove(sessionId: string, attachmentId: string) : Promise<Result
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+audioImportEvent: AudioImportEvent
+}>({
+audioImportEvent: "plugin:fs-sync:audio-import-event"
+})
 
 /** user-defined constants **/
 
@@ -196,12 +217,25 @@ async attachmentRemove(sessionId: string, attachmentId: string) : Promise<Result
 
 export type AttachmentInfo = { attachmentId: string; path: string; extension: string; modifiedAt: string }
 export type AttachmentSaveResult = { path: string; attachmentId: string }
+export type AudioImportEvent = { type: "audioImportStarted"; session_id: string } | { type: "audioImportProgress"; session_id: string; percentage: number } | { type: "audioImportCompleted"; session_id: string } | { type: "audioImportFailed"; session_id: string; error: string }
+export type AudioSourceMetadata = { createdAt: string | null; modifiedAt: string | null; durationMs: number | null }
 export type CleanupTarget = { type: "files"; subdir: string; extension: string } | { type: "dirs"; subdir: string; marker_file: string } | { type: "filesRecursive"; subdir: string; marker_file: string; extension: string }
 export type FolderInfo = { name: string; parent_folder_id: string | null }
+export type FolderSessionUpdate = { sessionId: string; folderId: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type ListFoldersResult = { folders: Partial<{ [key in string]: FolderInfo }>; session_folder_map: Partial<{ [key in string]: string }> }
+export type MoveSessionResult = { sessionId: string; folderId: string }
 export type ParsedDocument = { frontmatter: Partial<{ [key in string]: JsonValue }>; content: string }
+export type RenameFolderResult = { updates: FolderSessionUpdate[] }
 export type ScanResult = { files: Partial<{ [key in string]: string }>; dirs: string[] }
+export type SessionContentData = { sessionId: string; meta: SessionMetaData | null; rawMemoTiptapJson: JsonValue | null; rawMemoMarkdown: string | null; transcript: TranscriptJson | null; notes: SessionNoteData[] }
+export type SessionMetaData = { id: string; userId: string; createdAt: string | null; title: string | null; event: JsonValue | null; eventId: string | null; participants: SessionMetaParticipant[]; tags: string[] }
+export type SessionMetaParticipant = { id: string; userId: string; sessionId: string; humanId: string; source: string }
+export type SessionNoteData = { id: string; sessionId: string; templateId: string | null; position: number | null; title: string | null; tiptapJson: JsonValue; markdown: string | null }
+export type TranscriptJson = { transcripts?: TranscriptWithData[] }
+export type TranscriptSpeakerHint = { id?: string | null; word_id: string; type: string; value?: JsonValue }
+export type TranscriptWithData = { id: string; user_id?: string; created_at?: string; session_id: string; started_at?: number; ended_at?: number | null; memo_md?: string; words?: TranscriptWord[]; speaker_hints?: TranscriptSpeakerHint[] }
+export type TranscriptWord = { id?: string | null; text: string; start_ms: number; end_ms: number; channel: number; speaker?: string | null; metadata?: Partial<{ [key in string]: JsonValue }> | null }
 
 /** tauri-specta globals **/
 

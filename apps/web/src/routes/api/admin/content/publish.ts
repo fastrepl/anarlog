@@ -3,30 +3,110 @@ import yaml from "js-yaml";
 
 import { fetchAdminUser } from "@/functions/admin";
 import {
+  getCollectionFromPath,
+  getFileContentFromBranch,
+  parseMDX,
+  publishContentPR,
   publishArticle,
   updateContentFileOnBranch,
 } from "@/functions/github-content";
-import { getSupabaseServerClient } from "@/functions/supabase";
-import { uploadMediaFile } from "@/functions/supabase-media";
-
-interface ArticleMetadata {
-  meta_title?: string;
-  display_title?: string;
-  meta_description?: string;
-  author?: string;
-  date?: string;
-  coverImage?: string;
-  published?: boolean;
-  featured?: boolean;
-  category?: string;
-}
+import { extractBase64Images } from "@/lib/media";
 
 interface PublishRequest {
   path: string;
   content?: string;
   branch: string;
-  metadata: ArticleMetadata;
+  metadata: Record<string, unknown>;
   action?: "publish" | "unpublish";
+}
+
+async function getExistingFrontmatter(
+  path: string,
+  branch: string,
+): Promise<Record<string, unknown>> {
+  const result = await getFileContentFromBranch(path, branch);
+  if (!result.success || !result.content) {
+    return {};
+  }
+
+  return parseMDX(result.content).frontmatter;
+}
+
+async function buildFullContent(
+  path: string,
+  content: string,
+  metadata: Record<string, unknown>,
+  branch: string,
+): Promise<{ fullContent: string; collection: string }> {
+  const collection = getCollectionFromPath(path);
+  if (!collection) {
+    throw new Error(`Unsupported content collection for path: ${path}`);
+  }
+
+  if (collection === "articles") {
+    const frontmatterObj: Record<string, unknown> = {};
+    if (metadata.meta_title) frontmatterObj.meta_title = metadata.meta_title;
+    if (metadata.display_title)
+      frontmatterObj.display_title = metadata.display_title;
+    if (metadata.meta_description)
+      frontmatterObj.meta_description = metadata.meta_description;
+    if (metadata.author) frontmatterObj.author = metadata.author;
+    if (metadata.coverImage) frontmatterObj.coverImage = metadata.coverImage;
+    if (metadata.featured !== undefined)
+      frontmatterObj.featured = metadata.featured;
+    if (metadata.date) frontmatterObj.date = metadata.date;
+    if (metadata.category) frontmatterObj.category = metadata.category;
+
+    const frontmatter = `---\n${yaml.dump(frontmatterObj, {
+      quotingType: '"',
+      forceQuotes: true,
+      lineWidth: -1,
+    })}---`;
+
+    return { fullContent: `${frontmatter}\n\n${content}`, collection };
+  }
+
+  const nextFrontmatter = {
+    ...(await getExistingFrontmatter(path, branch)),
+  };
+
+  if (collection === "docs") {
+    nextFrontmatter.title = (metadata.title as string | undefined) || "";
+    nextFrontmatter.section = (metadata.section as string | undefined) || "";
+    const description =
+      (metadata.description as string | undefined) ||
+      (metadata.summary as string | undefined) ||
+      "";
+
+    if (description) {
+      nextFrontmatter.description = description;
+    } else {
+      delete nextFrontmatter.description;
+    }
+  }
+
+  if (collection === "handbook") {
+    nextFrontmatter.title = (metadata.title as string | undefined) || "";
+    nextFrontmatter.section = (metadata.section as string | undefined) || "";
+    const summary =
+      (metadata.summary as string | undefined) ||
+      (metadata.description as string | undefined) ||
+      "";
+
+    if (summary) {
+      nextFrontmatter.summary = summary;
+    } else {
+      delete nextFrontmatter.summary;
+    }
+  }
+
+  const frontmatter = `---\n${yaml.dump(nextFrontmatter, {
+    quotingType: '"',
+    forceQuotes: true,
+    lineWidth: -1,
+  })}---`;
+
+  return { fullContent: `${frontmatter}\n\n${content}`, collection };
 }
 
 export const Route = createFileRoute("/api/admin/content/publish")({
@@ -65,83 +145,41 @@ export const Route = createFileRoute("/api/admin/content/publish")({
           );
         }
 
+        const collection = getCollectionFromPath(path);
+        if (!collection) {
+          return new Response(
+            JSON.stringify({ error: `Unsupported content path: ${path}` }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         if (content !== undefined && metadata) {
-          let processedContent = content;
-
-          const base64ImageRegex =
-            /!\[[^\]]*\]\((data:image\/([^;]+);base64,([^)]+))\)/g;
-          const base64Images: Array<{
-            fullMatch: string;
-            mimeType: string;
-            base64Data: string;
-          }> = [];
-          let match;
-          while ((match = base64ImageRegex.exec(content)) !== null) {
-            base64Images.push({
-              fullMatch: match[0],
-              mimeType: match[2],
-              base64Data: match[3],
-            });
+          if (extractBase64Images(content).length > 0) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  "Inline base64 images must be uploaded before publishing",
+              }),
+              { status: 400, headers: { "Content-Type": "application/json" } },
+            );
           }
 
-          if (base64Images.length > 0) {
-            const supabase = getSupabaseServerClient();
-            const slug =
-              path
-                .split("/")
-                .pop()
-                ?.replace(/\.mdx$/, "") || "";
-            const folder = `articles/${slug}`;
-            const extensionMap: Record<string, string> = {
-              jpeg: "jpg",
-              jpg: "jpg",
-              png: "png",
-              gif: "gif",
-              webp: "webp",
-              svg: "svg",
-              "svg+xml": "svg",
-              avif: "avif",
-            };
-
-            for (let i = 0; i < base64Images.length; i++) {
-              const image = base64Images[i];
-              const extension = extensionMap[image.mimeType] || "png";
-              const filename = `image-${i + 1}.${extension}`;
-
-              const uploadResult = await uploadMediaFile(
-                supabase,
-                filename,
-                image.base64Data,
-                folder,
-              );
-
-              if (uploadResult.success && uploadResult.publicUrl) {
-                processedContent = processedContent.replace(
-                  image.fullMatch,
-                  `![](${uploadResult.publicUrl})`,
-                );
-              }
-            }
+          let fullContent: string;
+          try {
+            fullContent = (
+              await buildFullContent(path, content, metadata, branch)
+            ).fullContent;
+          } catch (error) {
+            return new Response(
+              JSON.stringify({
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to build content",
+              }),
+              { status: 400, headers: { "Content-Type": "application/json" } },
+            );
           }
-
-          const frontmatterObj: Record<string, unknown> = {};
-          if (metadata.meta_title)
-            frontmatterObj.meta_title = metadata.meta_title;
-          if (metadata.display_title)
-            frontmatterObj.display_title = metadata.display_title;
-          if (metadata.meta_description)
-            frontmatterObj.meta_description = metadata.meta_description;
-          if (metadata.author) frontmatterObj.author = metadata.author;
-          if (metadata.coverImage)
-            frontmatterObj.coverImage = metadata.coverImage;
-          frontmatterObj.published = action === "publish";
-          if (metadata.featured !== undefined)
-            frontmatterObj.featured = metadata.featured;
-          if (metadata.date) frontmatterObj.date = metadata.date;
-          if (metadata.category) frontmatterObj.category = metadata.category;
-
-          const frontmatter = `---\n${yaml.dump(frontmatterObj, { quotingType: '"', forceQuotes: true, lineWidth: -1 })}---`;
-          const fullContent = `${frontmatter}\n\n${processedContent}`;
 
           const saveResult = await updateContentFileOnBranch(
             path,
@@ -159,12 +197,14 @@ export const Route = createFileRoute("/api/admin/content/publish")({
           }
         }
 
-        const result = await publishArticle(
-          path,
-          branch,
-          metadata || {},
-          action,
-        );
+        const result =
+          collection === "articles"
+            ? await publishArticle(path, branch, metadata || {}, action)
+            : await publishContentPR(path, branch, {
+                title: metadata.title as string | undefined,
+                description: metadata.description as string | undefined,
+                summary: metadata.summary as string | undefined,
+              });
 
         if (!result.success) {
           return new Response(JSON.stringify({ error: result.error }), {

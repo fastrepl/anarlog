@@ -1,37 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
+import yaml from "js-yaml";
 
 import { fetchAdminUser } from "@/functions/admin";
 import {
-  savePublishedArticleWithPR,
+  getCollectionFromPath,
+  getFileContentFromBranch,
+  parseMDX,
+  savePublishedArticleToBranch,
+  savePublishedContentToBranch,
   updateContentFileOnBranch,
 } from "@/functions/github-content";
-import { getSupabaseServerClient } from "@/functions/supabase";
-import { uploadMediaFile } from "@/functions/supabase-media";
+import { extractBase64Images } from "@/lib/media";
 
 interface ArticleMetadata {
   meta_title?: string;
   display_title?: string;
   meta_description?: string;
-  author?: string;
+  author?: string[];
   date?: string;
   coverImage?: string;
-  published?: boolean;
   featured?: boolean;
   category?: string;
-  ready_for_review?: boolean;
 }
 
 interface SaveRequest {
   path: string;
   content: string;
-  metadata: ArticleMetadata;
+  metadata: Record<string, unknown>;
   branch?: string;
   isAutoSave?: boolean;
 }
 
-function buildFrontmatter(metadata: ArticleMetadata): string {
-  // Build frontmatter in specific order:
-  // meta_title, display_title, meta_description, author, featured, published, category, date
+function buildArticleFrontmatter(metadata: ArticleMetadata): string {
   const lines: string[] = [];
 
   if (metadata.meta_title) {
@@ -45,17 +45,17 @@ function buildFrontmatter(metadata: ArticleMetadata): string {
       `meta_description: ${JSON.stringify(metadata.meta_description)}`,
     );
   }
-  if (metadata.author) {
-    lines.push(`author: ${JSON.stringify(metadata.author)}`);
+  if (metadata.author && metadata.author.length > 0) {
+    lines.push(`author:`);
+    for (const name of metadata.author) {
+      lines.push(`  - ${JSON.stringify(name)}`);
+    }
+  }
+  if (metadata.coverImage) {
+    lines.push(`coverImage: ${JSON.stringify(metadata.coverImage)}`);
   }
   if (metadata.featured !== undefined) {
     lines.push(`featured: ${metadata.featured}`);
-  }
-  if (metadata.published !== undefined) {
-    lines.push(`published: ${metadata.published}`);
-  }
-  if (metadata.ready_for_review !== undefined) {
-    lines.push(`ready_for_review: ${metadata.ready_for_review}`);
   }
   if (metadata.category) {
     lines.push(`category: ${JSON.stringify(metadata.category)}`);
@@ -63,52 +63,80 @@ function buildFrontmatter(metadata: ArticleMetadata): string {
   if (metadata.date) {
     lines.push(`date: ${JSON.stringify(metadata.date)}`);
   }
-  if (metadata.coverImage) {
-    lines.push(`coverImage: ${JSON.stringify(metadata.coverImage)}`);
-  }
 
   return `---\n${lines.join("\n")}\n---\n`;
 }
 
-interface Base64Image {
-  fullMatch: string;
-  mimeType: string;
-  base64Data: string;
-}
-
-function extractBase64Images(markdown: string): Base64Image[] {
-  const regex = /!\[[^\]]*\]\((data:image\/([^;]+);base64,([^)]+))\)/g;
-  const images: Base64Image[] = [];
-  let match;
-
-  while ((match = regex.exec(markdown)) !== null) {
-    images.push({
-      fullMatch: match[0],
-      mimeType: match[2],
-      base64Data: match[3],
-    });
+async function getExistingFrontmatter(
+  path: string,
+  branch?: string,
+): Promise<Record<string, unknown>> {
+  const result = await getFileContentFromBranch(path, branch || "main");
+  if (!result.success || !result.content) {
+    return {};
   }
 
-  return images;
+  return parseMDX(result.content).frontmatter;
 }
 
-function getExtensionFromMimeType(mimeType: string): string {
-  const extensionMap: Record<string, string> = {
-    jpeg: "jpg",
-    jpg: "jpg",
-    png: "png",
-    gif: "gif",
-    webp: "webp",
-    svg: "svg",
-    "svg+xml": "svg",
-    avif: "avif",
-  };
-  return extensionMap[mimeType] || "png";
-}
+async function buildFullContent(
+  path: string,
+  content: string,
+  metadata: Record<string, unknown>,
+  branch?: string,
+): Promise<{ fullContent: string; collection: string }> {
+  const collection = getCollectionFromPath(path);
+  if (!collection) {
+    throw new Error(`Unsupported content collection for path: ${path}`);
+  }
 
-function extractSlugFromPath(path: string): string {
-  const filename = path.split("/").pop() || "";
-  return filename.replace(/\.mdx$/, "");
+  if (collection === "articles") {
+    const frontmatter = buildArticleFrontmatter(metadata as ArticleMetadata);
+    return { fullContent: `${frontmatter}\n${content}`, collection };
+  }
+
+  const existingFrontmatter = await getExistingFrontmatter(path, branch);
+  const nextFrontmatter = { ...existingFrontmatter };
+
+  if (collection === "docs") {
+    nextFrontmatter.title = (metadata.title as string | undefined) || "";
+    nextFrontmatter.section = (metadata.section as string | undefined) || "";
+
+    const description =
+      (metadata.description as string | undefined) ||
+      (metadata.summary as string | undefined) ||
+      "";
+
+    if (description) {
+      nextFrontmatter.description = description;
+    } else {
+      delete nextFrontmatter.description;
+    }
+  }
+
+  if (collection === "handbook") {
+    nextFrontmatter.title = (metadata.title as string | undefined) || "";
+    nextFrontmatter.section = (metadata.section as string | undefined) || "";
+
+    const summary =
+      (metadata.summary as string | undefined) ||
+      (metadata.description as string | undefined) ||
+      "";
+
+    if (summary) {
+      nextFrontmatter.summary = summary;
+    } else {
+      delete nextFrontmatter.summary;
+    }
+  }
+
+  const frontmatter = `---\n${yaml.dump(nextFrontmatter, {
+    quotingType: '"',
+    forceQuotes: true,
+    lineWidth: -1,
+  })}---\n`;
+
+  return { fullContent: `${frontmatter}\n${content}`, collection };
 }
 
 export const Route = createFileRoute("/api/admin/content/save")({
@@ -147,48 +175,45 @@ export const Route = createFileRoute("/api/admin/content/save")({
           );
         }
 
-        let processedContent = content;
-
-        const base64Images = extractBase64Images(content);
-        if (base64Images.length > 0) {
-          const supabase = getSupabaseServerClient();
-          const slug = extractSlugFromPath(path);
-          const folder = `articles/${slug}`;
-
-          for (let i = 0; i < base64Images.length; i++) {
-            const image = base64Images[i];
-            const extension = getExtensionFromMimeType(image.mimeType);
-            const filename = `image-${i + 1}.${extension}`;
-
-            const uploadResult = await uploadMediaFile(
-              supabase,
-              filename,
-              image.base64Data,
-              folder,
-            );
-
-            if (uploadResult.success && uploadResult.publicUrl) {
-              processedContent = processedContent.replace(
-                image.fullMatch,
-                `![](${uploadResult.publicUrl})`,
-              );
-            }
-          }
+        if (extractBase64Images(content).length > 0) {
+          return new Response(
+            JSON.stringify({
+              error: "Inline base64 images must be uploaded before saving",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
         }
 
-        const frontmatter = buildFrontmatter(metadata);
-        const fullContent = `${frontmatter}\n${processedContent}`;
+        let fullContent: string;
+        let collection: string;
 
-        // If the article is published, create a PR to main (handles branch protection)
-        // Otherwise, save to the draft branch
-        const shouldCreatePR = metadata.published === true && !branch;
+        try {
+          const built = await buildFullContent(path, content, metadata, branch);
+          fullContent = built.fullContent;
+          collection = built.collection;
+        } catch (error) {
+          return new Response(
+            JSON.stringify({
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to build content",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        const shouldCreatePR = !branch;
 
         if (shouldCreatePR) {
-          const result = await savePublishedArticleWithPR(path, fullContent, {
-            meta_title: metadata.meta_title,
-            display_title: metadata.display_title,
-            author: metadata.author,
-          });
+          const result =
+            collection === "articles"
+              ? await savePublishedArticleToBranch(path, fullContent, {
+                  meta_title: metadata.meta_title as string | undefined,
+                  display_title: metadata.display_title as string | undefined,
+                  author: metadata.author as string[] | undefined,
+                })
+              : await savePublishedContentToBranch(path, fullContent);
 
           if (!result.success) {
             return new Response(JSON.stringify({ error: result.error }), {

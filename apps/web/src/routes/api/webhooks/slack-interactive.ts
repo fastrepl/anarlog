@@ -3,7 +3,7 @@ import * as crypto from "crypto";
 
 import { getGitHubCredentials } from "@/functions/github-content";
 
-const GITHUB_REPO = "fastrepl/hyprnote";
+const GITHUB_REPO = "fastrepl/char";
 
 function verifySlackSignature(
   signingSecret: string,

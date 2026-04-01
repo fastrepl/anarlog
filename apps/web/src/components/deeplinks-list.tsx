@@ -11,7 +11,7 @@ export function DeeplinksList() {
   }
 
   return (
-    <div className="flex flex-col gap-10 mt-6">
+    <div className="mt-6 flex flex-col gap-10">
       {deeplinks.map((deeplink) => (
         <section
           key={deeplink.slug}
@@ -25,15 +25,15 @@ export function DeeplinksList() {
               {deeplink.path}
             </h2>
             {deeplink.description && (
-              <p className="text-neutral-600 leading-relaxed">
+              <p className="leading-relaxed text-neutral-600">
                 {deeplink.description}
               </p>
             )}
           </div>
 
           {deeplink.params && deeplink.params.length > 0 && (
-            <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/50 px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3">
-              <h3 className="mb-2 font-mono text-[10px] font-bold uppercase leading-none tracking-wider text-neutral-500/80">
+            <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/50 px-3 pt-2 pb-3 sm:px-4 sm:pt-3 sm:pb-4">
+              <h3 className="mb-2 font-mono text-[10px] leading-none font-bold tracking-wider text-neutral-500/80 uppercase">
                 Parameters
               </h3>
               <div className="flex flex-col gap-3">
@@ -43,7 +43,7 @@ export function DeeplinksList() {
                     className="group grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_1fr] sm:gap-4"
                   >
                     <div className="flex flex-col items-start gap-1">
-                      <code className="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-neutral-900 shadow-xs ring-1 ring-neutral-200 font-mono">
+                      <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-neutral-900 shadow-xs ring-1 ring-neutral-200">
                         {param.name}
                       </code>
                       <div className="flex items-center gap-1.5 px-0.5 font-mono text-[10px] text-neutral-500">
@@ -59,7 +59,7 @@ export function DeeplinksList() {
             </div>
           )}
 
-          <div className="mt-4 prose prose-sm prose-neutral max-w-none prose-headings:scroll-mt-24 prose-headings:font-semibold prose-p:leading-relaxed">
+          <div className="prose prose-sm prose-neutral prose-headings:scroll-mt-24 prose-headings:font-semibold prose-p:leading-relaxed mt-4 max-w-none">
             <MDXContent
               code={deeplink.mdx}
               components={{

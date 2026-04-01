@@ -3,17 +3,22 @@ import type { MergeableStore, OptionalSchemas } from "tinybase/with-schemas";
 import { toContent, toPersistedChanges } from "@hypr/tinybase-utils";
 
 import {
-  createDeletionMarker,
-  type DeletionMarkerStore,
-  type TableConfigEntry,
-} from "../shared/deletion-marker";
-import type { LoadResult } from "../shared/load-result";
-import { getDataDir } from "../shared/paths";
-import type { ChangedTables, SaveResult, TablesContent } from "../shared/types";
-import {
   createCollectorPersister,
   type OrphanCleanupConfig,
 } from "./collector";
+
+import {
+  createDeletionMarker,
+  type DeletionMarkerStore,
+  type TableConfigEntry,
+} from "~/store/tinybase/persister/shared/deletion-marker";
+import type { LoadResult } from "~/store/tinybase/persister/shared/load-result";
+import { getDataDir } from "~/store/tinybase/persister/shared/paths";
+import type {
+  ChangedTables,
+  SaveResult,
+  TablesContent,
+} from "~/store/tinybase/persister/shared/types";
 
 type Table = Record<string, Record<string, unknown>>;
 

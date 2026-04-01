@@ -1,0 +1,37 @@
+---
+title: "Char Weekly: March 15, 2026"
+date: "2026-03-15"
+---
+
+Two stable releases shipped this week: v1.0.13 and v1.0.14. The biggest changes are custom storage locations, multiple Google Calendar accounts, resizable images in notes, and a stronger recording flow.
+
+## Storage and navigation
+
+You can now choose a custom location for your Char content in Settings, and detected Obsidian vaults are offered as a quick destination. Search also moved into the left sidebar, which makes it much easier to jump between recent activity and search results without leaving your place.
+
+Folder moves and renames are also more reliable now because filesystem changes are applied before app state updates. The Today timeline's current-time marker is more accurate as well, especially during ongoing events and in your selected timezone.
+
+## Hyprnote is now Char
+
+This release also carries the Hyprnote-to-Char rename through the stable app. Existing users can update without changing how they work, and the app now consistently presents itself as Char.
+
+## Calendar and notes
+
+You can now connect multiple Google Calendar accounts at the same time, and account settings show which email address each connection belongs to. In notes, images are now resizable, underline exports correctly to Markdown, and note previews are cleaner.
+
+## Recording and UI
+
+Creating a new note now automatically starts recording, audio can stay in memory with a disk fallback when needed, and on-device transcription now returns word-level timestamps. `App Settings` is also now the primary settings view, and several chat and header UI issues were cleaned up.
+
+## Other improvements
+
+- Permission detection on macOS now uses an external binary, fixing edge cases where the in-process check could hang
+- Meeting countdown timer and autostart for upcoming calendar events
+- Listen button styling blends with the background for a cleaner header look
+- AI button now has a visible label
+- Undo-delete toast positioning adjusted to avoid overlapping content
+- Timeline sidebar items use clearer, more intuitive wording
+- Fixed duplicate calendar attendee when the organizer was also synced as a participant
+- Changelog rendering migrated to Streamdown and shared between desktop and web
+
+Full version details on the [changelog](/changelog).

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::AssemblyAIAdapter;
 use super::language::BATCH_LANGUAGES;
 use crate::adapter::http::ensure_success;
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
+use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 use crate::polling::{PollingConfig, PollingResult, poll_until};
 
@@ -21,6 +21,10 @@ use crate::polling::{PollingConfig, PollingResult, poll_until};
 // Model & Language
 // https://www.assemblyai.com/docs/pre-recorded-audio/select-the-speech-model.md
 impl BatchSttAdapter for AssemblyAIAdapter {
+    fn provider_name(&self) -> &'static str {
+        "assemblyai"
+    }
+
     fn is_supported_languages(
         &self,
         languages: &[hypr_language::Language],
@@ -48,6 +52,7 @@ impl BatchSttAdapter for AssemblyAIAdapter {
 #[derive(Debug, Serialize)]
 struct TranscriptRequest {
     audio_url: String,
+    speech_models: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     language_code: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -81,6 +86,8 @@ struct TranscriptResponse {
     #[serde(default)]
     audio_duration: Option<u64>,
     #[serde(default)]
+    audio_channels: Option<u32>,
+    #[serde(default)]
     error: Option<String>,
 }
 
@@ -92,6 +99,8 @@ struct AssemblyAIBatchWord {
     confidence: f64,
     #[serde(default)]
     speaker: Option<String>,
+    #[serde(default)]
+    channel: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -112,6 +121,17 @@ struct Utterance {
 }
 
 impl AssemblyAIAdapter {
+    fn resolve_batch_speech_models(params: &ListenParams) -> Vec<String> {
+        match params.model.as_deref() {
+            Some(m) if !m.is_empty() && !crate::providers::is_meta_model(m) => {
+                vec![m.to_string()]
+            }
+            _ => {
+                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+            }
+        }
+    }
+
     async fn do_transcribe_file(
         client: &ClientWithMiddleware,
         api_base: &str,
@@ -135,9 +155,10 @@ impl AssemblyAIAdapter {
             _ => "application/octet-stream",
         };
 
-        let upload_url = format!("{}/upload", base_url);
+        let mut upload_url = base_url.clone();
+        append_path_if_missing(&mut upload_url, "upload");
         let upload_response = client
-            .post(&upload_url)
+            .post(upload_url.to_string())
             .header("Authorization", api_key)
             .header("Content-Type", content_type)
             .body(audio_data)
@@ -147,28 +168,37 @@ impl AssemblyAIAdapter {
         let upload_response = ensure_success(upload_response).await?;
         let upload_result: UploadResponse = upload_response.json().await?;
 
-        let language_code = params
-            .languages
-            .first()
-            .map(|l| l.iso639().code().to_string());
-        let language_detection = if params.languages.len() > 1 || params.languages.is_empty() {
+        let use_language_detection = params.languages.len() != 1;
+        let language_code = if use_language_detection {
+            None
+        } else {
+            params
+                .languages
+                .first()
+                .map(|l| l.iso639().code().to_string())
+        };
+        let language_detection = if use_language_detection {
             Some(true)
         } else {
             None
         };
 
+        let speech_models = Self::resolve_batch_speech_models(params);
+
         let transcript_request = TranscriptRequest {
             audio_url: upload_result.upload_url,
+            speech_models,
             language_code,
             language_detection,
             speaker_labels: Some(true),
-            multichannel: None,
+            multichannel: Some(params.channels > 1),
             keyterms_prompt: params.keywords.clone(),
         };
 
-        let transcript_url = format!("{}/transcript", base_url);
+        let mut transcript_url = base_url.clone();
+        append_path_if_missing(&mut transcript_url, "transcript");
         let create_response = client
-            .post(&transcript_url)
+            .post(transcript_url.to_string())
             .header("Authorization", api_key)
             .header("Content-Type", "application/json")
             .json(&transcript_request)
@@ -179,7 +209,8 @@ impl AssemblyAIAdapter {
         let create_result: TranscriptResponse = create_response.json().await?;
         let transcript_id = create_result.id;
 
-        let poll_url = format!("{}/transcript/{}", base_url, transcript_id);
+        let mut poll_url = base_url.clone();
+        append_path_if_missing(&mut poll_url, &format!("transcript/{transcript_id}"));
 
         let config = PollingConfig::default()
             .with_interval(Duration::from_secs(3))
@@ -188,7 +219,7 @@ impl AssemblyAIAdapter {
         poll_until(
             || async {
                 let poll_response = client
-                    .get(&poll_url)
+                    .get(poll_url.to_string())
                     .header("Authorization", api_key)
                     .send()
                     .await?;
@@ -202,10 +233,10 @@ impl AssemblyAIAdapter {
                     ))),
                     "error" => {
                         let error_msg = result.error.unwrap_or_else(|| "unknown error".to_string());
-                        Ok(PollingResult::Failed(format!(
-                            "transcription failed: {}",
-                            error_msg
-                        )))
+                        Ok(PollingResult::Failed {
+                            message: format!("transcription failed: {}", error_msg),
+                            retryable: false,
+                        })
                     }
                     _ => Ok(PollingResult::Continue),
                 }
@@ -215,47 +246,83 @@ impl AssemblyAIAdapter {
         .await
     }
 
+    fn convert_word(w: AssemblyAIBatchWord) -> BatchWord {
+        let speaker = w.speaker.and_then(|s| {
+            s.trim_start_matches(|c: char| !c.is_ascii_digit())
+                .parse::<usize>()
+                .ok()
+        });
+        let channel = w
+            .channel
+            .as_deref()
+            .and_then(|s| s.parse::<i32>().ok())
+            .map(|channel| channel.saturating_sub(1))
+            .unwrap_or(0)
+            .max(0);
+
+        BatchWord {
+            word: w.text.clone(),
+            start: w.start as f64 / 1000.0,
+            end: w.end as f64 / 1000.0,
+            confidence: w.confidence,
+            channel,
+            speaker,
+            punctuated_word: Some(w.text),
+        }
+    }
+
     fn convert_to_batch_response(response: TranscriptResponse) -> BatchResponse {
-        let words: Vec<BatchWord> = response
-            .words
-            .unwrap_or_default()
-            .into_iter()
-            .map(|w| {
-                let speaker = w.speaker.and_then(|s| {
-                    s.trim_start_matches(|c: char| !c.is_ascii_digit())
-                        .parse::<usize>()
-                        .ok()
-                });
-
-                BatchWord {
-                    word: w.text.clone(),
-                    start: w.start as f64 / 1000.0,
-                    end: w.end as f64 / 1000.0,
-                    confidence: w.confidence,
-                    speaker,
-                    punctuated_word: Some(w.text),
-                }
-            })
-            .collect();
-
-        let transcript = response.text.unwrap_or_default();
+        let all_words = response.words.unwrap_or_default();
+        let num_channels = response.audio_channels.unwrap_or(1).max(1) as usize;
         let confidence = response.confidence.unwrap_or(1.0);
 
-        let channel = BatchChannel {
-            alternatives: vec![BatchAlternatives {
-                transcript,
-                confidence,
-                words,
-            }],
+        let channels = if num_channels <= 1 {
+            let words: Vec<BatchWord> = all_words.into_iter().map(Self::convert_word).collect();
+            let transcript = response.text.unwrap_or_default();
+            vec![BatchChannel {
+                alternatives: vec![BatchAlternatives {
+                    transcript,
+                    confidence,
+                    words,
+                }],
+            }]
+        } else {
+            let mut channel_words: Vec<Vec<BatchWord>> = vec![Vec::new(); num_channels];
+            for w in all_words {
+                let ch = w
+                    .channel
+                    .as_deref()
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .unwrap_or(1)
+                    .saturating_sub(1)
+                    .min(num_channels - 1);
+                channel_words[ch].push(Self::convert_word(w));
+            }
+
+            channel_words
+                .into_iter()
+                .map(|words| {
+                    let transcript = words
+                        .iter()
+                        .map(|w| w.punctuated_word.as_deref().unwrap_or(&w.word))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    BatchChannel {
+                        alternatives: vec![BatchAlternatives {
+                            transcript,
+                            confidence,
+                            words,
+                        }],
+                    }
+                })
+                .collect()
         };
 
         BatchResponse {
             metadata: serde_json::json!({
                 "audio_duration": response.audio_duration,
             }),
-            results: BatchResults {
-                channels: vec![channel],
-            },
+            results: BatchResults { channels },
         }
     }
 }
@@ -264,6 +331,50 @@ impl AssemblyAIAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn multichannel_words_are_normalized_to_zero_based_channels() {
+        let response = TranscriptResponse {
+            id: "id".to_string(),
+            status: "completed".to_string(),
+            text: None,
+            words: Some(vec![
+                AssemblyAIBatchWord {
+                    text: "left".to_string(),
+                    start: 0,
+                    end: 500,
+                    confidence: 0.9,
+                    speaker: Some("1A".to_string()),
+                    channel: Some("1".to_string()),
+                },
+                AssemblyAIBatchWord {
+                    text: "right".to_string(),
+                    start: 500,
+                    end: 1000,
+                    confidence: 0.8,
+                    speaker: Some("2A".to_string()),
+                    channel: Some("2".to_string()),
+                },
+            ]),
+            utterances: None,
+            confidence: Some(0.85),
+            audio_duration: Some(1),
+            audio_channels: Some(2),
+            error: None,
+        };
+
+        let result = AssemblyAIAdapter::convert_to_batch_response(response);
+
+        assert_eq!(result.results.channels.len(), 2);
+        assert_eq!(
+            result.results.channels[0].alternatives[0].words[0].channel,
+            0
+        );
+        assert_eq!(
+            result.results.channels[1].alternatives[0].words[0].channel,
+            1
+        );
+    }
 
     #[tokio::test]
     #[ignore]

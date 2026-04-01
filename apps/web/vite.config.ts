@@ -5,21 +5,20 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { generateSitemap } from "tanstack-router-sitemap";
 import { defineConfig } from "vite";
-import viteTsConfigPaths from "vite-tsconfig-paths";
 
 import { getSitemap } from "./src/utils/sitemap";
 
 const config = defineConfig(() => ({
   plugins: [
     contentCollections(),
-    viteTsConfigPaths({ projects: ["./tsconfig.json"] }),
     tailwindcss(),
     tanstackStart({
       sitemap: {
-        host: "https://hyprnote.com",
+        host: "https://char.com",
       },
       prerender: {
         enabled: true,
+        concurrency: 3,
         crawlLinks: true,
         autoStaticPathsDiscovery: true,
         filter: ({ path }) => {
@@ -36,7 +35,9 @@ const config = defineConfig(() => ({
     }),
     viteReact(),
     generateSitemap(getSitemap()),
-    netlify({ dev: { images: { enabled: true } } }),
+    process.env.SKIP_NETLIFY === "1"
+      ? null
+      : netlify({ dev: { images: { enabled: true } } }),
   ],
   ssr: {
     noExternal: [
@@ -45,6 +46,12 @@ const config = defineConfig(() => ({
       "react-tweet",
       "@content-collections/mdx",
     ],
+  },
+  resolve: {
+    tsconfigPaths: true,
+  },
+  preview: {
+    host: "127.0.0.1",
   },
 }));
 
