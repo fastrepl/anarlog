@@ -1,8 +1,9 @@
 import { type LLM, LMStudioClient, type ModelInfo } from "@lmstudio/sdk";
-import { Effect, pipe } from "effect";
+import { Effect, pipe, Schema } from "effect";
 
 import {
   DEFAULT_RESULT,
+  fetchJson,
   type IgnoredModel,
   type ListModelsResult,
   type ModelIgnoreReason,
@@ -12,13 +13,60 @@ import {
 
 export async function listLMStudioModels(
   baseUrl: string,
-  _apiKey: string,
+  apiKey: string,
 ): Promise<ListModelsResult> {
   if (!baseUrl) {
     return DEFAULT_RESULT;
   }
 
+  if (apiKey) {
+    return listViaHttp(baseUrl, apiKey);
+  }
+
+  const sdkResult = await listViaSdk(baseUrl);
+  if (sdkResult.models.length > 0) {
+    return sdkResult;
+  }
+
+  return listViaHttp(baseUrl, apiKey);
+}
+
+const OpenAIModelSchema = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+    }),
+  ),
+});
+
+const listViaHttp = (
+  baseUrl: string,
+  apiKey: string,
+): Promise<ListModelsResult> => {
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
   return pipe(
+    fetchJson(`${baseUrl}/models`, headers),
+    Effect.andThen((json) => Schema.decodeUnknown(OpenAIModelSchema)(json)),
+    Effect.map(({ data }) => {
+      const models = data.map((m) => m.id);
+      const metadata: Record<string, ModelMetadata> = {};
+      for (const id of models) {
+        metadata[id] = { input_modalities: ["text"] };
+      }
+      return { models, ignored: [], metadata };
+    }),
+    Effect.timeout(REQUEST_TIMEOUT),
+    Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
+    Effect.runPromise,
+  );
+};
+
+const listViaSdk = (baseUrl: string): Promise<ListModelsResult> =>
+  pipe(
     createLMStudioClient(baseUrl),
     Effect.flatMap((client) =>
       pipe(
@@ -32,13 +80,12 @@ export async function listLMStudioModels(
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
     Effect.runPromise,
   );
-}
 
 const createLMStudioClient = (baseUrl: string) =>
   Effect.sync(() => {
     const url = new URL(baseUrl);
     const port = url.port || "1234";
-    const formattedUrl = `ws:127.0.0.1:${port}`;
+    const formattedUrl = `ws://127.0.0.1:${port}`;
     return new LMStudioClient({ baseUrl: formattedUrl });
   });
 
