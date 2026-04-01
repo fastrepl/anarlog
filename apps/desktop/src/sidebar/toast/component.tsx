@@ -9,12 +9,15 @@ import type { DownloadProgress, ToastType } from "./types";
 export function Toast({
   toast,
   onDismiss,
+  alwaysShowDismissButton = false,
 }: {
   toast: ToastType;
-  onDismiss?: () => void;
+  onDismiss?: () => void | Promise<void>;
+  alwaysShowDismissButton?: boolean;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
+  const [isAnimatingHeight, setIsAnimatingHeight] = useState(false);
   const contentKey = toast.actions ? "actions" : "default";
 
   useEffect(() => {
@@ -25,6 +28,7 @@ export function Toast({
       }
     };
     measure();
+    setIsAnimatingHeight(true);
     const ro = new ResizeObserver(measure);
     ro.observe(contentRef.current);
     return () => ro.disconnect();
@@ -47,7 +51,9 @@ export function Toast({
             aria-label="Dismiss toast"
             className={cn([
               "absolute top-1.5 right-1.5 z-10 flex size-6 items-center justify-center rounded-full",
-              "opacity-0 group-hover:opacity-50 hover:opacity-100!",
+              alwaysShowDismissButton
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-50 hover:opacity-100!",
               "hover:bg-neutral-200",
               "transition-all duration-200",
             ])}
@@ -58,8 +64,10 @@ export function Toast({
 
         <motion.div
           animate={{ height }}
+          onAnimationStart={() => setIsAnimatingHeight(true)}
+          onAnimationComplete={() => setIsAnimatingHeight(false)}
           transition={{ duration: 0.25, ease: "easeInOut" }}
-          style={{ overflow: "hidden" }}
+          style={{ overflow: isAnimatingHeight ? "hidden" : "visible" }}
         >
           <div ref={contentRef}>
             <AnimatePresence mode="wait" initial={false}>
@@ -71,20 +79,24 @@ export function Toast({
                 transition={{ duration: 0.15, ease: "easeInOut" }}
                 className="flex flex-col gap-2"
               >
-                {(toast.icon || toast.title) && (
-                  <div className="flex items-center gap-2">
-                    {toast.icon}
-                    {toast.title && (
-                      <h3 className="text-lg font-bold text-neutral-900">
-                        {toast.title}
-                      </h3>
-                    )}
-                  </div>
-                )}
+                <div
+                  className={cn(["flex flex-col gap-2", onDismiss && "pr-6"])}
+                >
+                  {(toast.icon || toast.title) && (
+                    <div className="flex items-center gap-2">
+                      {toast.icon}
+                      {toast.title && (
+                        <h3 className="text-lg font-bold text-neutral-900">
+                          {toast.title}
+                        </h3>
+                      )}
+                    </div>
+                  )}
 
-                <div className="text-sm">{toast.description}</div>
+                  <div className="text-sm">{toast.description}</div>
+                </div>
 
-                <div className="mt-1 flex flex-col gap-2">
+                <div className="mt-1 flex flex-col gap-2 overflow-visible">
                   {toast.progress !== undefined && (
                     <ProgressBar progress={toast.progress} />
                   )}
@@ -118,7 +130,7 @@ export function Toast({
                       {toast.primaryAction && (
                         <button
                           onClick={toast.primaryAction.onClick}
-                          className="w-full rounded-full border-2 border-stone-600 bg-stone-800 py-2 text-sm font-medium text-white shadow-[0_4px_14px_rgba(87,83,78,0.4)] transition-all duration-200 hover:bg-stone-700"
+                          className="flex h-11 w-full items-center justify-center rounded-full border-2 border-stone-600 bg-stone-800 px-4 text-sm font-medium text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] transition-all duration-200 hover:bg-stone-700"
                         >
                           {toast.primaryAction.label}
                         </button>

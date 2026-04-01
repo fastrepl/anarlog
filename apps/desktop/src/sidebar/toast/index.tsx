@@ -134,6 +134,10 @@ export function ToastArea({
     setShareExpanded(false);
   }, [dismissToast]);
 
+  const handleShareCollapse = useCallback(() => {
+    setShareExpanded(false);
+  }, []);
+
   const handleShareSocial = useCallback(
     (platform: "x" | "linkedin" | "reddit") => {
       void analyticsCommands.event({
@@ -178,7 +182,6 @@ export function ToastArea({
         onOpenLLMSettings: handleOpenLLMSettings,
         onOpenSTTSettings: handleOpenSTTSettings,
         onShareExpand: handleShareExpand,
-        onShareSnooze: handleShareSnooze,
       }),
     [
       isAuthenticated,
@@ -201,7 +204,6 @@ export function ToastArea({
       handleOpenLLMSettings,
       handleOpenSTTSettings,
       handleShareExpand,
-      handleShareSnooze,
     ],
   );
 
@@ -274,6 +276,15 @@ export function ToastArea({
     return currentToast;
   }, [currentToast, shareExpanded, handleShareSocial, handleShareDone]);
 
+  const dismissAction =
+    displayToast?.id === "share-char"
+      ? shareExpanded
+        ? handleShareCollapse
+        : handleShareSnooze
+      : displayToast?.dismissible
+        ? handleDismiss
+        : undefined;
+
   return (
     <AnimatePresence mode="wait">
       {shouldShowToast && displayToast ? (
@@ -291,13 +302,8 @@ export function ToastArea({
           <div className="pointer-events-auto">
             <Toast
               toast={displayToast}
-              onDismiss={
-                displayToast.dismissible
-                  ? handleDismiss
-                  : displayToast.id === "share-char" && shareExpanded
-                    ? () => setShareExpanded(false)
-                    : undefined
-              }
+              onDismiss={dismissAction}
+              alwaysShowDismissButton={displayToast.id === "share-char"}
             />
           </div>
         </motion.div>

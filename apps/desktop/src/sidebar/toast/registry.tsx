@@ -28,7 +28,6 @@ type ToastRegistryParams = {
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
   onShareExpand: () => void;
-  onShareSnooze: () => void;
 };
 
 export function createToastRegistry({
@@ -52,7 +51,6 @@ export function createToastRegistry({
   onOpenLLMSettings,
   onOpenSTTSettings,
   onShareExpand,
-  onShareSnooze,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1
@@ -207,11 +205,7 @@ export function createToastRegistry({
           label: "Share now",
           onClick: onShareExpand,
         },
-        secondaryAction: {
-          label: "I'll do it later",
-          onClick: onShareSnooze,
-        },
-        dismissible: false,
+        dismissible: true,
       },
       condition: () => {
         if (sessionCount < 3) return false;
