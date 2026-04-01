@@ -3,6 +3,7 @@ import { Copy } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { cn } from "@hypr/utils";
 
@@ -113,10 +114,12 @@ export function ToastArea({
   );
 
   const handleShareExpand = useCallback(() => {
+    void analyticsCommands.event({ event: "share_cta_opened" });
     setShareExpanded(true);
   }, []);
 
   const handleShareSnooze = useCallback(async () => {
+    void analyticsCommands.event({ event: "share_cta_snoozed" });
     const filtered = dismissedToasts.filter(
       (id) => !id.startsWith(SHARE_SNOOZE_PREFIX),
     );
@@ -133,13 +136,17 @@ export function ToastArea({
 
   const handleShareSocial = useCallback(
     (platform: "x" | "linkedin" | "reddit") => {
+      void analyticsCommands.event({
+        event: "share_cta_shared",
+        platform,
+      });
       const text = encodeURIComponent(
         "I use Char AI notetaker and love it! Try it as well: char.com",
       );
       const url = encodeURIComponent("https://char.com");
       const urls: Record<string, string> = {
         x: `https://x.com/intent/tweet?text=${text}`,
-        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
+        linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}&summary=${text}`,
         reddit: `https://www.reddit.com/submit?title=${text}&url=${url}`,
       };
       void openerCommands.openUrl(urls[platform], null);
@@ -251,6 +258,10 @@ export function ToastArea({
             label: "Copy text",
             icon: <Copy className="size-4" />,
             onClick: () => {
+              void analyticsCommands.event({
+                event: "share_cta_shared",
+                platform: "copy",
+              });
               void navigator.clipboard.writeText(
                 "I use Char AI notetaker and love it! Try it as well: char.com",
               );
