@@ -433,6 +433,12 @@ function HeaderTabEnhanced({
     "content",
     main.STORE_ID,
   ) as string | undefined;
+  const rawTitle = main.UI.useCell(
+    "enhanced_notes",
+    enhancedNoteId,
+    "title",
+    main.STORE_ID,
+  );
   const templateId = main.UI.useCell(
     "enhanced_notes",
     enhancedNoteId,
@@ -451,15 +457,18 @@ function HeaderTabEnhanced({
       : null;
   const openTemplatesTab = useOpenTemplatesTab();
   const summaryTitle = "Summary";
-  const tabLabel = templateTitle ?? summaryTitle;
+  const tabTitle =
+    typeof rawTitle === "string" && rawTitle.trim()
+      ? rawTitle.trim()
+      : summaryTitle;
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
     return copyTextToClipboard(noteMarkdown, {
-      success: `${tabLabel} copied to clipboard`,
-      error: `Failed to copy ${tabLabel}`,
+      success: `${tabTitle} copied to clipboard`,
+      error: `Failed to copy ${tabTitle}`,
     });
-  }, [noteMarkdown, tabLabel]);
+  }, [noteMarkdown, tabTitle]);
   const handleRegenerate = useCallback(() => {
     void onRegenerate(null);
   }, [onRegenerate]);
@@ -601,7 +610,7 @@ function HeaderTabEnhanced({
         ])}
       >
         <span className="flex h-5 items-center gap-1">
-          <TruncatedTitle title={summaryTitle} isActive={isActive} />
+          <TruncatedTitle title={tabTitle} isActive={isActive} />
           <button
             type="button"
             onClick={handleCancelClick}
@@ -666,7 +675,7 @@ function HeaderTabEnhanced({
       onClick={onClick}
       onContextMenu={showContextMenu}
     >
-      <TruncatedTitle title={summaryTitle} isActive={isActive} />
+      <TruncatedTitle title={tabTitle} isActive={isActive} />
       {isActive && regenerateIcon}
     </NoteTab>,
   );
