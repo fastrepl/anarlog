@@ -17,34 +17,47 @@ export function ResourcePreviewHeader({
   actionIcon,
   actionVariant,
   actionClassName,
+  actions,
   children,
 }: {
   title: string;
   description?: string | null;
   category?: string | null;
   targets?: string[] | null;
-  onClone: () => void;
+  onClone?: () => void;
   actionLabel?: string;
   actionIcon?: ReactNode;
   actionVariant?: ButtonProps["variant"];
   actionClassName?: string;
+  actions?: ReactNode;
   children?: ReactNode;
 }) {
+  const actionButton = onClone ? (
+    <Button
+      onClick={onClone}
+      size="sm"
+      variant={actionVariant}
+      className={actionClassName}
+    >
+      {actionIcon === undefined ? (
+        <Copy className="mr-2 h-4 w-4" />
+      ) : (
+        actionIcon
+      )}
+      {actionLabel}
+    </Button>
+  ) : null;
+
   return (
     <div className="pt-1 pr-1 pb-4 pl-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <TemplateCategoryLabel category={category} />
         </div>
-        <Button
-          onClick={onClone}
-          size="sm"
-          variant={actionVariant}
-          className={actionClassName}
-        >
-          {actionIcon ?? <Copy className="mr-2 h-4 w-4" />}
-          {actionLabel}
-        </Button>
+        <div className="flex items-center gap-0">
+          {actions}
+          {actionButton}
+        </div>
       </div>
       <div className="mt-3 min-w-0 pr-5 pl-3">
         <h2 className="truncate text-lg font-semibold">
