@@ -15,6 +15,8 @@ use super::stream::process_stream;
 use super::{ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg, actor_error};
 use crate::SessionErrorEvent;
 
+const REALTIME_CAPTURE_SAMPLE_RATE: u32 = super::super::SAMPLE_RATE;
+
 pub(super) async fn spawn_rx_task(
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
@@ -119,7 +121,7 @@ fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams 
     owhisper_interface::ListenParams {
         model: Some(args.model.clone()),
         languages: args.languages.clone(),
-        sample_rate: super::super::SAMPLE_RATE,
+        sample_rate: REALTIME_CAPTURE_SAMPLE_RATE,
         keywords: args.keywords.clone(),
         custom_query: Some(std::collections::HashMap::from([(
             "redemption_time_ms".to_string(),

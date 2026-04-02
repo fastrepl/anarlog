@@ -2,12 +2,14 @@ use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::deepgram_compat::build_listen_ws_url;
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 use super::{ArgmaxAdapter, keywords::ArgmaxKeywordStrategy, language::ArgmaxLanguageStrategy};
 
 impl RealtimeSttAdapter for ArgmaxAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "argmax"
     }
@@ -44,6 +46,16 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
                 .unwrap()
                 .into(),
         ))
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {

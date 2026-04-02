@@ -1,3 +1,4 @@
+mod audio;
 pub mod parsing;
 mod url_builder;
 
@@ -20,6 +21,9 @@ mod pyannote;
 pub(crate) mod soniox;
 mod whispercpp;
 
+pub use audio::*;
+pub use language::*;
+
 pub use argmax::*;
 pub use assemblyai::*;
 pub use cactus::*;
@@ -29,7 +33,6 @@ pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
 pub use hyprnote::*;
-pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
 pub use pyannote::*;
@@ -90,6 +93,8 @@ pub fn documented_language_codes_batch() -> Vec<String> {
 }
 
 pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
+    type AudioEncoder: RealtimeAudioEncoder;
+
     fn provider_name(&self) -> &'static str;
 
     fn is_supported_languages(
@@ -101,6 +106,22 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
     fn supports_native_multichannel(&self) -> bool;
 
     fn build_ws_url(&self, api_base: &str, params: &ListenParams, channels: u8) -> url::Url;
+
+    fn realtime_target_sample_rate(&self, input_sample_rate: u32, _channels: u8) -> u32 {
+        input_sample_rate
+    }
+
+    fn normalize_realtime_params(&self, params: ListenParams, _channels: u8) -> ListenParams {
+        params
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, Error>;
 
     fn build_ws_url_with_api_key(
         &self,
@@ -118,10 +139,6 @@ pub trait RealtimeSttAdapter: Clone + Default + Send + Sync + 'static {
     fn keep_alive_message(&self) -> Option<Message>;
 
     fn finalize_message(&self) -> Message;
-
-    fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
-        Message::Binary(audio)
-    }
 
     fn initial_message(
         &self,

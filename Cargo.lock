@@ -12682,6 +12682,7 @@ dependencies = [
  "reqwest 0.13.2",
  "reqwest-middleware",
  "reqwest-tracing",
+ "resampler",
  "rodio",
  "serde",
  "serde_json",

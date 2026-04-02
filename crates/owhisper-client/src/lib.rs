@@ -20,10 +20,11 @@ pub use adapter::deepgram::DeepgramModel;
 pub use adapter::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter, CactusAdapter, CallbackResult,
     CallbackSttAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter,
-    GladiaAdapter, HyprnoteAdapter, LanguageQuality, LanguageSupport, MistralAdapter,
-    OpenAIAdapter, PyannoteAdapter, RealtimeSttAdapter, SonioxAdapter, WhisperCppAdapter,
-    append_provider_param, documented_language_codes_batch, documented_language_codes_live,
-    is_hyprnote_proxy, is_local_host, normalize_languages,
+    GladiaAdapter, HyprnoteAdapter, InterleavedStereoEncoder, LanguageQuality, LanguageSupport,
+    MessageAudioEncoder, MistralAdapter, OpenAIAdapter, PyannoteAdapter, RealtimeAudioEncoder,
+    RealtimeAudioInput, RealtimeSttAdapter, ResamplingMonoEncoder, SonioxAdapter,
+    WhisperCppAdapter, append_provider_param, documented_language_codes_batch,
+    documented_language_codes_live, is_hyprnote_proxy, is_local_host, normalize_languages,
 };
 pub use adapter::{StreamingBatchEvent, StreamingBatchStream};
 

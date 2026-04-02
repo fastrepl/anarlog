@@ -3,9 +3,13 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 
 use super::HyprnoteAdapter;
-use crate::adapter::{RealtimeSttAdapter, append_path_if_missing, set_scheme_from_host};
+use crate::adapter::{
+    InterleavedStereoEncoder, RealtimeSttAdapter, append_path_if_missing, set_scheme_from_host,
+};
 
 impl RealtimeSttAdapter for HyprnoteAdapter {
+    type AudioEncoder = InterleavedStereoEncoder;
+
     fn provider_name(&self) -> &'static str {
         "hyprnote"
     }
@@ -66,6 +70,16 @@ impl RealtimeSttAdapter for HyprnoteAdapter {
                 .unwrap()
                 .into(),
         ))
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(InterleavedStereoEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {

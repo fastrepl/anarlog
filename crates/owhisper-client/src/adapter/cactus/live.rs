@@ -3,12 +3,14 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 
 use super::CactusAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::argmax::keywords::ArgmaxKeywordStrategy;
 use crate::adapter::argmax::language::ArgmaxLanguageStrategy;
 use crate::adapter::deepgram_compat::build_listen_ws_url;
+use crate::adapter::{InterleavedStereoEncoder, RealtimeSttAdapter};
 
 impl RealtimeSttAdapter for CactusAdapter {
+    type AudioEncoder = InterleavedStereoEncoder;
+
     fn provider_name(&self) -> &'static str {
         "cactus"
     }
@@ -45,6 +47,16 @@ impl RealtimeSttAdapter for CactusAdapter {
                 .unwrap()
                 .into(),
         ))
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(InterleavedStereoEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {

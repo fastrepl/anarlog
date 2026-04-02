@@ -9,8 +9,8 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::{Deserialize, Serialize};
 
 use super::GladiaAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::WordBuilder;
+use crate::adapter::{InterleavedStereoEncoder, RealtimeSttAdapter};
 
 struct SessionChannels;
 
@@ -46,6 +46,8 @@ impl SessionChannels {
 }
 
 impl RealtimeSttAdapter for GladiaAdapter {
+    type AudioEncoder = InterleavedStereoEncoder;
+
     fn provider_name(&self) -> &'static str {
         "gladia"
     }
@@ -203,6 +205,16 @@ impl RealtimeSttAdapter for GladiaAdapter {
 
     fn keep_alive_message(&self) -> Option<Message> {
         None
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(InterleavedStereoEncoder::binary())
     }
 
     fn initial_message(

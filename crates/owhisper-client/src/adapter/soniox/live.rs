@@ -4,12 +4,14 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::Serialize;
 
 use super::SonioxAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs_opt};
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 // https://soniox.com/docs/stt/rt/real-time-transcription
 // https://soniox.com/docs/stt/api-reference/websocket-api
 impl RealtimeSttAdapter for SonioxAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "soniox"
     }
@@ -46,6 +48,16 @@ impl RealtimeSttAdapter for SonioxAdapter {
     // https://soniox.com/docs/stt/rt/connection-keepalive
     fn keep_alive_message(&self) -> Option<Message> {
         Some(Message::Text(r#"{"type":"keepalive"}"#.into()))
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::binary())
     }
 
     fn initial_message(

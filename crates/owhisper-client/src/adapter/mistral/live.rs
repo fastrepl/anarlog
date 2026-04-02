@@ -6,10 +6,12 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::{Deserialize, Serialize};
 
 use super::MistralAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::WordBuilder;
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 impl RealtimeSttAdapter for MistralAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "mistral"
     }
@@ -56,14 +58,14 @@ impl RealtimeSttAdapter for MistralAdapter {
         None
     }
 
-    fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
-        use base64::Engine;
-        let base64_audio = base64::engine::general_purpose::STANDARD.encode(&audio);
-        let event = InputAudioAppend {
-            event_type: "input_audio.append".to_string(),
-            audio: base64_audio,
-        };
-        Message::Text(serde_json::to_string(&event).unwrap().into())
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::new(serialize_audio_chunk))
     }
 
     fn initial_message(
@@ -173,6 +175,16 @@ impl RealtimeSttAdapter for MistralAdapter {
             }
         }
     }
+}
+
+fn serialize_audio_chunk(audio: bytes::Bytes) -> Result<Message, crate::Error> {
+    use base64::Engine;
+    let base64_audio = base64::engine::general_purpose::STANDARD.encode(&audio);
+    let event = InputAudioAppend {
+        event_type: "input_audio.append".to_string(),
+        audio: base64_audio,
+    };
+    Ok(Message::Text(serde_json::to_string(&event).unwrap().into()))
 }
 
 #[derive(Debug, Serialize)]

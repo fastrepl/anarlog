@@ -4,10 +4,12 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::{Deserialize, Serialize};
 
 use super::{ElevenLabsAdapter, ElevenLabsWord};
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span};
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 impl RealtimeSttAdapter for ElevenLabsAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "elevenlabs"
     }
@@ -75,16 +77,14 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
         None
     }
 
-    fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
-        let chunk = AudioChunk {
-            message_type: "input_audio_chunk",
-            audio_base_64: base64::Engine::encode(
-                &base64::engine::general_purpose::STANDARD,
-                &audio,
-            ),
-        };
-        let json = serde_json::to_string(&chunk).unwrap();
-        Message::Text(json.into())
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::new(serialize_audio_chunk))
     }
 
     fn finalize_message(&self) -> Message {
@@ -154,6 +154,14 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
             }
         }
     }
+}
+
+fn serialize_audio_chunk(audio: bytes::Bytes) -> Result<Message, crate::Error> {
+    let chunk = AudioChunk {
+        message_type: "input_audio_chunk",
+        audio_base_64: base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &audio),
+    };
+    Ok(Message::Text(serde_json::to_string(&chunk).unwrap().into()))
 }
 
 #[derive(Serialize)]

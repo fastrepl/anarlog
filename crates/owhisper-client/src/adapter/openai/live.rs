@@ -9,14 +9,17 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 
 use super::OpenAIAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span};
+use crate::adapter::{RealtimeSttAdapter, ResamplingMonoEncoder};
 
 const VAD_THRESHOLD: f32 = 0.4;
 const VAD_PREFIX_PADDING_MS: u32 = 300;
 const VAD_SILENCE_DURATION_MS: u32 = 350;
+pub(crate) const OPENAI_MIN_SAMPLE_RATE: u32 = 24_000;
 
 impl RealtimeSttAdapter for OpenAIAdapter {
+    type AudioEncoder = ResamplingMonoEncoder;
+
     fn provider_name(&self) -> &'static str {
         "openai"
     }
@@ -46,6 +49,10 @@ impl RealtimeSttAdapter for OpenAIAdapter {
         url
     }
 
+    fn realtime_target_sample_rate(&self, _input_sample_rate: u32, _channels: u8) -> u32 {
+        OPENAI_MIN_SAMPLE_RATE
+    }
+
     fn build_auth_header(&self, api_key: Option<&str>) -> Option<(&'static str, String)> {
         api_key.and_then(|k| crate::providers::Provider::OpenAI.build_auth_header(k))
     }
@@ -54,15 +61,15 @@ impl RealtimeSttAdapter for OpenAIAdapter {
         None
     }
 
-    fn audio_to_message(&self, audio: bytes::Bytes) -> Message {
-        use base64::Engine;
-        let base64_audio = base64::engine::general_purpose::STANDARD.encode(&audio);
-        let event = InputAudioBufferAppendEvent {
-            event_id: None,
-            event_type: ClientEventType::InputAudioBufferAppend,
-            audio: base64_audio,
-        };
-        Message::Text(serde_json::to_string(&event).unwrap().into())
+    fn create_audio_encoder(
+        &self,
+        input_sample_rate: u32,
+        target_sample_rate: u32,
+        params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        let _ = params;
+        ResamplingMonoEncoder::new(input_sample_rate, target_sample_rate, serialize_audio_chunk)
     }
 
     fn initial_message(
@@ -281,6 +288,17 @@ impl RealtimeSttAdapter for OpenAIAdapter {
     }
 }
 
+fn serialize_audio_chunk(audio: bytes::Bytes) -> Result<Message, crate::Error> {
+    use base64::Engine;
+    let base64_audio = base64::engine::general_purpose::STANDARD.encode(&audio);
+    let event = InputAudioBufferAppendEvent {
+        event_id: None,
+        event_type: ClientEventType::InputAudioBufferAppend,
+        audio: base64_audio,
+    };
+    Ok(Message::Text(serde_json::to_string(&event).unwrap().into()))
+}
+
 impl OpenAIAdapter {
     fn build_transcript_response(
         transcript: &str,
@@ -322,17 +340,17 @@ impl OpenAIAdapter {
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine;
     use hypr_language::ISO639;
+    use hypr_ws_client::client::Message;
 
-    use super::OpenAIAdapter;
-    use crate::ListenClient;
+    use super::{OPENAI_MIN_SAMPLE_RATE, OpenAIAdapter};
     use crate::test_utils::{
         UrlTestCase, run_dual_test_with_rate, run_single_test_with_rate, run_url_test_cases,
     };
+    use crate::{ListenClient, RealtimeAudioEncoder, RealtimeAudioInput, RealtimeSttAdapter};
 
     const API_BASE: &str = "wss://api.openai.com";
-    const OPENAI_SAMPLE_RATE: u32 = 24000;
-
     #[test]
     fn test_base_url() {
         run_url_test_cases(
@@ -348,6 +366,79 @@ mod tests {
         );
     }
 
+    #[test]
+    fn target_rate_is_24k_for_non_24k_input() {
+        let adapter = OpenAIAdapter::default();
+        assert_eq!(
+            adapter.realtime_target_sample_rate(16_000, 1),
+            OPENAI_MIN_SAMPLE_RATE
+        );
+    }
+
+    #[test]
+    fn target_rate_stays_24k_for_24k_input() {
+        let adapter = OpenAIAdapter::default();
+        assert_eq!(
+            adapter.realtime_target_sample_rate(24_000, 1),
+            OPENAI_MIN_SAMPLE_RATE
+        );
+    }
+
+    #[test]
+    fn encoder_resamples_16k_input_to_openai_rate() {
+        let adapter = OpenAIAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            sample_rate: 24_000,
+            ..Default::default()
+        };
+        let mut encoder = adapter
+            .create_audio_encoder(16_000, OPENAI_MIN_SAMPLE_RATE, &params, 1)
+            .unwrap();
+        let push_output = encoder
+            .push(RealtimeAudioInput::Mono(bytes::Bytes::from_static(&[0, 0])))
+            .unwrap();
+        assert!(push_output.is_empty());
+
+        let flush_output = encoder.flush().unwrap();
+        assert_eq!(flush_output.len(), 1);
+        let Message::Text(json) = &flush_output[0] else {
+            panic!("expected text message");
+        };
+        let payload: serde_json::Value = serde_json::from_str(json).unwrap();
+        let encoded_audio = payload["audio"].as_str().unwrap();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded_audio)
+            .unwrap();
+        assert!(!decoded.is_empty());
+        assert!(encoder.flush().unwrap().is_empty());
+    }
+
+    #[test]
+    fn encoder_passthroughs_24k_input_without_buffering() {
+        let adapter = OpenAIAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            sample_rate: 24_000,
+            ..Default::default()
+        };
+        let mut encoder = adapter
+            .create_audio_encoder(24_000, OPENAI_MIN_SAMPLE_RATE, &params, 1)
+            .unwrap();
+        let push_output = encoder
+            .push(RealtimeAudioInput::Mono(bytes::Bytes::from_static(&[0, 0])))
+            .unwrap();
+        assert_eq!(push_output.len(), 1);
+        let Message::Text(json) = &push_output[0] else {
+            panic!("expected text message");
+        };
+        let payload: serde_json::Value = serde_json::from_str(json).unwrap();
+        let encoded_audio = payload["audio"].as_str().unwrap();
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(encoded_audio)
+            .unwrap();
+        assert_eq!(decoded, vec![0, 0]);
+        assert!(encoder.flush().unwrap().is_empty());
+    }
+
     #[tokio::test]
     #[ignore]
     async fn test_build_single() {
@@ -358,13 +449,13 @@ mod tests {
             .params(owhisper_interface::ListenParams {
                 model: Some("gpt-4o-transcribe".to_string()),
                 languages: vec![hypr_language::ISO639::En.into()],
-                sample_rate: OPENAI_SAMPLE_RATE,
+                sample_rate: OPENAI_MIN_SAMPLE_RATE,
                 ..Default::default()
             })
             .build_single()
             .await;
 
-        run_single_test_with_rate(client, "openai", OPENAI_SAMPLE_RATE).await;
+        run_single_test_with_rate(client, "openai", OPENAI_MIN_SAMPLE_RATE).await;
     }
 
     #[tokio::test]
@@ -377,12 +468,12 @@ mod tests {
             .params(owhisper_interface::ListenParams {
                 model: Some("gpt-4o-transcribe".to_string()),
                 languages: vec![hypr_language::ISO639::En.into()],
-                sample_rate: OPENAI_SAMPLE_RATE,
+                sample_rate: OPENAI_MIN_SAMPLE_RATE,
                 ..Default::default()
             })
             .build_dual()
             .await;
 
-        run_dual_test_with_rate(client, "openai", OPENAI_SAMPLE_RATE).await;
+        run_dual_test_with_rate(client, "openai", OPENAI_MIN_SAMPLE_RATE).await;
     }
 }

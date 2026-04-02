@@ -4,12 +4,14 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::Deserialize;
 
 use super::FireworksAdapter;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::WordBuilder;
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 // https://docs.fireworks.ai/guides/querying-asr-models#streaming-transcription
 // https://docs.fireworks.ai/api-reference/audio-streaming-transcriptions
 impl RealtimeSttAdapter for FireworksAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "fireworks"
     }
@@ -53,6 +55,16 @@ impl RealtimeSttAdapter for FireworksAdapter {
 
     fn keep_alive_message(&self) -> Option<Message> {
         None
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {

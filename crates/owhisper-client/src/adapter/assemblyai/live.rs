@@ -5,11 +5,13 @@ use serde::Deserialize;
 
 use super::AssemblyAIAdapter;
 use super::language::STREAMING_LANGUAGES;
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs};
+use crate::adapter::{MessageAudioEncoder, RealtimeSttAdapter};
 
 // https://www.assemblyai.com/docs/api-reference/streaming-api/streaming-api.md
 impl RealtimeSttAdapter for AssemblyAIAdapter {
+    type AudioEncoder = MessageAudioEncoder;
+
     fn provider_name(&self) -> &'static str {
         "assemblyai"
     }
@@ -80,6 +82,16 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
 
     fn keep_alive_message(&self) -> Option<Message> {
         None
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(MessageAudioEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {

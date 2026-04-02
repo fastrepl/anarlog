@@ -2,14 +2,16 @@ use hypr_ws_client::client::Message;
 use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 
-use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::deepgram_compat::build_listen_ws_url;
+use crate::adapter::{InterleavedStereoEncoder, RealtimeSttAdapter};
 
 use super::{
     DeepgramAdapter, keywords::DeepgramKeywordStrategy, language::DeepgramLanguageStrategy,
 };
 
 impl RealtimeSttAdapter for DeepgramAdapter {
+    type AudioEncoder = InterleavedStereoEncoder;
+
     fn provider_name(&self) -> &'static str {
         "deepgram"
     }
@@ -49,6 +51,16 @@ impl RealtimeSttAdapter for DeepgramAdapter {
                 .unwrap()
                 .into(),
         ))
+    }
+
+    fn create_audio_encoder(
+        &self,
+        _input_sample_rate: u32,
+        _target_sample_rate: u32,
+        _params: &ListenParams,
+        _channels: u8,
+    ) -> Result<Self::AudioEncoder, crate::Error> {
+        Ok(InterleavedStereoEncoder::binary())
     }
 
     fn finalize_message(&self) -> Message {
