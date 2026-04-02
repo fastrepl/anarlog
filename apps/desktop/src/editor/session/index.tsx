@@ -53,6 +53,7 @@ import {
   setSearchState,
 } from "../plugins";
 import {
+  FormatToolbar,
   type MentionConfig,
   MentionSuggestion,
   SlashCommandMenu,
@@ -386,6 +387,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
           <ProseMirrorDoc />
           <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
           <EditorCommandsBridge commandsRef={commandsRef} />
+          <FormatToolbar />
           <SlashCommandMenu />
           {mentionConfig && <MentionSuggestion config={mentionConfig} />}
         </ProseMirror>
