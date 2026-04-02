@@ -178,7 +178,7 @@ export const NoteInput = forwardRef<
             "h-full px-3",
             currentTab.type === "transcript"
               ? "overflow-hidden"
-              : ["desktop-scroll-fade-y overflow-auto", "pt-2", "pb-6"],
+              : ["scroll-fade-y overflow-auto", "pt-2", "pb-6"],
           ])}
         >
           {currentTab.type === "enhanced" && (

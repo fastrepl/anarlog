@@ -75,79 +75,79 @@
   }
 }
 
-@property --desktop-fade-top-start {
+@property --scroll-fade-top-start {
   syntax: "<percentage>";
   initial-value: 0%;
   inherits: false;
 }
 
-@property --desktop-fade-top-end {
+@property --scroll-fade-top-end {
   syntax: "<percentage>";
   initial-value: 0%;
   inherits: false;
 }
 
-@property --desktop-fade-bottom-start {
+@property --scroll-fade-bottom-start {
   syntax: "<percentage>";
   initial-value: 94%;
   inherits: false;
 }
 
-@property --desktop-fade-bottom-end {
+@property --scroll-fade-bottom-end {
   syntax: "<percentage>";
   initial-value: 99%;
   inherits: false;
 }
 
-@property --desktop-fade-left-start {
+@property --scroll-fade-left-start {
   syntax: "<percentage>";
   initial-value: 0%;
   inherits: false;
 }
 
-@property --desktop-fade-left-end {
+@property --scroll-fade-left-end {
   syntax: "<percentage>";
   initial-value: 0%;
   inherits: false;
 }
 
-@property --desktop-fade-right-start {
+@property --scroll-fade-right-start {
   syntax: "<percentage>";
   initial-value: 94%;
   inherits: false;
 }
 
-@property --desktop-fade-right-end {
+@property --scroll-fade-right-end {
   syntax: "<percentage>";
   initial-value: 99%;
   inherits: false;
 }
 
-@keyframes desktop-scroll-fade-y-top {
+@keyframes scroll-fade-y-top {
   to {
-    --desktop-fade-top-start: 0%;
-    --desktop-fade-top-end: 6%;
+    --scroll-fade-top-start: 0%;
+    --scroll-fade-top-end: 6%;
   }
 }
 
-@keyframes desktop-scroll-fade-y-bottom {
+@keyframes scroll-fade-y-bottom {
   to {
-    --desktop-fade-bottom-start: 100%;
-    --desktop-fade-bottom-end: 100%;
+    --scroll-fade-bottom-start: 100%;
+    --scroll-fade-bottom-end: 100%;
   }
 }
 
-@keyframes desktop-scroll-fade-x-left {
+@keyframes scroll-fade-x-left {
   to {
-    --desktop-fade-left-start: 0%;
-    --desktop-fade-left-end: 5%;
+    --scroll-fade-left-start: 0%;
+    --scroll-fade-left-end: 5%;
   }
 }
 
-@keyframes desktop-scroll-fade-x-right {
+@keyframes scroll-fade-x-right {
   to {
-    --desktop-fade-right-start: 100%;
-    --desktop-fade-right-end: 100%;
+    --scroll-fade-right-start: 100%;
+    --scroll-fade-right-end: 100%;
   }
 }
 
@@ -296,24 +296,24 @@
 }
 
 @layer utilities {
-  .desktop-scroll-fade-y {
-    --desktop-fade-top-start: 0%;
-    --desktop-fade-top-end: 0%;
-    --desktop-fade-bottom-start: 94%;
-    --desktop-fade-bottom-end: 99%;
+  .scroll-fade-y {
+    --scroll-fade-top-start: 0%;
+    --scroll-fade-top-end: 0%;
+    --scroll-fade-bottom-start: 94%;
+    --scroll-fade-bottom-end: 99%;
     -webkit-mask-image: linear-gradient(
       to bottom,
-      transparent var(--desktop-fade-top-start),
-      #000 var(--desktop-fade-top-end),
-      #000 var(--desktop-fade-bottom-start),
-      transparent var(--desktop-fade-bottom-end)
+      transparent var(--scroll-fade-top-start),
+      #000 var(--scroll-fade-top-end),
+      #000 var(--scroll-fade-bottom-start),
+      transparent var(--scroll-fade-bottom-end)
     );
     mask-image: linear-gradient(
       to bottom,
-      transparent var(--desktop-fade-top-start),
-      #000 var(--desktop-fade-top-end),
-      #000 var(--desktop-fade-bottom-start),
-      transparent var(--desktop-fade-bottom-end)
+      transparent var(--scroll-fade-top-start),
+      #000 var(--scroll-fade-top-end),
+      #000 var(--scroll-fade-bottom-start),
+      transparent var(--scroll-fade-bottom-end)
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
@@ -322,32 +322,32 @@
     -webkit-mask-position: center;
     mask-position: center;
     animation:
-      desktop-scroll-fade-y-top 1ms linear both,
-      desktop-scroll-fade-y-bottom 1ms linear both;
+      scroll-fade-y-top 1ms linear both,
+      scroll-fade-y-bottom 1ms linear both;
     animation-timeline:
       scroll(self block),
       scroll(self block);
     animation-range: 0 24px, calc(100% - 24px) 100%;
   }
 
-  .desktop-scroll-fade-x {
-    --desktop-fade-left-start: 0%;
-    --desktop-fade-left-end: 0%;
-    --desktop-fade-right-start: 94%;
-    --desktop-fade-right-end: 99%;
+  .scroll-fade-x {
+    --scroll-fade-left-start: 0%;
+    --scroll-fade-left-end: 0%;
+    --scroll-fade-right-start: 94%;
+    --scroll-fade-right-end: 99%;
     -webkit-mask-image: linear-gradient(
       to right,
-      transparent var(--desktop-fade-left-start),
-      #000 var(--desktop-fade-left-end),
-      #000 var(--desktop-fade-right-start),
-      transparent var(--desktop-fade-right-end)
+      transparent var(--scroll-fade-left-start),
+      #000 var(--scroll-fade-left-end),
+      #000 var(--scroll-fade-right-start),
+      transparent var(--scroll-fade-right-end)
     );
     mask-image: linear-gradient(
       to right,
-      transparent var(--desktop-fade-left-start),
-      #000 var(--desktop-fade-left-end),
-      #000 var(--desktop-fade-right-start),
-      transparent var(--desktop-fade-right-end)
+      transparent var(--scroll-fade-left-start),
+      #000 var(--scroll-fade-left-end),
+      #000 var(--scroll-fade-right-start),
+      transparent var(--scroll-fade-right-end)
     );
     -webkit-mask-size: 100% 100%;
     mask-size: 100% 100%;
@@ -356,8 +356,8 @@
     -webkit-mask-position: center;
     mask-position: center;
     animation:
-      desktop-scroll-fade-x-left 1ms linear both,
-      desktop-scroll-fade-x-right 1ms linear both;
+      scroll-fade-x-left 1ms linear both,
+      scroll-fade-x-right 1ms linear both;
     animation-timeline:
       scroll(self inline),
       scroll(self inline);

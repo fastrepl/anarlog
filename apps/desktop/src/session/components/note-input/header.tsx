@@ -1203,7 +1203,7 @@ function CreateOtherFormatButton({
             <div className="relative">
               <div
                 className={cn([
-                  "desktop-scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
+                  "scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
                 ])}
               >
                 <div className="flex flex-col gap-3">
@@ -1291,7 +1291,7 @@ export function Header({
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-2">
         <div className="relative min-w-0 flex-1">
-          <div className="desktop-scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto">
+          <div className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto">
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
                 return (

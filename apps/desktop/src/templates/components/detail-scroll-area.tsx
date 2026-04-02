@@ -11,12 +11,7 @@ export function TemplateDetailScrollArea({
 }) {
   return (
     <div className="relative flex-1 overflow-hidden">
-      <div
-        className={cn([
-          "desktop-scroll-fade-y h-full overflow-y-auto",
-          className,
-        ])}
-      >
+      <div className={cn(["scroll-fade-y h-full overflow-y-auto", className])}>
         {children}
       </div>
     </div>

@@ -212,7 +212,7 @@ export function MainTabChrome({ tabs }: { tabs: Tab[] }) {
           ref={tabsScrollContainerRef}
           data-tauri-drag-region
           className={cn([
-            "desktop-scroll-fade-x",
+            "scroll-fade-x",
             "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "h-full w-full overflow-x-auto overflow-y-hidden",
           ])}

@@ -94,7 +94,7 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
       <div className="relative w-full flex-1 overflow-hidden">
         <div
           className={cn([
-            "desktop-scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-6",
+            "scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-6",
           ])}
         >
           {renderContent()}

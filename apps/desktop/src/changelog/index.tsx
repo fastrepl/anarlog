@@ -78,7 +78,7 @@ export function TabContentChangelog({
         </div>
 
         <div className="relative mt-4 min-h-0 flex-1 overflow-hidden">
-          <div className="desktop-scroll-fade-y h-full overflow-y-auto px-3 pb-4">
+          <div className="scroll-fade-y h-full overflow-y-auto px-3 pb-4">
             <ChangelogBody
               version={current}
               content={content}
