@@ -24,7 +24,7 @@ import {
   wrappingInputRule,
 } from "prosemirror-inputrules";
 import { keymap } from "prosemirror-keymap";
-import type { NodeType } from "prosemirror-model";
+import { Fragment, type MarkType, type NodeType } from "prosemirror-model";
 import {
   liftListItem,
   sinkListItem,
@@ -46,6 +46,120 @@ function isInListItem(state: EditorState): string | null {
     if (name === "listItem" || name === "taskItem") return name;
   }
   return null;
+}
+
+function moveListItem(direction: "up" | "down"): Command {
+  return (state, dispatch) => {
+    const { $from } = state.selection;
+
+    let depth = -1;
+    for (let d = $from.depth; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === "listItem" || name === "taskItem") {
+        depth = d;
+        break;
+      }
+    }
+    if (depth === -1) return false;
+
+    const parent = $from.node(depth - 1);
+    const index = $from.index(depth - 1);
+    const atBoundary =
+      direction === "up" ? index === 0 : index >= parent.childCount - 1;
+
+    if (!atBoundary) {
+      // Swap with adjacent sibling
+      const siblingIndex = direction === "up" ? index - 1 : index + 1;
+      const currentItem = parent.child(index);
+      const siblingItem = parent.child(siblingIndex);
+
+      if (dispatch) {
+        const tr = state.tr;
+        const currentStart = $from.before(depth);
+        const currentEnd = $from.after(depth);
+
+        if (direction === "up") {
+          const prevStart = currentStart - siblingItem.nodeSize;
+          tr.replaceWith(
+            prevStart,
+            currentEnd,
+            Fragment.from([currentItem, siblingItem]),
+          );
+          const offset = prevStart - currentStart;
+          tr.setSelection(
+            TextSelection.create(
+              tr.doc,
+              state.selection.anchor + offset,
+              state.selection.head + offset,
+            ),
+          );
+        } else {
+          const nextEnd = currentEnd + siblingItem.nodeSize;
+          tr.replaceWith(
+            currentStart,
+            nextEnd,
+            Fragment.from([siblingItem, currentItem]),
+          );
+          const offset = siblingItem.nodeSize;
+          tr.setSelection(
+            TextSelection.create(
+              tr.doc,
+              state.selection.anchor + offset,
+              state.selection.head + offset,
+            ),
+          );
+        }
+
+        dispatch(tr.scrollIntoView());
+      }
+      return true;
+    }
+
+    // At boundary: lift item into the outer (parent) list
+    let outerDepth = -1;
+    for (let d = depth - 2; d > 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === "listItem" || name === "taskItem") {
+        outerDepth = d;
+        break;
+      }
+    }
+    if (outerDepth === -1) return false;
+
+    // Only lift when the item type is compatible with the outer list
+    const outerListName = $from.node(outerDepth - 1).type.name;
+    const currentItemName = $from.node(depth).type.name;
+    const compatible =
+      (currentItemName === "listItem" &&
+        (outerListName === "bulletList" || outerListName === "orderedList")) ||
+      (currentItemName === "taskItem" && outerListName === "taskList");
+    if (!compatible) return false;
+
+    if (dispatch) {
+      const tr = state.tr;
+      const currentItem = parent.child(index);
+      const currentStart = $from.before(depth);
+      const currentEnd = $from.after(depth);
+      const anchorOffset = state.selection.anchor - currentStart;
+
+      // Delete the item, or the entire nested list when it's the only child
+      if (parent.childCount === 1) {
+        tr.delete($from.before(depth - 1), $from.after(depth - 1));
+      } else {
+        tr.delete(currentStart, currentEnd);
+      }
+
+      // Insert into the outer list: before the outer item (up) or after (down)
+      const targetPos =
+        direction === "up" ? $from.before(outerDepth) : $from.after(outerDepth);
+      const insertPos = tr.mapping.map(targetPos);
+      tr.insert(insertPos, currentItem);
+
+      tr.setSelection(TextSelection.create(tr.doc, insertPos + anchorOffset));
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +207,32 @@ function horizontalRuleRule() {
   );
 }
 
+function markInputRule(pattern: RegExp, markType: MarkType, delimLen: number) {
+  return new InputRule(pattern, (state, match, start, end) => {
+    const prefix = match[1];
+    const content = match[2];
+    const { tr } = state;
+
+    const openStart = start + prefix.length;
+    // The typed character that triggered this rule is the last char of
+    // the closing delimiter and is NOT in the document yet.  Only the
+    // remaining delimLen-1 chars need to be removed.
+    const closeCharsInDoc = delimLen - 1;
+
+    const $start = state.doc.resolve(openStart);
+    if (!$start.parent.type.allowsMarkType(markType)) return null;
+
+    if (closeCharsInDoc > 0) {
+      tr.delete(end - closeCharsInDoc, end);
+    }
+    tr.delete(openStart, openStart + delimLen);
+    tr.addMark(openStart, openStart + content.length, markType.create());
+    tr.removeStoredMark(markType);
+
+    return tr;
+  });
+}
+
 function taskListRule() {
   return new InputRule(/^\s*\[([ x])\]\s$/, (state, match, start, end) => {
     const checked = match[1] === "x";
@@ -115,6 +255,11 @@ export function buildInputRules() {
       codeBlockRule(schema.nodes.codeBlock),
       horizontalRuleRule(),
       taskListRule(),
+      markInputRule(/(^|[^*])\*\*([^*]+)\*\*$/, schema.marks.bold, 2),
+      markInputRule(/(^|[^~])~~([^~]+)~~$/, schema.marks.strike, 2),
+      markInputRule(/(^|[^*])\*([^*]+)\*$/, schema.marks.italic, 1),
+      markInputRule(/(^|[^_])_([^_]+)_$/, schema.marks.italic, 1),
+      markInputRule(/(^|[^~])~([^~]+)~$/, schema.marks.strike, 1),
     ],
   });
 }
@@ -284,6 +429,9 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
     if (!nodeType) return false;
     return liftListItem(nodeType)(state, dispatch);
   };
+
+  keys["Alt-ArrowUp"] = moveListItem("up");
+  keys["Alt-ArrowDown"] = moveListItem("down");
 
   if (onNavigateToTitle) {
     keys["ArrowLeft"] = (state) => {
