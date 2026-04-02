@@ -53,10 +53,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import { cn } from "@hypr/utils";
@@ -1158,10 +1154,6 @@ function Sidebar({
   isLoading: boolean;
   selectedPath: string | null;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef, "vertical", [
-    activeCollection,
-  ]);
   const groupedItems = useMemo(() => {
     if (activeCollection.name === "articles") {
       return [
@@ -1243,9 +1235,7 @@ function Sidebar({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
-        <div ref={scrollRef} className="h-full overflow-y-auto">
+        <div className="scroll-fade-y h-full overflow-y-auto">
           {isCreatingNewPost && activeCollection.name === "articles" && (
             <NewPostInlineInput
               existingSlugs={
