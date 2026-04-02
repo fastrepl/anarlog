@@ -15,10 +15,6 @@ import { commands as flagCommands } from "@hypr/plugin-flag";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
-  getScrollFadeMaskClassName,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -138,8 +134,6 @@ export function MainTabChrome({ tabs }: { tabs: Tab[] }) {
     },
   ]);
 
-  useScrollFade(tabsScrollContainerRef, "horizontal", [regularTabs.length]);
-
   const setTabRef = useScrollActiveTabIntoView(regularTabs);
   useMainTabsShortcuts();
 
@@ -218,8 +212,8 @@ export function MainTabChrome({ tabs }: { tabs: Tab[] }) {
           ref={tabsScrollContainerRef}
           data-tauri-drag-region
           className={cn([
+            "desktop-scroll-fade-x",
             "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            getScrollFadeMaskClassName("horizontal"),
             "h-full w-full overflow-x-auto overflow-y-hidden",
           ])}
         >

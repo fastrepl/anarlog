@@ -1,10 +1,6 @@
 import { SettingsIcon } from "lucide-react";
-import { useRef } from "react";
 
-import {
-  getScrollFadeMaskClassName,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
+import { cn } from "@hypr/utils";
 
 import { SettingsCalendar } from "./calendar";
 import { SettingsDontUseThis } from "./dont-use-this";
@@ -65,8 +61,6 @@ export function TabContentSettings({
 
 function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   const activeTab = tab.state.tab ?? "app";
-  const ref = useRef<HTMLDivElement>(null);
-  useScrollFade(ref, "vertical", [activeTab]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -99,8 +93,9 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
     <div className="flex w-full flex-1 flex-col overflow-hidden">
       <div className="relative w-full flex-1 overflow-hidden">
         <div
-          ref={ref}
-          className={`scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-6 ${getScrollFadeMaskClassName("vertical")}`}
+          className={cn([
+            "desktop-scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-6",
+          ])}
         >
           {renderContent()}
         </div>

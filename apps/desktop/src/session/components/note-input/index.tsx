@@ -12,10 +12,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import {
-  getScrollFadeMaskClassName,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { cn } from "@hypr/utils";
 
 import { type Attachment, Attachments } from "./attachments";
@@ -88,9 +84,6 @@ export const NoteInput = forwardRef<
       skipRestoration: currentTab.type === "transcript" && isMeetingInProgress,
     },
   );
-
-  const fadeRef = useRef<HTMLDivElement>(null);
-  useScrollFade(fadeRef, "vertical", [currentTab]);
 
   const handleTabChange = useCallback(
     (tabView: TabEditorView) => {
@@ -169,7 +162,6 @@ export const NoteInput = forwardRef<
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={(node) => {
-            fadeRef.current = node;
             if (
               currentTab.type !== "transcript" &&
               currentTab.type !== "attachments"
@@ -184,10 +176,9 @@ export const NoteInput = forwardRef<
           onClick={handleContainerClick}
           className={cn([
             "h-full px-3",
-            getScrollFadeMaskClassName("vertical"),
             currentTab.type === "transcript"
               ? "overflow-hidden"
-              : ["overflow-auto", "pt-2", "pb-6"],
+              : ["desktop-scroll-fade-y overflow-auto", "pt-2", "pb-6"],
           ])}
         >
           {currentTab.type === "enhanced" && (
