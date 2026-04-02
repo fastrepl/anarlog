@@ -1,9 +1,10 @@
 import { useRef, type ReactNode } from "react";
 
 import {
-  ScrollFadeOverlay,
+  getScrollFadeMaskClassName,
   useScrollFade,
 } from "@hypr/ui/components/ui/scroll-fade";
+import { cn } from "@hypr/utils";
 
 export function TemplateDetailScrollArea({
   children,
@@ -13,15 +14,20 @@ export function TemplateDetailScrollArea({
   className?: string;
 }) {
   const fadeRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(fadeRef, "vertical");
+  useScrollFade(fadeRef, "vertical");
 
   return (
     <div className="relative flex-1 overflow-hidden">
-      <div ref={fadeRef} className={`h-full overflow-y-auto ${className}`}>
+      <div
+        ref={fadeRef}
+        className={cn([
+          "h-full overflow-y-auto",
+          getScrollFadeMaskClassName("vertical"),
+          className,
+        ])}
+      >
         {children}
       </div>
-      {!atStart && <ScrollFadeOverlay position="top" />}
-      {!atEnd && <ScrollFadeOverlay position="bottom" />}
     </div>
   );
 }

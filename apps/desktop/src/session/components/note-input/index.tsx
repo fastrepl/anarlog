@@ -13,7 +13,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import {
-  ScrollFadeOverlay,
+  getScrollFadeMaskClassName,
   useScrollFade,
 } from "@hypr/ui/components/ui/scroll-fade";
 import { cn } from "@hypr/utils";
@@ -90,7 +90,7 @@ export const NoteInput = forwardRef<
   );
 
   const fadeRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(fadeRef, "vertical", [currentTab]);
+  useScrollFade(fadeRef, "vertical", [currentTab]);
 
   const handleTabChange = useCallback(
     (tabView: TabEditorView) => {
@@ -184,6 +184,7 @@ export const NoteInput = forwardRef<
           onClick={handleContainerClick}
           className={cn([
             "h-full px-3",
+            getScrollFadeMaskClassName("vertical"),
             currentTab.type === "transcript"
               ? "overflow-hidden"
               : ["overflow-auto", "pt-2", "pb-6"],
@@ -211,8 +212,6 @@ export const NoteInput = forwardRef<
             <AttachmentsContent sessionId={sessionId} />
           )}
         </div>
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
       </div>
     </div>
   );

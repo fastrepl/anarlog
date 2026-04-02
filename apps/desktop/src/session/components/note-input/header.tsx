@@ -32,7 +32,7 @@ import {
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
 import {
-  ScrollFadeOverlay,
+  getScrollFadeMaskClassName,
   useScrollFade,
 } from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
@@ -1114,9 +1114,7 @@ function CreateOtherFormatButton({
     () => resultSections.flatMap((section) => section.items),
     [resultSections],
   );
-  const { atStart, atEnd } = useScrollFade(resultsScrollRef, "vertical", [
-    resultSections,
-  ]);
+  useScrollFade(resultsScrollRef, "vertical", [resultSections]);
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus();
   }, []);
@@ -1211,7 +1209,10 @@ function CreateOtherFormatButton({
             <div className="relative">
               <div
                 ref={resultsScrollRef}
-                className="scrollbar-hide max-h-80 overflow-y-auto p-2"
+                className={cn([
+                  "scrollbar-hide max-h-80 overflow-y-auto p-2",
+                  getScrollFadeMaskClassName("vertical"),
+                ])}
               >
                 <div className="flex flex-col gap-3">
                   {resultSections.map((section) => (
@@ -1252,8 +1253,6 @@ function CreateOtherFormatButton({
                   ))}
                 </div>
               </div>
-              {!atStart && <ScrollFadeOverlay position="top" />}
-              {!atEnd && <ScrollFadeOverlay position="bottom" />}
             </div>
           </AppFloatingPanel>
 
@@ -1289,9 +1288,7 @@ export function Header({
   const store = main.UI.useStore(main.STORE_ID);
 
   const tabsRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(tabsRef, "horizontal", [
-    editorTabs.length,
-  ]);
+  useScrollFade(tabsRef, "horizontal", [editorTabs.length]);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
@@ -1307,7 +1304,10 @@ export function Header({
         <div className="relative min-w-0 flex-1">
           <div
             ref={tabsRef}
-            className="scrollbar-hide flex items-center gap-1 overflow-x-auto"
+            className={cn([
+              "scrollbar-hide flex items-center gap-1 overflow-x-auto",
+              getScrollFadeMaskClassName("horizontal"),
+            ])}
           >
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
@@ -1381,8 +1381,6 @@ export function Header({
               />
             )}
           </div>
-          {!atStart && <ScrollFadeOverlay position="left" />}
-          {!atEnd && <ScrollFadeOverlay position="right" />}
         </div>
       </div>
     </div>

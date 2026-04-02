@@ -12,7 +12,7 @@ import {
 } from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
-  ScrollFadeOverlay,
+  getScrollFadeMaskClassName,
   useScrollFade,
 } from "@hypr/ui/components/ui/scroll-fade";
 import { safeFormat } from "@hypr/utils";
@@ -68,7 +68,7 @@ export function TabContentChangelog({
 
   const { content, date, loading } = useChangelogContent(current);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef);
+  useScrollFade(scrollRef);
 
   return (
     <StandardTabWrapper>
@@ -84,9 +84,10 @@ export function TabContentChangelog({
         </div>
 
         <div className="relative mt-4 min-h-0 flex-1 overflow-hidden">
-          {!atStart && <ScrollFadeOverlay position="top" />}
-          {!atEnd && <ScrollFadeOverlay position="bottom" />}
-          <div ref={scrollRef} className="h-full overflow-y-auto px-3 pb-4">
+          <div
+            ref={scrollRef}
+            className={`h-full overflow-y-auto px-3 pb-4 ${getScrollFadeMaskClassName("vertical")}`}
+          >
             <ChangelogBody
               version={current}
               content={content}
