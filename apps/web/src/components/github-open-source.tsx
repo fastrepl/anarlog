@@ -302,6 +302,7 @@ function RotatingAvatarSet({
 }) {
   const [visible, setVisible] = useState(() => profiles.slice(0, displayCount));
   const poolRef = useRef(displayCount);
+  const slotRef = useRef(0);
 
   const pickNext = useCallback(() => {
     const idx = poolRef.current % profiles.length;
@@ -315,11 +316,9 @@ function RotatingAvatarSet({
     const interval = setInterval(() => {
       setVisible((prev) => {
         const next = [...prev];
-        const count = 1 + Math.floor(Math.random() * 2);
-        for (let i = 0; i < count; i++) {
-          const idx = Math.floor(Math.random() * next.length);
-          next[idx] = pickNext();
-        }
+        const idx = slotRef.current % next.length;
+        slotRef.current = idx + 1;
+        next[idx] = pickNext();
         return next;
       });
     }, 1000);
