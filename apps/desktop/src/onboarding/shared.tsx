@@ -81,7 +81,7 @@ export function OnboardingSection({
               {isCompleted ? (completedTitle ?? title) : title}
             </h2>
             {isActive && (
-              <div className="flex items-center gap-2">
+              <div className="mb-1 flex items-center gap-2">
                 {import.meta.env.DEV && onBack && (
                   <button
                     onClick={onBack}
@@ -98,9 +98,10 @@ export function OnboardingSection({
                         onSkip?.();
                         onNext?.();
                       }}
-                      className="text-sm text-neutral-400 transition-colors hover:text-neutral-600"
+                      className="flex items-center gap-1 text-sm text-neutral-400 transition-colors hover:text-neutral-600"
                     >
                       Skip
+                      <ChevronRightIcon className="size-3" />
                     </button>
                   ) : import.meta.env.DEV ? (
                     <button
