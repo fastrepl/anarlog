@@ -6,10 +6,14 @@ import { useShell } from "~/contexts/shell";
 
 export function ChatFloatingButton({
   isCaretNearBottom = false,
-  showTimeline = false,
+  bottomAccessoryKind = null,
 }: {
   isCaretNearBottom?: boolean;
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   const { chat } = useShell();
   const isOpen = chat.mode === "FloatingOpen";
@@ -26,7 +30,7 @@ export function ChatFloatingButton({
     <ChatTrigger
       onClick={handleClickTrigger}
       isCaretNearBottom={isCaretNearBottom}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     />
   );
 }

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
+import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
 import { NoteInput, type NoteInputHandle } from "./components/note-input";
@@ -169,16 +170,11 @@ export function TabContentNote({
     },
   });
 
-  const showTimeline =
-    tab.state.view?.type === "transcript" &&
-    Boolean(audioUrl) &&
-    listenerStatus === "inactive";
-
   return (
     <CaretPositionProvider>
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
-          <TabContentNoteInner tab={tab} showTimeline={showTimeline} />
+          <TabContentNoteInner tab={tab} audioUrl={audioUrl} />
         </AudioPlayer.Provider>
       </SearchProvider>
     </CaretPositionProvider>
@@ -187,10 +183,10 @@ export function TabContentNote({
 
 function TabContentNoteInner({
   tab,
-  showTimeline,
+  audioUrl,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
-  showTimeline: boolean;
+  audioUrl: string | null | undefined;
 }) {
   const titleInputRef = React.useRef<TitleInputHandle>(null);
   const noteInputRef = React.useRef<NoteInputHandle>(null);
@@ -235,6 +231,14 @@ function TabContentNoteInner({
     return () => clearTimeout(timer);
   }, [showConsentBanner]);
 
+  const { bottomAccessory, bottomAccessoryKind } = useSessionBottomAccessory({
+    sessionId,
+    currentView,
+    sessionMode,
+    audioUrl,
+    showConsentBanner,
+  });
+
   const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
     if (pixelWidth !== undefined) {
       titleInputRef.current?.focusAtPixelWidth(pixelWidth);
@@ -260,8 +264,7 @@ function TabContentNoteInner({
 
   useSessionStatusBanner({
     skipReason,
-    showConsentBanner,
-    showTimeline,
+    bottomAccessoryKind,
   });
 
   return (
@@ -277,9 +280,9 @@ function TabContentNoteInner({
           onGenerateTitle={hasTranscript ? generateTitle : undefined}
         />
       }
-      afterBorder={showTimeline && <AudioPlayer.Timeline />}
+      afterBorder={bottomAccessory}
       floatingButton={<FloatingActionButton tab={tab} />}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     >
       <NoteInput
         ref={noteInputRef}

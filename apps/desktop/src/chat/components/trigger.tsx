@@ -6,11 +6,15 @@ import { cn } from "@hypr/utils";
 export function ChatTrigger({
   onClick,
   isCaretNearBottom = false,
-  showTimeline = false,
+  bottomAccessoryKind = null,
 }: {
   onClick: () => void;
   isCaretNearBottom?: boolean;
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [isMouseNearButton, setIsMouseNearButton] = useState(false);
@@ -38,6 +42,14 @@ export function ChatTrigger({
   }, [isCaretNearBottom]);
 
   const shouldHide = isCaretNearBottom && !isMouseNearButton;
+  const bottomOffsetClass =
+    bottomAccessoryKind === "live_transcript_expanded"
+      ? "bottom-[236px]"
+      : bottomAccessoryKind === "live_transcript"
+        ? "bottom-[88px]"
+        : bottomAccessoryKind === "playback"
+          ? "bottom-[68px]"
+          : "bottom-4";
 
   return createPortal(
     <button
@@ -51,11 +63,7 @@ export function ChatTrigger({
         "border border-neutral-200",
         "transition-all duration-200 ease-out",
         "hover:scale-105",
-        shouldHide
-          ? "bottom-0 translate-y-[85%]"
-          : showTimeline
-            ? "bottom-[68px]"
-            : "bottom-4",
+        shouldHide ? "bottom-0 translate-y-[85%]" : bottomOffsetClass,
       ])}
     >
       <img

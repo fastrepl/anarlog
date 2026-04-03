@@ -39,12 +39,16 @@ export function StandardTabWrapper({
   children,
   afterBorder,
   floatingButton,
-  showTimeline = false,
+  bottomAccessoryKind = null,
 }: {
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   floatingButton?: React.ReactNode;
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   const { showFloatingChatButton } = useContext(MainChromeContext);
 
@@ -54,7 +58,7 @@ export function StandardTabWrapper({
         {children}
         {floatingButton}
         {showFloatingChatButton && (
-          <StandardTabChatButton showTimeline={showTimeline} />
+          <StandardTabChatButton bottomAccessoryKind={bottomAccessoryKind} />
         )}
       </div>
       {afterBorder && <div className="mt-1">{afterBorder}</div>}

@@ -1411,11 +1411,7 @@ export function useEditorTabs({
   );
 
   if (sessionMode === "active") {
-    const tabs: EditorView[] = [{ type: "raw" }, { type: "transcript" }];
-    if (hasAttachments) {
-      tabs.push({ type: "attachments" });
-    }
-    return tabs;
+    return [{ type: "raw" }];
   }
 
   if (hasTranscript) {

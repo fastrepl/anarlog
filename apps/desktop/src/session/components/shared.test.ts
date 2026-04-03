@@ -18,13 +18,13 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("preserves transcript view", () => {
+    it("returns raw view when current view is transcript", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
         "note-1",
       );
-      expect(result).toEqual({ type: "transcript" });
+      expect(result).toEqual({ type: "raw" });
     });
 
     it("returns raw view when no persisted view", () => {

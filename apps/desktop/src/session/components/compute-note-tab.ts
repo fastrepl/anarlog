@@ -2,11 +2,11 @@ import type { EditorView } from "~/store/zustand/tabs/schema";
 
 export function computeCurrentNoteTab(
   tabView: EditorView | null,
-  isListenerActive: boolean,
+  isLiveSessionActive: boolean,
   firstEnhancedNoteId: string | undefined,
 ): EditorView {
-  if (isListenerActive) {
-    if (tabView?.type === "raw" || tabView?.type === "transcript") {
+  if (isLiveSessionActive) {
+    if (tabView?.type === "raw") {
       return tabView;
     }
     return { type: "raw" };

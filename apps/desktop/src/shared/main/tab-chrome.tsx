@@ -533,12 +533,16 @@ export function MainTabItem({
 
 function TabChatButton({
   isCaretNearBottom = false,
-  showTimeline = false,
+  bottomAccessoryKind = null,
   placement = "floating",
   shortcutLabel,
 }: {
   isCaretNearBottom?: boolean;
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
   placement?: "floating" | "tabbar";
   shortcutLabel?: string;
 }) {
@@ -627,7 +631,7 @@ function TabChatButton({
   return (
     <ChatFloatingButton
       isCaretNearBottom={isCaretNearBottom}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     />
   );
 }
@@ -649,9 +653,13 @@ function HeaderTabChatButton({
 }
 
 export function StandardTabChatButton({
-  showTimeline = false,
+  bottomAccessoryKind = null,
 }: {
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   const caretPosition = useCaretPosition();
   const isCaretNearBottom = caretPosition?.isCaretNearBottom ?? false;
@@ -662,7 +670,7 @@ export function StandardTabChatButton({
       <SessionTabFloatingChatButton
         tab={currentTab}
         isCaretNearBottom={isCaretNearBottom}
-        showTimeline={showTimeline}
+        bottomAccessoryKind={bottomAccessoryKind}
       />
     );
   }
@@ -670,7 +678,7 @@ export function StandardTabChatButton({
   return (
     <TabChatButton
       isCaretNearBottom={isCaretNearBottom}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     />
   );
 }
@@ -678,11 +686,15 @@ export function StandardTabChatButton({
 function SessionTabFloatingChatButton({
   tab,
   isCaretNearBottom,
-  showTimeline,
+  bottomAccessoryKind,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
   isCaretNearBottom: boolean;
-  showTimeline: boolean;
+  bottomAccessoryKind:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   const shouldShowListeningFab = useShouldShowListeningFab(tab);
 
@@ -693,7 +705,7 @@ function SessionTabFloatingChatButton({
   return (
     <TabChatButton
       isCaretNearBottom={isCaretNearBottom}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     />
   );
 }

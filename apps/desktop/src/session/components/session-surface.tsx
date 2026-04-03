@@ -6,20 +6,24 @@ export function SessionSurface({
   children,
   afterBorder,
   floatingButton,
-  showTimeline = false,
+  bottomAccessoryKind = null,
 }: {
   header?: React.ReactNode;
   title?: React.ReactNode;
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   floatingButton?: React.ReactNode;
-  showTimeline?: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   return (
     <StandardTabWrapper
       afterBorder={afterBorder}
       floatingButton={floatingButton}
-      showTimeline={showTimeline}
+      bottomAccessoryKind={bottomAccessoryKind}
     >
       <div className="flex h-full flex-col">
         {header ? <div className="pr-1 pl-2">{header}</div> : null}

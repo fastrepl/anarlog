@@ -24,17 +24,18 @@ import {
 
 function BannerPublisher({
   skipReason,
-  showConsentBanner,
-  showTimeline,
+  bottomAccessoryKind = null,
 }: {
   skipReason: string | null;
-  showConsentBanner: boolean;
-  showTimeline: boolean;
+  bottomAccessoryKind?:
+    | "live_transcript"
+    | "live_transcript_expanded"
+    | "playback"
+    | null;
 }) {
   useSessionStatusBanner({
     skipReason,
-    showConsentBanner,
-    showTimeline,
+    bottomAccessoryKind,
   });
   return null;
 }
@@ -44,21 +45,15 @@ describe("MainSessionStatusBannerHost", () => {
     hasUndoDeleteToast = false;
   });
 
-  it("renders the consent banner using shell-managed positioning", () => {
+  it("does not render without a skip reason", () => {
     render(
       <SessionStatusBannerProvider>
-        <BannerPublisher
-          skipReason={null}
-          showConsentBanner={true}
-          showTimeline={true}
-        />
+        <BannerPublisher skipReason={null} bottomAccessoryKind="playback" />
         <MainSessionStatusBannerHost />
       </SessionStatusBannerProvider>,
     );
 
-    const banner = screen.getByText("Ask for consent when using Char");
-    expect(banner.className).toContain("bottom-[76px]");
-    expect(banner.getAttribute("style")).toContain("calc(50% + 24px)");
+    expect(screen.queryByText("Ask for consent when using Char")).toBeNull();
   });
 
   it("prefers the skip reason and stacks above the undo-delete toast", () => {
@@ -66,11 +61,7 @@ describe("MainSessionStatusBannerHost", () => {
 
     render(
       <SessionStatusBannerProvider>
-        <BannerPublisher
-          skipReason="Microphone access is disabled"
-          showConsentBanner={true}
-          showTimeline={false}
-        />
+        <BannerPublisher skipReason="Microphone access is disabled" />
         <MainSessionStatusBannerHost />
       </SessionStatusBannerProvider>,
     );
@@ -78,5 +69,23 @@ describe("MainSessionStatusBannerHost", () => {
     const banner = screen.getByText("Microphone access is disabled");
     expect(banner.className).toContain("bottom-1");
     expect(banner.className).toContain("text-red-400");
+  });
+
+  it("positions skip reasons above the bottom accessory", () => {
+    render(
+      <SessionStatusBannerProvider>
+        <BannerPublisher
+          skipReason="Microphone access is disabled"
+          bottomAccessoryKind="live_transcript"
+        />
+        <MainSessionStatusBannerHost />
+      </SessionStatusBannerProvider>,
+    );
+
+    const banners = screen.getAllByText("Microphone access is disabled");
+    const banner = banners[banners.length - 1];
+    expect(banner).toBeTruthy();
+    expect(banner?.className).toContain("bottom-[76px]");
+    expect(banner?.getAttribute("style")).toContain("calc(50% + 24px)");
   });
 });
