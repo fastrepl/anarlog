@@ -52,6 +52,7 @@
 @import "tailwindcss";
 @import "tailwind-scrollbar-hide/v4";
 @plugin "@tailwindcss/typography";
+@import "../../../packages/ui/src/styles/scroll-fade.css";
 
 @source "../../../packages/ui/src";
 @source "../../../packages/tiptap/src";

@@ -45,6 +45,12 @@ pub enum ReminderAuthStatus {
 
 pub struct Handle;
 
+impl Default for Handle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Handle {
     pub fn new() -> Self {
         Self

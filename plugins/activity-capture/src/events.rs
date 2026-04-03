@@ -67,6 +67,7 @@ pub struct ActivityCaptureCapabilities {
 
 #[derive(Clone, serde::Serialize, specta::Type, tauri_specta::Event)]
 #[serde(tag = "type")]
+#[allow(clippy::large_enum_variant)]
 pub enum ActivityCapturePluginEvent {
     #[serde(rename = "activityCaptureTransition")]
     Transition {

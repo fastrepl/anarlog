@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use owhisper_client::{
     AssemblyAIAdapter, Auth, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, RealtimeSttAdapter,
-    SonioxAdapter, normalize_listen_params,
+    FireworksAdapter, GladiaAdapter, MistralAdapter, Provider, RealtimeSttAdapter, SonioxAdapter,
+    normalize_listen_params,
 };
 use owhisper_interface::ListenParams;
 
@@ -39,11 +39,12 @@ fn build_upstream_url_with_adapter(
         Provider::AssemblyAI => AssemblyAIAdapter.build_ws_url(api_base, params, channels),
         Provider::Soniox => SonioxAdapter.build_ws_url(api_base, params, channels),
         Provider::Fireworks => FireworksAdapter.build_ws_url(api_base, params, channels),
-        Provider::OpenAI => OpenAIAdapter.build_ws_url(api_base, params, channels),
+        Provider::OpenAI => unreachable!("openai only supports batch transcription"),
         Provider::Gladia => GladiaAdapter.build_ws_url(api_base, params, channels),
         Provider::ElevenLabs => ElevenLabsAdapter.build_ws_url(api_base, params, channels),
         Provider::DashScope => DashScopeAdapter.build_ws_url(api_base, params, channels),
         Provider::Mistral => MistralAdapter::default().build_ws_url(api_base, params, channels),
+        Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
     }
 }
 
@@ -58,11 +59,12 @@ fn build_initial_message_with_adapter(
         Provider::AssemblyAI => AssemblyAIAdapter.initial_message(api_key, params, channels),
         Provider::Soniox => SonioxAdapter.initial_message(api_key, params, channels),
         Provider::Fireworks => FireworksAdapter.initial_message(api_key, params, channels),
-        Provider::OpenAI => OpenAIAdapter.initial_message(api_key, params, channels),
+        Provider::OpenAI => unreachable!("openai only supports batch transcription"),
         Provider::Gladia => GladiaAdapter.initial_message(api_key, params, channels),
         Provider::ElevenLabs => ElevenLabsAdapter.initial_message(api_key, params, channels),
         Provider::DashScope => DashScopeAdapter.initial_message(api_key, params, channels),
         Provider::Mistral => MistralAdapter::default().initial_message(api_key, params, channels),
+        Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
     };
 
     msg.and_then(|m| match m {
@@ -81,11 +83,12 @@ fn build_response_transformer(
             Provider::AssemblyAI => AssemblyAIAdapter.parse_response(raw),
             Provider::Soniox => SonioxAdapter.parse_response(raw),
             Provider::Fireworks => FireworksAdapter.parse_response(raw),
-            Provider::OpenAI => OpenAIAdapter.parse_response(raw),
+            Provider::OpenAI => unreachable!("openai only supports batch transcription"),
             Provider::Gladia => GladiaAdapter.parse_response(raw),
             Provider::ElevenLabs => ElevenLabsAdapter.parse_response(raw),
             Provider::DashScope => DashScopeAdapter.parse_response(raw),
             Provider::Mistral => mistral_adapter.parse_response(raw),
+            Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
         };
 
         if provider == Provider::Soniox && proxy_debug_enabled() {
@@ -162,6 +165,11 @@ fn build_proxy_with_adapter(
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let mut listen_params = build_listen_params(client_params);
     let channels: u8 = parse_param(client_params, "channels", 1);
+    if matches!(provider, Provider::OpenAI | Provider::Pyannote) {
+        return Err(crate::ProxyError::InvalidRequest(format!(
+            "{provider} only supports batch transcription"
+        )));
+    }
     resolve_model_live(provider, &mut listen_params);
     let upstream_channels = plan.upstream_request_channels(channels);
 

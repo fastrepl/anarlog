@@ -129,10 +129,6 @@ jobs:
           apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
           apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
-      - if: ${{ matrix.include_am }}
-        uses: ./.github/actions/argmax_sdk_setup
-        env:
-          AM_SECRET_TOKEN: ${{ secrets.AM_SECRET_TOKEN }}
       - run: |
           FEATURES_FLAG=""
           if [[ "${{ inputs.channel }}" == "staging" ]]; then

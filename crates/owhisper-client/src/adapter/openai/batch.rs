@@ -1,25 +1,24 @@
 use std::path::{Path, PathBuf};
 
+use futures_util::StreamExt;
+use openai_transcription::batch::{
+    CreateTranscriptionOptions, CreateTranscriptionResponse, DiarizedTranscriptionResponse,
+    ParsedTranscriptionStreamEvent, TranscriptionStreamEventParser, TranscriptionUsage,
+};
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{Alternatives, Channel, Response as BatchResponse, Results, Word};
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use reqwest::multipart::{Form, Part};
 
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
+use crate::adapter::{
+    BatchFuture, BatchSttAdapter, ClientWithMiddleware, StreamingBatchEvent, StreamingBatchStream,
+    append_path_if_missing,
+};
 use crate::error::Error;
 
 use super::OpenAIAdapter;
 
-use crate::providers::{Provider, is_meta_model};
-
 const DEFAULT_API_BASE: &str = "https://api.openai.com/v1";
-const RESPONSE_FORMAT_VERBOSE: &str = "verbose_json";
-const RESPONSE_FORMAT_JSON: &str = "json";
-const TIMESTAMP_GRANULARITY: &str = "word";
-
-// Models that support verbose_json with word-level timestamps
-fn supports_word_timestamps(model: &str) -> bool {
-    model == "whisper-1"
-}
 
 impl BatchSttAdapter for OpenAIAdapter {
     fn provider_name(&self) -> &'static str {
@@ -47,23 +46,71 @@ impl BatchSttAdapter for OpenAIAdapter {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct OpenAIWord {
-    word: String,
-    start: f64,
-    end: f64,
-}
+impl OpenAIAdapter {
+    pub async fn transcribe_file_streaming(
+        api_base: &str,
+        api_key: &str,
+        params: &ListenParams,
+        file_path: impl AsRef<Path>,
+    ) -> Result<StreamingBatchStream, Error> {
+        let file_path = file_path.as_ref().to_path_buf();
+        let file_part = build_file_part(&file_path).await?;
 
-#[derive(Debug, serde::Deserialize)]
-struct OpenAIVerboseResponse {
-    #[allow(dead_code)]
-    task: Option<String>,
-    language: Option<String>,
-    #[allow(dead_code)]
-    duration: Option<f64>,
-    text: String,
-    #[serde(default)]
-    words: Vec<OpenAIWord>,
+        let options = build_transcription_options(params, false, true);
+        let form = build_multipart_form(file_part, options)?;
+        let url = transcription_url(api_base)?;
+
+        let response = reqwest::Client::new()
+            .post(url.to_string())
+            .header("Authorization", format!("Bearer {}", api_key))
+            .multipart(form)
+            .send()
+            .await?;
+
+        let status = response.status();
+        if !status.is_success() {
+            return Err(Error::UnexpectedStatus {
+                status,
+                body: response.text().await.unwrap_or_default(),
+            });
+        }
+
+        let byte_stream = response.bytes_stream();
+        let event_stream = futures_util::stream::unfold(
+            OpenAISseParserState::new(byte_stream),
+            |mut state| async move {
+                loop {
+                    if let Some(event) = state.pending_events.pop_front() {
+                        return Some((event, state));
+                    }
+
+                    match state.stream.next().await {
+                        Some(Ok(chunk)) => {
+                            state.buffer.extend_from_slice(&chunk);
+                            state.parse_buffer();
+                        }
+                        Some(Err(error)) => {
+                            return Some((
+                                Err(Error::WebSocket(format!("stream error: {:?}", error))),
+                                state,
+                            ));
+                        }
+                        None => {
+                            if !state.buffer.is_empty() {
+                                state.parse_buffer();
+                                if let Some(event) = state.pending_events.pop_front() {
+                                    return Some((event, state));
+                                }
+                            }
+                            return None;
+                        }
+                    }
+                }
+            },
+        );
+
+        Ok(Box::pin(event_stream))
+    }
 }
 
 async fn do_transcribe_file(
@@ -73,63 +120,10 @@ async fn do_transcribe_file(
     params: &ListenParams,
     file_path: PathBuf,
 ) -> Result<BatchResponse, Error> {
-    let fallback_name = match file_path.extension().and_then(|e| e.to_str()) {
-        Some(ext) => format!("audio.{}", ext),
-        None => "audio".to_string(),
-    };
-
-    let file_name = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .map(ToOwned::to_owned)
-        .unwrap_or(fallback_name);
-
-    let file_bytes = tokio::fs::read(&file_path)
-        .await
-        .map_err(|e| Error::AudioProcessing(e.to_string()))?;
-
-    let mime_type = mime_type_from_extension(&file_path);
-
-    let file_part = Part::bytes(file_bytes)
-        .file_name(file_name)
-        .mime_str(mime_type)
-        .map_err(|e| Error::AudioProcessing(e.to_string()))?;
-
-    let default = Provider::OpenAI.default_batch_model();
-    let model = match params.model.as_deref() {
-        Some(m) if is_meta_model(m) => default,
-        Some(m) => m,
-        None => default,
-    };
-
-    let mut form = Form::new()
-        .part("file", file_part)
-        .text("model", model.to_string());
-
-    // whisper-1 supports verbose_json with word-level timestamps
-    // gpt-4o-transcribe and gpt-4o-mini-transcribe only support json/text
-    if supports_word_timestamps(model) {
-        form = form
-            .text("response_format", RESPONSE_FORMAT_VERBOSE)
-            .text("timestamp_granularities[]", TIMESTAMP_GRANULARITY);
-    } else {
-        form = form.text("response_format", RESPONSE_FORMAT_JSON);
-    }
-
-    if let Some(lang) = params.languages.first() {
-        form = form.text("language", lang.iso639().code().to_string());
-    }
-
-    let mut url: url::Url = if api_base.is_empty() {
-        DEFAULT_API_BASE
-            .parse()
-            .expect("invalid_default_openai_api_base")
-    } else {
-        api_base.parse().map_err(|e: url::ParseError| {
-            Error::AudioProcessing(format!("invalid api_base: {e}"))
-        })?
-    };
-    append_path_if_missing(&mut url, "audio/transcriptions");
+    let file_part = build_file_part(&file_path).await?;
+    let options = build_transcription_options(params, true, false);
+    let form = build_multipart_form(file_part, options)?;
+    let url = transcription_url(api_base)?;
 
     let response = client
         .post(url.to_string())
@@ -140,7 +134,7 @@ async fn do_transcribe_file(
 
     let status = response.status();
     if status.is_success() {
-        let openai_response: OpenAIVerboseResponse = response.json().await?;
+        let openai_response: CreateTranscriptionResponse = response.json().await?;
         Ok(convert_response(openai_response))
     } else {
         Err(Error::UnexpectedStatus {
@@ -152,39 +146,278 @@ async fn do_transcribe_file(
 
 use crate::adapter::http::mime_type_from_extension;
 
+async fn build_file_part(file_path: &Path) -> Result<Part, Error> {
+    let fallback_name = match file_path.extension().and_then(|e| e.to_str()) {
+        Some(ext) => format!("audio.{}", ext),
+        None => "audio".to_string(),
+    };
+
+    let file_name = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .map(ToOwned::to_owned)
+        .unwrap_or(fallback_name);
+
+    let file_bytes = tokio::fs::read(file_path)
+        .await
+        .map_err(|e| Error::AudioProcessing(e.to_string()))?;
+
+    let mime_type = mime_type_from_extension(file_path);
+
+    Part::bytes(file_bytes)
+        .file_name(file_name)
+        .mime_str(mime_type)
+        .map_err(|e| Error::AudioProcessing(e.to_string()))
+}
+
+fn build_transcription_options(
+    params: &ListenParams,
+    use_response_format: bool,
+    enable_streaming: bool,
+) -> CreateTranscriptionOptions {
+    let model = OpenAIAdapter::resolve_batch_model(params.model.as_deref());
+    let mut options =
+        CreateTranscriptionOptions::for_model(model, use_response_format, enable_streaming);
+
+    if let Some(lang) = params.languages.first() {
+        options.push_language(lang.iso639().code().to_string());
+    }
+
+    options
+}
+
+fn build_multipart_form(
+    file_part: Part,
+    options: CreateTranscriptionOptions,
+) -> Result<Form, Error> {
+    let mut form = Form::new().part("file", file_part);
+
+    for field in options
+        .multipart_text_fields()
+        .map_err(|e| Error::AudioProcessing(e.to_string()))?
+    {
+        form = form.text(field.name, field.value);
+    }
+
+    Ok(form)
+}
+
+fn transcription_url(api_base: &str) -> Result<url::Url, Error> {
+    let mut url: url::Url = if api_base.is_empty() {
+        DEFAULT_API_BASE
+            .parse()
+            .expect("invalid_default_openai_api_base")
+    } else {
+        api_base.parse().map_err(|e: url::ParseError| {
+            Error::AudioProcessing(format!("invalid api_base: {e}"))
+        })?
+    };
+    append_path_if_missing(&mut url, "audio/transcriptions");
+    Ok(url)
+}
+
+struct OpenAISseParserState<S> {
+    stream: S,
+    buffer: Vec<u8>,
+    pending_events: std::collections::VecDeque<Result<StreamingBatchEvent, Error>>,
+    parser: TranscriptionStreamEventParser,
+}
+
+impl<S> OpenAISseParserState<S> {
+    fn new(stream: S) -> Self {
+        Self {
+            stream,
+            buffer: Vec::new(),
+            pending_events: std::collections::VecDeque::new(),
+            parser: TranscriptionStreamEventParser::new(),
+        }
+    }
+
+    fn parse_buffer(&mut self) {
+        while let Ok(text) = std::str::from_utf8(&self.buffer) {
+            let Some(end) = text.find("\n\n") else {
+                break;
+            };
+
+            let block = text[..end].to_string();
+            self.buffer.drain(..end + 2);
+
+            if let Some(event) = parse_sse_block(&block, &mut self.parser) {
+                self.pending_events.push_back(event);
+            }
+        }
+    }
+}
+
+fn parse_sse_block(
+    block: &str,
+    parser: &mut TranscriptionStreamEventParser,
+) -> Option<Result<StreamingBatchEvent, Error>> {
+    let event = match parser.parse_sse_block(block) {
+        Ok(Some(event)) => event,
+        Ok(None) => return None,
+        Err(error) => {
+            return Some(Err(Error::WebSocket(format!(
+                "failed to parse OpenAI batch stream event: {error}"
+            ))));
+        }
+    };
+
+    match event {
+        ParsedTranscriptionStreamEvent::TextDelta { partial_text, .. } => {
+            Some(Ok(BatchStreamEvent::Progress {
+                percentage: 0.0,
+                partial_text: Some(partial_text),
+            }))
+        }
+        ParsedTranscriptionStreamEvent::TextDone { text, usage, .. } => {
+            Some(Ok(BatchStreamEvent::Result {
+                response: build_batch_response(
+                    text.trim().to_string(),
+                    Vec::new(),
+                    transcription_usage_metadata(usage),
+                ),
+            }))
+        }
+    }
+}
+
+fn transcription_usage_metadata(usage: Option<TranscriptionUsage>) -> serde_json::Value {
+    match usage {
+        Some(usage) => serde_json::json!({ "usage": usage }),
+        None => serde_json::json!({}),
+    }
+}
+
 fn strip_punctuation(s: &str) -> String {
     s.trim_matches(|c: char| c.is_ascii_punctuation())
         .to_string()
 }
 
-fn convert_response(response: OpenAIVerboseResponse) -> BatchResponse {
-    let words: Vec<Word> = if !response.words.is_empty() {
-        response
-            .words
-            .into_iter()
-            .map(|w| {
-                let normalized = strip_punctuation(&w.word);
-                Word {
-                    word: if normalized.is_empty() {
-                        w.word.clone()
-                    } else {
-                        normalized
-                    },
-                    start: w.start,
-                    end: w.end,
-                    confidence: 1.0,
-                    channel: 0,
-                    speaker: None,
-                    punctuated_word: Some(w.word),
-                }
-            })
-            .collect()
-    } else {
-        Vec::new()
-    };
+fn convert_response(response: CreateTranscriptionResponse) -> BatchResponse {
+    match response {
+        CreateTranscriptionResponse::Standard(response) => build_batch_response(
+            response.text.trim().to_string(),
+            Vec::new(),
+            serde_json::json!({}),
+        ),
+        CreateTranscriptionResponse::Verbose(response) => {
+            let words = response
+                .words
+                .iter()
+                .map(|w| {
+                    let normalized = strip_punctuation(&w.word);
+                    Word {
+                        word: if normalized.is_empty() {
+                            w.word.clone()
+                        } else {
+                            normalized
+                        },
+                        start: w.start,
+                        end: w.end,
+                        confidence: 1.0,
+                        channel: 0,
+                        speaker: None,
+                        punctuated_word: Some(w.word.clone()),
+                    }
+                })
+                .collect();
 
+            build_batch_response(
+                response.text.trim().to_string(),
+                words,
+                serde_json::json!({
+                    "language": response.language,
+                    "duration": response.duration,
+                }),
+            )
+        }
+        CreateTranscriptionResponse::Diarized(response) => {
+            let (words, speaker_labels) = convert_diarized_words(&response);
+            let speaker_segments = response
+                .segments
+                .iter()
+                .map(|segment| {
+                    serde_json::json!({
+                        "id": segment.id,
+                        "speaker": segment.speaker,
+                        "start": segment.start,
+                        "end": segment.end,
+                        "text": segment.text,
+                        "type": segment.segment_type,
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            build_batch_response(
+                response.text.trim().to_string(),
+                words,
+                serde_json::json!({
+                    "duration": response.duration,
+                    "speaker_labels": speaker_labels,
+                    "speaker_segments": speaker_segments,
+                }),
+            )
+        }
+    }
+}
+
+fn convert_diarized_words(response: &DiarizedTranscriptionResponse) -> (Vec<Word>, Vec<String>) {
+    let mut speaker_labels = Vec::new();
+    let mut words = Vec::new();
+
+    for segment in &response.segments {
+        let tokens = segment.text.split_whitespace().collect::<Vec<_>>();
+        if tokens.is_empty() {
+            continue;
+        }
+
+        let speaker_index = speaker_labels
+            .iter()
+            .position(|label| label == &segment.speaker)
+            .unwrap_or_else(|| {
+                speaker_labels.push(segment.speaker.clone());
+                speaker_labels.len() - 1
+            });
+
+        let segment_duration = (segment.end - segment.start).max(0.0);
+        let word_duration = segment_duration / tokens.len() as f64;
+
+        for (index, token) in tokens.iter().enumerate() {
+            let normalized = strip_punctuation(token);
+            let start = segment.start + word_duration * index as f64;
+            let end = if index + 1 == tokens.len() {
+                segment.end
+            } else {
+                segment.start + word_duration * (index + 1) as f64
+            };
+
+            words.push(Word {
+                word: if normalized.is_empty() {
+                    (*token).to_string()
+                } else {
+                    normalized
+                },
+                start,
+                end,
+                confidence: 1.0,
+                channel: 0,
+                speaker: Some(speaker_index),
+                punctuated_word: Some((*token).to_string()),
+            });
+        }
+    }
+
+    (words, speaker_labels)
+}
+
+fn build_batch_response(
+    transcript: String,
+    words: Vec<Word>,
+    metadata: serde_json::Value,
+) -> BatchResponse {
     let alternatives = Alternatives {
-        transcript: response.text.trim().to_string(),
+        transcript,
         confidence: 1.0,
         words,
     };
@@ -192,10 +425,6 @@ fn convert_response(response: OpenAIVerboseResponse) -> BatchResponse {
     let channel = Channel {
         alternatives: vec![alternatives],
     };
-
-    let metadata = serde_json::json!({
-        "language": response.language,
-    });
 
     BatchResponse {
         metadata,
@@ -210,6 +439,126 @@ mod tests {
     use super::*;
     use crate::adapter::BatchSttAdapter;
     use crate::http_client::create_client;
+
+    #[test]
+    fn build_transcription_options_defaults_to_diarized_json_for_diarize_model() {
+        let options = build_transcription_options(&ListenParams::default(), true, false);
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+        assert!(
+            fields
+                .iter()
+                .any(|field| { field.name == "response_format" && field.value == "diarized_json" })
+        );
+        assert!(!fields.iter().any(|field| field.name == "stream"));
+    }
+
+    #[test]
+    fn build_transcription_options_omits_stream_for_whisper() {
+        let options = build_transcription_options(
+            &ListenParams {
+                model: Some("whisper-1".to_string()),
+                ..Default::default()
+            },
+            false,
+            true,
+        );
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+        assert!(matches!(options, CreateTranscriptionOptions::Whisper(_)));
+        assert!(!fields.iter().any(|field| field.name == "stream"));
+    }
+
+    #[test]
+    fn parse_sse_delta_accumulates_partial_text() {
+        let mut parser = TranscriptionStreamEventParser::new();
+        let event = parse_sse_block(
+            r#"data: {"type":"transcript.text.delta","delta":"hello"}"#,
+            &mut parser,
+        )
+        .expect("expected progress event")
+        .expect("expected valid progress event");
+
+        assert_eq!(parser.partial_text(), "hello");
+        assert!(matches!(
+            event,
+            BatchStreamEvent::Progress {
+                partial_text: Some(ref text),
+                ..
+            } if text == "hello"
+        ));
+    }
+
+    #[test]
+    fn parse_sse_done_emits_final_result() {
+        let mut parser = TranscriptionStreamEventParser::new();
+        parser
+            .parse_sse_block(r#"data: {"type":"transcript.text.delta","delta":"hello"}"#)
+            .expect("seed parser");
+        let event = parse_sse_block(
+            r#"data: {"type":"transcript.text.done","text":"hello world","usage":{"type":"tokens","input_tokens":1,"output_tokens":2,"total_tokens":3}}"#,
+            &mut parser,
+        )
+        .expect("expected result event")
+        .expect("expected valid result event");
+
+        let BatchStreamEvent::Result { response } = event else {
+            panic!("expected result event");
+        };
+
+        assert_eq!(parser.partial_text(), "hello world");
+        assert_eq!(
+            response.results.channels[0].alternatives[0].transcript,
+            "hello world"
+        );
+        assert_eq!(response.metadata["usage"]["type"], "tokens");
+    }
+
+    #[test]
+    fn convert_diarized_response_preserves_speaker_segments() {
+        let response: CreateTranscriptionResponse = serde_json::from_str(
+            r#"{
+                "duration": 4.0,
+                "task": "transcribe",
+                "text": "hello there general kenobi",
+                "segments": [
+                    {
+                        "id": "seg_1",
+                        "speaker": "agent",
+                        "start": 0.0,
+                        "end": 2.0,
+                        "text": "hello there",
+                        "type": "transcript.text.segment"
+                    },
+                    {
+                        "id": "seg_2",
+                        "speaker": "customer",
+                        "start": 2.0,
+                        "end": 4.0,
+                        "text": "general kenobi",
+                        "type": "transcript.text.segment"
+                    }
+                ]
+            }"#,
+        )
+        .expect("parse diarized response");
+
+        let batch = convert_response(response);
+        let words = &batch.results.channels[0].alternatives[0].words;
+
+        assert_eq!(words.len(), 4);
+        assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[2].speaker, Some(1));
+        assert_eq!(batch.metadata["speaker_labels"][0], "agent");
+        assert_eq!(
+            batch.metadata["speaker_segments"].as_array().map(Vec::len),
+            Some(2)
+        );
+    }
 
     #[tokio::test]
     #[ignore]

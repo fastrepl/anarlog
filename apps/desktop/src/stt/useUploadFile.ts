@@ -9,7 +9,7 @@ import {
   commands as fsSyncCommands,
   events as fsSyncEvents,
 } from "@hypr/plugin-fs-sync";
-import { commands as listener2Commands } from "@hypr/plugin-listener2";
+import { commands as listener2Commands } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";

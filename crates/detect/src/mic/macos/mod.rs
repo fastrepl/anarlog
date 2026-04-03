@@ -20,16 +20,9 @@ const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
+#[derive(Default)]
 pub struct Detector {
     background: BackgroundTask,
-}
-
-impl Default for Detector {
-    fn default() -> Self {
-        Self {
-            background: BackgroundTask::default(),
-        }
-    }
 }
 
 impl crate::Observer for Detector {

@@ -381,14 +381,13 @@ async fn completions_handler(
         })
         .when(is_retryable_error)
         .await
-        .map(|resp| {
+        .inspect(|_| {
             tracing::info!(
                 service.peer.name = %provider_name,
                 gen_ai.provider.name = %provider_name,
                 hyprnote.duration_ms = upstream_request_started_at.elapsed().as_millis() as u64,
                 "llm_upstream_request_finished"
             );
-            resp
         })
     })
     .await;

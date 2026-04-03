@@ -135,12 +135,12 @@ fn resolve_via_nsrunningapp(pid: i32) -> Option<InstalledApp> {
 fn resolve_via_nsrunningapp_inner(pid: i32) -> Option<InstalledApp> {
     let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)?;
 
-    if let Some(bundle_url) = app.bundleURL() {
-        if let Some(path_ns) = bundle_url.path() {
-            let path_str = path_ns.to_string();
-            if let Some(resolved) = find_outermost_app(Path::new(&path_str)) {
-                return Some(resolved);
-            }
+    if let Some(bundle_url) = app.bundleURL()
+        && let Some(path_ns) = bundle_url.path()
+    {
+        let path_str = path_ns.to_string();
+        if let Some(resolved) = find_outermost_app(Path::new(&path_str)) {
+            return Some(resolved);
         }
     }
 

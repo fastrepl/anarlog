@@ -70,12 +70,12 @@ impl ShortcutServiceStatus {
         if !self.bootstrapped {
             return Some("LaunchAgent is installed but not bootstrapped.".to_string());
         }
-        if let Some(code) = self.last_exit_code {
-            if code != 0 {
-                return Some(format!(
-                    "Daemon exited during startup (last exit code: {code})."
-                ));
-            }
+        if let Some(code) = self.last_exit_code
+            && code != 0
+        {
+            return Some(format!(
+                "Daemon exited during startup (last exit code: {code})."
+            ));
         }
         if !self.running {
             return Some("LaunchAgent is bootstrapped but not running.".to_string());

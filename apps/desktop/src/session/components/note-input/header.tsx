@@ -31,10 +31,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@hypr/ui/components/ui/popover";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
 import {
@@ -720,7 +716,6 @@ function CreateOtherFormatButton({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const resultsScrollRef = useRef<HTMLDivElement>(null);
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const sessionTitle = main.UI.useCell(
     "sessions",
@@ -1114,9 +1109,6 @@ function CreateOtherFormatButton({
     () => resultSections.flatMap((section) => section.items),
     [resultSections],
   );
-  const { atStart, atEnd } = useScrollFade(resultsScrollRef, "vertical", [
-    resultSections,
-  ]);
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus();
   }, []);
@@ -1210,8 +1202,9 @@ function CreateOtherFormatButton({
 
             <div className="relative">
               <div
-                ref={resultsScrollRef}
-                className="scrollbar-hide max-h-80 overflow-y-auto p-2"
+                className={cn([
+                  "scroll-fade-y scrollbar-hide max-h-80 overflow-y-auto p-2",
+                ])}
               >
                 <div className="flex flex-col gap-3">
                   {resultSections.map((section) => (
@@ -1252,8 +1245,6 @@ function CreateOtherFormatButton({
                   ))}
                 </div>
               </div>
-              {!atStart && <ScrollFadeOverlay position="top" />}
-              {!atEnd && <ScrollFadeOverlay position="bottom" />}
             </div>
           </AppFloatingPanel>
 
@@ -1287,11 +1278,6 @@ export function Header({
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isLiveProcessing = sessionMode === "active";
   const store = main.UI.useStore(main.STORE_ID);
-
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(tabsRef, "horizontal", [
-    editorTabs.length,
-  ]);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
@@ -1305,10 +1291,7 @@ export function Header({
     <div className="flex flex-col">
       <div className="flex items-center justify-between gap-2">
         <div className="relative min-w-0 flex-1">
-          <div
-            ref={tabsRef}
-            className="scrollbar-hide flex items-center gap-1 overflow-x-auto"
-          >
+          <div className="scroll-fade-x scrollbar-hide flex items-center gap-1 overflow-x-auto">
             {editorTabs.map((view, index) => {
               if (view.type === "enhanced") {
                 return (
@@ -1381,8 +1364,6 @@ export function Header({
               />
             )}
           </div>
-          {!atStart && <ScrollFadeOverlay position="left" />}
-          {!atEnd && <ScrollFadeOverlay position="right" />}
         </div>
       </div>
     </div>

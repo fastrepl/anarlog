@@ -6,7 +6,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CactusAdapter, DashScopeAdapter,
     DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
-    MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
+    MistralAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
 };
 use owhisper_interface::stream::Extra;
 use owhisper_interface::{ControlMessage, MixedMessage};
@@ -62,11 +62,10 @@ pub(super) async fn spawn_rx_task(
         (AdapterKind::AssemblyAI, true) => {
             spawn_rx_task_dual_with_adapter::<AssemblyAIAdapter>(args, myself).await
         }
-        (AdapterKind::OpenAI, false) => {
-            spawn_rx_task_single_with_adapter::<OpenAIAdapter>(args, myself).await
-        }
-        (AdapterKind::OpenAI, true) => {
-            spawn_rx_task_dual_with_adapter::<OpenAIAdapter>(args, myself).await
+        (AdapterKind::OpenAI, _) => {
+            return Err(actor_error(
+                "provider_batch_only: openai only supports batch transcription",
+            ));
         }
         (AdapterKind::Gladia, false) => {
             spawn_rx_task_single_with_adapter::<GladiaAdapter>(args, myself).await
@@ -103,6 +102,11 @@ pub(super) async fn spawn_rx_task(
         }
         (AdapterKind::Cactus, true) => {
             spawn_rx_task_dual_with_adapter::<CactusAdapter>(args, myself).await
+        }
+        (AdapterKind::Pyannote, _) => {
+            return Err(actor_error(
+                "provider_batch_only: pyannote only supports batch transcription",
+            ));
         }
     }?;
 

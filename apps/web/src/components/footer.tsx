@@ -243,14 +243,6 @@ function ProductLinks() {
         </li>
         <li>
           <Link
-            to="/roadmap/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
-          >
-            Roadmap
-          </Link>
-        </li>
-        <li>
-          <Link
             to="/docs/"
             className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >

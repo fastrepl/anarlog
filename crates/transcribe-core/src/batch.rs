@@ -1,19 +1,21 @@
-use hypr_vad_chunking::AudioChunk;
+use hypr_audio_chunking::AudioChunk;
 use owhisper_interface::batch_sse::BatchSseMessage;
 use owhisper_interface::progress::{InferencePhase, InferenceProgress};
 use tokio::sync::mpsc;
 
+use crate::TARGET_SAMPLE_RATE;
+
 pub fn initial_resolved_until(chunks: &[AudioChunk], channel_duration: f64) -> f64 {
     chunks
         .first()
-        .map(|chunk| chunk.start_timestamp_ms as f64 / 1000.0)
+        .map(|chunk| chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64)
         .unwrap_or(channel_duration)
 }
 
 pub fn next_resolved_until(chunks: &[AudioChunk], chunk_idx: usize, channel_duration: f64) -> f64 {
     chunks
         .get(chunk_idx + 1)
-        .map(|chunk| chunk.start_timestamp_ms as f64 / 1000.0)
+        .map(|chunk| chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64)
         .unwrap_or(channel_duration)
 }
 

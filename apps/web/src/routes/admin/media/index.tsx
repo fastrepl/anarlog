@@ -41,10 +41,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
@@ -763,11 +759,6 @@ function Sidebar({
   onMove: (path: string, name: string, type: "file" | "dir") => void;
   onDelete: (path: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef, "vertical", [
-    filteredTreeNodes,
-  ]);
-
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
@@ -789,9 +780,7 @@ function Sidebar({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
-        <div ref={scrollRef} className="h-full overflow-y-auto">
+        <div className="scroll-fade-y h-full overflow-y-auto">
           {isCreatingFolder && (
             <NewFolderInlineInput
               existingNames={filteredTreeNodes.map((n) => n.name)}

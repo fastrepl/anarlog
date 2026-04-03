@@ -16,20 +16,6 @@ class ShadowContainerView: NSView {
 class NotificationBackgroundView: NSView {
   let bgLayer = CALayer()
   let borderLayer = CALayer()
-  let progressLayer = CALayer()
-
-  private var totalDuration: Double = 0
-  private var remainingDuration: Double = 0
-  private var progressStartTime: Date?
-  private var isPaused: Bool = false
-  private var progressRatio: CGFloat = 1.0
-  var onProgressComplete: (() -> Void)?
-
-  var isProgressHidden: Bool = false {
-    didSet {
-      progressLayer.isHidden = isProgressHidden
-    }
-  }
 
   func makeBackgroundOpaque() {
     bgLayer.backgroundColor = NSColor(calibratedWhite: 0.92, alpha: 1.0).cgColor
@@ -43,10 +29,6 @@ class NotificationBackgroundView: NSView {
       bgLayer.cornerCurve = .continuous
       borderLayer.cornerCurve = .continuous
     }
-  }
-
-  private var progressBarFullWidth: CGFloat {
-    bounds.width - (Layout.progressBarInset * 2)
   }
 
   override init(frame frameRect: NSRect) {
@@ -72,11 +54,6 @@ class NotificationBackgroundView: NSView {
     borderLayer.borderWidth = 2.0
     borderLayer.borderColor = NSColor.white.cgColor
     layer?.addSublayer(borderLayer)
-
-    progressLayer.backgroundColor = Colors.progressBarBg
-    progressLayer.cornerRadius = Layout.progressBarHeight / 2
-    progressLayer.anchorPoint = CGPoint(x: 0, y: 0.5)
-    layer?.addSublayer(progressLayer)
   }
 
   override func layout() {
@@ -85,99 +62,6 @@ class NotificationBackgroundView: NSView {
     CATransaction.setDisableActions(true)
     bgLayer.frame = bounds
     borderLayer.frame = bounds
-    syncProgressLayerFrame()
-    CATransaction.commit()
-  }
-
-  private func syncProgressLayerFrame() {
-    let width = isPaused ? progressBarFullWidth * progressRatio : progressBarFullWidth
-    progressLayer.frame = CGRect(
-      x: Layout.progressBarInset,
-      y: Layout.progressBarBottomOffset,
-      width: width,
-      height: Layout.progressBarHeight
-    )
-  }
-
-  private func runProgressAnimation(from startWidth: CGFloat, duration: Double) {
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
-    progressLayer.bounds.size.width = startWidth
-    CATransaction.commit()
-
-    CATransaction.begin()
-    CATransaction.setCompletionBlock { [weak self] in
-      guard let self = self, !self.isPaused else { return }
-      self.onProgressComplete?()
-    }
-
-    let animation = CABasicAnimation(keyPath: "bounds.size.width")
-    animation.fromValue = startWidth
-    animation.toValue = 0
-    animation.duration = duration
-    animation.fillMode = .forwards
-    animation.isRemovedOnCompletion = false
-    animation.timingFunction = CAMediaTimingFunction(name: .linear)
-
-    progressLayer.add(animation, forKey: "progress")
-    CATransaction.commit()
-  }
-
-  func startProgress(duration: Double) {
-    guard duration > 0 else { return }
-
-    totalDuration = duration
-    remainingDuration = duration
-    progressStartTime = Date()
-    isPaused = false
-    progressRatio = 1.0
-
-    progressLayer.removeAllAnimations()
-    syncProgressLayerFrame()
-    runProgressAnimation(from: progressBarFullWidth, duration: duration)
-  }
-
-  func pauseProgress() {
-    guard !isPaused, let startTime = progressStartTime else { return }
-    isPaused = true
-
-    let elapsed = Date().timeIntervalSince(startTime)
-    remainingDuration = max(0, totalDuration - elapsed)
-
-    if let presentation = progressLayer.presentation() {
-      let currentWidth = presentation.bounds.width
-      progressRatio = progressBarFullWidth > 0 ? currentWidth / progressBarFullWidth : 0
-    } else {
-      progressRatio = totalDuration > 0 ? remainingDuration / totalDuration : 0
-    }
-
-    progressLayer.removeAllAnimations()
-
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
-    progressLayer.bounds.size.width = progressBarFullWidth * progressRatio
-    CATransaction.commit()
-  }
-
-  func resumeProgress() {
-    guard isPaused, remainingDuration > 0 else { return }
-    isPaused = false
-    progressStartTime = Date()
-
-    runProgressAnimation(from: progressBarFullWidth * progressRatio, duration: remainingDuration)
-  }
-
-  func resetProgress() {
-    progressLayer.removeAllAnimations()
-    isPaused = false
-    progressStartTime = nil
-    remainingDuration = 0
-    totalDuration = 0
-    progressRatio = 1.0
-
-    CATransaction.begin()
-    CATransaction.setDisableActions(true)
-    progressLayer.bounds.size.width = 0
     CATransaction.commit()
   }
 }
@@ -259,6 +143,8 @@ class ClickableView: NSView {
     if let notification = notification {
       if notification.payload.hasOptions, let optionsButton = findOptionsButton(in: self) {
         optionsButton.showOptionsMenu()
+      } else if notification.payload.hasExpandableContent {
+        notification.toggleExpansion()
       } else {
         RustBridge.onCollapsedConfirm(key: notification.key)
         notification.dismiss()

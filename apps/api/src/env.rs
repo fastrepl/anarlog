@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::sync::OnceLock;
 
+use envy::Error as EnvyError;
 use serde::Deserialize;
 
 fn default_port() -> u16 {
@@ -25,6 +26,8 @@ pub struct Env {
     pub nango: hypr_api_env::NangoEnv,
     #[serde(flatten)]
     pub stripe: hypr_api_env::StripeEnv,
+    #[serde(flatten)]
+    pub pyannote: hypr_api_env::PyannoteEnv,
     #[serde(flatten)]
     pub github_app: hypr_api_support::GitHubAppEnv,
     #[serde(flatten)]
@@ -57,6 +60,23 @@ pub fn env() -> &'static Env {
 
         let _ = dotenvy::from_path(repo_root.join(".env.supabase"));
         let _ = dotenvy::from_path(manifest_dir.join(".env"));
-        envy::from_env().expect("Failed to load environment")
+        envy::from_env().unwrap_or_else(|error| panic!("{}", format_env_error(error)))
     })
+}
+
+fn format_env_error(error: EnvyError) -> String {
+    match error {
+        EnvyError::MissingValue(field) => {
+            let env_var = field_name_to_env_var(&field);
+            format!("Failed to load environment: missing {env_var} (field: {field})")
+        }
+        other => format!("Failed to load environment: {other}"),
+    }
+}
+
+fn field_name_to_env_var(field: &str) -> String {
+    field
+        .chars()
+        .flat_map(|ch| ch.to_uppercase())
+        .collect::<String>()
 }

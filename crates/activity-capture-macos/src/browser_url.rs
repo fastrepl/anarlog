@@ -12,15 +12,14 @@ impl BrowserUrlResolver {
 
     pub fn current_url(self, profile: AppProfile) -> Option<String> {
         let script = match profile {
-            AppProfile::Safari => Some(
+            AppProfile::Safari => Some(str::to_string(
                 r#"
                 tell application "Safari"
                     if (count of windows) is 0 then return ""
                     return URL of current tab of front window
                 end tell
                 "#,
-            )
-            .map(str::to_string),
+            )),
             AppProfile::Chrome | AppProfile::Arc | AppProfile::Brave | AppProfile::Edge => {
                 let bundle_id = profile.browser_bundle_id()?;
                 Some(format!(

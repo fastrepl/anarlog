@@ -6,6 +6,8 @@ class NotificationInstance {
   let clickableView: ClickableView
   let creationIndex: Int
   private var timeoutSeconds: Double = 0
+  private var remainingDismissSeconds: Double = 0
+  private var dismissStartTime: Date?
 
   var key: String { payload.key }
 
@@ -13,17 +15,14 @@ class NotificationInstance {
   var isAnimating: Bool = false
   var compactContentView: NSView?
   var expandedContentView: NSView?
+  weak var effectView: NSVisualEffectView?
+  weak var compactActionButton: CompactActionButton?
 
   var countdownTimer: Timer?
+  var dismissTimer: Timer?
   var meetingStartTime: Date?
   weak var timerLabel: NSTextField?
-  weak var progressBar: NotificationBackgroundView? {
-    didSet {
-      progressBar?.onProgressComplete = { [weak self] in
-        self?.dismissWithTimeout()
-      }
-    }
-  }
+  weak var compactMessageLabel: NSTextField?
 
   init(
     payload: NotificationPayload, panel: NSPanel, clickableView: ClickableView, creationIndex: Int
@@ -45,64 +44,123 @@ class NotificationInstance {
     NotificationManager.shared.animateExpansion(notification: self, isExpanded: isExpanded)
   }
 
-  func startCountdown(label: NSTextField) {
-    timerLabel = label
-    updateCountdown()
-
-    countdownTimer?.invalidate()
-    countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-      self?.updateCountdown()
-    }
+  func bindCompactMessageLabel(_ label: NSTextField) {
+    compactMessageLabel = label
+    updateScheduleLabels()
+    startScheduleUpdates()
   }
 
-  func stopCountdown() {
-    countdownTimer?.invalidate()
-    countdownTimer = nil
+  func bindExpandedTimerLabel(_ label: NSTextField) {
+    timerLabel = label
+    updateScheduleLabels()
+    startScheduleUpdates()
+  }
+
+  func clearExpandedTimerLabel() {
     timerLabel = nil
   }
 
-  private func updateCountdown() {
-    guard let startTime = meetingStartTime, let label = timerLabel else { return }
+  func startScheduleUpdates() {
+    guard let meetingStartTime else { return }
+    updateScheduleLabels()
+
+    guard meetingStartTime.timeIntervalSinceNow > 0 else { return }
+    guard countdownTimer == nil else { return }
+    countdownTimer?.invalidate()
+    countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+      self?.updateScheduleLabels()
+    }
+  }
+
+  func stopScheduleUpdates() {
+    countdownTimer?.invalidate()
+    countdownTimer = nil
+    timerLabel = nil
+    compactMessageLabel = nil
+  }
+
+  private func updateScheduleLabels() {
+    guard let startTime = meetingStartTime else { return }
     let remaining = startTime.timeIntervalSinceNow
 
     if remaining <= 0 {
-      label.stringValue = "Started"
+      compactMessageLabel?.stringValue = "Started"
+      timerLabel?.stringValue = "Started"
       countdownTimer?.invalidate()
       countdownTimer = nil
-
-      if isExpanded {
-        RustBridge.onExpandedStartTimeReached(key: key)
-        dismiss()
-      }
     } else {
-      let minutes = Int(remaining) / 60
-      let seconds = Int(remaining) % 60
-      label.stringValue = "Begins in \(minutes):\(String(format: "%02d", seconds))"
+      compactMessageLabel?.stringValue = compactScheduleText(remaining)
+      timerLabel?.stringValue = expandedScheduleText(remaining)
     }
+  }
+
+  private func compactScheduleText(_ remaining: TimeInterval) -> String {
+    let minutes = max(1, Int(ceil(remaining / 60)))
+    return "Starting in \(minutes) minute\(minutes == 1 ? "" : "s")"
+  }
+
+  private func expandedScheduleText(_ remaining: TimeInterval) -> String {
+    let minutes = Int(remaining) / 60
+    let seconds = Int(remaining) % 60
+    return "Begins in \(minutes):\(String(format: "%02d", seconds))"
   }
 
   func startDismissTimer(timeoutSeconds: Double) {
     self.timeoutSeconds = timeoutSeconds
-    progressBar?.startProgress(duration: timeoutSeconds)
+    remainingDismissSeconds = timeoutSeconds
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: timeoutSeconds)
+
+    if let compactActionButton {
+      compactActionButton.startProgress(duration: timeoutSeconds)
+    }
   }
 
   func pauseDismissTimer() {
-    progressBar?.pauseProgress()
+    guard timeoutSeconds > 0 else { return }
+    if let dismissStartTime {
+      let elapsed = Date().timeIntervalSince(dismissStartTime)
+      remainingDismissSeconds = max(0, remainingDismissSeconds - elapsed)
+      self.dismissStartTime = nil
+    }
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+
+    if let compactActionButton {
+      compactActionButton.pauseProgress()
+    }
   }
 
   func resumeDismissTimer() {
-    progressBar?.resumeProgress()
+    guard timeoutSeconds > 0, remainingDismissSeconds > 0 else { return }
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: remainingDismissSeconds)
+
+    if let compactActionButton {
+      compactActionButton.resumeProgress()
+    }
   }
 
   func restartDismissTimer() {
     guard timeoutSeconds > 0 else { return }
-    progressBar?.startProgress(duration: timeoutSeconds)
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+    remainingDismissSeconds = timeoutSeconds
+    dismissStartTime = Date()
+    scheduleDismissTimer(after: timeoutSeconds)
+
+    if let compactActionButton {
+      compactActionButton.startProgress(duration: timeoutSeconds)
+    }
   }
 
   func dismiss() {
-    progressBar?.onProgressComplete = nil
-    progressBar?.resetProgress()
-    stopCountdown()
+    dismissTimer?.invalidate()
+    dismissTimer = nil
+    dismissStartTime = nil
+    remainingDismissSeconds = 0
+    compactActionButton?.resetProgress()
+    stopScheduleUpdates()
 
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = Timing.dismiss
@@ -124,8 +182,17 @@ class NotificationInstance {
     dismiss()
   }
 
+  private func scheduleDismissTimer(after duration: Double) {
+    guard duration > 0 else { return }
+    dismissTimer?.invalidate()
+    dismissTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) {
+      [weak self] _ in
+      self?.dismissWithTimeout()
+    }
+  }
+
   deinit {
-    progressBar?.onProgressComplete = nil
     countdownTimer?.invalidate()
+    dismissTimer?.invalidate()
   }
 }

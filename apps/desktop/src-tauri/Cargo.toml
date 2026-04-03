@@ -47,8 +47,6 @@ tauri-plugin-http = { workspace = true }
 tauri-plugin-icon = { workspace = true }
 tauri-plugin-importer = { workspace = true }
 tauri-plugin-js = { workspace = true }
-tauri-plugin-listener = { workspace = true }
-tauri-plugin-listener2 = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
 tauri-plugin-mcp = { workspace = true }
 tauri-plugin-misc = { workspace = true }
@@ -77,6 +75,7 @@ tauri-plugin-tantivy = { workspace = true }
 tauri-plugin-template = { workspace = true }
 tauri-plugin-todo = { workspace = true }
 tauri-plugin-tracing = { workspace = true }
+tauri-plugin-transcription = { workspace = true }
 tauri-plugin-tray = { workspace = true }
 tauri-plugin-updater = { workspace = true }
 tauri-plugin-updater2 = { workspace = true }

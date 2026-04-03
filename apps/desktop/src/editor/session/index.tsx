@@ -33,6 +33,7 @@ import "@hypr/tiptap/styles.css";
 import {
   MentionNodeView,
   ResizableImageView,
+  SessionNodeView,
   TaskItemView,
 } from "../node-views";
 import {
@@ -58,6 +59,10 @@ import {
   mentionSkipPlugin,
 } from "../widgets";
 import { buildInputRules, buildKeymap } from "./keymap";
+import {
+  LinkedItemOpenBehaviorContext,
+  type LinkedItemOpenBehavior,
+} from "./linked-item-open-behavior";
 import { schema } from "./schema";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
@@ -101,11 +106,13 @@ interface EditorProps {
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
   onNavigateToTitle?: (pixelWidth?: number) => void;
+  linkedItemOpenBehavior?: LinkedItemOpenBehavior;
 }
 
 const nodeViews = {
   image: ResizableImageView,
   "mention-@": MentionNodeView,
+  session: SessionNodeView,
   taskItem: TaskItemView,
 };
 
@@ -263,6 +270,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       placeholderComponent,
       fileHandlerConfig,
       onNavigateToTitle,
+      linkedItemOpenBehavior = "current",
     } = props;
 
     const previousContentRef = useRef<JSONContent | undefined>(initialContent);
@@ -355,31 +363,33 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
     );
 
     return (
-      <ProseMirror
-        defaultState={defaultState}
-        nodeViews={nodeViews}
-        dispatchTransaction={function (this: EditorView, tr: Transaction) {
-          const newState = this.state.apply(tr);
-          this.updateState(newState);
-          if (tr.docChanged) {
-            onUpdate(this);
-          }
-        }}
-        attributes={{
-          spellcheck: "false",
-          autocomplete: "off",
-          autocorrect: "off",
-          autocapitalize: "off",
-          role: "textbox",
-        }}
-        className="tiptap"
-      >
-        <ProseMirrorDoc />
-        <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
-        <EditorCommandsBridge commandsRef={commandsRef} />
-        <SlashCommandMenu />
-        {mentionConfig && <MentionSuggestion config={mentionConfig} />}
-      </ProseMirror>
+      <LinkedItemOpenBehaviorContext.Provider value={linkedItemOpenBehavior}>
+        <ProseMirror
+          defaultState={defaultState}
+          nodeViews={nodeViews}
+          dispatchTransaction={function (this: EditorView, tr: Transaction) {
+            const newState = this.state.apply(tr);
+            this.updateState(newState);
+            if (tr.docChanged) {
+              onUpdate(this);
+            }
+          }}
+          attributes={{
+            spellcheck: "false",
+            autocomplete: "off",
+            autocorrect: "off",
+            autocapitalize: "off",
+            role: "textbox",
+          }}
+          className="tiptap"
+        >
+          <ProseMirrorDoc />
+          <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+          <EditorCommandsBridge commandsRef={commandsRef} />
+          <SlashCommandMenu />
+          {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+        </ProseMirror>
+      </LinkedItemOpenBehaviorContext.Provider>
     );
   },
 );

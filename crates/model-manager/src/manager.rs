@@ -77,9 +77,14 @@ impl<M: ModelLoader> ModelManager<M> {
             return Err(Error::ModelFileNotFound(path.display().to_string()));
         }
 
-        self.update_activity().await;
-
         let mut active = self.active.lock().await;
+        let mut last_activity = self.last_activity.lock().await;
+        let now = tokio::time::Instant::now();
+
+        if last_activity.is_some_and(|t| now.duration_since(t) > self.inactivity_timeout) {
+            *active = None;
+        }
+        *last_activity = Some(now);
 
         if let Some(ref a) = *active
             && a.name == resolved

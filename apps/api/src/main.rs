@@ -141,6 +141,7 @@ async fn app() -> Router {
         exa_api_key: env.exa_api_key.clone(),
         jina_api_key: env.jina_api_key.clone(),
     };
+    let pyannote_config = hypr_api_pyannote::PyannoteConfig::new(&env.pyannote);
 
     use hypr_api_nango::NangoIntegrationId;
 
@@ -165,6 +166,7 @@ async fn app() -> Router {
 
     let pro_routes = Router::new()
         .merge(hypr_api_research::router(research_config))
+        .nest("/pyannote", hypr_api_pyannote::router(pyannote_config))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state_pro,

@@ -263,7 +263,7 @@ where
 
 fn transcribe_chunks(
     channel_idx: usize,
-    chunks: &[hypr_vad_chunking::AudioChunk],
+    chunks: &[hypr_audio_chunking::AudioChunk],
     channel_duration: f64,
     model: &mut hypr_whisper_local::Whisper,
     progress: &mut ProgressTracker,
@@ -276,7 +276,7 @@ fn transcribe_chunks(
     let mut segment_count = 0usize;
 
     for (chunk_idx, chunk) in chunks.iter().enumerate() {
-        let chunk_start_sec = chunk.start_timestamp_ms as f64 / 1000.0;
+        let chunk_start_sec = chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64;
         progress.update_channel(channel_idx, chunk_start_sec);
 
         let segments = transcribe_chunk(model, &chunk.samples, chunk_start_sec)?;

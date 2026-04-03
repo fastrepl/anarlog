@@ -84,7 +84,7 @@ fn build_alias_map(
         }
 
         // Strip trailing comma/paren from the table token
-        let raw_table = tokens[table_idx].trim_end_matches(|c| c == ',' || c == ')');
+        let raw_table = tokens[table_idx].trim_end_matches([',', ')']);
         if !known_tables.contains(raw_table) {
             continue;
         }
@@ -98,8 +98,7 @@ fn build_alias_map(
         };
 
         if alias_idx < tokens.len() {
-            let alias =
-                tokens[alias_idx].trim_end_matches(|c: char| c == ',' || c == ')' || c == ';');
+            let alias = tokens[alias_idx].trim_end_matches([',', ')', ';']);
             let alias_upper = alias.to_uppercase();
             if !alias.is_empty()
                 && !matches!(

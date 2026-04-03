@@ -109,17 +109,12 @@ function HyprProviderCard({
     staleTime: Infinity,
   });
 
-  const argmaxModels =
-    supportedModels.data?.filter((m) => m.model_type === "argmax") ?? [];
   const whispercppModels =
     supportedModels.data?.filter((m) => m.model_type === "whispercpp") ?? [];
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
-  const hasLocalModels =
-    argmaxModels.length > 0 ||
-    whispercppModels.length > 0 ||
-    cactusModels.length > 0;
+  const hasLocalModels = whispercppModels.length > 0 || cactusModels.length > 0;
 
   const providerDef = PROVIDERS.find((p) => p.id === providerId);
   const isConfigured = providerDef?.requirements.length === 0;
@@ -203,20 +198,6 @@ function HyprProviderCard({
                 <>
                   <ModelGroupLabel label="WhisperCPP" />
                   {whispercppModels.map((model) => (
-                    <HyprProviderLocalRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
-                      description={model.description}
-                    />
-                  ))}
-                </>
-              )}
-
-              {argmaxModels.length > 0 && (
-                <>
-                  <ModelGroupLabel label="Deprecated" />
-                  {argmaxModels.map((model) => (
                     <HyprProviderLocalRow
                       key={model.key as string}
                       model={model.key}

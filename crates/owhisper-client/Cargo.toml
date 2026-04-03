@@ -16,6 +16,7 @@ hypr-observability = { workspace = true }
 hypr-ws-client = { workspace = true }
 soniox = { workspace = true }
 
+openai-transcription = { workspace = true }
 owhisper-interface = { workspace = true }
 
 futures-util = { workspace = true }

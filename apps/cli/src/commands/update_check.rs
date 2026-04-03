@@ -36,10 +36,10 @@ async fn fetch_latest_cli_release(client: &reqwest::Client) -> Option<String> {
         let is_last = releases.len() < RELEASES_PER_PAGE as usize;
 
         for release in &releases {
-            if let Some((triple, version)) = parse_cli_release(release) {
-                if best.as_ref().is_none_or(|(b, _)| triple > *b) {
-                    best = Some((triple, version.to_string()));
-                }
+            if let Some((triple, version)) = parse_cli_release(release)
+                && best.as_ref().is_none_or(|(b, _)| triple > *b)
+            {
+                best = Some((triple, version.to_string()));
             }
         }
 
@@ -64,10 +64,11 @@ async fn fetch_release_page(client: &reqwest::Client, page: u32) -> Option<Vec<R
         .ok()
 }
 
+#[cfg(test)]
 fn find_latest_cli_release_on_page(releases: &[Release]) -> Option<String> {
     releases
         .iter()
-        .filter_map(|release| parse_cli_release(release))
+        .filter_map(parse_cli_release)
         .max_by_key(|(triple, _)| *triple)
         .map(|(_, version)| version.to_string())
 }

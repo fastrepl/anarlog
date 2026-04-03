@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 
-import type { BatchParams } from "@hypr/plugin-listener2";
+import type { BatchParams } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
@@ -27,6 +27,9 @@ type RunOptions = {
   apiKey?: string;
   keywords?: string[];
   languages?: string[];
+  numSpeakers?: number;
+  minSpeakers?: number;
+  maxSpeakers?: number;
 };
 
 const BATCH_PROVIDER_MAP: Record<string, BatchParams["provider"]> = {
@@ -191,6 +194,9 @@ export const useRunBatch = (sessionId: string) => {
         api_key: options?.apiKey ?? conn.apiKey,
         keywords: options?.keywords ?? keywords ?? [],
         languages: options?.languages ?? languages ?? [],
+        num_speakers: options?.numSpeakers,
+        min_speakers: options?.minSpeakers,
+        max_speakers: options?.maxSpeakers,
       };
 
       await runBatch(params, { handlePersist: persist });

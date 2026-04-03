@@ -117,7 +117,7 @@ pub(super) fn transcribe_batch(
 #[allow(clippy::too_many_arguments)]
 fn transcribe_chunks(
     channel_idx: usize,
-    chunks: &[hypr_vad_chunking::AudioChunk],
+    chunks: &[hypr_audio_chunking::AudioChunk],
     channel_duration: f64,
     model: &hypr_cactus::Model,
     options: &hypr_cactus::TranscribeOptions,
@@ -133,9 +133,9 @@ fn transcribe_chunks(
         let pcm_i16 = hypr_audio_utils::f32_to_i16_samples(&chunk.samples);
         let pcm_bytes: Vec<u8> = pcm_i16.iter().flat_map(|s| s.to_le_bytes()).collect();
 
-        let chunk_start_sec = chunk.start_timestamp_ms as f64 / 1000.0;
+        let chunk_start_sec = chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64;
         let chunk_duration_sec =
-            (chunk.end_timestamp_ms - chunk.start_timestamp_ms) as f64 / 1000.0;
+            (chunk.sample_end - chunk.sample_start) as f64 / TARGET_SAMPLE_RATE as f64;
         progress.update_channel(channel_idx, chunk_start_sec);
 
         let cactus_response = if progress.has_tx() {
@@ -261,10 +261,10 @@ mod tests {
 
     #[test]
     fn initial_resolved_until_uses_leading_silence() {
-        let chunks = vec![hypr_vad_chunking::AudioChunk {
+        let chunks = vec![hypr_audio_chunking::AudioChunk {
             samples: vec![],
-            start_timestamp_ms: 12_000,
-            end_timestamp_ms: 15_000,
+            sample_start: 12 * TARGET_SAMPLE_RATE as usize,
+            sample_end: 15 * TARGET_SAMPLE_RATE as usize,
         }];
 
         let progress = initial_resolved_until(&chunks, 40.0);

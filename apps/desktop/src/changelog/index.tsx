@@ -1,5 +1,5 @@
 import { CalendarIcon, ExternalLinkIcon, SparklesIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { ChangelogContent } from "@hypr/changelog";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -11,10 +11,6 @@ import {
   BreadcrumbSeparator,
 } from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { safeFormat } from "@hypr/utils";
 
 import { useChangelogContent } from "./data";
@@ -67,8 +63,6 @@ export function TabContentChangelog({
   }, []);
 
   const { content, date, loading } = useChangelogContent(current);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef);
 
   return (
     <StandardTabWrapper>
@@ -84,9 +78,7 @@ export function TabContentChangelog({
         </div>
 
         <div className="relative mt-4 min-h-0 flex-1 overflow-hidden">
-          {!atStart && <ScrollFadeOverlay position="top" />}
-          {!atEnd && <ScrollFadeOverlay position="bottom" />}
-          <div ref={scrollRef} className="h-full overflow-y-auto px-3 pb-4">
+          <div className="scroll-fade-y h-full overflow-y-auto px-3 pb-4">
             <ChangelogBody
               version={current}
               content={content}

@@ -1,12 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { StickyNoteIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { cn } from "@hypr/utils";
 
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
@@ -14,6 +11,7 @@ import { NoteInput, type NoteInputHandle } from "./components/note-input";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionPreviewCard } from "./components/session-preview-card";
+import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
@@ -22,19 +20,14 @@ import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
-import { useShell } from "~/contexts/shell";
-import { StandardTabWrapper } from "~/shared/main";
+import { useSessionStatusBanner } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
-
-const SIDEBAR_WIDTH = 280;
-const LAYOUT_PADDING = 4;
 
 export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   tab,
@@ -265,125 +258,35 @@ function TabContentNoteInner({
     [],
   );
 
+  useSessionStatusBanner({
+    skipReason,
+    showConsentBanner,
+    showTimeline,
+  });
+
   return (
-    <>
-      <StandardTabWrapper
-        afterBorder={showTimeline && <AudioPlayer.Timeline />}
-        floatingButton={<FloatingActionButton tab={tab} />}
-        showTimeline={showTimeline}
-      >
-        <div className="flex h-full flex-col">
-          <div className="pr-1 pl-2">
-            <OuterHeader sessionId={tab.id} currentView={currentView} />
-          </div>
-          <div className="mt-2 shrink-0 px-3">
-            <TitleInput
-              ref={titleInputRef}
-              tab={tab}
-              onTransferContentToEditor={handleTransferContentToEditor}
-              onFocusEditorAtStart={handleFocusEditorAtStart}
-              onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
-              onGenerateTitle={hasTranscript ? generateTitle : undefined}
-            />
-          </div>
-          <div className="mt-2 min-h-0 flex-1 px-2">
-            <NoteInput
-              ref={noteInputRef}
-              tab={tab}
-              onNavigateToTitle={handleNavigateToTitle}
-            />
-          </div>
-        </div>
-      </StandardTabWrapper>
-      <StatusBanner
-        skipReason={skipReason}
-        showConsentBanner={showConsentBanner}
-        showTimeline={showTimeline}
-      />
-    </>
-  );
-}
-
-function StatusBanner({
-  skipReason,
-  showConsentBanner,
-  showTimeline,
-}: {
-  skipReason: string | null;
-  showConsentBanner: boolean;
-  showTimeline: boolean;
-}) {
-  const { leftsidebar, chat } = useShell();
-  const [chatPanelWidth, setChatPanelWidth] = useState(0);
-  const hasUndoDeleteToast = useUndoDelete(
-    (state) => Object.keys(state.pendingDeletions).length > 0,
-  );
-
-  const isChatPanelOpen = chat.mode === "RightPanelOpen";
-
-  useEffect(() => {
-    if (!isChatPanelOpen) {
-      setChatPanelWidth(0);
-      return;
-    }
-
-    const updateChatWidth = () => {
-      const panels = document.querySelectorAll("[data-panel-id]");
-      const lastPanel = panels[panels.length - 1];
-      if (lastPanel) {
-        setChatPanelWidth(lastPanel.getBoundingClientRect().width);
+    <SessionSurface
+      header={<OuterHeader sessionId={tab.id} currentView={currentView} />}
+      title={
+        <TitleInput
+          ref={titleInputRef}
+          tab={tab}
+          onTransferContentToEditor={handleTransferContentToEditor}
+          onFocusEditorAtStart={handleFocusEditorAtStart}
+          onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+          onGenerateTitle={hasTranscript ? generateTitle : undefined}
+        />
       }
-    };
-
-    updateChatWidth();
-    window.addEventListener("resize", updateChatWidth);
-
-    // Use ResizeObserver on the specific panel instead of MutationObserver on document.body
-    // MutationObserver on document.body with subtree:true causes high CPU usage
-    const resizeObserver = new ResizeObserver(updateChatWidth);
-    const panels = document.querySelectorAll("[data-panel-id]");
-    const lastPanel = panels[panels.length - 1];
-    if (lastPanel) {
-      resizeObserver.observe(lastPanel);
-    }
-
-    return () => {
-      window.removeEventListener("resize", updateChatWidth);
-      resizeObserver.disconnect();
-    };
-  }, [isChatPanelOpen]);
-
-  const leftOffset = leftsidebar.expanded
-    ? (SIDEBAR_WIDTH + LAYOUT_PADDING) / 2
-    : 0;
-  const rightOffset = chatPanelWidth / 2;
-  const totalOffset = leftOffset - rightOffset;
-
-  return createPortal(
-    <AnimatePresence>
-      {(skipReason || showConsentBanner) && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          style={{ left: `calc(50% + ${totalOffset}px)` }}
-          className={cn([
-            "fixed z-50 -translate-x-1/2",
-            "text-center text-xs whitespace-nowrap",
-            skipReason ? "text-red-400" : "text-stone-300",
-            hasUndoDeleteToast
-              ? "bottom-1"
-              : showTimeline
-                ? "bottom-[76px]"
-                : "bottom-6",
-          ])}
-        >
-          {skipReason || "Ask for consent when using Char"}
-        </motion.div>
-      )}
-    </AnimatePresence>,
-    document.body,
+      afterBorder={showTimeline && <AudioPlayer.Timeline />}
+      floatingButton={<FloatingActionButton tab={tab} />}
+      showTimeline={showTimeline}
+    >
+      <NoteInput
+        ref={noteInputRef}
+        tab={tab}
+        onNavigateToTitle={handleNavigateToTitle}
+      />
+    </SessionSurface>
   );
 }
 

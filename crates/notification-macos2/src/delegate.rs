@@ -56,10 +56,10 @@ define_class!(
                 callbacks::fire_dismiss(key);
             } else {
                 let action_str = action.to_string();
-                if let Some(suffix) = action_str.strip_prefix("OPTION_") {
-                    if let Ok(n) = suffix.parse::<i32>() {
-                        callbacks::fire_option_selected(key, n);
-                    }
+                if let Some(suffix) = action_str.strip_prefix("OPTION_")
+                    && let Ok(n) = suffix.parse::<i32>()
+                {
+                    callbacks::fire_option_selected(key, n);
                 }
             }
 

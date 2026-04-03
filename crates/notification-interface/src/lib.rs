@@ -90,6 +90,13 @@ pub struct EventDetails {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationFooter {
+    pub text: String,
+    pub action_label: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(tag = "type")]
 pub enum NotificationSource {
     #[serde(rename = "calendar_event")]
@@ -98,7 +105,38 @@ pub enum NotificationSource {
     MicDetected {
         app_names: Vec<String>,
         #[serde(default)]
+        app_ids: Vec<String>,
+        #[serde(default)]
         event_ids: Vec<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(tag = "type")]
+pub enum NotificationIconAsset {
+    #[serde(rename = "app_icon")]
+    AppIcon,
+    #[serde(rename = "calendar")]
+    Calendar,
+    #[serde(rename = "bundle_id")]
+    BundleId { bundle_id: String },
+    #[serde(rename = "path")]
+    Path { path: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(tag = "type")]
+pub enum NotificationIcon {
+    #[serde(rename = "hidden")]
+    Hidden,
+    #[serde(rename = "bundle_id")]
+    BundleId { bundle_id: String },
+    #[serde(rename = "path")]
+    Path { path: String },
+    #[serde(rename = "overlay")]
+    Overlay {
+        base: NotificationIconAsset,
+        badge: NotificationIconAsset,
     },
 }
 
@@ -108,7 +146,7 @@ pub struct NotificationContext {
     pub source: Option<NotificationSource>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct Notification {
     pub key: Option<String>,
     pub title: String,
@@ -120,6 +158,8 @@ pub struct Notification {
     pub event_details: Option<EventDetails>,
     pub action_label: Option<String>,
     pub options: Option<Vec<String>>,
+    pub footer: Option<NotificationFooter>,
+    pub icon: Option<NotificationIcon>,
 }
 
 impl Notification {
@@ -129,6 +169,38 @@ impl Notification {
 
     pub fn is_persistent(&self) -> bool {
         self.timeout.is_none()
+    }
+}
+
+impl NotificationSource {
+    pub fn default_icon(&self) -> Option<NotificationIcon> {
+        match self {
+            Self::CalendarEvent { .. } => Some(NotificationIcon::Overlay {
+                base: NotificationIconAsset::AppIcon,
+                badge: NotificationIconAsset::Calendar,
+            }),
+            Self::MicDetected { app_ids, .. } => app_ids
+                .iter()
+                .find_map(|app_id| NotificationIcon::from_app_id(app_id)),
+        }
+    }
+}
+
+impl NotificationIcon {
+    pub fn from_app_id(app_id: &str) -> Option<Self> {
+        if app_id.is_empty() || app_id.starts_with("pid:") {
+            return None;
+        }
+
+        if app_id.starts_with('/') || app_id.starts_with("~/") {
+            return Some(Self::Path {
+                path: app_id.to_string(),
+            });
+        }
+
+        Some(Self::BundleId {
+            bundle_id: app_id.to_string(),
+        })
     }
 }
 
@@ -144,6 +216,8 @@ pub struct NotificationBuilder {
     event_details: Option<EventDetails>,
     action_label: Option<String>,
     options: Option<Vec<String>>,
+    footer: Option<NotificationFooter>,
+    icon: Option<NotificationIcon>,
 }
 
 impl NotificationBuilder {
@@ -197,18 +271,125 @@ impl NotificationBuilder {
         self
     }
 
+    pub fn footer(mut self, footer: NotificationFooter) -> Self {
+        self.footer = Some(footer);
+        self
+    }
+
+    pub fn icon(mut self, icon: NotificationIcon) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
     pub fn build(self) -> Notification {
+        let source = self.source;
+        let icon = self
+            .icon
+            .or_else(|| source.as_ref().and_then(NotificationSource::default_icon));
+
         Notification {
             key: self.key,
             title: self.title.unwrap(),
             message: self.message.unwrap(),
             timeout: self.timeout,
-            source: self.source,
+            source,
             start_time: self.start_time,
             participants: self.participants,
             event_details: self.event_details,
             action_label: self.action_label,
             options: self.options,
+            footer: self.footer,
+            icon,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calendar_notifications_default_to_app_plus_calendar_overlay() {
+        let source = NotificationSource::CalendarEvent {
+            event_id: "evt-1".to_string(),
+        };
+
+        assert_eq!(
+            source.default_icon(),
+            Some(NotificationIcon::Overlay {
+                base: NotificationIconAsset::AppIcon,
+                badge: NotificationIconAsset::Calendar,
+            })
+        );
+    }
+
+    #[test]
+    fn mic_notifications_default_to_first_resolvable_app_icon() {
+        let source = NotificationSource::MicDetected {
+            app_names: vec!["Zoom".to_string()],
+            app_ids: vec!["pid:42".to_string(), "us.zoom.xos".to_string()],
+            event_ids: vec![],
+        };
+
+        assert_eq!(
+            source.default_icon(),
+            Some(NotificationIcon::BundleId {
+                bundle_id: "us.zoom.xos".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn notifications_fill_in_source_default_icon_when_missing() {
+        let notification = Notification::builder()
+            .title("Title")
+            .message("Message")
+            .source(NotificationSource::MicDetected {
+                app_names: vec!["Zoom".to_string()],
+                app_ids: vec!["/Applications/Zoom.app".to_string()],
+                event_ids: vec![],
+            })
+            .build();
+
+        assert_eq!(
+            notification.icon,
+            Some(NotificationIcon::Path {
+                path: "/Applications/Zoom.app".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn notifications_keep_explicit_icon() {
+        let notification = Notification::builder()
+            .title("Title")
+            .message("Message")
+            .source(NotificationSource::CalendarEvent {
+                event_id: "evt-1".to_string(),
+            })
+            .icon(NotificationIcon::Hidden)
+            .build();
+
+        assert_eq!(notification.icon, Some(NotificationIcon::Hidden));
+    }
+
+    #[test]
+    fn notifications_preserve_footer() {
+        let notification = Notification::builder()
+            .title("Title")
+            .message("")
+            .footer(NotificationFooter {
+                text: "Ignore this app?".to_string(),
+                action_label: "YES".to_string(),
+            })
+            .build();
+
+        assert_eq!(
+            notification
+                .footer
+                .as_ref()
+                .map(|footer| footer.action_label.as_str()),
+            Some("YES")
+        );
     }
 }

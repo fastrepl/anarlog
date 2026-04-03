@@ -69,10 +69,6 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.6,
         changeFrequency: "monthly",
       },
-      "/roadmap/": {
-        priority: 0.7,
-        changeFrequency: "weekly",
-      },
       "/security": {
         priority: 0.6,
         changeFrequency: "monthly",
@@ -192,30 +188,6 @@ export function getSitemap(): Sitemap<TRoutes> {
           }));
         } catch (error) {
           console.warn("Failed to load docs for sitemap:", error);
-          return [];
-        }
-      },
-
-      "/roadmap/$slug": async () => {
-        try {
-          const path = await import("path");
-          const url = await import("url");
-          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-          const modulePath = path.resolve(
-            __dirname,
-            "../../.content-collections/generated/allRoadmaps.js",
-          );
-          const imported = await import(modulePath);
-          const allRoadmaps = imported.default ?? imported.allRoadmaps ?? [];
-          if (!Array.isArray(allRoadmaps)) return [];
-          return allRoadmaps.map((roadmap: any) => ({
-            path: `/roadmap/${roadmap.slug}`,
-            priority: 0.6,
-            changeFrequency: "weekly" as const,
-            lastModified: roadmap.date,
-          }));
-        } catch (error) {
-          console.warn("Failed to load roadmap items for sitemap:", error);
           return [];
         }
       },

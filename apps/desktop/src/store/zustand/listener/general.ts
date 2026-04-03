@@ -4,8 +4,8 @@ import type { StoreApi } from "zustand";
 import {
   commands as listenerCommands,
   type SessionParams,
-} from "@hypr/plugin-listener";
-import type { BatchParams } from "@hypr/plugin-listener2";
+} from "@hypr/plugin-transcription";
+import type { BatchParams } from "@hypr/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
 import { runBatchSession } from "./general-batch";

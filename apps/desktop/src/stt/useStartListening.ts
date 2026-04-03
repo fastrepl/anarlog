@@ -2,7 +2,10 @@ import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import type { RecordingMode, TranscriptionMode } from "@hypr/plugin-listener";
+import type {
+  RecordingMode,
+  TranscriptionMode,
+} from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";

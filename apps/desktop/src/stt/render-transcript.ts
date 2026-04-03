@@ -2,14 +2,14 @@ import type {
   SessionContentData,
   TranscriptSpeakerHint,
 } from "@hypr/plugin-fs-sync";
-import { commands as listenerCommands } from "@hypr/plugin-listener";
+import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type {
   IdentityAssignment,
   RenderTranscriptHuman,
   RenderTranscriptInput,
   RenderTranscriptRequest,
   RenderedTranscriptSegment,
-} from "@hypr/plugin-listener";
+} from "@hypr/plugin-transcription";
 
 import type * as main from "~/store/tinybase/store/main";
 import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";

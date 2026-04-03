@@ -42,6 +42,7 @@ hypr-api-error = { path = "crates/api-error", package = "api-error" }
 hypr-api-mail = { path = "crates/api-mail", package = "api-mail" }
 hypr-api-messenger = { path = "crates/api-messenger", package = "api-messenger" }
 hypr-api-nango = { path = "crates/api-nango", package = "api-nango" }
+hypr-api-pyannote = { path = "crates/api-pyannote", package = "api-pyannote" }
 hypr-api-research = { path = "crates/api-research", package = "api-research" }
 hypr-api-storage = { path = "crates/api-storage", package = "api-storage" }
 hypr-api-subscription = { path = "crates/api-subscription", package = "api-subscription" }
@@ -55,6 +56,7 @@ hypr-askama-utils = { path = "crates/askama-utils", package = "askama-utils" }
 hypr-audacity = { path = "crates/audacity", package = "audacity" }
 hypr-audio = { path = "crates/audio", package = "audio" }
 hypr-audio-actual = { path = "crates/audio-actual", package = "audio-actual" }
+hypr-audio-chunking = { path = "crates/audio-chunking", package = "audio-chunking" }
 hypr-audio-device = { path = "crates/audio-device", package = "audio-device" }
 hypr-audio-interface = { path = "crates/audio-interface", package = "audio-interface" }
 hypr-audio-mime = { path = "crates/audio-mime", package = "audio-mime" }
@@ -165,9 +167,9 @@ hypr-transcribe-core = { path = "crates/transcribe-core", package = "transcribe-
 hypr-transcribe-proxy = { path = "crates/transcribe-proxy", package = "transcribe-proxy" }
 hypr-transcribe-whisper-local = { path = "crates/transcribe-whisper-local", package = "transcribe-whisper-local" }
 hypr-transcript = { path = "crates/transcript", package = "transcript" }
+hypr-transcription-core = { path = "crates/transcription-core", package = "transcription-core" }
 hypr-updater-core = { path = "crates/updater-core", package = "updater-core" }
 hypr-vad = { path = "crates/vad", package = "vad" }
-hypr-vad-chunking = { path = "crates/vad-chunking", package = "vad-chunking" }
 hypr-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
 hypr-version = { path = "crates/version", package = "version" }
 hypr-whisper = { path = "crates/whisper", package = "whisper" }
@@ -178,6 +180,7 @@ hypr-ws-utils = { path = "crates/ws-utils", package = "ws-utils" }
 posthog-rs = "0.4.1"
 progenitor-client = "0.13"
 
+openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
 owhisper-config = { path = "crates/owhisper-config", package = "owhisper-config" }
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
@@ -222,8 +225,6 @@ tauri-plugin-hooks = { path = "plugins/hooks" }
 tauri-plugin-icon = { path = "plugins/icon" }
 tauri-plugin-importer = { path = "plugins/importer" }
 tauri-plugin-js = { path = "plugins/js" }
-tauri-plugin-listener = { path = "plugins/listener" }
-tauri-plugin-listener2 = { path = "plugins/listener2" }
 tauri-plugin-local-llm = { path = "plugins/local-llm" }
 tauri-plugin-local-stt = { path = "plugins/local-stt" }
 tauri-plugin-mcp = { path = "plugins/mcp" }
@@ -245,6 +246,7 @@ tauri-plugin-tantivy = { path = "plugins/tantivy" }
 tauri-plugin-template = { path = "plugins/template" }
 tauri-plugin-todo = { path = "plugins/todo" }
 tauri-plugin-tracing = { path = "plugins/tracing" }
+tauri-plugin-transcription = { path = "plugins/transcription" }
 tauri-plugin-tray = { path = "plugins/tray" }
 tauri-plugin-updater2 = { path = "plugins/updater2" }
 tauri-plugin-webhook = { path = "plugins/webhook" }

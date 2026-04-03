@@ -504,6 +504,7 @@ dependencies = [
  "api-env",
  "api-mail",
  "api-nango",
+ "api-pyannote",
  "api-research",
  "api-subscription",
  "api-support",
@@ -673,6 +674,25 @@ dependencies = [
  "tokio",
  "tracing",
  "urlencoding",
+ "utoipa",
+ "wiremock",
+]
+
+[[package]]
+name = "api-pyannote"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-env",
+ "api-error",
+ "axum 0.8.8",
+ "pyannote-cloud",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower 0.5.3",
+ "tracing",
  "utoipa",
  "wiremock",
 ]
@@ -1466,6 +1486,22 @@ dependencies = [
  "tokio-util",
  "tracing",
  "wasapi",
+]
+
+[[package]]
+name = "audio-chunking"
+version = "0.1.0"
+dependencies = [
+ "audio-interface",
+ "data",
+ "futures-util",
+ "hound",
+ "onnx",
+ "pin-project",
+ "rodio",
+ "thiserror 2.0.18",
+ "tokio",
+ "vad",
 ]
 
 [[package]]
@@ -4826,8 +4862,6 @@ dependencies = [
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
- "tauri-plugin-listener",
- "tauri-plugin-listener2",
  "tauri-plugin-local-stt",
  "tauri-plugin-mcp",
  "tauri-plugin-misc",
@@ -4856,6 +4890,7 @@ dependencies = [
  "tauri-plugin-template",
  "tauri-plugin-todo",
  "tauri-plugin-tracing",
+ "tauri-plugin-transcription",
  "tauri-plugin-tray",
  "tauri-plugin-updater",
  "tauri-plugin-updater2",
@@ -12318,6 +12353,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "openai-transcription"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strum 0.27.2",
+]
+
+[[package]]
 name = "openapi31to30"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12633,6 +12677,7 @@ dependencies = [
  "futures-util",
  "language",
  "observability",
+ "openai-transcription",
  "owhisper-interface",
  "reqwest 0.13.2",
  "reqwest-middleware",
@@ -13923,6 +13968,9 @@ dependencies = [
  "reqwest 0.13.2",
  "serde",
  "serde_json",
+ "tokio",
+ "utoipa",
+ "wiremock",
 ]
 
 [[package]]
@@ -18037,6 +18085,7 @@ dependencies = [
  "tempfile",
  "template-support",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -18468,56 +18517,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-listener"
-version = "0.1.0"
-dependencies = [
- "audio",
- "dirs 6.0.0",
- "insta",
- "language",
- "listener-core",
- "owhisper-client",
- "owhisper-interface",
- "quickcheck",
- "quickcheck_macros",
- "ractor",
- "rodio",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "storage",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-hooks",
- "tauri-plugin-local-stt",
- "tauri-plugin-settings",
- "tauri-plugin-tray",
- "tauri-specta",
- "thiserror 2.0.18",
- "tracing",
- "transcript",
- "uuid",
-]
-
-[[package]]
-name = "tauri-plugin-listener2"
-version = "0.1.0"
-dependencies = [
- "language",
- "listener2-core",
- "owhisper-interface",
- "serde",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-settings",
- "tauri-specta",
- "tokio",
-]
-
-[[package]]
 name = "tauri-plugin-local-llm"
 version = "0.1.0"
 dependencies = [
@@ -18660,7 +18659,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-analytics",
  "tauri-plugin-dialog",
- "tauri-plugin-listener",
  "tauri-plugin-windows",
  "tauri-specta",
  "thiserror 2.0.18",
@@ -19069,6 +19067,32 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tauri-plugin-transcription"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "language",
+ "owhisper-client",
+ "ractor",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "storage",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-hooks",
+ "tauri-plugin-local-stt",
+ "tauri-plugin-settings",
+ "tauri-plugin-tray",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "transcript",
+ "transcription-core",
 ]
 
 [[package]]
@@ -20422,6 +20446,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "audio-actual",
+ "audio-chunking",
  "audio-mock",
  "audio-utils",
  "axum 0.8.8",
@@ -20452,7 +20477,6 @@ dependencies = [
  "tracing",
  "transcribe-core",
  "uuid",
- "vad-chunking",
  "ws-utils",
 ]
 
@@ -20460,6 +20484,7 @@ dependencies = [
 name = "transcribe-core"
 version = "0.1.0"
 dependencies = [
+ "audio-chunking",
  "audio-utils",
  "axum 0.8.8",
  "futures-util",
@@ -20468,7 +20493,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "vad-chunking",
 ]
 
 [[package]]
@@ -20521,6 +20545,7 @@ dependencies = [
 name = "transcribe-whisper-local"
 version = "0.1.0"
 dependencies = [
+ "audio-chunking",
  "audio-interface",
  "audio-utils",
  "axum 0.8.8",
@@ -20544,7 +20569,6 @@ dependencies = [
  "tower 0.5.3",
  "tracing",
  "transcribe-core",
- "vad-chunking",
  "whisper",
  "whisper-local",
  "ws-utils",
@@ -20562,6 +20586,14 @@ dependencies = [
  "template-app",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "transcription-core"
+version = "0.1.0"
+dependencies = [
+ "listener-core",
+ "listener2-core",
 ]
 
 [[package]]
@@ -21675,22 +21707,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "vad-chunking"
-version = "0.1.0"
-dependencies = [
- "audio-interface",
- "data",
- "futures-util",
- "hound",
- "onnx",
- "pin-project",
- "rodio",
- "thiserror 2.0.18",
- "tokio",
- "vad",
 ]
 
 [[package]]

@@ -16,6 +16,7 @@ mod language;
 mod mistral;
 mod openai;
 mod owhisper;
+mod pyannote;
 pub(crate) mod soniox;
 mod whispercpp;
 
@@ -31,6 +32,7 @@ pub use hyprnote::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
+pub use pyannote::*;
 pub use soniox::*;
 pub use whispercpp::*;
 
@@ -82,6 +84,7 @@ pub fn documented_language_codes_batch() -> Vec<String> {
     );
     set.extend(elevenlabs::documented_language_codes());
     set.extend(argmax::PARAKEET_V3_LANGS.iter().copied());
+    set.extend(pyannote::documented_language_codes());
 
     set.into_iter().map(str::to_string).collect()
 }
@@ -362,6 +365,7 @@ pub enum AdapterKind {
     Soniox,
     #[strum(serialize = "fireworks")]
     Fireworks,
+    #[strum(serialize = "deepgram")]
     Deepgram,
     #[strum(serialize = "assemblyai")]
     AssemblyAI,
@@ -375,6 +379,8 @@ pub enum AdapterKind {
     DashScope,
     #[strum(serialize = "mistral")]
     Mistral,
+    #[strum(serialize = "pyannote")]
+    Pyannote,
     #[strum(serialize = "hyprnote")]
     Hyprnote,
     #[strum(serialize = "cactus")]
@@ -420,12 +426,13 @@ impl AdapterKind {
             Self::Soniox => SonioxAdapter::language_support_live(languages),
             Self::AssemblyAI => AssemblyAIAdapter::language_support_live(languages),
             Self::Gladia => GladiaAdapter::language_support_live(languages),
-            Self::OpenAI => OpenAIAdapter::language_support_live(languages),
+            Self::OpenAI => LanguageSupport::NotSupported,
             Self::Fireworks => FireworksAdapter::language_support_live(languages),
             Self::ElevenLabs => ElevenLabsAdapter::language_support_live(languages),
             Self::DashScope => DashScopeAdapter::language_support_live(languages),
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
             Self::Mistral => MistralAdapter::language_support_live(languages),
+            Self::Pyannote => LanguageSupport::NotSupported,
             Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
@@ -451,6 +458,7 @@ impl AdapterKind {
             Self::DashScope => DashScopeAdapter::language_support_batch(languages),
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
             Self::Mistral => MistralAdapter::language_support_batch(languages),
+            Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
             Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
@@ -507,6 +515,7 @@ impl From<crate::providers::Provider> for AdapterKind {
             Provider::ElevenLabs => Self::ElevenLabs,
             Provider::DashScope => Self::DashScope,
             Provider::Mistral => Self::Mistral,
+            Provider::Pyannote => Self::Pyannote,
         }
     }
 }
@@ -826,6 +835,10 @@ mod tests {
         assert_eq!(
             AdapterKind::from_url_and_languages("https://api.soniox.com", &en, None),
             AdapterKind::Soniox,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages("https://api.pyannote.ai", &en, None),
+            AdapterKind::Pyannote,
         );
         assert_eq!(
             AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),

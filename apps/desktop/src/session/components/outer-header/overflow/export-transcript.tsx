@@ -2,8 +2,8 @@ import { useMutation } from "@tanstack/react-query";
 import { FileTextIcon, Loader2Icon } from "lucide-react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as listener2Commands } from "@hypr/plugin-listener2";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { commands as listener2Commands } from "@hypr/plugin-transcription";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";

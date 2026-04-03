@@ -53,6 +53,12 @@ pub struct Handle {
     contact_fetcher: Option<Box<dyn ContactFetcher>>,
 }
 
+impl Default for Handle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Handle {
     pub fn new() -> Self {
         Self {
@@ -124,7 +130,7 @@ impl Handle {
             .sorted_by(|a, b| a.cmp(b))
             .map(|v| NSDate::initWithTimeIntervalSince1970(NSDate::alloc(), v.timestamp() as f64))
             .collect_tuple()
-            .ok_or_else(|| Error::InvalidDateRange)?;
+            .ok_or(Error::InvalidDateRange)?;
 
         let event_store = AssertUnwindSafe(event_store);
         let calendars = AssertUnwindSafe(calendars);

@@ -184,6 +184,7 @@ fn ensure_trusted() -> Result<(), CaptureError> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn snapshot_for_access(
     pid: i32,
     app_name: String,

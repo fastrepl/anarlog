@@ -68,6 +68,42 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
+  test("passes detected app ids through notification source metadata", async () => {
+    const store = createListenerStore();
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+
+    const handler = listenMock.mock.calls[0]?.[0];
+    expect(handler).toBeTypeOf("function");
+
+    handler({
+      payload: {
+        type: "micDetected",
+        key: "mic-1",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+        duration_secs: 15,
+      },
+    });
+
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: {
+          type: "mic_detected",
+          app_names: ["Zoom"],
+          app_ids: ["us.zoom.xos"],
+          event_ids: [],
+        },
+        icon: null,
+      }),
+    );
+  });
+
   test("stops listening when sleep starts", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();

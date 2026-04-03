@@ -38,6 +38,7 @@ pub enum OutputFormat {
 
 #[derive(Subcommand, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Transcribe an audio file
     Transcribe {

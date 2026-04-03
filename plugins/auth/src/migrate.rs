@@ -14,10 +14,11 @@ pub(crate) fn auth_path<R: tauri::Runtime>(
     let legacy_auth_path = legacy_auth_path(app).map_err(|e| e.to_string())?;
     let legacy_store_json_path = legacy_store_json_path(app).map_err(|e| e.to_string())?;
 
-    migrate_auth_state(&legacy_auth_path, &legacy_store_json_path, &new_auth_path)
-        .map_err(|e| e.to_string())?;
-
-    Ok(new_auth_path)
+    Ok(resolve_auth_path_from_paths(
+        &legacy_auth_path,
+        &legacy_store_json_path,
+        &new_auth_path,
+    ))
 }
 
 fn new_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Result<PathBuf> {
@@ -54,12 +55,43 @@ fn migrate_auth_state(
         std::fs::create_dir_all(parent)?;
     }
 
-    if legacy_auth_path.exists() {
+    if legacy_auth_path.is_file() {
         std::fs::rename(legacy_auth_path, new_auth_path)?;
         return Ok(());
     }
 
+    if new_auth_path.is_file() {
+        return Ok(());
+    }
+
     migrate_from_store_json(legacy_store_json_path, new_auth_path)
+}
+
+fn resolve_auth_path_from_paths(
+    legacy_auth_path: &Path,
+    legacy_store_json_path: &Path,
+    new_auth_path: &Path,
+) -> PathBuf {
+    if let Err(error) = migrate_auth_state(legacy_auth_path, legacy_store_json_path, new_auth_path)
+    {
+        tracing::warn!(
+            legacy_auth_path = %legacy_auth_path.display(),
+            legacy_store_json_path = %legacy_store_json_path.display(),
+            new_auth_path = %new_auth_path.display(),
+            error = %error,
+            "failed to migrate auth state"
+        );
+    }
+
+    if new_auth_path.is_file() {
+        return new_auth_path.to_path_buf();
+    }
+
+    if legacy_auth_path.is_file() {
+        return legacy_auth_path.to_path_buf();
+    }
+
+    new_auth_path.to_path_buf()
 }
 
 fn migrate_from_store_json(store_json_path: &Path, auth_path: &Path) -> std::io::Result<()> {
@@ -136,6 +168,26 @@ mod test {
         assert_eq!(
             std::fs::read_to_string(&new_auth_path).unwrap(),
             auth_json("legacy-token")
+        );
+    }
+
+    #[test]
+    fn migration_is_noop_when_new_auth_path_exists_without_legacy_auth() {
+        let temp = tempdir().unwrap();
+        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
+        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+
+        std::fs::create_dir_all(new_auth_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(legacy_store_json_path.parent().unwrap()).unwrap();
+        std::fs::write(&new_auth_path, auth_json("new-token")).unwrap();
+        std::fs::write(&legacy_store_json_path, "{ invalid json").unwrap();
+
+        migrate_auth_state(&legacy_auth_path, &legacy_store_json_path, &new_auth_path).unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(&new_auth_path).unwrap(),
+            auth_json("new-token")
         );
     }
 
@@ -217,6 +269,52 @@ mod test {
 
         assert!(stable_auth_path.exists());
         assert!(!nightly_auth_path.exists());
+    }
+
+    #[test]
+    fn resolve_auth_path_ignores_invalid_legacy_store_json() {
+        let temp = tempdir().unwrap();
+        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
+        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+
+        std::fs::create_dir_all(legacy_store_json_path.parent().unwrap()).unwrap();
+        std::fs::write(&legacy_store_json_path, "{ invalid json").unwrap();
+
+        let resolved = resolve_auth_path_from_paths(
+            &legacy_auth_path,
+            &legacy_store_json_path,
+            &new_auth_path,
+        );
+
+        assert_eq!(resolved, new_auth_path);
+        assert!(!legacy_auth_path.exists());
+        assert!(!new_auth_path.exists());
+    }
+
+    #[test]
+    fn resolve_auth_path_falls_back_to_legacy_auth_when_rename_fails() {
+        let temp = tempdir().unwrap();
+        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
+        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+
+        std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(&new_auth_path).unwrap();
+        std::fs::write(&legacy_auth_path, auth_json("legacy-token")).unwrap();
+
+        let resolved = resolve_auth_path_from_paths(
+            &legacy_auth_path,
+            &legacy_store_json_path,
+            &new_auth_path,
+        );
+
+        assert_eq!(resolved, legacy_auth_path);
+        assert_eq!(
+            std::fs::read_to_string(&legacy_auth_path).unwrap(),
+            auth_json("legacy-token")
+        );
+        assert!(new_auth_path.is_dir());
     }
 
     fn auth_json(token: &str) -> String {

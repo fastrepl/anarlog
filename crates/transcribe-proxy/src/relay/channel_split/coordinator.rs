@@ -18,6 +18,7 @@ pub(super) enum SplitEvent {
     ClientClosed,
 }
 
+#[allow(clippy::large_enum_variant)]
 pub(super) enum CoordinatorAction {
     ForwardText(String),
     ForwardRewritten(RewrittenSplitResponse),
@@ -128,10 +129,10 @@ impl SplitCoordinator {
             return actions;
         }
 
-        if self.should_release_pending_finalize(channel) {
-            if let Some(generation) = self.flush_pending(&mut actions, FinalizeMode::Terminal) {
-                self.mark_terminal_finalize_sent(generation);
-            }
+        if self.should_release_pending_finalize(channel)
+            && let Some(generation) = self.flush_pending(&mut actions, FinalizeMode::Terminal)
+        {
+            self.mark_terminal_finalize_sent(generation);
         }
 
         if self.channels.iter().all(|channel| channel.closed) {
