@@ -61,12 +61,20 @@ fn main() {
                     let ts = format_time(SystemTime::now());
                     println!("[{ts}] Transition");
                     if let Some(prev) = &transition.previous {
-                        println!("  from: {} — {}", prev.snapshot.app_name, summary(&prev.snapshot));
+                        println!(
+                            "  from: {} — {}",
+                            prev.snapshot.app_name,
+                            summary(&prev.snapshot)
+                        );
                     } else {
                         println!("  from: (none)");
                     }
                     if let Some(curr) = &transition.current {
-                        println!("  to:   {} — {}", curr.snapshot.app_name, summary(&curr.snapshot));
+                        println!(
+                            "  to:   {} — {}",
+                            curr.snapshot.app_name,
+                            summary(&curr.snapshot)
+                        );
                         print_snapshot(&curr.snapshot);
                     } else {
                         println!("  to:   (idle)");
@@ -84,16 +92,17 @@ fn main() {
 fn print_snapshot(snap: &Snapshot) {
     println!("  app:     {}", snap.app_name);
     println!("  bundle:  {}", snap.bundle_id.as_deref().unwrap_or("—"));
-    println!(
-        "  window:  {}",
-        snap.window_title.as_deref().unwrap_or("—")
-    );
+    println!("  window:  {}", snap.window_title.as_deref().unwrap_or("—"));
     println!("  url:     {}", snap.url.as_deref().unwrap_or("—"));
     println!("  level:   {:?}", snap.content_level);
     println!("  source:  {:?}", snap.source);
     if let Some(text) = &snap.visible_text {
         let preview: String = text.chars().take(120).collect();
-        let ellipsis = if text.chars().count() > 120 { "…" } else { "" };
+        let ellipsis = if text.chars().count() > 120 {
+            "…"
+        } else {
+            ""
+        };
         println!("  text:    {preview}{ellipsis}");
     }
 }
