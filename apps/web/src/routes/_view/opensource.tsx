@@ -104,6 +104,7 @@ function HeroSection() {
         </div>
         <RotatingAvatarGrid
           profiles={stargazers.length > 0 ? stargazers : CURATED_PROFILES}
+          rows={2}
         />
       </div>
     </div>

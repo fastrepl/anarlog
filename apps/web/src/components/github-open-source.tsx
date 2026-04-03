@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useMountEffect } from "@/hooks/useMountEffect";
+
 import {
   GITHUB_LAST_SEEN_FORKS,
   GITHUB_LAST_SEEN_STARS,
@@ -10,6 +12,10 @@ import {
   useGitHubStargazers,
   useGitHubStats,
 } from "../queries";
+
+const AVATAR_SIZE = 40;
+const AVATAR_GAP = 4;
+const DEFAULT_DISPLAY_COUNT = 50;
 
 export const CURATED_PROFILES = [
   {
@@ -261,16 +267,41 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
   );
 }
 
-export function RotatingAvatarGrid({
+function getAvatarColumnCount(width: number) {
+  return Math.max(
+    1,
+    Math.floor((width + AVATAR_GAP) / (AVATAR_SIZE + AVATAR_GAP)),
+  );
+}
+
+function getPackedDisplayCount({
+  columnCount,
+  profileCount,
+  rows,
+}: {
+  columnCount: number;
+  profileCount: number;
+  rows: number;
+}) {
+  if (profileCount <= columnCount) {
+    return profileCount;
+  }
+
+  const maxVisible = Math.min(profileCount, columnCount * rows);
+  const fullRows = Math.floor(maxVisible / columnCount);
+
+  return fullRows > 0 ? fullRows * columnCount : maxVisible;
+}
+
+function RotatingAvatarSet({
   profiles,
+  displayCount,
 }: {
   profiles: { username: string; avatar: string }[];
+  displayCount: number;
 }) {
-  const DISPLAY_COUNT = 50;
-  const [visible, setVisible] = useState(() =>
-    profiles.slice(0, DISPLAY_COUNT),
-  );
-  const poolRef = useRef(DISPLAY_COUNT);
+  const [visible, setVisible] = useState(() => profiles.slice(0, displayCount));
+  const poolRef = useRef(displayCount);
 
   const pickNext = useCallback(() => {
     const idx = poolRef.current % profiles.length;
@@ -279,7 +310,7 @@ export function RotatingAvatarGrid({
   }, [profiles]);
 
   useEffect(() => {
-    if (profiles.length <= DISPLAY_COUNT) return;
+    if (profiles.length <= displayCount) return;
 
     const interval = setInterval(() => {
       setVisible((prev) => {
@@ -293,10 +324,10 @@ export function RotatingAvatarGrid({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [profiles.length, pickNext]);
+  }, [displayCount, profiles.length, pickNext]);
 
   return (
-    <div className="mt-12 flex flex-wrap gap-1">
+    <>
       {visible.map((profile, i) => (
         <Avatar
           key={`${i}-${profile.username}`}
@@ -304,6 +335,62 @@ export function RotatingAvatarGrid({
           avatar={profile.avatar}
         />
       ))}
+    </>
+  );
+}
+
+export function RotatingAvatarGrid({
+  profiles,
+  rows,
+}: {
+  profiles: { username: string; avatar: string }[];
+  rows?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState<number | null>(null);
+
+  useMountEffect(() => {
+    if (!rows) {
+      return;
+    }
+
+    const el = containerRef.current;
+    if (!el) {
+      return;
+    }
+
+    const updateColumnCount = (width: number) => {
+      setColumnCount(getAvatarColumnCount(width));
+    };
+
+    updateColumnCount(el.clientWidth);
+
+    const observer = new ResizeObserver(([entry]) => {
+      updateColumnCount(entry.contentRect.width);
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  const displayCount =
+    rows && columnCount
+      ? getPackedDisplayCount({
+          columnCount,
+          profileCount: profiles.length,
+          rows,
+        })
+      : Math.min(profiles.length, DEFAULT_DISPLAY_COUNT);
+
+  const resetKey = `${displayCount}-${profiles.length}-${profiles[0]?.username ?? ""}`;
+
+  return (
+    <div ref={containerRef} className="mt-12 flex flex-wrap gap-1">
+      <RotatingAvatarSet
+        key={resetKey}
+        profiles={profiles}
+        displayCount={displayCount}
+      />
     </div>
   );
 }
