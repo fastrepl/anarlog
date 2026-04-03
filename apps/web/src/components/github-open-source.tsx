@@ -17,7 +17,8 @@ const AVATAR_SIZE = 40;
 const AVATAR_GAP = 4;
 const DEFAULT_DISPLAY_COUNT = 50;
 const DEFAULT_ROTATION_INTERVAL_MS = 1000;
-const WAVE_ROTATION_INTERVAL_MS = 250;
+const WAVE_ROTATION_INTERVAL_MS = 120;
+const WAVE_REPEAT_DELAY_MS = 1200;
 
 function StatBadge({
   type,
@@ -95,7 +96,7 @@ function RotatingAvatarSet({
 }) {
   const [visible, setVisible] = useState(() => profiles.slice(0, displayCount));
   const poolRef = useRef(displayCount);
-  const waveColumnRef = useRef(0);
+  const waveSlotRef = useRef(0);
 
   const pickNext = useCallback(() => {
     const idx = poolRef.current % profiles.length;
@@ -106,34 +107,38 @@ function RotatingAvatarSet({
   useEffect(() => {
     if (profiles.length <= displayCount) return;
 
-    const effectiveColumnCount = Math.max(1, columnCount ?? displayCount);
-    const intervalMs =
-      effectiveColumnCount < displayCount
-        ? WAVE_ROTATION_INTERVAL_MS
-        : DEFAULT_ROTATION_INTERVAL_MS;
+    const isPackedRows =
+      Math.max(1, columnCount ?? displayCount) < displayCount;
+    const stepDelayMs = isPackedRows
+      ? WAVE_ROTATION_INTERVAL_MS
+      : DEFAULT_ROTATION_INTERVAL_MS;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    const interval = setInterval(() => {
-      const column = waveColumnRef.current % effectiveColumnCount;
-      waveColumnRef.current = column + 1;
-
-      const updates: Array<{
-        idx: number;
-        profile: (typeof profiles)[number];
-      }> = [];
-
-      for (let idx = column; idx < displayCount; idx += effectiveColumnCount) {
-        updates.push({ idx, profile: pickNext() });
-      }
+    const tick = () => {
+      const idx = waveSlotRef.current % displayCount;
+      waveSlotRef.current = idx + 1;
+      const nextProfile = pickNext();
 
       setVisible((prev) => {
         const next = [...prev];
-        for (const update of updates) {
-          next[update.idx] = update.profile;
-        }
+        next[idx] = nextProfile;
         return next;
       });
-    }, intervalMs);
-    return () => clearInterval(interval);
+
+      const completedSweep = waveSlotRef.current % displayCount === 0;
+      const nextDelay =
+        isPackedRows && completedSweep ? WAVE_REPEAT_DELAY_MS : stepDelayMs;
+
+      timeoutId = setTimeout(tick, nextDelay);
+    };
+
+    timeoutId = setTimeout(tick, stepDelayMs);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [columnCount, displayCount, profiles.length, pickNext]);
 
   return (
