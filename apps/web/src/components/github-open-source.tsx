@@ -21,7 +21,7 @@ const DEFAULT_ROTATION_INTERVAL_MS = 1000;
 const WAVE_ROTATION_INTERVAL_MS = 120;
 const WAVE_REPEAT_DELAY_MS = 1200;
 const AVATAR_SWAP_TRANSITION = {
-  duration: 0.32,
+  duration: 0.24,
   ease: [0.22, 1, 0.36, 1],
 } as const;
 
@@ -50,29 +50,26 @@ function StatBadge({
 function Avatar({ username, avatar }: { username: string; avatar: string }) {
   return (
     <div className="group relative size-[40px] shrink-0 overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-colors hover:border-neutral-400">
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence initial={false}>
         <motion.a
           key={`${username}-${avatar}`}
           href={`https://github.com/${username}`}
           target="_blank"
           rel="noopener noreferrer"
           initial={{
-            opacity: 0,
-            x: 10,
-            scale: 0.9,
-            filter: "blur(6px)",
+            opacity: 0.5,
+            x: 4,
+            scale: 0.985,
           }}
           animate={{
             opacity: 1,
             x: 0,
             scale: 1,
-            filter: "blur(0px)",
           }}
           exit={{
-            opacity: 0,
-            x: -10,
-            scale: 1.06,
-            filter: "blur(5px)",
+            opacity: 0.35,
+            x: -4,
+            scale: 1.015,
           }}
           transition={AVATAR_SWAP_TRANSITION}
           className="absolute inset-0 block cursor-pointer"
@@ -80,7 +77,7 @@ function Avatar({ username, avatar }: { username: string; avatar: string }) {
           <img
             src={avatar}
             alt={`${username}'s avatar`}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
           />
         </motion.a>
       </AnimatePresence>
