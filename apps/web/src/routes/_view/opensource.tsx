@@ -7,10 +7,7 @@ import { cn } from "@hypr/utils";
 
 import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
-import {
-  CURATED_PROFILES,
-  RotatingAvatarGrid,
-} from "@/components/github-open-source";
+import { RotatingAvatarGrid } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import {
@@ -102,10 +99,9 @@ function HeroSection() {
             <GithubStars />
           </div>
         </div>
-        <RotatingAvatarGrid
-          profiles={stargazers.length > 0 ? stargazers : CURATED_PROFILES}
-          rows={2}
-        />
+        {stargazers.length > 0 ? (
+          <RotatingAvatarGrid profiles={stargazers} rows={2} />
+        ) : null}
       </div>
     </div>
   );
