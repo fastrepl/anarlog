@@ -554,13 +554,6 @@ function CalendarSectionContent({
               onTroubleshoot={() => setShowTroubleshooting(true)}
             />
           )}
-          <div className="flex items-center gap-3">
-            <div className="h-px w-full bg-neutral-200" />
-            <span className="pl-2 text-xs font-normal whitespace-nowrap text-neutral-500">
-              Available in Pro
-            </span>
-            <div className="h-px w-full bg-neutral-200" />
-          </div>
           <GoogleCalendarProvider onSignIn={onSignIn} />
           <OutlookCalendarProvider onSignIn={onSignIn} />
         </div>
