@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
 import { AnimatePresence, motion, useInView } from "motion/react";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
@@ -405,7 +405,17 @@ function SocialTestimonialsSection() {
   return (
     <section className="px-4 pt-16 pb-16">
       <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
-        What people are saying
+        <span className="mb-2 block">What people are saying</span>
+        <span className="text-fg-muted block font-sans text-sm font-normal tracking-normal md:text-base">
+          Char was formerly Hyprnote.{" "}
+          <Link
+            to="/blog/$slug/"
+            params={{ slug: "hyprnote-is-now-char" }}
+            className="text-color underline underline-offset-4 transition-opacity hover:opacity-70"
+          >
+            Read about the rename.
+          </Link>
+        </span>
       </h2>
 
       <div className="flex flex-col gap-6 md:hidden">
@@ -533,7 +543,6 @@ function DotWaveTransition() {
 }
 
 export function HowItWorksSection() {
-  const agentWorkflowGraphicId = useId().replaceAll(":", "");
   const [enhancedLines, setEnhancedLines] = useState(0);
   const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
   const featureScrollRef = useRef<HTMLDivElement>(null);
@@ -2593,7 +2602,7 @@ function FAQSection() {
   );
 }
 
-function ManifestoSection() {
+export function ManifestoSection() {
   return (
     <section
       id="manifesto"
@@ -2728,10 +2737,6 @@ function BlogSection() {
 
       <div className="grid gap-4 px-4 md:grid-cols-3">
         {sortedArticles.map((article) => {
-          const ogImage =
-            article.coverImage ||
-            `https://char.com/og?type=blog&title=${encodeURIComponent(article.title ?? "")}${article.author.length > 0 ? `&author=${encodeURIComponent(article.author.join(", "))}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
-
           return (
             <Link
               key={article._meta.filePath}
@@ -2740,14 +2745,6 @@ function BlogSection() {
               className="group block h-full"
             >
               <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-2 transition-all duration-300 hover:shadow-lg">
-                {/* <div className="bg-surface aspect-40/21 overflow-hidden">
-                  <img
-                    src={ogImage}
-                    alt={article.display_title}
-                    className="h-full w-full object-cover transition-all duration-500"
-                  />
-                </div> */}
-
                 <div className="flex flex-1 flex-col px-2 pt-4">
                   <h3 className="text-color text-fg mb-2 line-clamp-2 font-mono text-xl font-medium">
                     {article.display_title || article.meta_title}
