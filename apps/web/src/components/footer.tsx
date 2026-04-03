@@ -125,14 +125,6 @@ function ProductLinks() {
         </li>
         <li>
           <Link
-            to="/roadmap/"
-            className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
-          >
-            Roadmap
-          </Link>
-        </li>
-        <li>
-          <Link
             to="/docs/"
             className="text-sm text-neutral-600 no-underline transition-colors hover:text-stone-600 hover:underline hover:decoration-dotted"
           >

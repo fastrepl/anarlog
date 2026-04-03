@@ -49,7 +49,6 @@ import { Route as AdminKanbanIndexRouteImport } from './routes/admin/kanban/inde
 import { Route as AdminCrmIndexRouteImport } from './routes/admin/crm/index'
 import { Route as AdminCollectionsIndexRouteImport } from './routes/admin/collections/index'
 import { Route as ViewUpdatesIndexRouteImport } from './routes/_view/updates/index'
-import { Route as ViewRoadmapIndexRouteImport } from './routes/_view/roadmap/index'
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
@@ -83,7 +82,6 @@ import { Route as ViewSolutionEngineeringRouteImport } from './routes/_view/solu
 import { Route as ViewSolutionCustomerSuccessRouteImport } from './routes/_view/solution/customer-success'
 import { Route as ViewSolutionConsultingRouteImport } from './routes/_view/solution/consulting'
 import { Route as ViewSolutionCoachingRouteImport } from './routes/_view/solution/coaching'
-import { Route as ViewRoadmapSlugRouteImport } from './routes/_view/roadmap/$slug'
 import { Route as ViewProductSelfHostingRouteImport } from './routes/_view/product/self-hosting'
 import { Route as ViewProductSearchRouteImport } from './routes/_view/product/search'
 import { Route as ViewProductNotepadRouteImport } from './routes/_view/product/notepad'
@@ -360,11 +358,6 @@ const ViewUpdatesIndexRoute = ViewUpdatesIndexRouteImport.update({
   path: '/updates/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewRoadmapIndexRoute = ViewRoadmapIndexRouteImport.update({
-  id: '/roadmap/',
-  path: '/roadmap/',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
 const ViewPressKitIndexRoute = ViewPressKitIndexRouteImport.update({
   id: '/press-kit/',
   path: '/press-kit/',
@@ -534,11 +527,6 @@ const ViewSolutionConsultingRoute = ViewSolutionConsultingRouteImport.update({
 const ViewSolutionCoachingRoute = ViewSolutionCoachingRouteImport.update({
   id: '/solution/coaching',
   path: '/solution/coaching',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewRoadmapSlugRoute = ViewRoadmapSlugRouteImport.update({
-  id: '/roadmap/$slug',
-  path: '/roadmap/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewProductSelfHostingRoute = ViewProductSelfHostingRouteImport.update({
@@ -1003,7 +991,6 @@ export interface FileRoutesByFullPath {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/solution/coaching': typeof ViewSolutionCoachingRoute
   '/solution/consulting': typeof ViewSolutionConsultingRoute
   '/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
@@ -1037,7 +1024,6 @@ export interface FileRoutesByFullPath {
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
-  '/roadmap/': typeof ViewRoadmapIndexRoute
   '/updates/': typeof ViewUpdatesIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
@@ -1150,7 +1136,6 @@ export interface FileRoutesByTo {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/solution/coaching': typeof ViewSolutionCoachingRoute
   '/solution/consulting': typeof ViewSolutionConsultingRoute
   '/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
@@ -1184,7 +1169,6 @@ export interface FileRoutesByTo {
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
-  '/roadmap': typeof ViewRoadmapIndexRoute
   '/updates': typeof ViewUpdatesIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
   '/admin/crm': typeof AdminCrmIndexRoute
@@ -1303,7 +1287,6 @@ export interface FileRoutesById {
   '/_view/product/notepad': typeof ViewProductNotepadRoute
   '/_view/product/search': typeof ViewProductSearchRoute
   '/_view/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/_view/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/_view/solution/coaching': typeof ViewSolutionCoachingRoute
   '/_view/solution/consulting': typeof ViewSolutionConsultingRoute
   '/_view/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
@@ -1337,7 +1320,6 @@ export interface FileRoutesById {
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
-  '/_view/roadmap/': typeof ViewRoadmapIndexRoute
   '/_view/updates/': typeof ViewUpdatesIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
@@ -1456,7 +1438,6 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/roadmap/$slug'
     | '/solution/coaching'
     | '/solution/consulting'
     | '/solution/customer-success'
@@ -1490,7 +1471,6 @@ export interface FileRouteTypes {
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
-    | '/roadmap/'
     | '/updates/'
     | '/admin/collections/'
     | '/admin/crm/'
@@ -1603,7 +1583,6 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/roadmap/$slug'
     | '/solution/coaching'
     | '/solution/consulting'
     | '/solution/customer-success'
@@ -1637,7 +1616,6 @@ export interface FileRouteTypes {
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
-    | '/roadmap'
     | '/updates'
     | '/admin/collections'
     | '/admin/crm'
@@ -1755,7 +1733,6 @@ export interface FileRouteTypes {
     | '/_view/product/notepad'
     | '/_view/product/search'
     | '/_view/product/self-hosting'
-    | '/_view/roadmap/$slug'
     | '/_view/solution/coaching'
     | '/_view/solution/consulting'
     | '/_view/solution/customer-success'
@@ -1789,7 +1766,6 @@ export interface FileRouteTypes {
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
-    | '/_view/roadmap/'
     | '/_view/updates/'
     | '/admin/collections/'
     | '/admin/crm/'
@@ -2173,13 +2149,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewUpdatesIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/roadmap/': {
-      id: '/_view/roadmap/'
-      path: '/roadmap'
-      fullPath: '/roadmap/'
-      preLoaderRoute: typeof ViewRoadmapIndexRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
     '/_view/press-kit/': {
       id: '/_view/press-kit/'
       path: '/press-kit'
@@ -2409,13 +2378,6 @@ declare module '@tanstack/react-router' {
       path: '/solution/coaching'
       fullPath: '/solution/coaching'
       preLoaderRoute: typeof ViewSolutionCoachingRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/roadmap/$slug': {
-      id: '/_view/roadmap/$slug'
-      path: '/roadmap/$slug'
-      fullPath: '/roadmap/$slug'
-      preLoaderRoute: typeof ViewRoadmapSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/product/self-hosting': {
@@ -3043,7 +3005,6 @@ interface ViewRouteRouteChildren {
   ViewProductNotepadRoute: typeof ViewProductNotepadRoute
   ViewProductSearchRoute: typeof ViewProductSearchRoute
   ViewProductSelfHostingRoute: typeof ViewProductSelfHostingRoute
-  ViewRoadmapSlugRoute: typeof ViewRoadmapSlugRoute
   ViewSolutionCoachingRoute: typeof ViewSolutionCoachingRoute
   ViewSolutionConsultingRoute: typeof ViewSolutionConsultingRoute
   ViewSolutionCustomerSuccessRoute: typeof ViewSolutionCustomerSuccessRoute
@@ -3071,7 +3032,6 @@ interface ViewRouteRouteChildren {
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
   ViewLegalIndexRoute: typeof ViewLegalIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
-  ViewRoadmapIndexRoute: typeof ViewRoadmapIndexRoute
   ViewUpdatesIndexRoute: typeof ViewUpdatesIndexRoute
   ViewDownloadNightlyAppleIntelRoute: typeof ViewDownloadNightlyAppleIntelRoute
   ViewDownloadNightlyAppleSiliconRoute: typeof ViewDownloadNightlyAppleSiliconRoute
@@ -3129,7 +3089,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewProductNotepadRoute: ViewProductNotepadRoute,
   ViewProductSearchRoute: ViewProductSearchRoute,
   ViewProductSelfHostingRoute: ViewProductSelfHostingRoute,
-  ViewRoadmapSlugRoute: ViewRoadmapSlugRoute,
   ViewSolutionCoachingRoute: ViewSolutionCoachingRoute,
   ViewSolutionConsultingRoute: ViewSolutionConsultingRoute,
   ViewSolutionCustomerSuccessRoute: ViewSolutionCustomerSuccessRoute,
@@ -3157,7 +3116,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
   ViewLegalIndexRoute: ViewLegalIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
-  ViewRoadmapIndexRoute: ViewRoadmapIndexRoute,
   ViewUpdatesIndexRoute: ViewUpdatesIndexRoute,
   ViewDownloadNightlyAppleIntelRoute: ViewDownloadNightlyAppleIntelRoute,
   ViewDownloadNightlyAppleSiliconRoute: ViewDownloadNightlyAppleSiliconRoute,
