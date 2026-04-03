@@ -66,22 +66,9 @@ import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
 import { Route as ApiImagesSplatRouteImport } from './routes/api/images.$'
 import { Route as ViewVsSlugRouteImport } from './routes/_view/vs/$slug'
 import { Route as ViewUpdatesSlugRouteImport } from './routes/_view/updates/$slug'
-import { Route as ViewSolutionSalesRouteImport } from './routes/_view/solution/sales'
-import { Route as ViewSolutionResearchRouteImport } from './routes/_view/solution/research'
-import { Route as ViewSolutionRecruitingRouteImport } from './routes/_view/solution/recruiting'
-import { Route as ViewSolutionProjectManagementRouteImport } from './routes/_view/solution/project-management'
 import { Route as ViewSolutionMeetingRouteImport } from './routes/_view/solution/meeting'
-import { Route as ViewSolutionMediaRouteImport } from './routes/_view/solution/media'
-import { Route as ViewSolutionLegalRouteImport } from './routes/_view/solution/legal'
-import { Route as ViewSolutionKnowledgeWorkersRouteImport } from './routes/_view/solution/knowledge-workers'
-import { Route as ViewSolutionJournalismRouteImport } from './routes/_view/solution/journalism'
-import { Route as ViewSolutionHealthcareRouteImport } from './routes/_view/solution/healthcare'
-import { Route as ViewSolutionGovernmentRouteImport } from './routes/_view/solution/government'
-import { Route as ViewSolutionFieldEngineeringRouteImport } from './routes/_view/solution/field-engineering'
 import { Route as ViewSolutionEngineeringRouteImport } from './routes/_view/solution/engineering'
-import { Route as ViewSolutionCustomerSuccessRouteImport } from './routes/_view/solution/customer-success'
-import { Route as ViewSolutionConsultingRouteImport } from './routes/_view/solution/consulting'
-import { Route as ViewSolutionCoachingRouteImport } from './routes/_view/solution/coaching'
+import { Route as ViewSolutionSlugRouteImport } from './routes/_view/solution/$slug'
 import { Route as ViewProductSelfHostingRouteImport } from './routes/_view/product/self-hosting'
 import { Route as ViewProductSearchRouteImport } from './routes/_view/product/search'
 import { Route as ViewProductNotepadRouteImport } from './routes/_view/product/notepad'
@@ -445,88 +432,19 @@ const ViewUpdatesSlugRoute = ViewUpdatesSlugRouteImport.update({
   path: '/updates/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewSolutionSalesRoute = ViewSolutionSalesRouteImport.update({
-  id: '/solution/sales',
-  path: '/solution/sales',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionResearchRoute = ViewSolutionResearchRouteImport.update({
-  id: '/solution/research',
-  path: '/solution/research',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionRecruitingRoute = ViewSolutionRecruitingRouteImport.update({
-  id: '/solution/recruiting',
-  path: '/solution/recruiting',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionProjectManagementRoute =
-  ViewSolutionProjectManagementRouteImport.update({
-    id: '/solution/project-management',
-    path: '/solution/project-management',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
 const ViewSolutionMeetingRoute = ViewSolutionMeetingRouteImport.update({
   id: '/solution/meeting',
   path: '/solution/meeting',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewSolutionMediaRoute = ViewSolutionMediaRouteImport.update({
-  id: '/solution/media',
-  path: '/solution/media',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionLegalRoute = ViewSolutionLegalRouteImport.update({
-  id: '/solution/legal',
-  path: '/solution/legal',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionKnowledgeWorkersRoute =
-  ViewSolutionKnowledgeWorkersRouteImport.update({
-    id: '/solution/knowledge-workers',
-    path: '/solution/knowledge-workers',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewSolutionJournalismRoute = ViewSolutionJournalismRouteImport.update({
-  id: '/solution/journalism',
-  path: '/solution/journalism',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionHealthcareRoute = ViewSolutionHealthcareRouteImport.update({
-  id: '/solution/healthcare',
-  path: '/solution/healthcare',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionGovernmentRoute = ViewSolutionGovernmentRouteImport.update({
-  id: '/solution/government',
-  path: '/solution/government',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionFieldEngineeringRoute =
-  ViewSolutionFieldEngineeringRouteImport.update({
-    id: '/solution/field-engineering',
-    path: '/solution/field-engineering',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
 const ViewSolutionEngineeringRoute = ViewSolutionEngineeringRouteImport.update({
   id: '/solution/engineering',
   path: '/solution/engineering',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewSolutionCustomerSuccessRoute =
-  ViewSolutionCustomerSuccessRouteImport.update({
-    id: '/solution/customer-success',
-    path: '/solution/customer-success',
-    getParentRoute: () => ViewRouteRoute,
-  } as any)
-const ViewSolutionConsultingRoute = ViewSolutionConsultingRouteImport.update({
-  id: '/solution/consulting',
-  path: '/solution/consulting',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewSolutionCoachingRoute = ViewSolutionCoachingRouteImport.update({
-  id: '/solution/coaching',
-  path: '/solution/coaching',
+const ViewSolutionSlugRoute = ViewSolutionSlugRouteImport.update({
+  id: '/solution/$slug',
+  path: '/solution/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewProductSelfHostingRoute = ViewProductSelfHostingRouteImport.update({
@@ -991,22 +909,9 @@ export interface FileRoutesByFullPath {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/solution/coaching': typeof ViewSolutionCoachingRoute
-  '/solution/consulting': typeof ViewSolutionConsultingRoute
-  '/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
+  '/solution/$slug': typeof ViewSolutionSlugRoute
   '/solution/engineering': typeof ViewSolutionEngineeringRoute
-  '/solution/field-engineering': typeof ViewSolutionFieldEngineeringRoute
-  '/solution/government': typeof ViewSolutionGovernmentRoute
-  '/solution/healthcare': typeof ViewSolutionHealthcareRoute
-  '/solution/journalism': typeof ViewSolutionJournalismRoute
-  '/solution/knowledge-workers': typeof ViewSolutionKnowledgeWorkersRoute
-  '/solution/legal': typeof ViewSolutionLegalRoute
-  '/solution/media': typeof ViewSolutionMediaRoute
   '/solution/meeting': typeof ViewSolutionMeetingRoute
-  '/solution/project-management': typeof ViewSolutionProjectManagementRoute
-  '/solution/recruiting': typeof ViewSolutionRecruitingRoute
-  '/solution/research': typeof ViewSolutionResearchRoute
-  '/solution/sales': typeof ViewSolutionSalesRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
   '/api/images/$': typeof ApiImagesSplatRoute
@@ -1136,22 +1041,9 @@ export interface FileRoutesByTo {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/solution/coaching': typeof ViewSolutionCoachingRoute
-  '/solution/consulting': typeof ViewSolutionConsultingRoute
-  '/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
+  '/solution/$slug': typeof ViewSolutionSlugRoute
   '/solution/engineering': typeof ViewSolutionEngineeringRoute
-  '/solution/field-engineering': typeof ViewSolutionFieldEngineeringRoute
-  '/solution/government': typeof ViewSolutionGovernmentRoute
-  '/solution/healthcare': typeof ViewSolutionHealthcareRoute
-  '/solution/journalism': typeof ViewSolutionJournalismRoute
-  '/solution/knowledge-workers': typeof ViewSolutionKnowledgeWorkersRoute
-  '/solution/legal': typeof ViewSolutionLegalRoute
-  '/solution/media': typeof ViewSolutionMediaRoute
   '/solution/meeting': typeof ViewSolutionMeetingRoute
-  '/solution/project-management': typeof ViewSolutionProjectManagementRoute
-  '/solution/recruiting': typeof ViewSolutionRecruitingRoute
-  '/solution/research': typeof ViewSolutionResearchRoute
-  '/solution/sales': typeof ViewSolutionSalesRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
   '/api/images/$': typeof ApiImagesSplatRoute
@@ -1287,22 +1179,9 @@ export interface FileRoutesById {
   '/_view/product/notepad': typeof ViewProductNotepadRoute
   '/_view/product/search': typeof ViewProductSearchRoute
   '/_view/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/_view/solution/coaching': typeof ViewSolutionCoachingRoute
-  '/_view/solution/consulting': typeof ViewSolutionConsultingRoute
-  '/_view/solution/customer-success': typeof ViewSolutionCustomerSuccessRoute
+  '/_view/solution/$slug': typeof ViewSolutionSlugRoute
   '/_view/solution/engineering': typeof ViewSolutionEngineeringRoute
-  '/_view/solution/field-engineering': typeof ViewSolutionFieldEngineeringRoute
-  '/_view/solution/government': typeof ViewSolutionGovernmentRoute
-  '/_view/solution/healthcare': typeof ViewSolutionHealthcareRoute
-  '/_view/solution/journalism': typeof ViewSolutionJournalismRoute
-  '/_view/solution/knowledge-workers': typeof ViewSolutionKnowledgeWorkersRoute
-  '/_view/solution/legal': typeof ViewSolutionLegalRoute
-  '/_view/solution/media': typeof ViewSolutionMediaRoute
   '/_view/solution/meeting': typeof ViewSolutionMeetingRoute
-  '/_view/solution/project-management': typeof ViewSolutionProjectManagementRoute
-  '/_view/solution/recruiting': typeof ViewSolutionRecruitingRoute
-  '/_view/solution/research': typeof ViewSolutionResearchRoute
-  '/_view/solution/sales': typeof ViewSolutionSalesRoute
   '/_view/updates/$slug': typeof ViewUpdatesSlugRoute
   '/_view/vs/$slug': typeof ViewVsSlugRoute
   '/api/images/$': typeof ApiImagesSplatRoute
@@ -1438,22 +1317,9 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/solution/coaching'
-    | '/solution/consulting'
-    | '/solution/customer-success'
+    | '/solution/$slug'
     | '/solution/engineering'
-    | '/solution/field-engineering'
-    | '/solution/government'
-    | '/solution/healthcare'
-    | '/solution/journalism'
-    | '/solution/knowledge-workers'
-    | '/solution/legal'
-    | '/solution/media'
     | '/solution/meeting'
-    | '/solution/project-management'
-    | '/solution/recruiting'
-    | '/solution/research'
-    | '/solution/sales'
     | '/updates/$slug'
     | '/vs/$slug'
     | '/api/images/$'
@@ -1583,22 +1449,9 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/solution/coaching'
-    | '/solution/consulting'
-    | '/solution/customer-success'
+    | '/solution/$slug'
     | '/solution/engineering'
-    | '/solution/field-engineering'
-    | '/solution/government'
-    | '/solution/healthcare'
-    | '/solution/journalism'
-    | '/solution/knowledge-workers'
-    | '/solution/legal'
-    | '/solution/media'
     | '/solution/meeting'
-    | '/solution/project-management'
-    | '/solution/recruiting'
-    | '/solution/research'
-    | '/solution/sales'
     | '/updates/$slug'
     | '/vs/$slug'
     | '/api/images/$'
@@ -1733,22 +1586,9 @@ export interface FileRouteTypes {
     | '/_view/product/notepad'
     | '/_view/product/search'
     | '/_view/product/self-hosting'
-    | '/_view/solution/coaching'
-    | '/_view/solution/consulting'
-    | '/_view/solution/customer-success'
+    | '/_view/solution/$slug'
     | '/_view/solution/engineering'
-    | '/_view/solution/field-engineering'
-    | '/_view/solution/government'
-    | '/_view/solution/healthcare'
-    | '/_view/solution/journalism'
-    | '/_view/solution/knowledge-workers'
-    | '/_view/solution/legal'
-    | '/_view/solution/media'
     | '/_view/solution/meeting'
-    | '/_view/solution/project-management'
-    | '/_view/solution/recruiting'
-    | '/_view/solution/research'
-    | '/_view/solution/sales'
     | '/_view/updates/$slug'
     | '/_view/vs/$slug'
     | '/api/images/$'
@@ -2268,88 +2108,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewUpdatesSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/solution/sales': {
-      id: '/_view/solution/sales'
-      path: '/solution/sales'
-      fullPath: '/solution/sales'
-      preLoaderRoute: typeof ViewSolutionSalesRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/research': {
-      id: '/_view/solution/research'
-      path: '/solution/research'
-      fullPath: '/solution/research'
-      preLoaderRoute: typeof ViewSolutionResearchRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/recruiting': {
-      id: '/_view/solution/recruiting'
-      path: '/solution/recruiting'
-      fullPath: '/solution/recruiting'
-      preLoaderRoute: typeof ViewSolutionRecruitingRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/project-management': {
-      id: '/_view/solution/project-management'
-      path: '/solution/project-management'
-      fullPath: '/solution/project-management'
-      preLoaderRoute: typeof ViewSolutionProjectManagementRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
     '/_view/solution/meeting': {
       id: '/_view/solution/meeting'
       path: '/solution/meeting'
       fullPath: '/solution/meeting'
       preLoaderRoute: typeof ViewSolutionMeetingRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/media': {
-      id: '/_view/solution/media'
-      path: '/solution/media'
-      fullPath: '/solution/media'
-      preLoaderRoute: typeof ViewSolutionMediaRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/legal': {
-      id: '/_view/solution/legal'
-      path: '/solution/legal'
-      fullPath: '/solution/legal'
-      preLoaderRoute: typeof ViewSolutionLegalRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/knowledge-workers': {
-      id: '/_view/solution/knowledge-workers'
-      path: '/solution/knowledge-workers'
-      fullPath: '/solution/knowledge-workers'
-      preLoaderRoute: typeof ViewSolutionKnowledgeWorkersRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/journalism': {
-      id: '/_view/solution/journalism'
-      path: '/solution/journalism'
-      fullPath: '/solution/journalism'
-      preLoaderRoute: typeof ViewSolutionJournalismRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/healthcare': {
-      id: '/_view/solution/healthcare'
-      path: '/solution/healthcare'
-      fullPath: '/solution/healthcare'
-      preLoaderRoute: typeof ViewSolutionHealthcareRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/government': {
-      id: '/_view/solution/government'
-      path: '/solution/government'
-      fullPath: '/solution/government'
-      preLoaderRoute: typeof ViewSolutionGovernmentRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/field-engineering': {
-      id: '/_view/solution/field-engineering'
-      path: '/solution/field-engineering'
-      fullPath: '/solution/field-engineering'
-      preLoaderRoute: typeof ViewSolutionFieldEngineeringRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/solution/engineering': {
@@ -2359,25 +2122,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewSolutionEngineeringRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/solution/customer-success': {
-      id: '/_view/solution/customer-success'
-      path: '/solution/customer-success'
-      fullPath: '/solution/customer-success'
-      preLoaderRoute: typeof ViewSolutionCustomerSuccessRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/consulting': {
-      id: '/_view/solution/consulting'
-      path: '/solution/consulting'
-      fullPath: '/solution/consulting'
-      preLoaderRoute: typeof ViewSolutionConsultingRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/solution/coaching': {
-      id: '/_view/solution/coaching'
-      path: '/solution/coaching'
-      fullPath: '/solution/coaching'
-      preLoaderRoute: typeof ViewSolutionCoachingRouteImport
+    '/_view/solution/$slug': {
+      id: '/_view/solution/$slug'
+      path: '/solution/$slug'
+      fullPath: '/solution/$slug'
+      preLoaderRoute: typeof ViewSolutionSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/product/self-hosting': {
@@ -3005,22 +2754,9 @@ interface ViewRouteRouteChildren {
   ViewProductNotepadRoute: typeof ViewProductNotepadRoute
   ViewProductSearchRoute: typeof ViewProductSearchRoute
   ViewProductSelfHostingRoute: typeof ViewProductSelfHostingRoute
-  ViewSolutionCoachingRoute: typeof ViewSolutionCoachingRoute
-  ViewSolutionConsultingRoute: typeof ViewSolutionConsultingRoute
-  ViewSolutionCustomerSuccessRoute: typeof ViewSolutionCustomerSuccessRoute
+  ViewSolutionSlugRoute: typeof ViewSolutionSlugRoute
   ViewSolutionEngineeringRoute: typeof ViewSolutionEngineeringRoute
-  ViewSolutionFieldEngineeringRoute: typeof ViewSolutionFieldEngineeringRoute
-  ViewSolutionGovernmentRoute: typeof ViewSolutionGovernmentRoute
-  ViewSolutionHealthcareRoute: typeof ViewSolutionHealthcareRoute
-  ViewSolutionJournalismRoute: typeof ViewSolutionJournalismRoute
-  ViewSolutionKnowledgeWorkersRoute: typeof ViewSolutionKnowledgeWorkersRoute
-  ViewSolutionLegalRoute: typeof ViewSolutionLegalRoute
-  ViewSolutionMediaRoute: typeof ViewSolutionMediaRoute
   ViewSolutionMeetingRoute: typeof ViewSolutionMeetingRoute
-  ViewSolutionProjectManagementRoute: typeof ViewSolutionProjectManagementRoute
-  ViewSolutionRecruitingRoute: typeof ViewSolutionRecruitingRoute
-  ViewSolutionResearchRoute: typeof ViewSolutionResearchRoute
-  ViewSolutionSalesRoute: typeof ViewSolutionSalesRoute
   ViewUpdatesSlugRoute: typeof ViewUpdatesSlugRoute
   ViewVsSlugRoute: typeof ViewVsSlugRoute
   ViewBlogIndexRoute: typeof ViewBlogIndexRoute
@@ -3089,22 +2825,9 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewProductNotepadRoute: ViewProductNotepadRoute,
   ViewProductSearchRoute: ViewProductSearchRoute,
   ViewProductSelfHostingRoute: ViewProductSelfHostingRoute,
-  ViewSolutionCoachingRoute: ViewSolutionCoachingRoute,
-  ViewSolutionConsultingRoute: ViewSolutionConsultingRoute,
-  ViewSolutionCustomerSuccessRoute: ViewSolutionCustomerSuccessRoute,
+  ViewSolutionSlugRoute: ViewSolutionSlugRoute,
   ViewSolutionEngineeringRoute: ViewSolutionEngineeringRoute,
-  ViewSolutionFieldEngineeringRoute: ViewSolutionFieldEngineeringRoute,
-  ViewSolutionGovernmentRoute: ViewSolutionGovernmentRoute,
-  ViewSolutionHealthcareRoute: ViewSolutionHealthcareRoute,
-  ViewSolutionJournalismRoute: ViewSolutionJournalismRoute,
-  ViewSolutionKnowledgeWorkersRoute: ViewSolutionKnowledgeWorkersRoute,
-  ViewSolutionLegalRoute: ViewSolutionLegalRoute,
-  ViewSolutionMediaRoute: ViewSolutionMediaRoute,
   ViewSolutionMeetingRoute: ViewSolutionMeetingRoute,
-  ViewSolutionProjectManagementRoute: ViewSolutionProjectManagementRoute,
-  ViewSolutionRecruitingRoute: ViewSolutionRecruitingRoute,
-  ViewSolutionResearchRoute: ViewSolutionResearchRoute,
-  ViewSolutionSalesRoute: ViewSolutionSalesRoute,
   ViewUpdatesSlugRoute: ViewUpdatesSlugRoute,
   ViewVsSlugRoute: ViewVsSlugRoute,
   ViewBlogIndexRoute: ViewBlogIndexRoute,
