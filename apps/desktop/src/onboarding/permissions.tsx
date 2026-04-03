@@ -15,6 +15,8 @@ import { usePermission } from "~/shared/hooks/usePermissions";
 function PermissionBlock({
   enabledLabel,
   enableLabel,
+  enabledBody,
+  enableBody,
   Icon,
   permissionName,
   status,
@@ -23,6 +25,8 @@ function PermissionBlock({
 }: {
   enabledLabel: string;
   enableLabel: string;
+  enabledBody: string;
+  enableBody: string;
   Icon: LucideIcon;
   permissionName: string;
   status: PermissionStatus | undefined;
@@ -32,11 +36,7 @@ function PermissionBlock({
   const isAuthorized = status === "authorized";
   const opensSettings = isAuthorized || status === "denied";
   const title = isAuthorized ? enabledLabel : enableLabel;
-  const body = isAuthorized
-    ? "Open settings"
-    : opensSettings
-      ? "Open System Settings to finish setup"
-      : "Allow access to continue";
+  const body = isAuthorized ? enabledBody : enableBody;
   const ctaLabel = isAuthorized
     ? "Manage"
     : opensSettings
@@ -87,7 +87,7 @@ function PermissionBlock({
         </span>
         <p
           className={cn([
-            "hidden truncate text-xs @[480px]:block",
+            "truncate text-xs @[480px]:block",
             isAuthorized ? "text-neutral-500" : "text-white/70",
           ])}
         >
@@ -134,7 +134,9 @@ export function PermissionsSection({
     <div className="@container flex items-stretch gap-3">
       <PermissionBlock
         enabledLabel="Char can hear your voice"
-        enableLabel="Help Char listen to you"
+        enableLabel="Allow microphone access"
+        enabledBody="Microphone access turned on"
+        enableBody="Help Char listen to you"
         Icon={MicIcon}
         permissionName="Microphone"
         status={mic.status}
@@ -144,7 +146,9 @@ export function PermissionsSection({
 
       <PermissionBlock
         enabledLabel="Char can hear others"
-        enableLabel="Help Char listen to others"
+        enableLabel="Allow system audio access"
+        enabledBody="System audio enabled"
+        enableBody="Help Char listen to others"
         Icon={Volume2Icon}
         permissionName="System audio"
         status={systemAudio.status}

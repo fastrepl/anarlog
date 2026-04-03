@@ -751,15 +751,22 @@ export function StandardTabWrapper({
   afterBorder,
   floatingButton,
   showTimeline = false,
+  noBorder = false,
 }: {
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   floatingButton?: React.ReactNode;
   showTimeline?: boolean;
+  noBorder?: boolean;
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex flex-1 flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white">
+      <div
+        className={cn([
+          "relative flex flex-1 flex-col overflow-hidden rounded-xl bg-white",
+          !noBorder && "border border-neutral-200",
+        ])}
+      >
         {children}
         {floatingButton}
         <StandardTabChatButton showTimeline={showTimeline} />

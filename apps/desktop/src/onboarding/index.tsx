@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
@@ -123,29 +124,42 @@ export function TabContentOnboarding({
   }, [close, currentTab, queryClient]);
 
   return (
-    <StandardTabWrapper>
+    <StandardTabWrapper noBorder>
       <div className="relative flex h-full flex-col">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <video
-            ref={onboardingVideoRef}
-            className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-hidden="true"
+          <motion.div
+            className="absolute inset-0"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
           >
-            <source src="/assets/onboarding-video.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+            <video
+              ref={onboardingVideoRef}
+              className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              aria-hidden="true"
+            >
+              <source src="/assets/onboarding-video.mp4" type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+          </motion.div>
           <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
           <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
           <div className="absolute inset-x-0 top-0 h-[84%] bg-linear-to-b from-stone-50 via-stone-50/82 via-stone-50/97 via-18% via-42% to-stone-50/0" />
+          <motion.div
+            className="absolute inset-0 bg-stone-50"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
+          />
         </div>
 
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-4 pb-3">
-          <h1 className="font-serif text-2xl font-semibold text-neutral-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-12 pt-12 pb-8">
+          <h1 className="font-serif text-3xl font-semibold text-neutral-900">
             Welcome to Char
           </h1>
           <button
@@ -154,7 +168,7 @@ export function TabContentOnboarding({
             aria-label={isMuted ? "Unmute" : "Mute"}
           >
             {isMuted ? (
-              <VolumeXIcon size={16} className="text-neutral-600" />
+              <VolumeXIcon size={16} className="text-neutral-400" />
             ) : (
               <Volume2Icon size={16} className="text-neutral-600" />
             )}
@@ -162,12 +176,13 @@ export function TabContentOnboarding({
         </div>
 
         <div className="relative z-10 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3 px-6 pb-16">
+          <div className="flex flex-col gap-4 px-12 pb-16">
             <OnboardingSection
-              title="Permissions"
+              title="Start with permissions"
               completedTitle="Permissions granted"
-              description="Required for best experience"
+              description="Char needs access to your microphone and system audio to record and transcribe your meetings"
               status={getStepStatus("permissions", currentStep)}
+              skippable={false}
               onBack={goBack}
               onNext={goNext}
             >
@@ -175,8 +190,8 @@ export function TabContentOnboarding({
             </OnboardingSection>
 
             <OnboardingSection
-              title="Account"
-              description="Start using Char to focus on people, not note-taking"
+              title="Create account"
+              description="Sign in to unlock powerful Al models, sync across devices, personalization, and workflow integrations."
               completedTitle={
                 auth.session
                   ? "Signed in"
@@ -195,8 +210,8 @@ export function TabContentOnboarding({
             </OnboardingSection>
 
             <OnboardingSection
-              title="Calendar"
-              description="Connect your calendar to get meeting reminders"
+              title="Connect calendar"
+              description="Char will sync your calendar to get meeting reminders"
               completedTitle="Calendar connected"
               status={getStepStatus("calendar", currentStep)}
               onBack={goBack}
@@ -222,6 +237,7 @@ export function TabContentOnboarding({
             <OnboardingSection
               title="Ready to go"
               status={getStepStatus("final", currentStep)}
+              skippable={false}
               onBack={goBack}
               onNext={() => void finishOnboarding(handleFinish)}
             >
