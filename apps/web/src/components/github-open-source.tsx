@@ -314,11 +314,13 @@ function RotatingAvatarSet({
     if (profiles.length <= displayCount) return;
 
     const interval = setInterval(() => {
+      const idx = slotRef.current % displayCount;
+      slotRef.current = idx + 1;
+      const nextProfile = pickNext();
+
       setVisible((prev) => {
         const next = [...prev];
-        const idx = slotRef.current % next.length;
-        slotRef.current = idx + 1;
-        next[idx] = pickNext();
+        next[idx] = nextProfile;
         return next;
       });
     }, 1000);
