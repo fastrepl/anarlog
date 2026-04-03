@@ -16,6 +16,8 @@ import {
 const AVATAR_SIZE = 40;
 const AVATAR_GAP = 4;
 const DEFAULT_DISPLAY_COUNT = 50;
+const DEFAULT_ROTATION_INTERVAL_MS = 1000;
+const WAVE_ROTATION_INTERVAL_MS = 250;
 
 function StatBadge({
   type,
@@ -85,13 +87,15 @@ function getPackedDisplayCount({
 function RotatingAvatarSet({
   profiles,
   displayCount,
+  columnCount,
 }: {
   profiles: { username: string; avatar: string }[];
   displayCount: number;
+  columnCount?: number | null;
 }) {
   const [visible, setVisible] = useState(() => profiles.slice(0, displayCount));
   const poolRef = useRef(displayCount);
-  const slotRef = useRef(0);
+  const waveColumnRef = useRef(0);
 
   const pickNext = useCallback(() => {
     const idx = poolRef.current % profiles.length;
@@ -102,19 +106,35 @@ function RotatingAvatarSet({
   useEffect(() => {
     if (profiles.length <= displayCount) return;
 
+    const effectiveColumnCount = Math.max(1, columnCount ?? displayCount);
+    const intervalMs =
+      effectiveColumnCount < displayCount
+        ? WAVE_ROTATION_INTERVAL_MS
+        : DEFAULT_ROTATION_INTERVAL_MS;
+
     const interval = setInterval(() => {
-      const idx = slotRef.current % displayCount;
-      slotRef.current = idx + 1;
-      const nextProfile = pickNext();
+      const column = waveColumnRef.current % effectiveColumnCount;
+      waveColumnRef.current = column + 1;
+
+      const updates: Array<{
+        idx: number;
+        profile: (typeof profiles)[number];
+      }> = [];
+
+      for (let idx = column; idx < displayCount; idx += effectiveColumnCount) {
+        updates.push({ idx, profile: pickNext() });
+      }
 
       setVisible((prev) => {
         const next = [...prev];
-        next[idx] = nextProfile;
+        for (const update of updates) {
+          next[update.idx] = update.profile;
+        }
         return next;
       });
-    }, 1000);
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [displayCount, profiles.length, pickNext]);
+  }, [columnCount, displayCount, profiles.length, pickNext]);
 
   return (
     <>
@@ -180,6 +200,7 @@ export function RotatingAvatarGrid({
         key={resetKey}
         profiles={profiles}
         displayCount={displayCount}
+        columnCount={columnCount}
       />
     </div>
   );
