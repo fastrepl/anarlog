@@ -5,7 +5,7 @@ use futures_util::{Stream, StreamExt};
 use hypr_audio_utils::AudioFormatExt;
 use owhisper_client::{
     AssemblyAIAdapter, DashScopeAdapter, DeepgramAdapter, ElevenLabsAdapter, FinalizeHandle,
-    FireworksAdapter, GladiaAdapter, ListenClient, MistralAdapter, OpenAIAdapter, Provider,
+    FireworksAdapter, GladiaAdapter, ListenClient, MistralAdapter, Provider,
     RealtimeSttAdapter, SonioxAdapter,
 };
 use owhisper_interface::{ControlMessage, MixedMessage, stream::StreamResponse};
@@ -181,7 +181,6 @@ direct_live_test!(assemblyai, AssemblyAIAdapter, Provider::AssemblyAI);
 direct_live_test!(soniox, SonioxAdapter, Provider::Soniox);
 direct_live_test!(gladia, GladiaAdapter, Provider::Gladia);
 direct_live_test!(fireworks, FireworksAdapter, Provider::Fireworks);
-direct_live_test!(openai, OpenAIAdapter, Provider::OpenAI);
 direct_live_test!(elevenlabs, ElevenLabsAdapter, Provider::ElevenLabs);
 direct_live_test!(dashscope, DashScopeAdapter, Provider::DashScope);
 direct_live_test!(mistral, MistralAdapter, Provider::Mistral);
