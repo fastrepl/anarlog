@@ -252,7 +252,7 @@ export function GitHubOpenSource() {
         </div>
 
         {stargazers.length > 0 ? (
-          <RotatingAvatarGrid profiles={stargazers} />
+          <RotatingAvatarGrid profiles={stargazers} rows={2} />
         ) : null}
       </div>
     </section>
