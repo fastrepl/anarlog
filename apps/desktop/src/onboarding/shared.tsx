@@ -22,6 +22,7 @@ export function OnboardingSection({
   status,
   onBack,
   onNext,
+  onSkip,
   skippable = true,
   children,
 }: {
@@ -31,6 +32,7 @@ export function OnboardingSection({
   status: SectionStatus | null;
   onBack?: () => void;
   onNext?: () => void;
+  onSkip?: () => void;
   skippable?: boolean;
   children: ReactNode;
 }) {
@@ -92,7 +94,10 @@ export function OnboardingSection({
                 {onNext &&
                   (skippable ? (
                     <button
-                      onClick={onNext}
+                      onClick={() => {
+                        onSkip?.();
+                        onNext?.();
+                      }}
                       className="text-sm text-neutral-400 transition-colors hover:text-neutral-600"
                     >
                       Skip

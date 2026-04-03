@@ -202,6 +202,12 @@ export function TabContentOnboarding({
               status={getStepStatus("login", currentStep)}
               onBack={goBack}
               onNext={goNext}
+              onSkip={() => {
+                setDidSkipLogin(true);
+                void analyticsCommands.event({
+                  event: "onboarding_login_skipped",
+                });
+              }}
             >
               <LoginSection
                 onContinue={goNext}
