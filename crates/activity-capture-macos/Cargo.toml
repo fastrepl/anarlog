@@ -10,6 +10,10 @@ tokio = { workspace = true, features = ["sync"] }
 tokio-stream = { workspace = true }
 url = { workspace = true }
 
+[dev-dependencies]
+futures-util = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = { workspace = true }
 objc2 = { workspace = true }
