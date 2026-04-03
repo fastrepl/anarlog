@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
@@ -19,6 +20,10 @@ const DEFAULT_DISPLAY_COUNT = 50;
 const DEFAULT_ROTATION_INTERVAL_MS = 1000;
 const WAVE_ROTATION_INTERVAL_MS = 120;
 const WAVE_REPEAT_DELAY_MS = 1200;
+const AVATAR_SWAP_TRANSITION = {
+  duration: 0.32,
+  ease: [0.22, 1, 0.36, 1],
+} as const;
 
 function StatBadge({
   type,
@@ -44,18 +49,42 @@ function StatBadge({
 
 function Avatar({ username, avatar }: { username: string; avatar: string }) {
   return (
-    <a
-      href={`https://github.com/${username}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="size-[40px] shrink-0 cursor-pointer overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400"
-    >
-      <img
-        src={avatar}
-        alt={`${username}'s avatar`}
-        className="h-full w-full object-cover"
-      />
-    </a>
+    <div className="group relative size-[40px] shrink-0 overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-colors hover:border-neutral-400">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.a
+          key={`${username}-${avatar}`}
+          href={`https://github.com/${username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{
+            opacity: 0,
+            x: 10,
+            scale: 0.9,
+            filter: "blur(6px)",
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+            scale: 1,
+            filter: "blur(0px)",
+          }}
+          exit={{
+            opacity: 0,
+            x: -10,
+            scale: 1.06,
+            filter: "blur(5px)",
+          }}
+          transition={AVATAR_SWAP_TRANSITION}
+          className="absolute inset-0 block cursor-pointer"
+        >
+          <img
+            src={avatar}
+            alt={`${username}'s avatar`}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-110"
+          />
+        </motion.a>
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -144,11 +173,7 @@ function RotatingAvatarSet({
   return (
     <>
       {visible.map((profile, i) => (
-        <Avatar
-          key={`${i}-${profile.username}`}
-          username={profile.username}
-          avatar={profile.avatar}
-        />
+        <Avatar key={i} username={profile.username} avatar={profile.avatar} />
       ))}
     </>
   );
