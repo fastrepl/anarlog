@@ -48,6 +48,7 @@ import { Route as AdminLeadFinderIndexRouteImport } from './routes/admin/lead-fi
 import { Route as AdminKanbanIndexRouteImport } from './routes/admin/kanban/index'
 import { Route as AdminCrmIndexRouteImport } from './routes/admin/crm/index'
 import { Route as AdminCollectionsIndexRouteImport } from './routes/admin/collections/index'
+import { Route as AdminBrandingIndexRouteImport } from './routes/admin/branding/index'
 import { Route as ViewUpdatesIndexRouteImport } from './routes/_view/updates/index'
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
@@ -338,6 +339,11 @@ const AdminCrmIndexRoute = AdminCrmIndexRouteImport.update({
 const AdminCollectionsIndexRoute = AdminCollectionsIndexRouteImport.update({
   id: '/collections/',
   path: '/collections/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminBrandingIndexRoute = AdminBrandingIndexRouteImport.update({
+  id: '/branding/',
+  path: '/branding/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const ViewUpdatesIndexRoute = ViewUpdatesIndexRouteImport.update({
@@ -930,6 +936,7 @@ export interface FileRoutesByFullPath {
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
   '/updates/': typeof ViewUpdatesIndexRoute
+  '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
   '/admin/kanban/': typeof AdminKanbanIndexRoute
@@ -1062,6 +1069,7 @@ export interface FileRoutesByTo {
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
   '/updates': typeof ViewUpdatesIndexRoute
+  '/admin/branding': typeof AdminBrandingIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
   '/admin/crm': typeof AdminCrmIndexRoute
   '/admin/kanban': typeof AdminKanbanIndexRoute
@@ -1200,6 +1208,7 @@ export interface FileRoutesById {
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
   '/_view/updates/': typeof ViewUpdatesIndexRoute
+  '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
   '/admin/kanban/': typeof AdminKanbanIndexRoute
@@ -1338,6 +1347,7 @@ export interface FileRouteTypes {
     | '/legal/'
     | '/press-kit/'
     | '/updates/'
+    | '/admin/branding/'
     | '/admin/collections/'
     | '/admin/crm/'
     | '/admin/kanban/'
@@ -1470,6 +1480,7 @@ export interface FileRouteTypes {
     | '/legal'
     | '/press-kit'
     | '/updates'
+    | '/admin/branding'
     | '/admin/collections'
     | '/admin/crm'
     | '/admin/kanban'
@@ -1607,6 +1618,7 @@ export interface FileRouteTypes {
     | '/_view/legal/'
     | '/_view/press-kit/'
     | '/_view/updates/'
+    | '/admin/branding/'
     | '/admin/collections/'
     | '/admin/crm/'
     | '/admin/kanban/'
@@ -1980,6 +1992,13 @@ declare module '@tanstack/react-router' {
       path: '/collections'
       fullPath: '/admin/collections/'
       preLoaderRoute: typeof AdminCollectionsIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/branding/': {
+      id: '/admin/branding/'
+      path: '/branding'
+      fullPath: '/admin/branding/'
+      preLoaderRoute: typeof AdminBrandingIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/_view/updates/': {
@@ -2859,6 +2878,7 @@ const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminBrandingIndexRoute: typeof AdminBrandingIndexRoute
   AdminCollectionsIndexRoute: typeof AdminCollectionsIndexRoute
   AdminCrmIndexRoute: typeof AdminCrmIndexRoute
   AdminKanbanIndexRoute: typeof AdminKanbanIndexRoute
@@ -2869,6 +2889,7 @@ interface AdminRouteRouteChildren {
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminBrandingIndexRoute: AdminBrandingIndexRoute,
   AdminCollectionsIndexRoute: AdminCollectionsIndexRoute,
   AdminCrmIndexRoute: AdminCrmIndexRoute,
   AdminKanbanIndexRoute: AdminKanbanIndexRoute,
