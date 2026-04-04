@@ -11,7 +11,6 @@ import { ShellProvider } from "~/contexts/shell";
 import { ToolRegistryProvider } from "~/contexts/tool";
 import { SearchEngineProvider } from "~/search/contexts/engine";
 import { SearchUIProvider } from "~/search/contexts/ui";
-import { MainChromeProvider } from "~/shared/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 export const Route = createFileRoute("/app/main2/_layout")({
@@ -52,9 +51,7 @@ function Component() {
           <ToolRegistryProvider registry={toolRegistry}>
             <AITaskProvider store={aiTaskStore}>
               <NotificationProvider>
-                <MainChromeProvider showFloatingChatButton={false}>
-                  <Outlet />
-                </MainChromeProvider>
+                <Outlet />
               </NotificationProvider>
             </AITaskProvider>
           </ToolRegistryProvider>

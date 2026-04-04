@@ -27,7 +27,6 @@ import { useNewNote, useNewNoteAndListen } from "./useNewNote";
 import { useBillingAccess } from "~/auth/billing";
 import { TabItemCalendar } from "~/calendar";
 import { TabItemChangelog } from "~/changelog";
-import { ChatFloatingButton } from "~/chat/components/floating-button";
 import { TabItemChat } from "~/chat/tab/tab-item";
 import { TabItemChatShortcut } from "~/chat_shortcuts";
 import { TabItemContact } from "~/contacts";
@@ -39,8 +38,6 @@ import { TabItemEdit } from "~/edit";
 import { TabItemFolder } from "~/folders";
 import { TabItemOnboarding } from "~/onboarding";
 import { TabItemNote } from "~/session";
-import { useCaretPosition } from "~/session/components/caret-position-context";
-import { useShouldShowListeningFab } from "~/session/components/floating";
 import { TabItemSettings } from "~/settings";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { TabItemEmpty } from "~/shared/main/empty";
@@ -290,12 +287,7 @@ export function MainTabChrome({ tabs }: { tabs: Tab[] }) {
 
         <div className="ml-auto flex h-full items-center gap-1">
           <Update />
-          {currentTab?.type === "sessions" && (
-            <HeaderTabChatButton
-              shortcutLabel={chatShortcutLabel}
-              tab={currentTab}
-            />
-          )}
+          <HeaderTabChatButton shortcutLabel={chatShortcutLabel} />
         </div>
       </div>
     </div>
@@ -531,27 +523,11 @@ export function MainTabItem({
   return null;
 }
 
-function TabChatButton({
-  isCaretNearBottom = false,
-  bottomAccessoryKind = null,
-  placement = "floating",
-  shortcutLabel,
-}: {
-  isCaretNearBottom?: boolean;
-  bottomAccessoryKind?:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
-  placement?: "floating" | "tabbar";
-  shortcutLabel?: string;
-}) {
+function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
   const { chat } = useShell();
-  const currentTab = useTabs((state) => state.currentTab);
   const isChatOpen =
     chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
-  const isRightPanelOpen = chat.mode === "RightPanelOpen";
-  const isTabbarSelected = placement === "tabbar" && isChatOpen;
+  const isTabbarSelected = isChatOpen || chat.mode === "FullTab";
 
   const { data: isChatEnabled } = useQuery({
     refetchInterval: 10_000,
@@ -569,145 +545,49 @@ function TabChatButton({
     return null;
   }
 
-  if (chat.mode === "FullTab") {
-    return null;
-  }
-
-  if (placement !== "tabbar" && isRightPanelOpen) {
-    return null;
-  }
-
-  if (
-    currentTab?.type === "settings" ||
-    currentTab?.type === "chat_support" ||
-    currentTab?.type === "onboarding" ||
-    currentTab?.type === "changelog"
-  ) {
-    return null;
-  }
-
   const buttonTitle = isTabbarSelected ? "Close chat" : "Chat with notes";
 
   const handleClick = () =>
     chat.sendEvent(isTabbarSelected ? { type: "TOGGLE" } : { type: "OPEN" });
 
-  if (placement === "tabbar") {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            onClick={handleClick}
-            variant="ghost"
-            size="icon"
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          onClick={handleClick}
+          variant="ghost"
+          size="icon"
+          className={cn([
+            "text-neutral-600",
+            isTabbarSelected &&
+              "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+          ])}
+          aria-label={buttonTitle}
+          aria-pressed={isTabbarSelected}
+          title={buttonTitle}
+        >
+          <img
+            src="/assets/char-chat-bubble.svg"
+            alt="Char"
             className={cn([
-              "text-neutral-600",
-              isTabbarSelected &&
-                "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+              "size-[16px] shrink-0 object-contain opacity-65",
+              isTabbarSelected && "opacity-100",
             ])}
-            aria-label={buttonTitle}
-            aria-pressed={isTabbarSelected}
-            title={buttonTitle}
-          >
-            <img
-              src="/assets/char-logo-icon-black.svg"
-              alt="Char"
-              className={cn([
-                "size-[13px] shrink-0 object-contain opacity-65",
-                isTabbarSelected && "opacity-100",
-              ])}
-            />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="flex items-center gap-2">
-          <span>{buttonTitle}</span>
-          {shortcutLabel && (
-            <Kbd className="animate-kbd-press">{shortcutLabel}</Kbd>
-          )}
-        </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <ChatFloatingButton
-      isCaretNearBottom={isCaretNearBottom}
-      bottomAccessoryKind={bottomAccessoryKind}
-    />
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="flex items-center gap-2">
+        <span>{buttonTitle}</span>
+        {shortcutLabel && (
+          <Kbd className="animate-kbd-press">{shortcutLabel}</Kbd>
+        )}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
-function HeaderTabChatButton({
-  shortcutLabel,
-  tab,
-}: {
-  shortcutLabel: string;
-  tab: Extract<Tab, { type: "sessions" }>;
-}) {
-  const shouldShowListeningFab = useShouldShowListeningFab(tab);
-
-  if (!shouldShowListeningFab) {
-    return null;
-  }
-
-  return <TabChatButton placement="tabbar" shortcutLabel={shortcutLabel} />;
-}
-
-export function StandardTabChatButton({
-  bottomAccessoryKind = null,
-}: {
-  bottomAccessoryKind?:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
-}) {
-  const caretPosition = useCaretPosition();
-  const isCaretNearBottom = caretPosition?.isCaretNearBottom ?? false;
-  const currentTab = useTabs((state) => state.currentTab);
-
-  if (currentTab?.type === "sessions") {
-    return (
-      <SessionTabFloatingChatButton
-        tab={currentTab}
-        isCaretNearBottom={isCaretNearBottom}
-        bottomAccessoryKind={bottomAccessoryKind}
-      />
-    );
-  }
-
-  return (
-    <TabChatButton
-      isCaretNearBottom={isCaretNearBottom}
-      bottomAccessoryKind={bottomAccessoryKind}
-    />
-  );
-}
-
-function SessionTabFloatingChatButton({
-  tab,
-  isCaretNearBottom,
-  bottomAccessoryKind,
-}: {
-  tab: Extract<Tab, { type: "sessions" }>;
-  isCaretNearBottom: boolean;
-  bottomAccessoryKind:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
-}) {
-  const shouldShowListeningFab = useShouldShowListeningFab(tab);
-
-  if (shouldShowListeningFab) {
-    return null;
-  }
-
-  return (
-    <TabChatButton
-      isCaretNearBottom={isCaretNearBottom}
-      bottomAccessoryKind={bottomAccessoryKind}
-    />
-  );
+function HeaderTabChatButton({ shortcutLabel }: { shortcutLabel: string }) {
+  return <TabChatButton shortcutLabel={shortcutLabel} />;
 }
 
 export function useMainTabsShortcuts() {

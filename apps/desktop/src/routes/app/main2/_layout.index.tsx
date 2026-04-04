@@ -248,30 +248,28 @@ export function Main2Layout() {
                 <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
               </span>
             </button>
-            {chat.mode !== "FullTab" && (
-              <Button
-                onClick={handleChat}
-                variant="ghost"
-                size="icon"
+            <Button
+              onClick={handleChat}
+              variant="ghost"
+              size="icon"
+              className={cn([
+                "text-neutral-600",
+                isChatOpen &&
+                  "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+              ])}
+              aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
+              aria-pressed={isChatOpen}
+              title={isChatOpen ? "Close chat" : "Chat with notes"}
+            >
+              <img
+                src="/assets/char-chat-bubble.svg"
+                alt="Char"
                 className={cn([
-                  "text-neutral-600",
-                  isChatOpen &&
-                    "bg-neutral-200 text-neutral-900 hover:bg-neutral-200",
+                  "size-[16px] shrink-0 object-contain opacity-65",
+                  isChatOpen && "opacity-100",
                 ])}
-                aria-label={isChatOpen ? "Close chat" : "Chat with notes"}
-                aria-pressed={isChatOpen}
-                title={isChatOpen ? "Close chat" : "Chat with notes"}
-              >
-                <img
-                  src="/assets/char-logo-icon-black.svg"
-                  alt="Char"
-                  className={cn([
-                    "size-[13px] shrink-0 object-contain opacity-65",
-                    isChatOpen && "opacity-100",
-                  ])}
-                />
-              </Button>
-            )}
+              />
+            </Button>
           </div>
         </div>
 

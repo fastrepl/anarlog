@@ -282,7 +282,6 @@ function TabContentNoteInner({
       }
       afterBorder={bottomAccessory}
       floatingButton={<FloatingActionButton tab={tab} />}
-      bottomAccessoryKind={bottomAccessoryKind}
     >
       <NoteInput
         ref={noteInputRef}
