@@ -58,7 +58,14 @@ function HeroSection() {
   return (
     <div className="flex w-full min-w-0 flex-col text-left">
       <section className="laptop:px-4 isolate flex w-full min-w-0 overflow-visible pt-10 text-left">
-        <div className="border-brand-bright relative z-10 flex w-full min-w-0 flex-col content-between rounded-lg border md:min-h-[60vh] md:flex-row">
+        <div
+          className="border-brand-bright relative z-10 flex w-full min-w-0 flex-col content-between rounded-lg border bg-white md:min-h-[60vh] md:flex-row"
+          style={{
+            backgroundImage: "url(/patterns/paper2.jpg)",
+            backgroundPosition: "center",
+            backgroundSize: "cover",
+          }}
+        >
           <div className="flex flex-col justify-center pt-12 pr-8 pb-12 pl-12">
             <div className="flex flex-col gap-6">
               <h1 className="text-color text-2xl break-words sm:text-6xl">
@@ -212,7 +219,7 @@ function WhatWereBuildingTowardSection() {
           <div
             className="border-color-brand bg-surface rounded-xs border p-8 sm:p-12"
             style={{
-              backgroundImage: "url(/api/images/texture/paper.png)",
+              backgroundImage: "url(/patterns/paper.png)",
             }}
           >
             <h2 className="text-color mb-4 font-mono text-2xl sm:text-3xl">
