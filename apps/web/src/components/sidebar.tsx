@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { allSolutions } from "content-collections";
 import {
   BookOpen,
   Building2,
@@ -23,6 +22,12 @@ import { cn } from "@hypr/utils";
 
 import { SearchTrigger } from "@/components/search";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
+import {
+  allSolutionMenuItems,
+  allSolutionsMenuItem,
+  featuredSolutionMenuItems,
+  showMoreSolutionsMenuItem,
+} from "@/lib/solutions";
 
 type MenuItem = {
   to: string;
@@ -45,13 +50,7 @@ const featuresList: MenuItem[] = [
   { to: "/opensource", label: "Open Source" },
 ];
 
-const solutionsList: MenuItem[] = [
-  ...allSolutions
-    .sort((a, b) => a.order - b.order)
-    .map((s) => ({ to: `/solution/${s.slug}`, label: s.label })),
-  { to: "/enterprise", label: "For Enterprises" },
-  { to: "/product/api", label: "For Developers" },
-];
+const solutionsList: MenuItem[] = featuredSolutionMenuItems;
 
 const resourcesList: MenuItem[] = [
   { to: "/blog/", label: "Blog", icon: FileText },
@@ -99,7 +98,8 @@ function isPathActive(pathname: string, to: string) {
 function findActiveSubItem(pathname: string) {
   const candidates = [
     ...featuresList.map((i) => ({ ...i, parent: "Product" })),
-    ...solutionsList.map((i) => ({ ...i, parent: "Product" })),
+    ...allSolutionMenuItems.map((i) => ({ ...i, parent: "Product" })),
+    { ...allSolutionsMenuItem, parent: "Product" as const },
     ...resourcesList
       .filter((i) => !i.external)
       .map((i) => ({ ...i, parent: "Resources" })),
@@ -568,6 +568,7 @@ function MenuGroupLinks({
   itemClassName,
   onItemClick,
   decorateOnHover = false,
+  footer,
 }: {
   group: MenuGroup;
   titleClassName: string;
@@ -575,6 +576,7 @@ function MenuGroupLinks({
   itemClassName: string;
   onItemClick?: () => void;
   decorateOnHover?: boolean;
+  footer?: React.ReactNode;
 }) {
   return (
     <div>
@@ -590,7 +592,36 @@ function MenuGroupLinks({
           />
         ))}
       </div>
+      {footer}
     </div>
+  );
+}
+
+function SolutionsIndexLink({
+  className,
+  onClick,
+  decorateOnHover = false,
+}: {
+  className: string;
+  onClick?: () => void;
+  decorateOnHover?: boolean;
+}) {
+  const label = decorateOnHover ? (
+    <span className="decoration-dotted group-hover:underline">
+      {showMoreSolutionsMenuItem.label}
+    </span>
+  ) : (
+    showMoreSolutionsMenuItem.label
+  );
+
+  return (
+    <Link
+      to={showMoreSolutionsMenuItem.to}
+      onClick={onClick}
+      className={className}
+    >
+      {label}
+    </Link>
   );
 }
 
@@ -613,6 +644,15 @@ function ProductMenuContent({
             itemClassName="group flex items-center py-2 text-sm text-fg"
             onItemClick={onItemClick}
             decorateOnHover
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink
+                  className="group text-fg mt-1 inline-flex py-2 text-sm font-medium"
+                  onClick={onItemClick}
+                  decorateOnHover
+                />
+              ) : null
+            }
           />
         ))}
       </div>
@@ -632,6 +672,14 @@ function ProductMenuContent({
             }
             itemClassName="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
             onItemClick={onItemClick}
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink
+                  className="mt-2 inline-flex py-1 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
+                  onClick={onItemClick}
+                />
+              ) : null
+            }
           />
         ))}
       </div>
@@ -650,6 +698,11 @@ function ProductMenuContent({
             titleClassName="px-3 pb-1 text-xs font-medium tracking-wide text-fg-subtle uppercase"
             listClassName="flex flex-col"
             itemClassName="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink className="mt-1 inline-flex px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950" />
+              ) : null
+            }
           />
         </div>
       ))}
