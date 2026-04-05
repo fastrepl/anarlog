@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_view/product/integrations")({
       {
         name: "description",
         content:
-          "Connect Char with your favorite tools and automate your meeting workflow. Integrations coming soon.",
+          "Connect Char with your favorite tools and automate your meeting workflow. Google Calendar is available now, with more integrations coming soon.",
       },
       { name: "robots", content: "noindex, nofollow" },
     ],
@@ -87,22 +87,19 @@ function IntegrationsGrid() {
 
 function Component() {
   return (
-    <div
-      className="relative h-[calc(100vh-65px)] overflow-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="relative mx-auto h-full max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="relative h-[calc(100vh-65px)] overflow-hidden">
+      <div className="relative mx-auto h-full">
         <div className="relative h-full overflow-hidden bg-linear-to-b from-stone-50/30 to-stone-100/30">
           <IntegrationsGrid />
           <div className="relative z-10 flex h-full items-center justify-center px-6">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
-            <div className="relative mx-auto max-w-4xl text-center">
-              <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
+            <div className="relative mx-auto max-w-4xl text-left">
+              <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
                 Integrations & Workflows
               </h1>
               <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
-                Connect Char with your favorite tools. Automate repetitive tasks
-                with powerful workflows. No coding required.
+                Google Calendar is available today on Char Pro. More
+                integrations and no-code workflows are in progress.
               </p>
               <div className="mt-8">
                 <button
@@ -112,7 +109,7 @@ function Component() {
                     "rounded-full bg-linear-to-t from-neutral-200 to-neutral-100 text-neutral-900 shadow-xs",
                   ])}
                 >
-                  Coming Soon
+                  More coming soon
                 </button>
               </div>
             </div>

@@ -96,7 +96,7 @@ export const useSTTConnection = () => {
     }
 
     if (isCloudModel) {
-      if (!auth?.session || !billing.isPro) {
+      if (!auth?.session || !billing.isPaid) {
         return null;
       }
 
@@ -127,7 +127,7 @@ export const useSTTConnection = () => {
     baseUrl,
     apiKey,
     auth,
-    billing.isPro,
+    billing.isPaid,
   ]);
 
   return {

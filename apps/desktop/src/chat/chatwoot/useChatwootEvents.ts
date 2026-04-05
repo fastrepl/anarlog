@@ -28,6 +28,7 @@ export function useChatwootEvents({
 
     const client = createClient({ baseUrl: env.VITE_API_URL });
     const url = client.buildUrl({
+      baseUrl: env.VITE_API_URL,
       url: "/support/chatwoot/conversations/{conversation_id}/events",
       path: { conversation_id: conversationId },
       query: { pubsub_token: pubsubToken },

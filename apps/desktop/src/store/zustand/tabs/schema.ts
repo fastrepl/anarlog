@@ -1,43 +1,69 @@
 import type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
   ChatState,
   ContactsSelection,
   ContactsState,
   EditorView,
-  ExtensionsState,
   PromptsState,
-  SearchState,
   SessionsState,
-  TabInput,
+  TabInput as WindowsTabInput,
   TemplatesState,
 } from "@hypr/plugin-windows";
 
 export type {
-  AiState,
-  AiTab,
   ChangelogState,
   ChatShortcutsState,
   ChatState,
   ContactsSelection,
   ContactsState,
   EditorView,
-  ExtensionsState,
   PromptsState,
-  SearchState,
   SessionsState,
-  TabInput,
   TemplatesState,
+};
+
+export type TabInput = Exclude<
+  WindowsTabInput,
+  { type: "extension" } | { type: "extensions" }
+>;
+
+export const isTabInputSupported = (tab: WindowsTabInput): tab is TabInput => {
+  return tab.type !== "extension" && tab.type !== "extensions";
 };
 
 export type SettingsTab =
   | "account"
   | "app"
   | "notifications"
+  | "calendar"
   | "system"
-  | "lab";
+  | "lab"
+  | "transcription"
+  | "intelligence"
+  | "memory"
+  | "todo"
+  | "dont-use-this";
+
+export const normalizeSettingsTab = (
+  tab: string | null | undefined,
+): Exclude<SettingsTab, "account"> => {
+  switch (tab) {
+    case "app":
+    case "notifications":
+    case "calendar":
+    case "system":
+    case "lab":
+    case "transcription":
+    case "intelligence":
+    case "memory":
+    case "dont-use-this":
+      return tab;
+    case "account":
+    default:
+      return "app";
+  }
+};
 
 export type SettingsState = {
   tab: SettingsTab | null;
@@ -48,12 +74,6 @@ export const isEnhancedView = (
 ): view is { type: "enhanced"; id: string } => view.type === "enhanced";
 export const isRawView = (view: EditorView): view is { type: "raw" } =>
   view.type === "raw";
-export const isTranscriptView = (
-  view: EditorView,
-): view is { type: "transcript" } => view.type === "transcript";
-export const isAttachmentsView = (
-  view: EditorView,
-): view is { type: "attachments" } => view.type === "attachments";
 
 type BaseTab = {
   active: boolean;
@@ -90,15 +110,6 @@ export type Tab =
   | (BaseTab & { type: "organizations"; id: string })
   | (BaseTab & { type: "folders"; id: string | null })
   | (BaseTab & { type: "empty" })
-  | (BaseTab & {
-      type: "extension";
-      extensionId: string;
-      state: Record<string, unknown>;
-    })
-  | (BaseTab & {
-      type: "extensions";
-      state: ExtensionsState;
-    })
   | (BaseTab & { type: "calendar" })
   | (BaseTab & {
       type: "changelog";
@@ -106,18 +117,11 @@ export type Tab =
     })
   | (BaseTab & { type: "settings"; state: SettingsState })
   | (BaseTab & {
-      type: "ai";
-      state: AiState;
-    })
-  | (BaseTab & {
-      type: "search";
-      state: SearchState;
-    })
-  | (BaseTab & {
       type: "chat_support";
       state: ChatState;
     })
   | (BaseTab & { type: "onboarding" })
+  | (BaseTab & { type: "daily" })
   | (BaseTab & { type: "edit"; requestId: string });
 
 export const getDefaultState = (tab: TabInput): Tab => {
@@ -144,8 +148,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
         ...base,
         type: "templates",
         state: tab.state ?? {
-          showHomepage: true,
-          isWebMode: null,
+          showHomepage: false,
+          isWebMode: true,
           selectedMineId: null,
           selectedWebIndex: null,
         },
@@ -176,19 +180,6 @@ export const getDefaultState = (tab: TabInput): Tab => {
       return { ...base, type: "folders", id: tab.id };
     case "empty":
       return { ...base, type: "empty" };
-    case "extension":
-      return {
-        ...base,
-        type: "extension",
-        extensionId: tab.extensionId,
-        state: tab.state ?? {},
-      };
-    case "extensions":
-      return {
-        ...base,
-        type: "extensions",
-        state: tab.state ?? { selectedExtension: null },
-      };
     case "calendar":
       return { ...base, type: "calendar" };
     case "changelog":
@@ -198,18 +189,10 @@ export const getDefaultState = (tab: TabInput): Tab => {
         state: tab.state,
       };
     case "settings":
-      return { ...base, type: "settings", state: { tab: "app" } };
-    case "ai":
       return {
         ...base,
-        type: "ai",
-        state: tab.state ?? { tab: null },
-      };
-    case "search":
-      return {
-        ...base,
-        type: "search",
-        state: tab.state ?? { selectedTypes: null, initialQuery: null },
+        type: "settings",
+        state: { tab: (tab.state?.tab as SettingsTab) ?? "app" },
       };
     case "chat_support":
       return {
@@ -222,6 +205,8 @@ export const getDefaultState = (tab: TabInput): Tab => {
       };
     case "onboarding":
       return { ...base, type: "onboarding" };
+    case "daily":
+      return { ...base, type: "daily" };
     case "edit":
       return { ...base, type: "edit", requestId: tab.requestId };
     default:
@@ -250,24 +235,18 @@ export const uniqueIdfromTab = (tab: Tab): string => {
       return `folders-${tab.id ?? "all"}`;
     case "empty":
       return `empty-${tab.slotId}`;
-    case "extension":
-      return `extension-${tab.extensionId}`;
-    case "extensions":
-      return `extensions`;
     case "calendar":
       return `calendar`;
     case "changelog":
       return "changelog";
     case "settings":
       return `settings`;
-    case "ai":
-      return `ai`;
-    case "search":
-      return `search`;
     case "chat_support":
       return `chat_support`;
     case "onboarding":
       return `onboarding`;
+    case "daily":
+      return `daily`;
     case "edit":
       return `edit-${tab.requestId}`;
   }

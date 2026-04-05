@@ -23,3 +23,10 @@ tracing = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+hex = "0.4"
+hmac = { workspace = true }
+sha2 = { workspace = true }
+tokio = { workspace = true }
+wiremock = { workspace = true }

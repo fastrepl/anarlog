@@ -10,8 +10,7 @@ fn main() {
 
 #[cfg(target_os = "macos")]
 fn build_check_permissions() {
-    let triple = std::env::var("TAURI_ENV_TARGET_TRIPLE")
-        .unwrap_or_else(|_| "aarch64-apple-darwin".to_string());
+    let triple = std::env::var("TARGET").unwrap();
 
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let swift_src = manifest_dir.join("../../../plugins/permissions/swift/check-permissions.swift");
@@ -20,16 +19,14 @@ fn build_check_permissions() {
 
     println!("cargo:rerun-if-changed={}", swift_src.display());
 
-    if dst.exists() {
-        return;
-    }
-
     std::fs::create_dir_all(&binaries_dir).expect("create binaries/");
 
     let status = std::process::Command::new("swiftc")
         .args(["-O", "-o"])
         .arg(&dst)
         .arg(&swift_src)
+        // we should theoretically cross compile for the target
+        // .args(["-target", &triple])
         .status()
         .expect("failed to run swiftc");
 

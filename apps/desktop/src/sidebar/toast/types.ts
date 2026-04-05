@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 export type ToastAction = {
   label: string;
+  icon?: ReactNode;
   onClick: () => void | Promise<void>;
 };
 
@@ -18,10 +19,12 @@ export type ToastType = {
   description: ReactNode;
   primaryAction?: ToastAction;
   secondaryAction?: ToastAction;
+  actions?: ToastAction[];
   dismissible: boolean;
   progress?: number;
   downloads?: DownloadProgress[];
   variant?: "default" | "error";
+  gradient?: string;
 };
 
 export type ToastCondition = () => boolean;

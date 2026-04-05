@@ -1,0 +1,24 @@
+---
+title: "Char Weekly: March 29, 2026"
+date: "2026-03-29"
+---
+
+Desktop v1.0.18 shipped this week, and the CLI also pushed through a rapid run of stable releases up to v1.0.15. On the desktop side, the release focused on day-to-day usability: better calendar feedback, cleaner chat composition, and manual speaker assignment in transcripts. On the CLI side, the first stable line picked up a few important commands and then spent several releases hardening shortcut handling and update checks.
+
+## Desktop: calendar, chat, and transcripts
+
+Desktop v1.0.18 adds a proper "Syncing" state to the calendar month view, sorts events more clearly, reduces provider UI clutter, and introduces a dedicated Calendar settings area for permissions and provider management. Google Calendar also graduates from an internal-only label to a public beta label, which makes the current status much clearer inside the app.
+
+The same release also tightens up the note and chat flow. Chat is reachable from pre-listening notes, the composer now scrolls internally instead of growing without bound, and the send button stays visible during long drafts. In transcripts, you can now manually assign speakers to segments, which is the kind of small control surface that matters when a long meeting needs cleanup before you share it.
+
+## Desktop: recording and distribution polish
+
+There are a handful of smaller but useful changes in the same stable release. Empty-note behavior is clearer, recording controls are easier to resume at a glance, and a few rough edges in transcript rendering and mic-stop detection were cleaned up. The macOS installer is now notarized and stapled as well, which removes a lot of first-launch friction for people installing Char outside a development environment.
+
+## CLI: first stable commands, then hardening
+
+The CLI releases this week were more incremental, but still meaningful. Stable builds added audio playback with `char play`, reusable workflow installation through `char skill`, and a self-update command. A companion `char-cli-ui` binary also landed as the CLI matured.
+
+After that, the focus shifted to reliability: update/versioning issues were fixed, and shortcut support got additional event-tap and permission-handling hardening in the latest stable releases. That is the right shape for an early stable CLI line: get the core commands in, then make the edges less fragile.
+
+Full version details on the [changelog](/changelog).

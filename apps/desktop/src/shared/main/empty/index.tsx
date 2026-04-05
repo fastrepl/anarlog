@@ -5,7 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import { useNewNoteAndListen } from "../useNewNote";
+import { useNewNote, useNewNoteAndListen } from "../useNewNote";
 import { OpenNoteDialog } from "./open-note-dialog";
 
 import { StandardTabWrapper } from "~/shared/main";
@@ -53,7 +53,8 @@ export function TabContentEmpty({
 }
 
 function EmptyView() {
-  const newNote = useNewNoteAndListen({ behavior: "current" });
+  const newNote = useNewNote({ behavior: "current" });
+  const newNoteAndListen = useNewNoteAndListen({ behavior: "current" });
   const openCurrent = useTabs((state) => state.openCurrent);
   const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
 
@@ -69,15 +70,6 @@ function EmptyView() {
     () => openCurrent({ type: "settings" }),
     [openCurrent],
   );
-  const openAiSettings = useCallback(
-    () => openCurrent({ type: "ai" }),
-    [openCurrent],
-  );
-  const openAdvancedSearch = useCallback(
-    () => openCurrent({ type: "search" }),
-    [openCurrent],
-  );
-
   useHotkeys(
     "mod+o",
     () => setOpenNoteDialogOpen(true),
@@ -89,6 +81,11 @@ function EmptyView() {
     <div className="mb-12 flex h-full flex-col items-center justify-center gap-6 text-neutral-600">
       <div className="flex min-w-[280px] flex-col gap-1 text-center">
         <ActionItem label="New Note" shortcut={["⌘", "N"]} onClick={newNote} />
+        <ActionItem
+          label="Start Recording"
+          shortcut={["⌘", "⇧", "N"]}
+          onClick={newNoteAndListen}
+        />
         <ActionItem
           label="Open Note"
           shortcut={["⌘", "O"]}
@@ -105,19 +102,9 @@ function EmptyView() {
           shortcut={["⌘", "⇧", "C"]}
           onClick={openCalendar}
         />
-        <ActionItem
-          label="Advanced Search"
-          shortcut={["⌘", "⇧", "F"]}
-          onClick={openAdvancedSearch}
-        />
         <div className="my-1 h-px bg-neutral-200" />
         <ActionItem
-          label="AI Settings"
-          shortcut={["⌘", "⇧", ","]}
-          onClick={openAiSettings}
-        />
-        <ActionItem
-          label="App Settings"
+          label="Settings"
           shortcut={["⌘", ","]}
           onClick={openSettings}
         />

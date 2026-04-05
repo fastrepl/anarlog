@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use tauri_plugin_listener::SessionLifecycleEvent;
+use tauri_plugin_transcription::SessionLifecycleEvent;
 use tauri_plugin_windows::{AppWindow, VisibilityEvent};
 use tauri_specta::Event;
 

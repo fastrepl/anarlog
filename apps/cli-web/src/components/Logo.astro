@@ -1,0 +1,8 @@
+---
+interface Props { stagger?: number }
+const { stagger } = Astro.props;
+---
+
+<div class:list={[stagger && `stagger-${stagger}`, "mb-6"]}>
+  <img src="/icon.svg" alt="char" class="h-7" />
+</div>

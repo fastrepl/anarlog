@@ -41,9 +41,12 @@ notificationEvent: "plugin:notification:notification-event"
 
 export type Duration = { secs: number; nanos: number }
 export type EventDetails = { what: string; timezone: string | null; location: string | null }
-export type Notification = { key: string | null; title: string; message: string; timeout: Duration | null; source: NotificationSource | null; start_time: number | null; participants: Participant[] | null; event_details: EventDetails | null; action_label: string | null; options: string[] | null }
-export type NotificationEvent = { type: "notification_confirm"; key: string; source: NotificationSource | null } | { type: "notification_accept"; key: string; source: NotificationSource | null } | { type: "notification_dismiss"; key: string; source: NotificationSource | null } | { type: "notification_timeout"; key: string; source: NotificationSource | null } | { type: "notification_option_selected"; key: string; source: NotificationSource | null; selected_index: number }
-export type NotificationSource = { type: "calendar_event"; event_id: string } | { type: "mic_detected"; app_names: string[]; event_ids?: string[] }
+export type Notification = { key: string | null; title: string; message: string; timeout: Duration | null; source: NotificationSource | null; start_time: number | null; participants: Participant[] | null; event_details: EventDetails | null; action_label: string | null; options: string[] | null; footer: NotificationFooter | null; icon: NotificationIcon | null }
+export type NotificationEvent = { type: "notification_confirm"; key: string; source: NotificationSource | null } | { type: "notification_accept"; key: string; source: NotificationSource | null } | { type: "notification_dismiss"; key: string; source: NotificationSource | null } | { type: "notification_timeout"; key: string; source: NotificationSource | null } | { type: "notification_option_selected"; key: string; source: NotificationSource | null; selected_index: number } | { type: "notification_footer_action"; key: string; source: NotificationSource | null }
+export type NotificationFooter = { text: string; action_label: string }
+export type NotificationIcon = { type: "hidden" } | { type: "bundle_id"; bundle_id: string } | { type: "path"; path: string } | { type: "overlay"; base: NotificationIconAsset; badge: NotificationIconAsset }
+export type NotificationIconAsset = { type: "app_icon" } | { type: "calendar" } | { type: "bundle_id"; bundle_id: string } | { type: "path"; path: string }
+export type NotificationSource = { type: "calendar_event"; event_id: string } | { type: "mic_detected"; app_names: string[]; app_ids?: string[]; event_ids?: string[] }
 export type Participant = { name: string | null; email: string; status: ParticipantStatus }
 export type ParticipantStatus = "Accepted" | "Maybe" | "Declined"
 

@@ -31,6 +31,7 @@ export function useChatwootPersistence(
   const [pubsubToken, setPubsubToken] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const conversationIdRef = useRef<number | null>(null);
+  const conversationPromiseRef = useRef<Promise<number | null> | null>(null);
   const initRef = useRef(false);
 
   useEffect(() => {
@@ -58,27 +59,33 @@ export function useChatwootPersistence(
   }, [userId, session?.access_token]);
 
   const startConversation = useCallback(async () => {
-    if (!sourceId) {
+    if (!sourceId) return null;
+    if (conversationPromiseRef.current) return conversationPromiseRef.current;
+
+    const promise = (async () => {
+      const client = makeClient(session?.access_token);
+      const { data } = await createConversation({
+        client,
+        body: { sourceId },
+      });
+
+      if (data) {
+        conversationIdRef.current = data.conversationId;
+        setConversationId(data.conversationId);
+        return data.conversationId;
+      }
       return null;
-    }
+    })();
 
-    const client = makeClient(session?.access_token);
-    const { data } = await createConversation({
-      client,
-      body: { sourceId },
-    });
-
-    if (data) {
-      const convId = data.conversationId;
-      conversationIdRef.current = convId;
-      setConversationId(convId);
-      return convId;
-    }
-    return null;
+    conversationPromiseRef.current = promise;
+    return promise;
   }, [sourceId, session?.access_token]);
 
   const persistMessage = useCallback(
     async (content: string, messageType: "incoming" | "outgoing") => {
+      if (conversationIdRef.current == null && conversationPromiseRef.current) {
+        await conversationPromiseRef.current;
+      }
       const convId = conversationIdRef.current;
       if (convId == null || !sourceId) {
         return;

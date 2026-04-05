@@ -1,0 +1,18 @@
+---
+import type { OptionDoc } from "../lib/types";
+
+const { opt } = Astro.props as { opt: OptionDoc };
+---
+
+<div class="flex gap-4 py-0.5 text-sm leading-relaxed">
+  <code class="shrink-0 text-neutral-300">
+    {opt.flags}
+    {opt.value_name && !opt.is_flag && (
+      <span class="text-neutral-600">{` <${opt.value_name}>`}</span>
+    )}
+  </code>
+  <span class="text-neutral-600">
+    {opt.help}
+    {opt.default && <span class="ml-1 text-neutral-700">[{opt.default}]</span>}
+  </span>
+</div>

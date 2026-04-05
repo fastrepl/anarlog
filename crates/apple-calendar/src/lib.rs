@@ -10,4 +10,4 @@ pub mod types;
 pub use error::{Error, Result};
 
 #[cfg(target_os = "macos")]
-pub use apple::{ContactFetcher, Handle, setup_change_notification};
+pub use apple::{CalendarAuthStatus, ContactFetcher, Handle, setup_change_notification};

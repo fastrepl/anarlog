@@ -1,4 +1,3 @@
-pub mod cactus;
-pub mod desktop;
-pub mod session_context;
-pub mod stt;
+pub mod paths;
+#[cfg(feature = "desktop")]
+pub mod settings;

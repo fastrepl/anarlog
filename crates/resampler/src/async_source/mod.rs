@@ -19,7 +19,7 @@ mod tests {
     fn get_samples_with_rate(path: impl AsRef<std::path::Path>) -> (Vec<f32>, u32) {
         let source = rodio::Decoder::try_from(std::fs::File::open(path).unwrap()).unwrap();
 
-        let sample_rate = rodio::Source::sample_rate(&source);
+        let sample_rate: u32 = rodio::Source::sample_rate(&source).into();
         let samples = source.collect();
         (samples, sample_rate)
     }

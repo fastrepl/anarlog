@@ -8,6 +8,7 @@ mod error;
 mod events;
 mod ext;
 mod mic_usage_tracker;
+mod timer_registry;
 
 #[cfg(feature = "test-support")]
 pub mod env;
@@ -64,6 +65,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_mic_using_applications::<tauri::Wry>,
             commands::set_respect_do_not_disturb::<tauri::Wry>,
             commands::set_ignored_bundle_ids::<tauri::Wry>,
+            commands::set_included_bundle_ids::<tauri::Wry>,
             commands::list_default_ignored_bundle_ids::<tauri::Wry>,
             commands::get_preferred_languages::<tauri::Wry>,
             commands::get_current_locale_identifier::<tauri::Wry>,

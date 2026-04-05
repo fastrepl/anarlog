@@ -29,7 +29,6 @@ NSSharingService* mailShare = [NSSharingService sharingServiceNamed:NSSharingSer
 NSArray* shareItems = @[textAttributedString,tempFileURL];
 [mailShare performWithItems:shareItems];
 */
-
 impl EmailComposer {
     /// Open email client with HTML content and optional attachments
     pub fn open_email_client(
@@ -40,7 +39,7 @@ impl EmailComposer {
     ) -> Result<(), Box<dyn std::error::Error>> {
         unsafe {
             // Create sharing service for email composition
-            let service = NSSharingService::sharingServiceNamed(&NSSharingServiceNameComposeEmail)
+            let service = NSSharingService::sharingServiceNamed(NSSharingServiceNameComposeEmail)
                 .ok_or("Email service not available")?;
 
             // Set recipients

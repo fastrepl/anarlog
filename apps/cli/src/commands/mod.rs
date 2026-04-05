@@ -1,64 +1,129 @@
-pub mod auth;
-pub mod batch;
-pub mod chat;
-pub mod connect;
-#[cfg(debug_assertions)]
-pub mod debug;
+pub mod transcribe;
+pub(crate) mod update_check;
+
+#[cfg(feature = "desktop")]
+pub mod export;
+#[cfg(feature = "desktop")]
+pub mod humans;
+#[cfg(feature = "todo")]
+pub mod integration;
+#[cfg(feature = "desktop")]
+pub mod meetings;
+#[cfg(feature = "desktop")]
+pub mod orgs;
+#[cfg(feature = "todo")]
+pub mod todo;
+
+#[cfg(feature = "standalone")]
+pub mod bug;
+#[cfg(feature = "standalone")]
 pub mod desktop;
-pub mod listen;
+#[cfg(feature = "standalone")]
+pub mod hello;
+#[cfg(feature = "standalone")]
 pub mod model;
-pub mod status;
+#[cfg(feature = "standalone")]
+pub mod play;
+#[cfg(feature = "standalone")]
+pub mod record;
+#[cfg(all(feature = "standalone", target_os = "macos"))]
+pub mod shortcut;
+#[cfg(feature = "standalone")]
+pub mod skill;
+#[cfg(feature = "standalone")]
+pub mod update;
 
-use hypr_listener2_core::BatchProvider;
+use std::path::{Path, PathBuf};
 
-pub use crate::cli::{OutputFormat, Provider};
+use crate::app::AppContext;
+use crate::cli::{Cli, Commands as CliCommand};
+use crate::error::{CliError, CliResult};
 
-pub struct SttGlobalArgs {
-    pub provider: Provider,
-    pub base_url: Option<String>,
-    pub api_key: Option<String>,
-    pub model: Option<String>,
-    pub language: String,
-}
+pub(crate) fn resolve_session_dir(base: Option<&Path>, timestamp: &str) -> CliResult<PathBuf> {
+    let base = base.map(Path::to_path_buf).unwrap_or_else(|| {
+        dirs::data_dir()
+            .unwrap_or_else(std::env::temp_dir)
+            .join("char")
+    });
 
-impl Provider {
-    pub fn is_local(&self) -> bool {
-        match self {
-            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-            Provider::Cactus => true,
-            _ => false,
+    let mut dir = base.join(timestamp);
+    if !dir.exists() {
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| CliError::operation_failed("create session directory", e.to_string()))?;
+        return Ok(dir);
+    }
+
+    for i in 1.. {
+        dir = base.join(format!("{timestamp}-{i}"));
+        if !dir.exists() {
+            std::fs::create_dir_all(&dir).map_err(|e| {
+                CliError::operation_failed("create session directory", e.to_string())
+            })?;
+            return Ok(dir);
         }
     }
 
-    pub fn cloud_provider(&self) -> Option<owhisper_client::Provider> {
-        match self {
-            Provider::Deepgram => Some(owhisper_client::Provider::Deepgram),
-            Provider::Soniox => Some(owhisper_client::Provider::Soniox),
-            Provider::Assemblyai => Some(owhisper_client::Provider::AssemblyAI),
-            Provider::Fireworks => Some(owhisper_client::Provider::Fireworks),
-            Provider::Openai => Some(owhisper_client::Provider::OpenAI),
-            Provider::Gladia => Some(owhisper_client::Provider::Gladia),
-            Provider::Elevenlabs => Some(owhisper_client::Provider::ElevenLabs),
-            Provider::Mistral => Some(owhisper_client::Provider::Mistral),
-            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-            Provider::Cactus => None,
-        }
-    }
+    unreachable!()
 }
 
-impl From<Provider> for BatchProvider {
-    fn from(value: Provider) -> Self {
-        match value {
-            Provider::Deepgram => BatchProvider::Deepgram,
-            Provider::Soniox => BatchProvider::Soniox,
-            Provider::Assemblyai => BatchProvider::AssemblyAI,
-            Provider::Fireworks => BatchProvider::Fireworks,
-            Provider::Openai => BatchProvider::OpenAI,
-            Provider::Gladia => BatchProvider::Gladia,
-            Provider::Elevenlabs => BatchProvider::ElevenLabs,
-            Provider::Mistral => BatchProvider::Mistral,
-            #[cfg(any(target_arch = "arm", target_arch = "aarch64"))]
-            Provider::Cactus => BatchProvider::Cactus,
+pub async fn run(ctx: &AppContext, command: Option<CliCommand>) -> CliResult<()> {
+    match command {
+        Some(CliCommand::Transcribe { args }) => transcribe::run(ctx, args).await,
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Models { args }) => model::run(ctx, args).await,
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Play { args }) => play::run(ctx, args).await,
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Record { args }) => record::run(ctx, args).await,
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Skill { command }) => skill::run(ctx, command).await,
+        Some(CliCommand::Completions { shell }) => {
+            crate::cli::generate_completions(shell);
+            Ok(())
+        }
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Desktop) => {
+            use desktop::DesktopAction;
+            match desktop::run()? {
+                DesktopAction::OpenedApp => eprintln!("Opened desktop app"),
+                DesktopAction::OpenedDownloadPage => {
+                    eprintln!("Desktop app not found — opened download page")
+                }
+            }
+            Ok(())
+        }
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Bug) => {
+            bug::run()?;
+            eprintln!("Opened bug report page in browser");
+            Ok(())
+        }
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Hello) => {
+            hello::run()?;
+            eprintln!("Opened char.com in browser");
+            Ok(())
+        }
+        #[cfg(feature = "standalone")]
+        Some(CliCommand::Update) => update::run(),
+        #[cfg(all(feature = "standalone", target_os = "macos"))]
+        Some(CliCommand::ShortcutDaemon) => shortcut::daemon::run().await,
+        #[cfg(feature = "todo")]
+        Some(CliCommand::Todo { command }) => todo::run(command).await,
+        #[cfg(feature = "desktop")]
+        Some(CliCommand::Meetings { command }) => meetings::run(ctx, command).await,
+        #[cfg(feature = "desktop")]
+        Some(CliCommand::Humans { command }) => humans::run(ctx, command).await,
+        #[cfg(feature = "desktop")]
+        Some(CliCommand::Orgs { command }) => orgs::run(ctx, command).await,
+        #[cfg(feature = "desktop")]
+        Some(CliCommand::Export { command }) => export::run(ctx, command).await,
+        None => {
+            use clap::CommandFactory;
+
+            Cli::command().print_help().ok();
+            println!();
+            Ok(())
         }
     }
 }

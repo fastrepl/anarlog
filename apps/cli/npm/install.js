@@ -38,3 +38,8 @@ execSync(`curl -fsSL -o "${tmp}" "${url}"`, { stdio: "inherit" });
 execSync(`tar -xf "${tmp}" -C "${binDir}"`, { stdio: "inherit" });
 execSync(`rm -f "${tmp}"`);
 execSync(`chmod +x "${dest}"`);
+
+const uiDest = join(binDir, "char-cli-ui");
+if (existsSync(uiDest)) {
+  execSync(`chmod +x "${uiDest}"`);
+}

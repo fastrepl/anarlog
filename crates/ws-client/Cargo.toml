@@ -9,6 +9,7 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
 async-stream = { workspace = true }
+backon = { workspace = true }
 futures-util = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "time", "sync", "macros"] }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }

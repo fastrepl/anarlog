@@ -3,6 +3,7 @@ import { useCallback } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -38,7 +39,7 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
             "cursor-pointer hover:opacity-80",
           ])}
         >
-          <div className="w-[2.5px] shrink-0 self-stretch rounded-full bg-blue-500" />
+          <div className="w-[4px] shrink-0 self-stretch rounded-full border border-neutral-300 bg-transparent" />
           <span className="truncate">{session.title as string}</span>
           {createdAt && (
             <span className="ml-auto shrink-0 font-mono text-neutral-400">
@@ -48,11 +49,14 @@ export function SessionChip({ sessionId }: { sessionId: string }) {
         </button>
       </PopoverTrigger>
       <PopoverContent
+        variant="app"
         align="start"
-        className="w-[280px] rounded-lg p-0 shadow-lg"
+        className="w-[280px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <SessionPopoverContent sessionId={sessionId} />
+        <AppFloatingPanel>
+          <SessionPopoverContent sessionId={sessionId} />
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

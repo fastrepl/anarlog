@@ -97,11 +97,8 @@ function Component() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
         <AboutContentSection
           selectedItem={selectedItem}
@@ -115,8 +112,8 @@ function Component() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-3xl text-center">
-        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+      <div className="mx-auto max-w-3xl text-left">
+        <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
           About
         </h1>
         <p className="text-lg text-neutral-600 sm:text-xl">
@@ -215,7 +212,7 @@ function OurStoryGrid({
       <div className="grid grid-cols-2 content-start gap-6 sm:grid-cols-4">
         <button
           onClick={() => setSelectedItem({ type: "story" })}
-          className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
+          className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-left transition-colors hover:bg-stone-50"
         >
           <div className="mb-3 flex h-16 w-16 items-center justify-center">
             <Image
@@ -253,7 +250,7 @@ function FoundersGrid({
                 data: founder,
               })
             }
-            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-left transition-colors hover:bg-stone-50"
           >
             <div className="mb-3 h-16 w-16">
               <Image
@@ -287,7 +284,7 @@ function TeamPhotosGrid({
           <button
             key={photo.id}
             onClick={() => setSelectedItem({ type: "photo", data: photo })}
-            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-left transition-colors hover:bg-stone-50"
           >
             <div className="mb-3 h-16 w-16">
               <Image
@@ -659,7 +656,7 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
 
       <div ref={scrollRef} className="overflow-y-auto p-4">
         <div className="prose prose-stone max-w-none">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">
             How We Landed on Char
           </h2>
           <p className="mb-8 text-base text-neutral-500 italic">
@@ -690,7 +687,7 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
             focused point of view.
           </p>
 
-          <h3 className="mt-8 mb-4 font-serif text-2xl text-stone-700">
+          <h3 className="mt-8 mb-4 font-mono text-2xl text-stone-700">
             Our manifesto
           </h3>
           <p className="mb-4 text-base leading-relaxed text-neutral-600">
@@ -710,7 +707,7 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
             We stand with those who value real connection and purposeful work.
           </p>
 
-          <h3 className="mt-8 mb-4 font-serif text-2xl text-stone-700">
+          <h3 className="mt-8 mb-4 font-mono text-2xl text-stone-700">
             Where we are now
           </h3>
           <p className="mb-8 text-base leading-relaxed text-neutral-600">
@@ -729,7 +726,7 @@ function StoryDetail({ onClose }: { onClose: () => void }) {
 
           <div className="flex flex-col gap-2">
             <div>
-              <p className="font-serif text-base font-medium text-neutral-600 italic">
+              <p className="font-mono text-base font-medium text-neutral-600 italic">
                 Char
               </p>
               <p className="text-sm text-neutral-500">John Jeong, Yujong Lee</p>
@@ -802,7 +799,7 @@ function FounderDetail({
         </div>
 
         <div>
-          <h3 className="mb-1 font-serif text-2xl text-stone-700">
+          <h3 className="mb-1 font-mono text-2xl text-stone-700">
             {founder.name}
           </h3>
           <p className="mb-4 text-sm tracking-wider text-neutral-500 uppercase">

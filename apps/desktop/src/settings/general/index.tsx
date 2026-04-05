@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as listenerCommands } from "@hypr/plugin-listener";
+import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { General, GeneralStorage } from "@hypr/store";
 
-import { AccountSettings } from "./account";
+export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
 import { Audio } from "./audio";
 import { MainLanguageView } from "./main-language";
@@ -41,6 +41,9 @@ function useSettingsForm() {
           : undefined,
         ignored_platforms: row.ignored_platforms
           ? JSON.stringify(row.ignored_platforms)
+          : undefined,
+        included_platforms: row.included_platforms
+          ? JSON.stringify(row.included_platforms)
           : undefined,
         ignored_recurring_series: row.ignored_recurring_series
           ? JSON.stringify(row.ignored_recurring_series)
@@ -117,9 +120,7 @@ export function SettingsApp() {
   const supportedLanguages = supportedLanguagesQuery.data ?? ["en"];
 
   return (
-    <div className="flex flex-col gap-8 pt-3">
-      <AccountSettings />
-
+    <div className="flex flex-col gap-8">
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="save_recordings">
@@ -201,7 +202,7 @@ export function SettingsApp() {
 
 export function SettingsNotifications() {
   return (
-    <div className="pt-3">
+    <div>
       <NotificationSettingsView />
     </div>
   );
@@ -209,7 +210,7 @@ export function SettingsNotifications() {
 
 export function SettingsSystem() {
   return (
-    <div className="flex flex-col gap-8 pt-3">
+    <div className="flex flex-col gap-8">
       <Permissions />
       <Audio />
     </div>

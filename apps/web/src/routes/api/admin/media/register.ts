@@ -3,6 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { fetchAdminUser } from "@/functions/admin";
 import { registerStorageMediaAsset } from "@/functions/media-catalog";
 import { getSupabaseServerClient } from "@/functions/supabase";
+import { invalidateMediaListCache } from "@/functions/supabase-media";
+import { getMediaFolderFromPath } from "@/lib/media-library";
 
 export const Route = createFileRoute("/api/admin/media/register")({
   server: {
@@ -53,6 +55,7 @@ export const Route = createFileRoute("/api/admin/media/register")({
           mimeType: body.mimeType || null,
           size: body.size || 0,
         });
+        invalidateMediaListCache([getMediaFolderFromPath(body.path)]);
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,

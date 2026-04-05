@@ -2,12 +2,7 @@ import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { defaultRehypePlugins, Streamdown } from "streamdown";
 
-import {
-  isValidTiptapContent,
-  json2md,
-  parseImageTitleMetadata,
-  streamdownComponents,
-} from "@hypr/tiptap/shared";
+import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 import {
   HoverCard,
   HoverCardContent,
@@ -15,7 +10,9 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
+import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { streamdownComponents } from "~/session/components/streamdown";
 import {
   useEnhancedNote,
   useEnhancedNotes,
@@ -45,12 +42,12 @@ const previewCardComponents: typeof streamdownComponents = {
     </h4>
   ),
   img: (props) => {
-    const { editorWidth, title } = parseImageTitleMetadata(props.title);
+    const { editorWidth, title } = parseImageMetadata(props.title);
 
     return (
       <img
         {...props}
-        title={title ?? undefined}
+        title={title}
         className={cn([
           "block max-h-32 w-full rounded-md bg-white object-contain",
           props.className,
@@ -86,45 +83,6 @@ function isWarmedUp() {
 
 function markPreviewClosed() {
   lastPreviewClosedAt = Date.now();
-}
-
-function tiptapNodeHasImage(node: unknown): boolean {
-  if (!node || typeof node !== "object") {
-    return false;
-  }
-
-  const content = (node as { content?: unknown }).content;
-  if ((node as { type?: unknown }).type === "image") {
-    return true;
-  }
-
-  if (!Array.isArray(content)) {
-    return false;
-  }
-
-  return content.some(tiptapNodeHasImage);
-}
-
-function sourceHasImages(source: string | undefined): boolean {
-  if (typeof source !== "string") {
-    return false;
-  }
-
-  const trimmed = source.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  if (trimmed.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (isValidTiptapContent(parsed)) {
-        return tiptapNodeHasImage(parsed);
-      }
-    } catch {}
-  }
-
-  return MARKDOWN_IMAGE_REGEX.test(trimmed);
 }
 
 function extractPreviewImage(markdown: string | null) {
@@ -194,14 +152,8 @@ function useSessionPreviewData(sessionId: string) {
   );
 
   const hasEnhanced = !!firstEnhancedNoteId && !!enhancedContent;
-  const rawHasImages = useMemo(() => sourceHasImages(rawMd), [rawMd]);
-
   const { previewMarkdown, previewPlainText } = useMemo(() => {
-    const source = rawHasImages
-      ? rawMd
-      : hasEnhanced
-        ? (enhancedContent as string)
-        : rawMd;
+    const source = hasEnhanced ? (enhancedContent as string) : rawMd;
     if (typeof source !== "string" || !source.trim()) {
       return { previewMarkdown: null, previewPlainText: "" };
     }
@@ -227,7 +179,7 @@ function useSessionPreviewData(sessionId: string) {
         ? plain.slice(0, MAX_PREVIEW_LENGTH) + "…"
         : plain;
     return { previewMarkdown: null, previewPlainText: truncated };
-  }, [hasEnhanced, enhancedContent, rawHasImages, rawMd]);
+  }, [hasEnhanced, enhancedContent, rawMd]);
 
   const hasContent = !!previewMarkdown || !!previewPlainText;
 

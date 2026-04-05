@@ -1,0 +1,175 @@
+on:
+  workflow_call:
+    inputs:
+      channel:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+      publish:
+        required: false
+        type: boolean
+        default: true
+      release_assets:
+        required: true
+        type: string # JSON array, e.g. '[{"platform":"dmg-aarch64","output":"hyprnote-macos-aarch64.dmg"}]'
+
+env:
+  CN_APPLICATION: "fastrepl/hyprnote2"
+  RELEASE_CHANNEL: ${{ inputs.channel }}
+
+jobs:
+  draft-upload-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ inputs.version }}"
+      - uses: ./.github/actions/cn_release
+        with:
+          cmd: draft
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-release-*
+          path: apps/desktop/src-tauri/target/release
+          merge-multiple: true
+      - run: |
+          if ! find apps/desktop/src-tauri/target/release -maxdepth 1 -type f | grep -q .; then
+            echo "::error::No desktop release artifacts were downloaded"
+            exit 1
+          fi
+      - uses: ./.github/actions/cn_release
+        with:
+          cmd: upload
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+      - uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: desktop_v${{ inputs.version }}
+          tag_prefix: ""
+
+  publish-release:
+    if: ${{ inputs.publish }}
+    needs: draft-upload-tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+      - uses: ./.github/actions/cn_release
+        with:
+          cmd: publish
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+      - id: release-json
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show ${{ env.CN_APPLICATION }} ${{ inputs.version }}
+            --channel ${{ env.RELEASE_CHANNEL }}
+          key: ${{ secrets.CN_API_KEY }}
+      - id: download-assets
+        env:
+          RELEASE_ASSETS: ${{ inputs.release_assets }}
+          RELEASE_JSON: ${{ steps.release-json.outputs.raw }}
+        run: |
+          ARTIFACTS=()
+          CHECKSUM_INPUTS=()
+
+          while IFS= read -r asset; do
+            PLATFORM=$(jq -r '.platform' <<< "$asset")
+            OUTPUT=$(jq -r '.output' <<< "$asset")
+            ASSET_ID=$(jq -r --arg platform "$PLATFORM" '.assets[] | select(.publicPlatform == $platform) | .id' <<< "$RELEASE_JSON" | head -n1)
+
+            if [[ -z "$ASSET_ID" || "$ASSET_ID" == "null" ]]; then
+              echo "::error::Asset not found for platform $PLATFORM"
+              exit 1
+            fi
+
+            curl -fL "https://cdn.crabnebula.app/asset/$ASSET_ID" -o "$OUTPUT"
+            ARTIFACTS+=("$OUTPUT")
+            CHECKSUM_INPUTS+=("$OUTPUT")
+          done < <(jq -c '.[]' <<< "$RELEASE_ASSETS")
+
+          echo "files=$(IFS=,; echo "${ARTIFACTS[*]}")" >> "$GITHUB_OUTPUT"
+          {
+            echo "checksum_inputs<<EOF"
+            printf '%s\n' "${CHECKSUM_INPUTS[@]}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - id: checksums
+        uses: ./.github/actions/generate_checksums
+        with:
+          files: ${{ steps.download-assets.outputs.checksum_inputs }}
+      - id: artifacts
+        env:
+          DOWNLOADED_FILES: ${{ steps.download-assets.outputs.files }}
+          CHECKSUM_FILES: ${{ steps.checksums.outputs.checksum_files }}
+        run: |
+          ARTIFACTS="$DOWNLOADED_FILES"
+          if [[ -n "$CHECKSUM_FILES" ]]; then
+            ARTIFACTS="$ARTIFACTS,$CHECKSUM_FILES"
+          fi
+          echo "list=$ARTIFACTS" >> "$GITHUB_OUTPUT"
+      - id: release-body
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$CHANNEL" != "nightly" ]]; then
+            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="desktop_v$VERSION"
+          PREV_TAG=""
+          LAST_TAG=""
+          LAST_NIGHTLY_TAG=""
+
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$CURRENT_TAG" ]]; then
+              PREV_TAG="$LAST_NIGHTLY_TAG"
+              if [[ -z "$PREV_TAG" ]]; then
+                PREV_TAG="$LAST_TAG"
+              fi
+              break
+            fi
+
+            if [[ "$tag" == *"-nightly."* ]]; then
+              LAST_NIGHTLY_TAG="$tag"
+            fi
+
+            LAST_TAG="$tag"
+          done < <(git tag -l 'desktop_v*' --sort=v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: desktop_v${{ inputs.version }}
+          name: desktop_v${{ inputs.version }}
+          body: ${{ steps.release-body.outputs.value }}
+          prerelease: ${{ inputs.channel == 'nightly' }}
+          makeLatest: ${{ inputs.channel == 'nightly' && 'false' || 'true' }}
+          artifacts: ${{ steps.artifacts.outputs.list }}

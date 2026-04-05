@@ -1,17 +1,25 @@
 import type { SessionMode } from "~/store/zustand/listener/general-shared";
 
-export function getSessionTabVisualState(
+export type TabStatus =
+  | "listening"
+  | "listening-degraded"
+  | "finalizing"
+  | "processing";
+
+export function getSessionTabStatus(
   sessionMode: SessionMode,
   isEnhancing: boolean,
+  isDegraded: boolean,
   isSelected: boolean,
-) {
-  const isListening = sessionMode === "active" || sessionMode === "finalizing";
-  const isFinalizing = sessionMode === "finalizing";
-  const isBatching = sessionMode === "running_batch";
-
-  return {
-    isActive: isListening,
-    accent: sessionMode === "active" ? "red" : "neutral",
-    showSpinner: isFinalizing || (!isSelected && (isEnhancing || isBatching)),
-  } as const;
+): TabStatus | undefined {
+  if (sessionMode === "active") {
+    return isDegraded ? "listening-degraded" : "listening";
+  }
+  if (sessionMode === "finalizing") {
+    return "finalizing";
+  }
+  if (!isSelected && (isEnhancing || sessionMode === "running_batch")) {
+    return "processing";
+  }
+  return undefined;
 }

@@ -1,8 +1,8 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 
-const COLLAPSED_SIZE = { width: 80, height: 80 };
-const EXPANDED_SIZE = { width: 400, height: 500 };
+const COLLAPSED_SIZE = { width: 120, height: 36 };
+const EXPANDED_SIZE = { width: 320, height: 380 };
 
 export function useWidgetState() {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -14,7 +14,7 @@ export function useWidgetState() {
     }
 
     const [
-      { PhysicalPosition, PhysicalSize },
+      { LogicalPosition, LogicalSize },
       { getCurrentWebviewWindow },
       tauriWindow,
     ] = await Promise.all([
@@ -27,16 +27,19 @@ export function useWidgetState() {
     const monitor = await tauriWindow.currentMonitor();
     if (!monitor) return;
 
-    const { width: screenWidth, height: screenHeight } = monitor.size;
-    const { x: screenX, y: screenY } = monitor.position;
+    const scale = monitor.scaleFactor;
+    const screenWidth = monitor.size.width / scale;
+    const screenHeight = monitor.size.height / scale;
+    const screenX = monitor.position.x / scale;
+    const screenY = monitor.position.y / scale;
 
     const x = screenX + screenWidth - EXPANDED_SIZE.width - 20;
     const y = screenY + screenHeight - EXPANDED_SIZE.height - 20;
 
     await appWindow.setSize(
-      new PhysicalSize(EXPANDED_SIZE.width, EXPANDED_SIZE.height),
+      new LogicalSize(EXPANDED_SIZE.width, EXPANDED_SIZE.height),
     );
-    await appWindow.setPosition(new PhysicalPosition(x, y));
+    await appWindow.setPosition(new LogicalPosition(x, y));
     setIsExpanded(true);
   }, []);
 
@@ -47,7 +50,7 @@ export function useWidgetState() {
     }
 
     const [
-      { PhysicalPosition, PhysicalSize },
+      { LogicalPosition, LogicalSize },
       { getCurrentWebviewWindow },
       tauriWindow,
     ] = await Promise.all([
@@ -63,16 +66,19 @@ export function useWidgetState() {
       return;
     }
 
-    const { width: screenWidth, height: screenHeight } = monitor.size;
-    const { x: screenX, y: screenY } = monitor.position;
+    const scale = monitor.scaleFactor;
+    const screenWidth = monitor.size.width / scale;
+    const screenHeight = monitor.size.height / scale;
+    const screenX = monitor.position.x / scale;
+    const screenY = monitor.position.y / scale;
 
     const x = screenX + screenWidth - COLLAPSED_SIZE.width - 20;
     const y = screenY + screenHeight - COLLAPSED_SIZE.height - 20;
 
     await appWindow.setSize(
-      new PhysicalSize(COLLAPSED_SIZE.width, COLLAPSED_SIZE.height),
+      new LogicalSize(COLLAPSED_SIZE.width, COLLAPSED_SIZE.height),
     );
-    await appWindow.setPosition(new PhysicalPosition(x, y));
+    await appWindow.setPosition(new LogicalPosition(x, y));
     setIsExpanded(false);
   }, []);
 

@@ -1,31 +1,23 @@
-import { PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
-import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { Button } from "@hypr/ui/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
-import { cn } from "@hypr/utils";
 
 import {
   OAuthCalendarSelection,
   useOAuthCalendarSelection,
 } from "./calendar-selection";
-import {
-  type ConnectionAction,
-  ConnectionTroubleShootingLink,
-  ReconnectRequiredIndicator,
-} from "./status";
+import { ReconnectRequiredIndicator } from "./status";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import { buildWebAppUrl } from "~/shared/utils";
+import { openIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   const auth = useAuth();
@@ -40,7 +32,13 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
   );
 
   const handleAddAccount = useCallback(
-    () => openIntegrationUrl(config.nangoIntegrationId, undefined, "connect"),
+    () =>
+      openIntegrationUrl(
+        config.nangoIntegrationId,
+        undefined,
+        "connect",
+        "calendar",
+      ),
     [config.nangoIntegrationId],
   );
 
@@ -71,7 +69,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
           onClick={upgradeToPro}
           className="cursor-pointer text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
         >
-          Upgrade to Pro to connect
+          Upgrade to connect
         </button>
       </div>
     );
@@ -93,6 +91,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "reconnect",
+                "calendar",
               )
             }
             onDisconnect={() =>
@@ -100,6 +99,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "disconnect",
+                "calendar",
               )
             }
             errorDescription={connection.last_error_description ?? null}
@@ -107,14 +107,6 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
         ))}
 
         <ConnectedContent config={config} connections={providerConnections} />
-
-        <button
-          onClick={handleAddAccount}
-          className="flex cursor-pointer items-center gap-1 text-xs text-neutral-600 underline transition-colors hover:text-neutral-900"
-        >
-          <PlusIcon className="size-3" />
-          Add another account
-        </button>
       </div>
     );
   }
@@ -189,76 +181,56 @@ function ConnectedContent({
   config: CalendarProvider;
   connections: ConnectionItem[];
 }) {
-  const {
-    groups,
-    connectionSourceMap,
-    handleToggle,
-    handleRefresh,
-    isLoading,
-  } = useOAuthCalendarSelection(config);
+  const { groups, connectionSourceMap, handleToggle, isLoading } =
+    useOAuthCalendarSelection(config);
 
-  const connectionActions = useMemo(
-    (): ConnectionAction[] =>
-      connections.map((c) => ({
-        connectionId: c.connection_id,
-        label: connectionSourceMap.get(c.connection_id) ?? c.connection_id,
-        onReconnect: () =>
-          openIntegrationUrl(
-            config.nangoIntegrationId,
-            c.connection_id,
-            "reconnect",
-          ),
-        onDisconnect: () =>
-          openIntegrationUrl(
-            config.nangoIntegrationId,
-            c.connection_id,
-            "disconnect",
-          ),
-      })),
-    [connections, config.nangoIntegrationId, connectionSourceMap],
+  const groupsWithMenus = useMemo(
+    () =>
+      groups.map((group) => {
+        const connection = connections.find(
+          (item) =>
+            item.connection_id === group.id ||
+            connectionSourceMap.get(item.connection_id) === group.sourceName,
+        );
+
+        if (!connection) return group;
+
+        return {
+          ...group,
+          menuItems: [
+            {
+              id: `reconnect-${connection.connection_id}`,
+              text: "Reconnect",
+              action: () =>
+                void openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "reconnect",
+                  "calendar",
+                ),
+            },
+            {
+              id: `disconnect-${connection.connection_id}`,
+              text: "Disconnect",
+              action: () =>
+                void openIntegrationUrl(
+                  config.nangoIntegrationId,
+                  connection.connection_id,
+                  "disconnect",
+                  "calendar",
+                ),
+            },
+          ],
+        };
+      }),
+    [config.nangoIntegrationId, connectionSourceMap, connections, groups],
   );
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <ConnectionTroubleShootingLink connections={connectionActions} />
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleRefresh}
-          className="size-6"
-          disabled={isLoading}
-        >
-          <RefreshCwIcon
-            className={cn(["size-3.5", isLoading && "animate-spin"])}
-          />
-        </Button>
-      </div>
-
-      <OAuthCalendarSelection
-        groups={groups}
-        onToggle={handleToggle}
-        isLoading={isLoading}
-      />
-    </div>
+    <OAuthCalendarSelection
+      groups={groupsWithMenus}
+      onToggle={handleToggle}
+      isLoading={isLoading}
+    />
   );
-}
-
-async function openIntegrationUrl(
-  nangoIntegrationId: string | undefined,
-  connectionId: string | undefined,
-  action: "connect" | "reconnect" | "disconnect",
-) {
-  if (!nangoIntegrationId) return;
-  const params: Record<string, string> = {
-    action,
-    integration_id: nangoIntegrationId,
-    return_to: "calendar",
-  };
-  if (connectionId) {
-    params.connection_id = connectionId;
-  }
-  const url = await buildWebAppUrl("/app/integration", params);
-  await openerCommands.openUrl(url, null);
 }

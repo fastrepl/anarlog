@@ -1,12 +1,13 @@
 import Nango from "@nangohq/frontend";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { createSession } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -14,23 +15,29 @@ import { getIntegrationDisplay, Route } from "./integration";
 export function ConnectFlow() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const isGoogleCalendar = search.integration_id === "google-calendar";
   const [nango] = useState(() => new Nango());
   const [status, setStatus] = useState<
     "idle" | "loading" | "connecting" | "success" | "error"
-  >("idle");
-  const statusRef = useRef(status);
+  >(isGoogleCalendar ? "loading" : "idle");
+  const statusRef = useRef<
+    "idle" | "loading" | "connecting" | "success" | "error"
+  >(isGoogleCalendar ? "loading" : "idle");
   const inFlightRef = useRef(false);
 
-  useEffect(() => {
-    statusRef.current = status;
-  }, [status]);
-
   const display = getIntegrationDisplay(search.integration_id);
+
+  const updateStatus = (
+    nextStatus: "idle" | "loading" | "connecting" | "success" | "error",
+  ) => {
+    statusRef.current = nextStatus;
+    setStatus(nextStatus);
+  };
 
   const handleConnect = async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
-    setStatus("loading");
+    updateStatus("loading");
 
     let sessionToken: string;
 
@@ -51,17 +58,17 @@ export function ConnectFlow() {
       });
       if (error || !data) {
         inFlightRef.current = false;
-        setStatus("error");
+        updateStatus("error");
         return;
       }
       sessionToken = data.token;
     } catch {
       inFlightRef.current = false;
-      setStatus("error");
+      updateStatus("error");
       return;
     }
 
-    setStatus("connecting");
+    updateStatus("connecting");
 
     const connect = nango.openConnectUI({
       onEvent: (event) => {
@@ -71,13 +78,11 @@ export function ConnectFlow() {
             statusRef.current !== "error"
           ) {
             inFlightRef.current = false;
-            statusRef.current = "idle";
-            setStatus("idle");
+            updateStatus("idle");
           }
         } else if (event.type === "connect") {
           inFlightRef.current = false;
-          statusRef.current = "success";
-          setStatus("success");
+          updateStatus("success");
           const callbackSearch =
             search.flow === "desktop"
               ? {
@@ -104,12 +109,10 @@ export function ConnectFlow() {
     connect.setSessionToken(sessionToken);
   };
 
-  useEffect(() => {
-    if (search.flow === "desktop") {
-      void handleConnect();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useMountEffect(() => {
+    if (!isGoogleCalendar) return;
+    void handleConnect();
+  });
 
   const isLoading = status === "loading";
   const isConnecting = status === "connecting";

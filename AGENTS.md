@@ -33,14 +33,16 @@ TinyBase as the primary data store (schema at `packages/store/src/tinybase.ts`),
 
 ## CLI TUI Command Architecture
 
-Each TUI command in `apps/cli/src/commands/` follows this layout:
+Choose the lightest command structure that fits the workflow.
+
+Use the full reducer/effect/runtime split only when the command has async orchestration, a multi-step workflow, or substantial state transitions that benefit from reducer-style tests.
 
 ```
 commands/<name>/
   mod.rs        -- Screen impl, Args, run()          [glue]
-  app.rs        -- App, dispatch(Action)->Vec<Effect> [pure state machine]
-  action.rs     -- Action enum                        [input events]
-  effect.rs     -- Effect enum                        [output commands]
+  app.rs        -- App or screen-local state          [optional]
+  action.rs     -- Action enum                        [optional]
+  effect.rs     -- Effect enum                        [optional]
   runtime.rs    -- Runtime, RuntimeEvent              [async I/O]
   ui.rs         -- draw(frame, app)                   [rendering]
 ```
@@ -49,8 +51,10 @@ Naming rules:
 - Types drop the command prefix: `App`, `Action`, `Effect`, `Runtime`, `RuntimeEvent`
 - `app.rs` → `app/mod.rs` with private submodules when state is complex
 - `ui.rs` → `ui/mod.rs` with sub-files when rendering is complex
-- `action.rs`/`effect.rs` are siblings of `mod.rs`, never nested inside `app/`
-- `app.rs` contains no rendering logic, no API calls, no async code
+- `action.rs`/`effect.rs` are siblings of `mod.rs` when they exist; do not create them by default for simple list/detail screens
+- `app.rs` contains no rendering logic, no API calls, no async code when using the reducer pattern
+- Prefer `screen.rs` plus a small local state struct for simple browse/select flows
+- Do not add parent-level action/effect translation layers that proxy child workflows through another command's reducer
 
 ## Misc
 

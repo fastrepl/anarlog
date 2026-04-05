@@ -1,0 +1,9 @@
+[package]
+name = "activity-capture"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hypr-activity-capture-interface = { workspace = true }
+hypr-activity-capture-macos = { workspace = true }
+hypr-activity-capture-windows = { workspace = true }

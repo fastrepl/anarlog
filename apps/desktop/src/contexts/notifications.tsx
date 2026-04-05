@@ -89,14 +89,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
-      const { model: eventModel, progress: eventProgress } = event.payload;
+      const { model: eventModel, status } = event.payload;
 
       setActiveDownloads((prev) => {
         const next = new Map(prev);
-        if (eventProgress < 0 || eventProgress >= 100) {
+        if (status === "failed" || status === "completed") {
           next.delete(eventModel);
-        } else {
-          next.set(eventModel, Math.max(0, Math.min(100, eventProgress)));
+        } else if (typeof status === "object" && "downloading" in status) {
+          next.set(eventModel, Math.max(0, Math.min(100, status.downloading)));
         }
         return next;
       });
@@ -114,7 +114,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       currentTab: ReturnType<typeof useTabs.getState>["currentTab"];
     }) => state.currentTab,
   );
-  const isAiTab = currentTab?.type === "ai";
+  const isAiTab =
+    currentTab?.type === "settings" &&
+    ["transcription", "intelligence", "memory"].includes(
+      currentTab.state?.tab ?? "",
+    );
 
   const value = useMemo<NotificationState>(() => {
     const hasActiveBanner = hasConfigBanner && !isAiTab;

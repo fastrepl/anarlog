@@ -1,5 +1,6 @@
 #[cfg(feature = "app")]
 mod app;
+mod error;
 #[cfg(all(target_os = "macos", feature = "language"))]
 mod language;
 #[cfg(feature = "list")]
@@ -10,6 +11,8 @@ mod mic;
 mod sleep;
 
 mod utils;
+
+pub use error::Error;
 
 pub use utils::BackgroundTask;
 

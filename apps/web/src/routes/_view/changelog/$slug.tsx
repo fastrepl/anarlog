@@ -73,11 +73,8 @@ function Component() {
   const { changelog, allChangelogs, diffUrl } = Route.useLoaderData();
 
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <main className="min-h-screen flex-1">
+      <div className="mx-auto">
         <div className="mx-auto max-w-3xl px-6 pt-16 pb-8 lg:pt-24">
           <div className="hidden gap-12 md:flex md:flex-col md:items-center">
             <div className="flex flex-col items-center gap-6">
@@ -106,7 +103,7 @@ function Component() {
             <DownloadLinksHero version={changelog.version} />
           </div>
 
-          <div className="text-center md:hidden">
+          <div className="text-left md:hidden">
             <div className="mb-8 flex flex-col items-center gap-3">
               <img
                 src="/api/images/icons/stable-icon.png"
@@ -133,7 +130,7 @@ function Component() {
             <DownloadLinksHeroMobile version={changelog.version} />
           </div>
 
-          <article className="mt-12 max-w-none [&_h2]:font-serif [&_h3]:font-serif">
+          <article className="mt-12 max-w-none [&_h2]:font-mono [&_h3]:font-mono">
             <ChangelogContent content={fixImageUrls(changelog.content)} />
           </article>
         </div>
@@ -141,8 +138,8 @@ function Component() {
         {diffUrl && (
           <>
             <div className="border-t border-neutral-100" />
-            <div className="mx-auto flex max-w-3xl flex-col items-center px-6 py-16 text-center">
-              <h2 className="mb-2 font-serif text-3xl text-stone-700">
+            <div className="mx-auto flex max-w-3xl flex-col items-center px-6 py-16 text-left">
+              <h2 className="mb-2 font-mono text-3xl text-stone-700">
                 View the Code
               </h2>
               <p className="mb-6 text-neutral-600">
@@ -228,7 +225,7 @@ function DownloadLinksHeroMobile({ version }: { version: string }) {
             ])}
           >
             <Download className="size-5 shrink-0" />
-            <div className="text-center">
+            <div className="text-left">
               <div className="mb-1 text-xs font-medium tracking-wider text-stone-500 uppercase">
                 {link.platform}
               </div>
@@ -273,8 +270,8 @@ function RelatedReleases({
 
   return (
     <section>
-      <div className="mb-8 text-center">
-        <h2 className="mb-2 font-serif text-3xl text-stone-700">
+      <div className="mb-8 text-left">
+        <h2 className="mb-2 font-mono text-3xl text-stone-700">
           Other Releases
         </h2>
         <p className="text-neutral-600">Explore more versions of Char</p>
@@ -323,7 +320,7 @@ function RelatedReleases({
         })}
       </div>
 
-      <div className="mt-8 text-center">
+      <div className="mt-8 text-left">
         <Link
           to="/changelog/"
           className="inline-flex h-12 items-center gap-2 rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-6 text-base font-medium text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"

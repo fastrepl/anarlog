@@ -13,7 +13,7 @@ use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
 fn create_audio_provider() -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
-    #[cfg(feature = "mock-audio")]
+    #[cfg(feature = "dev")]
     {
         let selection: u32 = std::env::var("MOCK_AUDIO")
             .ok()
@@ -97,9 +97,11 @@ pub async fn main() {
         .plugin(tauri_plugin_opener2::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_analytics::init())
+        .plugin(tauri_plugin_activity_capture::init())
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
+        .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init())
         .plugin(tauri_plugin_db2::init())
         .plugin(tauri_plugin_tracing::init())
@@ -136,8 +138,7 @@ pub async fn main() {
         .plugin(tauri_plugin_js::init())
         .plugin(tauri_plugin_flag::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_listener::init())
-        .plugin(tauri_plugin_listener2::init())
+        .plugin(tauri_plugin_transcription::init())
         .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
         .plugin(tauri_plugin_local_stt::init(
@@ -274,7 +275,7 @@ pub async fn main() {
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            AppWindow::Main.show(&app).unwrap();
+            AppWindow::Main.show(app).unwrap();
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::ExitRequested { api, .. } => {
@@ -360,7 +361,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::increment_app_open_count::<tauri::Wry>,
             commands::get_survey_dismissed::<tauri::Wry>,
             commands::set_survey_dismissed::<tauri::Wry>,
-            commands::list_plugins::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

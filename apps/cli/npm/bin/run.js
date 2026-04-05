@@ -4,7 +4,10 @@ const { spawn } = require("node:child_process");
 const { join } = require("node:path");
 
 const bin = join(__dirname, "char");
-const child = spawn(bin, process.argv.slice(2), { stdio: "inherit" });
+const child = spawn(bin, process.argv.slice(2), {
+  stdio: "inherit",
+  env: { ...process.env, CHAR_MANAGED_BY_NPM: "1" },
+});
 
 child.on("error", (err) => {
   console.error(err);

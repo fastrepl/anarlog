@@ -3,6 +3,7 @@ import { useCallback } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -78,11 +79,14 @@ export function EventChip({ eventId }: { eventId: string }) {
         )}
       </PopoverTrigger>
       <PopoverContent
+        variant="app"
         align="start"
-        className="flex max-h-[80vh] w-[280px] flex-col rounded-lg p-0 shadow-lg"
+        className="flex max-h-[80vh] w-[280px] flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <EventPopoverContent eventId={eventId} />
+        <AppFloatingPanel>
+          <EventPopoverContent eventId={eventId} />
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

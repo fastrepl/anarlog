@@ -1,6 +1,7 @@
 const EDITOR_WIDTH_PREFIX = "char-editor-width=";
 const MIN_EDITOR_WIDTH = 15;
 const MAX_EDITOR_WIDTH = 100;
+export const DEFAULT_EDITOR_WIDTH = 80;
 
 function clampEditorWidth(value: number) {
   return Math.min(MAX_EDITOR_WIDTH, Math.max(MIN_EDITOR_WIDTH, value));

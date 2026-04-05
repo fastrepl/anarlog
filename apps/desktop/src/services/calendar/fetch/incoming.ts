@@ -1,6 +1,5 @@
 import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import type { CalendarEvent } from "@hypr/plugin-calendar";
-import { commands as miscCommands } from "@hypr/plugin-misc";
 
 import type { Ctx } from "../ctx";
 import type {
@@ -130,7 +129,7 @@ async function extractMeetingLink(
 ): Promise<string | undefined> {
   for (const text of texts) {
     if (!text) continue;
-    const result = await miscCommands.parseMeetingLink(text);
+    const result = await calendarCommands.parseMeetingLink(text);
     if (result) return result;
   }
   return undefined;

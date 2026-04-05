@@ -1,4 +1,4 @@
-import type { DegradedError } from "@hypr/plugin-listener";
+import type { DegradedError } from "@hypr/plugin-transcription";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 
 import { useListener } from "~/stt/contexts";

@@ -4,6 +4,11 @@ const COMMANDS: &[&str] = &[
     "window_navigate",
     "window_emit_navigate",
     "window_is_exists",
+    "window_set_frame_animated",
+    "window_save_frame",
+    "window_restore_frame_animated",
+    "control_set_always_on_top",
+    "control_set_opacity",
 ];
 
 fn main() {

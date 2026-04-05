@@ -1,34 +1,16 @@
 #[cfg(test)]
 use std::path::Path;
 
-use axum::extract::ws::{Message, WebSocket};
-use futures_util::{SinkExt, stream::SplitSink};
+pub(super) use hypr_transcribe_core::{
+    WsSender, format_timestamp_now, send_ws, send_ws_best_effort,
+};
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse, Word};
 
-pub(super) type WsSender = SplitSink<WebSocket, Message>;
-
-pub(super) async fn send_ws(sender: &mut WsSender, value: &StreamResponse) -> bool {
-    let payload = match serde_json::to_string(value) {
-        Ok(payload) => payload,
-        Err(error) => {
-            tracing::warn!("failed to serialize ws response: {error}");
-            return false;
-        }
-    };
-
-    sender.send(Message::Text(payload.into())).await.is_ok()
-}
-
-pub(super) async fn send_ws_best_effort(sender: &mut WsSender, value: &StreamResponse) {
-    let payload = match serde_json::to_string(value) {
-        Ok(payload) => payload,
-        Err(error) => {
-            tracing::warn!("failed to serialize ws response: {error}");
-            return;
-        }
-    };
-
-    let _ = sender.send(Message::Text(payload.into())).await;
+#[derive(Debug, Clone, Copy)]
+pub(super) enum TranscriptKind {
+    Confirmed,
+    Pending,
+    Finalized,
 }
 
 #[cfg(test)]
@@ -37,40 +19,44 @@ pub(super) fn build_session_metadata(model_path: &Path) -> Metadata {
 }
 
 pub(super) fn build_transcript_response(
-    text: &str,
-    start: f64,
-    duration: f64,
-    confidence: f64,
+    segment: &crate::service::Segment<'_>,
     language: Option<&str>,
-    is_final: bool,
-    speech_final: bool,
-    from_finalize: bool,
+    kind: TranscriptKind,
     metadata: &Metadata,
     channel_index: &[i32],
     extra_keys: Option<std::collections::HashMap<String, serde_json::Value>>,
 ) -> StreamResponse {
+    let (is_final, speech_final, from_finalize) = match kind {
+        TranscriptKind::Confirmed => (true, true, false),
+        TranscriptKind::Pending => (false, false, false),
+        TranscriptKind::Finalized => (true, true, true),
+    };
     let languages = language.map(|l| vec![l.to_string()]).unwrap_or_default();
 
-    let word_strs: Vec<&str> = text.split_whitespace().filter(|w| !w.is_empty()).collect();
+    let word_strs: Vec<&str> = segment
+        .text
+        .split_whitespace()
+        .filter(|w| !w.is_empty())
+        .collect();
     let n = word_strs.len();
     let words: Vec<Word> = word_strs
         .into_iter()
         .enumerate()
         .map(|(i, w)| {
-            let word_start = start + (i as f64 / n as f64) * duration;
+            let word_start = segment.start + (i as f64 / n as f64) * segment.duration;
             let word_end = if i + 1 == n {
                 // Ensure the last word ends >50ms before the segment boundary so
                 // the stitch heuristic in crates/transcript doesn't merge it with
                 // the first word of the next segment (gap <= STITCH_MAX_GAP_MS=50ms).
-                (start + duration - 0.1_f64).max(word_start + 0.05_f64)
+                (segment.start + segment.duration - 0.1_f64).max(word_start + 0.05_f64)
             } else {
-                start + ((i + 1) as f64 / n as f64) * duration
+                segment.start + ((i + 1) as f64 / n as f64) * segment.duration
             };
             Word {
                 word: w.to_string(),
                 start: word_start,
                 end: word_end,
-                confidence,
+                confidence: segment.confidence,
                 speaker: None,
                 punctuated_word: None,
                 language: None,
@@ -87,17 +73,17 @@ pub(super) fn build_transcript_response(
     }
 
     StreamResponse::TranscriptResponse {
-        start,
-        duration,
+        start: segment.start,
+        duration: segment.duration,
         is_final,
         speech_final,
         from_finalize,
         channel: Channel {
             alternatives: vec![Alternatives {
-                transcript: text.to_string(),
+                transcript: segment.text.to_string(),
                 languages,
                 words,
-                confidence,
+                confidence: segment.confidence,
             }],
         },
         metadata: meta,
@@ -105,69 +91,13 @@ pub(super) fn build_transcript_response(
     }
 }
 
-pub(super) fn format_timestamp_now() -> String {
-    let d = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let total_secs = d.as_secs();
-    let millis = d.subsec_millis();
-
-    let mut days = total_secs / 86400;
-    let day_secs = (total_secs % 86400) as u32;
-    let hours = day_secs / 3600;
-    let minutes = (day_secs % 3600) / 60;
-    let seconds = day_secs % 60;
-
-    let mut year = 1970i32;
-    loop {
-        let ydays = if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
-            366u64
-        } else {
-            365
-        };
-        if days < ydays {
-            break;
-        }
-        days -= ydays;
-        year += 1;
-    }
-
-    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
-    let mdays = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    let mut month = 1u32;
-    for &md in &mdays {
-        if days < md {
-            break;
-        }
-        days -= md;
-        month += 1;
-    }
-    let day = days + 1;
-
-    format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
-        year, month, day, hours, minutes, seconds, millis
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
     use owhisper_interface::stream::StreamResponse;
+
+    use crate::service::Segment;
 
     use super::*;
 
@@ -193,14 +123,14 @@ mod tests {
     fn transcript_response_serializes_as_results() {
         let meta = build_session_metadata(Path::new("/models/whisper-small"));
         let resp = build_transcript_response(
-            "hello world",
-            0.0,
-            1.5,
-            0.95,
+            &Segment {
+                text: "hello world",
+                start: 0.0,
+                duration: 1.5,
+                confidence: 0.95,
+            },
             Some("en"),
-            true,
-            true,
-            false,
+            TranscriptKind::Confirmed,
             &meta,
             &[0, 1],
             None,
@@ -238,14 +168,14 @@ mod tests {
     fn transcript_response_from_finalize_flag() {
         let meta = build_session_metadata(Path::new("/models/test"));
         let resp = build_transcript_response(
-            "test",
-            1.0,
-            0.5,
-            0.9,
+            &Segment {
+                text: "test",
+                start: 1.0,
+                duration: 0.5,
+                confidence: 0.9,
+            },
             None,
-            true,
-            true,
-            true,
+            TranscriptKind::Finalized,
             &meta,
             &[0, 2],
             None,
@@ -260,14 +190,14 @@ mod tests {
     fn transcript_response_channel_index() {
         let meta = build_session_metadata(Path::new("/models/test"));
         let resp = build_transcript_response(
-            "speaker text",
-            0.0,
-            1.0,
-            0.8,
+            &Segment {
+                text: "speaker text",
+                start: 0.0,
+                duration: 1.0,
+                confidence: 0.8,
+            },
             None,
-            true,
-            true,
-            false,
+            TranscriptKind::Confirmed,
             &meta,
             &[1, 2],
             None,
@@ -335,14 +265,14 @@ mod tests {
     fn word_timestamps_are_distributed_across_segment() {
         let meta = build_session_metadata(Path::new("/models/test"));
         let resp = build_transcript_response(
-            "one two three",
-            10.0,
-            6.0,
-            0.9,
+            &Segment {
+                text: "one two three",
+                start: 10.0,
+                duration: 6.0,
+                confidence: 0.9,
+            },
             None,
-            true,
-            true,
-            false,
+            TranscriptKind::Confirmed,
             &meta,
             &[0, 1],
             None,
@@ -380,14 +310,14 @@ mod tests {
     fn single_word_has_gap_before_segment_end() {
         let meta = build_session_metadata(Path::new("/models/test"));
         let resp = build_transcript_response(
-            "hello",
-            5.0,
-            3.0,
-            0.9,
+            &Segment {
+                text: "hello",
+                start: 5.0,
+                duration: 3.0,
+                confidence: 0.9,
+            },
             None,
-            true,
-            true,
-            false,
+            TranscriptKind::Confirmed,
             &meta,
             &[0, 1],
             None,

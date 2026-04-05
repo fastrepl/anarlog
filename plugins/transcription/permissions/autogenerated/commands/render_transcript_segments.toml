@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-render-transcript-segments"
+description = "Enables the render_transcript_segments command without any pre-configured scope."
+commands.allow = ["render_transcript_segments"]
+
+[[permission]]
+identifier = "deny-render-transcript-segments"
+description = "Denies the render_transcript_segments command without any pre-configured scope."
+commands.deny = ["render_transcript_segments"]

@@ -53,7 +53,9 @@ pub(crate) fn spawn_download_task<M: DownloadableModel>(
             return;
         }
 
-        params.runtime.emit_progress(&params.model, 100);
+        params
+            .runtime
+            .emit_progress(&params.model, crate::runtime::DownloadStatus::Completed);
         params
             .registry
             .remove_if_generation_matches(&params.key, params.generation)
@@ -63,7 +65,9 @@ pub(crate) fn spawn_download_task<M: DownloadableModel>(
 
 async fn fail_task<M: DownloadableModel>(params: &DownloadTaskParams<M>, emit_failure: bool) {
     if emit_failure {
-        params.runtime.emit_progress(&params.model, -1);
+        params
+            .runtime
+            .emit_progress(&params.model, crate::runtime::DownloadStatus::Failed);
     }
     cleanup_for_failure(params).await;
 }

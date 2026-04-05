@@ -33,12 +33,12 @@ impl<R: Runtime> ModelDownloaderRuntime<LocalModel> for TauriModelRuntime<R> {
             .unwrap_or_else(|_| dirs::data_dir().unwrap_or_default().join("models")))
     }
 
-    fn emit_progress(&self, model: &LocalModel, progress: i8) {
-        let _ = DownloadProgressPayload {
+    fn emit_progress(&self, model: &LocalModel, status: hypr_model_downloader::DownloadStatus) {
+        let payload = DownloadProgressPayload {
             model: model.clone(),
-            progress,
-        }
-        .emit(&self.app_handle);
+            status,
+        };
+        let _ = payload.emit(&self.app_handle);
     }
 }
 
@@ -167,13 +167,19 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                         LocalModel::Cactus(m) => m,
                         _ => return Err(crate::Error::UnsupportedModelType),
                     };
-                    start_internal2_server(
-                        &supervisor,
-                        cache_dir,
-                        cactus_model,
-                        CactusConfig::default(),
-                    )
-                    .await
+                    let cactus_config = CactusConfig {
+                        cloud: hypr_transcribe_cactus::CloudConfig {
+                            base_url: option_env!("CACTUS_CLOUD_API_BASE").map(ToString::to_string),
+                            headers: vec![(
+                                "x-device-fingerprint".to_string(),
+                                hypr_host::fingerprint(),
+                            )],
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    };
+                    start_internal2_server(&supervisor, cache_dir, cactus_model, cactus_config)
+                        .await
                 }
                 #[cfg(not(target_arch = "aarch64"))]
                 Err(crate::Error::UnsupportedModelType)

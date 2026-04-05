@@ -17,23 +17,17 @@ lazy_static! {
 }
 
 #[derive(Default)]
-pub struct WhisperBuilder {
+pub struct LoadedWhisperBuilder {
     model_path: Option<String>,
-    languages: Option<Vec<Language>>,
 }
 
-impl WhisperBuilder {
+impl LoadedWhisperBuilder {
     pub fn model_path(mut self, model_path: impl Into<String>) -> Self {
         self.model_path = Some(model_path.into());
         self
     }
 
-    pub fn languages(mut self, languages: Vec<Language>) -> Self {
-        self.languages = Some(languages);
-        self
-    }
-
-    pub fn build(self) -> Result<Whisper, crate::Error> {
+    pub fn build(self) -> Result<LoadedWhisper, crate::Error> {
         unsafe { Self::suppress_log() };
 
         let context_param = {
@@ -53,17 +47,9 @@ impl WhisperBuilder {
         }
 
         let ctx = WhisperContext::new_with_params(&model_path, context_param)?;
-        let state = ctx.create_state()?;
         let token_beg = ctx.token_beg();
 
-        Ok(Whisper {
-            id: uuid::Uuid::new_v4().to_string(),
-            index: 0,
-            languages: self.languages.unwrap_or_default(),
-            dynamic_prompt: "".to_string(),
-            state,
-            token_beg,
-        })
+        Ok(LoadedWhisper { ctx, token_beg })
     }
 
     unsafe fn suppress_log() {
@@ -74,6 +60,53 @@ impl WhisperBuilder {
         ) {
         }
         unsafe { whisper_rs::set_log_callback(Some(noop_callback), std::ptr::null_mut()) };
+    }
+}
+
+#[derive(Default)]
+pub struct WhisperBuilder {
+    model_path: Option<String>,
+    languages: Option<Vec<Language>>,
+}
+
+impl WhisperBuilder {
+    pub fn model_path(mut self, model_path: impl Into<String>) -> Self {
+        self.model_path = Some(model_path.into());
+        self
+    }
+
+    pub fn languages(mut self, languages: Vec<Language>) -> Self {
+        self.languages = Some(languages);
+        self
+    }
+
+    pub fn build(self) -> Result<Whisper, crate::Error> {
+        LoadedWhisper::builder()
+            .model_path(self.model_path.unwrap())
+            .build()?
+            .session(self.languages.unwrap_or_default())
+    }
+}
+
+pub struct LoadedWhisper {
+    ctx: WhisperContext,
+    token_beg: WhisperTokenId,
+}
+
+impl LoadedWhisper {
+    pub fn builder() -> LoadedWhisperBuilder {
+        LoadedWhisperBuilder::default()
+    }
+
+    pub fn session(&self, languages: Vec<Language>) -> Result<Whisper, crate::Error> {
+        Ok(Whisper {
+            id: uuid::Uuid::new_v4().to_string(),
+            index: 0,
+            languages,
+            dynamic_prompt: String::new(),
+            state: self.ctx.create_state()?,
+            token_beg: self.token_beg,
+        })
     }
 }
 

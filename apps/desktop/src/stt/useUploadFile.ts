@@ -5,10 +5,14 @@ import { Effect, pipe } from "effect";
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { commands as listener2Commands } from "@hypr/plugin-listener2";
+import {
+  commands as fsSyncCommands,
+  events as fsSyncEvents,
+} from "@hypr/plugin-fs-sync";
+import { commands as listener2Commands } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
+import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
@@ -26,6 +30,7 @@ export function useUploadFile(sessionId: string) {
   const queryClient = useQueryClient();
   const handleBatchStarted = useListener((state) => state.handleBatchStarted);
   const handleBatchFailed = useListener((state) => state.handleBatchFailed);
+  const updateBatchProgress = useListener((state) => state.updateBatchProgress);
   const clearBatchSession = useListener((state) => state.clearBatchSession);
 
   const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
@@ -52,6 +57,38 @@ export function useUploadFile(sessionId: string) {
     }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
+  const applyEstimatedAudioNoteDate = useCallback(
+    async (filePath: string) => {
+      try {
+        if (!store) {
+          return;
+        }
+
+        const eventJson = store.getCell("sessions", sessionId, "event_json");
+        if (typeof eventJson === "string" && eventJson.trim()) {
+          return;
+        }
+
+        const result = await fsSyncCommands.audioSourceMetadata(filePath);
+        if (result.status === "error") {
+          return;
+        }
+
+        const estimatedCreatedAt = estimateUploadedAudioSessionCreatedAt(
+          result.data,
+        );
+        if (!estimatedCreatedAt) {
+          return;
+        }
+
+        store.setCell("sessions", sessionId, "created_at", estimatedCreatedAt);
+      } catch (error) {
+        console.error("[upload] audio metadata inspection failed:", error);
+      }
+    },
+    [sessionId, store],
+  );
+
   const processFile = useCallback(
     (filePath: string, kind: "audio" | "transcript") => {
       const normalizedPath = filePath.toLowerCase();
@@ -70,13 +107,6 @@ export function useUploadFile(sessionId: string) {
             Effect.sync(() => {
               if (!store || subtitle.tokens.length === 0) {
                 return;
-              }
-
-              if (sessionTab) {
-                updateSessionTabState(sessionTab, {
-                  ...sessionTab.state,
-                  view: { type: "transcript" },
-                });
               }
 
               const transcriptId = crypto.randomUUID();
@@ -135,17 +165,41 @@ export function useUploadFile(sessionId: string) {
       }
 
       const program = pipe(
-        Effect.sync(() => {
-          if (sessionTab) {
-            updateSessionTabState(sessionTab, {
-              ...sessionTab.state,
-              view: { type: "transcript" },
-            });
-          }
-          handleBatchStarted(sessionId);
-        }),
+        Effect.promise(() => applyEstimatedAudioNoteDate(filePath)),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            handleBatchStarted(sessionId, "importing");
+          }),
+        ),
         Effect.flatMap(() =>
-          fromResult(fsSyncCommands.audioImport(sessionId, filePath)),
+          Effect.tryPromise({
+            try: async () => {
+              const unlisten = await fsSyncEvents.audioImportEvent.listen(
+                (e) => {
+                  if (
+                    e.payload.type === "audioImportProgress" &&
+                    e.payload.session_id === sessionId
+                  ) {
+                    updateBatchProgress(sessionId, e.payload.percentage);
+                  }
+                },
+              );
+              try {
+                const result = await fsSyncCommands.audioImport(
+                  sessionId,
+                  filePath,
+                );
+                if (result.status === "error") {
+                  throw new Error(result.error);
+                }
+                return result.data;
+              } finally {
+                unlisten();
+              }
+            },
+            catch: (error) =>
+              error instanceof Error ? error : new Error(String(error)),
+          }),
         ),
         Effect.tap(() =>
           Effect.sync(() => {
@@ -185,12 +239,14 @@ export function useUploadFile(sessionId: string) {
       clearBatchSession,
       handleBatchFailed,
       handleBatchStarted,
+      updateBatchProgress,
       queryClient,
       runBatch,
       sessionId,
       sessionTab,
       store,
       triggerEnhance,
+      applyEstimatedAudioNoteDate,
       updateSessionTabState,
       user_id,
     ],

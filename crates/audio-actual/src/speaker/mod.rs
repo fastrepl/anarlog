@@ -72,8 +72,7 @@ impl SpeakerInput {
 
     #[cfg(test)]
     pub fn stream(self) -> Result<SpeakerStream> {
-        let platform_inner = self.inner.stream();
-        let initial_rate = platform_inner.sample_rate();
+        let initial_rate = self.inner.sample_rate();
         Ok(SpeakerStream {
             inner: mock::MockInnerStream::new(vec![], initial_rate),
             buffer: Vec::new(),

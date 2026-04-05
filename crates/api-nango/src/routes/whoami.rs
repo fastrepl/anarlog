@@ -1,7 +1,7 @@
 use axum::{Extension, Json, extract::State};
 use hypr_api_auth::AuthContext;
-use hypr_nango::OwnedNangoProxy;
-use serde::{Deserialize, Serialize};
+use hypr_nango::ListConnectionsParams;
+use serde::Serialize;
 use utoipa::ToSchema;
 
 use crate::error::Result;
@@ -24,64 +24,6 @@ pub struct WhoAmIResponse {
     pub accounts: Vec<WhoAmIItem>,
 }
 
-#[derive(Debug, Deserialize)]
-struct GoogleUserInfo {
-    email: Option<String>,
-    name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OutlookMe {
-    mail: Option<String>,
-    #[serde(rename = "userPrincipalName")]
-    user_principal_name: Option<String>,
-    #[serde(rename = "displayName")]
-    display_name: Option<String>,
-}
-
-// TODO: cache identity information in the database instead of fetching on every request
-async fn fetch_identity(
-    nango: &hypr_nango::NangoClient,
-    integration_id: &str,
-    connection_id: &str,
-) -> std::result::Result<(Option<String>, Option<String>), String> {
-    let proxy = OwnedNangoProxy::new(nango, integration_id.to_string(), connection_id.to_string());
-
-    match integration_id {
-        // https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/UserInfo
-        "google-calendar" | "google-drive" => {
-            let resp = proxy
-                .get("/oauth2/v1/userinfo?alt=json")
-                .map_err(|e| e.to_string())?
-                .send()
-                .await
-                .map_err(|e| e.to_string())?
-                .error_for_status()
-                .map_err(|e| e.to_string())?;
-
-            let me: GoogleUserInfo = resp.json().await.map_err(|e| e.to_string())?;
-            Ok((me.email, me.name))
-        }
-
-        // https://learn.microsoft.com/en-us/graph/api/user-get
-        "outlook-calendar" => {
-            let resp = proxy
-                .get("/v1.0/me?$select=mail,userPrincipalName,displayName")
-                .map_err(|e| e.to_string())?
-                .send()
-                .await
-                .map_err(|e| e.to_string())?
-                .error_for_status()
-                .map_err(|e| e.to_string())?;
-
-            let me: OutlookMe = resp.json().await.map_err(|e| e.to_string())?;
-            Ok((me.mail.or(me.user_principal_name), me.display_name))
-        }
-
-        other => Err(format!("unsupported integration: {other}")),
-    }
-}
-
 #[utoipa::path(
     get,
     path = "/whoami",
@@ -101,47 +43,49 @@ pub async fn whoami(
         .list_user_connections(&auth.token, &auth.claims.sub)
         .await?;
 
-    let futures = rows.into_iter().map(|row| {
-        let nango = state.nango.clone();
-        async move {
-            if row.status == "reconnect_required" {
-                return WhoAmIItem {
-                    integration_id: row.integration_id,
-                    connection_id: row.connection_id,
-                    email: None,
-                    display_name: None,
-                    error: Some("reconnect_required".to_string()),
-                };
-            }
+    let nango_connections = state
+        .nango
+        .list_connections(ListConnectionsParams {
+            end_user_id: Some(auth.claims.sub.clone()),
+            ..Default::default()
+        })
+        .await
+        .unwrap_or_default();
 
-            match fetch_identity(&nango, &row.integration_id, &row.connection_id).await {
-                Ok((email, display_name)) => WhoAmIItem {
-                    integration_id: row.integration_id,
-                    connection_id: row.connection_id,
-                    email,
-                    display_name,
-                    error: None,
+    let nango_map: std::collections::HashMap<(&str, &str), _> = nango_connections
+        .iter()
+        .map(|c| {
+            (
+                (c.provider_config_key.as_str(), c.connection_id.as_str()),
+                c,
+            )
+        })
+        .collect();
+
+    let accounts = rows
+        .into_iter()
+        .map(|row| {
+            let is_reconnect_required = row.status == "reconnect_required";
+
+            let email = nango_map
+                .get(&(row.integration_id.as_str(), row.connection_id.as_str()))
+                .and_then(|c| c.tags.as_ref())
+                .and_then(|tags| tags.get("account_identity"))
+                .cloned();
+
+            WhoAmIItem {
+                integration_id: row.integration_id,
+                connection_id: row.connection_id,
+                email,
+                display_name: None,
+                error: if is_reconnect_required {
+                    Some("reconnect_required".to_string())
+                } else {
+                    None
                 },
-                Err(e) => {
-                    tracing::warn!(
-                        integration_id = %row.integration_id,
-                        connection_id = %row.connection_id,
-                        error = %e,
-                        "failed to fetch identity for connection"
-                    );
-                    WhoAmIItem {
-                        integration_id: row.integration_id,
-                        connection_id: row.connection_id,
-                        email: None,
-                        display_name: None,
-                        error: Some(e),
-                    }
-                }
             }
-        }
-    });
-
-    let accounts = futures_util::future::join_all(futures).await;
+        })
+        .collect();
 
     Ok(Json(WhoAmIResponse { accounts }))
 }

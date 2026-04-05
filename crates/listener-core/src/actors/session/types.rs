@@ -24,6 +24,10 @@ pub struct SessionParams {
     pub base_url: String,
     pub api_key: String,
     pub keywords: Vec<String>,
+    #[serde(default)]
+    pub participant_human_ids: Vec<String>,
+    #[serde(default)]
+    pub self_human_id: Option<String>,
 }
 
 #[derive(Clone)]

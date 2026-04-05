@@ -137,6 +137,18 @@ common_derives! {
     }
 }
 
+common_derives! {
+    pub struct NangoForwardWebhook {
+        pub r#type: WebhookType,
+        #[serde(rename = "connectionId")]
+        pub connection_id: String,
+        #[serde(rename = "providerConfigKey")]
+        pub provider_config_key: String,
+        pub provider: String,
+        pub payload: serde_json::Value,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,4 +1,3 @@
-import { useHover } from "@uidotdev/usehooks";
 import { MicOff } from "lucide-react";
 import { useCallback } from "react";
 
@@ -12,6 +11,7 @@ import { cn } from "@hypr/utils";
 
 import {
   ActionableTooltipContent,
+  RecordingIcon,
   useHasTranscript,
   useListenButtonState,
 } from "~/session/components/shared";
@@ -40,7 +40,7 @@ function StartButton({ sessionId }: { sessionId: string }) {
   const openNew = useTabs((state) => state.openNew);
 
   const handleConfigureAction = useCallback(() => {
-    openNew({ type: "ai", state: { tab: "transcription" } });
+    openNew({ type: "settings", state: { tab: "transcription" } });
   }, [openNew]);
 
   const button = (
@@ -57,7 +57,10 @@ function StartButton({ sessionId }: { sessionId: string }) {
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
     >
-      <span className="whitespace-nowrap">Resume listening</span>
+      <span className="flex items-center gap-1.5 whitespace-nowrap">
+        <RecordingIcon />
+        <span>Resume listening</span>
+      </span>
     </button>
   );
 
@@ -84,13 +87,12 @@ function StartButton({ sessionId }: { sessionId: string }) {
 }
 
 function InMeetingIndicator({ sessionId }: { sessionId: string }) {
-  const [ref, hovered] = useHover();
-
-  const { mode, stop, amplitude, muted } = useListener((state) => ({
+  const { mode, stop, amplitude, muted, degraded } = useListener((state) => ({
     mode: state.getSessionMode(sessionId),
     stop: state.stop,
     amplitude: state.live.amplitude,
     muted: state.live.muted,
+    degraded: state.live.degraded,
   }));
 
   const active = mode === "active" || mode === "finalizing";
@@ -100,17 +102,31 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
     return null;
   }
 
+  const accent = degraded ? "amber" : "red";
+  const colors = {
+    red: {
+      button: "text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100",
+      sticks: "#ef4444",
+      stop: "bg-red-500",
+    },
+    amber: {
+      button:
+        "text-amber-500 hover:text-amber-600 bg-amber-50 hover:bg-amber-100",
+      sticks: "#f59e0b",
+      stop: "bg-amber-500",
+    },
+  }[accent];
+
   return (
     <button
-      ref={ref as React.Ref<HTMLButtonElement>}
       type="button"
       onClick={finalizing ? undefined : stop}
       disabled={finalizing}
       className={cn([
-        "inline-flex items-center justify-center rounded-md text-sm font-medium",
+        "group inline-flex items-center justify-center rounded-md text-sm font-medium",
         finalizing
           ? ["text-neutral-500", "bg-neutral-100", "cursor-wait"]
-          : ["text-red-500 hover:text-red-600", "bg-red-50 hover:bg-red-100"],
+          : [colors.button],
         "h-7 w-20",
         "disabled:pointer-events-none disabled:opacity-50",
       ])}
@@ -123,10 +139,7 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
       ) : (
         <>
           <div
-            className={cn([
-              "flex items-center gap-1.5",
-              hovered ? "hidden" : "flex",
-            ])}
+            className={cn(["flex items-center gap-1.5", "group-hover:hidden"])}
           >
             {muted && <MicOff size={14} />}
             <DancingSticks
@@ -134,18 +147,15 @@ function InMeetingIndicator({ sessionId }: { sessionId: string }) {
                 Math.hypot(amplitude.mic, amplitude.speaker),
                 1,
               )}
-              color="#ef4444"
+              color={colors.sticks}
               height={18}
               width={60}
             />
           </div>
           <div
-            className={cn([
-              "flex items-center gap-1.5",
-              hovered ? "flex" : "hidden",
-            ])}
+            className={cn(["hidden items-center gap-1.5", "group-hover:flex"])}
           >
-            <span className="size-2 rounded-none bg-red-500" />
+            <span className={cn(["size-2 rounded-none", colors.stop])} />
             <span className="text-xs">Stop</span>
           </div>
         </>

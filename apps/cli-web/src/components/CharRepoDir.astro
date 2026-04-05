@@ -1,0 +1,17 @@
+---
+interface Props { name: string }
+const { name } = Astro.props;
+---
+
+<a
+  href={`https://github.com/fastrepl/char/tree/main/${name}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  class:list={[
+    "text-neutral-500",
+    "underline underline-offset-2 decoration-neutral-700 hover:decoration-neutral-400",
+    "transition-colors",
+  ]}
+>
+  {name}
+</a>

@@ -28,6 +28,7 @@ pub struct ExportMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct ExportInput {
     pub enhanced_md: String,
+    pub memo_md: Option<String>,
     pub transcript: Option<Transcript>,
     pub metadata: Option<ExportMetadata>,
 }

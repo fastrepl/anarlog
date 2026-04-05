@@ -1,14 +1,25 @@
 mod convert;
 mod error;
 mod fetch;
+pub mod runtime;
 
 pub use error::Error;
 pub use hypr_calendar_interface::{
     CalendarEvent, CalendarListItem, CalendarProviderType, CreateEventInput, EventFilter,
 };
 
-#[cfg(target_os = "macos")]
-pub use hypr_apple_calendar::setup_change_notification;
+pub fn start(runtime: impl runtime::CalendarRuntime) {
+    #[cfg(target_os = "macos")]
+    {
+        use std::sync::Arc;
+        let runtime = Arc::new(runtime);
+        hypr_apple_calendar::setup_change_notification(move || {
+            runtime.emit_changed();
+        });
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = runtime;
+}
 
 #[cfg(target_os = "macos")]
 use chrono::{DateTime, Utc};
@@ -39,41 +50,53 @@ pub async fn list_connection_ids(
     access_token: Option<&str>,
     apple_authorized: bool,
 ) -> Result<Vec<ProviderConnectionIds>, Error> {
-    let mut result = Vec::new();
+    use std::collections::HashMap;
+
+    let mut map: HashMap<CalendarProviderType, Vec<String>> = HashMap::new();
 
     #[cfg(target_os = "macos")]
     {
+        // empty vec = provider is available but has no connections (vs absent = unavailable)
+        map.entry(CalendarProviderType::Apple).or_default();
         if apple_authorized {
-            result.push(ProviderConnectionIds {
-                provider: CalendarProviderType::Apple,
-                connection_ids: vec!["apple".to_string()],
-            });
+            map.insert(CalendarProviderType::Apple, vec!["apple".to_string()]);
         }
     }
 
     #[cfg(not(target_os = "macos"))]
     let _ = apple_authorized;
 
-    let token = match access_token {
-        Some(t) if !t.is_empty() => t,
-        _ => return Ok(result),
-    };
-
-    let all = fetch::list_all_connection_ids(api_base_url, token).await?;
-
-    for (integration_id, connection_ids) in all {
-        let provider = match integration_id.as_str() {
-            "google-calendar" => CalendarProviderType::Google,
-            "outlook-calendar" => CalendarProviderType::Outlook,
-            _ => continue,
-        };
-        result.push(ProviderConnectionIds {
-            provider,
-            connection_ids,
-        });
+    if let Some(token) = access_token.filter(|t| !t.is_empty()) {
+        match fetch::list_all_connection_ids(api_base_url, token).await {
+            Ok(all) => {
+                for provider in [CalendarProviderType::Google, CalendarProviderType::Outlook] {
+                    // empty vec = provider is available but has no connections (vs absent = unavailable)
+                    map.entry(provider).or_default();
+                }
+                for (integration_id, connection_ids) in all {
+                    let provider = match integration_id.as_str() {
+                        "google-calendar" => CalendarProviderType::Google,
+                        "outlook" => CalendarProviderType::Outlook,
+                        _ => continue,
+                    };
+                    map.insert(provider, connection_ids);
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "failed to fetch remote connection ids: {e}; continuing with local providers only"
+                );
+            }
+        }
     }
 
-    Ok(result)
+    Ok(map
+        .into_iter()
+        .map(|(provider, connection_ids)| ProviderConnectionIds {
+            provider,
+            connection_ids,
+        })
+        .collect())
 }
 
 pub async fn is_provider_enabled(
@@ -161,6 +184,72 @@ pub fn create_event(
             operation: "create_event",
             provider,
         }),
+    }
+}
+
+pub fn parse_meeting_link(text: &str) -> Option<String> {
+    use std::sync::LazyLock;
+
+    use regex::Regex;
+
+    static MEETING_REGEXES: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+        vec![
+            Regex::new(r"https://meet\.google\.com/[a-z0-9]{3,4}-[a-z0-9]{3,4}-[a-z0-9]{3,4}")
+                .unwrap(),
+            Regex::new(r"https://[a-z0-9.-]+\.zoom\.us/j/\d+(\?pwd=[a-zA-Z0-9.]+)?").unwrap(),
+            Regex::new(r"https://app\.cal\.com/video/[a-zA-Z0-9]+").unwrap(),
+        ]
+    });
+    for regex in MEETING_REGEXES.iter() {
+        if let Some(m) = regex.find(text) {
+            return Some(m.as_str().to_string());
+        }
+    }
+    static URL_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"https?://[^\s]+").unwrap());
+    URL_RE.find(text).map(|m| m.as_str().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_meeting_link_real_world() {
+        let cases = vec![
+            (
+                "cal.com",
+                "Where:\nhttps://app.cal.com/video/d713v9w1d2krBptPtwUAnJ\nNeed to reschedule?",
+                "https://app.cal.com/video/d713v9w1d2krBptPtwUAnJ",
+            ),
+            (
+                "zoom with pwd",
+                "Where:\nhttps://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1\nDescription",
+                "https://us05web.zoom.us/j/87636383039?pwd=NOWbxkY9GNblR0yaLKaIzcy76IWRoj.1",
+            ),
+            (
+                "google meet",
+                "https://meet.google.com/xhv-ubut-zph\ntel:+1%20650-817-8427",
+                "https://meet.google.com/xhv-ubut-zph",
+            ),
+            (
+                "zoom in html",
+                "<p>Join Zoom Meeting<br/>https://hyprnote.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1<br/></p>",
+                "https://hyprnote.zoom.us/j/86746313244?pwd=zFIICnVHzPim44QcYGbLCAAqtBrGzx.1",
+            ),
+            (
+                "korean google meet",
+                "Google Meet으로 참석: https://meet.google.com/xkf-xcmo-rwh\n또는 다음 전화번호로",
+                "https://meet.google.com/xkf-xcmo-rwh",
+            ),
+        ];
+
+        for (name, input, expected) in cases {
+            assert_eq!(
+                parse_meeting_link(input),
+                Some(expected.to_string()),
+                "failed: {name}"
+            );
+        }
     }
 }
 

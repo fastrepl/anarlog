@@ -9,6 +9,7 @@ type ToastRegistryEntry = {
 
 type ToastRegistryParams = {
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   hasLLMConfigured: boolean;
   hasSttConfigured: boolean;
   hasProSttConfigured: boolean;
@@ -21,13 +22,17 @@ type ToastRegistryParams = {
   activeDownloads: DownloadProgress[];
   localSttStatus: ServerStatus | null;
   isLocalSttModel: boolean;
+  sessionCount: number;
+  shareSnoozedAtCount: number | null;
   onSignIn: () => void | Promise<void>;
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
+  onShareExpand: () => void;
 };
 
 export function createToastRegistry({
   isAuthenticated,
+  isAuthLoading,
   hasLLMConfigured,
   hasSttConfigured,
   hasProSttConfigured,
@@ -40,9 +45,12 @@ export function createToastRegistry({
   activeDownloads,
   localSttStatus,
   isLocalSttModel,
+  sessionCount,
+  shareSnoozedAtCount,
   onSignIn,
   onOpenLLMSettings,
   onOpenSTTSettings,
+  onShareExpand,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1
@@ -153,8 +161,11 @@ export function createToastRegistry({
         },
         dismissible: true,
       },
+      // suppress until auth resolves to avoid flash on startup
       condition: () =>
-        !isAuthenticated && (hasProSttConfigured || hasProLlmConfigured),
+        !isAuthLoading &&
+        !isAuthenticated &&
+        (hasProSttConfigured || hasProLlmConfigured),
     },
     {
       toast: {
@@ -175,12 +186,32 @@ export function createToastRegistry({
         },
         dismissible: true,
       },
+      // suppress until auth resolves to avoid flash on startup
       condition: () =>
+        !isAuthLoading &&
         !isAuthenticated &&
         hasLLMConfigured &&
         hasSttConfigured &&
         !hasProSttConfigured &&
         !hasProLlmConfigured,
+    },
+    {
+      toast: {
+        id: "share-char",
+        gradient: "#FFEDBB",
+        title: "Enjoying Char? Share with others!",
+        description: "Help us grow by sharing your experience on socials.",
+        primaryAction: {
+          label: "Share now",
+          onClick: onShareExpand,
+        },
+        dismissible: true,
+      },
+      condition: () => {
+        if (sessionCount < 3) return false;
+        if (shareSnoozedAtCount === null) return true;
+        return sessionCount >= shareSnoozedAtCount + 2;
+      },
     },
   ];
 }

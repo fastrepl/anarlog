@@ -1,25 +1,31 @@
 import { useCallback } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type { RecordingMode, TranscriptionMode } from "@hypr/plugin-listener";
+import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
+import type {
+  RecordingMode,
+  TranscriptionMode,
+} from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
-import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
-import {
-  parseTranscriptHints,
-  parseTranscriptWords,
-  updateTranscriptHints,
-  updateTranscriptWords,
-} from "~/stt/utils";
+import type {
+  LiveTranscriptPersistCallback,
+  OnStoppedCallback,
+} from "~/store/zustand/listener/transcript";
+import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { applyLiveTranscriptDelta, parseTranscriptWords } from "~/stt/utils";
+
+const MIN_DURATION_SECONDS = 10;
+const MIN_WORD_COUNT = 5;
 
 export function useStartListening(
   sessionId: string,
@@ -30,6 +36,7 @@ export function useStartListening(
 ) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
 
   const record_enabled = useConfigValue("save_recordings");
   const languages = useConfigValue("spoken_languages");
@@ -63,69 +70,76 @@ export function useStartListening(
 
     store.setRow("transcripts", transcriptId, transcriptRow);
 
-    const handlePersist: HandlePersistCallback = (words, hints) => {
-      if (words.length === 0) {
+    const onStopped: OnStoppedCallback = (_sessionId, durationSeconds) => {
+      const words = parseTranscriptWords(store, transcriptId);
+
+      if (
+        durationSeconds < MIN_DURATION_SECONDS &&
+        words.length < MIN_WORD_COUNT
+      ) {
+        store.transaction(() => {
+          store.delRow("transcripts", transcriptId);
+
+          if (indexes) {
+            const enhancedNoteIds = indexes.getSliceRowIds(
+              main.INDEXES.enhancedNotesBySession,
+              sessionId,
+            );
+            for (const noteId of enhancedNoteIds) {
+              store.delRow("enhanced_notes", noteId);
+            }
+          }
+        });
+
+        void fsSyncCommands.audioDelete(sessionId);
+
+        const tabsState = useTabs.getState();
+        const sessionTab = tabsState.tabs.find(
+          (t): t is Extract<Tab, { type: "sessions" }> =>
+            t.type === "sessions" && t.id === sessionId,
+        );
+        if (sessionTab) {
+          tabsState.updateSessionTabState(sessionTab, {
+            ...sessionTab.state,
+            view: null,
+          });
+        }
+        return;
+      }
+
+      getEnhancerService()?.queueAutoEnhance(sessionId);
+    };
+
+    const handlePersist: LiveTranscriptPersistCallback = (delta) => {
+      if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
         return;
       }
 
       store.transaction(() => {
-        const existingWords = parseTranscriptWords(store, transcriptId);
-        const existingHints = parseTranscriptHints(store, transcriptId);
-
-        const newWords: WordWithId[] = [];
-        const newWordIds: string[] = [];
-
-        words.forEach((word) => {
-          const wordId = id();
-
-          newWords.push({
-            id: wordId,
-            text: word.text,
-            start_ms: word.start_ms,
-            end_ms: word.end_ms,
-            channel: word.channel,
-          });
-
-          newWordIds.push(wordId);
-        });
-
-        const newHints: SpeakerHintWithId[] = [];
-
-        if (conn.provider === "deepgram") {
-          hints.forEach((hint) => {
-            if (hint.data.type !== "provider_speaker_index") {
-              return;
-            }
-
-            const wordId = newWordIds[hint.wordIndex];
-            const word = words[hint.wordIndex];
-            if (!wordId || !word) {
-              return;
-            }
-
-            newHints.push({
-              id: id(),
-              word_id: wordId,
-              type: "provider_speaker_index",
-              value: JSON.stringify({
-                provider: hint.data.provider ?? conn.provider,
-                channel: hint.data.channel ?? word.channel,
-                speaker_index: hint.data.speaker_index,
-              }),
-            });
-          });
-        }
-
-        updateTranscriptWords(store, transcriptId, [
-          ...existingWords,
-          ...newWords,
-        ]);
-        updateTranscriptHints(store, transcriptId, [
-          ...existingHints,
-          ...newHints,
-        ]);
+        applyLiveTranscriptDelta(store, transcriptId, delta);
       });
     };
+
+    const participantHumanIds: string[] = [];
+    store.forEachRow(
+      "mapping_session_participant",
+      (mappingId, _forEachCell) => {
+        const sid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "session_id",
+        );
+        if (sid !== sessionId) return;
+        const hid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "human_id",
+        );
+        if (typeof hid === "string" && hid) {
+          participantHumanIds.push(hid);
+        }
+      },
+    );
 
     const started = await start(
       {
@@ -138,9 +152,12 @@ export function useStartListening(
         base_url: conn.baseUrl,
         api_key: conn.apiKey,
         keywords,
+        participant_human_ids: participantHumanIds,
+        self_human_id: typeof user_id === "string" ? user_id : null,
       },
       {
         handlePersist,
+        onStopped,
       },
     );
 
@@ -158,6 +175,7 @@ export function useStartListening(
   }, [
     conn,
     store,
+    indexes,
     sessionId,
     start,
     keywords,

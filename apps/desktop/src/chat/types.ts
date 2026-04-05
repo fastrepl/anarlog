@@ -8,12 +8,26 @@ const messageMetadataSchema = z.object({
   createdAt: z.number().optional(),
   contextRefs: z
     .array(
-      z.object({
-        kind: z.literal("session"),
-        key: z.string(),
-        source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
-        sessionId: z.string(),
-      }),
+      z.discriminatedUnion("kind", [
+        z.object({
+          kind: z.literal("session"),
+          key: z.string(),
+          source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
+          sessionId: z.string(),
+        }),
+        z.object({
+          kind: z.literal("human"),
+          key: z.string(),
+          source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
+          humanId: z.string(),
+        }),
+        z.object({
+          kind: z.literal("organization"),
+          key: z.string(),
+          source: z.enum(CONTEXT_ENTITY_SOURCES).optional(),
+          organizationId: z.string(),
+        }),
+      ]),
     )
     .optional(),
 });

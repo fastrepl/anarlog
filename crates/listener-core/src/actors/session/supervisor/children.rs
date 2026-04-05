@@ -118,6 +118,8 @@ pub(super) async fn spawn_listener(
             session_started_at: ctx.started_at_instant,
             session_started_at_unix: ctx.started_at_system,
             session_id: ctx.params.session_id.clone(),
+            participant_human_ids: ctx.params.participant_human_ids.clone(),
+            self_human_id: ctx.params.self_human_id.clone(),
         },
         supervisor_cell,
     )
@@ -174,7 +176,7 @@ pub(super) async fn try_restart_recorder(
     let cell = spawn_with_retry(&RETRY_STRATEGY, || {
         let sup = sup.clone();
         let ctx = ctx.clone();
-        async move { Ok(spawn_recorder(sup, &ctx).await?) }
+        async move { spawn_recorder(sup, &ctx).await }
     })
     .await;
 

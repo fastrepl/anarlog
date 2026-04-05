@@ -26,17 +26,9 @@ export type StateBasicActions = {
     tab: Tab,
     state: Extract<Tab, { type: "chat_shortcuts" }>["state"],
   ) => void;
-  updateAiTabState: (
-    tab: Tab,
-    state: Extract<Tab, { type: "ai" }>["state"],
-  ) => void;
   updateSettingsTabState: (
     tab: Tab,
     state: Extract<Tab, { type: "settings" }>["state"],
-  ) => void;
-  updateSearchTabState: (
-    tab: Tab,
-    state: Extract<Tab, { type: "search" }>["state"],
   ) => void;
   updateChatSupportTabState: (
     tab: Tab,
@@ -58,11 +50,8 @@ export const createStateUpdaterSlice = <T extends BasicState & NavigationState>(
     updateTabState(tab, "prompts", state, get, set),
   updateChatShortcutsTabState: (tab, state) =>
     updateTabState(tab, "chat_shortcuts", state, get, set),
-  updateAiTabState: (tab, state) => updateTabState(tab, "ai", state, get, set),
   updateSettingsTabState: (tab, state) =>
     updateTabState(tab, "settings", state, get, set),
-  updateSearchTabState: (tab, state) =>
-    updateTabState(tab, "search", state, get, set),
   updateChatSupportTabState: (tab, state) =>
     updateTabState(tab, "chat_support", state, get, set),
 });
@@ -85,10 +74,12 @@ const updateTabState = <T extends BasicState & NavigationState>(
       ? { ...currentTab, state: newState }
       : currentTab;
 
-  const nextHistory =
-    nextCurrentTab && isSameTab(nextCurrentTab, tab)
-      ? updateHistoryCurrent(history, nextCurrentTab)
-      : history;
+  const updatedTab =
+    nextTabs.find((t) => isSameTab(t, tab) && t.type === tabType) ?? null;
+
+  const nextHistory = updatedTab
+    ? updateHistoryCurrent(history, updatedTab)
+    : history;
 
   set({
     tabs: nextTabs,

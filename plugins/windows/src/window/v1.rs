@@ -114,8 +114,14 @@ impl WindowImpl for AppWindow {
 
         let window = match self {
             Self::Main => {
+                let url = if cfg!(feature = "new") {
+                    "/app/main2"
+                } else {
+                    "/app/main"
+                };
+
                 let builder = self
-                    .window_builder(app, "/app/main")
+                    .window_builder(app, url)
                     .maximizable(true)
                     .minimizable(true)
                     .min_inner_size(620.0, 500.0);
@@ -135,7 +141,20 @@ impl WindowImpl for AppWindow {
                     .decorations(false)
                     .build()?;
 
-                let collapsed_size = LogicalSize::new(80.0, 80.0);
+                #[cfg(target_os = "macos")]
+                {
+                    use objc2_app_kit::NSColor;
+
+                    if let Ok(ns_win) = window.ns_window() {
+                        unsafe {
+                            let ns_window = &*(ns_win as *mut objc2_app_kit::NSWindow);
+                            ns_window.setBackgroundColor(Some(&NSColor::clearColor()));
+                            ns_window.setOpaque(false);
+                        }
+                    }
+                }
+
+                let collapsed_size = LogicalSize::new(120.0, 36.0);
                 window.set_size(LogicalSize::new(1.0, 1.0))?;
                 std::thread::sleep(std::time::Duration::from_millis(10));
                 window.set_size(collapsed_size)?;

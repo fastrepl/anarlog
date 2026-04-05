@@ -67,20 +67,6 @@ impl CliError {
         }
     }
 
-    pub fn invalid_argument_with_hint(
-        name: &'static str,
-        value: impl Into<String>,
-        reason: impl Into<String>,
-        hint: impl Into<String>,
-    ) -> Self {
-        Self::InvalidArgument {
-            name,
-            value: value.into(),
-            reason: reason.into(),
-            hint: Some(hint.into()),
-        }
-    }
-
     pub fn operation_failed(action: &'static str, reason: impl Into<String>) -> Self {
         Self::OperationFailed {
             action,
@@ -101,11 +87,30 @@ pub fn did_you_mean<'a>(input: &str, candidates: &[&'a str]) -> Option<&'a str> 
     candidates
         .iter()
         .filter_map(|c| {
-            let sim = strsim::jaro_winkler(input, c) as f64;
+            let sim = strsim::jaro_winkler(input, c);
             if sim > 0.7 { Some((*c, sim)) } else { None }
         })
         .max_by(|a, b| a.1.total_cmp(&b.1))
         .map(|(c, _)| c)
+}
+
+#[macro_export]
+macro_rules! db {
+    ($expr:expr, $op:literal) => {
+        $expr
+            .await
+            .map_err(|e| $crate::error::CliError::operation_failed($op, e.to_string()))?
+    };
+}
+
+#[cfg(feature = "desktop")]
+impl From<hypr_db_app::CrudCliError> for CliError {
+    fn from(e: hypr_db_app::CrudCliError) -> Self {
+        Self::OperationFailed {
+            action: e.action,
+            reason: e.message,
+        }
+    }
 }
 
 impl From<String> for CliError {
@@ -145,9 +150,10 @@ mod tests {
 
     #[test]
     fn did_you_mean_finds_close_match() {
-        let candidates = &["deepgram", "soniox", "cactus"];
+        let candidates = &["deepgram", "soniox", "whispercpp", "cactus"];
         assert_eq!(did_you_mean("deepgran", candidates), Some("deepgram"));
         assert_eq!(did_you_mean("sonix", candidates), Some("soniox"));
+        assert_eq!(did_you_mean("whispr", candidates), Some("whispercpp"));
         assert_eq!(did_you_mean("completely-wrong", candidates), None);
     }
 

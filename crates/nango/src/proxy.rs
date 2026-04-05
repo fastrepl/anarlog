@@ -149,6 +149,11 @@ impl OwnedNangoProxy {
         }
     }
 
+    pub fn base_url_override(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url_override = Some(base_url.into());
+        self
+    }
+
     fn apply_headers(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         apply_proxy_headers(
             builder,

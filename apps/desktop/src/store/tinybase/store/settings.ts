@@ -56,19 +56,25 @@ export const SETTINGS_MAPPING = {
       path: ["general", "telemetry_consent"],
       default: true as boolean,
     },
+    // Actual values populated via persister load; defaults here are for type inference.
     ai_language: {
       type: "string",
       path: ["language", "ai_language"],
-      default: "en" as string,
+      default: "" as string,
     },
     spoken_languages: {
       type: "string",
       path: ["language", "spoken_languages"],
-      default: '["en"]' as string,
+      default: "[]" as string,
     },
     ignored_platforms: {
       type: "string",
       path: ["notification", "ignored_platforms"],
+      default: "[]" as string,
+    },
+    included_platforms: {
+      type: "string",
+      path: ["notification", "included_platforms"],
       default: "[]" as string,
     },
     mic_active_threshold: {
@@ -277,6 +283,12 @@ const SETTINGS_LISTENERS: SettingsListeners = {
     try {
       const parsed = JSON.parse(newValue);
       detectCommands.setIgnoredBundleIds(parsed).catch(console.error);
+    } catch {}
+  },
+  included_platforms: (_store, newValue) => {
+    try {
+      const parsed = JSON.parse(newValue);
+      detectCommands.setIncludedBundleIds(parsed).catch(console.error);
     } catch {}
   },
   mic_active_threshold: (_store, newValue) => {

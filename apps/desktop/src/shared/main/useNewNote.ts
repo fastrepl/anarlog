@@ -15,7 +15,7 @@ export function useNewNote({
   behavior = "new",
 }: {
   behavior?: "new" | "current";
-}) {
+} = {}) {
   const { persistedStore, internalStore } = useRouteContext({
     from: "__root__",
   });
@@ -152,7 +152,7 @@ export function useNewNoteAndUpload() {
       openNew({
         type: "sessions",
         id: sessionId,
-        state: { view: { type: "transcript" }, autoStart: null },
+        state: { view: null, autoStart: null },
       });
     },
     [persistedStore, internalStore, openNew],

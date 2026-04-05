@@ -3,8 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
-import { FAQ, FAQItem } from "@/components/mdx-jobs";
-import { SlashSeparator } from "@/components/slash-separator";
+import { FAQ, FAQItem } from "@/components/mdx-shared";
 
 export const Route = createFileRoute("/_view/product/flexible-ai")({
   component: Component,
@@ -23,21 +22,13 @@ export const Route = createFileRoute("/_view/product/flexible-ai")({
 
 function Component() {
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <main className="min-h-screen flex-1 md:px-8">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <AISetupSection />
-        <SlashSeparator />
         <LocalFeaturesSection />
-        <SlashSeparator />
         <SwitchSection />
-        <SlashSeparator />
         <BenchmarkSection />
-        <SlashSeparator />
         <FAQSection />
       </div>
     </main>
@@ -46,10 +37,10 @@ function Component() {
 
 function HeroSection() {
   return (
-    <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center gap-6 px-4 py-24 text-center">
+    <section className="">
+      <div className="flex flex-col items-center gap-6 px-4 py-24 text-left">
         <div className="flex max-w-4xl flex-col gap-6">
-          <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
             Take Meeting Notes With
             <br />
             AI of Your Choice
@@ -80,28 +71,28 @@ function HeroSection() {
 function AISetupSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-color-brand border-b text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Pick your AI setup
         </p>
       </div>
       <div className="grid md:grid-cols-3">
-        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-r border-b p-8 md:border-b-0">
           <Icon icon="mdi:cloud" className="mb-4 text-3xl text-stone-600" />
-          <h3 className="mb-1 font-serif text-xl text-stone-600">
-            Char Cloud ($25/month)
+          <h3 className="mb-1 font-mono text-xl text-stone-600">
+            Char Cloud ($8/month)
           </h3>
           <p className="text-neutral-600">
             Managed service that works out of the box. No setup, no API keys, no
             configuration.
           </p>
         </div>
-        <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-r border-b p-8 md:border-b-0">
           <Icon
             icon="mdi:key-variant"
             className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="mb-1 font-serif text-xl text-stone-700">
+          <h3 className="mb-1 font-mono text-xl text-stone-700">
             Bring Your Own Key (Free)
           </h3>
           <p className="text-neutral-600">
@@ -109,9 +100,9 @@ function AISetupSection() {
             others. No markup.
           </p>
         </div>
-        <div className="border-b border-neutral-100 p-8 md:border-b-0">
+        <div className="border-color-brand border-b p-8 md:border-b-0">
           <Icon icon="mdi:laptop" className="mb-4 text-3xl text-stone-700" />
-          <h3 className="mb-1 font-serif text-xl text-stone-700">
+          <h3 className="mb-1 font-mono text-xl text-stone-700">
             Go fully local if you want to
           </h3>
           <p className="text-neutral-600">
@@ -126,14 +117,14 @@ function AISetupSection() {
 function LocalFeaturesSection() {
   return (
     <section>
-      <div className="divide-y divide-neutral-100">
+      <div className="divide-color-border divide-y">
         <div className="flex items-start gap-4 p-8">
           <Icon
             icon="mdi:microphone"
             className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Local transcription with Whisper
             </h3>
             <p className="text-neutral-600">
@@ -145,7 +136,7 @@ function LocalFeaturesSection() {
         <div className="flex items-start gap-4 p-8">
           <Icon icon="mdi:brain" className="shrink-0 text-3xl text-stone-700" />
           <div>
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Local LLM inference
             </h3>
             <p className="text-neutral-600">
@@ -162,17 +153,17 @@ function LocalFeaturesSection() {
 function SwitchSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Switch providers anytime
         </p>
       </div>
-      <p className="border-b border-neutral-100 px-4 py-6 text-center text-neutral-600">
+      <p className="border-b border-neutral-100 px-4 py-6 text-left text-neutral-600">
         Your notes aren't locked to any AI provider.
       </p>
       <div className="grid md:grid-cols-2">
         <div className="border-r border-b border-neutral-100 p-8 md:border-b-0">
-          <h3 className="mb-2 font-serif text-lg text-stone-700">
+          <h3 className="mb-2 font-mono text-lg text-stone-700">
             Start with Cloud
           </h3>
           <p className="text-neutral-600">
@@ -180,7 +171,7 @@ function SwitchSection() {
           </p>
         </div>
         <div className="border-b border-neutral-100 p-8 md:border-b-0">
-          <h3 className="mb-2 font-serif text-lg text-stone-700">
+          <h3 className="mb-2 font-mono text-lg text-stone-700">
             Change based on needs
           </h3>
           <p className="text-neutral-600">
@@ -189,7 +180,7 @@ function SwitchSection() {
           </p>
         </div>
         <div className="border-r border-neutral-100 p-8">
-          <h3 className="mb-2 font-serif text-lg text-stone-700">
+          <h3 className="mb-2 font-mono text-lg text-stone-700">
             Re-process meetings
           </h3>
           <p className="text-neutral-600">
@@ -197,7 +188,7 @@ function SwitchSection() {
           </p>
         </div>
         <div className="p-8">
-          <h3 className="mb-2 font-serif text-lg text-stone-700">
+          <h3 className="mb-2 font-mono text-lg text-stone-700">
             Data never moves
           </h3>
           <p className="text-neutral-600">
@@ -212,8 +203,8 @@ function SwitchSection() {
 function BenchmarkSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center gap-6 px-4 py-16 text-center">
-        <h2 className="font-serif text-2xl text-stone-700 sm:text-3xl">
+      <div className="flex flex-col items-center gap-6 px-4 py-16 text-left">
+        <h2 className="font-mono text-2xl text-stone-700 sm:text-3xl">
           Confused which AI model to choose?
         </h2>
         <p className="mx-auto max-w-2xl text-neutral-600">
@@ -240,8 +231,8 @@ function FAQSection() {
   return (
     <section className="px-4 py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="font-serif text-3xl text-stone-700">
+        <div className="mb-12 text-left">
+          <h2 className="font-mono text-3xl text-stone-700">
             Frequently asked questions
           </h2>
         </div>

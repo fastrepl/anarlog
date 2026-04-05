@@ -22,18 +22,6 @@ export function useSearchKeyboard() {
         e.currentTarget.blur();
       }
     }
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && query.trim()) {
-      e.preventDefault();
-      openNew({
-        type: "search",
-        state: {
-          selectedTypes: null,
-          initialQuery: query.trim(),
-        },
-      });
-      setQuery("");
-      e.currentTarget.blur();
-    }
     if (e.key === "ArrowDown" && flatResults.length > 0) {
       e.preventDefault();
       setSelectedIndex(Math.min(selectedIndex + 1, flatResults.length - 1));

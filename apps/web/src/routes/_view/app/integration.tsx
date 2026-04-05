@@ -27,6 +27,16 @@ export const INTEGRATION_DISPLAY: Record<
     description: "Connect your Google Calendar to sync your meetings",
     connectingHint: "Follow the prompts to connect your Google account",
   },
+  linear: {
+    name: "Linear",
+    description: "Connect Linear to sync your issues and tasks",
+    connectingHint: "Follow the prompts to connect your Linear account",
+  },
+  github: {
+    name: "GitHub",
+    description: "Connect GitHub to sync your issues and pull requests",
+    connectingHint: "Follow the prompts to connect your GitHub account",
+  },
 };
 
 export function getIntegrationDisplay(integrationId: string) {
@@ -63,7 +73,7 @@ function Component() {
     );
   }
 
-  if (!billing.isPro) {
+  if (!billing.isPaid) {
     return (
       <UpgradePrompt
         integrationId={search.integration_id}

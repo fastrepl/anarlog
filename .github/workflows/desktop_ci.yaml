@@ -19,6 +19,7 @@ on:
       - Cargo.lock
 jobs:
   desktop_ci:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
     defaults:
       run:
         shell: bash
@@ -28,10 +29,8 @@ jobs:
         include:
           - platform: "macos"
             runner: "depot-macos-15"
-          - platform: "linux-x86_64"
-            runner: "depot-ubuntu-22.04-8"
-          - platform: "linux-aarch64"
-            runner: "depot-ubuntu-22.04-arm-8"
+          - platform: "windows"
+            runner: "depot-windows-2025-4"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -63,6 +62,7 @@ jobs:
             --exclude mac \
             --exclude notch \
             --exclude notification-macos \
+            --exclude notification-macos2 \
             --exclude tcc \
             --exclude apple-note \
             --exclude notification-linux \
@@ -140,7 +140,10 @@ jobs:
             --exclude tauri-plugin-updater2 \
             --exclude tauri-plugin-webhook \
             --exclude tauri-plugin-windows \
-            --exclude db3
+            --exclude db3 \
+            --exclude db-core2 \
+            --exclude activity-capture-macos \
+            --exclude tauri-plugin-activity-capture
 
   ci:
     if: always()

@@ -19,7 +19,6 @@ import { SearchEngineProvider } from "~/search/contexts/engine";
 import { SearchUIProvider } from "~/search/contexts/ui";
 import { initEnhancerService } from "~/services/enhancer";
 import { getSessionEvent } from "~/session/utils";
-import { useDeeplinkHandler } from "~/shared/hooks/useDeeplinkHandler";
 import { deleteSessionCascade } from "~/store/tinybase/store/deleteSession";
 import * as main from "~/store/tinybase/store/main";
 import { isSessionEmpty } from "~/store/tinybase/store/sessions";
@@ -51,8 +50,6 @@ function Component() {
   const hasOpenedInitialTab = useRef(false);
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
-
-  useDeeplinkHandler();
 
   const openDefaultEmptyTab = useCallback(() => {
     openNew({ type: "empty" });

@@ -4,7 +4,6 @@ const COMMANDS: &[&str] = &[
     "get_device_info",
     "opinionated_md_to_html",
     "delete_session_folder",
-    "parse_meeting_link",
     "audio_open",
     "audio_exist",
     "audio_delete",

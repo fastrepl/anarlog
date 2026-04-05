@@ -28,6 +28,77 @@ function getSessionDisplayData(
   };
 }
 
+function getHumanDisplayData(
+  store: ReturnType<typeof main.UI.useStore>,
+  humanId: string,
+): {
+  name: string | null;
+  email: string | null;
+  organizationName: string | null;
+} {
+  if (!store) {
+    return { name: null, email: null, organizationName: null };
+  }
+
+  const row = store.getRow("humans", humanId);
+  const orgId = typeof row.org_id === "string" ? row.org_id : null;
+  const organization =
+    orgId && store.hasRow("organizations", orgId)
+      ? store.getRow("organizations", orgId)
+      : {};
+
+  return {
+    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
+    email: typeof row.email === "string" && row.email.trim() ? row.email : null,
+    organizationName:
+      typeof organization.name === "string" && organization.name.trim()
+        ? organization.name
+        : null,
+  };
+}
+
+function getOrganizationDisplayData(
+  store: ReturnType<typeof main.UI.useStore>,
+  organizationId: string,
+): { name: string | null } {
+  if (!store) {
+    return { name: null };
+  }
+
+  const row = store.getRow("organizations", organizationId);
+  return {
+    name: typeof row.name === "string" && row.name.trim() ? row.name : null,
+  };
+}
+
+function toDisplayEntity(
+  ref: ContextRef,
+  store: ReturnType<typeof main.UI.useStore>,
+  removable: boolean,
+): ContextEntity {
+  if (ref.kind === "session") {
+    return {
+      ...ref,
+      ...getSessionDisplayData(store, ref.sessionId),
+      removable,
+    };
+  }
+
+  if (ref.kind === "human") {
+    return {
+      ...ref,
+      ...getHumanDisplayData(store, ref.humanId),
+      removable,
+    };
+  }
+
+  return {
+    ...ref,
+    ...getOrganizationDisplayData(store, ref.organizationId),
+    removable,
+  };
+}
+
 type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];
   currentSessionId?: string;
@@ -72,23 +143,16 @@ export function useChatContextPipeline({
   }, [currentSessionId, pendingManualRefs]);
 
   const committedEntities = useMemo(
-    () =>
-      committedRefs.map((ref) => ({
-        ...ref,
-        ...getSessionDisplayData(store, ref.sessionId),
-        removable: false,
-      })),
+    () => committedRefs.map((ref) => toDisplayEntity(ref, store, false)),
     [committedRefs, store],
   );
 
   // Pending manual refs are removable; pending auto-current is not.
   const pendingEntities = useMemo(
     () =>
-      pendingRefs.map((ref) => ({
-        ...ref,
-        ...getSessionDisplayData(store, ref.sessionId),
-        removable: ref.source === "manual",
-      })),
+      pendingRefs.map((ref) =>
+        toDisplayEntity(ref, store, ref.source === "manual"),
+      ),
     [pendingRefs, store],
   );
 

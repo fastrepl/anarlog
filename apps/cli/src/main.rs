@@ -1,155 +1,169 @@
+mod app;
 mod cli;
 mod commands;
 mod config;
 mod error;
-mod llm;
 mod output;
-mod theme;
-mod widgets;
-
-use clap::Parser;
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::filter::LevelFilter;
+mod stt;
+#[cfg(feature = "standalone")]
+pub(crate) mod tui;
 
 use crate::cli::{Cli, Commands};
 use crate::error::CliResult;
+use clap::Parser;
 
-#[tokio::main]
-async fn main() {
+#[allow(clippy::let_unit_value)]
+fn main() {
     let cli = Cli::parse();
-    let tui_chat = matches!(&cli.command, Commands::Chat { prompt: None, .. });
 
-    if cli.global.no_color || std::env::var_os("NO_COLOR").is_some() {
+    if cli.no_color || std::env::var_os("NO_COLOR").is_some() {
         colored::control::set_override(false);
     }
 
-    let default_directive = if tui_chat {
-        LevelFilter::OFF.into()
+    let trace_buffer = init_tracing(&cli);
+
+    #[cfg(all(feature = "standalone", target_os = "macos"))]
+    let result = if matches!(&cli.command, Some(Commands::ShortcutDaemon)) {
+        crate::commands::shortcut::daemon::run_blocking()
     } else {
-        cli.verbose.tracing_level_filter().into()
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime");
+        runtime.block_on(run(cli, trace_buffer))
     };
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(default_directive)
-                .from_env_lossy(),
-        )
-        .with_writer(std::io::stderr)
-        .init();
+    #[cfg(not(all(feature = "standalone", target_os = "macos")))]
+    let result = {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime");
+        runtime.block_on(run(cli, trace_buffer))
+    };
 
-    if let Err(error) = run(cli).await {
+    if let Err(error) = result {
         eprintln!("error: {error}");
         std::process::exit(1);
     }
 }
 
-fn analytics_client() -> hypr_analytics::AnalyticsClient {
-    let mut builder = hypr_analytics::AnalyticsClientBuilder::default();
-    if let Some(key) = option_env!("POSTHOG_API_KEY") {
-        builder = builder.with_posthog(key);
-    }
-    builder.build()
-}
+#[cfg(feature = "standalone")]
+type OptTraceBuffer = Option<tui::TraceBuffer>;
+#[cfg(not(feature = "standalone"))]
+type OptTraceBuffer = ();
 
-fn track_command(client: &hypr_analytics::AnalyticsClient, subcommand: &'static str) {
-    let client = client.clone();
-    tokio::spawn(async move {
-        let machine_id = hypr_host::fingerprint();
-        let payload = hypr_analytics::AnalyticsPayload::builder("cli_command_invoked")
-            .with("subcommand", subcommand)
-            .with("app_identifier", "com.char.cli")
-            .with("app_version", option_env!("APP_VERSION").unwrap_or("dev"))
-            .build();
-        let _ = client.event(machine_id, payload).await;
-    });
-}
+fn init_tracing(cli: &Cli) -> OptTraceBuffer {
+    let level = cli.verbose.tracing_level_filter();
 
-async fn run(cli: Cli) -> CliResult<()> {
-    let analytics = analytics_client();
+    let wants_json = matches!(
+        cli.command,
+        Some(Commands::Transcribe {
+            args: commands::transcribe::Args {
+                format: cli::OutputFormat::Json,
+                ..
+            },
+        })
+    );
 
-    let subcommand: &'static str = (&cli.command).into();
-    track_command(&analytics, subcommand);
-
-    let Cli {
-        command,
-        global,
-        verbose,
-    } = cli;
-
-    match command {
-        Commands::Chat {
-            session,
-            prompt,
-            provider,
-        } => {
-            commands::chat::run(commands::chat::Args {
-                session,
-                prompt,
-                provider,
-                base_url: global.base_url,
-                api_key: global.api_key,
-                model: global.model,
-            })
-            .await
-        }
-        Commands::Connect { r#type, provider } => {
-            commands::connect::run(commands::connect::Args {
-                connection_type: r#type,
-                provider,
-                base_url: global.base_url,
-                api_key: global.api_key,
-            })?;
-            eprintln!("Next: run `char status` to verify");
-            Ok(())
-        }
-        Commands::Status => commands::status::run(),
-        Commands::Auth => {
-            commands::auth::run()?;
-            eprintln!("Opened auth page in browser");
-            eprintln!("Next: run `char connect` to configure a provider");
-            Ok(())
-        }
-        Commands::Desktop => {
-            use commands::desktop::DesktopAction;
-            match commands::desktop::run()? {
-                DesktopAction::OpenedApp => eprintln!("Opened desktop app"),
-                DesktopAction::OpenedDownloadPage => {
-                    eprintln!("Desktop app not found — opened download page")
-                }
-            }
-            Ok(())
-        }
-        Commands::Listen { provider, audio } => {
-            commands::listen::run(commands::listen::Args {
-                stt: commands::SttGlobalArgs {
-                    provider,
-                    base_url: global.base_url,
-                    api_key: global.api_key,
-                    model: global.model,
-                    language: global.language,
+    #[cfg(feature = "standalone")]
+    let wants_json = wants_json
+        || matches!(
+            cli.command,
+            Some(Commands::Record {
+                args: commands::record::Args {
+                    format: cli::OutputFormat::Json,
+                    ..
                 },
-                record: global.record,
-                audio,
             })
-            .await
-        }
-        Commands::Batch { args } => {
-            let stt = commands::SttGlobalArgs {
-                provider: args.provider,
-                base_url: global.base_url,
-                api_key: global.api_key,
-                model: global.model,
-                language: global.language,
-            };
-            commands::batch::run(args, stt, verbose.is_silent()).await
-        }
-        Commands::Model { command } => commands::model::run(command).await,
-        #[cfg(debug_assertions)]
-        Commands::Debug { command } => commands::debug::run(command).await,
-        Commands::Completions { shell } => {
-            cli::generate_completions(shell);
-            Ok(())
-        }
+        );
+
+    #[cfg(feature = "standalone")]
+    let wants_capture = !wants_json
+        && std::io::IsTerminal::is_terminal(&std::io::stderr())
+        && matches!(
+            cli.command,
+            Some(
+                Commands::Transcribe { .. }
+                    | Commands::Models { .. }
+                    | Commands::Record { .. }
+                    | Commands::Play { .. },
+            )
+        );
+
+    #[cfg(feature = "standalone")]
+    if wants_capture {
+        let buf = tui::new_trace_buffer();
+        init_tracing_capture(level, buf.clone());
+        return Some(buf);
     }
+
+    if wants_json {
+        init_tracing_json(level);
+    } else {
+        init_tracing_stderr(level);
+    }
+
+    #[cfg(feature = "standalone")]
+    return None;
+    #[cfg(not(feature = "standalone"))]
+    return;
+}
+
+fn init_tracing_stderr(level: tracing_subscriber::filter::LevelFilter) {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+}
+
+fn init_tracing_json(level: tracing_subscriber::filter::LevelFilter) {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+}
+
+#[cfg(feature = "standalone")]
+fn init_tracing_capture(level: tracing_subscriber::filter::LevelFilter, buffer: tui::TraceBuffer) {
+    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    let capture = tui::CaptureLayer::new(buffer);
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(capture)
+        .init();
+}
+
+async fn run(cli: Cli, trace_buffer: OptTraceBuffer) -> CliResult<()> {
+    let base = cli
+        .command
+        .as_ref()
+        .and_then(Commands::base_override)
+        .map(std::path::Path::to_path_buf);
+    let tracked = cli.command.as_ref().map(Into::into);
+    let Cli {
+        command, verbose, ..
+    } = cli;
+    let ctx = app::AppContext::new(base.as_deref(), verbose.is_silent(), trace_buffer);
+
+    if let Some(subcommand) = tracked {
+        ctx.track_command(subcommand);
+    }
+
+    commands::run(&ctx, command).await
 }

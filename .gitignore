@@ -18,6 +18,8 @@ supabase/.seed/
 internal
 .turbo
 
+**/examples/out/
+
 # Local Netlify folder
 .netlify
 

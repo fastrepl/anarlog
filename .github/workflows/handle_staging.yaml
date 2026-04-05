@@ -4,6 +4,10 @@ on:
       ref:
         required: false
         type: string
+      platform:
+        required: false
+        type: string
+        default: macos-aarch64
       issue_number:
         required: true
         type: number
@@ -12,7 +16,7 @@ on:
         type: number
 
 concurrency:
-  group: staging-${{ inputs.issue_number }}
+  group: staging-${{ inputs.issue_number }}-${{ inputs.platform }}
   cancel-in-progress: true
 
 jobs:
@@ -64,35 +68,40 @@ jobs:
         id: trigger
         uses: ./.github/actions/trigger-workflow
         with:
-          workflow: desktop_cd.yaml
+          workflow: desktop_staging.yaml
           ref: ${{ steps.resolve.outputs.branch }}
-          channel: staging
+          platform: ${{ inputs.platform }}
+          request_id: staging-${{ github.run_id }}-${{ inputs.comment_id }}-${{ inputs.platform }}
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}
           max_attempts: "6"
       - id: result
         run: |
           BRANCH="${{ steps.resolve.outputs.branch }}"
+          PLATFORM="${{ inputs.platform }}"
           SHA="${{ steps.resolve.outputs.sha }}"
           RUN_ID="${{ steps.trigger.outputs.run_id }}"
           ERROR="${{ steps.resolve.outputs.error }}"
 
           if [ -n "$ERROR" ]; then
             DATA=$(jq -cn \
+              --arg platform "\`$PLATFORM\`" \
               --arg status "$ERROR" \
-              '[{header: "Status", value: $status}]')
+              '[{header: "Platform", value: $platform}, {header: "Status", value: $status}]')
           elif [ -n "$RUN_ID" ]; then
             DATA=$(jq -cn \
               --arg branch "[\`$BRANCH\`](https://github.com/$REPO/tree/$BRANCH)" \
+              --arg platform "\`$PLATFORM\`" \
               --arg sha "[\`${SHA:0:8}\`](https://github.com/$REPO/commit/$SHA)" \
               --arg status "[View](https://github.com/$REPO/actions/runs/$RUN_ID)" \
-              '[{header: "Branch", value: $branch}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
+              '[{header: "Branch", value: $branch}, {header: "Platform", value: $platform}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           else
             DATA=$(jq -cn \
               --arg branch "[\`$BRANCH\`](https://github.com/$REPO/tree/$BRANCH)" \
+              --arg platform "\`$PLATFORM\`" \
               --arg sha "[\`${SHA:0:8}\`](https://github.com/$REPO/commit/$SHA)" \
               --arg status "[Logs](https://github.com/$REPO/actions/runs/${{ github.run_id }})" \
-              '[{header: "Branch", value: $branch}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
+              '[{header: "Branch", value: $branch}, {header: "Platform", value: $platform}, {header: "Commit", value: $sha}, {header: "Status", value: $status}]')
           fi
           echo "data=$DATA" >> $GITHUB_OUTPUT
       - uses: ./.github/actions/comment-result

@@ -126,11 +126,8 @@ function Component() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
         <AppContentSection
           selectedItem={selectedItem}
@@ -144,8 +141,8 @@ function Component() {
 function HeroSection() {
   return (
     <div className="px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-3xl text-center">
-        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+      <div className="mx-auto max-w-3xl text-left">
+        <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
           App Screenshots
         </h1>
         <p className="text-lg text-neutral-600 sm:text-xl">
@@ -249,7 +246,7 @@ function ScreenshotsGrid({
                 data: screenshot,
               })
             }
-            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-center transition-colors hover:bg-stone-50"
+            className="group flex h-fit cursor-pointer flex-col items-center rounded-lg p-4 text-left transition-colors hover:bg-stone-50"
           >
             <div className="mb-3 h-16 w-16">
               <Image

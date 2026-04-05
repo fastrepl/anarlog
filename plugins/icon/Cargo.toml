@@ -7,12 +7,24 @@ exclude = ["/js", "/node_modules"]
 links = "tauri-plugin-icon"
 description = ""
 
+[features]
+examples = []
+
+[[example]]
+name = "test_overlay"
+required-features = ["examples"]
+
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
 specta-typescript = { workspace = true }
 tokio = { workspace = true, features = ["macros"] }
+
+[target."cfg(target_os = \"macos\")".dev-dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-foundation = { workspace = true }
 
 [dependencies]
 tauri = { workspace = true, features = ["test"] }

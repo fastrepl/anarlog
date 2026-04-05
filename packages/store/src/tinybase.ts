@@ -6,6 +6,7 @@ import {
   chatGroupSchema,
   chatMessageSchema,
   chatShortcutSchema,
+  dailyNoteSchema,
   enhancedNoteSchema,
   eventSchema,
   generalSchema,
@@ -117,6 +118,10 @@ export const tableSchemaForTinybase = {
     user_id: { type: "string" },
     title: { type: "string" },
     description: { type: "string" },
+    pinned: { type: "boolean" },
+    pin_order: { type: "number" },
+    category: { type: "string" },
+    targets: { type: "string" },
     sections: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof templateSchema>,
   chat_groups: {
@@ -158,6 +163,11 @@ export const tableSchemaForTinybase = {
     text: { type: "string" },
     created_at: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof memorySchema>,
+  daily_notes: {
+    user_id: { type: "string" },
+    date: { type: "string" },
+    content: { type: "string" },
+  } as const satisfies InferTinyBaseSchema<typeof dailyNoteSchema>,
 } as const satisfies TablesSchema;
 
 export const valueSchemaForTinybase = {
@@ -172,6 +182,7 @@ export const valueSchemaForTinybase = {
   ai_language: { type: "string" },
   spoken_languages: { type: "string" },
   ignored_platforms: { type: "string" },
+  included_platforms: { type: "string" },
   ignored_events: { type: "string" },
   ignored_recurring_series: { type: "string" },
   current_llm_provider: { type: "string" },

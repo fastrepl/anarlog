@@ -1,5 +1,6 @@
 mod commands;
 mod ext;
+pub mod runtime;
 
 pub use ext::*;
 pub use hypr_fs_sync_core::*;
@@ -23,6 +24,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::audio_exist::<tauri::Wry>,
             commands::audio_delete::<tauri::Wry>,
             commands::audio_import::<tauri::Wry>,
+            commands::audio_source_metadata,
             commands::audio_path::<tauri::Wry>,
             commands::session_dir::<tauri::Wry>,
             commands::load_session_content::<tauri::Wry>,
@@ -34,6 +36,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::attachment_list::<tauri::Wry>,
             commands::attachment_remove::<tauri::Wry>,
         ])
+        .events(tauri_specta::collect_events![AudioImportEvent])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
@@ -42,6 +45,10 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
+        .setup(move |app, _api| {
+            specta_builder.mount_events(app);
+            Ok(())
+        })
         .build()
 }
 

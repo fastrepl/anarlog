@@ -1,135 +1,169 @@
 # Admin Interface
 
-The admin interface at `/admin` provides content management capabilities for the Char website.
+The admin interface lives under `/admin` in the web app and is intended for internal content and growth workflows.
+
+`/admin/` redirects to `/admin/collections/`. The shared layout is defined in `src/routes/admin/route.tsx` and marks the entire area `noindex, nofollow`.
 
 ## Authentication
 
-Access is restricted to whitelisted email addresses defined in `src/lib/team.ts` (`ADMIN_EMAILS`).
+Admin access is gated by `ADMIN_EMAILS` in `src/lib/team.ts`.
 
-Users must be authenticated via Supabase to access admin routes. Non-admin users are redirected to the home page. In development mode, authentication is bypassed with a mock `dev@local` user.
+- In development, the admin route returns a mock `dev@local` admin user and the admin API routes skip auth checks.
+- In production, unauthenticated users are redirected to `/auth/?flow=web&provider=github&redirect=...&rra=true`.
+- Authenticated non-admin users are redirected to `/`.
+- Client-side admin fetches should go through `fetchAdminJson()` in `src/lib/admin-auth.ts`; it redirects back to sign-in on `401` responses or expired GitHub credentials.
 
-## Features
+The content editor has an additional GitHub credential requirement. Admin users need a row in the Supabase `admins` table with `github_token` and `github_username`. If those credentials are missing or invalid, the UI sends the user through GitHub reauth.
 
-### Media Library (`/admin/media`)
+## Routes
 
-Upload, organize, and manage media assets stored in Supabase Storage.
+### Content (`/admin/collections/`)
 
-- Drag-and-drop file upload with per-file progress toasts
-- Folder navigation with lazy-loaded folder tree in sidebar
-- Tab-based navigation with pinning, reordering, and back/forward history
-- Multi-select with batch delete and download
-- Context menu for individual file actions (rename, replace, copy path, download, move, delete)
-- Sidebar with search, file type filters, and expandable folder tree
-- Drag-and-drop files between folders
-- Resizable sidebar/content panels
+The content editor manages three collections:
 
-### Content Management (`/admin/collections`)
+- `articles` from `apps/web/content/articles`
+- `docs` from `apps/web/content/docs`
+- `handbook` from `apps/web/content/handbook`
 
-Full-featured blog editor with the following capabilities:
+Current capabilities include:
 
-- Create, edit, and manage blog articles
-- Rich text editor (TipTap) with Google Docs import modal
-- Metadata panel (title, display title, description, author, date, category, cover image, featured flag)
-- Preview mode with side-by-side editing via resizable panels
-- Git history tracking per file
-- Draft management with branch-based workflow
-- Tab-based file navigation with pinning, reordering, and close actions
-- Inline new post creation and file renaming in sidebar
-- Media selector modal for choosing cover images from the media library
-- Clipboard operations (cut, copy) for content items
-- Auto-save countdown indicator
+- browse articles, docs, handbook pages, and draft branches in one editor
+- edit MDX content with TipTap
+- edit collection-specific metadata
+- preview rendered output next to the editor
+- create, rename, duplicate, delete, and publish content
+- upload blog images and import article content from Google Docs
+- track pending PRs and branch-backed drafts
 
-Requires GitHub credentials (stored in Supabase `admins` table). Users without GitHub credentials are redirected to authenticate via GitHub.
+Save behavior depends on whether the file is already on a branch:
 
-#### Editorial Workflow
+- saving a published file creates or reuses a `blog/...` branch and opens or updates a PR
+- saving a draft branch writes directly to that branch
+- articles, docs, and handbook entries all use the same branch and PR flow for published edits
 
-Complete flow from editing to publication:
+### Media (`/admin/media/`)
 
-**1. User Edits a Published Article**
-- Open `/admin/collections` and select a published article
-- Make changes in the editor
-- Auto-save runs every 60 seconds, or save manually with ⌘S / Save button
+The media library manages files in Supabase Storage.
 
-**2. Save Creates a PR**
-- Creates a new branch `blog/{slug}-{timestamp}` (or uses existing one)
-- Creates a non-draft PR to `main`, ready to merge
-- Assigns `harshikaalagh-netizen` as reviewer on PR creation
-- A banner appears in the editor linking to the PR
+Current capabilities include:
 
-**3. GitHub Actions Trigger**
-- `blog-auto-format.yml` - Auto-formats MDX files with dprint, commits changes back to branch
-- `blog-grammar-check.yml` - Runs AI grammar check (Anthropic), posts suggestions as PR comment
+- browse folders and files with tabbed navigation
+- upload files and register them with the admin library
+- create folders
+- move, rename, download, and delete assets
+- filter, search, multi-select, and drag items between folders
 
-**4. User Continues Editing (Optional)**
-- Each save updates the same PR branch
-- Each push triggers the grammar check again
+### CRM (`/admin/crm/`)
 
-**5. Reviewer Merges PR**
-- Article goes live on the website
+The CRM route is currently a client-side contact scratchpad. Contacts, filters, and edits live in local React state only. There is no server persistence or admin API backing this screen yet.
+
+### Lead Finder (`/admin/lead-finder/`)
+
+Lead Finder is the main GitHub lead-qualification workflow.
+
+It is backed by `public.github_star_leads` and supports:
+
+- paginated lead browsing
+- search and researched-only filtering
+- fetching new leads from GitHub stargazers or org activity
+- researching individual leads with OpenRouter
+- bulk research for the top unresearched leads on the current page
+
+### Kanban (`/admin/kanban/`)
+
+Kanban is a lightweight GitHub Projects v2 client for `fastrepl/marketing`.
+
+It supports:
+
+- listing available projects
+- viewing project items by status
+- creating GitHub issues and adding them to the active project
+- updating issue fields and project status
+- deleting project items and closing issues
+
+### Stars (`/admin/stars/`)
+
+`/admin/stars/` is still a live route, but it is effectively an older internal view over the same star-lead APIs used by Lead Finder. It is not linked from the current admin header.
 
 ## API Endpoints
 
-All API endpoints require admin authentication (bypassed in development mode).
-
-### Media APIs
-
-- `GET /api/admin/media/list` - List files in a directory
-- `POST /api/admin/media/upload` - Generate signed uploads for media files
-- `POST /api/admin/media/delete` - Delete files (batch)
-- `POST /api/admin/media/move` - Move/rename files
-- `POST /api/admin/media/create-folder` - Create folders
-
-### Blog APIs
-
-- `POST /api/admin/blog/upload-image` - Generate signed uploads for blog images
-
-### Import APIs
-
-- `POST /api/admin/import/google-docs` - Parse published Google Doc
-- `POST /api/admin/import/save` - Save MDX file to repository
+All `/api/admin/**` routes enforce admin auth outside development mode.
 
 ### Content APIs
 
-- `GET /api/admin/content/list` - List content files in a folder
-- `GET /api/admin/content/list-drafts` - List draft articles from branches
-- `GET /api/admin/content/pending-pr` - Check if article has a pending edit PR
-- `GET /api/admin/content/get-branch-file` - Get file content from a branch
-- `GET /api/admin/content/history` - Get git commit history for a file
-- `POST /api/admin/content/save` - Save content (creates PR for published articles)
-- `POST /api/admin/content/create` - Create new content file
-- `POST /api/admin/content/publish` - Publish/unpublish an article
-- `POST /api/admin/content/rename` - Rename a content file
-- `POST /api/admin/content/duplicate` - Duplicate a content file
-- `POST /api/admin/content/delete` - Delete a content file
+- `GET /api/admin/content/list`
+- `GET /api/admin/content/list-drafts`
+- `GET /api/admin/content/get-branch-file`
+- `GET /api/admin/content/history`
+- `GET /api/admin/content/pending-pr`
+- `POST /api/admin/content/create`
+- `POST /api/admin/content/save`
+- `POST /api/admin/content/publish`
+- `POST /api/admin/content/rename`
+- `POST /api/admin/content/duplicate`
+- `POST /api/admin/content/delete`
 
-## GitHub Workflows
+### Media APIs
 
-The editorial workflow is powered by three GitHub Actions workflows in `.github/workflows/`:
+- `GET /api/admin/media/list`
+- `GET /api/admin/media/download`
+- `POST /api/admin/media/upload`
+- `POST /api/admin/media/register`
+- `POST /api/admin/media/delete`
+- `POST /api/admin/media/move`
+- `POST /api/admin/media/create-folder`
 
-- **`blog-auto-format.yml`** - Auto-formats MDX files with dprint on push to `blog/**` branches and commits changes back
-- **`blog-grammar-check.yml`** - Runs AI-powered grammar check (Anthropic) on article PRs and posts suggestions as comments
-- **`blog-slack-notify.yml`** - Sends Slack notifications for article changes with editorial status detection (edit, new article, submit for review, unpublish)
+### Import APIs
 
-`blog-grammar-check.yml` and `blog-slack-notify.yml` trigger on PRs to `main` that modify `apps/web/content/articles/**` on `blog/` branches. `blog-auto-format.yml` triggers on pushes to `blog/**` branches.
+- `POST /api/admin/blog/upload-image`
+- `POST /api/admin/import/google-docs`
 
-## Environment Variables
+### Kanban APIs
 
-The following environment variables are required:
+- `GET /api/admin/kanban/projects`
+- `GET /api/admin/kanban/items`
+- `POST /api/admin/kanban/create`
+- `POST /api/admin/kanban/update`
+- `POST /api/admin/kanban/delete`
 
-- `GITHUB_TOKEN` - GitHub personal access token with repo write access
-- `ANTHROPIC_API_KEY` - Anthropic API key for AI grammar checking
-- `SLACK_BOT_TOKEN` - Slack bot token for sending notifications
-- `SLACK_BLOG_CHANNEL_ID` - Slack channel ID for blog notifications
-- Supabase environment variables for authentication and storage
+### Lead APIs
 
-## Development
+- `GET /api/admin/stars/leads`
+- `POST /api/admin/stars/fetch`
+- `POST /api/admin/stars/research`
 
-The admin interface uses TanStack Router (React Start) with file-based routing. Routes are defined in:
+## Configuration
 
-- `src/routes/admin/` - Page components
-- `src/routes/api/admin/` - API endpoints
-- `src/hooks/use-media-api.tsx` - Media API client hook
-- `src/functions/admin.ts` - Admin authentication helpers
-- `src/lib/team.ts` - Admin email whitelist and team member data
+The admin surface depends on a few different backends, and the required configuration varies by feature.
 
-Admin authentication is handled by the `fetchAdminUser()` function which checks if the current user's email is in the `ADMIN_EMAILS` whitelist.
+### Required for admin auth and media
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` for server-side privileged storage operations
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+### Required for content editing
+
+- valid GitHub credentials stored per admin user in the Supabase `admins` table
+
+### Required for Kanban and GitHub lead ingestion
+
+- `GITHUB_TOKEN`
+
+### Required for lead storage and research
+
+- `DATABASE_URL`
+- `OPENROUTER_API_KEY`, unless the caller passes `apiKey` directly to `/api/admin/stars/research`
+
+## Code Map
+
+- `src/routes/admin/` page routes and shared admin layout
+- `src/routes/api/admin/` server endpoints
+- `src/functions/admin.ts` admin user and GitHub credential helpers
+- `src/lib/admin-auth.ts` client-side auth and reauth helpers
+- `src/functions/github-content.ts` content save, branch, and PR logic
+- `src/functions/github-projects.ts` GitHub Projects integration for Kanban
+- `src/functions/github-stars.ts` GitHub lead ingestion and research
+- `src/hooks/use-media-api.tsx` media client helpers

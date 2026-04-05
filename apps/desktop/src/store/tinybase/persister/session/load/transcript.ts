@@ -12,14 +12,41 @@ function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-function asNumber(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function asRoundedNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.round(value)
+    : 0;
 }
 
-function asOptionalNumber(value: unknown): number | undefined {
+function asOptionalRoundedNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
-    ? value
+    ? Math.round(value)
     : undefined;
+}
+
+function normalizeTranscriptWords(value: unknown): TranscriptWithData["words"] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((word) => normalizeTranscriptWord(word));
+}
+
+function normalizeTranscriptWord(
+  value: unknown,
+): NonNullable<TranscriptWithData["words"]>[number] {
+  if (!isRecord(value)) {
+    return value as NonNullable<TranscriptWithData["words"]>[number];
+  }
+
+  const startMs = asOptionalRoundedNumber(value.start_ms);
+  const endMs = asOptionalRoundedNumber(value.end_ms);
+
+  return {
+    ...(value as NonNullable<TranscriptWithData["words"]>[number]),
+    ...(startMs === undefined ? {} : { start_ms: startMs }),
+    ...(endMs === undefined ? {} : { end_ms: endMs }),
+  };
 }
 
 function normalizeTranscript(value: unknown): TranscriptWithData[] {
@@ -40,12 +67,10 @@ function normalizeTranscript(value: unknown): TranscriptWithData[] {
       user_id: asString(value.user_id),
       created_at: asString(value.created_at),
       session_id,
-      started_at: asNumber(value.started_at),
-      ended_at: asOptionalNumber(value.ended_at),
+      started_at: asRoundedNumber(value.started_at),
+      ended_at: asOptionalRoundedNumber(value.ended_at),
       memo_md: asString(value.memo_md),
-      words: Array.isArray(value.words)
-        ? (value.words as TranscriptWithData["words"])
-        : [],
+      words: normalizeTranscriptWords(value.words),
       speaker_hints: Array.isArray(value.speaker_hints)
         ? (value.speaker_hints as TranscriptWithData["speaker_hints"])
         : [],

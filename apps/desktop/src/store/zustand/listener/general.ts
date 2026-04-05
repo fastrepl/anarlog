@@ -4,8 +4,8 @@ import type { StoreApi } from "zustand";
 import {
   commands as listenerCommands,
   type SessionParams,
-} from "@hypr/plugin-listener";
-import type { BatchParams } from "@hypr/plugin-listener2";
+} from "@hypr/plugin-transcription";
+import type { BatchParams } from "@hypr/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
 import { runBatchSession } from "./general-batch";
@@ -17,20 +17,29 @@ import {
   markLiveStartRequested,
   setLiveState,
 } from "./general-shared";
-import type { HandlePersistCallback, TranscriptActions } from "./transcript";
+import type {
+  BatchPersistCallback,
+  LiveTranscriptPersistCallback,
+  OnStoppedCallback,
+  TranscriptActions,
+  TranscriptState,
+} from "./transcript";
 
 export type { GeneralState, SessionMode } from "./general-shared";
 
 export type GeneralActions = {
   start: (
     params: SessionParams,
-    options?: { handlePersist?: HandlePersistCallback },
+    options?: {
+      handlePersist?: LiveTranscriptPersistCallback;
+      onStopped?: OnStoppedCallback;
+    },
   ) => Promise<boolean>;
   stop: () => void;
   setMuted: (value: boolean) => void;
   runBatch: (
     params: BatchParams,
-    options?: { handlePersist?: HandlePersistCallback },
+    options?: { handlePersist?: BatchPersistCallback },
   ) => Promise<void>;
   getSessionMode: (sessionId: string) => SessionMode;
 };
@@ -38,6 +47,7 @@ export type GeneralActions = {
 export const createGeneralSlice = <
   T extends GeneralState &
     GeneralActions &
+    TranscriptState &
     TranscriptActions &
     BatchActions &
     BatchState,
@@ -82,10 +92,18 @@ export const createGeneralSlice = <
     if (options?.handlePersist) {
       get().setTranscriptPersist(options.handlePersist);
     }
+    if (options?.onStopped) {
+      get().setOnStopped(options.onStopped);
+    }
 
     const started = await startLiveSession(set, get, targetSessionId, params);
-    if (!started && options?.handlePersist) {
-      get().setTranscriptPersist(undefined);
+    if (!started) {
+      if (options?.handlePersist) {
+        get().setTranscriptPersist(undefined);
+      }
+      if (options?.onStopped) {
+        get().setOnStopped(undefined);
+      }
     }
 
     return started;

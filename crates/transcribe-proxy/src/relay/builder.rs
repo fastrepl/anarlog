@@ -69,6 +69,7 @@ impl<S> WebSocketProxyBuilder<S> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build_from(
         request: ClientRequestBuilder,
         control_message_types: HashSet<&'static str>,

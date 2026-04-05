@@ -8,4 +8,5 @@ permissions = [
     "allow-list-events",
     "allow-open-calendar",
     "allow-create-event",
+    "allow-parse-meeting-link",
 ]

@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   commands as detectCommands,
@@ -12,6 +12,20 @@ import { commands as notificationCommands } from "@hypr/plugin-notification";
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@hypr/ui/components/ui/command";
+import {
+  AppFloatingPanel,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@hypr/ui/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,23 +35,25 @@ import {
 import { Switch } from "@hypr/ui/components/ui/switch";
 import { cn } from "@hypr/utils";
 
-import { getIgnoredAppOptions } from "./notification-app-options";
+import {
+  getIgnoredBundleIds,
+  getIgnorableApps,
+  toggleIgnoredApp,
+} from "./notification-app-options";
 
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
 export function NotificationSettingsView() {
-  const [inputValue, setInputValue] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const configs = useConfigValues([
     "notification_event",
     "notification_detect",
     "respect_dnd",
     "ignored_platforms",
+    "included_platforms",
     "mic_active_threshold",
   ] as const);
 
@@ -48,7 +64,7 @@ export function NotificationSettingsView() {
     };
   }, []);
 
-  const { data: allInstalledApps } = useQuery({
+  const { data: installedApps = [] } = useQuery({
     queryKey: ["settings", "all-installed-applications"],
     queryFn: detectCommands.listInstalledApplications,
     select: (result: Result<InstalledApp[], string>) => {
@@ -59,7 +75,7 @@ export function NotificationSettingsView() {
     },
   });
 
-  const { data: defaultIgnoredBundleIds } = useQuery({
+  const { data: defaultIgnoredBundleIds = [] } = useQuery({
     queryKey: ["settings", "default-ignored-bundle-ids"],
     queryFn: detectCommands.listDefaultIgnoredBundleIds,
     select: (result: Result<string[], string>) => {
@@ -71,11 +87,11 @@ export function NotificationSettingsView() {
   });
 
   const bundleIdToName = (bundleId: string) => {
-    return allInstalledApps?.find((a) => a.id === bundleId)?.name ?? bundleId;
+    return installedApps.find((a) => a.id === bundleId)?.name ?? bundleId;
   };
 
   const isDefaultIgnored = (bundleId: string) => {
-    return defaultIgnoredBundleIds?.includes(bundleId) ?? false;
+    return defaultIgnoredBundleIds.includes(bundleId);
   };
 
   const handleSetNotificationEvent = settings.UI.useSetValueCallback(
@@ -106,6 +122,13 @@ export function NotificationSettingsView() {
     settings.STORE_ID,
   );
 
+  const handleSetIncludedPlatforms = settings.UI.useSetValueCallback(
+    "included_platforms",
+    (value: string) => value,
+    [],
+    settings.STORE_ID,
+  );
+
   const handleSetMicActiveThreshold = settings.UI.useSetValueCallback(
     "mic_active_threshold",
     (value: number) => value,
@@ -119,6 +142,7 @@ export function NotificationSettingsView() {
       notification_detect: configs.notification_detect,
       respect_dnd: configs.respect_dnd,
       ignored_platforms: configs.ignored_platforms,
+      included_platforms: configs.included_platforms,
       mic_active_threshold: configs.mic_active_threshold,
     },
     listeners: {
@@ -131,6 +155,7 @@ export function NotificationSettingsView() {
       handleSetNotificationDetect(value.notification_detect);
       handleSetRespectDnd(value.respect_dnd);
       handleSetIgnoredPlatforms(JSON.stringify(value.ignored_platforms));
+      handleSetIncludedPlatforms(JSON.stringify(value.included_platforms));
       handleSetMicActiveThreshold(value.mic_active_threshold);
     },
   });
@@ -138,87 +163,43 @@ export function NotificationSettingsView() {
   const anyNotificationEnabled =
     configs.notification_event || configs.notification_detect;
   const ignoredPlatforms = form.getFieldValue("ignored_platforms");
+  const includedPlatforms = form.getFieldValue("included_platforms");
 
-  const dropdownOptions = getIgnoredAppOptions({
-    allInstalledApps,
+  const ignorableApps = getIgnorableApps({
+    installedApps,
     ignoredPlatforms,
-    inputValue,
+    includedPlatforms,
+    inputValue: searchQuery,
+    defaultIgnoredBundleIds,
+  });
+  const ignoredBundleIds = getIgnoredBundleIds({
+    installedApps: installedApps,
+    ignoredPlatforms,
+    includedPlatforms,
     defaultIgnoredBundleIds,
   });
 
-  const handleAddIgnoredApp = (bundleId: string) => {
-    if (
-      !bundleId ||
-      ignoredPlatforms.includes(bundleId) ||
-      isDefaultIgnored(bundleId)
-    ) {
+  const handleToggleIgnoredApp = (bundleId: string) => {
+    if (!bundleId) {
       return;
     }
 
-    form.setFieldValue("ignored_platforms", [...ignoredPlatforms, bundleId]);
+    const {
+      ignoredPlatforms: newIgnoredPlatforms,
+      includedPlatforms: newIncludedPlatforms,
+    } = toggleIgnoredApp({
+      bundleId,
+      ignoredPlatforms,
+      includedPlatforms,
+      defaultIgnoredBundleIds,
+    });
+
+    form.setFieldValue("ignored_platforms", newIgnoredPlatforms);
+    form.setFieldValue("included_platforms", newIncludedPlatforms);
     void form.handleSubmit();
-    setInputValue("");
-    setShowDropdown(false);
-    setSelectedIndex(0);
+    setSearchOpen(false);
+    setSearchQuery("");
   };
-
-  const handleRemoveIgnoredApp = (bundleId: string) => {
-    const updated = ignoredPlatforms.filter(
-      (appId: string) => appId !== bundleId,
-    );
-    form.setFieldValue("ignored_platforms", updated);
-    void form.handleSubmit();
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && inputValue.trim()) {
-      e.preventDefault();
-      const selectedApp = dropdownOptions[selectedIndex];
-      if (selectedApp) {
-        handleAddIgnoredApp(selectedApp.id);
-      }
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIndex((prev) =>
-        prev < dropdownOptions.length - 1 ? prev + 1 : prev,
-      );
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : prev));
-    } else if (e.key === "Escape") {
-      setShowDropdown(false);
-      setSelectedIndex(0);
-    } else if (
-      e.key === "Backspace" &&
-      !inputValue &&
-      ignoredPlatforms.length > 0
-    ) {
-      const lastBundleId = ignoredPlatforms[ignoredPlatforms.length - 1];
-      if (!isDefaultIgnored(lastBundleId)) {
-        handleRemoveIgnoredApp(lastBundleId);
-      }
-    }
-  };
-
-  const handleInputChange = (value: string) => {
-    setInputValue(value);
-    setShowDropdown(true);
-    setSelectedIndex(0);
-  };
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   return (
     <div className="flex flex-col gap-6">
@@ -296,87 +277,110 @@ export function NotificationSettingsView() {
                     Exclude apps from detection
                   </h4>
                   <p className="text-xs text-neutral-600">
-                    These apps will not trigger detection.
+                    Search installed apps to exclude them. Click an excluded app
+                    to include it again.
                   </p>
                 </div>
-                <div className="relative" ref={containerRef}>
-                  <div
-                    className="flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border p-2"
-                    onClick={() => inputRef.current?.focus()}
-                  >
-                    {ignoredPlatforms.map((bundleId: string) => {
-                      const isDefault = isDefaultIgnored(bundleId);
-                      return (
-                        <Badge
-                          key={bundleId}
-                          variant="secondary"
-                          className={cn([
-                            "flex items-center gap-1 px-2 py-0.5 text-xs",
-                            isDefault
-                              ? ["bg-neutral-200 text-neutral-700"]
-                              : ["bg-muted"],
-                          ])}
-                          title={isDefault ? "default" : undefined}
-                        >
-                          {bundleIdToName(bundleId)}
-                          {isDefault && (
-                            <span className="text-[10px] opacity-70">
-                              (default)
-                            </span>
-                          )}
-                          {!isDefault && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
-                              onClick={() => handleRemoveIgnoredApp(bundleId)}
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </Button>
-                          )}
-                        </Badge>
-                      );
-                    })}
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-sm outline-hidden"
-                      placeholder={
-                        ignoredPlatforms.length === 0
-                          ? "Type to add apps..."
-                          : ""
-                      }
-                      value={inputValue}
-                      onChange={(e) => handleInputChange(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      onFocus={() => setShowDropdown(true)}
-                    />
-                  </div>
-                  {showDropdown && dropdownOptions.length > 0 && (
-                    <div className="bg-popover absolute z-50 mt-1 w-full overflow-hidden rounded-md border shadow-md">
-                      <div className="max-h-[200px] overflow-auto py-1">
-                        {dropdownOptions.map((app, index) => {
+                <div className="flex flex-col gap-3">
+                  <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={searchOpen}
+                        className={cn([
+                          "flex min-h-[38px] w-full cursor-text flex-wrap items-center gap-2 rounded-md border p-2",
+                          "focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-hidden",
+                        ])}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setSearchOpen(true);
+                          }
+                        }}
+                      >
+                        {ignoredBundleIds.map((bundleId: string) => {
+                          const isDefault = isDefaultIgnored(bundleId);
                           return (
-                            <button
-                              key={app.id}
-                              type="button"
+                            <Badge
+                              key={bundleId}
+                              variant="secondary"
                               className={cn([
-                                "w-full px-3 py-1.5 text-left text-sm transition-colors",
-                                "hover:bg-accent hover:text-accent-foreground",
-                                selectedIndex === index &&
-                                  "bg-accent text-accent-foreground",
+                                "flex items-center gap-1 px-2 py-0.5 text-xs",
+                                isDefault
+                                  ? ["bg-neutral-200 text-neutral-700"]
+                                  : ["bg-muted"],
                               ])}
-                              onClick={() => handleAddIgnoredApp(app.id)}
-                              onMouseEnter={() => setSelectedIndex(index)}
+                              title={isDefault ? "default" : undefined}
                             >
-                              {app.name}
-                            </button>
+                              {bundleIdToName(bundleId)}
+                              {isDefault && (
+                                <span className="text-[10px] opacity-70">
+                                  (default)
+                                </span>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleToggleIgnoredApp(bundleId);
+                                }}
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </Button>
+                            </Badge>
                           );
                         })}
+                        <span className="text-muted-foreground text-sm">
+                          Search installed apps...
+                        </span>
                       </div>
-                    </div>
-                  )}
+                    </PopoverTrigger>
+                    <PopoverContent
+                      variant="app"
+                      align="start"
+                      style={{ width: "var(--radix-popover-trigger-width)" }}
+                    >
+                      <AppFloatingPanel className="overflow-hidden">
+                        <Command className="rounded-[inherit] border-0 bg-transparent">
+                          <CommandInput
+                            placeholder="Search installed apps..."
+                            value={searchQuery}
+                            onValueChange={setSearchQuery}
+                          />
+                          <CommandEmpty>
+                            <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                              No apps found.
+                            </div>
+                          </CommandEmpty>
+                          <CommandList>
+                            <CommandGroup className="max-h-[250px] overflow-y-auto">
+                              {ignorableApps.map((app) => (
+                                <CommandItem
+                                  key={app.id}
+                                  value={`${app.name} ${app.id}`}
+                                  onSelect={() =>
+                                    handleToggleIgnoredApp(app.id)
+                                  }
+                                  className={cn([
+                                    "cursor-pointer",
+                                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                                  ])}
+                                >
+                                  <span className="flex-1 truncate">
+                                    {app.name}
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </AppFloatingPanel>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
             )}

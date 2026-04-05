@@ -1,5 +1,7 @@
+use std::num::NonZero;
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 
@@ -162,6 +164,7 @@ struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
     cancel_token: CancellationToken,
     task: JoinHandle<()>,
+    playback_stop: Arc<AtomicBool>,
 }
 
 impl Stream for CaptureStreamInner {
@@ -174,74 +177,74 @@ impl Stream for CaptureStreamInner {
 
 impl Drop for CaptureStreamInner {
     fn drop(&mut self) {
+        self.playback_stop.store(true, Ordering::Relaxed);
         self.cancel_token.cancel();
         self.task.abort();
     }
 }
 
-struct StereoPlaybackSource {
+struct MonoPlaybackSource {
     mic: Arc<[f32]>,
     spk: Arc<[f32]>,
     position: usize,
     sample_rate: u32,
+    stop: Arc<AtomicBool>,
 }
 
-impl Iterator for StereoPlaybackSource {
+impl Iterator for MonoPlaybackSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
-        let channel = self.position % 2;
-        let sample_idx = self.position / 2;
-        let max_len = self.mic.len().max(self.spk.len());
-        if sample_idx >= max_len {
+        if self.stop.load(Ordering::Relaxed) {
             return None;
         }
+        let max_len = self.mic.len().max(self.spk.len());
+        if self.position >= max_len {
+            return None;
+        }
+        let mic_sample = self.mic.get(self.position).copied().unwrap_or(0.0);
+        let spk_sample = self.spk.get(self.position).copied().unwrap_or(0.0);
         self.position += 1;
-        Some(if channel == 0 {
-            self.mic.get(sample_idx).copied().unwrap_or(0.0)
-        } else {
-            self.spk.get(sample_idx).copied().unwrap_or(0.0)
-        })
+        Some((mic_sample + spk_sample) * 0.5)
     }
 }
 
-impl Source for StereoPlaybackSource {
+impl Source for MonoPlaybackSource {
     fn current_span_len(&self) -> Option<usize> {
         None
     }
-    fn channels(&self) -> u16 {
-        2
+    fn channels(&self) -> NonZero<u16> {
+        NonZero::new(1).unwrap()
     }
-    fn sample_rate(&self) -> u32 {
-        self.sample_rate
+    fn sample_rate(&self) -> NonZero<u32> {
+        NonZero::new(self.sample_rate).unwrap()
     }
     fn total_duration(&self) -> Option<std::time::Duration> {
         None
     }
 }
 
-fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData) {
+fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData, stop: Arc<AtomicBool>) {
     let sample_rate = mic.sample_rate.max(spk.sample_rate).max(16000);
     let mic_samples = Arc::clone(&mic.samples);
     let spk_samples = Arc::clone(&spk.samples);
 
     std::thread::spawn(move || {
-        use rodio::{OutputStreamBuilder, Sink};
+        use rodio::Player;
+        use rodio::stream::DeviceSinkBuilder;
 
-        match OutputStreamBuilder::open_default_stream() {
+        match DeviceSinkBuilder::open_default_sink() {
             Ok(stream) => {
-                let sink = Sink::connect_new(stream.mixer());
-                sink.append(StereoPlaybackSource {
+                let player = Player::connect_new(stream.mixer());
+                player.append(MonoPlaybackSource {
                     mic: mic_samples,
                     spk: spk_samples,
                     position: 0,
                     sample_rate,
+                    stop,
                 });
-                tracing::info!(
-                    sample_rate,
-                    "mock playback started (mic=left, speaker=right)"
-                );
-                sink.sleep_until_end();
+                tracing::info!(sample_rate, "mock playback started (mono mix)");
+                player.sleep_until_end();
             }
             Err(e) => {
                 tracing::warn!(error = ?e, "failed to open audio output for mock playback");
@@ -255,8 +258,10 @@ fn open_capture_stream(
     speaker: MockAudioData,
     config: CaptureConfig,
 ) -> CaptureStream {
+    let playback_stop = Arc::new(AtomicBool::new(false));
+
     if std::env::var(MOCK_PLAYBACK_ENV).ok().as_deref() != Some("0") {
-        start_stereo_playback(&mic, &speaker);
+        start_stereo_playback(&mic, &speaker, Arc::clone(&playback_stop));
     }
 
     let cancel_token = CancellationToken::new();
@@ -273,6 +278,7 @@ fn open_capture_stream(
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
+        playback_stop,
     })
 }
 
@@ -365,7 +371,7 @@ fn load_audio(path: &Path, is_speaker: bool) -> Result<MockAudioData, Error> {
     let file = std::fs::File::open(path).map_err(|_| map_audio_error(is_speaker))?;
     let decoder = rodio::Decoder::try_from(file).map_err(|_| map_audio_error(is_speaker))?;
     let sample_rate = decoder.sample_rate();
-    let channels = decoder.channels().max(1) as usize;
+    let channels = decoder.channels().get().max(1) as usize;
     let samples = decoder
         .enumerate()
         .filter_map(|(idx, sample)| (idx % channels == 0).then_some(sample.clamp(-1.0, 1.0)))
@@ -373,7 +379,7 @@ fn load_audio(path: &Path, is_speaker: bool) -> Result<MockAudioData, Error> {
 
     Ok(MockAudioData {
         samples: Arc::from(samples.into_boxed_slice()),
-        sample_rate,
+        sample_rate: sample_rate.into(),
     })
 }
 

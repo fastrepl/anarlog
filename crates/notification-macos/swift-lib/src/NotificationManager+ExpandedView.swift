@@ -55,7 +55,7 @@ extension NotificationManager {
     container.addArrangedSubview(actionStack)
     actionStack.widthAnchor.constraint(equalTo: container.widthAnchor).isActive = true
 
-    notification.startCountdown(label: timerLabel)
+    notification.bindExpandedTimerLabel(timerLabel)
 
     return container
   }

@@ -9,6 +9,7 @@ import { registerSaveHandler } from "./save";
 import { useCalendarPersister } from "~/store/tinybase/persister/calendar";
 import { useChatPersister } from "~/store/tinybase/persister/chat";
 import { useChatShortcutPersister } from "~/store/tinybase/persister/chat-shortcuts";
+import { useDailyNotePersister } from "~/store/tinybase/persister/daily-note";
 import { useEventsPersister } from "~/store/tinybase/persister/events";
 import { useHumanPersister } from "~/store/tinybase/persister/human";
 import { useMemoryPersister } from "~/store/tinybase/persister/memory";
@@ -30,6 +31,7 @@ export function useMainPersisters(store: Store) {
   const templatePersister = useTemplatePersister(store);
   const calendarPersister = useCalendarPersister(store);
   const memoryPersister = useMemoryPersister(store);
+  const dailyNotePersister = useDailyNotePersister(store);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -48,6 +50,7 @@ export function useMainPersisters(store: Store) {
       { id: "template", persister: templatePersister },
       { id: "calendar", persister: calendarPersister },
       { id: "memory", persister: memoryPersister },
+      { id: "dailyNote", persister: dailyNotePersister },
     ];
 
     const unsubscribes = persisters
@@ -73,6 +76,7 @@ export function useMainPersisters(store: Store) {
     templatePersister,
     calendarPersister,
     memoryPersister,
+    dailyNotePersister,
   ]);
 
   useInitializeStore(store, {
@@ -93,5 +97,6 @@ export function useMainPersisters(store: Store) {
     templatePersister,
     calendarPersister,
     memoryPersister,
+    dailyNotePersister,
   };
 }

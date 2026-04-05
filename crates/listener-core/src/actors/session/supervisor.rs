@@ -395,6 +395,8 @@ mod tests {
                 base_url: "http://localhost:1234".to_string(),
                 api_key: "test-key".to_string(),
                 keywords: vec![],
+                participant_human_ids: vec![],
+                self_human_id: None,
             },
             app_dir: std::env::temp_dir(),
             started_at_instant: Instant::now(),

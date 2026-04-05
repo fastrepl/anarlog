@@ -1,4 +1,4 @@
-import { Resizable } from "re-resizable";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -20,10 +20,6 @@ export function PersistentChatPanel({
   const isVisible = isFloating || isPanel;
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const [floatingSize, setFloatingSize] = useState({
-    width: 400,
-    height: window.innerHeight * 0.7,
-  });
   const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
 
@@ -33,30 +29,28 @@ export function PersistentChatPanel({
     }
   }, [isVisible, hasBeenOpened]);
 
-  useEffect(() => {
-    if (!isFloating) return;
-
-    const handleResize = () => {
-      setFloatingSize((prev) => ({
-        ...prev,
-        height: window.innerHeight * 0.7,
-      }));
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [isFloating]);
-
   useHotkeys(
     "esc",
     () => chat.sendEvent({ type: "CLOSE" }),
     {
-      enabled: isFloating,
+      enabled: isVisible,
       preventDefault: true,
       enableOnFormTags: true,
       enableOnContentEditable: true,
     },
-    [chat, isFloating],
+    [chat, isVisible],
+  );
+
+  useHotkeys(
+    "mod+r",
+    () => chat.sendEvent({ type: "SHIFT" }),
+    {
+      enabled: isVisible,
+      preventDefault: true,
+      enableOnFormTags: true,
+      enableOnContentEditable: true,
+    },
+    [chat, isVisible],
   );
 
   useLayoutEffect(() => {
@@ -96,17 +90,12 @@ export function PersistentChatPanel({
     return null;
   }
 
-  return (
-    <div
-      className={cn([
-        "fixed z-100",
-        !isVisible && "hidden!",
-        isPanel && "pointer-events-none",
-      ])}
-      style={
-        isFloating
-          ? { right: 16, bottom: 16 }
-          : isPanel && panelRect
+  if (isPanel) {
+    return (
+      <div
+        className="pointer-events-none fixed z-100"
+        style={
+          panelRect
             ? {
                 top: panelRect.top,
                 left: panelRect.left,
@@ -114,64 +103,45 @@ export function PersistentChatPanel({
                 height: panelRect.height,
               }
             : { display: "none" }
-      }
-    >
-      <Resizable
-        size={isPanel ? { width: "100%", height: "100%" } : floatingSize}
-        onResizeStop={
-          isFloating
-            ? (_, __, ___, d) => {
-                setFloatingSize((prev) => ({
-                  width: prev.width + d.width,
-                  height: prev.height + d.height,
-                }));
-              }
-            : undefined
-        }
-        enable={
-          isFloating
-            ? {
-                top: true,
-                right: false,
-                bottom: false,
-                left: true,
-                topRight: false,
-                bottomRight: false,
-                bottomLeft: false,
-                topLeft: true,
-              }
-            : false
-        }
-        minWidth={isFloating ? 320 : undefined}
-        minHeight={isFloating ? 400 : undefined}
-        maxWidth={isFloating ? window.innerWidth - 32 : undefined}
-        maxHeight={isFloating ? window.innerHeight - 32 : undefined}
-        bounds={isFloating ? "window" : undefined}
-        className={cn([
-          "pointer-events-auto flex flex-col",
-          isFloating && [
-            "overflow-hidden rounded-t-xl rounded-b-2xl bg-white shadow-2xl",
-            "border border-neutral-200",
-          ],
-          isPanel && "h-full w-full",
-        ])}
-        handleStyles={
-          isFloating
-            ? {
-                top: { height: "4px", top: 0 },
-                left: { width: "4px", left: 0 },
-                topLeft: {
-                  width: "12px",
-                  height: "12px",
-                  top: 0,
-                  left: 0,
-                },
-              }
-            : undefined
         }
       >
-        <ChatView />
-      </Resizable>
-    </div>
+        <div className="pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
+          <ChatView />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AnimatePresence>
+      {isFloating && (
+        <motion.div
+          className="fixed inset-0 z-100 flex items-end justify-center px-4 pb-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div
+            className="absolute inset-0 bg-black/20"
+            onClick={() => chat.sendEvent({ type: "CLOSE" })}
+          />
+          <motion.div
+            className={cn([
+              "relative flex flex-col overflow-hidden",
+              "max-h-[70vh] w-full max-w-[640px]",
+              "rounded-2xl bg-white shadow-2xl",
+              "border border-neutral-200",
+            ])}
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 40, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <ChatView />
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

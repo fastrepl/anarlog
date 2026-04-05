@@ -155,10 +155,7 @@ impl EncoderCore {
     }
 }
 
-pub(crate) fn f32_to_i16(sample: f32) -> i16 {
-    let clamped = sample.clamp(-1.0, 1.0);
-    (clamped * i16::MAX as f32) as i16
-}
+pub(crate) use hypr_audio_utils::f32_to_i16;
 
 fn bitrate_for_channels(channels: u8) -> Result<mp3lame_encoder::Bitrate, Error> {
     match channels {

@@ -110,6 +110,14 @@ async audioImport(sessionId: string, sourcePath: string) : Promise<Result<string
     else return { status: "error", error: e  as any };
 }
 },
+async audioSourceMetadata(sourcePath: string) : Promise<Result<AudioSourceMetadata, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_source_metadata", { sourcePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async audioPath(sessionId: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:fs-sync|audio_path", { sessionId }) };
@@ -195,6 +203,11 @@ async attachmentRemove(sessionId: string, attachmentId: string) : Promise<Result
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+audioImportEvent: AudioImportEvent
+}>({
+audioImportEvent: "plugin:fs-sync:audio-import-event"
+})
 
 /** user-defined constants **/
 
@@ -204,6 +217,8 @@ async attachmentRemove(sessionId: string, attachmentId: string) : Promise<Result
 
 export type AttachmentInfo = { attachmentId: string; path: string; extension: string; modifiedAt: string }
 export type AttachmentSaveResult = { path: string; attachmentId: string }
+export type AudioImportEvent = { type: "audioImportStarted"; session_id: string } | { type: "audioImportProgress"; session_id: string; percentage: number } | { type: "audioImportCompleted"; session_id: string } | { type: "audioImportFailed"; session_id: string; error: string }
+export type AudioSourceMetadata = { createdAt: string | null; modifiedAt: string | null; durationMs: number | null }
 export type CleanupTarget = { type: "files"; subdir: string; extension: string } | { type: "dirs"; subdir: string; marker_file: string } | { type: "filesRecursive"; subdir: string; marker_file: string; extension: string }
 export type FolderInfo = { name: string; parent_folder_id: string | null }
 export type FolderSessionUpdate = { sessionId: string; folderId: string }

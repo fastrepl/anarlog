@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { commands as settingsCommands } from "@hypr/plugin-settings";
 
-import { relaunch } from "~/store/tinybase/store/save";
+import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
 
 export function useChangeContentPathWizard({
   open,
@@ -51,7 +51,7 @@ export function useChangeContentPathWizard({
     },
     onSuccess: async () => {
       onSuccess();
-      await relaunch();
+      await scheduleAutomaticRelaunch();
     },
   });
 

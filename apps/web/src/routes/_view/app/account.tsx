@@ -5,9 +5,7 @@ import { z } from "zod";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 
 import { AccountAccessSection } from "./-account-access";
-import { IntegrationsSettingsCard } from "./-account-integrations";
 import { ProfileInfoSection } from "./-account-profile-info";
-import { AccountSettingsCard } from "./-account-settings";
 
 const validateSearch = z
   .object({
@@ -50,19 +48,17 @@ function Component() {
               </p>
               <div>
                 <h2 className="font-serif text-2xl font-medium text-stone-950">
-                  Profile, billing, and connected services
+                  Profile and account access
                 </h2>
                 <p className="text-sm text-neutral-600">
-                  Update the essentials without burying routine settings behind
-                  destructive actions.
+                  Update your email here. Billing and integrations are managed
+                  in the desktop app.
                 </p>
               </div>
             </div>
 
             <div className="space-y-6">
               <ProfileInfoSection email={user?.email} />
-              <AccountSettingsCard />
-              <IntegrationsSettingsCard />
             </div>
           </section>
 

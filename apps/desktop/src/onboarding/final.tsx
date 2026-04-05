@@ -6,6 +6,7 @@ import { commands as sfxCommands } from "@hypr/plugin-sfx";
 
 import { OnboardingButton } from "./shared";
 
+import { flushAutomaticRelaunch } from "~/store/tinybase/store/save";
 import { commands } from "~/types/tauri.gen";
 
 const SOCIALS = [
@@ -61,5 +62,8 @@ export async function finishOnboarding(onContinue?: () => void) {
   await commands.setOnboardingNeeded(false).catch(console.error);
   await new Promise((resolve) => setTimeout(resolve, 100));
   await analyticsCommands.event({ event: "onboarding_completed" });
+  if (await flushAutomaticRelaunch()) {
+    return;
+  }
   onContinue?.();
 }

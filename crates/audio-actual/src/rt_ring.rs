@@ -197,9 +197,9 @@ where
 
         let convert_count = count.min(vacant);
 
-        for i in 0..convert_count {
+        for (i, slot) in scratch[..convert_count].iter_mut().enumerate() {
             let byte_offset = (offset + i) * frame_size;
-            scratch[i] = f32::from_le_bytes([
+            *slot = f32::from_le_bytes([
                 data[byte_offset],
                 data[byte_offset + 1],
                 data[byte_offset + 2],

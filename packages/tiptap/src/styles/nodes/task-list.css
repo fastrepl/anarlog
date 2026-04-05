@@ -17,6 +17,8 @@
       > label {
         flex: 0 0 auto;
         margin-right: 6px;
+        -webkit-user-select: none;
+        -moz-user-select: none;
         user-select: none;
         position: relative;
         display: inline-flex;
@@ -36,10 +38,16 @@
       width: 18px;
       height: 18px;
       border: 1.5px solid #000000;
+      border-radius: 4px;
       margin: 0;
       transition: all 0.2s ease;
       position: relative;
       margin-top: 3px;
+
+      &[data-selected="true"] {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      }
 
       &:checked {
         background-color: #3b82f6;

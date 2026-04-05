@@ -9,284 +9,107 @@ description: "Command-line reference for the char CLI"
 Live transcription and audio tools
 
 ```
-char [--base-url] [--api-key] [-m] [-l] [--record] [--no-color] [-v] [-q] [-h] [-V] <command>
+char [--no-color] [-v] [-q] [-h] [-V] <command>
 ```
 
 **Global options:**
 
-- `--base-url <BASE_URL>`
-- `--api-key <API_KEY>`
-- `-m, --model <MODEL>`
-- `-l, --language <LANGUAGE>` (default: `en`)
-- `--record`
-- `--no-color`
 - `-v, --verbose` — Increase logging verbosity
 - `-q, --quiet` — Decrease logging verbosity
 
 **Options:**
 
+- `--no-color`
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
 **Subcommands:**
 
-- `chat` — Interactive chat with an LLM
-- `listen` — Start live transcription (TUI)
-- `connect` — Configure an STT or LLM provider
-- `status` — Show configured providers and settings
-- `auth` — Authenticate with char.com
-- `desktop` — Open the desktop app or download page
-- `batch` — Transcribe an audio file
-- `model` — Manage local models
-- `debug` — Debug and diagnostic tools
+- `transcribe` — Transcribe an audio file
+- `models` — Manage local models
 - `completions` — Generate shell completions
+- `play` — Play an audio file
+- `record` — Record audio to an MP3 file
+- `skill` — Install char skill for AI coding agents
+- `desktop` — Open the desktop app or download page
+- `update` — Update char to the latest version
+- `shortcut` — Manage global shortcut (macOS only)
+- `meetings` — Browse past meetings
+- `humans` — Browse humans (contacts)
+- `orgs` — Browse organizations
+- `export` — Export data in various formats
 
 ---
 
-### char chat
-
-Interactive chat with an LLM
-
-```
-char chat [--session] [--prompt] [--provider] [-h] [-V]
-```
-
-**Options:**
-
-- `--session <SESSION>`
-- `--prompt <PROMPT>` — Send a single prompt without entering the TUI (use `-` to read from stdin)
-- `--provider <PROVIDER>`
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char listen
-
-Start live transcription (TUI)
-
-```
-char listen <-p> [--audio] [-h] [-V]
-```
-
-**Options:**
-
-- `-p, --provider <PROVIDER>`
-- `--audio <AUDIO>` (default: `dual`)
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char connect
-
-Configure an STT or LLM provider
-
-```
-char connect [--type] [--provider] [-h] [-V]
-```
-
-**Options:**
-
-- `--type <TYPE>`
-- `--provider <PROVIDER>`
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char status
-
-Show configured providers and settings
-
-```
-char status [-h] [-V]
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char auth
-
-Authenticate with char.com
-
-```
-char auth [-h] [-V]
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char desktop
-
-Open the desktop app or download page
-
-```
-char desktop [-h] [-V]
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char batch
+### char transcribe
 
 Transcribe an audio file
 
 ```
-char batch <--input> <-p> [-k] [-o] [-f] [-h] [-V]
+char transcribe [INPUT] [-i] <-p> [-k] [-o] [-f] [--base] [--base-url] [--api-key] [-m] [-l] [-h] [-V]
 ```
 
 **Options:**
 
-- `--input <FILE>`
+- `-i, --input <FILE>` (alias: `--file`)
 - `-p, --provider <PROVIDER>`
 - `-k, --keyword <KEYWORD>`
 - `-o, --output <FILE>`
 - `-f, --format <FORMAT>` (default: `pretty`)
+- `--base <DIR>`
+- `--base-url <BASE_URL>`
+- `--api-key <API_KEY>`
+- `-m, --model <MODEL>`
+- `-l, --language <LANGUAGE>` (default: `en`)
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
-### char model
+**Arguments:**
+
+- `[INPUT]` — Timestamp (e.g. 20260327_143022) or path to an audio file
+
+### char models
 
 Manage local models
 
 ```
-char model [-h] [-V] <command>
+char models [--base] [-h] [-V] <command>
 ```
 
 **Options:**
 
+- `--base <DIR>`
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
 **Subcommands:**
 
-- `paths` — Show resolved paths for settings and model storage
-- `current` — Show current STT and LLM provider/model configuration
-- `list` — List available models and their download status
-- `cactus` — Manage downloadable Cactus models
+- `list` — List local models and their status
 - `download` — Download a model by name
 - `delete` — Delete a downloaded model
 
 ---
 
-### char model paths
+### char models list
 
-Show resolved paths for settings and model storage
-
-```
-char model paths [-h] [-V]
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char model current
-
-Show current STT and LLM provider/model configuration
+List local models and their status
 
 ```
-char model current [-h] [-V]
+char models list [-f] [-h] [-V]
 ```
 
 **Options:**
 
+- `-f, --format <FORMAT>` (default: `pretty`)
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
-### char model list
-
-List available models and their download status
-
-```
-char model list [--kind] [--supported] [-f] [-h] [-V]
-```
-
-**Options:**
-
-- `--kind <KIND>`
-- `--supported`
-- `-f, --format <FORMAT>` (default: `text`)
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char model cactus
-
-Manage downloadable Cactus models
-
-```
-char model cactus [-h] [-V] <command>
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-**Subcommands:**
-
-- `list` — List available Cactus models
-- `download` — Download a Cactus model by name
-- `delete` — Delete a downloaded Cactus model
-
----
-
-### char model cactus list
-
-List available Cactus models
-
-```
-char model cactus list [-f] [-h] [-V]
-```
-
-**Options:**
-
-- `-f, --format <FORMAT>` (default: `text`)
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-### char model cactus download
-
-Download a Cactus model by name
-
-```
-char model cactus download [-h] [-V] <name>
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-**Arguments:**
-
-- `<NAME>`
-
-### char model cactus delete
-
-Delete a downloaded Cactus model
-
-```
-char model cactus delete [-h] [-V] <name>
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-**Arguments:**
-
-- `<NAME>`
-
-### char model download
+### char models download
 
 Download a model by name
 
 ```
-char model download [-h] [-V] <name>
+char models download [-h] [-V] <name>
 ```
 
 **Options:**
@@ -298,60 +121,23 @@ char model download [-h] [-V] <name>
 
 - `<NAME>`
 
-### char model delete
+### char models delete
 
 Delete a downloaded model
 
 ```
-char model delete [-h] [-V] <name>
+char models delete [--force] [-h] [-V] <name>
 ```
 
 **Options:**
 
+- `--force`
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
 **Arguments:**
 
 - `<NAME>`
-
-### char debug
-
-Debug and diagnostic tools
-
-```
-char debug [-h] [-V] <command>
-```
-
-**Options:**
-
-- `-h, --help` — Print help
-- `-V, --version` — Print version
-
-**Subcommands:**
-
-- `transcribe` — Real-time transcription from audio devices
-
----
-
-### char debug transcribe
-
-Real-time transcription from audio devices
-
-```
-char debug transcribe <--provider> [--model] [--model-path] [--deepgram-api-key] [--soniox-api-key] [--audio] [-h] [-V]
-```
-
-**Options:**
-
-- `--provider <PROVIDER>`
-- `--model <MODEL>` — Model name (API model for cloud providers, model ID for local)
-- `--model-path <MODEL_PATH>` — Path to a local model directory on disk
-- `--deepgram-api-key <DEEPGRAM_API_KEY>`
-- `--soniox-api-key <SONIOX_API_KEY>`
-- `--audio <AUDIO>` (default: `input`)
-- `-h, --help` — Print help
-- `-V, --version` — Print version
 
 ### char completions
 
@@ -369,4 +155,545 @@ char completions [-h] [-V] <shell>
 **Arguments:**
 
 - `<SHELL>`
+
+### char play
+
+Play an audio file
+
+```
+char play [--base] [-h] [-V] <target>
+```
+
+**Options:**
+
+- `--base <DIR>` — Base directory for session lookup
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<TARGET>` — Timestamp (e.g. 20260327_143022) or path to an audio file
+
+### char record
+
+Record audio to an MP3 file
+
+```
+char record [--audio] [-o] [-f] [--base] [-h] [-V]
+```
+
+**Options:**
+
+- `--audio <AUDIO>` (default: `dual`)
+- `-o, --output <FILE>`
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `--base <DIR>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char skill
+
+Install char skill for AI coding agents
+
+```
+char skill <command>
+```
+
+**Subcommands:**
+
+- `install` — Install char skill for AI coding agents
+
+---
+
+### char skill install
+
+Install char skill for AI coding agents
+
+```
+char skill install [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` — Skip interactive selection: claude, codex, github-copilot
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char desktop
+
+Open the desktop app or download page
+
+```
+char desktop [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char update
+
+Update char to the latest version
+
+```
+char update [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char shortcut
+
+Manage global shortcut (macOS only)
+
+```
+char shortcut [-h] [-V] [command]
+```
+
+When run without a subcommand, opens the shortcut configuration screen.
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `install` — Install the global shortcut daemon
+- `uninstall` — Uninstall the shortcut daemon
+- `status` — Check if the shortcut daemon is running
+
+### char meetings
+
+Browse past meetings
+
+```
+char meetings [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `list` — List meetings
+- `view` — View a specific meeting
+- `participants` — List participants in a meeting
+- `add-participant` — Add a participant to a meeting
+- `rm-participant` — Remove a participant from a meeting
+
+---
+
+### char meetings list
+
+List meetings
+
+```
+char meetings list [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char meetings view
+
+View a specific meeting
+
+```
+char meetings view <--id> [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char meetings participants
+
+List participants in a meeting
+
+```
+char meetings participants <--id> [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char meetings add-participant
+
+Add a participant to a meeting
+
+```
+char meetings add-participant <--meeting> <--human> [-h] [-V]
+```
+
+**Options:**
+
+- `--meeting <MEETING>`
+- `--human <HUMAN>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char meetings rm-participant
+
+Remove a participant from a meeting
+
+```
+char meetings rm-participant <--meeting> <--human> [-h] [-V]
+```
+
+**Options:**
+
+- `--meeting <MEETING>`
+- `--human <HUMAN>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char humans
+
+Browse humans (contacts)
+
+```
+char humans [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `list` — List all humans
+- `add` — Add a new human
+- `edit` — Edit a human
+- `show` — Show details for a human
+- `rm` — Remove a human
+
+---
+
+### char humans list
+
+List all humans
+
+```
+char humans list [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char humans add
+
+Add a new human
+
+```
+char humans add [--email] [--org] [--title] [-h] [-V] <name>
+```
+
+**Options:**
+
+- `--email <EMAIL>`
+- `--org <ORG_ID>`
+- `--title <JOB_TITLE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char humans edit
+
+Edit a human
+
+```
+char humans edit <--id> [--name] [--email] [--org] [--title] [--memo] [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `--name <NAME>`
+- `--email <EMAIL>`
+- `--org <ORG_ID>`
+- `--title <JOB_TITLE>`
+- `--memo <MEMO>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char humans show
+
+Show details for a human
+
+```
+char humans show <--id> [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char humans rm
+
+Remove a human
+
+```
+char humans rm <--id> [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char orgs
+
+Browse organizations
+
+```
+char orgs [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `list` — List all organizations
+- `add` — Add a new organization
+- `edit` — Edit an organization
+- `show` — Show details for an organization
+- `rm` — Remove an organization
+
+---
+
+### char orgs list
+
+List all organizations
+
+```
+char orgs list [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char orgs add
+
+Add a new organization
+
+```
+char orgs add [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char orgs edit
+
+Edit an organization
+
+```
+char orgs edit <--id> [--name] [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `--name <NAME>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char orgs show
+
+Show details for an organization
+
+```
+char orgs show <--id> [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char orgs rm
+
+Remove an organization
+
+```
+char orgs rm <--id> [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export
+
+Export data in various formats
+
+```
+char export [-h] [-V] <command>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `meeting` — Export a single meeting with all associated data
+- `meetings` — Export meeting list
+- `transcript` — Export transcript for a meeting
+- `notes` — Export notes for a meeting
+- `chat` — Export chat messages for a meeting
+- `humans` — Export all contacts
+- `orgs` — Export all organizations
+
+---
+
+### char export meeting
+
+Export a single meeting with all associated data
+
+```
+char export meeting <--id> [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `--id <ID>`
+- `-f, --format <FORMAT>` (default: `json`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export meetings
+
+Export meeting list
+
+```
+char export meetings [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `text`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export transcript
+
+Export transcript for a meeting
+
+```
+char export transcript <--meeting> [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `--meeting <MEETING>`
+- `-f, --format <FORMAT>` (default: `text`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export notes
+
+Export notes for a meeting
+
+```
+char export notes <--meeting> [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `--meeting <MEETING>`
+- `-f, --format <FORMAT>` (default: `markdown`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export chat
+
+Export chat messages for a meeting
+
+```
+char export chat <--meeting> [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `--meeting <MEETING>`
+- `-f, --format <FORMAT>` (default: `markdown`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export humans
+
+Export all contacts
+
+```
+char export humans [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `text`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char export orgs
+
+Export all organizations
+
+```
+char export orgs [-f] [-o] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `text`)
+- `-o, --output <FILE>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
 

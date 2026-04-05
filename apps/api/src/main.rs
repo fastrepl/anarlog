@@ -110,8 +110,8 @@ async fn app() -> Router {
         )
         .build();
 
-    let auth_state_pro =
-        AuthState::new(&env.supabase.supabase_url).with_required_entitlement("hyprnote_pro");
+    let auth_state_pro = AuthState::new(&env.supabase.supabase_url)
+        .with_required_entitlements(vec!["hyprnote_pro".into(), "hyprnote_lite".into()]);
     let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
     let auth_state_support = AuthState::new(&env.supabase.supabase_url);
 
@@ -133,15 +133,28 @@ async fn app() -> Router {
         &env.chatwoot,
         auth_state_support.clone(),
     );
+    let cactus_config = hypr_api_cactus::CactusProxyConfig {
+        api_key: env.cactus_api_key.clone(),
+        upstream_base: None,
+    };
     let research_config = hypr_api_research::ResearchConfig {
         exa_api_key: env.exa_api_key.clone(),
         jina_api_key: env.jina_api_key.clone(),
     };
+    let pyannote_config = hypr_api_pyannote::PyannoteConfig::new(&env.pyannote);
+
+    use hypr_api_nango::NangoIntegrationId;
+
+    let mut forward_handlers = hypr_api_nango::ForwardHandlerRegistry::new();
+    forward_handlers.insert(
+        hypr_api_nango::Linear::ID.to_string(),
+        hypr_api_nango::forward_handler(hypr_linear::webhook::handle),
+    );
 
     let webhook_routes = Router::new()
         .nest(
             "/nango",
-            hypr_api_nango::webhook_router(nango_config.clone()),
+            hypr_api_nango::webhook_router(nango_config.clone(), forward_handlers),
         )
         .nest(
             "/stt",
@@ -153,6 +166,7 @@ async fn app() -> Router {
 
     let pro_routes = Router::new()
         .merge(hypr_api_research::router(research_config))
+        .nest("/pyannote", hypr_api_pyannote::router(pyannote_config))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state_pro,
@@ -161,6 +175,8 @@ async fn app() -> Router {
 
     let integration_routes = Router::new()
         .nest("/calendar", hypr_api_calendar::router())
+        .nest("/mail", hypr_api_mail::router())
+        .nest("/ticket", hypr_api_ticket::router())
         .nest("/nango", hypr_api_nango::router(nango_config.clone()))
         .layer(axum::Extension(nango_connection_state))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
@@ -208,6 +224,7 @@ async fn app() -> Router {
     Router::new()
         .route("/health", axum::routing::get(version))
         .route("/openapi.json", axum::routing::get(openapi_json))
+        .nest("/cactus", hypr_api_cactus::router(cactus_config))
         .merge(support_routes)
         .merge(webhook_routes)
         .merge(pro_routes)

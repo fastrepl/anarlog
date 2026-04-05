@@ -13,7 +13,6 @@ const DESKTOP_DATA_FOLDERS: &[&str] = &[
     "com.hyprnote.staging",
     "com.hyprnote.nightly",
     "com.hyprnote.stable",
-    "com.hyprnote.Hyprnote",
 ];
 
 pub enum DesktopAction {

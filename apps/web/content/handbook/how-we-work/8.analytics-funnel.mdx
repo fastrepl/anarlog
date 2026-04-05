@@ -1,10 +1,10 @@
 ---
 title: "Analytics Funnel"
 section: "How We Work"
-summary: "The 8-stage user journey we track with PostHog, from first website visit to retained paying user"
+summary: "The 8-stage user journey we track across consented website analytics and PostHog, from first website visit to retained paying user"
 ---
 
-We track the user lifecycle as an 8-stage funnel. Each stage has key events that tell us whether users are progressing. For implementation details and the full event catalog, see the [developer analytics docs](/docs/developers/analytics).
+We track the user lifecycle as an 8-stage funnel. Website acquisition uses consented website analytics on the web, and product funnel events live in PostHog. For implementation details and the full event catalog, see the [developer analytics docs](/docs/developers/analytics).
 
 ```
 [                   1. Acquisition                  ]
@@ -19,7 +19,7 @@ We track the user lifecycle as an 8-stage funnel. Each stage has key events that
 
 ## 1. Acquisition (website visits)
 
-Standard PostHog pageview and session tracking.
+Standard consented website analytics tracking, plus PostHog pageview and session tracking.
 
 ## 2. Converting visits to app installs
 

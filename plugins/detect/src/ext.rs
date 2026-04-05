@@ -8,8 +8,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Detect<'a, R, M> {
         hypr_detect::list_installed_apps()
     }
 
-    pub fn list_mic_using_applications(&self) -> Vec<hypr_detect::InstalledApp> {
-        hypr_detect::list_mic_using_apps()
+    pub fn list_mic_using_applications(
+        &self,
+    ) -> Result<Vec<hypr_detect::InstalledApp>, crate::Error> {
+        Ok(hypr_detect::list_mic_using_apps()?)
     }
 
     pub fn list_default_ignored_bundle_ids(&self) -> Vec<String> {
@@ -23,6 +25,23 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Detect<'a, R, M> {
             state_guard.mic_usage_tracker.cancel_app(id);
         }
         state_guard.policy.user_ignored_bundle_ids = bundle_ids.into_iter().collect();
+    }
+
+    pub fn set_included_bundle_ids(&self, bundle_ids: Vec<String>) {
+        let state = self.manager.state::<crate::ProcessorState>();
+        let mut state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        let next_ids = bundle_ids
+            .into_iter()
+            .collect::<std::collections::HashSet<_>>();
+
+        let prev_ids = state_guard.policy.user_included_bundle_ids.clone();
+        for id in &prev_ids {
+            if !next_ids.contains(id) {
+                state_guard.mic_usage_tracker.cancel_app(id);
+            }
+        }
+
+        state_guard.policy.user_included_bundle_ids = next_ids;
     }
 
     pub fn set_respect_do_not_disturb(&self, enabled: bool) {

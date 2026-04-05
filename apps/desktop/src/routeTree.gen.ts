@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/app/route'
-import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
+import { Route as AppInstructionRouteImport } from './routes/app/instruction'
 import { Route as AppControlRouteImport } from './routes/app/control'
+import { Route as AppMain2LayoutRouteImport } from './routes/app/main2/_layout'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
+import { Route as AppMain2LayoutIndexRouteImport } from './routes/app/main2/_layout.index'
 import { Route as AppMainLayoutIndexRouteImport } from './routes/app/main/_layout.index'
 
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -20,20 +22,30 @@ const AppRouteRoute = AppRouteRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/auth/callback',
-  path: '/auth/callback',
-  getParentRoute: () => rootRouteImport,
+const AppInstructionRoute = AppInstructionRouteImport.update({
+  id: '/instruction',
+  path: '/instruction',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppControlRoute = AppControlRouteImport.update({
   id: '/control',
   path: '/control',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppMain2LayoutRoute = AppMain2LayoutRouteImport.update({
+  id: '/main2/_layout',
+  path: '/main2',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppMainLayoutRoute = AppMainLayoutRouteImport.update({
   id: '/main/_layout',
   path: '/main',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AppMain2LayoutIndexRoute = AppMain2LayoutIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppMain2LayoutRoute,
 } as any)
 const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
   id: '/',
@@ -44,46 +56,54 @@ const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main': typeof AppMainLayoutRouteWithChildren
+  '/app/main2': typeof AppMain2LayoutRouteWithChildren
   '/app/main/': typeof AppMainLayoutIndexRoute
+  '/app/main2/': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRoutesByTo {
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main': typeof AppMainLayoutIndexRoute
+  '/app/main2': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRouteRouteWithChildren
   '/app/control': typeof AppControlRoute
-  '/auth/callback': typeof AuthCallbackRoute
+  '/app/instruction': typeof AppInstructionRoute
   '/app/main/_layout': typeof AppMainLayoutRouteWithChildren
+  '/app/main2/_layout': typeof AppMain2LayoutRouteWithChildren
   '/app/main/_layout/': typeof AppMainLayoutIndexRoute
+  '/app/main2/_layout/': typeof AppMain2LayoutIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/app'
     | '/app/control'
-    | '/auth/callback'
+    | '/app/instruction'
     | '/app/main'
+    | '/app/main2'
     | '/app/main/'
+    | '/app/main2/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/app' | '/app/control' | '/auth/callback' | '/app/main'
+  to: '/app' | '/app/control' | '/app/instruction' | '/app/main' | '/app/main2'
   id:
     | '__root__'
     | '/app'
     | '/app/control'
-    | '/auth/callback'
+    | '/app/instruction'
     | '/app/main/_layout'
+    | '/app/main2/_layout'
     | '/app/main/_layout/'
+    | '/app/main2/_layout/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
-  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -95,12 +115,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/auth/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof rootRouteImport
+    '/app/instruction': {
+      id: '/app/instruction'
+      path: '/instruction'
+      fullPath: '/app/instruction'
+      preLoaderRoute: typeof AppInstructionRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/app/control': {
       id: '/app/control'
@@ -109,12 +129,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppControlRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/app/main2/_layout': {
+      id: '/app/main2/_layout'
+      path: '/main2'
+      fullPath: '/app/main2'
+      preLoaderRoute: typeof AppMain2LayoutRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/app/main/_layout': {
       id: '/app/main/_layout'
       path: '/main'
       fullPath: '/app/main'
       preLoaderRoute: typeof AppMainLayoutRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/app/main2/_layout/': {
+      id: '/app/main2/_layout/'
+      path: '/'
+      fullPath: '/app/main2/'
+      preLoaderRoute: typeof AppMain2LayoutIndexRouteImport
+      parentRoute: typeof AppMain2LayoutRoute
     }
     '/app/main/_layout/': {
       id: '/app/main/_layout/'
@@ -138,14 +172,30 @@ const AppMainLayoutRouteWithChildren = AppMainLayoutRoute._addFileChildren(
   AppMainLayoutRouteChildren,
 )
 
+interface AppMain2LayoutRouteChildren {
+  AppMain2LayoutIndexRoute: typeof AppMain2LayoutIndexRoute
+}
+
+const AppMain2LayoutRouteChildren: AppMain2LayoutRouteChildren = {
+  AppMain2LayoutIndexRoute: AppMain2LayoutIndexRoute,
+}
+
+const AppMain2LayoutRouteWithChildren = AppMain2LayoutRoute._addFileChildren(
+  AppMain2LayoutRouteChildren,
+)
+
 interface AppRouteRouteChildren {
   AppControlRoute: typeof AppControlRoute
+  AppInstructionRoute: typeof AppInstructionRoute
   AppMainLayoutRoute: typeof AppMainLayoutRouteWithChildren
+  AppMain2LayoutRoute: typeof AppMain2LayoutRouteWithChildren
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppControlRoute: AppControlRoute,
+  AppInstructionRoute: AppInstructionRoute,
   AppMainLayoutRoute: AppMainLayoutRouteWithChildren,
+  AppMain2LayoutRoute: AppMain2LayoutRouteWithChildren,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -154,7 +204,6 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
-  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,7 +2,11 @@ import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import type { NodeViewProps } from "@tiptap/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { AttachmentImage, normalizeEditorWidth } from "@hypr/tiptap/shared";
+import {
+  AttachmentImage,
+  DEFAULT_EDITOR_WIDTH,
+  normalizeEditorWidth,
+} from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
 
 function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
@@ -129,13 +133,10 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
   );
 
   const showControls = isHovered || isFocused || selected || isResizing;
+  const editorWidth =
+    normalizeEditorWidth(node.attrs.editorWidth) ?? DEFAULT_EDITOR_WIDTH;
   const imageWidth =
-    draftWidth !== null
-      ? `${draftWidth}px`
-      : node.attrs.editorWidth
-        ? `${node.attrs.editorWidth}%`
-        : undefined;
-  const hasExplicitWidth = imageWidth !== undefined;
+    draftWidth !== null ? `${draftWidth}px` : `${editorWidth}%`;
 
   return (
     <NodeViewWrapper className="relative overflow-visible">
@@ -151,27 +152,24 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
           src={node.attrs.src}
           alt={node.attrs.alt || ""}
           title={node.attrs.title || undefined}
-          className={cn([
-            "tiptap-image max-w-full",
-            hasExplicitWidth ? "w-full" : "",
-          ])}
+          className={cn(["tiptap-image max-w-full", "w-full"])}
           draggable={false}
         />
         {showControls && (
           <>
             <div
               aria-hidden="true"
-              className="absolute top-0 right-full z-10 h-full w-3"
+              className="absolute top-0 right-0 z-10 h-full w-6"
             />
             <div
               aria-hidden="true"
-              className="absolute top-0 left-full z-10 h-full w-3"
+              className="absolute top-0 left-0 z-10 h-full w-6"
             />
             <button
               type="button"
               aria-label="Resize image from left"
               onPointerDown={(event) => handleResizeStart("left", event)}
-              className="absolute top-1/2 right-full z-20 mr-3 flex h-16 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
             >
               <span className="h-8 w-1 rounded-full bg-neutral-400" />
             </button>
@@ -179,7 +177,7 @@ function ImageNodeView({ node, updateAttributes, selected }: NodeViewProps) {
               type="button"
               aria-label="Resize image from right"
               onPointerDown={(event) => handleResizeStart("right", event)}
-              className="absolute top-1/2 left-full z-20 ml-3 flex h-16 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
+              className="absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border border-neutral-300 bg-white/95 shadow-sm backdrop-blur-sm"
             >
               <span className="h-8 w-1 rounded-full bg-neutral-400" />
             </button>

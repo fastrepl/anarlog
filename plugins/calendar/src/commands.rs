@@ -100,6 +100,12 @@ pub fn create_event<R: tauri::Runtime>(
     hypr_calendar::create_event(provider, input).map_err(Into::into)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub fn parse_meeting_link(text: String) -> Option<String> {
+    hypr_calendar::parse_meeting_link(&text)
+}
+
 fn access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<String> {
     app.access_token().ok().flatten().filter(|t| !t.is_empty())
 }

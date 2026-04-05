@@ -14,6 +14,7 @@ use pulse::mainloop::threaded::Mainloop;
 use pulse::sample::{Format, Spec};
 use pulse::stream::{FlagSet as StreamFlagSet, Stream as PaStream};
 use pw::properties::properties;
+use pw::spa::utils::Direction;
 use ringbuf::{
     HeapCons, HeapProd, HeapRb,
     traits::{Producer, Split},
@@ -107,9 +108,9 @@ impl SpeakerStream {
             thread::spawn(move || {
                 let result = pipewire_capture_loop(
                     producer,
-                    waker.clone(),
+                    Arc::clone(&waker),
                     wake_pending,
-                    alive.clone(),
+                    Arc::clone(&alive),
                     current_sample_rate,
                     dropped_samples,
                     shutdown_rx,
@@ -174,9 +175,9 @@ impl SpeakerStream {
             thread::spawn(move || {
                 let result = pulseaudio_capture_loop(
                     producer,
-                    waker.clone(),
+                    Arc::clone(&waker),
                     wake_pending,
-                    alive.clone(),
+                    Arc::clone(&alive),
                     running,
                     current_sample_rate,
                     dropped_samples,
@@ -233,15 +234,18 @@ fn pipewire_capture_loop(
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
+    pw::init();
+    let _deinit_guard = PipeWireDeinitGuard;
+
     let mainloop =
-        pw::main_loop::MainLoop::new(None).context("Failed to create PipeWire main loop")?;
-    let context =
-        pw::context::Context::new(&mainloop).context("Failed to create PipeWire context")?;
+        pw::main_loop::MainLoopRc::new(None).context("Failed to create PipeWire main loop")?;
+    let context = pw::context::ContextBox::new(&mainloop.loop_(), None)
+        .context("Failed to create PipeWire context")?;
     let core = context
         .connect(None)
         .context("Failed to connect to PipeWire core")?;
 
-    let stream = pw::stream::Stream::new(
+    let stream = pw::stream::StreamBox::new(
         &core,
         "hyprnote-speaker-capture",
         properties! {
@@ -318,11 +322,12 @@ fn pipewire_capture_loop(
             }
 
             let data = &mut datas[0];
+            let chunk_size = data.chunk().size() as usize;
             let Some(bytes) = data.data() else {
                 return;
             };
 
-            let chunk_len = (data.chunk().size() as usize).min(bytes.len());
+            let chunk_len = chunk_size.min(bytes.len());
             if chunk_len == 0 {
                 return;
             }
@@ -369,7 +374,7 @@ fn pipewire_capture_loop(
 
     stream
         .connect(
-            pw::spa::utils::Direction::Input,
+            Direction::Input,
             None,
             pw::stream::StreamFlags::AUTOCONNECT
                 | pw::stream::StreamFlags::MAP_BUFFERS
@@ -383,6 +388,14 @@ fn pipewire_capture_loop(
 
     alive.store(false, Ordering::Release);
     Ok(())
+}
+
+struct PipeWireDeinitGuard;
+
+impl Drop for PipeWireDeinitGuard {
+    fn drop(&mut self) {
+        unsafe { pw::deinit() };
+    }
 }
 
 fn pulseaudio_capture_loop(
@@ -540,7 +553,7 @@ fn wait_for_context_ready(mainloop: &mut Mainloop, context: &PaContext) -> Resul
         match state {
             pulse::context::State::Ready => return Ok(()),
             pulse::context::State::Failed | pulse::context::State::Terminated => {
-                anyhow::bail!("PulseAudio context failed");
+                anyhow::bail!("PulseAudio context entered {:?} state", state);
             }
             _ => thread::sleep(Duration::from_millis(10)),
         }
@@ -563,7 +576,7 @@ fn wait_for_stream_ready(mainloop: &mut Mainloop, stream: &PaStream) -> Result<(
         match state {
             pulse::stream::State::Ready => return Ok(()),
             pulse::stream::State::Failed | pulse::stream::State::Terminated => {
-                anyhow::bail!("PulseAudio stream failed");
+                anyhow::bail!("PulseAudio stream entered {:?} state", state);
             }
             _ => thread::sleep(Duration::from_millis(10)),
         }
@@ -574,8 +587,6 @@ fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> O
     use std::sync::mpsc;
 
     let (tx, rx) = mpsc::channel();
-    let done = Arc::new(AtomicBool::new(false));
-    let done_clone = done.clone();
 
     mainloop.lock();
     let introspector = context.introspect();
@@ -586,18 +597,10 @@ fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> O
         } else {
             let _ = tx.send(None);
         }
-        done_clone.store(true, Ordering::Release);
     });
     mainloop.unlock();
 
-    let timeout = Duration::from_secs(2);
-    let start = std::time::Instant::now();
-
-    while !done.load(Ordering::Acquire) && start.elapsed() < timeout {
-        thread::sleep(Duration::from_millis(10));
-    }
-
-    rx.recv_timeout(Duration::from_millis(100)).ok().flatten()
+    rx.recv_timeout(Duration::from_secs(2)).ok().flatten()
 }
 
 impl Stream for SpeakerStream {

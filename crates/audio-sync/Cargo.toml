@@ -8,3 +8,7 @@ realfft = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+dasp = { workspace = true }
+rodio = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

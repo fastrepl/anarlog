@@ -14,6 +14,9 @@ pub enum CactusSttModel {
     #[serde(rename = "cactus-whisper-small-int4")]
     #[strum(serialize = "cactus-whisper-small-int4")]
     WhisperSmallInt4,
+    #[serde(rename = "cactus-whisper-small-int4-apple")]
+    #[strum(serialize = "cactus-whisper-small-int4-apple")]
+    WhisperSmallInt4Apple,
     #[serde(rename = "cactus-whisper-small-int8")]
     #[strum(serialize = "cactus-whisper-small-int8")]
     WhisperSmallInt8,
@@ -47,15 +50,22 @@ pub enum CactusSttModel {
     #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int4")]
     #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int4")]
     ParakeetTdt0_6bV3Int4,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int4-apple")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int4-apple")]
+    ParakeetTdt0_6bV3Int4Apple,
     #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int8")]
     #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int8")]
     ParakeetTdt0_6bV3Int8,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int8-apple")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int8-apple")]
+    ParakeetTdt0_6bV3Int8Apple,
 }
 
 impl CactusSttModel {
     pub fn all() -> &'static [CactusSttModel] {
         &[
             CactusSttModel::WhisperSmallInt4,
+            CactusSttModel::WhisperSmallInt4Apple,
             CactusSttModel::WhisperSmallInt8,
             CactusSttModel::WhisperSmallInt8Apple,
             CactusSttModel::WhisperMediumInt4,
@@ -67,31 +77,40 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8,
             CactusSttModel::ParakeetCtc0_6bInt8Apple,
             CactusSttModel::ParakeetTdt0_6bV3Int4,
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple,
             CactusSttModel::ParakeetTdt0_6bV3Int8,
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple,
         ]
     }
 
     pub fn is_apple(&self) -> bool {
         matches!(
             self,
-            CactusSttModel::WhisperSmallInt8Apple
+            CactusSttModel::WhisperSmallInt4Apple
+                | CactusSttModel::WhisperSmallInt8Apple
                 | CactusSttModel::WhisperMediumInt4Apple
                 | CactusSttModel::WhisperMediumInt8Apple
                 | CactusSttModel::ParakeetCtc0_6bInt4Apple
                 | CactusSttModel::ParakeetCtc0_6bInt8Apple
+                | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+                | CactusSttModel::ParakeetTdt0_6bV3Int8Apple
         )
     }
 
     pub fn is_cross_platform(&self) -> bool {
         matches!(
             self,
-            CactusSttModel::ParakeetTdt0_6bV3Int4 | CactusSttModel::ParakeetTdt0_6bV3Int8
+            CactusSttModel::WhisperSmallInt4
+                | CactusSttModel::WhisperSmallInt8
+                | CactusSttModel::ParakeetTdt0_6bV3Int4
+                | CactusSttModel::ParakeetTdt0_6bV3Int8
         )
     }
 
     pub fn asset_id(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "cactus-whisper-small-int4",
+            CactusSttModel::WhisperSmallInt4Apple => "cactus-whisper-small-int4-apple",
             CactusSttModel::WhisperSmallInt8 => "cactus-whisper-small-int8",
             CactusSttModel::WhisperSmallInt8Apple => "cactus-whisper-small-int8-apple",
             CactusSttModel::WhisperMediumInt4 => "cactus-whisper-medium-int4",
@@ -103,13 +122,16 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "cactus-parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "cactus-parakeet-ctc-0.6b-int8-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "cactus-parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "cactus-parakeet-tdt-0.6b-v3-int4-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "cactus-parakeet-tdt-0.6b-v3-int8",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "cactus-parakeet-tdt-0.6b-v3-int8-apple",
         }
     }
 
     pub fn dir_name(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "whisper-small-int4",
+            CactusSttModel::WhisperSmallInt4Apple => "whisper-small-int4-apple",
             CactusSttModel::WhisperSmallInt8 => "whisper-small-int8",
             CactusSttModel::WhisperSmallInt8Apple => "whisper-small-int8-apple",
             CactusSttModel::WhisperMediumInt4 => "whisper-medium-int4",
@@ -121,7 +143,9 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "parakeet-ctc-0.6b-int8-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "parakeet-tdt-0.6b-v3-int4-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "parakeet-tdt-0.6b-v3-int8",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "parakeet-tdt-0.6b-v3-int8-apple",
         }
     }
 
@@ -131,6 +155,12 @@ impl CactusSttModel {
 
     pub fn model_url(&self) -> Option<&str> {
         match self {
+            CactusSttModel::WhisperSmallInt4 => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+            ),
+            CactusSttModel::WhisperSmallInt4Apple => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4-apple.zip",
+            ),
             CactusSttModel::WhisperSmallInt8 => Some(
                 "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8.zip",
             ),
@@ -158,8 +188,14 @@ impl CactusSttModel {
             CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(
                 "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
             ),
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4-apple.zip",
+            ),
             CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(
                 "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
+            ),
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8-apple.zip",
             ),
             _ => None,
         }
@@ -167,27 +203,34 @@ impl CactusSttModel {
 
     pub fn checksum(&self) -> Option<u32> {
         match self {
+            CactusSttModel::WhisperSmallInt4 => Some(3458434299),
+            CactusSttModel::WhisperSmallInt4Apple => Some(978654274),
             CactusSttModel::WhisperSmallInt8 => Some(4195045602),
             CactusSttModel::WhisperSmallInt8Apple => Some(3401367684),
             CactusSttModel::WhisperMediumInt8 => Some(472491622),
             CactusSttModel::WhisperMediumInt8Apple => Some(3175773054),
-            CactusSttModel::ParakeetCtc0_6bInt4 => Some(110856526),
-            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(3331802527),
-            CactusSttModel::ParakeetCtc0_6bInt8 => Some(1392473619),
-            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(3465847421),
+            CactusSttModel::ParakeetCtc0_6bInt4 => Some(110471502),
+            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(3331532191),
+            CactusSttModel::ParakeetCtc0_6bInt8 => Some(1392408083),
+            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(3465716349),
             CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(4186460235),
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => Some(215115681),
             CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(1102737485),
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => Some(1011398120),
             _ => None,
         }
     }
 
     pub fn description(&self) -> &str {
         match self {
-            CactusSttModel::WhisperSmallInt8Apple
+            CactusSttModel::WhisperSmallInt4Apple
+            | CactusSttModel::WhisperSmallInt8Apple
             | CactusSttModel::WhisperMediumInt4Apple
             | CactusSttModel::WhisperMediumInt8Apple
             | CactusSttModel::ParakeetCtc0_6bInt4Apple
-            | CactusSttModel::ParakeetCtc0_6bInt8Apple => "Apple Neural Engine",
+            | CactusSttModel::ParakeetCtc0_6bInt8Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "Apple Neural Engine",
             _ => "",
         }
     }
@@ -195,6 +238,7 @@ impl CactusSttModel {
     pub fn display_name(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "Whisper Small (INT4)",
+            CactusSttModel::WhisperSmallInt4Apple => "Whisper Small (INT4, Apple NPU)",
             CactusSttModel::WhisperSmallInt8 => "Whisper Small (INT8)",
             CactusSttModel::WhisperSmallInt8Apple => "Whisper Small (INT8, Apple NPU)",
             CactusSttModel::WhisperMediumInt4 => "Whisper Medium (INT4)",
@@ -206,7 +250,9 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "Parakeet CTC 0.6B (INT8)",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "Parakeet CTC 0.6B (INT8, Apple NPU)",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "Parakeet TDT 0.6B v3 (INT4)",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "Parakeet TDT 0.6B v3 (INT4, Apple NPU)",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "Parakeet TDT 0.6B v3 (INT8)",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "Parakeet TDT 0.6B v3 (INT8, Apple NPU)",
         }
     }
 
@@ -217,7 +263,9 @@ impl CactusSttModel {
             | CactusSttModel::ParakeetCtc0_6bInt8
             | CactusSttModel::ParakeetCtc0_6bInt8Apple
             | CactusSttModel::ParakeetTdt0_6bV3Int4
-            | CactusSttModel::ParakeetTdt0_6bV3Int8 => {
+            | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int8
+            | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => {
                 vec!["en".parse().unwrap()]
             }
             _ => hypr_language::whisper_multilingual(),

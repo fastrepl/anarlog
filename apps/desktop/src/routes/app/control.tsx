@@ -1,11 +1,19 @@
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { isTauri } from "@tauri-apps/api/core";
-import { ChevronDown, Mic, MicOff, Square, X } from "lucide-react";
-import { useRef } from "react";
+import {
+  AlertTriangle,
+  ChevronDown,
+  Eye,
+  Mic,
+  MicOff,
+  Pin,
+  PinOff,
+  Square,
+} from "lucide-react";
+import { useRef, useState } from "react";
 
-import { commands as iconCommands } from "@hypr/plugin-icon";
+import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { Button } from "@hypr/ui/components/ui/button";
+import { Slider } from "@hypr/ui/components/ui/slider";
 import { cn } from "@hypr/utils";
 
 import { useWidgetState } from "~/shared/hooks/useWidgetState";
@@ -24,26 +32,28 @@ function formatTime(seconds: number): string {
 function Component() {
   const { isExpanded, expand, collapse } = useWidgetState();
 
-  const { status, seconds, muted, amplitude } = useListener((state) => ({
-    status: state.live.status,
-    seconds: state.live.seconds,
-    muted: state.live.muted,
-    amplitude: state.live.amplitude,
-  }));
+  const { status, seconds, muted, amplitude, degraded } = useListener(
+    (state) => ({
+      status: state.live.status,
+      seconds: state.live.seconds,
+      muted: state.live.muted,
+      amplitude: state.live.amplitude,
+      degraded: state.live.degraded,
+    }),
+  );
 
   const { stop, setMuted } = useListener((state) => ({
     stop: state.stop,
     setMuted: state.setMuted,
   }));
 
-  const isActive = status === "active";
   const isFinalizing = status === "finalizing";
 
   if (!isExpanded) {
     return (
-      <CollapsedWidget
+      <CollapsedPill
         onExpand={expand}
-        isActive={isActive}
+        seconds={seconds}
         isFinalizing={isFinalizing}
       />
     );
@@ -52,39 +62,27 @@ function Component() {
   return (
     <ExpandedPanel
       onCollapse={collapse}
-      isActive={isActive}
       isFinalizing={isFinalizing}
       seconds={seconds}
       muted={muted}
       amplitude={amplitude}
+      degraded={degraded !== null}
       stop={stop}
       setMuted={setMuted}
     />
   );
 }
 
-function CollapsedWidget({
+function CollapsedPill({
   onExpand,
-  isActive,
+  seconds,
   isFinalizing,
 }: {
   onExpand: () => void;
-  isActive: boolean;
+  seconds: number;
   isFinalizing: boolean;
 }) {
   const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
-
-  const { data: iconBase64 } = useQuery({
-    queryKey: ["app-icon"],
-    queryFn: async () => {
-      const result = await iconCommands.getIcon();
-      if (result.status === "ok") {
-        return result.data;
-      }
-      return null;
-    },
-    staleTime: Infinity,
-  });
 
   const handleMouseDown = (e: React.MouseEvent) => {
     mouseDownPos.current = { x: e.clientX, y: e.clientY };
@@ -115,170 +113,213 @@ function CollapsedWidget({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       className={cn([
-        "flex h-full w-full cursor-pointer items-center justify-center",
+        "flex h-full w-full cursor-pointer items-center justify-center gap-2",
+        "rounded-full bg-black/60 backdrop-blur-sm",
+        "px-3",
       ])}
     >
-      {isActive || isFinalizing ? (
-        <div
-          data-tauri-drag-region
-          className={cn([
-            "h-3 w-3 rounded-full",
-            isFinalizing
-              ? "animate-pulse bg-yellow-500"
-              : "animate-pulse bg-red-500",
-          ])}
-        />
-      ) : iconBase64 ? (
-        <img
-          data-tauri-drag-region
-          src={`data:image/png;base64,${iconBase64}`}
-          alt="App Icon"
-          className="h-12 w-12 rounded-xl"
-          draggable={false}
-        />
-      ) : (
-        <div
-          data-tauri-drag-region
-          className="h-12 w-12 rounded-full bg-white/40"
-        />
-      )}
+      <div
+        data-tauri-drag-region
+        className={cn([
+          "h-2 w-2 shrink-0 animate-pulse rounded-full",
+          isFinalizing ? "bg-yellow-500" : "bg-red-500",
+        ])}
+      />
+      <span
+        data-tauri-drag-region
+        className="font-mono text-xs font-medium text-white"
+      >
+        {formatTime(seconds)}
+      </span>
     </div>
   );
 }
 
 function ExpandedPanel({
   onCollapse,
-  isActive,
   isFinalizing,
   seconds,
   muted,
   amplitude,
+  degraded,
   stop,
   setMuted,
 }: {
   onCollapse: () => void;
-  isActive: boolean;
   isFinalizing: boolean;
   seconds: number;
   muted: boolean;
   amplitude: { mic: number };
+  degraded: boolean;
   stop: () => void;
   setMuted: (muted: boolean) => void;
 }) {
-  const handleClose = async () => {
-    if (!isTauri()) {
-      return;
-    }
-    const { getCurrentWindow } = await import("@tauri-apps/api/window");
-    await getCurrentWindow().close();
-  };
-
   return (
     <div
       className={cn([
         "flex h-full w-full flex-col",
-        "rounded-xl bg-black/70 backdrop-blur-md",
+        "rounded-2xl bg-black/80 backdrop-blur-xl",
       ])}
     >
       <header
         data-tauri-drag-region
         className={cn([
-          "flex shrink-0 flex-row",
-          "h-8 w-full items-center justify-between",
-          "px-3",
+          "flex shrink-0 items-center justify-between",
+          "px-4 pt-3 pb-2",
         ])}
       >
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 text-white/40 hover:bg-white/10 hover:text-white"
-          onClick={onCollapse}
-        >
-          <ChevronDown className="h-3 w-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 text-white/40 hover:bg-white/10 hover:text-white"
-          onClick={() => {
-            void handleClose();
-          }}
-        >
-          <X className="h-3 w-3" />
-        </Button>
+        <div data-tauri-drag-region className="flex items-center gap-2">
+          <div
+            data-tauri-drag-region
+            className={cn([
+              "h-2 w-2 shrink-0 animate-pulse rounded-full",
+              isFinalizing ? "bg-yellow-500" : "bg-red-500",
+            ])}
+          />
+          <span
+            data-tauri-drag-region
+            className="font-mono text-sm font-medium text-white"
+          >
+            {formatTime(seconds)}
+          </span>
+          {degraded && (
+            <AlertTriangle className="h-3.5 w-3.5 text-yellow-400" />
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <PinToggle />
+          <OpacityControl />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-white/40 hover:bg-white/10 hover:text-white"
+            onClick={onCollapse}
+          >
+            <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </header>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
-        {isActive || isFinalizing ? (
-          <>
-            <div className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "h-2.5 w-2.5 rounded-full",
-                  isFinalizing
-                    ? "animate-pulse bg-yellow-500"
-                    : "animate-pulse bg-red-500",
-                )}
-              />
-              <span className="font-mono text-2xl font-medium text-white">
-                {formatTime(seconds)}
-              </span>
-            </div>
+      <div className="mx-4 border-t border-white/10" />
 
-            <div className="flex h-4 items-center gap-2">
-              <div className="flex items-center gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "w-1 rounded-full transition-all duration-75",
-                      amplitude.mic > i * 0.2 ? "bg-green-400" : "bg-white/20",
-                    )}
-                    style={{
-                      height: `${Math.max(4, Math.min(16, amplitude.mic * 80))}px`,
-                    }}
-                  />
-                ))}
-              </div>
-              <span className="text-xs text-white/40">MIC</span>
-            </div>
+      <div
+        data-tauri-drag-region
+        className="flex flex-1 flex-col items-center justify-center gap-6 px-4"
+      >
+        <span
+          data-tauri-drag-region
+          className="font-mono text-5xl font-light tracking-wider text-white"
+        >
+          {formatTime(seconds)}
+        </span>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "h-10 w-10 rounded-full",
-                  muted
-                    ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                    : "bg-white/10 text-white hover:bg-white/20",
-                )}
-                onClick={() => setMuted(!muted)}
-              >
-                {muted ? (
-                  <MicOff className="h-5 w-5" />
-                ) : (
-                  <Mic className="h-5 w-5" />
-                )}
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                onClick={stop}
-                disabled={isFinalizing}
-              >
-                <Square className="h-4 w-4 fill-current" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="text-center text-sm text-white/60">
-            No active session
-          </div>
-        )}
+        <div data-tauri-drag-region className="flex items-end gap-1">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={i}
+              className={cn([
+                "w-1 rounded-full transition-all duration-100",
+                amplitude.mic > i * 0.08 ? "bg-green-400" : "bg-white/10",
+              ])}
+              style={{
+                height: `${Math.max(4, Math.min(32, amplitude.mic * 120 * (0.5 + Math.sin(i * 0.8) * 0.5)))}px`,
+              }}
+            />
+          ))}
+        </div>
       </div>
+
+      <div className="mx-4 border-t border-white/10" />
+
+      <div className="flex shrink-0 items-center justify-center gap-3 px-4 py-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn([
+            "h-10 w-10 rounded-full",
+            muted
+              ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+              : "bg-white/10 text-white hover:bg-white/20",
+          ])}
+          onClick={() => setMuted(!muted)}
+        >
+          {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-12 w-12 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500/30"
+          onClick={stop}
+          disabled={isFinalizing}
+        >
+          <Square className="h-5 w-5 fill-current" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PinToggle() {
+  const [pinned, setPinned] = useState(true);
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={cn([
+        "h-6 w-6",
+        pinned
+          ? "text-white/70 hover:bg-white/10 hover:text-white"
+          : "text-white/30 hover:bg-white/10 hover:text-white/50",
+      ])}
+      onClick={() => {
+        const next = !pinned;
+        setPinned(next);
+        windowsCommands.controlSetAlwaysOnTop(next);
+      }}
+    >
+      {pinned ? (
+        <Pin className="h-3.5 w-3.5" />
+      ) : (
+        <PinOff className="h-3.5 w-3.5" />
+      )}
+    </Button>
+  );
+}
+
+function OpacityControl() {
+  const [showSlider, setShowSlider] = useState(false);
+  const [opacity, setOpacity] = useState(100);
+
+  return (
+    <div className="relative flex items-center">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 text-white/40 hover:bg-white/10 hover:text-white"
+        onClick={() => setShowSlider(!showSlider)}
+      >
+        <Eye className="h-3.5 w-3.5" />
+      </Button>
+      {showSlider && (
+        <div className="absolute top-full right-0 mt-1 flex items-center gap-2 rounded-lg bg-black/90 px-3 py-2">
+          <Slider
+            className="w-24"
+            min={20}
+            max={100}
+            step={5}
+            value={[opacity]}
+            onValueChange={([v]) => {
+              setOpacity(v);
+              windowsCommands.controlSetOpacity(v / 100);
+            }}
+          />
+          <span className="min-w-[2ch] text-right font-mono text-xs text-white/50">
+            {opacity}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

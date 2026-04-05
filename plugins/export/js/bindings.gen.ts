@@ -26,7 +26,7 @@ async export(path: string, input: ExportInput) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
-export type ExportInput = { enhancedMd: string; transcript: Transcript | null; metadata: ExportMetadata | null }
+export type ExportInput = { enhancedMd: string; memoMd: string | null; transcript: Transcript | null; metadata: ExportMetadata | null }
 export type ExportMetadata = { title: string; createdAt: string; participants: string[]; eventTitle: string | null; duration: string | null }
 export type Transcript = { items: TranscriptItem[] }
 export type TranscriptItem = { speaker: string | null; text: string }

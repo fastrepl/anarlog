@@ -62,10 +62,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     pub async fn check(&self, permission: Permission) -> Result<PermissionStatus, crate::Error> {
         #[cfg(target_os = "macos")]
         {
-            if matches!(permission, Permission::SystemAudio) {
-                return self.check_system_audio().await;
-            }
-
             if let Some(status) = self.check_sidecar(permission).await {
                 return Ok(status);
             }
@@ -93,8 +89,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
             Permission::Calendar => "calendar",
             Permission::Contacts => "contacts",
             Permission::Microphone => "microphone",
+            Permission::SystemAudio => "systemAudio",
             Permission::Accessibility => "accessibility",
-            Permission::SystemAudio => unreachable!(),
         };
 
         let cmd = self
@@ -134,11 +130,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
                 "authorized" => PermissionStatus::Authorized,
                 _ => PermissionStatus::Denied,
             },
+            Permission::SystemAudio => match value {
+                "notDetermined" => PermissionStatus::NeverRequested,
+                "authorized" => PermissionStatus::Authorized,
+                _ => PermissionStatus::Denied,
+            },
             Permission::Accessibility => match value {
                 "trusted" => PermissionStatus::Authorized,
                 _ => PermissionStatus::Denied,
             },
-            Permission::SystemAudio => unreachable!(),
         };
 
         tracing::debug!(permission = arg, %value, ?status, "check via sidecar");

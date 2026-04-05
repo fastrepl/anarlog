@@ -2,7 +2,6 @@
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type UserConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 import { relayShim } from "@hypr/plugin-relay/vite";
 
@@ -13,22 +12,13 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [
-    tsconfigPaths(),
     relayShim(),
     changelog(),
     tanstackRouter({ target: "react", autoCodeSplitting: false }),
-    react({
-      babel: {
-        plugins: [
-          // [
-          //   "babel-plugin-react-compiler",
-          //   { compilationMode: "infer", target: "19" },
-          // ],
-        ],
-      },
-    }),
+    react(),
   ],
   resolve: {
+    tsconfigPaths: true,
     alias:
       process.env.NODE_ENV === "development"
         ? {

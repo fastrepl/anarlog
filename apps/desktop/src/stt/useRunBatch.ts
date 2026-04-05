@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
-import type { BatchParams } from "@hypr/plugin-listener2";
+import type { BatchParams } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
@@ -10,8 +10,7 @@ import { useSTTConnection } from "./useSTTConnection";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
+import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -21,12 +20,15 @@ import {
 } from "~/stt/utils";
 
 type RunOptions = {
-  handlePersist?: HandlePersistCallback;
+  handlePersist?: BatchPersistCallback;
   model?: string;
   baseUrl?: string;
   apiKey?: string;
   keywords?: string[];
   languages?: string[];
+  numSpeakers?: number;
+  minSpeakers?: number;
+  maxSpeakers?: number;
 };
 
 const BATCH_PROVIDER_MAP: Record<string, BatchParams["provider"]> = {
@@ -57,18 +59,6 @@ export const useRunBatch = (sessionId: string) => {
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const runBatch = useListener((state) => state.runBatch);
-  const sessionTab = useTabs((state) => {
-    const found = state.tabs.find(
-      (tab): tab is Extract<Tab, { type: "sessions" }> =>
-        tab.type === "sessions" && tab.id === sessionId,
-    );
-    return found ?? null;
-  });
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-
-  const sessionTabRef = useRef(sessionTab);
-  sessionTabRef.current = sessionTab;
-
   const { conn } = useSTTConnection();
   const keywords = useKeywords(sessionId);
   const languages = useConfigValue("spoken_languages");
@@ -89,18 +79,11 @@ export const useRunBatch = (sessionId: string) => {
         );
       }
 
-      if (sessionTabRef.current) {
-        updateSessionTabState(sessionTabRef.current, {
-          ...sessionTabRef.current.state,
-          view: { type: "transcript" },
-        });
-      }
-
       const createdAt = new Date().toISOString();
       const memoMd = store.getCell("sessions", sessionId, "raw_md");
       let transcriptId: string | null = null;
 
-      const handlePersist: HandlePersistCallback | undefined =
+      const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
 
       const persist =
@@ -191,19 +174,13 @@ export const useRunBatch = (sessionId: string) => {
         api_key: options?.apiKey ?? conn.apiKey,
         keywords: options?.keywords ?? keywords ?? [],
         languages: options?.languages ?? languages ?? [],
+        num_speakers: options?.numSpeakers,
+        min_speakers: options?.minSpeakers,
+        max_speakers: options?.maxSpeakers,
       };
 
       await runBatch(params, { handlePersist: persist });
     },
-    [
-      conn,
-      keywords,
-      languages,
-      runBatch,
-      sessionId,
-      store,
-      updateSessionTabState,
-      user_id,
-    ],
+    [conn, keywords, languages, runBatch, sessionId, store, user_id],
   );
 };

@@ -22,19 +22,18 @@ pub struct AudioOutput {}
 
 impl AudioOutput {
     pub fn to_speaker(bytes: &'static [u8]) -> std::sync::mpsc::Sender<()> {
-        use rodio::{Decoder, OutputStreamBuilder, Sink};
+        use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
         let (tx, rx) = std::sync::mpsc::channel();
 
         std::thread::spawn(move || {
-            if let Ok(mut stream) = OutputStreamBuilder::open_default_stream() {
-                stream.log_on_drop(false);
+            if let Ok(stream) = DeviceSinkBuilder::open_default_sink() {
                 let file = std::io::Cursor::new(bytes);
                 if let Ok(source) = Decoder::try_from(file) {
-                    let sink = Sink::connect_new(stream.mixer());
-                    sink.append(source);
+                    let player = Player::connect_new(stream.mixer());
+                    player.append(source);
 
                     let _ = rx.recv_timeout(std::time::Duration::from_secs(3600));
-                    sink.stop();
+                    player.stop();
                 }
             }
         });
@@ -44,24 +43,24 @@ impl AudioOutput {
 
     pub fn silence() -> std::sync::mpsc::Sender<()> {
         use rodio::{
-            OutputStreamBuilder, Sink,
+            Player, nz,
             source::{Source, Zero},
+            stream::DeviceSinkBuilder,
         };
 
         let (tx, rx) = std::sync::mpsc::channel();
 
         std::thread::spawn(move || {
-            if let Ok(mut stream) = OutputStreamBuilder::open_default_stream() {
-                stream.log_on_drop(false);
-                let silence = Zero::new(2, 48_000)
+            if let Ok(stream) = DeviceSinkBuilder::open_default_sink() {
+                let silence = Zero::new(nz!(2u16), nz!(48_000u32))
                     .take_duration(std::time::Duration::from_secs(1))
                     .repeat_infinite();
 
-                let sink = Sink::connect_new(stream.mixer());
-                sink.append(silence);
+                let player = Player::connect_new(stream.mixer());
+                player.append(silence);
 
                 let _ = rx.recv();
-                sink.stop();
+                player.stop();
             }
         });
 
@@ -285,8 +284,9 @@ impl AudioProvider for ActualAudio {
 #[cfg(all(test, target_os = "macos"))]
 pub(crate) fn play_sine_for_sec(seconds: u64) -> std::thread::JoinHandle<()> {
     use rodio::{
-        OutputStreamBuilder, Sink,
+        Player, nz,
         source::{Function::Sine, SignalGenerator, Source},
+        stream::DeviceSinkBuilder,
     };
     use std::{
         thread::{sleep, spawn},
@@ -294,16 +294,15 @@ pub(crate) fn play_sine_for_sec(seconds: u64) -> std::thread::JoinHandle<()> {
     };
 
     spawn(move || {
-        let mut stream = OutputStreamBuilder::open_default_stream().unwrap();
-        stream.log_on_drop(false);
-        let source = SignalGenerator::new(44100, 440.0, Sine);
+        let stream = DeviceSinkBuilder::open_default_sink().unwrap();
+        let source = SignalGenerator::new(nz!(44100u32), 440.0, Sine);
 
         let source = source
             .take_duration(Duration::from_secs(seconds))
             .amplify(0.01);
 
-        let sink = Sink::connect_new(stream.mixer());
-        sink.append(source);
+        let player = Player::connect_new(stream.mixer());
+        player.append(source);
         sleep(Duration::from_secs(seconds));
     })
 }

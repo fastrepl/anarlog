@@ -7,6 +7,28 @@ use std::{collections::HashMap, sync::Arc};
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
 
+#[cfg(target_os = "macos")]
+fn is_window_focused_on_main_thread(app: &AppHandle, window: &WebviewWindow) -> bool {
+    let lookup_app = app.clone();
+    let label = window.label().to_string();
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+
+    if app
+        .run_on_main_thread(move || {
+            let focused = lookup_app
+                .get_webview_window(&label)
+                .and_then(|window| window.is_focused().ok())
+                .unwrap_or(false);
+            let _ = tx.send(focused);
+        })
+        .is_err()
+    {
+        return false;
+    }
+
+    rx.recv().unwrap_or(false)
+}
+
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize, specta::Type, Clone, Copy)]
 pub struct OverlayBound {
     pub x: f64,
@@ -122,6 +144,10 @@ pub async fn spawn_overlay_listener(
             }
 
             if options.steal_focus {
+                #[cfg(target_os = "macos")]
+                let focused = is_window_focused_on_main_thread(&app_clone, &window);
+
+                #[cfg(not(target_os = "macos"))]
                 let focused = window.is_focused().unwrap_or(false);
                 if !ignore && !focused {
                     if !last_focus_state && window.set_focus().is_ok() {

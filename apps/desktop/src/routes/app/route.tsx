@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 import { TooltipProvider } from "@hypr/ui/components/ui/tooltip";
 
+import { useDeeplinkHandler } from "~/shared/hooks/useDeeplinkHandler";
 import { ListenerProvider } from "~/stt/contexts";
 
 export const Route = createFileRoute("/app")({
@@ -13,6 +14,8 @@ export const Route = createFileRoute("/app")({
 
 function Component() {
   const { listenerStore } = Route.useLoaderData();
+
+  useDeeplinkHandler();
 
   return (
     <TooltipProvider>

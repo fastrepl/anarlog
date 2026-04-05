@@ -138,6 +138,24 @@ export function OnboardingButton({
   );
 }
 
+export function OnboardingCharIcon({
+  inverted = false,
+}: {
+  inverted?: boolean;
+}) {
+  return (
+    <img
+      src="/assets/char-logo-icon-black.svg"
+      alt=""
+      aria-hidden="true"
+      className={cn([
+        "size-4 object-contain",
+        inverted && "brightness-0 invert",
+      ])}
+    />
+  );
+}
+
 export function Divider({ text }: { text: string }) {
   return (
     <div className="flex items-center gap-3">

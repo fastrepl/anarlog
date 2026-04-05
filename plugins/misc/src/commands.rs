@@ -31,12 +31,3 @@ pub async fn opinionated_md_to_html<R: tauri::Runtime>(
 ) -> Result<String, String> {
     app.misc().opinionated_md_to_html(&text)
 }
-
-#[tauri::command]
-#[specta::specta]
-pub async fn parse_meeting_link<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    text: String,
-) -> Option<String> {
-    app.misc().parse_meeting_link(&text)
-}

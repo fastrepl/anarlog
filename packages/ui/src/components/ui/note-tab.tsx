@@ -1,21 +1,20 @@
+import * as React from "react";
+
 import { cn } from "@hypr/utils";
 
-export function NoteTab({
-  isActive,
-  onClick,
-  className,
-  children,
-}: {
-  isActive: boolean;
-  onClick?: () => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
+export const NoteTab = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<"button"> & {
+    isActive: boolean;
+  }
+>(({ isActive, className, children, type = "button", ...props }, ref) => {
   return (
     <button
-      onClick={onClick}
+      ref={ref}
+      type={type}
+      {...props}
       className={cn([
-        "relative my-2 shrink-0 border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200",
+        "relative my-2 shrink-0 border-b-2 px-1 py-0.5 text-xs font-medium transition-all duration-200 select-none",
         isActive
           ? ["border-neutral-900", "text-neutral-900"]
           : [
@@ -29,4 +28,6 @@ export function NoteTab({
       <span className="flex h-5 items-center gap-1">{children}</span>
     </button>
   );
-}
+});
+
+NoteTab.displayName = "NoteTab";

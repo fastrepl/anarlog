@@ -41,8 +41,8 @@ pub fn decode_to_wav(mp3_path: &Path, wav_path: &Path) -> Result<(), Error> {
     use hypr_audio_utils::Source;
 
     let source = hypr_audio_utils::source_from_path(mp3_path)?;
-    let channels = source.channels();
-    let sample_rate = source.sample_rate();
+    let channels: u16 = source.channels().into();
+    let sample_rate: u32 = source.sample_rate().into();
 
     let spec = hound::WavSpec {
         channels,

@@ -10,6 +10,12 @@ regress = "0.10"
 reqwest = { workspace = true, features = ["json", "stream"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+utoipa = { workspace = true }
 
 [build-dependencies]
 progenitor-utils = { path = "../progenitor-utils" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wiremock = { workspace = true }

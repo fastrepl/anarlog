@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
-use strum::{EnumString, FromRepr};
+use strum::{AsRefStr, EnumString, FromRepr};
 
 const CONTENT_SOURCE_AI: &str = "ai";
 const ACTION_CABLE_CHANNEL: &str = "RoomChannel";
@@ -13,13 +13,15 @@ enum ActionCableEventType {
     MessageCreated,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, FromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, FromRepr, AsRefStr)]
 #[repr(i64)]
 #[serde(try_from = "i64")]
-enum MessageType {
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum MessageType {
     Incoming = 0,
     Outgoing = 1,
     Activity = 2,
+    Template = 3,
 }
 
 impl TryFrom<i64> for MessageType {
@@ -27,6 +29,14 @@ impl TryFrom<i64> for MessageType {
 
     fn try_from(value: i64) -> Result<Self, Self::Error> {
         Self::from_repr(value).ok_or_else(|| format!("unknown message_type: {value}"))
+    }
+}
+
+impl MessageType {
+    pub(crate) fn format(value: i64) -> String {
+        Self::from_repr(value)
+            .map(|message_type| message_type.as_ref().to_string())
+            .unwrap_or_else(|| value.to_string())
     }
 }
 

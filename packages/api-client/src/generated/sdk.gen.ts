@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, SendMessageData, SendMessageErrors, SendMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DiarizeData, DiarizeErrors, DiarizeResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, SendMessageData, SendMessageErrors, SendMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -69,6 +69,86 @@ export const submit = <ThrowOnError extends boolean = false>(options: Options<Su
 
 export const llmChatCompletions = <ThrowOnError extends boolean = false>(options?: Options<LlmChatCompletionsData, ThrowOnError>) => (options?.client ?? client).post<LlmChatCompletionsResponses, LlmChatCompletionsErrors, ThrowOnError>({ url: '/llm/chat/completions', ...options });
 
+export const googleGetAttachment = <ThrowOnError extends boolean = false>(options: Options<GoogleGetAttachmentData, ThrowOnError>) => (options.client ?? client).post<GoogleGetAttachmentResponses, GoogleGetAttachmentErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/get-attachment',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleGetMessage = <ThrowOnError extends boolean = false>(options: Options<GoogleGetMessageData, ThrowOnError>) => (options.client ?? client).post<GoogleGetMessageResponses, GoogleGetMessageErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/get-message',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleGetProfile = <ThrowOnError extends boolean = false>(options: Options<GoogleGetProfileData, ThrowOnError>) => (options.client ?? client).post<GoogleGetProfileResponses, GoogleGetProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/get-profile',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleGetThread = <ThrowOnError extends boolean = false>(options: Options<GoogleGetThreadData, ThrowOnError>) => (options.client ?? client).post<GoogleGetThreadResponses, GoogleGetThreadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/get-thread',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleListHistory = <ThrowOnError extends boolean = false>(options: Options<GoogleListHistoryData, ThrowOnError>) => (options.client ?? client).post<GoogleListHistoryResponses, GoogleListHistoryErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/list-history',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleListLabels = <ThrowOnError extends boolean = false>(options: Options<GoogleListLabelsData, ThrowOnError>) => (options.client ?? client).post<GoogleListLabelsResponses, GoogleListLabelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/list-labels',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleListMessages = <ThrowOnError extends boolean = false>(options: Options<GoogleListMessagesData, ThrowOnError>) => (options.client ?? client).post<GoogleListMessagesResponses, GoogleListMessagesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/list-messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const googleListThreads = <ThrowOnError extends boolean = false>(options: Options<GoogleListThreadsData, ThrowOnError>) => (options.client ?? client).post<GoogleListThreadsResponses, GoogleListThreadsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/mail/google/list-threads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const deleteConnection = <ThrowOnError extends boolean = false>(options: Options<DeleteConnectionData, ThrowOnError>) => (options.client ?? client).delete<DeleteConnectionResponses, DeleteConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/nango/connections',
@@ -101,6 +181,45 @@ export const whoami = <ThrowOnError extends boolean = false>(options?: Options<W
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/nango/whoami',
     ...options
+});
+
+/**
+ * Diarize audio
+ */
+export const diarize = <ThrowOnError extends boolean = false>(options: Options<DiarizeData, ThrowOnError>) => (options.client ?? client).post<DiarizeResponses, DiarizeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/diarize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Identify speaker with diarization
+ */
+export const identify = <ThrowOnError extends boolean = false>(options: Options<IdentifyData, ThrowOnError>) => (options.client ?? client).post<IdentifyResponses, IdentifyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/identify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Extract voiceprint
+ */
+export const voiceprint = <ThrowOnError extends boolean = false>(options: Options<VoiceprintData, ThrowOnError>) => (options.client ?? client).post<VoiceprintResponses, VoiceprintErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/voiceprint',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 export const sttListenStream = <ThrowOnError extends boolean = false>(options?: Options<SttListenStreamData, ThrowOnError>) => (options?.client ?? client).get<unknown, SttListenStreamErrors, ThrowOnError>({ url: '/stt/listen', ...options });
@@ -158,6 +277,46 @@ export const getMessages = <ThrowOnError extends boolean = false>(options: Optio
 
 export const sendMessage = <ThrowOnError extends boolean = false>(options: Options<SendMessageData, ThrowOnError>) => (options.client ?? client).post<SendMessageResponses, SendMessageErrors, ThrowOnError>({
     url: '/support/chatwoot/conversations/{conversation_id}/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const githubListRepos = <ThrowOnError extends boolean = false>(options: Options<GithubListReposData, ThrowOnError>) => (options.client ?? client).post<GithubListReposResponses, GithubListReposErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/ticket/github/list-repos',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const githubListTickets = <ThrowOnError extends boolean = false>(options: Options<GithubListTicketsData, ThrowOnError>) => (options.client ?? client).post<GithubListTicketsResponses, GithubListTicketsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/ticket/github/list-tickets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const linearListTeams = <ThrowOnError extends boolean = false>(options: Options<LinearListTeamsData, ThrowOnError>) => (options.client ?? client).post<LinearListTeamsResponses, LinearListTeamsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/ticket/linear/list-teams',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const linearListTickets = <ThrowOnError extends boolean = false>(options: Options<LinearListTicketsData, ThrowOnError>) => (options.client ?? client).post<LinearListTicketsResponses, LinearListTicketsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/ticket/linear/list-tickets',
     ...options,
     headers: {
         'Content-Type': 'application/json',
