@@ -9,17 +9,17 @@ export const Route = createFileRoute("/_view/why-char")({
   component: Component,
   head: () => ({
     meta: [
-      { title: "Why Char - AI Meeting Notes You Actually Own" },
+      { title: "Why Char - The Command Center You Actually Own" },
       {
         name: "description",
         content:
-          "Your meeting notes should be files on your computer, not rows in someone else's database. Plain Markdown files, AI providers you can switch, no bots, no lock-in.",
+          "Your data should live on your device, not in someone else's database. Local-first, on-device AI, privacy by nature. No bots, no lock-in.",
       },
       { property: "og:title", content: "Why Char" },
       {
         property: "og:description",
         content:
-          "Most AI note-takers lock your data in their database. We thought that was bullshit. So we built Char differently.",
+          "Most productivity tools lock your data in their cloud. We thought that was bullshit. So we built Char differently.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://char.com/why-char" },
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_view/why-char")({
       {
         name: "twitter:description",
         content:
-          "Your meeting notes should be files on your computer, not rows in someone else's database.",
+          "Your data should live on your device, not in someone else's database. Local-first, on-device AI, privacy by nature.",
       },
     ],
   }),
@@ -65,9 +65,8 @@ function HeroSection() {
                 Why Char exists
               </h1>
               <p className="text-fg-muted text-2xl leading-relaxed break-words">
-                Most AI note-takers lock your data in their database, force you
-                to use their AI stack, and make you lose everything if you
-                leave.
+                Most productivity tools lock your data in their cloud, force you
+                to use their AI, and make you lose everything if you leave.
               </p>
               <p className="text-fg-muted text-2xl leading-relaxed font-medium break-words">
                 We thought that was bullshit.
@@ -82,21 +81,21 @@ function HeroSection() {
 
 const differentiators = [
   {
-    title: "Plain Markdown files",
-    description: "Not proprietary databases—files you own that work in any app",
-    icon: "mdi:file-document-outline",
+    title: "Local-first by nature",
+    description: "Everything runs on your device. Your data never has to leave your computer.",
+    icon: "mdi:laptop",
   },
   {
-    title: "No meeting bots",
+    title: "On-device AI",
     description:
-      "System audio capture works everywhere: Zoom, Teams, phone calls, in-person",
-    icon: "mdi:microphone-off",
-  },
-  {
-    title: "Choose your AI",
-    description:
-      "Managed service, bring your own key, or run fully local models",
+      "Run AI models locally for complete privacy—or bring your own cloud key if you prefer",
     icon: "mdi:brain",
+  },
+  {
+    title: "Privacy by design",
+    description:
+      "Activity capture, meeting recording, notes—all processed locally. No data leaves unless you say so.",
+    icon: "mdi:shield-check-outline",
   },
   {
     title: "Open source",
@@ -106,7 +105,7 @@ const differentiators = [
   {
     title: "Zero lock-in",
     description:
-      "Export anytime, switch providers anytime, or just stop using us",
+      "Plain Markdown files, export anytime, switch providers anytime",
     icon: "mdi:lock-open-outline",
   },
 ];
@@ -116,7 +115,7 @@ function WhyWereDifferentSection() {
     <section className="px-4 py-16 lg:py-24">
       <div className="mx-auto">
         <h2 className="text-color mb-12 text-left font-mono text-3xl sm:text-4xl">
-          So we built Char to give you back control.
+          So we built Char to give you ownership.
         </h2>
 
         <div className="flex flex-col gap-6 md:flex-row md:flex-nowrap">
@@ -142,33 +141,33 @@ function WhyWereDifferentSection() {
 
 const audiences = [
   {
+    title: "You're a founder drowning in complexity",
+    description:
+      "Meetings, tasks, follow-ups, context from every direction. Char captures it all and surfaces what matters—so you can focus on building.",
+    icon: "mdi:rocket-launch-outline",
+  },
+  {
     title: "Your company banned Otter/ChatGPT/Granola",
     description:
-      "Your IT team can audit the open-source code. Files stay on your device. You can use whichever AI provider your company already approved or run everything locally.",
+      "Your IT team can audit the open-source code. Everything stays on-device. Use whichever AI provider your company already approved or run fully local models.",
     icon: "mdi:shield-check-outline",
   },
   {
     title: "You're deep into Obsidian/Logseq/PKM systems",
     description:
-      "You've spent years building a knowledge vault in Markdown. Your meeting notes shouldn't live in a separate app that doesn't integrate with anything.",
+      "You've spent years building a knowledge vault in Markdown. Your daily notes and meeting context shouldn't live in a separate app.",
     icon: "mdi:note-multiple-outline",
   },
   {
-    title: "You already pay for OpenAI/Anthropic API credits",
+    title: "You care deeply about privacy",
     description:
-      "Why pay markup on top of API costs you already have? Bring your own key and use the credits you're already buying.",
-    icon: "mdi:key-outline",
+      "Char captures activity on your computer—like a keylogger—but everything is processed and stored locally. Open source so you can verify every claim.",
+    icon: "mdi:eye-off-outline",
   },
   {
-    title: "You're an open-source advocate who self-hosts everything",
+    title: "You just want to stop losing context",
     description:
-      "You run Nextcloud, care about FOSS, and need to verify no data leaves your infrastructure. Char lets you audit the code and run everything locally.",
-    icon: "mdi:server-outline",
-  },
-  {
-    title: "You just want a simple notepad that works",
-    description:
-      "You don't care about the philosophy. You want to take notes during calls without thinking about it. Char does that.",
+      "Meetings end and action items vanish. Activity goes untracked. Char makes sure nothing falls through the cracks.",
     icon: "mdi:notebook-outline",
   },
 ];
@@ -225,21 +224,23 @@ function WhatWereBuildingTowardSection() {
                 next.
               </p>
 
-              <p>We're betting on files.</p>
+                  <p>We're betting on local-first.</p>
 
-              <p>
-                Files outlive apps. Files work with every tool. Files don't
-                disappear when a startup shuts down.
-              </p>
+                  <p>
+                    Your data on your device. AI models that run without an internet
+                    connection. Files that outlive any app or startup.
+                  </p>
 
-              <p>
-                AI providers will come and go. SaaS platforms will rise and
-                fall. But Markdown files from 2006 still open perfectly in 2026.
-              </p>
+                  <p>
+                    The more Char knows about your day—meetings, activity,
+                    notes—the more it can take off your plate. But that depth of
+                    context demands real privacy, not just a promise.
+                  </p>
 
-              <p>
-                That's the foundation. Everything else is just software on top.
-              </p>
+                  <p>
+                    That's why local-first is the foundation. Everything else is
+                    software on top.
+                  </p>
             </div>
 
             <div className="mt-12 mb-4 flex gap-2">

@@ -34,35 +34,35 @@ const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
 
 const mainFeatures = [
   {
-    icon: "mdi:text-box-outline",
-    title: "Real-time transcription",
+    icon: "mdi:notebook-outline",
+    title: "Daily notes",
     description:
-      "While you take notes, Char listens and generates a live transcript",
+      "A living document that evolves throughout your day with meetings, tasks, and context",
     image: "/api/images/hyprnote/transcript.jpg",
     muxPlaybackId: "rbkYuZpGJGLHx023foq9DCSt3pY1RegJU5PvMCkRE3rE",
     link: "/product/ai-notetaking/#transcription",
   },
   {
-    icon: "mdi:file-document-outline",
-    title: "AI summary",
+    icon: "mdi:text-box-outline",
+    title: "Meeting capture",
     description:
-      "Char combines your notes and the transcript to create a perfect summary",
+      "Transcribe and summarize every meeting without bots—action items flow into your daily note",
     image: "/api/images/hyprnote/summary.jpg",
     muxPlaybackId: "lKr5l1fWGNnRqOehiz15mV79VHtFOCiuO9urmgqs6V8",
     link: "/product/ai-notetaking/#summaries",
   },
   {
-    icon: "mdi:chat-outline",
-    title: "AI Chat",
+    icon: "mdi:monitor-eye",
+    title: "Activity capture",
     description:
-      "Use natural language to get answers pulled directly from your transcript",
+      "Char understands what you've been working on—so you never have to track it yourself",
     image: "/api/images/hyprnote/chat.jpg",
     link: "/product/ai-assistant",
   },
   {
-    icon: "mdi:window-restore",
-    title: "Floating panel",
-    description: "Overlay to quick access recording controls during calls",
+    icon: "mdi:chat-outline",
+    title: "AI Chat",
+    description: "Ask questions across all your notes, meetings, and activity in natural language",
     image: "/api/images/hyprnote/floating.jpg",
     link: "/product/ai-notetaking/#floating-panel",
   },
@@ -219,11 +219,11 @@ function HeroSection({
                     fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.75rem)",
                   }}
                 >
-                  Meeting Notes <br /> You Own
+                  Your Command <br /> Center
                 </h1>
                 <p className="font-regular text-fg-muted text-base leading-relaxed break-words sm:text-xl">
-                  Char captures every meeting without a bot and keeps data on
-                  your device.
+                  Char captures meetings, tracks activity, and manages your
+                  day—all locally, all private.
                 </p>
                 {heroCTA.showInput ? (
                   <form
@@ -618,7 +618,7 @@ export function HowItWorksSection() {
         {/* Header */}
         <div className="border-color-brand border-b py-10">
           <h2 className="text-color font-mono text-2xl leading-relaxed tracking-wide md:text-5xl">
-            Focus on conversation <br /> while Char makes notes
+            Focus on what matters <br /> Char handles the rest
           </h2>
         </div>
 
@@ -626,12 +626,11 @@ export function HowItWorksSection() {
         <div className="flex flex-col md:flex-row">
           <div className="flex flex-col justify-end gap-4 py-8 md:w-1/2 md:pr-8 md:pb-16">
             <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
-              During meeting
+              Throughout your day
             </p>
             <p className="font-regular text-color text-lg leading-relaxed md:text-2xl lg:text-3xl">
-              Char keeps track of everything that happens during the meeting,
-              includes context about previous conversations and people you talk
-              to.
+              Char keeps track of everything—meetings, activity on your
+              computer, and context from previous conversations.
             </p>
           </div>
 
@@ -1522,11 +1521,11 @@ export function AISection() {
     <section ref={ref} id="ai" className="px-4 py-16">
       <div className="items-left flex flex-col gap-4 pb-12 text-left">
         <h2 className="text-fg font-mono text-2xl tracking-wide md:text-4xl">
-          Get more from every note with AI
+          AI that reduces your cognitive load
         </h2>
         <p className="text-fg-muted">
-          Ask questions, execute tasks, and grow your knowledge base—all from
-          your meeting notes.
+          Ask questions, route tasks, and build memory across everything—meetings,
+          activity, and notes.
         </p>
       </div>
 
@@ -1549,9 +1548,8 @@ export function AISection() {
               Get a quick brief before the call
             </p>
             <p className="text-color-muted text-base leading-relaxed">
-              Get the relevant info about people, goals and previous meetings.
-              Char links contacts and conversations, search through them and get
-              a whole picture.
+              Char surfaces relevant context—people, goals, previous
+              conversations, and recent activity—so you walk in prepared.
             </p>
           </div>
 
@@ -1576,11 +1574,11 @@ export function AISection() {
               During meeting
             </p>
             <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
-              Chat during live meetings
+              Stay present, not distracted
             </p>
             <p className="text-color-muted text-base leading-relaxed">
-              Get instant answers from the current transcript and past meeting
-              context without breaking your flow.
+              Get instant answers from the current transcript and your full
+              history without breaking your flow.
             </p>
           </div>
 
@@ -1606,12 +1604,11 @@ export function AISection() {
               After meeting
             </p>
             <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
-              Chat with your notes
+              Action items flow to your daily note
             </p>
             <p className="text-color-muted text-base leading-relaxed">
-              Query your entire conversation history. Find decisions, action
-              items, or topics discussed in previous meetings in natural
-              language.
+              Tasks surface automatically. Query your entire history—decisions,
+              action items, topics—across all meetings and activity.
             </p>
           </div>
 
@@ -1690,11 +1687,11 @@ export function GrowsWithYouSection() {
       <div className="surface border-color-brand mx-auto rounded-xl border">
         <div className="items-left flex flex-col gap-2 px-8 pt-16 pb-8 text-left">
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
-            Char grows with you
+            Char becomes your memory
           </h2>
           <p className="text-md text-color-muted max-w-2xl pb-4">
-            Add people from meetings in contacts, grow knowledge about your
-            chats and context of previous meetings
+            Every meeting, every activity builds a richer picture. Contacts,
+            conversations, and context—all connected over time.
           </p>
           <Link
             to="/product/mini-apps/"
@@ -2380,9 +2377,9 @@ const solutionScenarios = [
   {
     id: "developers",
     label: "Developers",
-    headline: "The only meeting AI you can fork, fix and make your own",
+    headline: "The only AI command center you can fork, fix and make your own",
     description:
-      "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
+      "Build extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
     pills: [
       "Bring Your Own Key",
       "Automation Hooks",
@@ -2395,9 +2392,9 @@ const solutionScenarios = [
   {
     id: "enterprise",
     label: "Enterprise",
-    headline: "Meeting AI configured for your organization",
+    headline: "Your organization's command center, on your terms",
     description:
-      "Other AI note-takers ask you to trust their infrastructure, their models, and their policies. We built one where you control all three.",
+      "Other tools ask you to trust their infrastructure, their models, and their policies. Char gives you control over all three—local-first by default.",
     pills: [
       "Self-Hosted Deployment",
       "Zero-Knowledge Security",
@@ -2410,9 +2407,9 @@ const solutionScenarios = [
   {
     id: "research",
     label: "Research",
-    headline: "Discover faster with AI-powered meeting notes",
+    headline: "Capture every detail while you focus on discovery",
     description:
-      "Focus on asking questions and observing while Char captures every detail, identifies themes, and helps you analyze research conversations.",
+      "Focus on asking questions and observing while Char captures every detail, identifies themes, and helps you analyze conversations—all privately on your device.",
     pills: [
       "Interview Recording",
       "Theme Identification",
@@ -2434,7 +2431,7 @@ function SolutionsTabbar() {
     <section id="solutions" className="pb-24 pl-4 md:px-4">
       <div className="mb-8 flex flex-col gap-2 pt-16">
         <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
-          Build for every conversation
+          Built for how you work
         </h2>
       </div>
 
@@ -2573,28 +2570,29 @@ function FAQSection() {
             Mandarin, and more.
           </FAQItem>
 
-          <FAQItem question="Can I import existing recordings?">
-            Yes. Upload audio files or transcripts to turn them into searchable,
-            summarized notes.
+          <FAQItem question="What does Char actually capture?">
+            Meetings via system audio (no bots), activity on your computer
+            (like a local activity journal), and your own notes. Everything
+            stays on your device unless you choose otherwise.
+          </FAQItem>
+
+          <FAQItem question="Is my data safe if Char tracks my activity?">
+            Yes. Char is local-first by design. All activity capture, audio,
+            transcripts, and notes are processed and stored entirely on your
+            device. Nothing is uploaded to our servers. You can run fully
+            offline with on-device AI models.
           </FAQItem>
 
           <FAQItem question="Does Char train AI models on my data?">
-            No. Char does not use your recordings, transcripts, or notes to
-            train AI models. When using cloud providers, your data is processed
-            according to their privacy policies, but Char itself never collects
-            or uses your data for training.
+            No. Your data is never used to train AI models. When using cloud
+            providers, data is processed according to their policies, but Char
+            itself never collects or uses your data for training.
           </FAQItem>
 
-          <FAQItem question="Is Char safe?">
-            Char doesn't store your conversations. Every meeting audio,
-            transcript, and note is a file on your computer. You decide if your
-            data ever leaves your device.
-          </FAQItem>
-
-          <FAQItem question="How is Char different from other AI note-takers?">
-            Plain markdown files instead of proprietary databases. System audio
-            capture instead of meeting bots. Your choice of AI provider instead
-            of vendor lock-in. Open source instead of a black box.
+          <FAQItem question="How is Char different from other tools?">
+            Char is not just a meeting notetaker. It's a command center that
+            connects meetings, activity, and daily notes into continuous
+            context. Local-first, on-device AI, open source, and no lock-in.
           </FAQItem>
         </FAQ>
       </div>
@@ -2627,20 +2625,20 @@ export function ManifestoSection() {
 
             <div className="flex flex-col gap-4 leading-relaxed text-neutral-700">
               <p>
-                We believe in the power of notetaking, not notetakers. Meetings
-                should be moments of presence, not passive attendance. If you
-                are not adding value, your time is better spent elsewhere for
-                you and your team.
+                Everyone is becoming a manager—of AI agents, of tasks, of
+                information flowing from every direction. The higher the output
+                expected, the more support is required. Char exists to be that
+                support.
               </p>
               <p>
-                Char exists to preserve what makes us human: conversations that
-                spark ideas, collaborations that move work forward. We build
-                tools that amplify human agency, not replace it. No ghost bots.
-                No silent note lurkers. Just people, thinking together.
+                We believe your data is yours. Not ours, not a cloud
+                provider's, not a training set. That's why Char is local-first,
+                powered by on-device models, and open source. Privacy isn't a
+                feature we bolt on—it's the foundation we build on.
               </p>
               <p>
-                We stand with those who value real connection and purposeful
-                collaboration.
+                We're building the command center for people who refuse to let
+                complexity win. Focus on what matters. Let Char handle the rest.
               </p>
             </div>
 

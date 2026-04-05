@@ -14,11 +14,11 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const TITLE = "Char - Meeting Notes You Own";
+const TITLE = "Char - Your Command Center";
 const DESCRIPTION =
-  "Char is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
+  "Char is a local-first command center that captures your meetings, tracks your activity, and manages your day—all on-device, all private. Daily notes that evolve with you, powered by on-device AI.";
 const KEYWORDS =
-  "AI notepad, privacy-first AI, on-device AI, local AI, edge AI, meeting notes, personal knowledge base, AI notetaking, AI notetaker, Argmax, Deepgram, secure transcription, notepad app, notetaking app";
+  "command center, daily notes, local-first, on-device AI, privacy-first, activity capture, meeting notes, task management, personal knowledge base, AI notepad, cognitive load, founder tools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({

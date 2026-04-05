@@ -11,13 +11,13 @@ export const Route = createFileRoute("/_view/privacy")({
       {
         name: "description",
         content:
-          "Your privacy is not just a feature at Char—it's our foundation. Learn how we protect your meeting data with local-first architecture and zero data collection.",
+          "Char captures meetings and activity on your computer—all processed locally, never uploaded. Privacy isn't a feature, it's the foundation.",
       },
       { property: "og:title", content: "Privacy - Char" },
       {
         property: "og:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
+          "Char captures your meetings and activity—all locally on your device. Your data never leaves unless you say so.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://char.com/privacy" },
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_view/privacy")({
       {
         name: "twitter:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
+          "Char captures your meetings and activity—all locally on your device. Your data never leaves unless you say so.",
       },
     ],
   }),
@@ -54,19 +54,20 @@ function HeroSection() {
       <div className="px-6 py-12 lg:py-20">
         <header className="mx-auto mb-12 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
-            <Icon icon="mdi:eye-off" className="text-lg" />
-            <span>Privacy-first by design</span>
+            <Icon icon="mdi:shield-check" className="text-lg" />
+            <span>Privacy by nature</span>
           </div>
           <h1 className="mb-6 font-mono text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
-            Your conversations
+            Your data lives
             <br />
-            belong to you
+            on your device
           </h1>
           <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
-            At Char, we believe privacy isn't just a feature—it's a fundamental
-            right. Your meeting conversations contain your most sensitive ideas,
-            strategies, and personal moments. We've built Char to ensure they
-            stay yours, and yours alone.
+            Char captures meetings, tracks activity on your computer, and
+            manages your daily notes—all locally. We're integrating deep
+            context capture (like a keylogger) because the more Char knows, the
+            more it can help. But that level of access demands real privacy,
+            not just promises. That's why everything runs on your device.
           </p>
         </header>
       </div>
@@ -77,39 +78,39 @@ function HeroSection() {
 function PrivacyPromiseSection() {
   const promises = [
     {
-      icon: "mdi:cloud-off-outline",
-      title: "No cloud uploads",
+      icon: "mdi:laptop",
+      title: "Everything stays local",
       description:
-        "Your audio recordings and transcripts are processed and stored entirely on your device. We never upload your meeting content to our servers.",
+        "Meetings, activity capture, transcripts, and notes are all processed and stored on your device. Nothing is uploaded to our servers.",
+    },
+    {
+      icon: "mdi:brain",
+      title: "On-device AI",
+      description:
+        "Run AI models locally for transcription and note enhancement. No internet required. Your data never touches a cloud API unless you choose to use one.",
     },
     {
       icon: "mdi:database-off",
       title: "No data collection",
       description:
-        "We don't collect, analyze, or monetize your meeting data. Your conversations are not used to train AI models or sold to third parties.",
+        "We don't collect, analyze, or monetize your data—meetings, activity, or otherwise. Nothing is used to train AI models or sold to third parties.",
     },
     {
-      icon: "mdi:account-off",
-      title: "No account required",
+      icon: "mdi:code-braces",
+      title: "Open source & verifiable",
       description:
-        "Use Char without creating an account. Your identity remains private, and there's no profile data for us to store or leak.",
-    },
-    {
-      icon: "mdi:chart-line",
-      title: "Minimal telemetry",
-      description:
-        "Our optional, anonymized telemetry helps us improve the app without compromising your privacy. It's off by default and contains no personal data.",
+        "Every line of code is public. You can verify exactly how activity capture works, what data is stored, and that nothing leaves your machine.",
     },
   ];
 
   return (
     <section className="px-6 py-12 lg:py-16">
       <h2 className="mb-4 text-left font-mono text-3xl text-stone-600">
-        Our privacy promise
+        Privacy by nature, not by promise
       </h2>
       <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
-        These aren't just policies—they're principles embedded in our
-        architecture. We couldn't violate your privacy even if we wanted to.
+        These aren't policies—they're architectural decisions. Char physically
+        cannot send your data to us because it never leaves your device.
       </p>
       <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
         {promises.map((promise, index) => (
@@ -142,11 +143,11 @@ function DataOwnershipSection() {
             className="mb-4 text-5xl text-stone-600"
           />
           <h2 className="mb-4 font-mono text-3xl text-stone-600">
-            You own your data, completely
+            Ownership means it's on your device
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            With Char, data ownership isn't a marketing term—it's a technical
-            reality. Your data lives on your device, in formats you control.
+            Meetings, activity logs, daily notes—all stored locally in formats
+            you control. True ownership, not a marketing term.
           </p>
         </div>
 
@@ -158,8 +159,8 @@ function DataOwnershipSection() {
             />
             <h3 className="mb-2 font-medium text-stone-600">Local storage</h3>
             <p className="text-sm text-neutral-600">
-              All your notes, recordings, and transcripts are stored in a local
-              database on your computer. No cloud dependency, no remote access.
+              All your notes, recordings, activity data, and transcripts are
+              stored locally on your computer. No cloud dependency.
             </p>
           </div>
           <div className="p-6 text-left">
@@ -221,11 +222,11 @@ function NoTrackingSection() {
             className="mb-4 text-5xl text-stone-600"
           />
           <h2 className="mb-4 font-mono text-3xl text-stone-600">
-            No tracking, no profiling
+            We don't see your data. Period.
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            We don't track your behavior, build profiles, or analyze your
-            content. Your meeting data is not a product.
+            Char captures deep context about your work—but we never see it.
+            Your activity, meetings, and notes are not our product.
           </p>
         </div>
 
@@ -241,9 +242,9 @@ function NoTrackingSection() {
                   No AI training on your data
                 </h3>
                 <p className="text-neutral-600">
-                  Your transcripts and notes are never used to train AI models.
-                  The AI features in Char run locally on your device, and your
-                  content stays private.
+                  Your transcripts, activity data, and notes are never used to
+                  train AI models. On-device AI means your content stays on
+                  your machine.
                 </p>
               </div>
             </div>
@@ -305,8 +306,8 @@ function TransparencySection() {
             Verify, don't trust
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            We don't ask you to take our word for it. Char is fully open source,
-            so you can verify every privacy claim yourself.
+            We're asking for deep access to your work. That's why we don't ask
+            you to trust us—we ask you to verify. Char is fully open source.
           </p>
         </div>
 
@@ -408,8 +409,8 @@ function PrivacyComparisonSection() {
             How we compare
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            Most meeting tools treat your data as their asset. We built Char
-            differently.
+            Most tools treat your data as their asset. Char is built so your
+            data physically cannot reach us.
           </p>
         </div>
 
@@ -463,11 +464,12 @@ function CTASection() {
           className="mx-auto mb-6 text-5xl text-stone-600"
         />
         <h2 className="mb-4 font-mono text-3xl text-stone-600">
-          Take back control of your meeting data
+          Deep context. Complete privacy.
         </h2>
         <p className="mb-8 text-neutral-600">
-          Join thousands of professionals who refuse to compromise on privacy.
-          Your conversations deserve better.
+          The more Char knows about your work, the more it can help. And
+          because everything runs locally, that's a tradeoff you can actually
+          make.
         </p>
         <div className="flex flex-col justify-center gap-4 sm:flex-row">
           <Link
