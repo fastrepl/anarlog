@@ -19,6 +19,7 @@ pub trait AppExt<R: tauri::Runtime> {
     fn set_recently_opened_sessions(&self, v: String) -> Result<(), String>;
 
     fn get_app_open_count(&self) -> Result<u32, String>;
+    fn set_app_open_count(&self, v: u32) -> Result<(), String>;
     fn increment_app_open_count(&self) -> Result<u32, String>;
 
     fn get_survey_dismissed(&self) -> Result<bool, String>;
@@ -125,6 +126,15 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> AppExt<R> for T {
             .get(StoreKey::AppOpenCount)
             .map(|opt: Option<u32>| opt.unwrap_or(0))
             .map_err(|e| e.to_string())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn set_app_open_count(&self, v: u32) -> Result<(), String> {
+        let store = self.desktop_store()?;
+        store
+            .set(StoreKey::AppOpenCount, v)
+            .map_err(|e| e.to_string())?;
+        store.save().map_err(|e| e.to_string())
     }
 
     #[tracing::instrument(skip_all)]

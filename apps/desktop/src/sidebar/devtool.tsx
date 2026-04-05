@@ -9,6 +9,7 @@ import { cn } from "@hypr/utils";
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+import { SurveyModal } from "~/survey/survey-modal";
 import { commands } from "~/types/tauri.gen";
 
 export function DevtoolView() {
@@ -17,6 +18,7 @@ export function DevtoolView() {
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
         <ToastsCard />
+        <SurveyCard />
         <CountdownTestCard />
         <ErrorTestCard />
       </div>
@@ -215,6 +217,89 @@ function ToastsCard() {
           Reset All Dismissed
         </button>
       </div>
+    </DevtoolCard>
+  );
+}
+
+function SurveyCard() {
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const [appOpenCount, setAppOpenCount] = useState<number | null>(null);
+  const [surveyDismissed, setSurveyDismissed] = useState<boolean | null>(null);
+
+  const refreshState = useCallback(async () => {
+    const countResult = await commands.getAppOpenCount();
+    if (countResult.status === "ok") {
+      setAppOpenCount(countResult.data);
+    }
+    const dismissedResult = await commands.getSurveyDismissed();
+    if (dismissedResult.status === "ok") {
+      setSurveyDismissed(dismissedResult.data);
+    }
+  }, []);
+
+  const handleResetAppOpenCount = useCallback(async () => {
+    await commands.setAppOpenCount(0);
+    await refreshState();
+  }, [refreshState]);
+
+  const handleResetSurvey = useCallback(async () => {
+    await commands.setSurveyDismissed(false);
+    await refreshState();
+  }, [refreshState]);
+
+  const handleTriggerSurvey = useCallback(() => {
+    setSurveyOpen(true);
+  }, []);
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+  ]);
+
+  return (
+    <DevtoolCard title="Survey">
+      <div className="flex flex-col gap-1.5">
+        <div className="text-xs text-neutral-500">
+          <div>
+            Open count: {appOpenCount ?? "—"} | Dismissed:{" "}
+            {surveyDismissed === null ? "—" : surveyDismissed ? "yes" : "no"}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refreshState()}
+          className={btnClass}
+        >
+          Refresh State
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleResetAppOpenCount()}
+          className={btnClass}
+        >
+          Reset App Open Count
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleResetSurvey()}
+          className={btnClass}
+        >
+          Reset Survey Dismissed
+        </button>
+        <button
+          type="button"
+          onClick={handleTriggerSurvey}
+          className={btnClass}
+        >
+          Show Survey Modal
+        </button>
+      </div>
+      {surveyOpen && (
+        <SurveyModal forceOpen onClose={() => setSurveyOpen(false)} />
+      )}
     </DevtoolCard>
   );
 }

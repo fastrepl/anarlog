@@ -358,6 +358,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
+            commands::get_app_open_count::<tauri::Wry>,
+            commands::set_app_open_count::<tauri::Wry>,
             commands::increment_app_open_count::<tauri::Wry>,
             commands::get_survey_dismissed::<tauri::Wry>,
             commands::set_survey_dismissed::<tauri::Wry>,

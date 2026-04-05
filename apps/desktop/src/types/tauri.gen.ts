@@ -108,6 +108,22 @@ async setRecentlyOpenedSessions(v: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getAppOpenCount() : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_app_open_count") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setAppOpenCount(v: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_app_open_count", { v }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async incrementAppOpenCount() : Promise<Result<number, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("increment_app_open_count") };

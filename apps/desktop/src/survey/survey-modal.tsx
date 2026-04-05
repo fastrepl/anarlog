@@ -142,13 +142,23 @@ function QuestionStep({
   );
 }
 
-export function SurveyModal() {
+export function SurveyModal({
+  forceOpen,
+  onClose,
+}: { forceOpen?: boolean; onClose?: () => void } = {}) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [responses, setResponses] = useState<Record<string, string[]>>({});
   const hasChecked = useRef(false);
 
   useEffect(() => {
+    if (forceOpen) {
+      setOpen(true);
+      setStep(0);
+      setResponses({});
+      return;
+    }
+
     if (hasChecked.current || !isTauri()) {
       return;
     }
@@ -169,7 +179,7 @@ export function SurveyModal() {
         setOpen(true);
       }
     })();
-  }, []);
+  }, [forceOpen]);
 
   const currentQuestion = SURVEY_QUESTIONS[step];
   const currentResponses = responses[currentQuestion.id] ?? [];
@@ -213,7 +223,8 @@ export function SurveyModal() {
 
     void commands.setSurveyDismissed(true);
     setOpen(false);
-  }, [responses]);
+    onClose?.();
+  }, [responses, onClose]);
 
   const handleDismiss = useCallback(() => {
     void analyticsCommands.event({
@@ -222,7 +233,8 @@ export function SurveyModal() {
     });
     void commands.setSurveyDismissed(true);
     setOpen(false);
-  }, []);
+    onClose?.();
+  }, [onClose]);
 
   const handleNext = useCallback(() => {
     if (isLastStep) {

@@ -164,6 +164,23 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn get_app_open_count<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<u32, String> {
+    app.get_app_open_count()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_app_open_count<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    v: u32,
+) -> Result<(), String> {
+    app.set_app_open_count(v)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn increment_app_open_count<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<u32, String> {
