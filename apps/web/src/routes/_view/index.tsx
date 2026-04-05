@@ -1525,8 +1525,8 @@ export function AISection() {
           AI that reduces your cognitive load
         </h2>
         <p className="text-fg-muted">
-          Ask questions, route tasks, and build memory across
-          everything, activity, and notes.
+          Ask questions, route tasks, and build memory across everything,
+          activity, and notes.
         </p>
       </div>
 
