@@ -88,9 +88,9 @@ function SearchSection() {
   ];
 
   return (
-    <section id="search" className="px-4 py-8">
-      <div className="px-6 py-20">
-        <div className="flex flex-col gap-12 text-left">
+    <section id="search">
+      <div className="text-left">
+        <div className="flex flex-col gap-12">
           <div>
             <h2 className="mb-4 font-mono text-3xl text-black">
               Find anything instantly
@@ -922,8 +922,8 @@ TrackProtectCell.displayName = "TrackProtectCell";
 
 function SharingSection() {
   return (
-    <section id="sharing" className="px-4 py-8">
-      <div className="px-4 py-12 text-left lg:px-0">
+    <section id="sharing">
+      <div className="text-left">
         <div className="border-border mb-4 inline-block rounded-full border bg-linear-to-t from-neutral-200 to-neutral-100 px-4 py-1.5 text-xs font-medium text-neutral-900 shadow-md">
           Coming Soon
         </div>
