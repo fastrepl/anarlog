@@ -220,11 +220,11 @@ function HeroSection({
                     fontSize: "clamp(1.5rem, 2rem + 3.2vw, 3.75rem)",
                   }}
                 >
-                  Your Command <br /> Center
+                  Your Memory
                 </h1>
                 <p className="font-regular text-fg-muted text-base leading-relaxed break-words sm:text-xl">
                   Char captures meetings, tracks activity, and manages your
-                  day—all locally, all private.
+                  day—so you can focus on what matters.
                 </p>
                 {heroCTA.showInput ? (
                   <form
@@ -2378,7 +2378,7 @@ const solutionScenarios = [
   {
     id: "developers",
     label: "Developers",
-    headline: "The only AI command center you can fork, fix and make your own",
+    headline: "The only AI memory layer you can fork, fix and make your own",
     description:
       "Build extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
     pills: [
@@ -2393,7 +2393,7 @@ const solutionScenarios = [
   {
     id: "enterprise",
     label: "Enterprise",
-    headline: "Your organization's command center, on your terms",
+    headline: "Your organization's memory, on your terms",
     description:
       "Other tools ask you to trust their infrastructure, their models, and their policies. Char gives you control over all three—local-first by default.",
     pills: [
@@ -2591,7 +2591,7 @@ function FAQSection() {
           </FAQItem>
 
           <FAQItem question="How is Char different from other tools?">
-            Char is not just a meeting notetaker. It's a command center that
+            Char is not just a meeting notetaker. It's a memory layer that
             connects meetings, activity, and daily notes into continuous
             context. Local-first, on-device AI, open source, and no lock-in.
           </FAQItem>
@@ -2638,7 +2638,7 @@ export function ManifestoSection() {
                 bolt on—it's the foundation we build on.
               </p>
               <p>
-                We're building the command center for people who refuse to let
+                We're building the memory layer for people who refuse to let
                 complexity win. Focus on what matters. Let Char handle the rest.
               </p>
             </div>

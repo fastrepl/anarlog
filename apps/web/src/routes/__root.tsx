@@ -14,11 +14,11 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const TITLE = "Char - Your Command Center";
+const TITLE = "Char - Your Memory";
 const DESCRIPTION =
-  "Char is a local-first command center that captures your meetings, tracks your activity, and manages your day—all on-device, all private. Daily notes that evolve with you, powered by on-device AI.";
+  "Char is a local-first memory layer that captures your meetings, tracks your activity, and manages your day—all on-device, all private. Daily notes that evolve with you, powered by on-device AI.";
 const KEYWORDS =
-  "command center, daily notes, local-first, on-device AI, privacy-first, activity capture, meeting notes, task management, personal knowledge base, AI notepad, cognitive load, founder tools";
+  "memory, daily notes, local-first, on-device AI, privacy-first, activity capture, meeting notes, task management, personal knowledge base, AI notepad, cognitive load, founder tools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
