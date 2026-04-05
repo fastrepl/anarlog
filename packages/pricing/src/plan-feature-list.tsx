@@ -57,6 +57,11 @@ export function PlanFeatureList({
                 >
                   {feature.label}
                 </span>
+                {feature.included === "partial" && (
+                  <span className="text-yellow-600 text-xs italic">
+                    (coming soon)
+                  </span>
+                )}
               </div>
               {feature.tooltip && !dense && (
                 <div className="mt-0.5 text-xs text-neutral-500 italic">
