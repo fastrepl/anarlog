@@ -21,7 +21,7 @@ import { GitHubOpenSource } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import { LogoCloud } from "@/components/logo-cloud";
-import { FAQ, FAQItem } from "@/components/mdx-jobs";
+import { FAQ, FAQItem } from "@/components/mdx-shared";
 import { NotebookGrid } from "@/components/notebook-grid";
 import { SocialCard } from "@/components/social-card";
 import { VideoModal } from "@/components/video-modal";

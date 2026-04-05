@@ -5,7 +5,7 @@ import { Accordion, Card, Note, Step, Steps, Tip } from "@hypr/ui/docs";
 
 import { CtaCard } from "@/components/cta-card";
 import { Image } from "@/components/image";
-import { GitHubMention } from "@/components/mdx-jobs";
+import { GitHubMention } from "@/components/mdx-shared";
 
 import { DeeplinksList } from "../deeplinks-list";
 import { HooksList } from "../hooks-list";
