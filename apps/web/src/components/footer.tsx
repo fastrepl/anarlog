@@ -35,7 +35,7 @@ export function Footer() {
   const maxWidthClass = getMaxWidthClass(router.location.pathname);
 
   return (
-    <footer className="relative overflow-hidden">
+    <footer className="relative isolate overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0"

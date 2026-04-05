@@ -89,37 +89,30 @@ function SearchSection() {
 
   return (
     <section id="search" className="px-4 py-8">
-      <div
-        className="border-border bg-surface-subtle overflow-hidden rounded-xl border bg-cover bg-center"
-        style={{
-          backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
-        }}
-      >
-        <div className="px-6 py-20">
-          <div className="flex flex-col gap-12 text-left">
-            <div>
-              <h2 className="mb-4 font-mono text-3xl text-stone-50">
-                Find anything instantly
-              </h2>
-              <p className="text-base text-neutral-100">
-                Search across all your notes by participant names, topics,
-                keywords, or time—and jump straight to what matters
-              </p>
-            </div>
+      <div className="px-6 py-20">
+        <div className="flex flex-col gap-12 text-left">
+          <div>
+            <h2 className="mb-4 font-mono text-3xl text-black">
+              Find anything instantly
+            </h2>
+            <p className="text-base text-black/70">
+              Search across all your notes by participant names, topics,
+              keywords, or time—and jump straight to what matters
+            </p>
+          </div>
 
-            <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
-              <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
-                <SearchIcon className="size-5 shrink-0 text-stone-400" />
-                <div className="min-w-0 flex-1 overflow-hidden text-left">
-                  <Typewriter
-                    text={searchQueries}
-                    speed={100}
-                    deleteSpeed={30}
-                    waitTime={2000}
-                    className="block truncate text-base font-light text-stone-700 sm:text-lg"
-                    cursorClassName="ml-1"
-                  />
-                </div>
+          <div className="relative flex w-full max-w-full flex-col gap-3 sm:w-[420px]">
+            <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
+              <SearchIcon className="size-5 shrink-0 text-stone-400" />
+              <div className="min-w-0 flex-1 overflow-hidden text-left">
+                <Typewriter
+                  text={searchQueries}
+                  speed={100}
+                  deleteSpeed={30}
+                  waitTime={2000}
+                  className="block truncate text-base font-light text-stone-700 sm:text-lg"
+                  cursorClassName="ml-1"
+                />
               </div>
             </div>
           </div>
