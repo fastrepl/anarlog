@@ -64,10 +64,10 @@ function HeroSection() {
           </h1>
           <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
             Char captures meetings, tracks activity on your computer, and
-            manages your daily notes—all locally. We're integrating deep
-            context capture (like a keylogger) because the more Char knows, the
-            more it can help. But that level of access demands real privacy,
-            not just promises. That's why everything runs on your device.
+            manages your daily notes—all locally. We're integrating deep context
+            capture (like a keylogger) because the more Char knows, the more it
+            can help. But that level of access demands real privacy, not just
+            promises. That's why everything runs on your device.
           </p>
         </header>
       </div>
@@ -225,8 +225,8 @@ function NoTrackingSection() {
             We don't see your data. Period.
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            Char captures deep context about your work—but we never see it.
-            Your activity, meetings, and notes are not our product.
+            Char captures deep context about your work—but we never see it. Your
+            activity, meetings, and notes are not our product.
           </p>
         </div>
 
@@ -243,8 +243,8 @@ function NoTrackingSection() {
                 </h3>
                 <p className="text-neutral-600">
                   Your transcripts, activity data, and notes are never used to
-                  train AI models. On-device AI means your content stays on
-                  your machine.
+                  train AI models. On-device AI means your content stays on your
+                  machine.
                 </p>
               </div>
             </div>
@@ -467,9 +467,8 @@ function CTASection() {
           Deep context. Complete privacy.
         </h2>
         <p className="mb-8 text-neutral-600">
-          The more Char knows about your work, the more it can help. And
-          because everything runs locally, that's a tradeoff you can actually
-          make.
+          The more Char knows about your work, the more it can help. And because
+          everything runs locally, that's a tradeoff you can actually make.
         </p>
         <div className="flex flex-col justify-center gap-4 sm:flex-row">
           <Link

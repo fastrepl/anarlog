@@ -82,7 +82,8 @@ function HeroSection() {
 const differentiators = [
   {
     title: "Local-first by nature",
-    description: "Everything runs on your device. Your data never has to leave your computer.",
+    description:
+      "Everything runs on your device. Your data never has to leave your computer.",
     icon: "mdi:laptop",
   },
   {
@@ -224,23 +225,23 @@ function WhatWereBuildingTowardSection() {
                 next.
               </p>
 
-                  <p>We're betting on local-first.</p>
+              <p>We're betting on local-first.</p>
 
-                  <p>
-                    Your data on your device. AI models that run without an internet
-                    connection. Files that outlive any app or startup.
-                  </p>
+              <p>
+                Your data on your device. AI models that run without an internet
+                connection. Files that outlive any app or startup.
+              </p>
 
-                  <p>
-                    The more Char knows about your day—meetings, activity,
-                    notes—the more it can take off your plate. But that depth of
-                    context demands real privacy, not just a promise.
-                  </p>
+              <p>
+                The more Char knows about your day—meetings, activity, notes—the
+                more it can take off your plate. But that depth of context
+                demands real privacy, not just a promise.
+              </p>
 
-                  <p>
-                    That's why local-first is the foundation. Everything else is
-                    software on top.
-                  </p>
+              <p>
+                That's why local-first is the foundation. Everything else is
+                software on top.
+              </p>
             </div>
 
             <div className="mt-12 mb-4 flex gap-2">

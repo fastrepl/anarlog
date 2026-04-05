@@ -62,7 +62,8 @@ const mainFeatures = [
   {
     icon: "mdi:chat-outline",
     title: "AI Chat",
-    description: "Ask questions across all your notes, meetings, and activity in natural language",
+    description:
+      "Ask questions across all your notes, meetings, and activity in natural language",
     image: "/api/images/hyprnote/floating.jpg",
     link: "/product/ai-notetaking/#floating-panel",
   },
@@ -1524,8 +1525,8 @@ export function AISection() {
           AI that reduces your cognitive load
         </h2>
         <p className="text-fg-muted">
-          Ask questions, route tasks, and build memory across everything—meetings,
-          activity, and notes.
+          Ask questions, route tasks, and build memory across
+          everything, activity, and notes.
         </p>
       </div>
 
@@ -2571,9 +2572,9 @@ function FAQSection() {
           </FAQItem>
 
           <FAQItem question="What does Char actually capture?">
-            Meetings via system audio (no bots), activity on your computer
-            (like a local activity journal), and your own notes. Everything
-            stays on your device unless you choose otherwise.
+            Meetings via system audio (no bots), activity on your computer (like
+            a local activity journal), and your own notes. Everything stays on
+            your device unless you choose otherwise.
           </FAQItem>
 
           <FAQItem question="Is my data safe if Char tracks my activity?">
@@ -2631,10 +2632,10 @@ export function ManifestoSection() {
                 support.
               </p>
               <p>
-                We believe your data is yours. Not ours, not a cloud
-                provider's, not a training set. That's why Char is local-first,
-                powered by on-device models, and open source. Privacy isn't a
-                feature we bolt on—it's the foundation we build on.
+                We believe your data is yours. Not ours, not a cloud provider's,
+                not a training set. That's why Char is local-first, powered by
+                on-device models, and open source. Privacy isn't a feature we
+                bolt on—it's the foundation we build on.
               </p>
               <p>
                 We're building the command center for people who refuse to let
