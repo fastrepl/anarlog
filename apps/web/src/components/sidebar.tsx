@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -758,26 +758,13 @@ function SidebarFlyout({
   activeSubItem: { to: string; label: string } | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const open = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsOpen(true);
-  };
-
-  const close = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsOpen(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
 
   return (
-    <div className="relative" onMouseEnter={open} onMouseLeave={close}>
+    <div
+      className="relative"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
       <Link
         to={to}
         className={cn(
@@ -808,12 +795,10 @@ function SidebarFlyout({
         {isOpen && (
           <motion.div
             className="absolute top-0 left-full z-[9999] pl-2"
-            initial={{ opacity: 0, x: -10 }}
+            initial={{ opacity: 0, x: 8 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
+            exit={{ opacity: 0, x: 8 }}
             transition={{ duration: 0.15, ease: "easeInOut" }}
-            onMouseEnter={open}
-            onMouseLeave={close}
           >
             <div className="border-color-brand surface w-56 rounded-lg border py-2 shadow-lg">
               {submenu === "product" ? (
