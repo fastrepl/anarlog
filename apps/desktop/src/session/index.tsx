@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { StickyNoteIcon } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
@@ -27,8 +27,10 @@ import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
+import { useUploadFile } from "~/stt/useUploadFile";
 
 export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   tab,
@@ -184,45 +186,15 @@ function TabContentNoteInner({
 
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
-  const [showConsentBanner, setShowConsentBanner] = useState(false);
-
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const prevSessionMode = useRef<string | null>(sessionMode);
 
   useAutoFocusTitle({ sessionId, titleInputRef });
-
-  useEffect(() => {
-    const justStartedListening =
-      prevSessionMode.current !== "active" && sessionMode === "active";
-    const justStoppedListening =
-      prevSessionMode.current === "active" && sessionMode !== "active";
-
-    prevSessionMode.current = sessionMode;
-
-    if (justStartedListening) {
-      setShowConsentBanner(true);
-    } else if (justStoppedListening) {
-      setShowConsentBanner(false);
-    }
-  }, [sessionMode]);
-
-  useEffect(() => {
-    if (!showConsentBanner) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowConsentBanner(false);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [showConsentBanner]);
+  usePendingUpload(sessionId);
 
   const { bottomAccessory, bottomAccessoryState } = useSessionBottomAccessory({
     sessionId,
     sessionMode,
     audioUrl,
-    showConsentBanner,
     hasTranscript,
   });
 
@@ -277,6 +249,19 @@ function TabContentNoteInner({
       />
     </SessionSurface>
   );
+}
+
+function usePendingUpload(sessionId: string) {
+  const { processFile } = useUploadFile(sessionId);
+  const processFileRef = useRef(processFile);
+  processFileRef.current = processFile;
+
+  useEffect(() => {
+    const pending = consumePendingUpload(sessionId);
+    if (pending) {
+      processFileRef.current(pending.filePath, pending.kind);
+    }
+  }, [sessionId]);
 }
 
 function useAutoFocusTitle({

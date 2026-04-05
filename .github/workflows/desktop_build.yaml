@@ -214,13 +214,9 @@ jobs:
       - run: |
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git fetch --tags --force
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
       - shell: pwsh
         run: |
-          $versionConfigPath = "./apps/desktop/src-tauri/tauri.conf.json"
-          $versionConfig = Get-Content $versionConfigPath -Raw | ConvertFrom-Json
-          $versionConfig.version = "${{ needs.compute-version.outputs.version }}"
-          $versionConfig | ConvertTo-Json -Depth 100 | Set-Content -Encoding utf8 $versionConfigPath
-
           $channelConfigPath = "./apps/desktop/$env:TAURI_CONF_PATH"
           $channelConfig = Get-Content $channelConfigPath -Raw | ConvertFrom-Json
           if (-not $channelConfig.bundle) {

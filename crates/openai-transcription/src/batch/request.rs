@@ -19,22 +19,12 @@ pub struct CommonTranscriptionOptions {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[derive(Default)]
 pub struct CreateWhisperTranscriptionOptions {
     pub common: CommonTranscriptionOptions,
     pub prompt: Option<String>,
     pub response_format: Option<WhisperResponseFormat>,
     pub timestamp_granularities: Vec<TimestampGranularity>,
-}
-
-impl Default for CreateWhisperTranscriptionOptions {
-    fn default() -> Self {
-        Self {
-            common: CommonTranscriptionOptions::default(),
-            prompt: None,
-            response_format: None,
-            timestamp_granularities: Vec::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

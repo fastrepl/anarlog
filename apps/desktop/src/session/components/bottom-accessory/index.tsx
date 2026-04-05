@@ -12,13 +12,11 @@ export function useSessionBottomAccessory({
   sessionId,
   sessionMode,
   audioUrl,
-  showConsentBanner,
   hasTranscript,
 }: {
   sessionId: string;
   sessionMode: string;
   audioUrl: string | null | undefined;
-  showConsentBanner: boolean;
   hasTranscript: boolean;
 }): {
   bottomAccessory: ReactNode;
@@ -45,7 +43,7 @@ export function useSessionBottomAccessory({
     }
   }, [isBatching]);
 
-  const showPostSession = isInactive && (hasAudio || hasTranscript);
+  const showPostSession = isInactive;
   const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
     ? "live"
     : showPostSession
@@ -64,7 +62,6 @@ export function useSessionBottomAccessory({
       bottomAccessory: (
         <LiveTranscriptFooter
           sessionId={sessionId}
-          showConsentBanner={showConsentBanner}
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded((v) => !v)}
         />

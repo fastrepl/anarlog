@@ -19,12 +19,10 @@ import {
 
 export function LiveTranscriptFooter({
   sessionId,
-  showConsentBanner = false,
   isExpanded = false,
   onToggleExpand,
 }: {
   sessionId: string;
-  showConsentBanner?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
 }) {
@@ -55,7 +53,7 @@ export function LiveTranscriptFooter({
     : null;
 
   return (
-    <div className="relative w-full select-none">
+    <div className="relative w-full pt-3 select-none">
       {onToggleExpand && (
         <ExpandToggle
           isExpanded={isExpanded}
@@ -66,14 +64,13 @@ export function LiveTranscriptFooter({
 
       <div className="rounded-xl bg-neutral-50">
         <div
-          className={cn(["flex items-center gap-2 p-2", "w-full max-w-full"])}
+          className={cn([
+            "flex min-h-12 items-center gap-2 p-2",
+            "w-full max-w-full",
+          ])}
         >
           <div className="min-w-0 flex-1 select-none">
-            {showConsentBanner && segments.length === 0 ? (
-              <span className="truncate text-xs text-neutral-400">
-                Ask for consent when using Char
-              </span>
-            ) : lastSegmentText ? (
+            {lastSegmentText ? (
               <p className="truncate text-xs text-neutral-600">
                 <span className="font-medium text-neutral-500">
                   {lastSegmentLabel}
