@@ -151,7 +151,7 @@ export const NoteInput = forwardRef<
           }}
           onClick={handleContainerClick}
           className={cn([
-            "h-full px-3",
+            "h-full pr-0 pl-3",
             "scroll-fade-y overflow-auto",
             "pt-2",
             "pb-6",
