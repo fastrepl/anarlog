@@ -30,7 +30,7 @@ import { useHeroContext } from "@/hooks/use-hero-context";
 import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
 
-const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
+const MUX_PLAYBACK_ID = "1s01BC9LBwzygOUWk9Pdn011KuxvIQRMbTEfCpOypfdrw";
 
 const mainFeatures = [
   {
@@ -345,10 +345,10 @@ function HeroSection({
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border p-4 shadow-xl"
+                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border shadow-xl"
                   style={{ aspectRatio: "16/9" }}
                 >
-                  <div className="w-full">
+                  <div className="h-full w-full">
                     <img
                       src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
                       alt="Product demo"
