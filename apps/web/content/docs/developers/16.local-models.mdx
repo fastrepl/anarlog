@@ -14,7 +14,7 @@ For step-by-step setup instructions for LM Studio and Ollama, see the [Local LLM
 ## Speech-to-text (STT)
 
 - All STT models are stored in `~/Library/Application Support/char/models/stt/`
-- The built-in whisper-cpp backend is now an optional compile-time feature. Production builds on macOS Apple Silicon use the Argmax sidecar by default. Whisper-cpp quantized models have been removed from the settings UI.
+- The built-in whisper-cpp backend is now an optional compile-time feature. Production builds use the Cactus engine for local STT.
 
 ### Cactus engine (beta)
 
@@ -29,6 +29,10 @@ Cactus is a local STT backend that runs optimized Whisper models. Cactus models 
 | Whisper Medium (INT4, Apple NPU) | INT4 | Apple Silicon |
 | Whisper Medium (INT8) | INT8 | General |
 | Whisper Medium (INT8, Apple NPU) | INT8 | Apple Silicon |
+| Parakeet TDT 0.6B V3 (INT4) | INT4 | General |
+| Parakeet TDT 0.6B V3 (INT4, Apple NPU) | INT4 | Apple Silicon |
+| Parakeet TDT 0.6B V3 (INT8) | INT8 | General |
+| Parakeet TDT 0.6B V3 (INT8, Apple NPU) | INT8 | Apple Silicon |
 
 Cactus models are downloaded and managed from the Settings UI. They are stored in a separate `cactus/` directory within the models folder.
 
@@ -36,23 +40,4 @@ Cactus models are downloaded and managed from the Settings UI. They are stored i
 
 **Custom vocabulary:** Cactus supports custom vocabulary to improve recognition accuracy for domain-specific terms, names, and acronyms. Custom vocabulary words are defined in **Settings** > **Intelligence** > **Memory** and are passed to the Cactus engine during both streaming and batch transcription.
 
-### Argmax models
-
-Manual download:
-
-| URL                                                                                               | Folder                                    |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| https://huggingface.co/argmaxinc/whisperkit-pro/tree/main/openai_whisper-large-v3-v20240930_626MB | `openai_whisper-large-v3-v20240930_626MB` |
-| https://huggingface.co/argmaxinc/parakeetkit-pro/tree/main/nvidia_parakeet-v2_476MB               | `nvidia_parakeet-v2_476MB`                |
-| https://huggingface.co/argmaxinc/parakeetkit-pro/tree/main/nvidia_parakeet-v3_494MB               | `nvidia_parakeet-v3_494MB`                |
-| https://huggingface.co/argmaxinc/ctckit-pro/tree/main/parakeet-tdt_ctc-110m                       | `parakeet-tdt_ctc-110m`                   |
-
 For details on how your data is handled when using local vs cloud models, see [AI Models & Data Privacy](/docs/faq/ai-models-and-privacy).
-
-If you have [Huggingface CLI](https://huggingface.co/docs/huggingface_hub/guides/cli) installed:
-
-```bash
-hf download argmaxinc/whisperkit-pro \
-  --include "openai_whisper-large-v3-v20240930_626MB/*" \
-  --local-dir "$HOME/Library/Application Support/char/models/stt"
-```

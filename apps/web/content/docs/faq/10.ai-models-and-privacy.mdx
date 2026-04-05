@@ -17,7 +17,7 @@ Nothing leaves your machine unless you explicitly enable a cloud feature.
 Char uses two base directories. See [Data](/docs/guides/data) for the full directory layout.
 
 **Global base** (shared across stable and nightly builds):
-- `models/stt/` — downloaded speech-to-text model files (Whisper GGUF, Argmax tarballs)
+- `models/stt/` — downloaded speech-to-text model files (Cactus model archives)
 - `store.json` — app state (onboarding status, pinned tabs, recently opened sessions, dismissed toasts, analytics preference, auth tokens)
 - `hyprnote.json` — vault configuration (custom vault path if set)
 - `search/` — Tantivy full-text search index
@@ -89,8 +89,7 @@ The following sections document every case where Char sends data to an external 
 Char supports both local and cloud transcription.
 
 **Local models** run entirely on your device — your audio never leaves your machine:
-- Cactus models (Whisper Small/Medium in INT4/INT8 quantizations, with Apple NPU variants) — see [Local Models](/docs/developers/local-models#cactus-engine-beta)
-- Argmax models (ParakeetV2, ParakeetV3, WhisperLargeV3) — downloaded as tarballs
+- Cactus models (Whisper Small/Medium and Parakeet TDT 0.6B V3 in INT4/INT8 quantizations, with Apple NPU variants) — see [Local Models](/docs/developers/local-models#cactus-engine-beta)
 
 For local model details and download instructions, see [Local Models](/docs/developers/local-models).
 
@@ -124,6 +123,7 @@ The `ListenerArgs` passed to the STT adapter contain the following — this is a
 | ElevenLabs | [Privacy Policy](https://elevenlabs.io/privacy-policy) |
 | DashScope | [Privacy Policy](https://www.alibabacloud.com/help/en/legal/latest/Chinese-mainland-chinese-version-Chinese-mainland-chinese-version) |
 | Mistral | [Privacy Policy](https://mistral.ai/terms/#privacy-policy) |
+| pyannoteAI | [Privacy Policy](https://www.pyannote.ai/privacy) |
 | Fireworks AI | [Privacy Policy](https://fireworks.ai/privacy-policy) |
 
 ### Large language models
@@ -238,7 +238,7 @@ These are the supported local models:
 <GithubCode url="https://github.com/fastrepl/char/blob/main/plugins/local-stt/src/model.rs#L4-L15" />
 
 **What happens:**
-- Standard HTTP download requests to S3 (Whisper models) or Argmax hosting servers
+- Standard HTTP download requests to S3 (Cactus model archives)
 - No user data is sent
 - Downloaded models are verified with checksums before use
 
