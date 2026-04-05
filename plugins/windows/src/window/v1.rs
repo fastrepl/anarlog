@@ -1,3 +1,5 @@
+use tauri::Manager;
+
 use crate::WindowImpl;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq, Hash)]
@@ -114,11 +116,11 @@ impl WindowImpl for AppWindow {
 
         let window = match self {
             Self::Main => {
-                let url = if cfg!(feature = "new") {
-                    "/app/main2"
-                } else {
-                    "/app/main"
-                };
+                let use_new = app
+                    .try_state::<crate::UseNewLayout>()
+                    .map(|s| s.0)
+                    .unwrap_or(cfg!(feature = "new"));
+                let url = if use_new { "/app/main2" } else { "/app/main" };
 
                 let builder = self
                     .window_builder(app, url)

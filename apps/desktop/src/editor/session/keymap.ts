@@ -37,6 +37,7 @@ import {
   type EditorState,
 } from "prosemirror-state";
 
+import { createTaskItemAttrs } from "../tasks";
 import { schema } from "./schema";
 
 function isInListItem(state: EditorState): string | null {
@@ -234,10 +235,10 @@ function markInputRule(pattern: RegExp, markType: MarkType, delimLen: number) {
 }
 
 function taskListRule() {
-  return new InputRule(/^\s*\[([ x])\]\s$/, (state, match, start, end) => {
+  return new InputRule(/^\s*\[([ x]?)\]\s$/, (state, match, start, end) => {
     const checked = match[1] === "x";
     const taskItem = schema.nodes.taskItem.create(
-      { checked },
+      createTaskItemAttrs(checked),
       schema.nodes.paragraph.create(),
     );
     const taskList = schema.nodes.taskList.create(null, taskItem);

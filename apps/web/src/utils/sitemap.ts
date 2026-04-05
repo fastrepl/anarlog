@@ -40,6 +40,10 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.8,
         changeFrequency: "monthly",
       },
+      "/solutions/": {
+        priority: 0.7,
+        changeFrequency: "monthly",
+      },
 
       "/about": {
         priority: 0.6,

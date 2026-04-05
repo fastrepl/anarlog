@@ -161,3 +161,20 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
 ) -> Result<(), String> {
     app.set_recently_opened_sessions(v)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_char_v1p1_preview<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<bool, String> {
+    app.get_char_v1p1_preview()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_char_v1p1_preview<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    v: bool,
+) -> Result<(), String> {
+    app.set_char_v1p1_preview(v)
+}

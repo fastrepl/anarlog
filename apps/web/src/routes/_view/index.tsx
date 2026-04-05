@@ -21,7 +21,7 @@ import { GitHubOpenSource } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import { LogoCloud } from "@/components/logo-cloud";
-import { FAQ, FAQItem } from "@/components/mdx-jobs";
+import { FAQ, FAQItem } from "@/components/mdx-shared";
 import { NotebookGrid } from "@/components/notebook-grid";
 import { SocialCard } from "@/components/social-card";
 import { VideoModal } from "@/components/video-modal";
@@ -30,7 +30,7 @@ import { useHeroContext } from "@/hooks/use-hero-context";
 import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
 
-const MUX_PLAYBACK_ID = "bpcBHf4Qv5FbhwWD02zyFDb24EBuEuTPHKFUrZEktULQ";
+const MUX_PLAYBACK_ID = "1s01BC9LBwzygOUWk9Pdn011KuxvIQRMbTEfCpOypfdrw";
 
 const mainFeatures = [
   {
@@ -345,10 +345,10 @@ function HeroSection({
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border p-4 shadow-xl"
+                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border shadow-xl"
                   style={{ aspectRatio: "16/9" }}
                 >
-                  <div className="w-full">
+                  <div className="h-full w-full">
                     <img
                       src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
                       alt="Product demo"
@@ -1246,11 +1246,8 @@ function ChatPanel({ children }: { children: React.ReactNode }) {
           <span className="text-sm text-neutral-400">
             Ask about your notes...
           </span>
-          <div className="border-color-brand inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
+          <div className="border-color-brand inline-flex h-7 items-center rounded-lg border px-2.5 text-xs font-medium text-neutral-300">
             <span>Send</span>
-            <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
-              ⌘ ↩
-            </kbd>
           </div>
         </div>
       </div>

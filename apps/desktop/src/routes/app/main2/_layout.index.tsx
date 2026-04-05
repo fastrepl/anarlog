@@ -2,13 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { platform } from "@tauri-apps/plugin-os";
 import { ArrowLeftIcon, ArrowRightIcon, HouseIcon } from "lucide-react";
 import { Reorder } from "motion/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { useShallow } from "zustand/shallow";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import { useShell } from "~/contexts/shell";
+import { ProfileMenu } from "~/main2/profile-menu";
+import { UpdateBanner } from "~/main2/update";
 import {
   MainShellBodyFrame,
   MainShellScaffold,
@@ -17,10 +20,13 @@ import {
   useScrollActiveTabIntoView,
   useMainTabsShortcuts,
 } from "~/shared/main";
+import { OpenNoteDialog } from "~/shared/main/empty/open-note-dialog";
 import { useNewNoteAndListen } from "~/shared/main/useNewNote";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
+import { LeftSidebar } from "~/sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
+import { commands } from "~/types/tauri.gen";
 
 export const Route = createFileRoute("/app/main2/_layout/")({
   component: Main2Layout,
@@ -75,7 +81,28 @@ export function Main2Layout() {
     [tabs],
   );
   const setTabRef = useScrollActiveTabIntoView(visibleTabs);
-  const { chat } = useShell();
+  const { chat, leftsidebar } = useShell();
+
+  const hasCustomSidebar =
+    currentTab?.type === "calendar" ||
+    currentTab?.type === "settings" ||
+    currentTab?.type === "contacts" ||
+    currentTab?.type === "templates";
+  const showSidebar = hasCustomSidebar || leftsidebar.showDevtool;
+
+  const wasSidebarVisibleRef = useRef(false);
+  useEffect(() => {
+    if (showSidebar && !wasSidebarVisibleRef.current) {
+      leftsidebar.setExpanded(true);
+      leftsidebar.setLocked(true);
+      commands.resizeWindowForSidebar().catch(console.error);
+    } else if (!showSidebar && wasSidebarVisibleRef.current) {
+      leftsidebar.setLocked(false);
+      leftsidebar.setExpanded(false);
+    }
+    wasSidebarVisibleRef.current = showSidebar;
+  }, [showSidebar, leftsidebar]);
+
   const stop = useListener((state) => state.stop);
   const isRecording = useListener((state) => {
     return state.live.status === "active" || state.live.status === "finalizing";
@@ -86,6 +113,14 @@ export function Main2Layout() {
     chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   useMainTabsShortcuts();
+
+  const [openNoteDialogOpen, setOpenNoteDialogOpen] = useState(false);
+  useHotkeys(
+    "mod+k",
+    () => setOpenNoteDialogOpen(true),
+    { preventDefault: true, enableOnFormTags: true },
+    [setOpenNoteDialogOpen],
+  );
 
   const handleHome = useCallback(() => {
     openNew({ type: "daily" }, { position: "start" });
@@ -130,6 +165,11 @@ export function Main2Layout() {
 
   return (
     <MainShellScaffold>
+      <OpenNoteDialog
+        open={openNoteDialogOpen}
+        onOpenChange={setOpenNoteDialogOpen}
+      />
+      {showSidebar && <LeftSidebar />}
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region
@@ -138,7 +178,7 @@ export function Main2Layout() {
           <div
             className={cn([
               "flex shrink-0 items-center gap-1",
-              isLinux ? "mr-1" : "pl-16",
+              isLinux ? "mr-1" : !showSidebar && "pl-16",
             ])}
           >
             {isLinux && <TrafficLights className="mr-1" />}
@@ -225,7 +265,7 @@ export function Main2Layout() {
             <button
               type="button"
               onClick={handleRecord}
-              className="group flex h-5 w-5 items-center justify-center"
+              className="group flex size-8 items-center justify-center rounded-md hover:bg-neutral-100"
               title={isRecording ? "Stop recording" : "Start recording"}
             >
               <span
@@ -270,9 +310,11 @@ export function Main2Layout() {
                 ])}
               />
             </Button>
+            <ProfileMenu />
           </div>
         </div>
 
+        <UpdateBanner />
         <MainShellBodyFrame autoSaveId="main2-chat">
           <div className="h-full min-h-0 overflow-auto">
             <MainTabContent

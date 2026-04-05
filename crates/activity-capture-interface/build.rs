@@ -7,6 +7,12 @@ mod types;
 #[derive(schemars::JsonSchema)]
 struct ActivityCaptureInterfaceSchema {
     capture_policy: types::CapturePolicy,
+    app_identity: types::AppIdentity,
+    browser_context: types::BrowserContext,
+    sanitized_browser_url: types::SanitizedBrowserUrl,
+    capture_candidate: types::CaptureCandidate,
+    capture_decision: types::CaptureDecision,
+    snapshot_spec: types::SnapshotSpec,
     snapshot: types::Snapshot,
     event: types::Event,
     transition: types::Transition,

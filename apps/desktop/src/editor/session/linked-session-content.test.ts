@@ -177,4 +177,34 @@ describe("mergeLinkedSessionsIntoContent", () => {
       ],
     });
   });
+
+  it("preserves an existing linked session checked state", () => {
+    const result = mergeLinkedSessionsIntoContent({
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "session",
+            attrs: { sessionId: "session-1", checked: true },
+            content: [{ type: "text", text: "Existing session title" }],
+          },
+        ],
+      },
+      eventIds: [],
+      sessionIds: ["session-1"],
+      resolveEventSessionId: () => null,
+      getSessionTitle: () => "Session 1",
+    });
+
+    expect(result).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "session",
+          attrs: { sessionId: "session-1", checked: true },
+          content: [{ type: "text", text: "Existing session title" }],
+        },
+      ],
+    });
+  });
 });

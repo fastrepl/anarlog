@@ -37,7 +37,7 @@ ringbuf = { workspace = true }
 cidre = { workspace = true, features = ["av"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-wasapi = "0.19.0"
+wasapi = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libpulse-binding = "2.30.1"

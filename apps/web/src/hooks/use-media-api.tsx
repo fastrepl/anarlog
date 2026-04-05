@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   CheckCircle2Icon,
   CircleIcon,
@@ -10,7 +14,7 @@ import { sonnerToast as toast } from "@hypr/ui/components/ui/toast";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
 import { fetchAdminJson, isAdminSignInRedirectError } from "@/lib/admin-auth";
-import type { MediaItem } from "@/lib/media-library";
+import { getMediaFolderFromPath, type MediaItem } from "@/lib/media-library";
 
 type FileStatus = "pending" | "uploading" | "done" | "error";
 
@@ -74,6 +78,13 @@ function UploadToast({
 
 export type { MediaItem } from "@/lib/media-library";
 
+const MEDIA_ITEMS_QUERY_STALE_TIME = 30_000;
+const MEDIA_ITEMS_QUERY_GC_TIME = 5 * 60_000;
+
+export function getMediaItemsQueryKey(path: string) {
+  return ["mediaItems", path] as const;
+}
+
 export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
   const data = await fetchAdminJson<{ items: MediaItem[] }>(
     `/api/admin/media/list?path=${encodeURIComponent(path)}`,
@@ -82,6 +93,29 @@ export async function fetchMediaItems(path: string): Promise<MediaItem[]> {
   );
 
   return data.items;
+}
+
+export function getMediaItemsQueryOptions(path: string) {
+  return {
+    queryKey: getMediaItemsQueryKey(path),
+    queryFn: () => fetchMediaItems(path),
+    staleTime: MEDIA_ITEMS_QUERY_STALE_TIME,
+    gcTime: MEDIA_ITEMS_QUERY_GC_TIME,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  };
+}
+
+function invalidateMediaItemPaths(queryClient: QueryClient, paths: string[]) {
+  const uniquePaths = [...new Set(paths)];
+
+  return Promise.all(
+    uniquePaths.map((path) =>
+      queryClient.invalidateQueries({
+        queryKey: getMediaItemsQueryKey(path),
+      }),
+    ),
+  );
 }
 
 async function deleteFiles(paths: string[]) {
@@ -139,10 +173,6 @@ export function useMediaApi({
   onSelectionCleared?: () => void;
 }) {
   const queryClient = useQueryClient();
-
-  const invalidateAndRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["mediaItems"] });
-  };
 
   const uploadMutation = useMutation({
     mutationFn: async (files: FileList) => {
@@ -202,7 +232,7 @@ export function useMediaApi({
       }
     },
     onSuccess: () => {
-      invalidateAndRefresh();
+      return invalidateMediaItemPaths(queryClient, [currentFolderPath]);
     },
   });
 
@@ -210,7 +240,7 @@ export function useMediaApi({
     mutationFn: (paths: string[]) => deleteFiles(paths),
     onSuccess: () => {
       onSelectionCleared?.();
-      invalidateAndRefresh();
+      return invalidateMediaItemPaths(queryClient, [currentFolderPath]);
     },
   });
 
@@ -223,7 +253,7 @@ export function useMediaApi({
       });
     },
     onSuccess: () => {
-      invalidateAndRefresh();
+      return invalidateMediaItemPaths(queryClient, [currentFolderPath]);
     },
   });
 
@@ -231,7 +261,7 @@ export function useMediaApi({
     mutationFn: (params: { name: string; parentFolder: string }) =>
       createFolder(params),
     onSuccess: (_, variables) => {
-      invalidateAndRefresh();
+      void invalidateMediaItemPaths(queryClient, [variables.parentFolder]);
       onFolderCreated?.(variables.parentFolder);
     },
   });
@@ -239,8 +269,11 @@ export function useMediaApi({
   const moveMutation = useMutation({
     mutationFn: (params: { fromPath: string; toPath: string }) =>
       moveFile(params),
-    onSuccess: () => {
-      invalidateAndRefresh();
+    onSuccess: (_, variables) => {
+      void invalidateMediaItemPaths(queryClient, [
+        getMediaFolderFromPath(variables.fromPath),
+        getMediaFolderFromPath(variables.toPath),
+      ]);
       onFileMoved?.();
     },
   });
@@ -252,8 +285,10 @@ export function useMediaApi({
       const newPath = parts.join("/");
       return moveFile({ fromPath: params.path, toPath: newPath });
     },
-    onSuccess: () => {
-      invalidateAndRefresh();
+    onSuccess: (_, variables) => {
+      return invalidateMediaItemPaths(queryClient, [
+        getMediaFolderFromPath(variables.path),
+      ]);
     },
   });
 

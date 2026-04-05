@@ -5,7 +5,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error(transparent)]
-    Capture(#[from] hypr_activity_capture_interface::CaptureError),
+    Capture(#[from] hypr_activity_capture::CaptureError),
 }
 
 impl Serialize for Error {

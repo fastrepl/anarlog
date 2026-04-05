@@ -3,8 +3,20 @@
   "title": "ActivityCaptureInterfaceSchema",
   "type": "object",
   "properties": {
+    "app_identity": {
+      "$ref": "#/$defs/AppIdentity"
+    },
+    "browser_context": {
+      "$ref": "#/$defs/BrowserContext"
+    },
     "capabilities": {
       "$ref": "#/$defs/Capabilities"
+    },
+    "capture_candidate": {
+      "$ref": "#/$defs/CaptureCandidate"
+    },
+    "capture_decision": {
+      "$ref": "#/$defs/CaptureDecision"
     },
     "capture_policy": {
       "$ref": "#/$defs/CapturePolicy"
@@ -12,8 +24,14 @@
     "event": {
       "$ref": "#/$defs/Event"
     },
+    "sanitized_browser_url": {
+      "$ref": "#/$defs/SanitizedBrowserUrl"
+    },
     "snapshot": {
       "$ref": "#/$defs/Snapshot"
+    },
+    "snapshot_spec": {
+      "$ref": "#/$defs/SnapshotSpec"
     },
     "transition": {
       "$ref": "#/$defs/Transition"
@@ -21,12 +39,88 @@
   },
   "required": [
     "capture_policy",
+    "app_identity",
+    "browser_context",
+    "sanitized_browser_url",
+    "capture_candidate",
+    "capture_decision",
+    "snapshot_spec",
     "snapshot",
     "event",
     "transition",
     "capabilities"
   ],
   "$defs": {
+    "ActivityKind": {
+      "type": "string",
+      "enum": [
+        "foreground_window",
+        "browser",
+        "audio_session"
+      ]
+    },
+    "AppIdKind": {
+      "type": "string",
+      "enum": [
+        "bundle_id",
+        "executable_path",
+        "process_name",
+        "pid"
+      ]
+    },
+    "AppIdentity": {
+      "type": "object",
+      "properties": {
+        "app_id": {
+          "type": "string"
+        },
+        "app_id_kind": {
+          "$ref": "#/$defs/AppIdKind"
+        },
+        "app_name": {
+          "type": "string"
+        },
+        "bundle_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executable_path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pid": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "required": [
+        "pid",
+        "app_name",
+        "app_id",
+        "app_id_kind"
+      ]
+    },
+    "BrowserContext": {
+      "type": "object",
+      "properties": {
+        "is_private": {
+          "type": "boolean"
+        },
+        "raw_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "is_private"
+      ]
+    },
     "BrowserPolicy": {
       "type": "object",
       "properties": {
@@ -102,6 +196,64 @@
         "metadata",
         "url",
         "full"
+      ]
+    },
+    "CaptureCandidate": {
+      "type": "object",
+      "properties": {
+        "activity_kind": {
+          "$ref": "#/$defs/ActivityKind"
+        },
+        "app": {
+          "$ref": "#/$defs/AppIdentity"
+        },
+        "browser": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BrowserContext"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/SnapshotSource"
+        }
+      },
+      "required": [
+        "app",
+        "activity_kind",
+        "source"
+      ]
+    },
+    "CaptureDecision": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "$ref": "#/$defs/CaptureAccess"
+        },
+        "activity_kind": {
+          "$ref": "#/$defs/ActivityKind"
+        },
+        "skip": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/SnapshotSource"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "access",
+        "skip",
+        "source",
+        "activity_kind"
       ]
     },
     "CapturePolicy": {
@@ -183,9 +335,32 @@
         "opt_out"
       ]
     },
+    "SanitizedBrowserUrl": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ]
+    },
     "Snapshot": {
       "type": "object",
       "properties": {
+        "activity_kind": {
+          "$ref": "#/$defs/ActivityKind"
+        },
+        "app": {
+          "$ref": "#/$defs/AppIdentity"
+        },
         "app_name": {
           "type": "string"
         },
@@ -278,6 +453,8 @@
         }
       },
       "required": [
+        "app",
+        "activity_kind",
         "captured_at",
         "pid",
         "app_name",
@@ -290,6 +467,61 @@
       "enum": [
         "accessibility",
         "workspace"
+      ]
+    },
+    "SnapshotSpec": {
+      "type": "object",
+      "properties": {
+        "access": {
+          "$ref": "#/$defs/CaptureAccess"
+        },
+        "activity_kind": {
+          "$ref": "#/$defs/ActivityKind"
+        },
+        "app": {
+          "$ref": "#/$defs/AppIdentity"
+        },
+        "captured_at": {
+          "$ref": "#/$defs/SystemTime"
+        },
+        "source": {
+          "$ref": "#/$defs/SnapshotSource"
+        },
+        "text_anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TextAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "visible_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "window_title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "captured_at",
+        "app",
+        "activity_kind",
+        "access",
+        "source"
       ]
     },
     "SystemTime": {
@@ -309,6 +541,49 @@
       "required": [
         "secs_since_epoch",
         "nanos_since_epoch"
+      ]
+    },
+    "TextAnchor": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "$ref": "#/$defs/TextAnchorConfidence"
+        },
+        "identity": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/TextAnchorKind"
+        },
+        "prefix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selected_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "suffix": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity",
+        "confidence"
       ]
     },
     "TextAnchorConfidence": {
@@ -351,8 +626,39 @@
               "type": "null"
             }
           ]
+        },
+        "reason": {
+          "$ref": "#/$defs/TransitionReason"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "suppressed_snapshot_count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
         }
-      }
+      },
+      "required": [
+        "reason",
+        "sequence",
+        "suppressed_snapshot_count"
+      ]
+    },
+    "TransitionReason": {
+      "type": "string",
+      "enum": [
+        "started",
+        "idle",
+        "app_changed",
+        "activity_kind_changed",
+        "url_changed",
+        "title_changed",
+        "text_anchor_changed",
+        "content_changed"
+      ]
     }
   }
 }

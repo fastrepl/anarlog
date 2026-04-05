@@ -104,6 +104,7 @@ export const EnhancedEditor = forwardRef<
         mentionConfig={mentionConfig}
         onNavigateToTitle={onNavigateToTitle}
         fileHandlerConfig={fileHandlerConfig}
+        taskSource={{ type: "enhanced_note", id: enhancedNoteId }}
       />
     </div>
   );

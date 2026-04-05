@@ -81,8 +81,6 @@ impl Model {
                 std::ptr::null(),
                 callback,
                 user_data,
-                std::ptr::null(),
-                0,
             )
         };
 

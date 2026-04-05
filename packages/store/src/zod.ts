@@ -233,6 +233,21 @@ export const enhancedNoteSchema = z.object({
   title: z.preprocess((val) => val ?? undefined, z.string().optional()),
 });
 
+export const taskStatusSchema = z.enum(["todo", "done"]);
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+
+export const taskSchema = z.object({
+  user_id: z.string(),
+  task_id: z.string(),
+  source_id: z.string(),
+  source_type: z.string(),
+  source_order: z.number(),
+  status: taskStatusSchema,
+  text_preview: z.string(),
+  body_json: z.string(),
+  due_date: z.preprocess((val) => val ?? undefined, z.string().optional()),
+});
+
 export const promptSchema = z.object({
   user_id: z.string(),
   task_type: z.string(),
@@ -336,6 +351,7 @@ export type ChatShortcut = z.infer<typeof chatShortcutSchema>;
 export type Memory = z.infer<typeof memorySchema>;
 export type DailyNote = z.infer<typeof dailyNoteSchema>;
 export type EnhancedNote = z.infer<typeof enhancedNoteSchema>;
+export type Task = z.infer<typeof taskSchema>;
 export type Prompt = z.infer<typeof promptSchema>;
 export type AIProvider = z.infer<typeof aiProviderSchema>;
 export type General = z.infer<typeof generalSchema>;
@@ -347,6 +363,7 @@ export type SpeakerHintStorage = ToStorageType<typeof speakerHintSchema>;
 export type TemplateStorage = ToStorageType<typeof templateSchema>;
 export type ChatMessageStorage = ToStorageType<typeof chatMessageSchema>;
 export type EnhancedNoteStorage = ToStorageType<typeof enhancedNoteSchema>;
+export type TaskStorage = ToStorageType<typeof taskSchema>;
 export type HumanStorage = ToStorageType<typeof humanSchema>;
 export type OrganizationStorage = ToStorageType<typeof organizationSchema>;
 export type PromptStorage = ToStorageType<typeof promptSchema>;

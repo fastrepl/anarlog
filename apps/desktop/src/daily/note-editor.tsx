@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { parseJsonContent } from "@hypr/tiptap/shared";
+import { format, parseISO, subDays } from "@hypr/utils";
 
 import { useCalendarData } from "~/calendar/hooks";
 import { type JSONContent, NoteEditor } from "~/editor/session";
@@ -8,6 +9,13 @@ import {
   getNodeTextContent,
   mergeLinkedSessionsIntoContent,
 } from "~/editor/session/linked-session-content";
+import { useTaskStorageOptional } from "~/editor/task-storage";
+import {
+  extractTasksFromContent,
+  hydrateTaskContent,
+  moveOpenTasksBetweenContents,
+  normalizeTaskContent,
+} from "~/editor/tasks";
 import {
   findSessionByEventId,
   findSessionByTrackingId,
@@ -17,12 +25,7 @@ import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
-
-function hasLinkedSessionContent(content: JSONContent): boolean {
-  return (content.content ?? []).some(
-    (node) => node.type === "event" || node.type === "session",
-  );
-}
+const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
 function getSessionTitle(store: Store, sessionId: string): string {
   const title = store.getCell("sessions", sessionId, "title");
@@ -113,13 +116,35 @@ export function DailyNoteEditor({ date }: { date: string }) {
     "content",
     main.STORE_ID,
   );
+  const taskStorage = useTaskStorageOptional();
+  const taskSource = useMemo(() => ({ type: "daily_note", id: date }), [date]);
+  const previousDate = useMemo(
+    () => format(subDays(parseISO(`${date}T00:00:00`), 1), "yyyy-MM-dd"),
+    [date],
+  );
+  const previousContent = main.UI.useCell(
+    "daily_notes",
+    previousDate,
+    "content",
+    main.STORE_ID,
+  );
+  const previousTaskSource = useMemo(
+    () => ({ type: "daily_note", id: previousDate }),
+    [previousDate],
+  );
 
   const { eventIdsByDate, sessionIdsByDate } = useCalendarData();
   const rawContent = useMemo(
-    () => parseJsonContent(content as string),
+    () => normalizeTaskContent(parseJsonContent(content as string)) ?? emptyDoc,
     [content],
   );
-  const initialContent = useMemo(() => {
+  const rawPreviousContent = useMemo(
+    () =>
+      normalizeTaskContent(parseJsonContent(previousContent as string)) ??
+      emptyDoc,
+    [previousContent],
+  );
+  const linkedBaseContent = useMemo(() => {
     if (!store) {
       return null;
     }
@@ -131,28 +156,82 @@ export function DailyNoteEditor({ date }: { date: string }) {
       sessionIdsByDate[date] ?? [],
     );
   }, [date, eventIdsByDate, rawContent, sessionIdsByDate, store]);
-  const rawContentHasLinkedNodes = useMemo(
-    () => hasLinkedSessionContent(rawContent),
-    [rawContent],
-  );
+  const reconciliation = useMemo(() => {
+    if (!linkedBaseContent || !rawPreviousContent) {
+      return null;
+    }
+
+    const currentCanonicalTasks =
+      taskStorage?.getTasksForSource(taskSource) ?? [];
+    const previousCanonicalTasks =
+      taskStorage?.getTasksForSource(previousTaskSource) ?? [];
+    const currentContent =
+      currentCanonicalTasks.length > 0 && taskStorage
+        ? hydrateTaskContent({
+            content: linkedBaseContent,
+            sourceTasks: currentCanonicalTasks,
+            getTask: taskStorage.getTask,
+          })
+        : linkedBaseContent;
+    const previousReconciledContent =
+      previousCanonicalTasks.length > 0 && taskStorage
+        ? hydrateTaskContent({
+            content: rawPreviousContent,
+            sourceTasks: previousCanonicalTasks,
+            getTask: taskStorage.getTask,
+          })
+        : rawPreviousContent;
+    const currentTasks =
+      currentCanonicalTasks.length > 0
+        ? currentCanonicalTasks
+        : extractTasksFromContent(currentContent, taskSource);
+    const previousTasks =
+      previousCanonicalTasks.length > 0
+        ? previousCanonicalTasks
+        : extractTasksFromContent(
+            previousReconciledContent,
+            previousTaskSource,
+          );
+    const carryForwardPlan = moveOpenTasksBetweenContents({
+      previousContent: previousReconciledContent,
+      currentContent,
+      previousTasks,
+      currentTasks,
+      currentSource: taskSource,
+    });
+
+    return {
+      currentContent: carryForwardPlan?.currentContent ?? currentContent,
+      currentTasks: carryForwardPlan?.currentTasks ?? currentTasks,
+      previousContent:
+        carryForwardPlan?.previousContent ?? previousReconciledContent,
+      previousTasks: carryForwardPlan?.previousTasks ?? previousTasks,
+      hasCarryForward: carryForwardPlan !== null,
+    };
+  }, [
+    linkedBaseContent,
+    previousTaskSource,
+    rawPreviousContent,
+    taskSource,
+    taskStorage,
+  ]);
+  const initialContent = reconciliation?.currentContent ?? linkedBaseContent;
   const shouldPersistNormalizedContent = useMemo(() => {
-    if (!initialContent || !rawContentHasLinkedNodes) {
+    if (!initialContent) {
       return false;
     }
 
     return JSON.stringify(initialContent) !== JSON.stringify(rawContent);
-  }, [initialContent, rawContent, rawContentHasLinkedNodes]);
+  }, [initialContent, rawContent]);
   const initialContentRef = useRef<JSONContent | null>(null);
   const initialContentKeyRef = useRef<string | null>(null);
   const initialContentKey = useMemo(
     () =>
       JSON.stringify({
         date,
-        content,
-        eventIds: eventIdsByDate[date] ?? [],
-        sessionIds: sessionIdsByDate[date] ?? [],
+        initialContent,
       }),
-    [content, date, eventIdsByDate, sessionIdsByDate],
+    [date, initialContent],
   );
 
   if (initialContent && initialContentKeyRef.current !== initialContentKey) {
@@ -175,6 +254,37 @@ export function DailyNoteEditor({ date }: { date: string }) {
 
     persistDailyNote(initialContent);
   }, [initialContent, persistDailyNote, shouldPersistNormalizedContent]);
+
+  useEffect(() => {
+    if (!store || !taskStorage || !reconciliation) {
+      return;
+    }
+
+    taskStorage.upsertTasksForSource(taskSource, reconciliation.currentTasks);
+    taskStorage.upsertTasksForSource(
+      previousTaskSource,
+      reconciliation.previousTasks,
+    );
+
+    if (
+      reconciliation.hasCarryForward &&
+      JSON.stringify(reconciliation.previousContent) !==
+        JSON.stringify(rawPreviousContent)
+    ) {
+      store.setPartialRow("daily_notes", previousDate, {
+        date: previousDate,
+        content: JSON.stringify(reconciliation.previousContent),
+      });
+    }
+  }, [
+    previousDate,
+    previousTaskSource,
+    rawPreviousContent,
+    reconciliation,
+    store,
+    taskSource,
+    taskStorage,
+  ]);
 
   const handleChange = useCallback(
     (input: JSONContent) => {
@@ -207,12 +317,13 @@ export function DailyNoteEditor({ date }: { date: string }) {
   }
 
   return (
-    <div className="px-2">
+    <div className="px-6">
       <NoteEditor
         key={`daily-${date}`}
         initialContent={initialContentRef.current}
         handleChange={handleChange}
         linkedItemOpenBehavior="new"
+        taskSource={taskSource}
       />
     </div>
   );

@@ -85,7 +85,7 @@ pub(super) async fn handle_websocket(
     let (ws_sender, mut ws_receiver) = socket.split();
 
     let total_channels = (params.channels as i32).max(1) as usize;
-    let chunk_size_ms = 200;
+    let chunk_size_ms = cactus_config.chunk_size_ms;
 
     let options =
         crate::service::build_transcribe_options(&params, Some(cactus_config.min_chunk_sec));

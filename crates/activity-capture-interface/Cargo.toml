@@ -9,6 +9,9 @@ futures-core = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+tokio-stream = { workspace = true }
+url = { workspace = true }
 
 [build-dependencies]
 schemars = { workspace = true }

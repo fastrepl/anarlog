@@ -50,10 +50,10 @@ import { Route as AdminCrmIndexRouteImport } from './routes/admin/crm/index'
 import { Route as AdminCollectionsIndexRouteImport } from './routes/admin/collections/index'
 import { Route as AdminBrandingIndexRouteImport } from './routes/admin/branding/index'
 import { Route as ViewUpdatesIndexRouteImport } from './routes/_view/updates/index'
+import { Route as ViewSolutionsIndexRouteImport } from './routes/_view/solutions/index'
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
-import { Route as ViewJobsIndexRouteImport } from './routes/_view/jobs/index'
 import { Route as ViewGalleryIndexRouteImport } from './routes/_view/gallery/index'
 import { Route as ViewEvalIndexRouteImport } from './routes/_view/eval/index'
 import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
@@ -87,7 +87,6 @@ import { Route as ViewProductAiAssistantRouteImport } from './routes/_view/produ
 import { Route as ViewPressKitAppRouteImport } from './routes/_view/press-kit/app'
 import { Route as ViewLegalSlugRouteImport } from './routes/_view/legal/$slug'
 import { Route as ViewK6ReportsIdRouteImport } from './routes/_view/k6-reports/$id'
-import { Route as ViewJobsSlugRouteImport } from './routes/_view/jobs/$slug'
 import { Route as ViewDownloadWindowsRouteImport } from './routes/_view/download/windows'
 import { Route as ViewDownloadLinuxDebRouteImport } from './routes/_view/download/linux-deb'
 import { Route as ViewDownloadLinuxAppimageRouteImport } from './routes/_view/download/linux-appimage'
@@ -351,6 +350,11 @@ const ViewUpdatesIndexRoute = ViewUpdatesIndexRouteImport.update({
   path: '/updates/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewSolutionsIndexRoute = ViewSolutionsIndexRouteImport.update({
+  id: '/solutions/',
+  path: '/solutions/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewPressKitIndexRoute = ViewPressKitIndexRouteImport.update({
   id: '/press-kit/',
   path: '/press-kit/',
@@ -364,11 +368,6 @@ const ViewLegalIndexRoute = ViewLegalIndexRouteImport.update({
 const ViewK6ReportsIndexRoute = ViewK6ReportsIndexRouteImport.update({
   id: '/k6-reports/',
   path: '/k6-reports/',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewJobsIndexRoute = ViewJobsIndexRouteImport.update({
-  id: '/jobs/',
-  path: '/jobs/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewGalleryIndexRoute = ViewGalleryIndexRouteImport.update({
@@ -536,11 +535,6 @@ const ViewLegalSlugRoute = ViewLegalSlugRouteImport.update({
 const ViewK6ReportsIdRoute = ViewK6ReportsIdRouteImport.update({
   id: '/k6-reports/$id',
   path: '/k6-reports/$id',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewJobsSlugRoute = ViewJobsSlugRouteImport.update({
-  id: '/jobs/$slug',
-  path: '/jobs/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewDownloadWindowsRoute = ViewDownloadWindowsRouteImport.update({
@@ -897,7 +891,6 @@ export interface FileRoutesByFullPath {
   '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/download/windows': typeof ViewDownloadWindowsRoute
-  '/jobs/$slug': typeof ViewJobsSlugRoute
   '/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/legal/$slug': typeof ViewLegalSlugRoute
   '/press-kit/app': typeof ViewPressKitAppRoute
@@ -931,10 +924,10 @@ export interface FileRoutesByFullPath {
   '/download/': typeof ViewDownloadIndexRoute
   '/eval/': typeof ViewEvalIndexRoute
   '/gallery/': typeof ViewGalleryIndexRoute
-  '/jobs/': typeof ViewJobsIndexRoute
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
+  '/solutions/': typeof ViewSolutionsIndexRoute
   '/updates/': typeof ViewUpdatesIndexRoute
   '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
@@ -1030,7 +1023,6 @@ export interface FileRoutesByTo {
   '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/download/windows': typeof ViewDownloadWindowsRoute
-  '/jobs/$slug': typeof ViewJobsSlugRoute
   '/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/legal/$slug': typeof ViewLegalSlugRoute
   '/press-kit/app': typeof ViewPressKitAppRoute
@@ -1064,10 +1056,10 @@ export interface FileRoutesByTo {
   '/download': typeof ViewDownloadIndexRoute
   '/eval': typeof ViewEvalIndexRoute
   '/gallery': typeof ViewGalleryIndexRoute
-  '/jobs': typeof ViewJobsIndexRoute
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
+  '/solutions': typeof ViewSolutionsIndexRoute
   '/updates': typeof ViewUpdatesIndexRoute
   '/admin/branding': typeof AdminBrandingIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
@@ -1169,7 +1161,6 @@ export interface FileRoutesById {
   '/_view/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/_view/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/_view/download/windows': typeof ViewDownloadWindowsRoute
-  '/_view/jobs/$slug': typeof ViewJobsSlugRoute
   '/_view/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/_view/legal/$slug': typeof ViewLegalSlugRoute
   '/_view/press-kit/app': typeof ViewPressKitAppRoute
@@ -1203,10 +1194,10 @@ export interface FileRoutesById {
   '/_view/download/': typeof ViewDownloadIndexRoute
   '/_view/eval/': typeof ViewEvalIndexRoute
   '/_view/gallery/': typeof ViewGalleryIndexRoute
-  '/_view/jobs/': typeof ViewJobsIndexRoute
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
+  '/_view/solutions/': typeof ViewSolutionsIndexRoute
   '/_view/updates/': typeof ViewUpdatesIndexRoute
   '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
@@ -1308,7 +1299,6 @@ export interface FileRouteTypes {
     | '/download/linux-appimage'
     | '/download/linux-deb'
     | '/download/windows'
-    | '/jobs/$slug'
     | '/k6-reports/$id'
     | '/legal/$slug'
     | '/press-kit/app'
@@ -1342,10 +1332,10 @@ export interface FileRouteTypes {
     | '/download/'
     | '/eval/'
     | '/gallery/'
-    | '/jobs/'
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
+    | '/solutions/'
     | '/updates/'
     | '/admin/branding/'
     | '/admin/collections/'
@@ -1441,7 +1431,6 @@ export interface FileRouteTypes {
     | '/download/linux-appimage'
     | '/download/linux-deb'
     | '/download/windows'
-    | '/jobs/$slug'
     | '/k6-reports/$id'
     | '/legal/$slug'
     | '/press-kit/app'
@@ -1475,10 +1464,10 @@ export interface FileRouteTypes {
     | '/download'
     | '/eval'
     | '/gallery'
-    | '/jobs'
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
+    | '/solutions'
     | '/updates'
     | '/admin/branding'
     | '/admin/collections'
@@ -1579,7 +1568,6 @@ export interface FileRouteTypes {
     | '/_view/download/linux-appimage'
     | '/_view/download/linux-deb'
     | '/_view/download/windows'
-    | '/_view/jobs/$slug'
     | '/_view/k6-reports/$id'
     | '/_view/legal/$slug'
     | '/_view/press-kit/app'
@@ -1613,10 +1601,10 @@ export interface FileRouteTypes {
     | '/_view/download/'
     | '/_view/eval/'
     | '/_view/gallery/'
-    | '/_view/jobs/'
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
+    | '/_view/solutions/'
     | '/_view/updates/'
     | '/admin/branding/'
     | '/admin/collections/'
@@ -2008,6 +1996,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewUpdatesIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/solutions/': {
+      id: '/_view/solutions/'
+      path: '/solutions'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof ViewSolutionsIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/press-kit/': {
       id: '/_view/press-kit/'
       path: '/press-kit'
@@ -2027,13 +2022,6 @@ declare module '@tanstack/react-router' {
       path: '/k6-reports'
       fullPath: '/k6-reports/'
       preLoaderRoute: typeof ViewK6ReportsIndexRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/jobs/': {
-      id: '/_view/jobs/'
-      path: '/jobs'
-      fullPath: '/jobs/'
-      preLoaderRoute: typeof ViewJobsIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/gallery/': {
@@ -2265,13 +2253,6 @@ declare module '@tanstack/react-router' {
       path: '/k6-reports/$id'
       fullPath: '/k6-reports/$id'
       preLoaderRoute: typeof ViewK6ReportsIdRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/jobs/$slug': {
-      id: '/_view/jobs/$slug'
-      path: '/jobs/$slug'
-      fullPath: '/jobs/$slug'
-      preLoaderRoute: typeof ViewJobsSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/download/windows': {
@@ -2755,7 +2736,6 @@ interface ViewRouteRouteChildren {
   ViewDownloadLinuxAppimageRoute: typeof ViewDownloadLinuxAppimageRoute
   ViewDownloadLinuxDebRoute: typeof ViewDownloadLinuxDebRoute
   ViewDownloadWindowsRoute: typeof ViewDownloadWindowsRoute
-  ViewJobsSlugRoute: typeof ViewJobsSlugRoute
   ViewK6ReportsIdRoute: typeof ViewK6ReportsIdRoute
   ViewLegalSlugRoute: typeof ViewLegalSlugRoute
   ViewPressKitAppRoute: typeof ViewPressKitAppRoute
@@ -2783,10 +2763,10 @@ interface ViewRouteRouteChildren {
   ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
   ViewEvalIndexRoute: typeof ViewEvalIndexRoute
   ViewGalleryIndexRoute: typeof ViewGalleryIndexRoute
-  ViewJobsIndexRoute: typeof ViewJobsIndexRoute
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
   ViewLegalIndexRoute: typeof ViewLegalIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
+  ViewSolutionsIndexRoute: typeof ViewSolutionsIndexRoute
   ViewUpdatesIndexRoute: typeof ViewUpdatesIndexRoute
   ViewDownloadNightlyAppleIntelRoute: typeof ViewDownloadNightlyAppleIntelRoute
   ViewDownloadNightlyAppleSiliconRoute: typeof ViewDownloadNightlyAppleSiliconRoute
@@ -2826,7 +2806,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadLinuxAppimageRoute: ViewDownloadLinuxAppimageRoute,
   ViewDownloadLinuxDebRoute: ViewDownloadLinuxDebRoute,
   ViewDownloadWindowsRoute: ViewDownloadWindowsRoute,
-  ViewJobsSlugRoute: ViewJobsSlugRoute,
   ViewK6ReportsIdRoute: ViewK6ReportsIdRoute,
   ViewLegalSlugRoute: ViewLegalSlugRoute,
   ViewPressKitAppRoute: ViewPressKitAppRoute,
@@ -2854,10 +2833,10 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadIndexRoute: ViewDownloadIndexRoute,
   ViewEvalIndexRoute: ViewEvalIndexRoute,
   ViewGalleryIndexRoute: ViewGalleryIndexRoute,
-  ViewJobsIndexRoute: ViewJobsIndexRoute,
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
   ViewLegalIndexRoute: ViewLegalIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
+  ViewSolutionsIndexRoute: ViewSolutionsIndexRoute,
   ViewUpdatesIndexRoute: ViewUpdatesIndexRoute,
   ViewDownloadNightlyAppleIntelRoute: ViewDownloadNightlyAppleIntelRoute,
   ViewDownloadNightlyAppleSiliconRoute: ViewDownloadNightlyAppleSiliconRoute,

@@ -24,6 +24,8 @@ pub struct SavedFrame {
     pub h: f64,
 }
 
+pub struct UseNewLayout(pub bool);
+
 #[derive(Default)]
 pub struct SavedFrames(pub Mutex<HashMap<String, SavedFrame>>);
 

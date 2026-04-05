@@ -12,10 +12,15 @@ function buildTextContent(text: string): JSONContent[] | undefined {
   return text ? [{ type: "text", text }] : undefined;
 }
 
-function buildSessionNode(sessionId: string, title: string): JSONContent {
+function buildSessionNode(
+  sessionId: string,
+  title: string,
+  checked?: boolean,
+): JSONContent {
   return {
     type: "session",
-    attrs: { sessionId },
+    attrs:
+      typeof checked === "boolean" ? { sessionId, checked } : { sessionId },
     content: buildTextContent(title),
   };
 }
@@ -42,7 +47,11 @@ export function mergeLinkedSessionsIntoContent({
   const seenSessionIds = new Set<string>();
   const linkedSessionNodes: JSONContent[] = [];
 
-  const pushSessionNode = (sessionId: string, preferredTitle?: string) => {
+  const pushSessionNode = (
+    sessionId: string,
+    preferredTitle?: string,
+    preferredChecked?: boolean,
+  ) => {
     const normalizedSessionId = normalizeSessionId?.(sessionId) ?? sessionId;
     if (
       !normalizedSessionId ||
@@ -57,6 +66,7 @@ export function mergeLinkedSessionsIntoContent({
       buildSessionNode(
         normalizedSessionId,
         preferredTitle ?? getSessionTitle(normalizedSessionId),
+        preferredChecked,
       ),
     );
   };
@@ -71,6 +81,9 @@ export function mergeLinkedSessionsIntoContent({
       pushSessionNode(
         sessionId,
         getNodeTextContent(node) || getSessionTitle(sessionId),
+        typeof node.attrs?.checked === "boolean"
+          ? node.attrs.checked
+          : undefined,
       );
       continue;
     }

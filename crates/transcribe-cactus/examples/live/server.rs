@@ -2,16 +2,17 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use axum::http::StatusCode;
-use transcribe_cactus::TranscribeService;
+use transcribe_cactus::{CactusConfig, TranscribeService};
 
 pub struct LocalServer {
     pub addr: SocketAddr,
     _shutdown_tx: tokio::sync::oneshot::Sender<()>,
 }
 
-pub async fn spawn(model_path: PathBuf) -> LocalServer {
+pub async fn spawn(model_path: PathBuf, cactus_config: CactusConfig) -> LocalServer {
     let app = TranscribeService::builder()
         .model_path(model_path)
+        .cactus_config(cactus_config)
         .build()
         .into_router(|err: String| async move { (StatusCode::INTERNAL_SERVER_ERROR, err) });
 

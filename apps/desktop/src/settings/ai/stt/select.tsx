@@ -233,7 +233,9 @@ export function SelectProviderAndModel() {
                       <span key={model.id}>
                         {showHeader && (
                           <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
-                            {"Recommended"}
+                            {model.category === "experimental"
+                              ? "Experimental"
+                              : "Recommended"}
                           </div>
                         )}
                         <ModelSelectItem
@@ -278,7 +280,7 @@ export function SelectProviderAndModel() {
   );
 }
 
-type ModelCategory = "latest" | null;
+type ModelCategory = "latest" | "experimental" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -317,9 +319,7 @@ function useConfiguredMapping(): Record<
   });
 
   const cactusModels =
-    supportedModels.data?.filter(
-      (m) => m.model_type === "cactus" && String(m.key).includes("whisper"),
-    ) ?? [];
+    supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
   const cactusDownloaded = useQueries({
     queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
@@ -351,11 +351,12 @@ function useConfiguredMapping(): Record<
 
         if (isAppleSilicon) {
           cactusModels.forEach((model, i) => {
+            const isRecommended = String(model.key).includes("whisper");
             models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,
               displayName: model.display_name,
-              category: "latest",
+              category: isRecommended ? "latest" : "experimental",
             });
           });
         }

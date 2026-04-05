@@ -26,6 +26,10 @@ import { useBlogToc } from "@/hooks/use-blog-toc";
 import { useDocsDrawer } from "@/hooks/use-docs-drawer";
 import { useHandbookDrawer } from "@/hooks/use-handbook-drawer";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
+import {
+  featuredSolutionMenuItems,
+  showMoreSolutionsMenuItem,
+} from "@/lib/solutions";
 
 function scrollToHero() {
   const heroElement = document.getElementById("hero");
@@ -49,11 +53,7 @@ const featuresList = [
   { to: "/opensource", label: "Open Source" },
 ];
 
-const solutionsList = [
-  { to: "/solution/knowledge-workers", label: "For Knowledge Workers" },
-  { to: "/enterprise", label: "For Enterprises" },
-  { to: "/product/api", label: "For Developers" },
-];
+const solutionsList = featuredSolutionMenuItems;
 
 const resourcesList: {
   to: string;
@@ -395,6 +395,15 @@ function SolutionsList({ onClose }: { onClose: () => void }) {
           </span>
         </Link>
       ))}
+      <Link
+        to={showMoreSolutionsMenuItem.to}
+        onClick={onClose}
+        className="group flex items-center py-2 text-sm font-medium text-neutral-700"
+      >
+        <span className="decoration-dotted group-hover:underline">
+          {showMoreSolutionsMenuItem.label}
+        </span>
+      </Link>
     </div>
   );
 }
@@ -795,6 +804,13 @@ function MobileSolutionsList({
             {link.label}
           </Link>
         ))}
+        <Link
+          to={showMoreSolutionsMenuItem.to}
+          onClick={() => setIsMenuOpen(false)}
+          className="py-1 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900"
+        >
+          {showMoreSolutionsMenuItem.label}
+        </Link>
       </div>
     </div>
   );

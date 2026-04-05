@@ -202,7 +202,7 @@ function TranscriptReadyPanel({
             )}
           </div>
 
-          <div className="h-[300px] overflow-y-auto">
+          <div className="h-[300px] overflow-y-auto px-3">
             <Transcript sessionId={sessionId} scrollRef={scrollRef} />
           </div>
         </div>

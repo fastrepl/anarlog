@@ -1,4 +1,7 @@
-import { ArrowUpIcon } from "lucide-react";
+import { ChevronUpIcon } from "lucide-react";
+
+import { Button } from "@hypr/ui/components/ui/button";
+import { cn } from "@hypr/utils";
 
 export function TodayButton({
   onClick,
@@ -10,12 +13,21 @@ export function TodayButton({
   if (!visible) return null;
 
   return (
-    <button
-      onClick={onClick}
-      className="absolute top-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-neutral-800 px-3 py-1.5 text-xs font-medium text-white shadow-lg transition-opacity hover:bg-neutral-700"
-    >
-      <ArrowUpIcon className="h-3 w-3" />
-      today
-    </button>
+    <div className="absolute top-2 left-1/2 z-10 -translate-x-1/2">
+      <Button
+        onClick={onClick}
+        size="sm"
+        className={cn([
+          "rounded-full bg-white hover:bg-neutral-50",
+          "border border-neutral-200 text-neutral-700",
+          "flex items-center gap-1",
+          "shadow-xs",
+        ])}
+        variant="outline"
+      >
+        <ChevronUpIcon size={12} />
+        <span className="text-xs">Go back to Today</span>
+      </Button>
+    </div>
   );
 }

@@ -50,21 +50,22 @@ export function TabContentDaily() {
 
   return (
     <StandardTabWrapper>
-      <div ref={scrollRef} className="relative flex-1 overflow-y-auto">
+      <div className="relative flex-1 overflow-hidden">
         <TodayButton onClick={scrollToToday} visible={showTodayButton} />
-
-        <div className="mx-auto w-full max-w-3xl">
-          <div ref={todayRef} className="min-h-[400px]">
-            <DateHeader date={today} isToday={true} />
-            <DailyNoteEditor date={today} />
-          </div>
-
-          {pastDates.map((date) => (
-            <div key={date}>
-              <div className="mx-6 border-t border-neutral-200" />
-              <LazyNote date={date} />
+        <div ref={scrollRef} className="h-full overflow-y-auto">
+          <div className="mx-auto w-full max-w-3xl">
+            <div ref={todayRef} className="min-h-[400px]">
+              <DateHeader date={today} isToday={true} />
+              <DailyNoteEditor date={today} />
             </div>
-          ))}
+
+            {pastDates.map((date) => (
+              <div key={date}>
+                <div className="mx-6 border-t border-neutral-200" />
+                <LazyNote date={date} />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </StandardTabWrapper>

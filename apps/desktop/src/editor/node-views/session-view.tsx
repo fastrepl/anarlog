@@ -1,12 +1,18 @@
-import type { NodeViewComponentProps } from "@handlewithcare/react-prosemirror";
+import {
+  type NodeViewComponentProps,
+  useEditorEventCallback,
+} from "@handlewithcare/react-prosemirror";
 import { format } from "date-fns";
 import { ArrowUpRightIcon } from "lucide-react";
 import type { NodeSpec } from "prosemirror-model";
-import { forwardRef, type ReactNode, useCallback } from "react";
+import { forwardRef, type ReactNode, useCallback, useMemo } from "react";
 
 import { cn, safeParseDate } from "@hypr/utils";
 
+import { TaskCheckbox } from "./task-checkbox";
+
 import { useLinkedItemOpenBehavior } from "~/editor/session/linked-item-open-behavior";
+import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -18,20 +24,34 @@ export const sessionNodeSpec: NodeSpec = {
   selectable: false,
   attrs: {
     sessionId: { default: null },
+    checked: { default: null },
   },
   parseDOM: [
     {
       tag: 'div[data-type="session"]',
       getAttrs(dom) {
         const el = dom as HTMLElement;
-        return { sessionId: el.getAttribute("data-session-id") };
+        const checked = el.getAttribute("data-checked");
+
+        return {
+          sessionId: el.getAttribute("data-session-id"),
+          checked:
+            checked === "true" ? true : checked === "false" ? false : null,
+        };
       },
     },
   ],
   toDOM(node) {
     return [
       "div",
-      { "data-type": "session", "data-session-id": node.attrs.sessionId },
+      {
+        "data-type": "session",
+        "data-session-id": node.attrs.sessionId,
+        "data-checked":
+          typeof node.attrs.checked === "boolean"
+            ? String(node.attrs.checked)
+            : undefined,
+      },
       0,
     ];
   },
@@ -41,7 +61,7 @@ export const SessionNodeView = forwardRef<
   HTMLDivElement,
   NodeViewComponentProps & { children?: ReactNode }
 >(function SessionNodeView({ nodeProps, children, ...htmlAttrs }, ref) {
-  const { node } = nodeProps;
+  const { node, getPos } = nodeProps;
   const sessionId = node.attrs.sessionId as string;
 
   const session = main.UI.useRow("sessions", sessionId, main.STORE_ID);
@@ -53,6 +73,13 @@ export const SessionNodeView = forwardRef<
   const createdAt = session?.created_at
     ? safeParseDate(session.created_at as string)
     : null;
+
+  const isMeetingOver = useMemo(() => {
+    const event = getSessionEvent(session);
+    if (!event?.ended_at) return false;
+    const endedAt = safeParseDate(event.ended_at);
+    return endedAt ? endedAt.getTime() <= Date.now() : false;
+  }, [session]);
 
   const linkedItemOpenBehavior = useLinkedItemOpenBehavior();
   const openCurrent = useTabs((state) => state.openCurrent);
@@ -82,11 +109,35 @@ export const SessionNodeView = forwardRef<
     [openSession],
   );
 
+  const derivedChecked = !isRecording && isMeetingOver;
+  const checked =
+    typeof node.attrs.checked === "boolean"
+      ? node.attrs.checked
+      : derivedChecked;
+
+  const handleToggle = useEditorEventCallback((view) => {
+    if (!view) return;
+    const pos = getPos();
+    const tr = view.state.tr.setNodeMarkup(pos, undefined, {
+      ...node.attrs,
+      checked: !checked,
+    });
+    view.dispatch(tr);
+  });
+
   return (
-    <div ref={ref} {...htmlAttrs}>
+    <div
+      ref={ref}
+      {...htmlAttrs}
+      data-checked={
+        typeof node.attrs.checked === "boolean"
+          ? String(node.attrs.checked)
+          : undefined
+      }
+    >
       <div
         className={cn([
-          "group flex items-center gap-2 rounded-md px-2 py-1 transition-colors",
+          "group flex items-start rounded-md px-2 py-1 transition-colors",
           "-mx-2 focus-within:bg-neutral-50 hover:bg-neutral-50",
         ])}
       >
@@ -98,14 +149,18 @@ export const SessionNodeView = forwardRef<
             <div className="size-2.5 animate-pulse rounded-full bg-red-500" />
           </div>
         ) : (
-          <Checkbox checked />
+          <TaskCheckbox
+            checked={checked}
+            isInteractive
+            onToggle={handleToggle}
+          />
         )}
         <span
           data-session-title
           className={cn([
             "min-w-0 flex-1 cursor-text truncate text-sm text-neutral-900",
             "rounded-sm outline-none focus:bg-white/80",
-            !isRecording && "line-through opacity-60",
+            checked && "line-through opacity-60",
           ])}
         >
           {children}
@@ -149,32 +204,3 @@ export const SessionNodeView = forwardRef<
     </div>
   );
 });
-
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <div
-      contentEditable={false}
-      className={cn([
-        "flex size-[18px] shrink-0 items-center justify-center rounded",
-        "border-[1.5px]",
-        checked ? "border-blue-500 bg-blue-500" : "border-neutral-900",
-      ])}
-    >
-      {checked && (
-        <svg
-          viewBox="0 0 12 12"
-          className="size-3 text-white"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.5}
-        >
-          <path
-            d="M2.5 6l2.5 2.5 4.5-5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
-    </div>
-  );
-}

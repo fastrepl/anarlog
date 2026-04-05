@@ -1,10 +1,8 @@
 #![cfg(target_os = "macos")]
 
-use std::time::SystemTime;
-
 use hypr_activity_capture_interface::{
-    ActivityCapture, Capabilities, CaptureAccess, CaptureError, CapturePolicy, CaptureStream,
-    ContentLevel, Snapshot, SnapshotSource, WatchOptions,
+    ActivityCapture, AppIdKind, AppIdentity, Capabilities, CaptureAccess, CaptureError,
+    CapturePolicy, CaptureStream, Snapshot, SnapshotSource, SnapshotSpec, TextAnchor, WatchOptions,
 };
 use objc2::rc::autoreleasepool;
 use objc2_application_services::{AXIsProcessTrusted, AXUIElement};
@@ -43,23 +41,35 @@ impl MacosCapture {
             let pid = application.pid;
             let app_name = application.app_name;
             let bundle_id = application.bundle_id;
+            let app = AppIdentity {
+                pid,
+                app_name: app_name.clone(),
+                app_id: bundle_id.clone().unwrap_or_else(|| format!("pid:{pid}")),
+                app_id_kind: if bundle_id.is_some() {
+                    AppIdKind::BundleId
+                } else {
+                    AppIdKind::Pid
+                },
+                bundle_id: bundle_id.clone(),
+                executable_path: None,
+            };
             let app_profile = AppProfile::from_bundle_id(bundle_id.as_deref());
-            let app_access = self.policy.access_for_bundle(bundle_id.as_deref());
+            let app_access = self.policy.access_for_app(&app);
             if !app_access.allows_snapshot() {
                 return Ok(None);
             }
             if app_access == CaptureAccess::Metadata {
-                return Ok(Some(snapshot_for_access(
-                    pid,
-                    app_name,
-                    bundle_id,
-                    app_access,
-                    None,
-                    None,
-                    None,
-                    None,
-                    SnapshotSource::Workspace,
-                )));
+                return Ok(Some(Snapshot::from_spec(SnapshotSpec {
+                    captured_at: std::time::SystemTime::now(),
+                    app,
+                    activity_kind: hypr_activity_capture_interface::ActivityKind::ForegroundWindow,
+                    access: app_access,
+                    source: SnapshotSource::Workspace,
+                    window_title: None,
+                    url: None,
+                    visible_text: None,
+                    text_anchor: None,
+                })));
             }
 
             ensure_trusted()?;
@@ -69,17 +79,17 @@ impl MacosCapture {
                 .or_else(|_| copy_element_attribute(&ax_application, "AXMainWindow"))?;
 
             let Some(focused_window) = focused_window else {
-                return Ok(Some(snapshot_for_access(
-                    pid,
-                    app_name,
-                    bundle_id,
-                    app_access,
-                    None,
-                    None,
-                    None,
-                    None,
-                    SnapshotSource::Workspace,
-                )));
+                return Ok(Some(Snapshot::from_spec(SnapshotSpec {
+                    captured_at: std::time::SystemTime::now(),
+                    app,
+                    activity_kind: hypr_activity_capture_interface::ActivityKind::ForegroundWindow,
+                    access: app_access,
+                    source: SnapshotSource::Workspace,
+                    window_title: None,
+                    url: None,
+                    visible_text: None,
+                    text_anchor: None,
+                })));
             };
 
             if bool_attribute(&focused_window, "AXMinimized")? == Some(true) {
@@ -92,29 +102,23 @@ impl MacosCapture {
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| default_window_title.clone());
 
-            let mut plan = resolve_capture_plan(&CaptureContext {
-                policy: &self.policy,
-                bundle_id: bundle_id.as_deref(),
+            let plan = resolve_capture_plan(&CaptureContext {
+                app: &app,
                 app_profile,
                 focused_window: &focused_window,
             })?;
-            if plan.url.is_none() && plan.access == CaptureAccess::Url {
-                plan.access = CaptureAccess::Metadata;
-            }
-            if plan.skip || !plan.access.allows_snapshot() {
+            let decision = self.policy.decision_for_candidate(&plan.candidate);
+            if decision.skip || !decision.access.allows_snapshot() {
                 return Ok(None);
             }
-            if !plan.access.allows_text() {
-                return Ok(Some(snapshot_for_access(
-                    pid,
-                    app_name,
-                    bundle_id,
-                    plan.access,
+            if !decision.access.allows_text() {
+                return Ok(Some(build_snapshot(
+                    app,
+                    decision,
                     Some(window_title),
-                    plan.url,
                     None,
                     None,
-                    SnapshotSource::Accessibility,
+                    None,
                 )));
             }
 
@@ -142,16 +146,13 @@ impl MacosCapture {
                 }
             };
 
-            Ok(Some(snapshot_for_access(
-                pid,
-                app_name,
-                bundle_id,
-                plan.access,
+            Ok(Some(build_snapshot(
+                app,
+                decision,
                 Some(window_title),
-                plan.url,
                 Some(visible_text),
                 text_anchor,
-                SnapshotSource::Accessibility,
+                None,
             )))
         })
     }
@@ -186,104 +187,39 @@ fn ensure_trusted() -> Result<(), CaptureError> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn snapshot_for_access(
-    pid: i32,
-    app_name: String,
-    bundle_id: Option<String>,
-    access: CaptureAccess,
+fn build_snapshot(
+    app: AppIdentity,
+    decision: hypr_activity_capture_interface::CaptureDecision,
     window_title: Option<String>,
-    url: Option<String>,
     visible_text: Option<String>,
     text_anchor: Option<TextAnchorCapture>,
-    source: SnapshotSource,
+    url_override: Option<String>,
 ) -> Snapshot {
     let fields = sanitize_snapshot_fields(
-        &app_name,
-        bundle_id.as_deref(),
+        &app.app_name,
+        app.bundle_id.as_deref(),
         window_title,
         visible_text,
         text_anchor,
     );
-    let content_level = match access {
-        CaptureAccess::Metadata => ContentLevel::Metadata,
-        CaptureAccess::Url => ContentLevel::Url,
-        CaptureAccess::Full => ContentLevel::Full,
-        CaptureAccess::None => ContentLevel::Metadata,
-    };
 
-    Snapshot {
-        captured_at: SystemTime::now(),
-        pid,
-        app_name: app_name.clone(),
-        bundle_id,
-        window_title: access
-            .allows_text()
-            .then_some(fields.window_title.filter(|value| !value.is_empty()))
-            .flatten(),
-        url: access.allows_url().then_some(url).flatten(),
-        visible_text: access
-            .allows_text()
-            .then_some(fields.visible_text.filter(|value| !value.is_empty()))
-            .flatten(),
-        text_anchor_kind: access
-            .allows_text()
-            .then_some(fields.text_anchor.as_ref().map(|anchor| anchor.kind))
-            .flatten(),
-        text_anchor_identity: access
-            .allows_text()
-            .then_some(
-                fields
-                    .text_anchor
-                    .as_ref()
-                    .map(|anchor| anchor.identity.clone()),
-            )
-            .flatten(),
-        text_anchor_text: access
-            .allows_text()
-            .then_some(
-                fields
-                    .text_anchor
-                    .as_ref()
-                    .and_then(|anchor| anchor.text.clone()),
-            )
-            .flatten(),
-        text_anchor_prefix: access
-            .allows_text()
-            .then_some(
-                fields
-                    .text_anchor
-                    .as_ref()
-                    .and_then(|anchor| anchor.prefix.clone()),
-            )
-            .flatten(),
-        text_anchor_suffix: access
-            .allows_text()
-            .then_some(
-                fields
-                    .text_anchor
-                    .as_ref()
-                    .and_then(|anchor| anchor.suffix.clone()),
-            )
-            .flatten(),
-        text_anchor_selected_text: access
-            .allows_text()
-            .then_some(
-                fields
-                    .text_anchor
-                    .as_ref()
-                    .and_then(|anchor| anchor.selected_text.clone()),
-            )
-            .flatten(),
-        text_anchor_confidence: access
-            .allows_text()
-            .then_some(fields.text_anchor.as_ref().map(|anchor| anchor.confidence))
-            .flatten(),
-        content_level,
-        source: if access == CaptureAccess::Metadata {
-            SnapshotSource::Workspace
-        } else {
-            source
-        },
-    }
+    Snapshot::from_spec(SnapshotSpec {
+        captured_at: std::time::SystemTime::now(),
+        activity_kind: decision.activity_kind,
+        access: decision.access,
+        source: decision.source,
+        url: url_override.or(decision.url),
+        app,
+        window_title: fields.window_title.filter(|value| !value.is_empty()),
+        visible_text: fields.visible_text.filter(|value| !value.is_empty()),
+        text_anchor: fields.text_anchor.map(|anchor| TextAnchor {
+            kind: anchor.kind,
+            identity: anchor.identity,
+            text: anchor.text,
+            prefix: anchor.prefix,
+            suffix: anchor.suffix,
+            selected_text: anchor.selected_text,
+            confidence: anchor.confidence,
+        }),
+    })
 }

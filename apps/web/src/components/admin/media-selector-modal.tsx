@@ -7,18 +7,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
-import { fetchAdminJson } from "@/lib/admin-auth";
-import type { MediaItem } from "@/lib/media-library";
-
-async function fetchMediaItems(path: string): Promise<MediaItem[]> {
-  const data = await fetchAdminJson<{ items: MediaItem[] }>(
-    `/api/admin/media/list?path=${encodeURIComponent(path)}`,
-    undefined,
-    "Failed to fetch media",
-  );
-
-  return data.items;
-}
+import { getMediaItemsQueryOptions } from "@/hooks/use-media-api";
 
 function getRelativePath(fullPath: string): string {
   return fullPath.replace(/^apps\/web\/public\/images\/?/, "");
@@ -81,8 +70,7 @@ export function MediaSelectorModal({
   };
 
   const mediaQuery = useQuery({
-    queryKey: ["mediaItems", selectedPath],
-    queryFn: () => fetchMediaItems(selectedPath),
+    ...getMediaItemsQueryOptions(selectedPath),
     enabled: open,
   });
 

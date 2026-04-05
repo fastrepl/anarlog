@@ -25,8 +25,10 @@ exclude = [
 ]
 
 [workspace.dependencies]
+hypr-activity-capture = { path = "crates/activity-capture", package = "activity-capture" }
 hypr-activity-capture-interface = { path = "crates/activity-capture-interface", package = "activity-capture-interface" }
 hypr-activity-capture-macos = { path = "crates/activity-capture-macos", package = "activity-capture-macos" }
+hypr-activity-capture-windows = { path = "crates/activity-capture-windows", package = "activity-capture-windows" }
 hypr-aec = { path = "crates/aec", package = "aec" }
 hypr-afconvert = { path = "crates/afconvert", package = "afconvert" }
 hypr-agc = { path = "crates/agc", package = "agc" }
@@ -77,6 +79,7 @@ hypr-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
 hypr-codex = { path = "crates/codex", package = "codex" }
 hypr-data = { path = "crates/data", package = "data" }
 hypr-db-app = { path = "crates/db-app", package = "db-app" }
+hypr-db-app2 = { path = "crates/db-app2", package = "db-app2" }
 hypr-db-core = { path = "crates/db-core", package = "db-core" }
 hypr-db-core2 = { path = "crates/db-core2", package = "db-core2" }
 hypr-db-parser = { path = "crates/db-parser", package = "db-parser" }
@@ -407,6 +410,10 @@ tokenizers = "0.21.4"
 whichlang = "0.1"
 
 swift-rs = { git = "https://github.com/yujonglee/swift-rs", rev = "41a1605" }
+
+wasapi = "0.23.0"
+windows = "0.62.2"
+windows-core = "0.62.2"
 
 rmcp = "0.14"
 rustls = { version = "0.23", default-features = false }

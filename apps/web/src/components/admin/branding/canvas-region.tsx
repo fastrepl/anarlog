@@ -1,5 +1,4 @@
-import { prepare, layout } from "@chenglou/pretext";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import type { Region } from "./templates";
 
@@ -39,26 +38,6 @@ function CharLogoSvg({ color, height }: { color: string; height: string }) {
       />
     </svg>
   );
-}
-
-function useTextMeasure(
-  text: string,
-  font: string,
-  lineHeight: number,
-  maxWidth: number,
-) {
-  const [height, setHeight] = useState(0);
-  useEffect(() => {
-    if (!text || !maxWidth) return;
-    try {
-      const prepared = prepare(text, font);
-      const result = layout(prepared, maxWidth, lineHeight);
-      setHeight(result.height);
-    } catch {
-      // fallback: don't set height
-    }
-  }, [text, font, lineHeight, maxWidth]);
-  return height;
 }
 
 function CharLogoCompactSvg({
@@ -160,16 +139,6 @@ export function CanvasRegion({
       document.addEventListener("mouseup", onUp);
     },
     [currentFontSize, onFontSizeChange, region.key],
-  );
-
-  const fontStr = `${region.style.fontWeight || 400} ${currentFontSize}px ${region.style.fontFamily || "sans-serif"}`;
-  const lineHeightNum =
-    parseFloat((region.style.lineHeight as string) || "1.3") * currentFontSize;
-  const _measuredHeight = useTextMeasure(
-    value,
-    fontStr,
-    lineHeightNum,
-    ref.current?.clientWidth || 500,
   );
 
   if (region.type === "logo") {

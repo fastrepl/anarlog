@@ -9,6 +9,7 @@ import { AITaskProvider } from "~/ai/contexts";
 import { NotificationProvider } from "~/contexts/notifications";
 import { ShellProvider } from "~/contexts/shell";
 import { ToolRegistryProvider } from "~/contexts/tool";
+import { TaskStorageProvider } from "~/editor/task-storage";
 import { SearchEngineProvider } from "~/search/contexts/engine";
 import { SearchUIProvider } from "~/search/contexts/ui";
 import { useTabs } from "~/store/zustand/tabs";
@@ -46,17 +47,19 @@ function Component() {
 
   return (
     <SearchEngineProvider store={persistedStore}>
-      <SearchUIProvider>
-        <ShellProvider>
-          <ToolRegistryProvider registry={toolRegistry}>
-            <AITaskProvider store={aiTaskStore}>
-              <NotificationProvider>
-                <Outlet />
-              </NotificationProvider>
-            </AITaskProvider>
-          </ToolRegistryProvider>
-        </ShellProvider>
-      </SearchUIProvider>
+      <TaskStorageProvider>
+        <SearchUIProvider>
+          <ShellProvider>
+            <ToolRegistryProvider registry={toolRegistry}>
+              <AITaskProvider store={aiTaskStore}>
+                <NotificationProvider>
+                  <Outlet />
+                </NotificationProvider>
+              </AITaskProvider>
+            </ToolRegistryProvider>
+          </ShellProvider>
+        </SearchUIProvider>
+      </TaskStorageProvider>
     </SearchEngineProvider>
   );
 }

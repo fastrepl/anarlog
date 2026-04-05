@@ -16,8 +16,7 @@ tauri-plugin-activity-capture = { path = "." }
 
 [dependencies]
 futures-util = { workspace = true }
-hypr-activity-capture-interface = { workspace = true }
-hypr-activity-capture-macos = { workspace = true }
+hypr-activity-capture = { workspace = true }
 
 tauri = { workspace = true, features = ["specta", "test"] }
 

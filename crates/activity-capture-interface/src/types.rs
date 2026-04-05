@@ -91,6 +91,25 @@ pub struct CapturePolicy {
     schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
+pub enum AppIdKind {
+    BundleId,
+    ExecutablePath,
+    ProcessName,
+    Pid,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 pub enum ContentLevel {
     Metadata,
     Url,
@@ -112,6 +131,24 @@ pub enum ContentLevel {
 pub enum SnapshotSource {
     Accessibility,
     Workspace,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityKind {
+    ForegroundWindow,
+    Browser,
+    AudioSession,
 }
 
 #[derive(
@@ -155,7 +192,86 @@ pub enum TextAnchorConfidence {
 #[derive(
     Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
+pub struct AppIdentity {
+    pub pid: i32,
+    pub app_name: String,
+    pub app_id: String,
+    pub app_id_kind: AppIdKind,
+    pub bundle_id: Option<String>,
+    pub executable_path: Option<String>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct BrowserContext {
+    pub raw_url: Option<String>,
+    pub is_private: bool,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct CaptureCandidate {
+    pub app: AppIdentity,
+    pub activity_kind: ActivityKind,
+    pub source: SnapshotSource,
+    pub browser: Option<BrowserContext>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct SanitizedBrowserUrl {
+    pub url: String,
+    pub host: Option<String>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct CaptureDecision {
+    pub access: CaptureAccess,
+    pub skip: bool,
+    pub source: SnapshotSource,
+    pub activity_kind: ActivityKind,
+    pub url: Option<String>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct TextAnchor {
+    pub kind: TextAnchorKind,
+    pub identity: String,
+    pub text: Option<String>,
+    pub prefix: Option<String>,
+    pub suffix: Option<String>,
+    pub selected_text: Option<String>,
+    pub confidence: TextAnchorConfidence,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+pub struct SnapshotSpec {
+    pub captured_at: SystemTime,
+    pub app: AppIdentity,
+    pub activity_kind: ActivityKind,
+    pub access: CaptureAccess,
+    pub source: SnapshotSource,
+    pub window_title: Option<String>,
+    pub url: Option<String>,
+    pub visible_text: Option<String>,
+    pub text_anchor: Option<TextAnchor>,
+}
+
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 pub struct Snapshot {
+    pub app: AppIdentity,
+    pub activity_kind: ActivityKind,
     pub captured_at: SystemTime,
     pub pid: i32,
     pub app_name: String,
@@ -185,11 +301,37 @@ pub struct Event {
 }
 
 #[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionReason {
+    Started,
+    Idle,
+    AppChanged,
+    ActivityKindChanged,
+    UrlChanged,
+    TitleChanged,
+    TextAnchorChanged,
+    ContentChanged,
+}
+
+#[derive(
     Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 pub struct Transition {
     pub previous: Option<Event>,
     pub current: Option<Event>,
+    pub reason: TransitionReason,
+    pub sequence: u64,
+    pub suppressed_snapshot_count: u32,
 }
 
 #[derive(

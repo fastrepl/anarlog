@@ -71,12 +71,6 @@ status = 301
 force = true
 
 [[redirects]]
-from = "https://hyprnote.com/jobs/*"
-to = "https://char.com/jobs/:splat"
-status = 301
-force = true
-
-[[redirects]]
 from = "/roadmap"
 to = "/changelog/"
 status = 301

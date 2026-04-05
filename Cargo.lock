@@ -9,6 +9,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
+name = "activity-capture"
+version = "0.1.0"
+dependencies = [
+ "activity-capture-interface",
+ "activity-capture-macos",
+ "activity-capture-windows",
+]
+
+[[package]]
+name = "activity-capture-dev"
+version = "0.1.0"
+dependencies = [
+ "activity-capture",
+ "chrono",
+ "clap",
+ "crossterm",
+ "futures-util",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "activity-capture-interface"
 version = "0.1.0"
 dependencies = [
@@ -18,6 +43,9 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "url",
 ]
 
 [[package]]
@@ -35,6 +63,15 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "url",
+]
+
+[[package]]
+name = "activity-capture-windows"
+version = "0.1.0"
+dependencies = [
+ "activity-capture-interface",
+ "sysinfo",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -4547,6 +4584,15 @@ dependencies = [
  "tokio",
  "transcript",
  "uuid",
+]
+
+[[package]]
+name = "db-app2"
+version = "0.1.0"
+dependencies = [
+ "db-core2",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]
@@ -18018,8 +18064,7 @@ dependencies = [
 name = "tauri-plugin-activity-capture"
 version = "0.1.0"
 dependencies = [
- "activity-capture-interface",
- "activity-capture-macos",
+ "activity-capture",
  "futures-util",
  "serde",
  "specta",
@@ -21920,16 +21965,15 @@ dependencies = [
 
 [[package]]
 name = "wasapi"
-version = "0.19.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a44f8b836526917dd6b4ca0ca163394df7cadae249ee6a8b10d36ee4265298c9"
+checksum = "80c3aa5d6b0e7acc3ea10cb19c334df0c8d825060f14a30d9e3b03385e6e5175"
 dependencies = [
  "log",
  "num-integer",
  "thiserror 2.0.18",
- "widestring",
- "windows 0.61.3",
- "windows-core 0.61.2",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]

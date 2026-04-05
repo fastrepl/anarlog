@@ -16,6 +16,7 @@ import { useMemoryPersister } from "~/store/tinybase/persister/memory";
 import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
 import { usePromptPersister } from "~/store/tinybase/persister/prompts";
 import { useSessionPersister } from "~/store/tinybase/persister/session";
+import { useTaskPersister } from "~/store/tinybase/persister/tasks";
 import { useTemplatePersister } from "~/store/tinybase/persister/templates";
 import { useValuesPersister } from "~/store/tinybase/persister/values";
 
@@ -32,6 +33,7 @@ export function useMainPersisters(store: Store) {
   const calendarPersister = useCalendarPersister(store);
   const memoryPersister = useMemoryPersister(store);
   const dailyNotePersister = useDailyNotePersister(store);
+  const taskPersister = useTaskPersister(store);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -51,6 +53,7 @@ export function useMainPersisters(store: Store) {
       { id: "calendar", persister: calendarPersister },
       { id: "memory", persister: memoryPersister },
       { id: "dailyNote", persister: dailyNotePersister },
+      { id: "task", persister: taskPersister },
     ];
 
     const unsubscribes = persisters
@@ -77,6 +80,7 @@ export function useMainPersisters(store: Store) {
     calendarPersister,
     memoryPersister,
     dailyNotePersister,
+    taskPersister,
   ]);
 
   useInitializeStore(store, {
@@ -98,5 +102,6 @@ export function useMainPersisters(store: Store) {
     calendarPersister,
     memoryPersister,
     dailyNotePersister,
+    taskPersister,
   };
 }

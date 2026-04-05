@@ -4,12 +4,10 @@ use std::sync::{
 };
 
 use futures_util::StreamExt;
-use hypr_activity_capture_interface::{ActivityCapture, CapturePolicy};
+use hypr_activity_capture::{ActivityCapture, CapturePolicy, PlatformCapture};
 use tauri_specta::Event;
 
-use crate::events::{
-    ActivityCaptureErrorKind, ActivityCapturePluginEvent, ActivityCaptureTransition,
-};
+use crate::events::{ActivityCaptureErrorKind, ActivityCapturePluginEvent, ActivityCaptureSignal};
 
 pub struct ActivityCaptureRuntime<R: tauri::Runtime> {
     app: tauri::AppHandle<R>,
@@ -56,7 +54,7 @@ impl<R: tauri::Runtime> ActivityCaptureRuntime<R> {
             return Ok(());
         }
 
-        let capture = hypr_activity_capture_macos::MacosCapture::with_policy(self.policy());
+        let capture = PlatformCapture::with_policy(self.policy());
         let mut stream = capture.watch(Default::default())?;
 
         self.running.store(true, Ordering::SeqCst);
@@ -69,11 +67,11 @@ impl<R: tauri::Runtime> ActivityCaptureRuntime<R> {
             while let Some(item) = stream.next().await {
                 match item {
                     Ok(transition) => {
-                        let event = ActivityCapturePluginEvent::Transition {
-                            transition: ActivityCaptureTransition::from(transition),
+                        let event = ActivityCapturePluginEvent::Signal {
+                            signal: ActivityCaptureSignal::from(transition),
                         };
                         if let Err(error) = event.emit(&runtime.app) {
-                            tracing::error!(?error, "failed_to_emit_activity_capture_transition");
+                            tracing::error!(?error, "failed_to_emit_activity_capture_signal");
                         }
                     }
                     Err(error) => {
