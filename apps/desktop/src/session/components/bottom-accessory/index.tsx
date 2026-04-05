@@ -4,7 +4,7 @@ import { LiveTranscriptFooter } from "./live-transcript";
 import { PostSessionAccessory } from "./post-session";
 
 export type BottomAccessoryState = {
-  mode: "live" | "playback" | "transcript_only";
+  mode: "live" | "playback" | "transcript_only" | "finalizing";
   expanded: boolean;
 } | null;
 
@@ -24,6 +24,7 @@ export function useSessionBottomAccessory({
 } {
   const [isExpanded, setIsExpanded] = useState(false);
   const isLive = sessionMode === "active";
+  const isFinalizing = sessionMode === "finalizing";
   const isInactive =
     sessionMode === "inactive" || sessionMode === "running_batch";
   const isBatching = sessionMode === "running_batch";
@@ -46,11 +47,13 @@ export function useSessionBottomAccessory({
   const showPostSession = isInactive;
   const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
     ? "live"
-    : showPostSession
-      ? hasAudio
-        ? "playback"
-        : "transcript_only"
-      : null;
+    : isFinalizing
+      ? "finalizing"
+      : showPostSession
+        ? hasAudio
+          ? "playback"
+          : "transcript_only"
+        : null;
 
   const bottomAccessoryState: BottomAccessoryState = useMemo(
     () => (mode ? { mode, expanded: isExpanded } : null),
@@ -65,6 +68,23 @@ export function useSessionBottomAccessory({
           isExpanded={isExpanded}
           onToggleExpand={() => setIsExpanded((v) => !v)}
         />
+      ),
+      bottomAccessoryState,
+    };
+  }
+
+  if (isFinalizing) {
+    return {
+      bottomAccessory: (
+        <div className="relative w-full pt-3 select-none">
+          <div className="rounded-xl bg-neutral-50">
+            <div className="flex min-h-12 items-center gap-2 p-2">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs text-neutral-400">Finalizing...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       ),
       bottomAccessoryState,
     };
