@@ -15,7 +15,6 @@ import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { formatDate, formatDuration } from "./export-utils";
 
-import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -94,9 +93,6 @@ export function ExportPDF({
     sessionId,
     main.STORE_ID,
   );
-
-  const { data: transcriptItems, isLoading: isTranscriptLoading } =
-    useTranscriptExportSegments(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
     if (!store || !transcriptIds || transcriptIds.length === 0) {
@@ -182,15 +178,6 @@ export function ExportPDF({
             metadata,
           };
         }
-        case "transcript": {
-          return {
-            enhancedMd: "",
-            memoMd: null,
-            transcript:
-              transcriptItems.length > 0 ? { items: transcriptItems } : null,
-            metadata,
-          };
-        }
         default:
           return {
             enhancedMd: "",
@@ -204,7 +191,6 @@ export function ExportPDF({
     currentView,
     rawMd,
     enhancedNoteContent,
-    transcriptItems,
     sessionTitle,
     sessionCreatedAt,
     participantNames,
@@ -218,15 +204,10 @@ export function ExportPDF({
         return "Export Memo to PDF";
       case "enhanced":
         return "Export Summary to PDF";
-      case "transcript":
-        return "Export Transcript to PDF";
       default:
         return "Export to PDF";
     }
   };
-
-  const isTranscriptPending =
-    currentView.type === "transcript" && isTranscriptLoading;
 
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
@@ -253,8 +234,7 @@ export function ExportPDF({
           event: "session_exported",
           format: "pdf",
           view_type: currentView.type,
-          has_transcript:
-            currentView.type === "transcript" && transcriptItems.length > 0,
+          has_transcript: false,
           has_enhanced:
             currentView.type === "enhanced" && !!enhancedNoteContent,
           has_memo: currentView.type === "raw" && !!rawMd,
@@ -271,21 +251,11 @@ export function ExportPDF({
         e.preventDefault();
         void mutate(null);
       }}
-      disabled={isPending || isTranscriptPending}
+      disabled={isPending}
       className="cursor-pointer"
     >
-      {isPending || isTranscriptPending ? (
-        <Loader2Icon className="animate-spin" />
-      ) : (
-        <FileTextIcon />
-      )}
-      <span>
-        {isPending
-          ? "Exporting..."
-          : isTranscriptPending
-            ? "Preparing transcript..."
-            : getExportLabel()}
-      </span>
+      {isPending ? <Loader2Icon className="animate-spin" /> : <FileTextIcon />}
+      <span>{isPending ? "Exporting..." : getExportLabel()}</span>
     </DropdownMenuItem>
   );
 }

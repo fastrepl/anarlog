@@ -13,15 +13,12 @@ import { cn } from "@hypr/utils";
 
 import { useMainContentCenterOffset } from "./content-offset";
 
+import type { BottomAccessoryState } from "~/session/components/bottom-accessory";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 
 type SessionStatusBannerState = {
   skipReason: string | null;
-  bottomAccessoryKind:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
+  bottomAccessoryState: BottomAccessoryState;
 } | null;
 
 const SessionStatusBannerStateContext =
@@ -48,14 +45,10 @@ export function SessionStatusBannerProvider({
 
 export function useSessionStatusBanner({
   skipReason,
-  bottomAccessoryKind = null,
+  bottomAccessoryState = null,
 }: {
   skipReason: string | null;
-  bottomAccessoryKind?:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
+  bottomAccessoryState?: BottomAccessoryState;
 }) {
   const setBanner = useContext(SessionStatusBannerSetterContext);
 
@@ -64,12 +57,12 @@ export function useSessionStatusBanner({
       return;
     }
 
-    setBanner({ skipReason, bottomAccessoryKind });
+    setBanner({ skipReason, bottomAccessoryState });
 
     return () => {
       setBanner(null);
     };
-  }, [setBanner, bottomAccessoryKind, skipReason]);
+  }, [setBanner, bottomAccessoryState, skipReason]);
 }
 
 export function MainSessionStatusBannerHost() {
@@ -98,9 +91,9 @@ export function MainSessionStatusBannerHost() {
           "text-red-400",
           hasUndoDeleteToast
             ? "bottom-1"
-            : banner.bottomAccessoryKind === "live_transcript_expanded"
+            : banner.bottomAccessoryState?.expanded
               ? "bottom-[224px]"
-              : banner.bottomAccessoryKind
+              : banner.bottomAccessoryState
                 ? "bottom-[76px]"
                 : "bottom-6",
         ])}

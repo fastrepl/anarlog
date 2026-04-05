@@ -94,10 +94,8 @@ function IconButton({
 
 export function SearchBar({
   editorRef,
-  isTranscript,
 }: {
   editorRef: React.RefObject<NoteEditorRef | null>;
-  isTranscript?: boolean;
 }) {
   const search = useSearch();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -132,7 +130,7 @@ export function SearchBar({
     setReplaceQuery,
   } = search;
 
-  const commands = isTranscript ? null : editorRef.current?.commands;
+  const commands = editorRef.current?.commands;
 
   const setQuery = (q: string) => {
     search.setQuery(q);
@@ -225,20 +223,18 @@ export function SearchBar({
           >
             <WholeWordIcon className="size-3.5" />
           </ToggleButton>
-          {!isTranscript && (
-            <ToggleButton
-              active={showReplace}
-              onClick={toggleReplace}
-              tooltip={
-                <>
-                  <span>Replace</span>
-                  <Kbd className="animate-kbd-press">⌘ H</Kbd>
-                </>
-              }
-            >
-              <ReplaceIcon className="size-3.5" />
-            </ToggleButton>
-          )}
+          <ToggleButton
+            active={showReplace}
+            onClick={toggleReplace}
+            tooltip={
+              <>
+                <span>Replace</span>
+                <Kbd className="animate-kbd-press">⌘ H</Kbd>
+              </>
+            }
+          >
+            <ReplaceIcon className="size-3.5" />
+          </ToggleButton>
         </div>
         <span className="text-[10px] whitespace-nowrap text-neutral-400 tabular-nums">
           {displayCount}
@@ -282,7 +278,7 @@ export function SearchBar({
         </IconButton>
       </div>
 
-      {showReplace && !isTranscript && (
+      {showReplace && (
         <div className="flex h-7 items-center gap-1.5 rounded-lg bg-neutral-100 px-2">
           <input
             ref={replaceInputRef}

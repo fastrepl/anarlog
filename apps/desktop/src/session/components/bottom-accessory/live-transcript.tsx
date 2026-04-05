@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronUp, MicOff } from "lucide-react";
 import { useMemo, useRef } from "react";
 
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
+
+import { ExpandToggle } from "./expand-toggle";
 
 import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
@@ -30,10 +30,6 @@ export function LiveTranscriptFooter({
 }) {
   const store = main.UI.useStore(main.STORE_ID);
   const segments = useLiveTranscriptSegments(sessionId);
-  const { amplitude, muted } = useListener((state) => ({
-    amplitude: state.live.amplitude,
-    muted: state.live.muted,
-  }));
   const labelContext = useMemo(
     () => (store ? defaultRenderLabelContext(store) : undefined),
     [store],
@@ -60,46 +56,18 @@ export function LiveTranscriptFooter({
 
   return (
     <div className="relative w-full select-none">
-      <button
-        type="button"
-        onClick={onToggleExpand}
-        className={cn([
-          "absolute top-0 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2",
-          "flex h-6 w-10 items-center justify-center rounded-full",
-          "border border-neutral-200 bg-white text-neutral-400 shadow-xs",
-          "transition-colors hover:bg-neutral-50 hover:text-neutral-600",
-        ])}
-        aria-label={isExpanded ? "Collapse transcript" : "Expand transcript"}
-      >
-        {isExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-      </button>
+      {onToggleExpand && (
+        <ExpandToggle
+          isExpanded={isExpanded}
+          onToggle={onToggleExpand}
+          label="Live"
+        />
+      )}
 
       <div className="rounded-xl bg-neutral-50">
         <div
           className={cn(["flex items-center gap-2 p-2", "w-full max-w-full"])}
         >
-          <div
-            className={cn([
-              "flex items-center justify-center",
-              "h-8 w-8 shrink-0 rounded-full",
-              "border border-neutral-200 bg-white shadow-xs",
-            ])}
-          >
-            {muted ? (
-              <MicOff className="size-3.5 text-neutral-400" />
-            ) : (
-              <DancingSticks
-                amplitude={Math.min(
-                  Math.hypot(amplitude.mic, amplitude.speaker),
-                  1,
-                )}
-                color="#ef4444"
-                height={16}
-                width={16}
-              />
-            )}
-          </div>
-
           <div className="min-w-0 flex-1 select-none">
             {showConsentBanner && segments.length === 0 ? (
               <span className="truncate text-xs text-neutral-400">

@@ -22,20 +22,18 @@ import {
   useSessionStatusBanner,
 } from "./session-status-banner";
 
+import type { BottomAccessoryState } from "~/session/components/bottom-accessory";
+
 function BannerPublisher({
   skipReason,
-  bottomAccessoryKind = null,
+  bottomAccessoryState = null,
 }: {
   skipReason: string | null;
-  bottomAccessoryKind?:
-    | "live_transcript"
-    | "live_transcript_expanded"
-    | "playback"
-    | null;
+  bottomAccessoryState?: BottomAccessoryState;
 }) {
   useSessionStatusBanner({
     skipReason,
-    bottomAccessoryKind,
+    bottomAccessoryState,
   });
   return null;
 }
@@ -48,7 +46,10 @@ describe("MainSessionStatusBannerHost", () => {
   it("does not render without a skip reason", () => {
     render(
       <SessionStatusBannerProvider>
-        <BannerPublisher skipReason={null} bottomAccessoryKind="playback" />
+        <BannerPublisher
+          skipReason={null}
+          bottomAccessoryState={{ mode: "playback", expanded: false }}
+        />
         <MainSessionStatusBannerHost />
       </SessionStatusBannerProvider>,
     );
@@ -76,7 +77,7 @@ describe("MainSessionStatusBannerHost", () => {
       <SessionStatusBannerProvider>
         <BannerPublisher
           skipReason="Microphone access is disabled"
-          bottomAccessoryKind="live_transcript"
+          bottomAccessoryState={{ mode: "live", expanded: false }}
         />
         <MainSessionStatusBannerHost />
       </SessionStatusBannerProvider>,
@@ -87,5 +88,22 @@ describe("MainSessionStatusBannerHost", () => {
     expect(banner).toBeTruthy();
     expect(banner?.className).toContain("bottom-[76px]");
     expect(banner?.getAttribute("style")).toContain("calc(50% + 24px)");
+  });
+
+  it("positions skip reasons above expanded post-session transcript", () => {
+    render(
+      <SessionStatusBannerProvider>
+        <BannerPublisher
+          skipReason="Microphone access is disabled"
+          bottomAccessoryState={{ mode: "playback", expanded: true }}
+        />
+        <MainSessionStatusBannerHost />
+      </SessionStatusBannerProvider>,
+    );
+
+    const banners = screen.getAllByText("Microphone access is disabled");
+    const banner = banners[banners.length - 1];
+    expect(banner).toBeTruthy();
+    expect(banner?.className).toContain("bottom-[224px]");
   });
 });

@@ -1,91 +1,95 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { LiveTranscriptFooter } from "./live-transcript";
+import { PostSessionAccessory } from "./post-session";
 
-import * as AudioPlayer from "~/audio-player";
-import type { EditorView } from "~/store/zustand/tabs/schema";
-
-export type SessionBottomAccessoryKind =
-  | "live_transcript"
-  | "live_transcript_expanded"
-  | "playback";
+export type BottomAccessoryState = {
+  mode: "live" | "playback" | "transcript_only";
+  expanded: boolean;
+} | null;
 
 export function useSessionBottomAccessory({
   sessionId,
-  currentView,
   sessionMode,
   audioUrl,
   showConsentBanner,
+  hasTranscript,
 }: {
   sessionId: string;
-  currentView: EditorView;
   sessionMode: string;
   audioUrl: string | null | undefined;
   showConsentBanner: boolean;
+  hasTranscript: boolean;
 }): {
   bottomAccessory: ReactNode;
-  bottomAccessoryKind: SessionBottomAccessoryKind | null;
+  bottomAccessoryState: BottomAccessoryState;
 } {
   const [isExpanded, setIsExpanded] = useState(false);
-  const kind = getSessionBottomAccessoryKind({
-    currentView,
-    sessionMode,
-    audioUrl,
-  });
+  const isLive = sessionMode === "active";
+  const isInactive =
+    sessionMode === "inactive" || sessionMode === "running_batch";
+  const isBatching = sessionMode === "running_batch";
+  const hasAudio = Boolean(audioUrl) && isInactive;
 
+  const prevLive = useRef(isLive);
   useEffect(() => {
-    if (kind !== "live_transcript" && isExpanded) {
+    if (prevLive.current && !isLive) {
       setIsExpanded(false);
     }
-  }, [isExpanded, kind]);
+    prevLive.current = isLive;
+  }, [isLive]);
 
-  if (kind === "live_transcript") {
+  useEffect(() => {
+    if (isBatching) {
+      setIsExpanded(true);
+    }
+  }, [isBatching]);
+
+  const showPostSession = isInactive && (hasAudio || hasTranscript);
+  const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
+    ? "live"
+    : showPostSession
+      ? hasAudio
+        ? "playback"
+        : "transcript_only"
+      : null;
+
+  const bottomAccessoryState: BottomAccessoryState = useMemo(
+    () => (mode ? { mode, expanded: isExpanded } : null),
+    [mode, isExpanded],
+  );
+
+  if (isLive) {
     return {
       bottomAccessory: (
         <LiveTranscriptFooter
           sessionId={sessionId}
           showConsentBanner={showConsentBanner}
           isExpanded={isExpanded}
-          onToggleExpand={() => setIsExpanded((value) => !value)}
+          onToggleExpand={() => setIsExpanded((v) => !v)}
         />
       ),
-      bottomAccessoryKind: isExpanded ? "live_transcript_expanded" : kind,
+      bottomAccessoryState,
     };
   }
 
-  if (kind === "playback") {
+  if (showPostSession) {
     return {
-      bottomAccessory: <AudioPlayer.Timeline />,
-      bottomAccessoryKind: kind,
+      bottomAccessory: (
+        <PostSessionAccessory
+          sessionId={sessionId}
+          hasAudio={hasAudio}
+          hasTranscript={hasTranscript}
+          isTranscriptExpanded={isExpanded}
+          onToggleTranscript={() => setIsExpanded((v) => !v)}
+        />
+      ),
+      bottomAccessoryState,
     };
   }
 
   return {
     bottomAccessory: null,
-    bottomAccessoryKind: null,
+    bottomAccessoryState,
   };
-}
-
-function getSessionBottomAccessoryKind({
-  currentView,
-  sessionMode,
-  audioUrl,
-}: {
-  currentView: EditorView;
-  sessionMode: string;
-  audioUrl: string | null | undefined;
-}): "live_transcript" | "playback" | null {
-  if (sessionMode === "active" && currentView.type === "raw") {
-    return "live_transcript";
-  }
-
-  if (
-    currentView.type === "transcript" &&
-    Boolean(audioUrl) &&
-    sessionMode === "inactive"
-  ) {
-    return "playback";
-  }
-
-  return null;
 }

@@ -13,7 +13,11 @@ export function computeCurrentNoteTab(
   }
 
   if (tabView) {
-    return tabView;
+    if (tabView.type === "enhanced" || tabView.type === "raw") {
+      return tabView;
+    }
+
+    return { type: "raw" };
   }
 
   if (firstEnhancedNoteId) {

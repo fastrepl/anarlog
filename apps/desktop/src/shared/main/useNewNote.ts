@@ -152,7 +152,7 @@ export function useNewNoteAndUpload() {
       openNew({
         type: "sessions",
         id: sessionId,
-        state: { view: { type: "transcript" }, autoStart: null },
+        state: { view: null, autoStart: null },
       });
     },
     [persistedStore, internalStore, openNew],

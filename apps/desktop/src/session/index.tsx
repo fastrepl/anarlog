@@ -109,23 +109,10 @@ export function TabContentNote({
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const listenerStatus = useListener((state) => state.live.status);
-  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const { conn } = useSTTConnection();
   const startListening = useStartListening(tab.id);
   const hasAttemptedAutoStart = useRef(false);
-
-  useEffect(() => {
-    if (
-      sessionMode === "running_batch" &&
-      tab.state.view?.type !== "transcript"
-    ) {
-      updateSessionTabState(tab, {
-        ...tab.state,
-        view: { type: "transcript" },
-      });
-    }
-  }, [sessionMode, tab, updateSessionTabState]);
 
   useEffect(() => {
     if (!tab.state.autoStart) {
@@ -231,12 +218,12 @@ function TabContentNoteInner({
     return () => clearTimeout(timer);
   }, [showConsentBanner]);
 
-  const { bottomAccessory, bottomAccessoryKind } = useSessionBottomAccessory({
+  const { bottomAccessory, bottomAccessoryState } = useSessionBottomAccessory({
     sessionId,
-    currentView,
     sessionMode,
     audioUrl,
     showConsentBanner,
+    hasTranscript,
   });
 
   const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
@@ -264,7 +251,7 @@ function TabContentNoteInner({
 
   useSessionStatusBanner({
     skipReason,
-    bottomAccessoryKind,
+    bottomAccessoryState,
   });
 
   return (

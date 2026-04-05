@@ -287,7 +287,7 @@ export function MainTabChrome({ tabs }: { tabs: Tab[] }) {
 
         <div className="ml-auto flex h-full items-center gap-1">
           <Update />
-          <HeaderTabChatButton shortcutLabel={chatShortcutLabel} />
+          <TabChatButton shortcutLabel={chatShortcutLabel} />
         </div>
       </div>
     </div>
@@ -584,10 +584,6 @@ function TabChatButton({ shortcutLabel }: { shortcutLabel?: string }) {
       </TooltipContent>
     </Tooltip>
   );
-}
-
-function HeaderTabChatButton({ shortcutLabel }: { shortcutLabel: string }) {
-  return <TabChatButton shortcutLabel={shortcutLabel} />;
 }
 
 export function useMainTabsShortcuts() {

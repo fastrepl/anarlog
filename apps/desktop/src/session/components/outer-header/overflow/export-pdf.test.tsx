@@ -122,20 +122,6 @@ describe("ExportPDF", () => {
     useSessionEventMock.mockReturnValue(null);
   });
 
-  it("disables transcript PDF export while transcript segments are still loading", () => {
-    render(
-      <ExportPDF
-        sessionId="session-1"
-        currentView={{ type: "transcript" } as never}
-      />,
-    );
-
-    const button = screen.getByRole("button");
-    expect(button).toHaveProperty("disabled", true);
-    expect(screen.getByText("Preparing transcript...")).not.toBeNull();
-    expect(screen.getByTestId("loader-icon")).not.toBeNull();
-  });
-
   it("does not block non-transcript PDF export on transcript loading", () => {
     render(
       <ExportPDF

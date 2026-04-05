@@ -109,13 +109,6 @@ export function useUploadFile(sessionId: string) {
                 return;
               }
 
-              if (sessionTab) {
-                updateSessionTabState(sessionTab, {
-                  ...sessionTab.state,
-                  view: { type: "transcript" },
-                });
-              }
-
               const transcriptId = crypto.randomUUID();
               const createdAt = new Date().toISOString();
               const memoMd = store.getCell("sessions", sessionId, "raw_md");
@@ -175,12 +168,6 @@ export function useUploadFile(sessionId: string) {
         Effect.promise(() => applyEstimatedAudioNoteDate(filePath)),
         Effect.tap(() =>
           Effect.sync(() => {
-            if (sessionTab) {
-              updateSessionTabState(sessionTab, {
-                ...sessionTab.state,
-                view: { type: "transcript" },
-              });
-            }
             handleBatchStarted(sessionId, "importing");
           }),
         ),

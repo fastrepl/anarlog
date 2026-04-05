@@ -233,9 +233,7 @@ export function SelectProviderAndModel() {
                       <span key={model.id}>
                         {showHeader && (
                           <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
-                            {model.category === "latest"
-                              ? "Recommended"
-                              : "Experimental"}
+                            {"Recommended"}
                           </div>
                         )}
                         <ModelSelectItem
@@ -280,7 +278,7 @@ export function SelectProviderAndModel() {
   );
 }
 
-type ModelCategory = "latest" | "experimental" | null;
+type ModelCategory = "latest" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -319,7 +317,9 @@ function useConfiguredMapping(): Record<
   });
 
   const cactusModels =
-    supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
+    supportedModels.data?.filter(
+      (m) => m.model_type === "cactus" && String(m.key).includes("whisper"),
+    ) ?? [];
 
   const cactusDownloaded = useQueries({
     queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
@@ -350,23 +350,14 @@ function useConfiguredMapping(): Record<
         ];
 
         if (isAppleSilicon) {
-          const cactusWhisper: ModelEntry[] = [];
-          const cactusParakeet: ModelEntry[] = [];
-
           cactusModels.forEach((model, i) => {
-            const entry: ModelEntry = {
+            models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,
               displayName: model.display_name,
-            };
-            if (String(model.key).includes("whisper")) {
-              cactusWhisper.push({ ...entry, category: "latest" });
-            } else {
-              cactusParakeet.push({ ...entry, category: "experimental" });
-            }
+              category: "latest",
+            });
           });
-
-          models.push(...cactusWhisper, ...cactusParakeet);
         }
 
         return [provider.id, { configured: true, models }];

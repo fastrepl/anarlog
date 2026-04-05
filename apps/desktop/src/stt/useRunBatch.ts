@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 import type { BatchParams } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
@@ -11,7 +11,6 @@ import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -60,18 +59,6 @@ export const useRunBatch = (sessionId: string) => {
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const runBatch = useListener((state) => state.runBatch);
-  const sessionTab = useTabs((state) => {
-    const found = state.tabs.find(
-      (tab): tab is Extract<Tab, { type: "sessions" }> =>
-        tab.type === "sessions" && tab.id === sessionId,
-    );
-    return found ?? null;
-  });
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-
-  const sessionTabRef = useRef(sessionTab);
-  sessionTabRef.current = sessionTab;
-
   const { conn } = useSTTConnection();
   const keywords = useKeywords(sessionId);
   const languages = useConfigValue("spoken_languages");
@@ -90,13 +77,6 @@ export const useRunBatch = (sessionId: string) => {
         throw new Error(
           `Batch transcription is not supported for provider: ${conn.provider}`,
         );
-      }
-
-      if (sessionTabRef.current) {
-        updateSessionTabState(sessionTabRef.current, {
-          ...sessionTabRef.current.state,
-          view: { type: "transcript" },
-        });
       }
 
       const createdAt = new Date().toISOString();
@@ -201,15 +181,6 @@ export const useRunBatch = (sessionId: string) => {
 
       await runBatch(params, { handlePersist: persist });
     },
-    [
-      conn,
-      keywords,
-      languages,
-      runBatch,
-      sessionId,
-      store,
-      updateSessionTabState,
-      user_id,
-    ],
+    [conn, keywords, languages, runBatch, sessionId, store, user_id],
   );
 };

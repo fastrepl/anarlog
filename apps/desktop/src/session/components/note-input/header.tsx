@@ -1,9 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircleIcon,
-  CheckIcon,
   ChevronRightIcon,
-  CopyIcon,
   HeartIcon,
   LightbulbIcon,
   PlusIcon,
@@ -14,10 +11,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import {
-  type AttachmentInfo,
-  commands as fsSyncCommands,
-} from "@hypr/plugin-fs-sync";
 import { json2md, parseJsonContent } from "@hypr/tiptap/shared";
 import {
   HoverCard,
@@ -33,11 +26,6 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { sonnerToast } from "@hypr/ui/components/ui/toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import {
@@ -47,7 +35,6 @@ import {
 
 import { useAITaskTask } from "~/ai/hooks";
 import { useLanguageModel, useLLMConnectionStatus } from "~/ai/hooks";
-import { useAudioPlayer } from "~/audio-player";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
@@ -63,7 +50,6 @@ import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import { useRunBatch } from "~/stt/useRunBatch";
 import {
   getTemplateCreatorLabel,
   useTemplateCreatorName,
@@ -167,241 +153,6 @@ function HeaderTabRaw({
       onContextMenu={showContextMenu}
     >
       Memos
-    </NoteTab>
-  );
-}
-
-function HeaderTabTranscript({
-  isActive,
-  onClick = () => {},
-  sessionId,
-}: {
-  isActive: boolean;
-  onClick?: () => void;
-  sessionId: string;
-}) {
-  const { audioExists } = useAudioPlayer();
-  const { sessionMode, progressRaw } = useListener((state) => ({
-    sessionMode: state.getSessionMode(sessionId),
-    progressRaw: state.batch[sessionId] ?? null,
-  }));
-  const batchError = progressRaw?.error ?? null;
-  const isBatchProcessing = sessionMode === "running_batch";
-  const isSessionInactive =
-    sessionMode !== "active" &&
-    sessionMode !== "finalizing" &&
-    sessionMode !== "running_batch";
-  const store = main.UI.useStore(main.STORE_ID);
-  const runBatch = useRunBatch(sessionId);
-  const [isRedoing, setIsRedoing] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const copiedResetTimeoutRef = useRef<number | null>(null);
-
-  const isProcessing = isBatchProcessing || isRedoing;
-  const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
-  const transcriptText = useMemo(
-    () => formatTranscriptExportSegments(transcriptSegments),
-    [transcriptSegments],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (copiedResetTimeoutRef.current !== null) {
-        window.clearTimeout(copiedResetTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const handleRefresh = useCallback(async () => {
-    if (!audioExists || isBatchProcessing || !store) {
-      return;
-    }
-
-    setIsRedoing(true);
-
-    const oldTranscriptIds: string[] = [];
-    store.forEachRow("transcripts", (transcriptId, _forEachCell) => {
-      const session = store.getCell("transcripts", transcriptId, "session_id");
-      if (session === sessionId) {
-        oldTranscriptIds.push(transcriptId);
-      }
-    });
-
-    getEnhancerService()?.resetEnhanceTasks(sessionId);
-
-    try {
-      const result = await fsSyncCommands.audioPath(sessionId);
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-
-      const audioPath = result.data;
-      if (!audioPath) {
-        throw new Error("audio path not available");
-      }
-
-      await runBatch(audioPath);
-
-      if (oldTranscriptIds.length > 0) {
-        store.transaction(() => {
-          oldTranscriptIds.forEach((id) => {
-            store.delRow("transcripts", id);
-          });
-        });
-      }
-
-      getEnhancerService()?.queueAutoEnhance(sessionId);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : typeof error === "string"
-            ? error
-            : JSON.stringify(error);
-      console.error("[redo_transcript] failed:", message);
-    } finally {
-      setIsRedoing(false);
-    }
-  }, [audioExists, isBatchProcessing, runBatch, sessionId, store]);
-  const handleCopy = useCallback(
-    async (messages?: { success: string; error: string }) => {
-      if (!transcriptText) {
-        return false;
-      }
-
-      const copiedToClipboard = await copyTextToClipboard(
-        transcriptText,
-        messages,
-      );
-      if (!copiedToClipboard) {
-        return false;
-      }
-
-      if (copiedResetTimeoutRef.current !== null) {
-        window.clearTimeout(copiedResetTimeoutRef.current);
-      }
-
-      setCopied(true);
-      copiedResetTimeoutRef.current = window.setTimeout(() => {
-        setCopied(false);
-        copiedResetTimeoutRef.current = null;
-      }, 2000);
-
-      return true;
-    },
-    [transcriptText],
-  );
-  const handleRefreshClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      void handleRefresh();
-    },
-    [handleRefresh],
-  );
-  const handleCopyClick = useCallback(
-    async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      await handleCopy();
-    },
-    [handleCopy],
-  );
-
-  const canRegenerate = audioExists && isSessionInactive && !!store;
-  const canCopy = transcriptText.length > 0;
-  const showRefreshButton = audioExists && isActive && isSessionInactive;
-  const showCopyButton =
-    isActive && isSessionInactive && transcriptText.length > 0;
-  const showProgress = audioExists && isActive && isProcessing;
-  const contextMenu = useMemo<MenuItemDef[]>(
-    () => [
-      {
-        id: `copy-transcript-${sessionId}`,
-        text: "Copy",
-        action: () => {
-          void handleCopy({
-            success: "Transcript copied to clipboard",
-            error: "Failed to copy transcript",
-          });
-        },
-        disabled: !canCopy,
-      },
-      {
-        id: `regenerate-transcript-${sessionId}`,
-        text: "Regenerate",
-        action: () => {
-          void handleRefresh();
-        },
-        disabled: !canRegenerate,
-      },
-    ],
-    [canCopy, canRegenerate, handleCopy, handleRefresh, sessionId],
-  );
-  const showContextMenu = useNativeContextMenu(contextMenu);
-  const refreshButton = (
-    <span
-      onClick={handleRefreshClick}
-      className={cn([
-        "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
-        batchError
-          ? [
-              "text-red-600 hover:bg-red-50 focus-visible:bg-red-50",
-              "hover:text-neutral-900 focus-visible:text-neutral-900",
-            ]
-          : ["hover:bg-neutral-200 focus-visible:bg-neutral-200"],
-      ])}
-    >
-      <RefreshCwIcon size={12} />
-    </span>
-  );
-  const copyButton = (
-    <span
-      onClick={(e) => {
-        void handleCopyClick(e);
-      }}
-      className={cn([
-        "inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-xs transition-colors",
-        copied
-          ? "text-green-500"
-          : ["hover:bg-neutral-200 focus-visible:bg-neutral-200"],
-      ])}
-      aria-label="Copy transcript"
-      role="button"
-    >
-      {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
-    </span>
-  );
-
-  return (
-    <NoteTab
-      isActive={isActive}
-      onClick={onClick}
-      onContextMenu={showContextMenu}
-    >
-      Transcript
-      {showCopyButton && (
-        <Tooltip>
-          <TooltipTrigger asChild>{copyButton}</TooltipTrigger>
-          <TooltipContent>
-            {copied ? "Copied" : "Copy transcript"}
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {showRefreshButton &&
-        (batchError ? (
-          <Tooltip>
-            <TooltipTrigger asChild>{refreshButton}</TooltipTrigger>
-            <TooltipContent>{batchError}</TooltipContent>
-          </Tooltip>
-        ) : (
-          refreshButton
-        ))}
-      {showProgress && (
-        <span className="inline-flex items-center text-neutral-500">
-          <Spinner size={12} />
-        </span>
-      )}
     </NoteTab>
   );
 }
@@ -1336,26 +1087,7 @@ export function Header({
                 );
               }
 
-              if (view.type === "transcript") {
-                return (
-                  <HeaderTabTranscript
-                    key={view.type}
-                    sessionId={sessionId}
-                    isActive={currentTab.type === view.type}
-                    onClick={() => handleTabChange(view)}
-                  />
-                );
-              }
-
-              return (
-                <NoteTab
-                  key={view.type}
-                  isActive={currentTab.type === view.type}
-                  onClick={() => handleTabChange(view)}
-                >
-                  {labelForEditorView(view)}
-                </NoteTab>
-              );
+              return null;
             })}
             {!isLiveProcessing && (
               <CreateOtherFormatButton
@@ -1370,29 +1102,6 @@ export function Header({
   );
 }
 
-export function useAttachments(sessionId: string): {
-  attachments: AttachmentInfo[];
-  isLoading: boolean;
-  refetch: () => void;
-} {
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["attachments", sessionId],
-    queryFn: async () => {
-      const result = await fsSyncCommands.attachmentList(sessionId);
-      if (result.status === "error") {
-        throw new Error(result.error);
-      }
-      return result.data;
-    },
-  });
-
-  return {
-    attachments: data ?? [],
-    isLoading,
-    refetch,
-  };
-}
-
 export function useEditorTabs({
   sessionId,
 }: {
@@ -1402,8 +1111,6 @@ export function useEditorTabs({
 
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const hasTranscript = useHasTranscript(sessionId);
-  const { attachments } = useAttachments(sessionId);
-  const hasAttachments = attachments.length > 0;
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
     sessionId,
@@ -1419,38 +1126,10 @@ export function useEditorTabs({
       type: "enhanced",
       id,
     }));
-    const tabs: EditorView[] = [
-      ...enhancedTabs,
-      { type: "raw" },
-      { type: "transcript" },
-    ];
-    if (hasAttachments) {
-      tabs.push({ type: "attachments" });
-    }
-    return tabs;
+    return [...enhancedTabs, { type: "raw" }];
   }
 
-  const tabs: EditorView[] = [{ type: "raw" }];
-  if (hasAttachments) {
-    tabs.push({ type: "attachments" });
-  }
-  return tabs;
-}
-
-function labelForEditorView(view: EditorView): string {
-  if (view.type === "enhanced") {
-    return "Summary";
-  }
-  if (view.type === "raw") {
-    return "Memos";
-  }
-  if (view.type === "transcript") {
-    return "Transcript";
-  }
-  if (view.type === "attachments") {
-    return "Attachments";
-  }
-  return "";
+  return [{ type: "raw" }];
 }
 
 function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
