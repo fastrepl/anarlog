@@ -18,8 +18,7 @@ pub struct CommonTranscriptionOptions {
     pub temperature: Option<f32>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CreateWhisperTranscriptionOptions {
     pub common: CommonTranscriptionOptions,
     pub prompt: Option<String>,
