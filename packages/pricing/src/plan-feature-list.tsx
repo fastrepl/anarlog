@@ -58,8 +58,8 @@ export function PlanFeatureList({
                   {feature.label}
                 </span>
                 {feature.included === "partial" && (
-                  <span className="text-xs text-yellow-600 italic">
-                    (coming soon)
+                  <span className="rounded-md border border-neutral-200/50 bg-white/80 px-1.5 py-0.5 text-[10px] text-neutral-500 shadow-sm backdrop-blur-sm">
+                    Coming soon
                   </span>
                 )}
               </div>
