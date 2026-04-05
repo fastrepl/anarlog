@@ -1246,11 +1246,8 @@ function ChatPanel({ children }: { children: React.ReactNode }) {
           <span className="text-sm text-neutral-400">
             Ask about your notes...
           </span>
-          <div className="border-color-brand inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
+          <div className="border-color-brand inline-flex h-7 items-center rounded-lg border px-2.5 text-xs font-medium text-neutral-300">
             <span>Send</span>
-            <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
-              ⌘ ↩
-            </kbd>
           </div>
         </div>
       </div>
