@@ -172,12 +172,6 @@ export function SettingsApp() {
           </form.Field>
           <TimezoneSelector />
           <WeekStartSelector />
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-4 font-serif text-lg font-semibold">Transcription</h2>
-        <div className="flex flex-col gap-6">
           <form.Field name="spoken_languages">
             {(field) => (
               <SpokenLanguagesView
