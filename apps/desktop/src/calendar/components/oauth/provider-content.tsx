@@ -1,3 +1,4 @@
+import { Loader2Icon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 
 import type { ConnectionItem } from "@hypr/api-client";
@@ -106,7 +107,10 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
           />
         ))}
 
-        <ConnectedContent config={config} connections={providerConnections} />
+        <ConnectedContent
+          config={config}
+          connections={providerConnections}
+        />
       </div>
     );
   }
@@ -183,6 +187,17 @@ function ConnectedContent({
 }) {
   const { groups, connectionSourceMap, handleToggle, isLoading } =
     useOAuthCalendarSelection(config);
+
+  if (groups.length === 0 && isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-2">
+        <Loader2Icon className="size-3.5 animate-spin text-neutral-400" />
+        <span className="text-xs text-neutral-500">
+          Syncing {config.displayName} calendars…
+        </span>
+      </div>
+    );
+  }
 
   const groupsWithMenus = useMemo(
     () =>

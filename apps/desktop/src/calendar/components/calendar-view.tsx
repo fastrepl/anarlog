@@ -16,11 +16,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@hypr/ui/components/ui/button";
 import { ButtonGroup } from "@hypr/ui/components/ui/button-group";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
 import { useSync } from "./context";
@@ -28,6 +23,7 @@ import { DayCell } from "./day-cell";
 
 import { useCalendarData, useNow, useWeekStartsOn } from "~/calendar/hooks";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import * as main from "~/store/tinybase/store/main";
 
 const WEEKDAY_HEADERS_SUN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_HEADERS_MON = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -61,7 +57,7 @@ function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 export function CalendarView() {
-  const { scheduleSync } = useSync();
+  const { status, scheduleSync } = useSync();
   const now = useNow();
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);
@@ -70,6 +66,17 @@ export function CalendarView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const cols = useVisibleCols(containerRef);
   const calendarData = useCalendarData();
+  const enabledCalendars = main.UI.useResultTable(
+    main.QUERIES.enabledCalendars,
+    main.STORE_ID,
+  );
+  const hasEnabledCalendars =
+    Object.keys(enabledCalendars ?? {}).length > 0;
+  const hasAnyEvents =
+    Object.keys(calendarData.eventIdsByDate).length > 0 ||
+    Object.keys(calendarData.sessionIdsByDate).length > 0;
+  const showSyncingOverlay =
+    !hasAnyEvents && !hasEnabledCalendars && status !== "idle";
 
   useMountEffect(() => {
     scheduleSync();
@@ -186,21 +193,29 @@ export function CalendarView() {
         ))}
       </div>
 
-      <div
-        className={cn([
-          "grid flex-1 overflow-hidden",
-          isMonthView ? "auto-rows-fr" : "grid-rows-1",
-        ])}
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {days.map((day) => (
-          <DayCell
-            key={day.toISOString()}
-            day={day}
-            isCurrentMonth={isMonthView ? isSameMonth(day, currentMonth) : true}
-            calendarData={calendarData}
-          />
-        ))}
+      <div className="relative flex-1 overflow-hidden">
+        {showSyncingOverlay && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-[2px]">
+            <Spinner size={24} />
+            <p className="text-sm text-neutral-500">Syncing your calendar…</p>
+          </div>
+        )}
+        <div
+          className={cn([
+            "grid h-full overflow-hidden",
+            isMonthView ? "auto-rows-fr" : "grid-rows-1",
+          ])}
+          style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+        >
+          {days.map((day) => (
+            <DayCell
+              key={day.toISOString()}
+              day={day}
+              isCurrentMonth={isMonthView ? isSameMonth(day, currentMonth) : true}
+              calendarData={calendarData}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -244,16 +259,14 @@ function CalendarSyncHeaderControls() {
         : null;
 
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-1">
       {showSyncIndicator ? (
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <span className="flex size-6 items-center justify-center text-neutral-500">
-              <Spinner size={12} />
-            </span>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{statusText}</TooltipContent>
-        </Tooltip>
+        <>
+          <span className="flex size-6 items-center justify-center text-neutral-500">
+            <Spinner size={12} />
+          </span>
+          <span className="text-xs text-neutral-400">{statusText}</span>
+        </>
       ) : (
         <Button
           variant="ghost"
