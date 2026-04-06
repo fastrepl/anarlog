@@ -1,8 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { jwtDecode } from "jwt-decode";
 import { useEffect } from "react";
 import { z } from "zod";
 
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
+
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { useAnalytics } from "@/hooks/use-posthog";
 
 import { AccountAccessSection } from "./-account-access";
 import { ProfileInfoSection } from "./-account-profile-info";
@@ -24,12 +29,41 @@ export const Route = createFileRoute("/_view/app/account")({
 function Component() {
   const { user } = Route.useLoaderData();
   const search = Route.useSearch();
+  const { identify: identifyPosthog } = useAnalytics();
 
   useEffect(() => {
-    if ((search.success || search.trial === "started") && search.scheme) {
-      window.location.href = `${search.scheme}://billing/refresh`;
+    if (!search.success && search.trial !== "started") {
+      return;
     }
-  }, [search.success, search.trial, search.scheme]);
+
+    if (search.scheme) {
+      window.location.href = `${search.scheme}://billing/refresh`;
+      return;
+    }
+
+    const syncBillingAnalytics = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data } = await supabase.auth.refreshSession();
+      const accessToken = data.session?.access_token;
+      const userId = data.session?.user.id;
+
+      if (!accessToken || !userId) {
+        return;
+      }
+
+      const billing = deriveBillingInfo(
+        jwtDecode<SupabaseJwtPayload>(accessToken),
+      );
+
+      identifyPosthog(userId, {
+        ...(data.session?.user.email ? { email: data.session.user.email } : {}),
+        plan: billing.plan,
+        trial_end_date: billing.trialEnd?.toISOString() ?? null,
+      });
+    };
+
+    void syncBillingAnalytics();
+  }, [identifyPosthog, search.scheme, search.success, search.trial]);
 
   return (
     <div>
