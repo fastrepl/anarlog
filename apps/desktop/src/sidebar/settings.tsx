@@ -9,6 +9,7 @@ import {
   CalendarIcon,
   FlaskConical,
   MonitorIcon,
+  SmileIcon,
   SmartphoneIcon,
   SparklesIcon,
   TicketIcon,
@@ -24,11 +25,7 @@ const GROUPS: {
   label: string;
   items: (
     | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
-    | {
-        action: "open-templates";
-        label: string;
-        icon: typeof SmartphoneIcon;
-      }
+    | { action: "open-templates"; label: string; icon: typeof SmartphoneIcon }
   )[];
 }[] = [
   {
@@ -46,6 +43,7 @@ const GROUPS: {
     items: [
       { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
       { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
+      { id: "personalization", label: "Personalization", icon: SmileIcon },
       { id: "memory", label: "Memory", icon: BrainIcon },
       {
         action: "open-templates",

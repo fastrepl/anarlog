@@ -142,7 +142,7 @@ function FAQSection() {
     {
       question: "What value does an account unlock?",
       answer:
-        "A paid plan unlocks Char's cloud layer. Lite gives you hosted transcription, speaker identification, and language models, while Pro adds advanced templates, integrations, sync across devices, and shareable links.",
+        "A paid plan unlocks Char's cloud layer. Lite gives you hosted transcription, speaker identification, and language models, while Pro adds custom instructions, integrations, sync across devices, and shareable links.",
     },
     {
       question: "What's included in shareable links?",
@@ -155,9 +155,9 @@ function FAQSection() {
         "Templates are our opinionated way to structure summaries. You can pick from a variety of templates we provide and create your own version as needed.",
     },
     {
-      question: "What are advanced templates?",
+      question: "What are custom instructions?",
       answer:
-        "Advanced templates let you override Char's default system prompt by configuring template variables and the overall instructions given to the AI.",
+        "Custom instructions let you override Char's default system prompt by configuring template variables and the overall instructions given to the AI.",
     },
     {
       question: "What are shortcuts?",

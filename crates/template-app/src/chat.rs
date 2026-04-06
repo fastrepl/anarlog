@@ -19,6 +19,12 @@ common_derives! {
     #[template(path = "chat.system.md.jinja")]
     pub struct ChatSystem {
         pub language: Option<String>,
+        pub style_tone: String,
+        pub warmth: String,
+        pub enthusiasm: String,
+        pub headers_lists: String,
+        pub emoji: String,
+        pub custom_instructions: String,
     }
 }
 
@@ -39,6 +45,12 @@ mod tests {
         test_chat_system,
         ChatSystem {
             language: None,
+            style_tone: "professional".to_string(),
+            warmth: "default".to_string(),
+            enthusiasm: "default".to_string(),
+            headers_lists: "default".to_string(),
+            emoji: "default".to_string(),
+            custom_instructions: String::new(),
         },
         |v| !v.contains("Context:"),
         fixed_date = "2025-01-01",

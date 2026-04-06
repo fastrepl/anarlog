@@ -20,7 +20,7 @@ export function AppSettingsView({
 }: AppSettingsViewProps) {
   return (
     <div>
-      <h2 className="mb-4 font-serif text-lg font-semibold">App</h2>
+      <h2 className="mb-4 font-serif text-lg font-semibold">General</h2>
       <div className="flex flex-col gap-4">
         <SettingRow
           title={autostart.title}

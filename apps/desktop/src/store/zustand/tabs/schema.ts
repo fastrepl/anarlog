@@ -41,6 +41,7 @@ export type SettingsTab =
   | "lab"
   | "transcription"
   | "intelligence"
+  | "personalization"
   | "memory"
   | "todo";
 
@@ -55,6 +56,7 @@ export const normalizeSettingsTab = (
     case "lab":
     case "transcription":
     case "intelligence":
+    case "personalization":
     case "memory":
     case "todo":
       return tab;

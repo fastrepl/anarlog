@@ -122,6 +122,8 @@ export function SettingsApp() {
 
   return (
     <div className="flex flex-col gap-8">
+      <SettingsPageTitle title="App" />
+
       <form.Field name="autostart">
         {(autostartField) => (
           <form.Field name="save_recordings">
@@ -206,7 +208,8 @@ export function SettingsNotifications() {
 
 export function SettingsSystem() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="System" />
       <Permissions />
       <Audio />
     </div>

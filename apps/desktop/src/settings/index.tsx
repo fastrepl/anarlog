@@ -10,6 +10,7 @@ import {
   SettingsSystem,
 } from "./general";
 import { SettingsLab } from "./lab";
+import { SettingsPersonalization } from "./personalization";
 import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
@@ -79,6 +80,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <STT />;
       case "intelligence":
         return <LLM />;
+      case "personalization":
+        return <SettingsPersonalization />;
       case "memory":
         return <SettingsMemory />;
       case "todo":

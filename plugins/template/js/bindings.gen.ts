@@ -44,7 +44,7 @@ async renderSupport(tpl: SupportTemplate) : Promise<Result<string, string>> {
 
 export type AccountInfo = { userId: string; email: string | null; fullName: string | null; avatarUrl: string | null; stripeCustomerId: string | null }
 export type BugReport = { description: string; platform: string; arch: string; osVersion: string; appVersion: string; source: string }
-export type ChatSystem = { language: string | null }
+export type ChatSystem = { language: string | null; styleTone: string; warmth: string; enthusiasm: string; headersLists: string; emoji: string; customInstructions: string }
 export type ContextBlock = { contexts: SessionContext[] }
 export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
 export type EnhanceSystem = { language: string | null }

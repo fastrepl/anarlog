@@ -1,5 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import type { LanguageModel, ToolSet } from "ai";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import { commands as templateCommands } from "@hypr/plugin-template";
 
@@ -10,6 +11,7 @@ import { useLanguageModel } from "~/ai/hooks";
 import type { ContextRef } from "~/chat/context/entities";
 import { hydrateSessionContextFromFs } from "~/chat/context/session-context-hydrator";
 import { useToolRegistry } from "~/contexts/tool";
+import { useConfigValues } from "~/shared/config";
 import * as main from "~/store/tinybase/store/main";
 
 function renderHumanContext(
@@ -82,49 +84,64 @@ export function useTransport(
   const registry = useToolRegistry();
   const configuredModel = useLanguageModel("chat");
   const model = modelOverride ?? configuredModel;
-  const language = main.UI.useValue("ai_language", main.STORE_ID) ?? "en";
-  const [systemPrompt, setSystemPrompt] = useState<string | undefined>();
+  const {
+    ai_language: language,
+    chat_style_tone: styleTone,
+    chat_warmth: warmth,
+    chat_enthusiasm: enthusiasm,
+    chat_headers_lists: headersLists,
+    chat_emoji: emoji,
+    chat_custom_instructions: customInstructions,
+  } = useConfigValues([
+    "ai_language",
+    "chat_style_tone",
+    "chat_warmth",
+    "chat_enthusiasm",
+    "chat_headers_lists",
+    "chat_emoji",
+    "chat_custom_instructions",
+  ] as const);
 
-  useEffect(() => {
-    if (systemPromptOverride) {
-      setSystemPrompt(systemPromptOverride);
-      return;
-    }
+  const normalizedCustomInstructions = customInstructions.trim();
 
-    let stale = false;
-
-    templateCommands
-      .render({
+  const systemPromptQuery = useQuery({
+    queryKey: [
+      "chat-system-prompt",
+      language,
+      styleTone,
+      warmth,
+      enthusiasm,
+      headersLists,
+      emoji,
+      normalizedCustomInstructions,
+    ],
+    enabled: systemPromptOverride === undefined,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const result = await templateCommands.render({
         chatSystem: {
           language,
+          styleTone,
+          warmth,
+          enthusiasm,
+          headersLists,
+          emoji,
+          customInstructions: normalizedCustomInstructions,
         },
-      })
-      .then((result) => {
-        if (stale) {
-          return;
-        }
-
-        if (result.status === "ok") {
-          setSystemPrompt(result.data);
-        } else {
-          setSystemPrompt("");
-        }
-      })
-      .catch((error) => {
-        console.error(error);
-        if (!stale) {
-          setSystemPrompt("");
-        }
       });
 
-    return () => {
-      stale = true;
-    };
-  }, [language, systemPromptOverride]);
+      if (result.status === "ok") {
+        return result.data;
+      }
 
-  const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+      return "";
+    },
+  });
+
+  const effectiveSystemPrompt = systemPromptOverride ?? systemPromptQuery.data;
   const isSystemPromptReady =
-    typeof systemPromptOverride === "string" || systemPrompt !== undefined;
+    typeof systemPromptOverride === "string" ||
+    systemPromptQuery.data !== undefined;
 
   const tools = useMemo(() => {
     const localTools = registry.getTools("chat-general");
