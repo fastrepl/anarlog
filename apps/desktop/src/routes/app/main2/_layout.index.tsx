@@ -220,6 +220,7 @@ export function Main2Layout() {
             <div
               data-tauri-drag-region
               className={cn([
+                "scroll-fade-x",
                 "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
                 "h-full w-full overflow-x-auto overflow-y-hidden",
               ])}
