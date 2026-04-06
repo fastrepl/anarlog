@@ -1,8 +1,9 @@
 import { useForm } from "@tanstack/react-form";
-import { HeartIcon, MoreHorizontalIcon } from "lucide-react";
-import { useState } from "react";
+import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
 
 import type { Template, TemplateSection, TemplateStorage } from "@hypr/store";
+import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -74,6 +75,99 @@ function normalizeTemplatePayload(template: unknown): Template {
   };
 }
 
+function parseTargets(value: string) {
+  return value
+    .split(",")
+    .map((target) => target.trim())
+    .filter(Boolean);
+}
+
+function TemplateTargetsInput({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const submitTargets = () => {
+    const nextTargets = parseTargets(inputValue);
+    if (nextTargets.length === 0) {
+      return;
+    }
+
+    onChange([...value, ...nextTargets]);
+    setInputValue("");
+  };
+
+  return (
+    <div
+      className="mt-2 flex min-h-6 w-full cursor-text flex-wrap items-center gap-1.5"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {value.map((target, index) => (
+        <Badge
+          key={`${target}-${index}`}
+          variant="secondary"
+          className="bg-muted flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-normal"
+        >
+          {target}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(
+                value.filter((_, currentIndex) => currentIndex !== index),
+              );
+            }}
+          >
+            <X className="h-2.5 w-2.5" />
+          </Button>
+        </Badge>
+      ))}
+
+      <button
+        type="button"
+        className="bg-muted text-muted-foreground hover:bg-muted/80 inline-flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors"
+        onClick={() => inputRef.current?.focus()}
+      >
+        <Plus className="h-3 w-3" />
+        Add tag
+      </button>
+
+      <input
+        ref={inputRef}
+        type="text"
+        value={inputValue}
+        className="min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none text-neutral-500 outline-hidden"
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={submitTargets}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+            if (!inputValue.trim()) {
+              return;
+            }
+
+            e.preventDefault();
+            submitTargets();
+            return;
+          }
+
+          if (e.key === "Backspace" && !inputValue && value.length > 0) {
+            e.preventDefault();
+            onChange(value.slice(0, -1));
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 export function TemplateForm({
   id,
   handleDeleteTemplate,
@@ -88,7 +182,6 @@ export function TemplateForm({
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const creatorName = useTemplateCreatorName();
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [isEditingTargets, setIsEditingTargets] = useState(false);
 
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
@@ -248,56 +341,12 @@ export function TemplateForm({
             )}
           </form.Field>
           <form.Field name="targets">
-            {(field) => {
-              const hasTargets = field.state.value.length > 0;
-
-              return (
-                <>
-                  {hasTargets ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {field.state.value.map((target, index) => (
-                        <span
-                          key={`${target}-${index}`}
-                          className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
-                        >
-                          {target}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  {isEditingTargets ? (
-                    <Input
-                      autoFocus
-                      value={field.state.value.join(", ")}
-                      onChange={(e) =>
-                        field.handleChange(
-                          e.target.value
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter(Boolean),
-                        )
-                      }
-                      onBlur={() => setIsEditingTargets(false)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === "Escape") {
-                          setIsEditingTargets(false);
-                        }
-                      }}
-                      placeholder="Edit tags, comma separated"
-                      className="mt-1 h-4 rounded-none border-0 px-0 py-0 text-xs leading-none text-neutral-400 shadow-none focus-visible:ring-0"
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTargets(true)}
-                      className="mt-1 h-4 text-left text-xs leading-none text-neutral-400 transition-colors hover:text-neutral-600"
-                    >
-                      {hasTargets ? "Edit tags" : "Add tags"}
-                    </button>
-                  )}
-                </>
-              );
-            }}
+            {(field) => (
+              <TemplateTargetsInput
+                value={field.state.value}
+                onChange={field.handleChange}
+              />
+            )}
           </form.Field>
           <p className="mt-2 text-xs text-neutral-400">
             {getTemplateCreatorLabel({

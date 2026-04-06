@@ -64,14 +64,16 @@ export function ResourcePreviewHeader({
           {title || "Untitled"}
         </h2>
         {description && (
-          <p className="mt-1 text-sm text-neutral-500">{description}</p>
+          <p className="mt-1 min-h-[24px] text-sm text-neutral-500">
+            {description}
+          </p>
         )}
         {targets && targets.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex min-h-6 flex-wrap items-center gap-1.5">
             {targets.map((target, index) => (
               <span
                 key={index}
-                className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
+                className="inline-flex h-6 items-center rounded-md bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
               >
                 {target}
               </span>
