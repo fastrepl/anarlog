@@ -18,6 +18,7 @@ import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
 import { Data } from "~/settings/data";
+import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -202,7 +203,8 @@ export function SettingsApp() {
 
 export function SettingsNotifications() {
   return (
-    <div>
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="Notifications" />
       <NotificationSettingsView />
     </div>
   );
