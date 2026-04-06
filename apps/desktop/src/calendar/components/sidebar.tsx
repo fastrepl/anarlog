@@ -1,7 +1,8 @@
 import { platform } from "@tauri-apps/plugin-os";
 import { ChevronDown, PlusIcon } from "lucide-react";
-import { useCallback, type MouseEvent, useMemo } from "react";
+import { useCallback, useMemo, type MouseEvent } from "react";
 
+import type { ConnectionItem } from "@hypr/api-client";
 import {
   Accordion,
   AccordionContent,
@@ -31,16 +32,82 @@ function getProviderBadgeClassName(badge: string) {
   return "rounded-full border border-neutral-300 px-2 text-xs font-light text-neutral-500";
 }
 
+function getDefaultOpenProviderIds(
+  providers: CalendarProvider[],
+  connections: ConnectionItem[] | undefined,
+) {
+  return providers
+    .filter(
+      (provider) =>
+        !provider.nangoIntegrationId ||
+        connections?.some(
+          (connection) =>
+            connection.integration_id === provider.nangoIntegrationId,
+        ),
+    )
+    .map((provider) => provider.id);
+}
+
+function getProviderConnectionCounts(
+  providers: CalendarProvider[],
+  connections: ConnectionItem[] | undefined,
+) {
+  return new Map(
+    providers
+      .filter((provider) => provider.nangoIntegrationId)
+      .map((provider) => [
+        provider.id,
+        connections?.filter(
+          (connection) =>
+            connection.integration_id === provider.nangoIntegrationId,
+        ).length ?? 0,
+      ]),
+  );
+}
+
+function getProviderAccordionKey(
+  providers: CalendarProvider[],
+  connectionCounts: Map<string, number>,
+) {
+  return providers
+    .map(
+      (provider) => `${provider.id}:${connectionCounts.get(provider.id) ?? -1}`,
+    )
+    .join("|");
+}
+
 export function CalendarSidebarContent() {
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
+  const { isPaid } = useBillingAccess();
+  const { data: connections } = useConnections(isPaid);
 
-  const visibleProviders = PROVIDERS.filter(
-    (p) => p.platform === "all" || (p.platform === "macos" && isMacos),
+  const visibleProviders = useMemo(
+    () =>
+      PROVIDERS.filter(
+        (p) => p.platform === "all" || (p.platform === "macos" && isMacos),
+      ),
+    [isMacos],
+  );
+  const defaultOpenProviders = useMemo(
+    () => getDefaultOpenProviderIds(visibleProviders, connections),
+    [connections, visibleProviders],
+  );
+  const providerConnectionCounts = useMemo(
+    () => getProviderConnectionCounts(visibleProviders, connections),
+    [connections, visibleProviders],
+  );
+  const accordionKey = useMemo(
+    () => getProviderAccordionKey(visibleProviders, providerConnectionCounts),
+    [providerConnectionCounts, visibleProviders],
   );
 
   return (
-    <Accordion type="multiple" defaultValue={["apple"]}>
+    <Accordion
+      key={accordionKey}
+      type="multiple"
+      defaultValue={defaultOpenProviders}
+    >
       {visibleProviders.map((provider) =>
         provider.disabled ? (
           <div
