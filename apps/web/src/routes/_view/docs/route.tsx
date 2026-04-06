@@ -37,7 +37,7 @@ function DocsNav() {
     <aside className="hidden w-56 shrink-0 md:block">
       <div
         ref={scrollContainerRef}
-        className="scrollbar-hide sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-neutral-100 px-4 py-6 xl:top-0 xl:h-screen"
+        className="scrollbar-hide sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto px-4 py-6 pt-12 xl:top-0 xl:h-screen"
       >
         <SidebarNavigation
           sections={sections}

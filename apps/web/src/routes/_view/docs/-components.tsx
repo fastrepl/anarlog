@@ -17,7 +17,7 @@ export function DocLayout({
 }) {
   return (
     <>
-      <main className="mx-auto max-w-200 px-4 py-6">
+      <main className="max-w-200 px-16 py-6">
         <ArticleHeader doc={doc} showSectionTitle={showSectionTitle} />
         <ArticleContent doc={doc} />
         <PageNavigation currentSlug={doc.slug} />

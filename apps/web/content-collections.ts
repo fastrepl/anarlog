@@ -813,60 +813,6 @@ const solutions = defineCollection({
   },
 });
 
-const solutions = defineCollection({
-  name: "solutions",
-  directory: "content/solutions",
-  include: "*.mdx",
-  exclude: "AGENTS.md",
-  schema: z.object({
-    label: z.string(),
-    icon: z.string(),
-    order: z.number().default(0),
-    metaTitle: z.string(),
-    metaDescription: z.string(),
-    hero: z.object({
-      badgeText: z.string(),
-      title: z.string(),
-      description: z.string(),
-      primaryCTA: z.object({ label: z.string(), to: z.string() }),
-      secondaryCTA: z.object({ label: z.string(), to: z.string() }).optional(),
-    }),
-    features: z.object({
-      title: z.string(),
-      description: z.string(),
-      items: z.array(
-        z.object({
-          icon: z.string(),
-          title: z.string(),
-          description: z.string(),
-        }),
-      ),
-    }),
-    useCases: z.object({
-      title: z.string(),
-      description: z.string(),
-      items: z.array(
-        z.object({
-          title: z.string(),
-          description: z.string(),
-        }),
-      ),
-    }),
-    cta: z.object({
-      title: z.string(),
-      description: z.string(),
-    }),
-  }),
-  transform: async (document) => {
-    const slug = document._meta.path.replace(/\.mdx$/, "");
-
-    return {
-      ...document,
-      slug,
-    };
-  },
-});
-
 export default defineConfig({
   collections: [
     articles,
