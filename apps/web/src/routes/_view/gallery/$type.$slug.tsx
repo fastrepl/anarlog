@@ -73,7 +73,7 @@ function Component() {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
+      <div className="mx-auto min-h-screen">
         <div className="flex">
           <LeftSidebar type={type} item={item} />
           <MainContent type={type} item={item} />
@@ -97,7 +97,7 @@ function LeftSidebar({
         <Link
           to="/gallery/"
           search={{ type }}
-          className="mb-6 inline-flex items-center gap-2 font-serif text-sm text-neutral-600 transition-colors hover:text-stone-700"
+          className="mb-6 inline-flex items-center gap-2 font-mono text-sm text-neutral-600 transition-colors hover:text-stone-700"
         >
           <Icon icon="mdi:arrow-left" className="text-base" />
           <span>Back to gallery</span>
@@ -165,7 +165,7 @@ function MainContent({
         <Link
           to="/gallery/"
           search={{ type }}
-          className="inline-flex items-center gap-2 font-serif text-sm text-neutral-600 transition-colors hover:text-stone-700"
+          className="inline-flex items-center gap-2 font-mono text-sm text-neutral-600 transition-colors hover:text-stone-700"
         >
           <Icon icon="mdi:arrow-left" className="text-base" />
           <span>Back to gallery</span>
@@ -204,7 +204,7 @@ function ItemHeader({
         </span>
         <span className="text-sm text-neutral-500">{item.category}</span>
       </div>
-      <h1 className="mb-4 font-serif text-2xl text-stone-700 sm:text-3xl lg:text-4xl">
+      <h1 className="mb-4 font-mono text-2xl text-stone-700 sm:text-3xl lg:text-4xl">
         {item.title}
       </h1>
       <p className="mb-6 text-lg leading-relaxed text-neutral-600 lg:text-xl">
@@ -238,7 +238,7 @@ function ItemContent({
 
   return (
     <section id="content" className="scroll-mt-20">
-      <h2 className="mb-4 font-serif text-xl text-stone-700">
+      <h2 className="mb-4 font-mono text-xl text-stone-700">
         {isTemplate ? "Structure" : "Details"}
       </h2>
       <div className="rounded-xs border border-neutral-200 bg-white px-6 pt-3 pb-6 lg:px-8 lg:pt-4 lg:pb-8">
@@ -298,7 +298,7 @@ function SuggestedItems({
 
   return (
     <section className="mt-12">
-      <h2 className="mb-4 font-serif text-xl text-stone-700">
+      <h2 className="mb-4 font-mono text-xl text-stone-700">
         Other {item.category} {type === "template" ? "templates" : "shortcuts"}
       </h2>
       <div className="grid gap-4">
@@ -309,7 +309,7 @@ function SuggestedItems({
             params={{ type, slug: t.slug }}
             className="group rounded-xs border border-neutral-200 bg-white p-4 transition-all hover:border-neutral-300 hover:shadow-md"
           >
-            <h3 className="mb-1 font-serif text-lg text-stone-700 transition-colors group-hover:text-stone-800">
+            <h3 className="mb-1 font-mono text-lg text-stone-700 transition-colors group-hover:text-stone-800">
               {t.title}
             </h3>
             <p className="line-clamp-2 text-sm text-neutral-600">
@@ -351,8 +351,8 @@ function RightSidebar({
   return (
     <aside className="hidden w-80 shrink-0 sm:block">
       <div className="sticky top-17.25 flex flex-col gap-4 px-4 py-6">
-        <div className="overflow-hidden rounded-xs border border-neutral-200 bg-white bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] p-6 text-center">
-          <h3 className="mb-3 font-serif text-lg text-stone-700">
+        <div className="overflow-hidden rounded-xs border border-neutral-200 bg-white bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] p-6 text-left">
+          <h3 className="mb-3 font-mono text-lg text-stone-700">
             Use this {isTemplate ? "template" : "shortcut"}
           </h3>
           <p className="mb-6 text-sm text-neutral-600">
@@ -375,8 +375,8 @@ function RightSidebar({
           View raw MDX source
         </a>
 
-        <div className="rounded-xs border border-dashed border-neutral-300 bg-stone-50/50 p-6 text-center">
-          <h3 className="mb-3 font-serif text-lg text-stone-700">Contribute</h3>
+        <div className="rounded-xs border border-dashed border-neutral-300 bg-stone-50/50 p-6 text-left">
+          <h3 className="mb-3 font-mono text-lg text-stone-700">Contribute</h3>
           <p className="mb-6 text-sm text-neutral-600">
             Have an idea? Submit a PR and help the community.
           </p>

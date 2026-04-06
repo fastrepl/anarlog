@@ -252,7 +252,6 @@ mod passthrough {
             owhisper_client::FireworksAdapter,
             Provider::Fireworks
         );
-        passthrough_live_test!(openai, owhisper_client::OpenAIAdapter, Provider::OpenAI);
         passthrough_live_test!(
             elevenlabs,
             owhisper_client::ElevenLabsAdapter,
@@ -284,7 +283,6 @@ mod hyprnote {
         hyprnote_live_test!(soniox, Provider::Soniox);
         hyprnote_live_test!(gladia, Provider::Gladia);
         hyprnote_live_test!(fireworks, Provider::Fireworks);
-        hyprnote_live_test!(openai, Provider::OpenAI);
         hyprnote_live_test!(elevenlabs, Provider::ElevenLabs);
     }
 

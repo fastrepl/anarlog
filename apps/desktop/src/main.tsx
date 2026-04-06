@@ -17,7 +17,6 @@ import "@hypr/ui/globals.css";
 
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
-import { initPluginGlobals } from "./plugins/globals";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
@@ -117,7 +116,6 @@ function AppWithTiny() {
 }
 
 initWindowsPlugin();
-initPluginGlobals();
 
 const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {

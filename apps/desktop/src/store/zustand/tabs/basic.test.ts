@@ -177,6 +177,25 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState()).toHaveHistoryLength(1);
   });
 
+  test("clearSelection returns the store to a home-style no-selection state", () => {
+    const tabA = createSessionTab({ active: false });
+    const tabB = createSessionTab({ active: false });
+    useTabs.getState().openNew(tabA);
+    useTabs.getState().openNew(tabB);
+
+    useTabs.getState().clearSelection();
+
+    expect(useTabs.getState().currentTab).toBeNull();
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { id: tabA.id, active: false },
+      { id: tabB.id, active: false },
+    ]);
+    expect(useTabs.getState()).toHaveNavigationState({
+      canGoBack: false,
+      canGoNext: false,
+    });
+  });
+
   test("close removes tab, picks fallback active, updates history", () => {
     const active = createSessionTab({ active: true });
     const next = createSessionTab({ active: false });

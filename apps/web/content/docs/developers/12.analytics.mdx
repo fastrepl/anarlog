@@ -83,7 +83,7 @@ Notes:
 
 - PostHog autocapture and pageview are also on (production only), so PostHog default browser events are collected in addition to the custom events above.
 - Google Analytics is also loaded for consented non-admin web sessions, but there are no custom GA events emitted in app code today.
-- Web auth callback calls `identify(userId, { email })` in `apps/web/src/routes/_view/callback/auth.tsx`.
+- Web auth callback calls `identify(userId, { email, plan, trial_end_date })` in `apps/web/src/routes/_view/callback/auth.tsx`.
 
 ### Desktop product events
 
@@ -110,7 +110,7 @@ Notes:
 | `session_deleted` | `includes_recording` (currently always `true`) | `apps/desktop/src/session/components/outer-header/overflow/delete.tsx` |
 | `settings_changed` | `autostart`, `notification_detect`, `save_recordings`, `telemetry_consent` | `apps/desktop/src/settings/general/index.tsx` |
 | `ai_provider_configured` | `provider` | `apps/desktop/src/settings/ai/shared/index.tsx` |
-| `upgrade_clicked` | `plan` (`"pro"`) | `apps/desktop/src/settings/general/account.tsx` |
+| `upgrade_clicked` | `plan` (`"lite"` or `"pro"`) | `apps/desktop/src/settings/general/account.tsx` |
 | `user_signed_out` | none | `apps/desktop/src/settings/general/account.tsx` |
 
 ### Desktop notification events
@@ -176,7 +176,7 @@ Goal: measure onboarding progress and completion.
 | Event | Properties | Notes |
 |-------|------------|-------|
 | `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `calendar` → `final`. |
-| `user_signed_in` | none | Fires on auth state change. Also triggers `identify(supabaseUserId, { email, account_created_date, is_signed_up, app_version, os_version, platform })`. |
+| `user_signed_in` | none | Fires on sign-in. Desktop auth sync also updates `plan` and `trial_end_date` on sign-in, initial session restore, and token refresh. |
 | `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
 | `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
 | `trial_flow_client_error` | `properties.error` | Desktop. Error during trial activation. |
@@ -256,11 +256,11 @@ Goal: measure monetization.
 | `trial_started` | `plan`, `source` | Server | Trial begins. `trial_end_date` user property is set to UTC now + 14 days. |
 | `trial_skipped` | `reason = "not_eligible"`, `source` | Server | User was not eligible for trial. |
 | `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | Server | Trial creation failed. |
-| `upgrade_clicked` | `plan` (`"pro"`) | Desktop | User clicked upgrade button. This is intent, not completion. |
+| `upgrade_clicked` | `plan` (`"lite"` or `"pro"`) | Desktop | User clicked an upgrade or switch button. This is intent, not completion. |
 
-User properties for segmentation: `plan` (set on trial start), `trial_end_date` (set on trial start).
+User properties for segmentation: `plan`, `trial_end_date`.
 
-Gap: no explicit `subscription_started` or `payment_completed` event. Conversion from trial to paid is currently inferred from the `plan` user property or Stripe data, not a PostHog event.
+Gap: no explicit `subscription_started` or `payment_completed` event. Conversion from trial to paid is currently inferred from the `plan` user property after auth or billing refresh, or from Stripe data, not a PostHog event.
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/api-subscription/src/trial.rs#L69-L77" />
 
@@ -299,7 +299,7 @@ PostHog user properties are set via `$set`, `$set_once`, and `$identify` payload
 
 | Property | How it is set | Source |
 |----------|---------------|--------|
-| `email` | `identify(..., { email })` (desktop and web) | `apps/desktop/src/auth/context.tsx`, `apps/web/src/routes/_view/callback/auth.tsx` |
+| `email` | `identify(..., { email })` (desktop and web) | `apps/desktop/src/auth/context.tsx`, `apps/web/src/routes/_view/callback/auth.tsx`, `apps/web/src/routes/_view/app/account.tsx` |
 | `account_created_date` | `identify(..., { set: { ... } })` | `apps/desktop/src/auth/context.tsx` |
 | `is_signed_up` | `true` on sign-in identify, `false` on sign-out `setProperties` | `apps/desktop/src/auth/context.tsx`, `apps/desktop/src/settings/general/account.tsx` |
 | `platform` | `identify(..., set.platform)` | `apps/desktop/src/auth/context.tsx` |
@@ -312,8 +312,8 @@ PostHog user properties are set via `$set`, `$set_once`, and `$identify` payload
 | `current_stt_model` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
 | `current_llm_provider` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
 | `current_llm_model` | settings persister `setProperties` | `apps/desktop/src/store/tinybase/persister/settings/persister.ts` |
-| `plan` | server `set_properties` on successful trial start | `crates/api-subscription/src/trial.rs` |
-| `trial_end_date` | server `set_properties` on successful trial start (`UTC now + 14 days`) | `crates/api-subscription/src/trial.rs` |
+| `plan` | desktop `identify(...)` on sign-in, initial session restore, and token refresh; web `identify(...)` on auth callback and billing return; server `set_properties` on successful trial start | `apps/desktop/src/auth/context.tsx`, `apps/web/src/routes/_view/callback/auth.tsx`, `apps/web/src/routes/_view/app/account.tsx`, `crates/api-subscription/src/trial.rs` |
+| `trial_end_date` | desktop `identify(...)` on sign-in, initial session restore, and token refresh; web `identify(...)` on auth callback and billing return; server `set_properties` on successful trial start (`UTC now + 14 days`) | `apps/desktop/src/auth/context.tsx`, `apps/web/src/routes/_view/callback/auth.tsx`, `apps/web/src/routes/_view/app/account.tsx`, `crates/api-subscription/src/trial.rs` |
 
 ## Telemetry controls and environment behavior
 

@@ -18,6 +18,9 @@ private func rustOnExpandedStartTimeReached(_ keyPtr: UnsafePointer<CChar>, _ ta
 @_silgen_name("rust_on_option_selected")
 private func rustOnOptionSelected(_ keyPtr: UnsafePointer<CChar>, _ tag: Int32)
 
+@_silgen_name("rust_on_footer_action")
+private func rustOnFooterAction(_ keyPtr: UnsafePointer<CChar>, _ tag: Int32)
+
 enum RustBridge {
   static func onCollapsedConfirm(key: String) {
     key.withCString { keyPtr in
@@ -52,6 +55,12 @@ enum RustBridge {
   static func onOptionSelected(key: String, selectedIndex: Int32) {
     key.withCString { keyPtr in
       rustOnOptionSelected(keyPtr, selectedIndex)
+    }
+  }
+
+  static func onFooterAction(key: String) {
+    key.withCString { keyPtr in
+      rustOnFooterAction(keyPtr, -1)
     }
   }
 }

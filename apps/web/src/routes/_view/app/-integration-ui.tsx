@@ -47,7 +47,7 @@ export function IntegrationButton({
 
 export function IntegrationPageLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-white via-stone-50/20 to-white p-6">
+    <div className="flex min-h-screen items-center justify-center p-6">
       <div className="flex w-full max-w-md flex-col gap-8 text-center">
         {children}
       </div>

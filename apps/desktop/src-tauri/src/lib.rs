@@ -1,6 +1,5 @@
 mod agents;
 mod commands;
-mod control;
 mod ext;
 mod store;
 mod supervisor;
@@ -12,15 +11,19 @@ use tauri::Manager;
 use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
-fn create_audio_provider() -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
-    #[cfg(feature = "dev")]
+const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
+
+fn create_audio_provider(bundle_id: &str) -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
+    #[cfg(any(feature = "dev", feature = "devtools"))]
     {
         let selection: u32 = std::env::var("MOCK_AUDIO")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(0);
 
-        if selection > 0 {
+        let mock_audio_allowed = cfg!(feature = "dev") || bundle_id == STAGING_BUNDLE_ID;
+
+        if mock_audio_allowed && selection > 0 {
             return std::sync::Arc::new(hypr_audio_mock::MockAudio::new(selection));
         }
     }
@@ -30,6 +33,7 @@ fn create_audio_provider() -> std::sync::Arc<dyn hypr_audio_actual::AudioProvide
 #[tokio::main]
 pub async fn main() {
     tauri::async_runtime::set(tokio::runtime::Handle::current());
+    let context = tauri::generate_context!();
 
     let (root_supervisor_ctx, root_supervisor_handle) =
         match supervisor::spawn_root_supervisor().await {
@@ -74,7 +78,8 @@ pub async fn main() {
         .as_ref()
         .map(|client| tauri_plugin_sentry::minidump::init(client));
 
-    let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> = create_audio_provider();
+    let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> =
+        create_audio_provider(&context.config().identifier);
 
     let mut builder = tauri::Builder::default().manage(audio);
 
@@ -138,8 +143,7 @@ pub async fn main() {
         .plugin(tauri_plugin_js::init())
         .plugin(tauri_plugin_flag::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .plugin(tauri_plugin_listener::init())
-        .plugin(tauri_plugin_listener2::init())
+        .plugin(tauri_plugin_transcription::init())
         .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
         .plugin(tauri_plugin_local_stt::init(
@@ -237,7 +241,7 @@ pub async fn main() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .unwrap();
 
     match get_onboarding_flag() {
@@ -276,7 +280,7 @@ pub async fn main() {
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            AppWindow::Main.show(&app).unwrap();
+            AppWindow::Main.show(app).unwrap();
         }
         #[cfg(target_os = "macos")]
         tauri::RunEvent::ExitRequested { api, .. } => {
@@ -359,7 +363,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
-            commands::list_plugins::<tauri::Wry>,
+            commands::get_char_v1p1_preview::<tauri::Wry>,
+            commands::set_char_v1p1_preview::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

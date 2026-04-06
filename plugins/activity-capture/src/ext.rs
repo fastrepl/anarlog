@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hypr_activity_capture_interface::{ActivityCapture, CapturePolicy};
+use hypr_activity_capture::{ActivityCapture, CapturePolicy, PlatformCapture};
 
 use crate::{
     ManagedState,
@@ -14,13 +14,13 @@ pub struct ActivityCaptureExt<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
 
 impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> ActivityCaptureExt<'a, R, M> {
     pub fn capabilities(&self) -> ActivityCaptureCapabilities {
-        hypr_activity_capture_macos::MacosCapture::with_policy(self.runtime().policy())
+        PlatformCapture::with_policy(self.runtime().policy())
             .capabilities()
             .into()
     }
 
     pub fn snapshot(&self) -> Result<Option<ActivityCaptureSnapshot>, crate::Error> {
-        hypr_activity_capture_macos::MacosCapture::with_policy(self.runtime().policy())
+        PlatformCapture::with_policy(self.runtime().policy())
             .snapshot()
             .map(|value| value.map(Into::into))
             .map_err(Into::into)

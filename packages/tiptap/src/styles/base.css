@@ -48,7 +48,8 @@
     padding-bottom: 0;
   }
 
-  .node-image.ProseMirror-selectednode {
+  .node-image.ProseMirror-selectednode,
+  .node-session.ProseMirror-selectednode {
     outline: none;
   }
 

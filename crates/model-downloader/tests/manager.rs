@@ -334,7 +334,8 @@ async fn cancel_download_returns_true_and_cleans_up() {
     assert!(
         runtime
             .progress_statuses()
-            .contains(&DownloadStatus::Failed),
+            .iter()
+            .any(|s| matches!(s, DownloadStatus::Failed(_))),
         "should emit -1 on cancellation"
     );
     assert!(
@@ -372,7 +373,8 @@ async fn download_failure_cleans_up_part_file() {
     assert!(
         runtime
             .progress_statuses()
-            .contains(&DownloadStatus::Failed),
+            .iter()
+            .any(|s| matches!(s, DownloadStatus::Failed(_))),
         "should emit -1 on download failure"
     );
     assert!(
@@ -398,7 +400,8 @@ async fn checksum_mismatch_cleans_up_part_file() {
     assert!(
         runtime
             .progress_statuses()
-            .contains(&DownloadStatus::Failed),
+            .iter()
+            .any(|s| matches!(s, DownloadStatus::Failed(_))),
         "should emit -1 on checksum mismatch"
     );
     assert!(
@@ -426,7 +429,8 @@ async fn cancel_download_immediately_after_start_returns_true() {
     assert!(
         runtime
             .progress_statuses()
-            .contains(&DownloadStatus::Failed),
+            .iter()
+            .any(|s| matches!(s, DownloadStatus::Failed(_))),
         "should emit -1 on cancellation"
     );
 }

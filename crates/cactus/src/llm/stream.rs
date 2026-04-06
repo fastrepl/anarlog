@@ -13,6 +13,7 @@ use crate::model::Model;
 
 use super::CompleteOptions;
 use super::Message;
+use super::request::{PreparedRequest, serialize_complete_request};
 
 struct StreamWorker {
     model: Arc<Model>,
@@ -49,9 +50,9 @@ impl StreamWorker {
         true
     }
 
-    fn run(&mut self, messages: &[Message], options: &CompleteOptions) {
+    fn run(&mut self, request: PreparedRequest) {
         let model = Arc::clone(&self.model);
-        let _ = model.complete_streaming(messages, options, |chunk| self.on_token(chunk));
+        let _ = model.complete_prepared_streaming(&request, |chunk| self.on_token(chunk));
         if let Some(response) = self.parser.flush() {
             let _ = self.tx.send(response);
         }
@@ -100,6 +101,7 @@ pub fn complete_stream(
     messages: Vec<Message>,
     options: CompleteOptions,
 ) -> Result<CompletionStream> {
+    let request = serialize_complete_request(&messages, &options)?;
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let cancellation_token = CancellationToken::new();
 
@@ -108,7 +110,7 @@ pub fn complete_stream(
 
     let handle = std::thread::spawn(move || {
         let mut worker = StreamWorker::new(model, worker_token, tx);
-        worker.run(&messages, &options);
+        worker.run(request);
     });
 
     let inner = UnboundedReceiverStream::new(rx);

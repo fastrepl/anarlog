@@ -35,6 +35,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { schema } from "../session/schema";
+import { createTaskItemAttrs } from "../tasks";
 
 // ---------------------------------------------------------------------------
 // Slash command items
@@ -148,7 +149,7 @@ const SLASH_COMMANDS: SlashCommandItem[] = [
       const tr = view.state.tr.delete(from, to);
       view.dispatch(tr);
       const taskItem = schema.nodes.taskItem.create(
-        { checked: false },
+        createTaskItemAttrs(false),
         schema.nodes.paragraph.create(),
       );
       const taskList = schema.nodes.taskList.create(null, taskItem);

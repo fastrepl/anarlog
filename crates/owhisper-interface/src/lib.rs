@@ -147,6 +147,8 @@ common_derives! {
         #[serde(default)]
         pub keywords: Vec<String>,
         #[serde(default)]
+        pub num_speakers: Option<u32>,
+        #[serde(default)]
         #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub custom_query: Option<std::collections::HashMap<String, String>>,
     }
@@ -160,6 +162,7 @@ impl Default for ListenParams {
             sample_rate: Self::default_sample_rate(),
             languages: Vec::new(),
             keywords: Vec::new(),
+            num_speakers: None,
             custom_query: None,
         }
     }

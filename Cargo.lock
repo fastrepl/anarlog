@@ -9,13 +9,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
+name = "activity-capture"
+version = "0.1.0"
+dependencies = [
+ "activity-capture-interface",
+ "activity-capture-macos",
+ "activity-capture-windows",
+ "screen-core",
+]
+
+[[package]]
+name = "activity-capture-dev"
+version = "0.1.0"
+dependencies = [
+ "activity-capture",
+ "chrono",
+ "clap",
+ "crossterm",
+ "futures-util",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "activity-capture-interface"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "futures-core",
+ "schemars 1.2.1",
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "url",
 ]
 
 [[package]]
@@ -33,6 +64,15 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "url",
+]
+
+[[package]]
+name = "activity-capture-windows"
+version = "0.1.0"
+dependencies = [
+ "activity-capture-interface",
+ "sysinfo",
+ "windows 0.62.2",
 ]
 
 [[package]]
@@ -504,6 +544,7 @@ dependencies = [
  "api-env",
  "api-mail",
  "api-nango",
+ "api-pyannote",
  "api-research",
  "api-subscription",
  "api-support",
@@ -673,6 +714,25 @@ dependencies = [
  "tokio",
  "tracing",
  "urlencoding",
+ "utoipa",
+ "wiremock",
+]
+
+[[package]]
+name = "api-pyannote"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-env",
+ "api-error",
+ "axum 0.8.8",
+ "pyannote-cloud",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower 0.5.3",
+ "tracing",
  "utoipa",
  "wiremock",
 ]
@@ -1466,6 +1526,22 @@ dependencies = [
  "tokio-util",
  "tracing",
  "wasapi",
+]
+
+[[package]]
+name = "audio-chunking"
+version = "0.1.0"
+dependencies = [
+ "audio-interface",
+ "data",
+ "futures-util",
+ "hound",
+ "onnx",
+ "pin-project",
+ "rodio",
+ "thiserror 2.0.18",
+ "tokio",
+ "vad",
 ]
 
 [[package]]
@@ -2833,6 +2909,7 @@ name = "cactus"
 version = "0.1.0"
 dependencies = [
  "cactus-sys",
+ "colored",
  "criterion",
  "data",
  "futures-util",
@@ -2846,6 +2923,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "url",
 ]
 
 [[package]]
@@ -4511,6 +4589,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "db-app2"
+version = "0.1.0"
+dependencies = [
+ "db-core2",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
 name = "db-core"
 version = "0.1.0"
 dependencies = [
@@ -4826,8 +4913,6 @@ dependencies = [
  "tauri-plugin-icon",
  "tauri-plugin-importer",
  "tauri-plugin-js",
- "tauri-plugin-listener",
- "tauri-plugin-listener2",
  "tauri-plugin-local-stt",
  "tauri-plugin-mcp",
  "tauri-plugin-misc",
@@ -4856,6 +4941,7 @@ dependencies = [
  "tauri-plugin-template",
  "tauri-plugin-todo",
  "tauri-plugin-tracing",
+ "tauri-plugin-transcription",
  "tauri-plugin-tray",
  "tauri-plugin-updater",
  "tauri-plugin-updater2",
@@ -4993,6 +5079,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlib"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
+dependencies = [
+ "libloading 0.8.9",
+]
+
+[[package]]
 name = "dlopen2"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5108,6 +5203,46 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "drm"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80bc8c5c6c2941f70a55c15f8d9f00f9710ebda3ffda98075f996a0e6c92756f"
+dependencies = [
+ "bitflags 2.11.0",
+ "bytemuck",
+ "drm-ffi",
+ "drm-fourcc",
+ "libc",
+ "rustix 0.38.44",
+]
+
+[[package]]
+name = "drm-ffi"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51a91c9b32ac4e8105dec255e849e0d66e27d7c34d184364fb93e469db08f690"
+dependencies = [
+ "drm-sys",
+ "rustix 1.1.4",
+]
+
+[[package]]
+name = "drm-fourcc"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0aafbcdb8afc29c1a7ee5fbe53b5d62f4565b35a042a662ca9fecd0b54dae6f4"
+
+[[package]]
+name = "drm-sys"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecc8e1361066d91f5ffccff060a3c3be9c3ecde15be2959c1937595f7a82a9f8"
+dependencies = [
+ "libc",
+ "linux-raw-sys 0.9.4",
 ]
 
 [[package]]
@@ -6211,6 +6346,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
 dependencies = [
  "byteorder",
+]
+
+[[package]]
+name = "gbm"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce852e998d3ca5e4a97014fb31c940dc5ef344ec7d364984525fd11e8a547e6a"
+dependencies = [
+ "bitflags 2.11.0",
+ "drm",
+ "drm-fourcc",
+ "gbm-sys",
+ "libc",
+ "wayland-backend",
+ "wayland-server",
+]
+
+[[package]]
+name = "gbm-sys"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c13a5f2acc785d8fb6bf6b7ab6bfb0ef5dad4f4d97e8e70bb8e470722312f76f"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -8004,6 +8163,26 @@ dependencies = [
  "gix-worktree 0.41.0",
  "io-close",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "gl"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a94edab108827d67608095e269cf862e60d920f144a5026d3dbcfd8b877fb404"
+dependencies = [
+ "gl_generator",
+]
+
+[[package]]
+name = "gl_generator"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a95dfc23a2b4a9a2f5ab41d194f8bfda3cabec42af4e39f08c339eb2a0c124d"
+dependencies = [
+ "khronos_api",
+ "log",
+ "xml-rs",
 ]
 
 [[package]]
@@ -9932,6 +10111,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "khronos-egl"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6aae1df220ece3c0ada96b8153459b67eebe9ae9212258bb0134ae60416fdf76"
+dependencies = [
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
+name = "khronos_api"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
+
+[[package]]
 name = "knf-rs"
 version = "0.3.2"
 source = "git+https://github.com/thewh1teagle/pyannote-rs?rev=e23bd29#e23bd292298750ca8441039ae588afd5e4351c49"
@@ -10397,6 +10592,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "libwayshot-xcap"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "558a3a7ca16a17a14adf8f051b3adcd7766d397532f5f6d6a48034db11e54c22"
+dependencies = [
+ "drm",
+ "gbm",
+ "gl",
+ "image",
+ "khronos-egl",
+ "memmap2",
+ "rustix 1.1.4",
+ "thiserror 2.0.18",
+ "tracing",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
 name = "line-clipping"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10430,6 +10646,12 @@ name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
+
+[[package]]
+name = "linux-raw-sys"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd945864f07fe9f5371a27ad7b52a172b4b499999f1d97574c9fa68373937e12"
 
 [[package]]
 name = "linux-raw-sys"
@@ -10585,6 +10807,7 @@ dependencies = [
  "rand 0.9.2",
  "serde",
  "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -11954,6 +12177,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ec576860167a15dd9fce7fbee7512beb4e31f532159d3482d1f9c6caedf31d"
 dependencies = [
  "bitflags 2.11.0",
+ "block2",
  "dispatch2",
  "objc2",
  "objc2-core-audio",
@@ -11993,10 +12217,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d425caf1df73233f29fd8a5c3e5edbc30d2d4307870f802d18f00d83dc5141a6"
 dependencies = [
  "bitflags 2.11.0",
+ "block2",
  "objc2",
  "objc2-core-foundation",
  "objc2-core-graphics",
  "objc2-io-surface",
+ "objc2-metal",
 ]
 
 [[package]]
@@ -12318,6 +12544,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "openai-transcription"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "strum 0.27.2",
+]
+
+[[package]]
 name = "openapi31to30"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12633,6 +12868,7 @@ dependencies = [
  "futures-util",
  "language",
  "observability",
+ "openai-transcription",
  "owhisper-interface",
  "reqwest 0.13.2",
  "reqwest-middleware",
@@ -13923,6 +14159,9 @@ dependencies = [
  "reqwest 0.13.2",
  "serde",
  "serde_json",
+ "tokio",
+ "utoipa",
+ "wiremock",
 ]
 
 [[package]]
@@ -13967,6 +14206,15 @@ name = "quick-error"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+
+[[package]]
+name = "quick-xml"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eff6510e86862b57b210fd8cbe8ed3f0d7d600b9c2863cd4549a2e033c66e956"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "quick-xml"
@@ -15480,6 +15728,15 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "screen-core"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "thiserror 2.0.18",
+ "xcap",
+]
 
 [[package]]
 name = "scroll"
@@ -17967,8 +18224,7 @@ dependencies = [
 name = "tauri-plugin-activity-capture"
 version = "0.1.0"
 dependencies = [
- "activity-capture-interface",
- "activity-capture-macos",
+ "activity-capture",
  "futures-util",
  "serde",
  "specta",
@@ -17978,6 +18234,7 @@ dependencies = [
  "tauri-plugin-activity-capture",
  "tauri-specta",
  "thiserror 2.0.18",
+ "tokio",
  "tracing",
 ]
 
@@ -18037,6 +18294,7 @@ dependencies = [
  "tempfile",
  "template-support",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -18468,56 +18726,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tauri-plugin-listener"
-version = "0.1.0"
-dependencies = [
- "audio",
- "dirs 6.0.0",
- "insta",
- "language",
- "listener-core",
- "owhisper-client",
- "owhisper-interface",
- "quickcheck",
- "quickcheck_macros",
- "ractor",
- "rodio",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "storage",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-hooks",
- "tauri-plugin-local-stt",
- "tauri-plugin-settings",
- "tauri-plugin-tray",
- "tauri-specta",
- "thiserror 2.0.18",
- "tracing",
- "transcript",
- "uuid",
-]
-
-[[package]]
-name = "tauri-plugin-listener2"
-version = "0.1.0"
-dependencies = [
- "language",
- "listener2-core",
- "owhisper-interface",
- "serde",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-plugin-settings",
- "tauri-specta",
- "tokio",
-]
-
-[[package]]
 name = "tauri-plugin-local-llm"
 version = "0.1.0"
 dependencies = [
@@ -18660,7 +18868,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-analytics",
  "tauri-plugin-dialog",
- "tauri-plugin-listener",
  "tauri-plugin-windows",
  "tauri-specta",
  "thiserror 2.0.18",
@@ -18845,6 +19052,8 @@ dependencies = [
 name = "tauri-plugin-screen"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "screen-core",
  "serde",
  "specta",
  "specta-typescript",
@@ -19069,6 +19278,32 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "tauri-plugin-transcription"
+version = "0.1.0"
+dependencies = [
+ "audio",
+ "language",
+ "owhisper-client",
+ "ractor",
+ "serde",
+ "specta",
+ "specta-typescript",
+ "storage",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-hooks",
+ "tauri-plugin-local-stt",
+ "tauri-plugin-settings",
+ "tauri-plugin-tray",
+ "tauri-specta",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "transcript",
+ "transcription-core",
 ]
 
 [[package]]
@@ -20422,6 +20657,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "audio-actual",
+ "audio-chunking",
  "audio-mock",
  "audio-utils",
  "axum 0.8.8",
@@ -20452,7 +20688,6 @@ dependencies = [
  "tracing",
  "transcribe-core",
  "uuid",
- "vad-chunking",
  "ws-utils",
 ]
 
@@ -20460,6 +20695,7 @@ dependencies = [
 name = "transcribe-core"
 version = "0.1.0"
 dependencies = [
+ "audio-chunking",
  "audio-utils",
  "axum 0.8.8",
  "futures-util",
@@ -20468,7 +20704,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
- "vad-chunking",
 ]
 
 [[package]]
@@ -20521,6 +20756,7 @@ dependencies = [
 name = "transcribe-whisper-local"
 version = "0.1.0"
 dependencies = [
+ "audio-chunking",
  "audio-interface",
  "audio-utils",
  "axum 0.8.8",
@@ -20544,7 +20780,6 @@ dependencies = [
  "tower 0.5.3",
  "tracing",
  "transcribe-core",
- "vad-chunking",
  "whisper",
  "whisper-local",
  "ws-utils",
@@ -20562,6 +20797,14 @@ dependencies = [
  "template-app",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "transcription-core"
+version = "0.1.0"
+dependencies = [
+ "listener-core",
+ "listener2-core",
 ]
 
 [[package]]
@@ -21678,22 +21921,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vad-chunking"
-version = "0.1.0"
-dependencies = [
- "audio-interface",
- "data",
- "futures-util",
- "hound",
- "onnx",
- "pin-project",
- "rodio",
- "thiserror 2.0.18",
- "tokio",
- "vad",
-]
-
-[[package]]
 name = "vad-masking"
 version = "0.1.0"
 dependencies = [
@@ -21901,16 +22128,15 @@ dependencies = [
 
 [[package]]
 name = "wasapi"
-version = "0.19.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a44f8b836526917dd6b4ca0ca163394df7cadae249ee6a8b10d36ee4265298c9"
+checksum = "80c3aa5d6b0e7acc3ea10cb19c334df0c8d825060f14a30d9e3b03385e6e5175"
 dependencies = [
  "log",
  "num-integer",
  "thiserror 2.0.18",
- "widestring",
- "windows 0.61.3",
- "windows-core 0.61.2",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -22141,6 +22367,7 @@ dependencies = [
  "cc",
  "downcast-rs 1.2.1",
  "rustix 1.1.4",
+ "scoped-tls",
  "smallvec 1.15.1",
  "wayland-sys",
 ]
@@ -22194,11 +22421,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "wayland-server"
+version = "0.31.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63736a4a73e781cf6a736aa32c5d6773c3eb5389197562742a8c611b49b5e359"
+dependencies = [
+ "bitflags 2.11.0",
+ "downcast-rs 1.2.1",
+ "rustix 1.1.4",
+ "wayland-backend",
+ "wayland-scanner",
+]
+
+[[package]]
 name = "wayland-sys"
 version = "0.31.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374f6b70e8e0d6bf9461a32988fd553b59ff630964924dad6e4a4eb6bd538d17"
 dependencies = [
+ "dlib",
+ "libc",
+ "log",
+ "memoffset",
  "pkg-config",
 ]
 
@@ -23485,6 +23729,54 @@ dependencies = [
  "libc",
  "rustix 1.1.4",
 ]
+
+[[package]]
+name = "xcap"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "669eca0840c322f46ab68505a7e4328421b86127eeead1faed6bfc827dc77713"
+dependencies = [
+ "dispatch2",
+ "image",
+ "libwayshot-xcap",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-av-foundation",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-core-media",
+ "objc2-core-video",
+ "objc2-foundation",
+ "percent-encoding",
+ "pipewire",
+ "rand 0.9.2",
+ "scopeguard",
+ "serde",
+ "thiserror 2.0.18",
+ "url",
+ "widestring",
+ "windows 0.62.2",
+ "xcb",
+ "zbus",
+]
+
+[[package]]
+name = "xcb"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee4c580d8205abb0a5cf4eb7e927bd664e425b6c3263f9c5310583da96970cf6"
+dependencies = [
+ "bitflags 1.3.2",
+ "libc",
+ "quick-xml 0.30.0",
+]
+
+[[package]]
+name = "xml-rs"
+version = "0.8.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xml5ever"

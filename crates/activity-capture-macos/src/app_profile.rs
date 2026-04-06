@@ -8,6 +8,7 @@ pub(crate) enum AppProfile {
     Arc,
     Brave,
     Edge,
+    VsCode,
     Slack,
     Spotify,
 }
@@ -20,6 +21,10 @@ impl AppProfile {
             Some("company.thebrowser.Browser") => Self::Arc,
             Some("com.brave.Browser") => Self::Brave,
             Some("com.microsoft.edgemac") => Self::Edge,
+            Some("com.microsoft.VSCode")
+            | Some("com.microsoft.VSCodeInsiders")
+            | Some("com.visualstudio.code.oss")
+            | Some("com.vscodium") => Self::VsCode,
             Some("com.tinyspeck.slackmacgap") | Some("com.slack.Slack") => Self::Slack,
             Some("com.spotify.client") => Self::Spotify,
             _ => Self::Generic,
@@ -35,6 +40,10 @@ impl AppProfile {
 
     pub(crate) fn is_slack(self) -> bool {
         self == Self::Slack
+    }
+
+    pub(crate) fn prefers_manual_accessibility(self) -> bool {
+        self == Self::VsCode
     }
 
     pub(crate) fn supports_private_window_detection(self) -> bool {
@@ -79,6 +88,10 @@ mod tests {
             AppProfile::Edge
         );
         assert_eq!(
+            AppProfile::from_bundle_id(Some("com.microsoft.VSCode")),
+            AppProfile::VsCode
+        );
+        assert_eq!(
             AppProfile::from_bundle_id(Some("com.tinyspeck.slackmacgap")),
             AppProfile::Slack
         );
@@ -97,6 +110,7 @@ mod tests {
         assert!(AppProfile::Safari.is_browser());
         assert!(AppProfile::Chrome.supports_private_window_detection());
         assert!(!AppProfile::Safari.supports_private_window_detection());
+        assert!(AppProfile::VsCode.prefers_manual_accessibility());
         assert!(AppProfile::Slack.is_slack());
         assert!(!AppProfile::Spotify.is_browser());
     }

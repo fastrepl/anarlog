@@ -121,11 +121,8 @@ const useCases = [
 
 function Component() {
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
         <FeaturesSection />
         <ComparisonSection />
@@ -140,12 +137,12 @@ function Component() {
 function HeroSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-4xl text-center">
+      <div className="mx-auto max-w-4xl text-left">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-4 py-2 text-sm font-medium text-green-700">
           <Icon icon="mdi:gift" className="text-lg" />
           <span>100% Free Forever</span>
         </div>
-        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
+        <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl lg:text-6xl">
           AI meeting notes
           <br />
           <span className="text-stone-400">without the price tag</span>
@@ -189,8 +186,8 @@ function FeaturesSection() {
   return (
     <section className="border-t border-neutral-100 px-6 py-16 lg:py-20">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700 sm:text-4xl">
             Everything you need, free
           </h2>
           <p className="text-lg text-neutral-600">
@@ -225,8 +222,8 @@ function ComparisonSection() {
   return (
     <section className="border-t border-neutral-100 bg-stone-50/50 px-6 py-16 lg:py-20">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700 sm:text-4xl">
             More value than paid alternatives
           </h2>
           <p className="text-lg text-neutral-600">
@@ -236,13 +233,13 @@ function ComparisonSection() {
         <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white">
           <div className="grid grid-cols-3 border-b border-neutral-200 bg-stone-100">
             <div className="p-4 font-medium text-stone-700">Feature</div>
-            <div className="border-x border-neutral-200 p-4 text-center font-medium text-stone-700">
+            <div className="border-x border-neutral-200 p-4 text-left font-medium text-stone-700">
               <span className="text-stone-700">Char</span>
               <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
                 Free
               </span>
             </div>
-            <div className="p-4 text-center font-medium text-neutral-500">
+            <div className="p-4 text-left font-medium text-neutral-500">
               Others
             </div>
           </div>
@@ -256,7 +253,7 @@ function ComparisonSection() {
               ])}
             >
               <div className="p-4 text-sm text-neutral-700">{row.feature}</div>
-              <div className="border-x border-neutral-100 p-4 text-center">
+              <div className="border-x border-neutral-100 p-4 text-left">
                 {row.hyprnote === true ? (
                   <Icon
                     icon="mdi:check-circle"
@@ -268,7 +265,7 @@ function ComparisonSection() {
                   </span>
                 )}
               </div>
-              <div className="p-4 text-center">
+              <div className="p-4 text-left">
                 {row.others === true ? (
                   <Icon
                     icon="mdi:check-circle"
@@ -295,8 +292,8 @@ function UseCasesSection() {
   return (
     <section className="border-t border-neutral-100 px-6 py-16 lg:py-20">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700 sm:text-4xl">
             Built for every conversation
           </h2>
           <p className="text-lg text-neutral-600">
@@ -337,7 +334,7 @@ function OpenSourceSection() {
               <Icon icon="mdi:github" className="text-lg" />
               <span>Open Source</span>
             </div>
-            <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+            <h2 className="mb-4 font-mono text-3xl text-stone-700 sm:text-4xl">
               Transparent by design
             </h2>
             <p className="mb-6 leading-relaxed text-neutral-600">
@@ -372,26 +369,22 @@ function OpenSourceSection() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
-              <div className="mb-1 font-serif text-3xl text-stone-700">
-                100%
-              </div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-left">
+              <div className="mb-1 font-mono text-3xl text-stone-700">100%</div>
               <div className="text-sm text-neutral-600">Open Source</div>
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
-              <div className="mb-1 font-serif text-3xl text-stone-700">0</div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-left">
+              <div className="mb-1 font-mono text-3xl text-stone-700">0</div>
               <div className="text-sm text-neutral-600">Data Collection</div>
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
-              <div className="mb-1 font-serif text-3xl text-stone-700">
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-left">
+              <div className="mb-1 font-mono text-3xl text-stone-700">
                 Local
               </div>
               <div className="text-sm text-neutral-600">AI Processing</div>
             </div>
-            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-center">
-              <div className="mb-1 font-serif text-3xl text-stone-700">
-                Free
-              </div>
+            <div className="rounded-lg border border-neutral-200 bg-white p-6 text-left">
+              <div className="mb-1 font-mono text-3xl text-stone-700">Free</div>
               <div className="text-sm text-neutral-600">Forever</div>
             </div>
           </div>
@@ -404,8 +397,8 @@ function OpenSourceSection() {
 function CTASection() {
   return (
     <section className="border-t border-neutral-100 px-6 py-16 lg:py-24">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl">
+      <div className="mx-auto max-w-2xl text-left">
+        <h2 className="mb-4 font-mono text-3xl text-stone-700 sm:text-4xl">
           Ready to try Char?
         </h2>
         <p className="mb-8 text-lg text-neutral-600">

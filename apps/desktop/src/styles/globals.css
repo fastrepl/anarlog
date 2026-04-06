@@ -4,6 +4,7 @@
 @import "./scrollbar.utilities.css";
 
 @import "tailwindcss";
+@import "../../../../packages/ui/src/styles/scroll-fade.css";
 
 @source "../../node_modules/streamdown/dist/index.js";
 @source "../../../../packages/tiptap/src";

@@ -5,6 +5,7 @@ import type { StoreApi } from "zustand";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as hooksCommands } from "@hypr/plugin-hooks";
 import { commands as iconCommands } from "@hypr/plugin-icon";
+import { commands as settingsCommands } from "@hypr/plugin-settings";
 import {
   commands as listenerCommands,
   events as listenerEvents,
@@ -16,8 +17,7 @@ import {
   type SessionParams,
   type SessionProgressEvent,
   type StopSessionParams,
-} from "@hypr/plugin-listener";
-import { commands as settingsCommands } from "@hypr/plugin-settings";
+} from "@hypr/plugin-transcription";
 
 import {
   type GeneralState,

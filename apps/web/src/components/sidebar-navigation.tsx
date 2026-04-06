@@ -40,7 +40,7 @@ export function SidebarNavigation<T extends { slug: string; title: string }>({
     <nav className="flex flex-col gap-4">
       {sections.map((section) => (
         <div key={section.title}>
-          <h3 className="mb-2 px-3 text-sm font-semibold text-neutral-700">
+          <h3 className="text-fg mb-2 px-3 text-sm font-semibold">
             {section.title}
           </h3>
           <div className="flex flex-col gap-0.5">
@@ -55,8 +55,8 @@ export function SidebarNavigation<T extends { slug: string; title: string }>({
                   ref={isActive ? activeLinkRef : undefined}
                   className={`block rounded-xs py-1.5 pr-3 pl-5 text-sm transition-colors ${
                     isActive
-                      ? "bg-neutral-100 font-medium text-stone-600"
-                      : "text-neutral-600 hover:bg-neutral-50 hover:text-stone-600"
+                      ? "text-fg font-medium underline decoration-dotted underline-offset-4"
+                      : "text-fg opacity-50 hover:underline hover:decoration-dotted hover:underline-offset-4 hover:opacity-100"
                   }`}
                 >
                   {doc.title}

@@ -6,12 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { DownloadButton } from "@/components/download-button";
-import { Image } from "@/components/image";
+import { CTASection } from "@/components/cta-section";
 import { defaultMDXComponents } from "@/components/mdx";
-import { SlashSeparator } from "@/components/slash-separator";
 import { useBlogToc } from "@/hooks/use-blog-toc";
-import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 export const Route = createFileRoute("/_view/blog/$slug")({
@@ -101,20 +98,14 @@ function Component() {
   const { article, relatedArticles } = Route.useLoaderData();
 
   return (
-    <main
-      data-blog-article
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
+    <main data-blog-article className="min-h-screen flex-1">
       <TableOfContents toc={article.toc} />
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+      <div className="">
         <HeroSection article={article} />
-        <SlashSeparator />
-        <div className="mx-auto max-w-200 px-4 py-8">
+        <div className="px-4 py-8">
           <ArticleContent article={article} />
           <RelatedArticlesSection relatedArticles={relatedArticles} />
         </div>
-        <SlashSeparator />
         <CTASection />
       </div>
     </main>
@@ -123,31 +114,31 @@ function Component() {
 
 function HeroSection({ article }: { article: any }) {
   return (
-    <header className="px-4 py-12 text-center lg:py-16">
+    <header className="px-4 pt-12 pb-8 text-left md:px-8 md:pt-12">
       <Link
         to="/blog/"
-        className="mb-8 inline-flex items-center gap-2 text-sm text-neutral-600 transition-colors hover:text-stone-600"
+        className="text-fg mb-8 inline-flex items-center gap-2 text-sm opacity-50 transition-opacity hover:opacity-100"
       >
         <span>←</span>
         <span>Back to Blog</span>
       </Link>
 
       {article.category && (
-        <p className="mb-4 font-mono text-sm text-stone-500">
+        <p className="text-fg mb-4 font-mono text-sm opacity-50">
           {article.category}
         </p>
       )}
 
-      <h1 className="mb-6 font-serif text-3xl text-stone-600 sm:text-4xl lg:text-5xl">
+      <h1 className="text-fg mb-4 font-mono text-3xl sm:text-4xl lg:text-5xl">
         {article.title}
       </h1>
 
       {article.author.length > 0 && (
-        <div className="mb-2 flex items-center justify-center gap-3">
+        <div className="mb-4 flex items-center justify-start gap-3">
           {article.author.map((name: string) => {
             const avatarUrl = AUTHOR_AVATARS[name];
             return (
-              <div key={name} className="flex items-center gap-2">
+              <div key={name} className="flex items-center justify-start gap-2">
                 {avatarUrl && (
                   <img
                     src={avatarUrl}
@@ -155,17 +146,14 @@ function HeroSection({ article }: { article: any }) {
                     className="h-8 w-8 rounded-full object-cover"
                   />
                 )}
-                <p className="text-base text-neutral-600">{name}</p>
+                <p className="text-fg text-base">{name}</p>
               </div>
             );
           })}
         </div>
       )}
 
-      <time
-        dateTime={article.date}
-        className="font-mono text-xs text-neutral-500"
-      >
+      <time dateTime={article.date} className="text-fg font-mono text-sm">
         {new Date(article.date).toLocaleDateString("en-US", {
           year: "numeric",
           month: "long",
@@ -178,8 +166,10 @@ function HeroSection({ article }: { article: any }) {
 
 function ArticleContent({ article }: { article: any }) {
   return (
-    <article className="prose prose-stone prose-headings:font-serif prose-headings:font-semibold prose-h1:text-3xl prose-h1:mt-12 prose-h1:mb-6 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-5 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4 prose-h4:text-lg prose-h4:mt-6 prose-h4:mb-3 prose-a:text-stone-600 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-xs prose-img:border prose-img:border-neutral-200 prose-img:my-8 max-w-none">
-      <MDXContent code={article.mdx} components={defaultMDXComponents} />
+    <article className="prose surface border-color-brand prose-neutral prose-p:text-base prose-headings:font-mono prose-headings:font-semibold prose-h1:text-3xl prose-h1:mt-16 prose-h1:mb-12 prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-8 prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-6 prose-h4:text-lg prose-h4:mt-6 prose-h4:mb-3 prose-a:text-fg prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-color-brand prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-pre:bg-stone-50 prose-pre:border prose-pre:border-neutral-200 prose-pre:rounded-xs prose-pre:prose-code:bg-transparent prose-pre:prose-code:border-0 prose-pre:prose-code:p-0 prose-img:rounded-xs prose-img:border prose-img:border-neutral-200 prose-img:my-8 w-full max-w-none rounded-xl border py-16">
+      <div className="mx-auto max-w-200">
+        <MDXContent code={article.mdx} components={defaultMDXComponents} />
+      </div>
     </article>
   );
 }
@@ -196,7 +186,7 @@ function RelatedArticlesSection({
   return (
     <div className="mt-16 border-t border-neutral-100 pt-8">
       <div className="mb-6 flex items-center justify-between">
-        <h3 className="font-serif text-xl text-stone-600">More articles</h3>
+        <h3 className="font-mono text-xl text-stone-600">More articles</h3>
         <Link
           to="/blog/"
           className="text-sm text-neutral-600 transition-colors hover:text-stone-600"
@@ -210,51 +200,6 @@ function RelatedArticlesSection({
         ))}
       </div>
     </div>
-  );
-}
-
-function CTASection() {
-  const platform = usePlatform();
-  const platformCTA = getPlatformCTA(platform);
-
-  return (
-    <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
-          <Image
-            src="/api/images/hyprnote/icon.png"
-            alt="Char"
-            width={144}
-            height={144}
-            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
-          />
-        </div>
-        <h2 className="font-serif text-2xl sm:text-3xl">
-          Try Char for yourself
-        </h2>
-        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
-          The AI notepad for people in back-to-back meetings. Local-first,
-          privacy-focused, and open source.
-        </p>
-        <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
-          {platformCTA.action === "download" ? (
-            <DownloadButton />
-          ) : (
-            <Link
-              to="/download/"
-              className={cn([
-                "group flex h-12 items-center justify-center px-6 text-base sm:text-lg",
-                "rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-white",
-                "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-                "transition-all",
-              ])}
-            >
-              Download for free
-            </Link>
-          )}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -469,7 +414,7 @@ function RelatedArticleCard({ article }: { article: any }) {
         />
       </div>
       <div className="p-4">
-        <h4 className="mb-2 line-clamp-2 font-serif text-sm text-stone-600 transition-colors group-hover:text-stone-800">
+        <h4 className="mb-2 line-clamp-2 font-mono text-sm text-stone-600 transition-colors group-hover:text-stone-800">
           {title}
         </h4>
         <p className="mb-2 line-clamp-2 text-xs text-neutral-500">

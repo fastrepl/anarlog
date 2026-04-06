@@ -27,6 +27,7 @@
       "@tiptap/extension-paragraph@3.20.1": "patches/@tiptap__extension-paragraph@3.20.1.patch"
     },
     "overrides": {
+      "@tiptap/extension-paragraph": "3.20.1",
       "prosemirror-view": "1.41.6",
       "prosemirror-gapcursor": "1.4.0"
     }

@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use crate::ffi_utils::{RESPONSE_BUF_SIZE, parse_buf};
 use crate::model::{InferenceGuard, Model};
 
+use super::request::{PreparedRequest, serialize_complete_request};
 use super::{CompleteOptions, CompletionResult, Message};
 
 type TokenCallback = unsafe extern "C" fn(*const std::ffi::c_char, u32, *mut std::ffi::c_void);
@@ -47,15 +48,6 @@ unsafe extern "C" fn token_trampoline<F: FnMut(&str) -> bool>(
     }
 }
 
-pub(super) fn serialize_complete_request(
-    messages: &[Message],
-    options: &CompleteOptions,
-) -> Result<(CString, CString)> {
-    let messages_c = CString::new(serde_json::to_string(messages)?)?;
-    let options_c = CString::new(serde_json::to_string(options)?)?;
-    Ok((messages_c, options_c))
-}
-
 pub(super) fn complete_error(rc: i32) -> Error {
     Error::Inference(format!("cactus_complete failed ({rc})"))
 }
@@ -93,9 +85,48 @@ impl Model {
         options: &CompleteOptions,
     ) -> Result<CompletionResult> {
         let guard = self.lock_inference();
-        let (messages_c, options_c) = serialize_complete_request(messages, options)?;
-        let (rc, buf) =
-            self.call_complete(&guard, &messages_c, &options_c, None, std::ptr::null_mut());
+        let request = serialize_complete_request(messages, options)?;
+        self.complete_prepared(&guard, &request)
+    }
+
+    pub fn complete_streaming<F>(
+        &self,
+        messages: &[Message],
+        options: &CompleteOptions,
+        on_token: F,
+    ) -> Result<CompletionResult>
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let guard = self.lock_inference();
+        let request = serialize_complete_request(messages, options)?;
+        self.complete_prepared_streaming_with_guard(&guard, &request, on_token)
+    }
+
+    pub(super) fn complete_prepared_streaming<F>(
+        &self,
+        request: &PreparedRequest,
+        on_token: F,
+    ) -> Result<CompletionResult>
+    where
+        F: FnMut(&str) -> bool,
+    {
+        let guard = self.lock_inference();
+        self.complete_prepared_streaming_with_guard(&guard, request, on_token)
+    }
+
+    fn complete_prepared(
+        &self,
+        guard: &InferenceGuard<'_>,
+        request: &PreparedRequest,
+    ) -> Result<CompletionResult> {
+        let (rc, buf) = self.call_complete(
+            guard,
+            &request.messages_c,
+            &request.options_c,
+            None,
+            std::ptr::null_mut(),
+        );
 
         if rc < 0 {
             return Err(complete_error(rc));
@@ -104,18 +135,15 @@ impl Model {
         Ok(parse_buf(&buf)?)
     }
 
-    pub fn complete_streaming<F>(
+    fn complete_prepared_streaming_with_guard<F>(
         &self,
-        messages: &[Message],
-        options: &CompleteOptions,
+        guard: &InferenceGuard<'_>,
+        request: &PreparedRequest,
         mut on_token: F,
     ) -> Result<CompletionResult>
     where
         F: FnMut(&str) -> bool,
     {
-        let guard = self.lock_inference();
-        let (messages_c, options_c) = serialize_complete_request(messages, options)?;
-
         let state = CallbackState {
             on_token: UnsafeCell::new(&mut on_token),
             model: self,
@@ -125,8 +153,8 @@ impl Model {
 
         let (rc, buf) = self.call_complete(
             &guard,
-            &messages_c,
-            &options_c,
+            &request.messages_c,
+            &request.options_c,
             Some(token_trampoline::<F>),
             &state as *const CallbackState<F> as *mut std::ffi::c_void,
         );

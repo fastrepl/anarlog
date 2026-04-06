@@ -5,15 +5,12 @@ use crate::WindowImpl;
 pub enum AppWindow {
     #[serde(rename = "main")]
     Main,
-    #[serde(rename = "control")]
-    Control,
 }
 
 impl std::fmt::Display for AppWindow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Main => write!(f, "main"),
-            Self::Control => write!(f, "control"),
         }
     }
 }
@@ -24,7 +21,6 @@ impl std::str::FromStr for AppWindow {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "main" => return Ok(Self::Main),
-            "control" => return Ok(Self::Control),
             _ => {}
         }
 
@@ -40,14 +36,11 @@ impl AppWindow {
     ) -> tauri::WebviewWindowBuilder<'a, tauri::Wry, tauri::AppHandle<tauri::Wry>> {
         use tauri::{WebviewUrl, WebviewWindow};
 
-        let title = match self {
-            Self::Main => app
-                .config()
-                .product_name
-                .clone()
-                .unwrap_or_else(|| self.title()),
-            _ => self.title(),
-        };
+        let title = app
+            .config()
+            .product_name
+            .clone()
+            .unwrap_or_else(|| self.title());
 
         #[allow(unused_mut)]
         let mut builder = WebviewWindow::builder(app, self.label(), WebviewUrl::App(url.into()))
@@ -102,7 +95,6 @@ impl WindowImpl for AppWindow {
     fn title(&self) -> String {
         match self {
             Self::Main => "Char".into(),
-            Self::Control => "Control".into(),
         }
     }
 
@@ -114,50 +106,13 @@ impl WindowImpl for AppWindow {
 
         let window = match self {
             Self::Main => {
-                let url = if cfg!(feature = "new") {
-                    "/app/main2"
-                } else {
-                    "/app/main"
-                };
-
                 let builder = self
-                    .window_builder(app, url)
+                    .window_builder(app, "/app")
                     .maximizable(true)
                     .minimizable(true)
                     .min_inner_size(620.0, 500.0);
                 let window = builder.build()?;
                 window.set_size(LogicalSize::new(910.0, 600.0))?;
-                window
-            }
-            Self::Control => {
-                let window = self
-                    .window_builder(app, "/app/control")
-                    .transparent(true)
-                    .resizable(false)
-                    .always_on_top(true)
-                    .skip_taskbar(true)
-                    .accept_first_mouse(true)
-                    .visible_on_all_workspaces(true)
-                    .decorations(false)
-                    .build()?;
-
-                #[cfg(target_os = "macos")]
-                {
-                    use objc2_app_kit::NSColor;
-
-                    if let Ok(ns_win) = window.ns_window() {
-                        unsafe {
-                            let ns_window = &*(ns_win as *mut objc2_app_kit::NSWindow);
-                            ns_window.setBackgroundColor(Some(&NSColor::clearColor()));
-                            ns_window.setOpaque(false);
-                        }
-                    }
-                }
-
-                let collapsed_size = LogicalSize::new(120.0, 36.0);
-                window.set_size(LogicalSize::new(1.0, 1.0))?;
-                std::thread::sleep(std::time::Duration::from_millis(10));
-                window.set_size(collapsed_size)?;
                 window
             }
         };

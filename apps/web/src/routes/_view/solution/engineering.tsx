@@ -9,8 +9,6 @@ import {
 } from "@hypr/ui/components/ui/accordion";
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/solution/engineering")({
   component: Component,
   head: () => ({
@@ -246,27 +244,16 @@ const faqs = [
 
 function Component() {
   return (
-    <div
-      className="min-h-screen overflow-x-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen overflow-x-hidden">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <TechnicalSpecsSection />
-        <SlashSeparator />
         <BYOKSection />
-        <SlashSeparator />
         <AutomationHooksSection />
-        <SlashSeparator />
         <ExtensibilitySection />
-        <SlashSeparator />
         <CLISection />
-        <SlashSeparator />
         <APISection />
-        <SlashSeparator />
         <FAQSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -277,12 +264,12 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-8 max-w-4xl text-center">
+        <header className="mx-auto mb-8 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
             <Icon icon="mdi:code-braces" className="text-lg" />
             <span>For Developers</span>
           </div>
-          <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
             The Only Meeting AI You Can
             <br />
             Fork, Fix & Make Your Own
@@ -327,10 +314,10 @@ function TechnicalSpecsSection() {
   return (
     <section className="px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Technical Specs
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Built with modern, privacy-respecting technologies that run locally on
           your device.
         </p>
@@ -401,10 +388,10 @@ function BYOKSection() {
   return (
     <section className="px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Bring Your Own Key
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Use your preferred AI providers or run everything locally. No vendor
           lock-in, no forced subscriptions.
         </p>
@@ -418,10 +405,10 @@ function AutomationHooksSection() {
   return (
     <section className="bg-stone-50/30 px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Automation Hooks
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Trigger custom workflows when events happen. No polling, no
           webhooks—just shell scripts that run automatically.
         </p>
@@ -435,10 +422,10 @@ function ExtensibilitySection() {
   return (
     <section className="px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Fully Extensible
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Build custom UI panels, access app state, and create entirely new
           workflows with our extension system.
         </p>
@@ -452,10 +439,10 @@ function CLISection() {
   return (
     <section className="bg-stone-50/30 px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Cross-Platform CLI
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Manage sessions, export data, and automate workflows from the command
           line.
         </p>
@@ -469,10 +456,8 @@ function APISection() {
   return (
     <section className="px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
-            API Access
-          </h2>
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">API Access</h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
             Programmatic control over sessions, transcripts, and AI processing
             for enterprise integrations.
@@ -507,10 +492,10 @@ function FAQSection() {
   return (
     <section className="px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Frequently Asked Questions
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Common questions about building with Char.
         </p>
         <Accordion type="single" collapsible className="space-y-2">
@@ -537,8 +522,8 @@ function FAQSection() {
 function CTASection() {
   return (
     <section className="border-t border-stone-500 bg-linear-to-t from-stone-600 to-stone-500 px-6 py-16">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="mb-4 font-serif text-3xl text-white">Ready to build?</h2>
+      <div className="mx-auto max-w-2xl text-left">
+        <h2 className="mb-4 font-mono text-3xl text-white">Ready to build?</h2>
         <p className="mb-8 text-stone-100">
           Fork the repo, explore the codebase, and start building your own
           meeting AI.

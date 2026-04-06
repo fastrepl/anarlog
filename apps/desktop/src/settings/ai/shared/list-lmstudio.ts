@@ -1,5 +1,4 @@
-import { type LLM, LMStudioClient, type ModelInfo } from "@lmstudio/sdk";
-import { Effect, pipe } from "effect";
+import { Effect, pipe, Schema } from "effect";
 
 import {
   DEFAULT_RESULT,
@@ -8,25 +7,45 @@ import {
   type ModelIgnoreReason,
   type ModelMetadata,
   REQUEST_TIMEOUT,
+  fetchJson,
 } from "./list-common";
+import { listGenericModels } from "./list-openai";
+
+const LMStudioModelSchema = Schema.Struct({
+  models: Schema.Array(
+    Schema.Struct({
+      type: Schema.String,
+      key: Schema.String,
+      loaded_instances: Schema.Array(Schema.Unknown),
+      max_context_length: Schema.Number,
+      capabilities: Schema.optional(
+        Schema.Struct({
+          trained_for_tool_use: Schema.optional(Schema.Boolean),
+          vision: Schema.optional(Schema.Boolean),
+        }),
+      ),
+    }),
+  ),
+});
+
+type LMStudioModel = Schema.Schema.Type<
+  typeof LMStudioModelSchema
+>["models"][number];
 
 export async function listLMStudioModels(
   baseUrl: string,
-  _apiKey: string,
+  apiKey: string,
 ): Promise<ListModelsResult> {
   if (!baseUrl) {
     return DEFAULT_RESULT;
   }
 
   return pipe(
-    createLMStudioClient(baseUrl),
-    Effect.flatMap((client) =>
-      pipe(
-        fetchLMStudioInventory(client),
-        Effect.map(({ downloadedModels, loadedLLMs }) =>
-          processLMStudioModels(downloadedModels, loadedLLMs),
-        ),
-      ),
+    fetchJson(getLMStudioNativeModelsUrl(baseUrl), getLMStudioHeaders(apiKey)),
+    Effect.andThen((json) => Schema.decodeUnknown(LMStudioModelSchema)(json)),
+    Effect.map(({ models }) => processLMStudioModels(models)),
+    Effect.catchAll(() =>
+      Effect.tryPromise(() => listGenericModels(baseUrl, apiKey)),
     ),
     Effect.timeout(REQUEST_TIMEOUT),
     Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
@@ -34,44 +53,35 @@ export async function listLMStudioModels(
   );
 }
 
-const createLMStudioClient = (baseUrl: string) =>
-  Effect.sync(() => {
-    const url = new URL(baseUrl);
-    const port = url.port || "1234";
-    const formattedUrl = `ws:127.0.0.1:${port}`;
-    return new LMStudioClient({ baseUrl: formattedUrl });
-  });
+export const getLMStudioNativeModelsUrl = (baseUrl: string) => {
+  const url = new URL(baseUrl);
+  const path = url.pathname.replace(/\/+$/, "");
 
-const fetchLMStudioInventory = (client: LMStudioClient) =>
-  pipe(
-    Effect.all(
-      [
-        Effect.tryPromise(() => client.system.listDownloadedModels()),
-        Effect.tryPromise(() => client.llm.listLoaded()).pipe(
-          Effect.catchAll(() => Effect.succeed([] as Array<LLM>)),
-        ),
-      ],
-      { concurrency: "unbounded" },
-    ),
-    Effect.flatMap(([downloadedModels, _loadedLLMs]) =>
-      pipe(
-        Effect.all(
-          _loadedLLMs.map((llm) =>
-            Effect.tryPromise(async () => ({
-              modelKey: llm.modelKey,
-              context: await llm.getContextLength(),
-            })),
-          ),
-          { concurrency: "unbounded" },
-        ),
-        Effect.map((loadedLLMs) => ({ downloadedModels, loadedLLMs })),
-      ),
-    ),
-  );
+  if (path.endsWith("/api/v1")) {
+    url.pathname = `${path}/models`;
+    return url.toString();
+  }
 
-const processLMStudioModels = (
-  downloadedModels: Array<ModelInfo>,
-  loadedLLMs: Array<{ modelKey: string; context: number }>,
+  if (path.endsWith("/v1")) {
+    url.pathname = `${path.slice(0, -3)}/api/v1/models`;
+    return url.toString();
+  }
+
+  url.pathname = `${path}/api/v1/models`;
+  return url.toString();
+};
+
+const getLMStudioHeaders = (apiKey: string) => {
+  const trimmedApiKey = apiKey.trim();
+  const headers: Record<string, string> = {};
+  if (trimmedApiKey.length > 0) {
+    headers.Authorization = `Bearer ${trimmedApiKey}`;
+  }
+  return headers;
+};
+
+export const processLMStudioModels = (
+  downloadedModels: ReadonlyArray<LMStudioModel>,
 ): ListModelsResult => {
   const models: string[] = [];
   const ignored: IgnoredModel[] = [];
@@ -83,28 +93,35 @@ const processLMStudioModels = (
     if (model.type !== "llm") {
       reasons.push("not_llm");
     } else {
-      if (!model.trainedForToolUse) {
+      if (model.capabilities?.trained_for_tool_use === false) {
         reasons.push("no_tool");
       }
-      if (model.maxContextLength <= 15 * 1000) {
+      if (model.max_context_length <= 15 * 1000) {
         reasons.push("context_too_small");
       }
     }
 
     if (reasons.length === 0) {
-      models.push(model.path);
-      // TODO: Seems like LMStudio do not have way to know input modality.
-      metadata[model.path] = { input_modalities: ["text"] };
+      models.push(model.key);
+      metadata[model.key] = {
+        input_modalities: model.capabilities?.vision
+          ? ["text", "image"]
+          : ["text"],
+      };
     } else {
-      ignored.push({ id: model.path, reasons });
+      ignored.push({ id: model.key, reasons });
     }
   }
 
-  const loadedLLMsSet = new Set(loadedLLMs.map((m) => m.modelKey));
+  const loadedModelsSet = new Set(
+    downloadedModels
+      .filter((model) => model.loaded_instances.length > 0)
+      .map((model) => model.key),
+  );
 
   models.sort((a, b) => {
-    const aLoaded = loadedLLMsSet.has(a);
-    const bLoaded = loadedLLMsSet.has(b);
+    const aLoaded = loadedModelsSet.has(a);
+    const bLoaded = loadedModelsSet.has(b);
     if (aLoaded === bLoaded) {
       return 0;
     }

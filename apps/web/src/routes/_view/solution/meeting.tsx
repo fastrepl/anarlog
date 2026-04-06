@@ -133,11 +133,8 @@ const faqs = [
 
 function Component() {
   return (
-    <div
-      className="min-h-screen overflow-x-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen overflow-x-hidden">
+      <div className="mx-auto">
         <HeroSection />
         <QuickFeaturesSection />
         <DetailedFeaturesSection />
@@ -153,12 +150,12 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-8 max-w-4xl text-center">
+        <header className="mx-auto mb-8 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
             <Icon icon="mdi:calendar-clock" className="text-lg" />
             <span>For Meetings</span>
           </div>
-          <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
             All Your Meeting Notes
             <br />
             in One Place
@@ -202,7 +199,7 @@ function QuickFeaturesSection() {
         {heroFeatures.map((feature) => (
           <div
             key={feature.title}
-            className="rounded-xl border border-neutral-100 bg-stone-50/50 p-6 text-center"
+            className="rounded-xl border border-neutral-100 bg-stone-50/50 p-6 text-left"
           >
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-stone-100">
               <Icon icon={feature.icon} className="text-2xl text-stone-600" />
@@ -228,10 +225,10 @@ function DetailedFeaturesSection() {
   return (
     <section className="border-t border-neutral-100">
       <div className="mx-auto max-w-4xl px-6 py-16">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Everything you need for meeting notes
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           AI-powered features that help you capture, organize, and act on every
           conversation.
         </p>
@@ -267,7 +264,7 @@ function DetailedFeaturesSection() {
         <div className="mx-auto max-w-4xl px-6 py-12">
           <div className="grid items-start gap-8 md:grid-cols-2">
             <div>
-              <h3 className="mb-4 font-serif text-2xl text-stone-700">
+              <h3 className="mb-4 font-mono text-2xl text-stone-700">
                 {activeFeatureData.heading}
               </h3>
               <p className="mb-4 leading-relaxed text-neutral-600">
@@ -299,7 +296,7 @@ function DataControlSection() {
             <Icon icon="mdi:shield-lock" className="text-2xl text-stone-600" />
           </div>
           <div>
-            <h3 className="mb-3 font-serif text-2xl text-stone-700">
+            <h3 className="mb-3 font-mono text-2xl text-stone-700">
               Control Where Your Data Lives
             </h3>
             <p className="mb-3 leading-relaxed text-neutral-600">
@@ -323,10 +320,10 @@ function FAQSection() {
   return (
     <section className="border-t border-neutral-100 px-6 py-16">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
           Frequently Asked Questions
         </h2>
-        <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+        <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
           Common questions about using Char for meeting notes.
         </p>
         <Accordion type="single" collapsible className="space-y-2">
@@ -353,8 +350,8 @@ function FAQSection() {
 function CTASection() {
   return (
     <section className="border-t border-stone-500 bg-linear-to-t from-stone-600 to-stone-500 px-6 py-16">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="mb-4 font-serif text-3xl text-white">
+      <div className="mx-auto max-w-2xl text-left">
+        <h2 className="mb-4 font-mono text-3xl text-white">
           Ready to transform your meetings?
         </h2>
         <p className="mb-8 text-stone-100">

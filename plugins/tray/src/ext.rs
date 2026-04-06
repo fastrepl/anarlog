@@ -165,10 +165,10 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                     let mut frame = 0usize;
                     loop {
                         interval.tick().await;
-                        if let Some(tray) = app.tray_by_id(TRAY_ID) {
-                            if let Ok(image) = Image::from_bytes(RECORDING_FRAMES[frame]) {
-                                let _ = tray.set_icon(Some(image));
-                            }
+                        if let Some(tray) = app.tray_by_id(TRAY_ID)
+                            && let Ok(image) = Image::from_bytes(RECORDING_FRAMES[frame])
+                        {
+                            let _ = tray.set_icon(Some(image));
                         }
                         frame = (frame + 1) % RECORDING_FRAMES.len();
                     }

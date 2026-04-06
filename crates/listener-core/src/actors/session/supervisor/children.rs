@@ -176,7 +176,7 @@ pub(super) async fn try_restart_recorder(
     let cell = spawn_with_retry(&RETRY_STRATEGY, || {
         let sup = sup.clone();
         let ctx = ctx.clone();
-        async move { Ok(spawn_recorder(sup, &ctx).await?) }
+        async move { spawn_recorder(sup, &ctx).await }
     })
     .await;
 

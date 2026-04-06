@@ -15,7 +15,7 @@
     </style>
     <script src="/relay-shim.js"></script>
     <script type="module">
-      if (import.meta.env.DEV && !window.location.pathname.startsWith("/app/control")) {
+      if (import.meta.env.DEV) {
         import("react-scan").then(({ scan }) => {
           scan();
         });

@@ -11,6 +11,7 @@ hypr-api-calendar = { workspace = true }
 hypr-api-env = { workspace = true }
 hypr-api-mail = { workspace = true }
 hypr-api-nango = { workspace = true }
+hypr-api-pyannote = { workspace = true }
 hypr-api-research = { workspace = true }
 hypr-api-subscription = { workspace = true }
 hypr-api-support = { workspace = true }

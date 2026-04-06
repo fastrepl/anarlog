@@ -4,8 +4,6 @@ import { useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/choose")({
   component: Component,
   head: () => ({
@@ -181,11 +179,8 @@ function Component() {
 
   if (step === "reveal") {
     return (
-      <main
-        className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-        style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-      >
-        <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
+      <main className="min-h-screen flex-1">
+        <div className="mx-auto min-h-screen">
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -199,12 +194,9 @@ function Component() {
   }
 
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
-        <h1 className="pt-12 pb-4 text-center font-serif text-4xl text-stone-700 sm:text-5xl">
+    <main className="min-h-screen flex-1">
+      <div className="mx-auto min-h-screen">
+        <h1 className="pt-12 pb-4 text-left font-mono text-4xl text-stone-700 sm:text-5xl">
           Build Your Pizza
         </h1>
         <div className="flex flex-col md:h-[calc(100vh-65px)] md:flex-row">
@@ -235,7 +227,7 @@ function Component() {
                           ? "Step 2 of 3"
                           : "Step 3 of 3"}
                     </p>
-                    <h2 className="font-serif text-2xl text-stone-700 sm:text-3xl">
+                    <h2 className="font-mono text-2xl text-stone-700 sm:text-3xl">
                       {step === "crust"
                         ? "Pick your crust"
                         : step === "sauce"
@@ -470,8 +462,8 @@ function RevealSection({
           <div className="flex-shrink-0">
             <PizzaGraphic crust={crust} sauce={sauce} showPineapple={true} />
           </div>
-          <div className="flex flex-col gap-5 text-center md:text-left">
-            <h2 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <div className="flex flex-col gap-5 text-left md:text-left">
+            <h2 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Felt annoying, didn't it?
             </h2>
             <p className="max-w-lg text-lg text-neutral-500">
@@ -498,11 +490,10 @@ function RevealSection({
           </div>
         </div>
       </section>
-      <SlashSeparator />
       <section>
         <div className="grid md:grid-cols-3">
           <div className="border-b border-neutral-100 p-8 md:border-r md:border-b-0">
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Choose your AI
             </h3>
             <p className="text-neutral-600">
@@ -512,7 +503,7 @@ function RevealSection({
             </p>
           </div>
           <div className="border-b border-neutral-100 p-8 md:border-r md:border-b-0">
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Your notes are files
             </h3>
             <p className="text-neutral-600">
@@ -521,7 +512,7 @@ function RevealSection({
             </p>
           </div>
           <div className="p-8">
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               No bots. No lock-in.
             </h3>
             <p className="text-neutral-600">

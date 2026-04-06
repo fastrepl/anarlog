@@ -71,14 +71,11 @@ function Component() {
   const { update, newerSlug, olderSlug, sorted } = Route.useLoaderData();
 
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <main className="min-h-screen flex-1">
+      <div className="mx-auto">
         <div className="mx-auto max-w-3xl px-6 pt-16 pb-8 lg:pt-24">
-          <div className="mb-12 flex flex-col items-center gap-2 text-center">
-            <h1 className="font-serif text-3xl font-medium text-stone-700 sm:text-4xl">
+          <div className="mb-12 flex flex-col items-center gap-2 text-left">
+            <h1 className="font-mono text-3xl font-medium text-stone-700 sm:text-4xl">
               {getWeekLabel(update.date)}
             </h1>
             <time className="text-sm text-neutral-500" dateTime={update.date}>
@@ -90,7 +87,7 @@ function Component() {
             </time>
           </div>
 
-          <article className="prose prose-stone prose-headings:font-serif prose-headings:font-semibold prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h4:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-a:text-stone-700 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-img:rounded-lg prose-img:border prose-img:border-neutral-200 prose-img:my-6 max-w-none">
+          <article className="prose prose-stone prose-headings:font-mono prose-headings:font-semibold prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4 prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3 prose-h4:text-lg prose-h4:mt-4 prose-h4:mb-2 prose-a:text-stone-700 prose-a:underline prose-a:decoration-dotted hover:prose-a:text-stone-800 prose-headings:no-underline prose-headings:decoration-transparent prose-code:bg-stone-50 prose-code:border prose-code:border-neutral-200 prose-code:rounded prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-mono prose-code:text-stone-700 prose-img:rounded-lg prose-img:border prose-img:border-neutral-200 prose-img:my-6 max-w-none">
             <MDXContent code={update.mdx} components={defaultMDXComponents} />
           </article>
         </div>
@@ -145,8 +142,8 @@ function Component() {
         <div className="border-t border-neutral-100" />
 
         <div className="mx-auto max-w-3xl px-6 py-16 lg:py-24">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <h2 className="font-serif text-3xl text-stone-700">
+          <div className="flex flex-col items-center gap-4 text-left">
+            <h2 className="font-mono text-3xl text-stone-700">
               Get updates in your inbox
             </h2>
             <p className="text-neutral-600">

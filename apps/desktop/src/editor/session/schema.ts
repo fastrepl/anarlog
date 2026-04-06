@@ -3,6 +3,7 @@ import { type MarkSpec, type NodeSpec, Schema } from "prosemirror-model";
 import {
   imageNodeSpec,
   mentionNodeSpec,
+  sessionNodeSpec,
   taskItemNodeSpec,
   taskListNodeSpec,
 } from "../node-views";
@@ -121,6 +122,7 @@ const nodes: Record<string, NodeSpec> = {
   taskItem: taskItemNodeSpec,
   image: imageNodeSpec,
   "mention-@": mentionNodeSpec,
+  session: sessionNodeSpec,
   clip: clipNodeSpec,
 };
 

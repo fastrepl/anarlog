@@ -14,10 +14,10 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use futures_util::{SinkExt, Stream, StreamExt, stream::poll_fn};
+use hypr_audio_chunking::{SpeechChunkExt, SpeechChunkingConfig};
 use hypr_audio_interface::AsyncSource;
 use hypr_model_manager::{ModelManager, ModelManagerBuilder};
 use hypr_transcribe_core::TARGET_SAMPLE_RATE;
-use hypr_vad_chunking::VadExt;
 use hypr_ws_utils::ConnectionManager;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, ListenParams};
@@ -453,7 +453,8 @@ fn build_transcription_streams(
         audio_txs.push(audio_tx);
 
         let model = build_model_with_languages(loaded_model, languages.to_vec())?;
-        let chunk_stream = ChannelAudioSource::new(audio_rx).speech_chunks(redemption_time);
+        let chunk_stream = ChannelAudioSource::new(audio_rx)
+            .speech_chunks(SpeechChunkingConfig::speech(redemption_time));
         let stream: TranscriptionStream = Box::pin(TranscribeChannelStream::new(
             channel_idx,
             chunk_stream,
@@ -524,7 +525,7 @@ impl<S> TranscribeChannelStream<S> {
 
 impl<S> Stream for TranscribeChannelStream<S>
 where
-    S: Stream<Item = Result<hypr_vad_chunking::AudioChunk, hypr_vad_chunking::Error>> + Unpin,
+    S: Stream<Item = Result<hypr_audio_chunking::AudioChunk, hypr_audio_chunking::Error>> + Unpin,
 {
     type Item = Result<(usize, crate::service::Segment), crate::Error>;
 
@@ -536,7 +537,7 @@ where
         loop {
             match Pin::new(&mut self.chunk_stream).poll_next(cx) {
                 Poll::Ready(Some(Ok(chunk))) => {
-                    let start_sec = chunk.start_timestamp_ms as f64 / 1000.0;
+                    let start_sec = chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64;
                     match transcribe_chunk(&mut self.model, &chunk.samples, start_sec) {
                         Ok(segments) => {
                             self.pending.extend(segments);

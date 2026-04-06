@@ -12,7 +12,7 @@ pub enum Error {
     Whisper(#[from] hypr_whisper_local::Error),
 
     #[error(transparent)]
-    Vad(#[from] hypr_vad_chunking::Error),
+    Chunking(#[from] hypr_audio_chunking::Error),
 
     #[error(transparent)]
     Json(#[from] serde_json::Error),

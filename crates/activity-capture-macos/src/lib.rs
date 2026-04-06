@@ -7,6 +7,8 @@ mod ax;
 #[cfg(target_os = "macos")]
 mod browser_url;
 #[cfg(target_os = "macos")]
+mod frontmost;
+#[cfg(target_os = "macos")]
 mod handlers;
 #[cfg(target_os = "macos")]
 mod platform;

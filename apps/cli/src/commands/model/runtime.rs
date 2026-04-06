@@ -33,7 +33,7 @@ impl ModelDownloaderRuntime<LocalModel> for CliModelRuntime {
             DownloadStatus::Completed => {
                 let _ = tx.send(DownloadEvent::Completed);
             }
-            DownloadStatus::Failed => {
+            DownloadStatus::Failed(_) => {
                 let _ = tx.send(DownloadEvent::Failed);
             }
         }

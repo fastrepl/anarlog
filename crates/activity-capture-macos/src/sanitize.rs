@@ -1,13 +1,23 @@
 #![cfg(target_os = "macos")]
 
-use crate::app_profile::AppProfile;
+use hypr_activity_capture_interface::TextAnchorKind;
+
+use crate::{app_profile::AppProfile, ax::TextAnchorCapture};
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct SanitizedSnapshotFields {
+    pub window_title: Option<String>,
+    pub visible_text: Option<String>,
+    pub text_anchor: Option<TextAnchorCapture>,
+}
 
 pub(crate) fn sanitize_snapshot_fields(
     app_name: &str,
     bundle_id: Option<&str>,
     window_title: Option<String>,
     visible_text: Option<String>,
-) -> (Option<String>, Option<String>) {
+    text_anchor: Option<TextAnchorCapture>,
+) -> SanitizedSnapshotFields {
     let profile = AppProfile::from_bundle_id(bundle_id);
     let normalized_title = normalize_window_title(window_title.as_deref(), app_name, profile);
     let filtered_lines = visible_text
@@ -19,8 +29,72 @@ pub(crate) fn sanitize_snapshot_fields(
     let visible_lines =
         filter_duplicate_title_lines(filtered_lines, window_title.as_deref(), app_name, profile);
     let visible_text = (!visible_lines.is_empty()).then(|| visible_lines.join("\n"));
+    let text_anchor = sanitize_text_anchor(text_anchor, window_title.as_deref());
 
-    (window_title, visible_text)
+    SanitizedSnapshotFields {
+        window_title,
+        visible_text,
+        text_anchor,
+    }
+}
+
+fn sanitize_text_anchor(
+    text_anchor: Option<TextAnchorCapture>,
+    window_title: Option<&str>,
+) -> Option<TextAnchorCapture> {
+    let mut text_anchor = text_anchor?;
+
+    text_anchor.identity = text_anchor.identity.trim().to_string();
+    if text_anchor.identity.is_empty() {
+        return None;
+    }
+
+    text_anchor.text = normalize_anchor_field(text_anchor.text);
+    text_anchor.prefix = normalize_anchor_field(text_anchor.prefix);
+    text_anchor.suffix = normalize_anchor_field(text_anchor.suffix);
+    text_anchor.selected_text = normalize_anchor_field(text_anchor.selected_text);
+
+    let normalized_title = window_title.map(normalize_anchor_text);
+    let preserve_primary_anchor_text = matches!(
+        text_anchor.kind,
+        TextAnchorKind::FocusedEdit | TextAnchorKind::SelectedText
+    );
+    if !preserve_primary_anchor_text && normalized_title.as_deref() == text_anchor.text.as_deref() {
+        text_anchor.text = None;
+    }
+    if !preserve_primary_anchor_text
+        && normalized_title.as_deref() == text_anchor.selected_text.as_deref()
+    {
+        text_anchor.selected_text = None;
+    }
+
+    if text_anchor.prefix.as_deref() == text_anchor.text.as_deref() {
+        text_anchor.prefix = None;
+    }
+    if text_anchor.suffix.as_deref() == text_anchor.text.as_deref() {
+        text_anchor.suffix = None;
+    }
+
+    if text_anchor.text.is_none() && text_anchor.selected_text.is_none() {
+        return None;
+    }
+
+    Some(text_anchor)
+}
+
+fn normalize_anchor_field(value: Option<String>) -> Option<String> {
+    value
+        .map(|value| normalize_anchor_text(&value))
+        .filter(|value| !value.is_empty())
+}
+
+fn normalize_anchor_text(value: &str) -> String {
+    value
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn normalize_window_title(
@@ -39,7 +113,8 @@ fn normalize_window_title(
         | AppProfile::Chrome
         | AppProfile::Arc
         | AppProfile::Brave
-        | AppProfile::Edge => Some(
+        | AppProfile::Edge
+        | AppProfile::VsCode => Some(
             strip_app_name_suffix(trimmed, app_name)
                 .unwrap_or(trimmed)
                 .to_string(),
@@ -190,24 +265,28 @@ fn normalized_comparison_key(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::sanitize_snapshot_fields;
+    use hypr_activity_capture_interface::{TextAnchorConfidence, TextAnchorKind};
+
+    use super::{sanitize_snapshot_fields, sanitize_text_anchor};
+    use crate::ax::TextAnchorCapture;
 
     #[test]
     fn normalizes_slack_title_and_removes_duplicate_visible_text() {
-        let (window_title, visible_text) = sanitize_snapshot_fields(
+        let fields = sanitize_snapshot_fields(
             "Slack",
             Some("com.tinyspeck.slackmacgap"),
             Some("product (Channel) - Fastrepl - Slack".to_string()),
             Some("product (Channel) - Fastrepl - Slack".to_string()),
+            None,
         );
 
-        assert_eq!(window_title.as_deref(), Some("product (Channel)"));
-        assert_eq!(visible_text.as_deref(), None);
+        assert_eq!(fields.window_title.as_deref(), Some("product (Channel)"));
+        assert_eq!(fields.visible_text.as_deref(), None);
     }
 
     #[test]
     fn falls_back_to_meaningful_visible_text_when_window_title_is_missing() {
-        let (window_title, visible_text) = sanitize_snapshot_fields(
+        let fields = sanitize_snapshot_fields(
             "Philo",
             Some("com.johnjeong.philo"),
             Some(String::new()),
@@ -215,48 +294,141 @@ mod tests {
                 "Project notes\nStart meeting recording\nPin window\nShip activity tracking fix"
                     .to_string(),
             ),
+            None,
         );
 
-        assert_eq!(window_title.as_deref(), Some("Project notes"));
-        assert_eq!(visible_text.as_deref(), Some("Ship activity tracking fix"));
+        assert_eq!(fields.window_title.as_deref(), Some("Project notes"));
+        assert_eq!(
+            fields.visible_text.as_deref(),
+            Some("Ship activity tracking fix")
+        );
     }
 
     #[test]
     fn treats_app_name_titles_as_generic() {
-        let (window_title, visible_text) = sanitize_snapshot_fields(
+        let fields = sanitize_snapshot_fields(
             "Slack",
             Some("com.slack.Slack"),
             Some("Slack".to_string()),
             Some("Roadmap".to_string()),
+            None,
         );
 
-        assert_eq!(window_title.as_deref(), Some("Roadmap"));
-        assert_eq!(visible_text.as_deref(), None);
+        assert_eq!(fields.window_title.as_deref(), Some("Roadmap"));
+        assert_eq!(fields.visible_text.as_deref(), None);
     }
 
     #[test]
     fn strips_browser_app_suffixes_from_titles() {
-        let (window_title, visible_text) = sanitize_snapshot_fields(
+        let fields = sanitize_snapshot_fields(
             "Google Chrome",
             Some("com.google.Chrome"),
             Some("Quarterly plan - Google Chrome".to_string()),
             Some("Quarterly plan - Google Chrome\nNext action".to_string()),
+            None,
         );
 
-        assert_eq!(window_title.as_deref(), Some("Quarterly plan"));
-        assert_eq!(visible_text.as_deref(), Some("Next action"));
+        assert_eq!(fields.window_title.as_deref(), Some("Quarterly plan"));
+        assert_eq!(fields.visible_text.as_deref(), Some("Next action"));
     }
 
     #[test]
     fn normalizes_metadata_only_titles_too() {
-        let (window_title, visible_text) = sanitize_snapshot_fields(
+        let fields = sanitize_snapshot_fields(
             "Safari",
             Some("com.apple.Safari"),
             Some("Reading list - Safari".to_string()),
             None,
+            None,
         );
 
-        assert_eq!(window_title.as_deref(), Some("Reading list"));
-        assert_eq!(visible_text, None);
+        assert_eq!(fields.window_title.as_deref(), Some("Reading list"));
+        assert_eq!(fields.visible_text, None);
+    }
+
+    #[test]
+    fn preserves_short_anchor_typing_fragments() {
+        let anchor = TextAnchorCapture {
+            kind: TextAnchorKind::FocusedEdit,
+            identity: "mail:compose".to_string(),
+            text: Some(" su \n\nsure! ".to_string()),
+            prefix: Some(" 메일 본문 ".to_string()),
+            suffix: None,
+            selected_text: None,
+            confidence: TextAnchorConfidence::High,
+        };
+
+        let sanitized = sanitize_text_anchor(Some(anchor), Some("Compose")).unwrap();
+
+        assert_eq!(sanitized.text.as_deref(), Some("su\nsure!"));
+        assert_eq!(sanitized.prefix.as_deref(), Some("메일 본문"));
+    }
+
+    #[test]
+    fn removes_anchor_text_that_exactly_duplicates_title() {
+        let anchor = TextAnchorCapture {
+            kind: TextAnchorKind::FocusedElement,
+            identity: "browser:tab".to_string(),
+            text: Some("Show HN: Char".to_string()),
+            prefix: None,
+            suffix: None,
+            selected_text: None,
+            confidence: TextAnchorConfidence::Medium,
+        };
+
+        let sanitized = sanitize_text_anchor(Some(anchor), Some("Show HN: Char"));
+
+        assert!(sanitized.is_none());
+    }
+
+    #[test]
+    fn keeps_focused_edit_anchor_text_when_it_matches_title() {
+        let anchor = TextAnchorCapture {
+            kind: TextAnchorKind::FocusedEdit,
+            identity: "codex:composer".to_string(),
+            text: Some("feel like we need some general fallback".to_string()),
+            prefix: None,
+            suffix: None,
+            selected_text: None,
+            confidence: TextAnchorConfidence::High,
+        };
+
+        let sanitized = sanitize_text_anchor(
+            Some(anchor),
+            Some("feel like we need some general fallback"),
+        )
+        .unwrap();
+
+        assert_eq!(
+            sanitized.text.as_deref(),
+            Some("feel like we need some general fallback")
+        );
+    }
+
+    #[test]
+    fn keeps_anchor_text_even_when_ambient_text_matches_it() {
+        let anchor = TextAnchorCapture {
+            kind: TextAnchorKind::FocusedEdit,
+            identity: "mail:compose".to_string(),
+            text: Some("sure!".to_string()),
+            prefix: None,
+            suffix: None,
+            selected_text: None,
+            confidence: TextAnchorConfidence::High,
+        };
+
+        let fields = sanitize_snapshot_fields(
+            "Mail",
+            Some("com.apple.mail"),
+            Some("Compose".to_string()),
+            Some("sure!".to_string()),
+            Some(anchor),
+        );
+
+        assert_eq!(
+            fields.text_anchor.and_then(|anchor| anchor.text).as_deref(),
+            Some("sure!")
+        );
+        assert_eq!(fields.visible_text.as_deref(), Some("sure!"));
     }
 }

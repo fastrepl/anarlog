@@ -93,7 +93,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       setActiveDownloads((prev) => {
         const next = new Map(prev);
-        if (status === "failed" || status === "completed") {
+        const isFailed = typeof status === "object" && "failed" in status;
+        if (isFailed || status === "completed") {
           next.delete(eventModel);
         } else if (typeof status === "object" && "downloading" in status) {
           next.set(eventModel, Math.max(0, Math.min(100, status.downloading)));

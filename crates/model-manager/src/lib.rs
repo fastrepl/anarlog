@@ -113,4 +113,22 @@ mod tests {
         let m3 = mgr.get(Some("a")).await.unwrap();
         assert!(Arc::ptr_eq(&m1, &m3));
     }
+
+    #[tokio::test(start_paused = true)]
+    async fn access_after_timeout_before_monitor_tick_reloads() {
+        let path = temp_model_path();
+        let mgr = build_manager(
+            Duration::from_millis(100),
+            Duration::from_secs(60),
+            &[("a", path)],
+        );
+
+        let m1 = mgr.get(Some("a")).await.unwrap();
+
+        tokio::time::advance(Duration::from_millis(120)).await;
+        tokio::task::yield_now().await;
+
+        let m2 = mgr.get(Some("a")).await.unwrap();
+        assert!(!Arc::ptr_eq(&m1, &m2));
+    }
 }

@@ -33,7 +33,7 @@ impl<R: Runtime> ModelDownloaderRuntime<crate::SupportedModel> for TauriModelRun
         let progress: i8 = match &status {
             DownloadStatus::Downloading(p) => *p as i8,
             DownloadStatus::Completed => 100,
-            DownloadStatus::Failed => -1,
+            DownloadStatus::Failed(_) => -1,
         };
 
         let key = model.download_key();
@@ -44,7 +44,10 @@ impl<R: Runtime> ModelDownloaderRuntime<crate::SupportedModel> for TauriModelRun
         };
 
         let send_result = channel.send(progress);
-        let is_terminal = matches!(status, DownloadStatus::Completed | DownloadStatus::Failed);
+        let is_terminal = matches!(
+            status,
+            DownloadStatus::Completed | DownloadStatus::Failed(_)
+        );
         if send_result.is_err() || is_terminal {
             guard.remove(&key);
         }

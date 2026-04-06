@@ -75,8 +75,6 @@ common_derives! {
         },
         #[serde(rename = "onboarding")]
         Onboarding,
-        #[serde(rename = "daily")]
-        Daily,
         #[serde(rename = "edit")]
         Edit {
             #[serde(rename = "requestId")]

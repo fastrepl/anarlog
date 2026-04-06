@@ -3,11 +3,11 @@ import { arch } from "@tauri-apps/plugin-os";
 import { Check, Loader2 } from "lucide-react";
 import { useRef } from "react";
 
-import { commands as listenerCommands } from "@hypr/plugin-listener";
 import {
   commands as localSttCommands,
   type LocalModel,
 } from "@hypr/plugin-local-stt";
+import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { AIProviderStorage } from "@hypr/store";
 import { Input } from "@hypr/ui/components/ui/input";
 import {
@@ -233,11 +233,9 @@ export function SelectProviderAndModel() {
                       <span key={model.id}>
                         {showHeader && (
                           <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
-                            {model.category === "latest"
-                              ? "Recommended"
-                              : model.category === "experimental"
-                                ? "Experimental"
-                                : "Deprecated"}
+                            {model.category === "experimental"
+                              ? "Experimental"
+                              : "Recommended"}
                           </div>
                         )}
                         <ModelSelectItem
@@ -282,7 +280,7 @@ export function SelectProviderAndModel() {
   );
 }
 
-type ModelCategory = "latest" | "experimental" | "deprecated" | null;
+type ModelCategory = "latest" | "experimental" | null;
 type ModelEntry = {
   id: string;
   isDownloaded: boolean;
@@ -323,13 +321,8 @@ function useConfiguredMapping(): Record<
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
-  const [p2, p3, whisperLargeV3, ...cactusDownloaded] = useQueries({
-    queries: [
-      sttModelQueries.isDownloaded("am-parakeet-v2"),
-      sttModelQueries.isDownloaded("am-parakeet-v3"),
-      sttModelQueries.isDownloaded("am-whisper-large-v3"),
-      ...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key)),
-    ],
+  const cactusDownloaded = useQueries({
+    queries: [...cactusModels.map((m) => sttModelQueries.isDownloaded(m.key))],
   });
 
   return Object.fromEntries(
@@ -357,41 +350,15 @@ function useConfiguredMapping(): Record<
         ];
 
         if (isAppleSilicon) {
-          const cactusWhisper: ModelEntry[] = [];
-          const cactusParakeet: ModelEntry[] = [];
-
           cactusModels.forEach((model, i) => {
-            const entry: ModelEntry = {
+            const isRecommended = String(model.key).includes("whisper");
+            models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,
               displayName: model.display_name,
-            };
-            if (String(model.key).includes("whisper")) {
-              cactusWhisper.push({ ...entry, category: "latest" });
-            } else {
-              cactusParakeet.push({ ...entry, category: "experimental" });
-            }
+              category: isRecommended ? "latest" : "experimental",
+            });
           });
-
-          models.push(...cactusWhisper, ...cactusParakeet);
-
-          models.push(
-            {
-              id: "am-parakeet-v2",
-              isDownloaded: p2.data ?? false,
-              category: "deprecated",
-            },
-            {
-              id: "am-parakeet-v3",
-              isDownloaded: p3.data ?? false,
-              category: "deprecated",
-            },
-            {
-              id: "am-whisper-large-v3",
-              isDownloaded: whisperLargeV3.data ?? false,
-              category: "deprecated",
-            },
-          );
         }
 
         return [provider.id, { configured: true, models }];

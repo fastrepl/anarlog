@@ -29,16 +29,7 @@ export function useCurrentNoteTab(
   tab: Extract<Tab, { type: "sessions" }>,
 ): EditorView {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
-  const isListenerStarting = useListener(
-    (state) =>
-      state.live.loading &&
-      state.live.sessionId === tab.id &&
-      state.live.status === "inactive",
-  );
-  const isListenerActive =
-    sessionMode === "active" ||
-    sessionMode === "finalizing" ||
-    isListenerStarting;
+  const isLiveSessionActive = sessionMode === "active";
 
   const enhancedNoteIds = main.UI.useSliceRowIds(
     main.INDEXES.enhancedNotesBySession,
@@ -51,10 +42,10 @@ export function useCurrentNoteTab(
     () =>
       computeCurrentNoteTab(
         tab.state.view ?? null,
-        isListenerActive,
+        isLiveSessionActive,
         firstEnhancedNoteId,
       ),
-    [tab.state.view, isListenerActive, firstEnhancedNoteId],
+    [tab.state.view, isLiveSessionActive, firstEnhancedNoteId],
   );
 }
 

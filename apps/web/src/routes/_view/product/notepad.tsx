@@ -44,14 +44,11 @@ function Component() {
   const primaryCTA = getPrimaryCTA();
 
   return (
-    <div
-      className="overflow-hidden bg-linear-to-b from-white via-stone-50/20 to-white sm:h-[calc(100vh-65px)]"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
+    <div className="overflow-hidden sm:h-[calc(100vh-65px)]">
       <div className="relative mx-auto flex h-full max-w-6xl flex-col border-x border-neutral-100 bg-white">
         <div className="relative z-10 flex flex-1 items-center justify-center bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6 py-12">
-          <div className="pointer-events-auto mx-auto max-w-4xl text-center">
-            <h1 className="mx-auto mb-6 max-w-2xl font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <div className="pointer-events-auto mx-auto max-w-4xl text-left">
+            <h1 className="mx-auto mb-6 max-w-2xl font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Your private notepad. <br className="hidden sm:inline" />
               No bots. Local-first.
             </h1>

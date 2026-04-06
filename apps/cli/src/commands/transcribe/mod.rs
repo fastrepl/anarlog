@@ -208,6 +208,11 @@ struct CollectedBatch {
     elapsed: Duration,
 }
 
+struct OutputTarget {
+    output_path: PathBuf,
+    audio_dest: Option<PathBuf>,
+}
+
 fn finish_batch(
     task_result: Result<
         Result<hypr_listener2_core::BatchRunOutput, hypr_listener2_core::Error>,
@@ -278,6 +283,47 @@ fn resolve_input(
     ))
 }
 
+fn resolve_output_target(
+    input_path: &Path,
+    output: Option<PathBuf>,
+    base: Option<&Path>,
+) -> CliResult<OutputTarget> {
+    if let Some(output_path) = output {
+        return Ok(OutputTarget {
+            output_path,
+            audio_dest: None,
+        });
+    }
+
+    let ts = input_timestamp(input_path);
+    let dir = super::resolve_session_dir(base, &ts)?;
+
+    Ok(OutputTarget {
+        output_path: dir.join("transcript.json"),
+        audio_dest: Some(dir.join("audio.mp3")),
+    })
+}
+
+fn saves_json(output_path: &Path) -> bool {
+    output_path.file_name() == Some(std::ffi::OsStr::new("transcript.json"))
+}
+
+async fn save_pretty_output(
+    output_path: Option<&Path>,
+    pretty: &str,
+    response: &owhisper_interface::batch::Response,
+) -> CliResult<()> {
+    let Some(output_path) = output_path else {
+        return Ok(());
+    };
+
+    if saves_json(output_path) {
+        crate::output::write_json(Some(output_path), response).await
+    } else {
+        crate::output::write_text(Some(output_path), pretty.to_string()).await
+    }
+}
+
 // -- Entry point --
 
 #[allow(clippy::unit_arg)]
@@ -288,14 +334,9 @@ pub async fn run(ctx: &AppContext, args: Args) -> CliResult<()> {
         args.base.as_deref(),
     )?;
     let format = args.format;
-    let (output_path, audio_dest) = if let Some(output) = args.output.clone() {
-        (output, None)
-    } else {
-        let ts = input_timestamp(&input_path);
-        let dir = super::resolve_session_dir(args.base.as_deref(), &ts)?;
-        (dir.join("transcript.json"), Some(dir.join("audio.mp3")))
-    };
-    let output_path = Some(output_path);
+    let output_target =
+        resolve_output_target(&input_path, args.output.clone(), args.base.as_deref())?;
+    let output_path = Some(output_target.output_path.clone());
     let input_display = input_path.display().to_string();
     let provider_display = format!("{:?}", args.provider).to_lowercase();
     let stt = ctx.stt_overrides(
@@ -313,7 +354,7 @@ pub async fn run(ctx: &AppContext, args: Args) -> CliResult<()> {
                 args,
                 stt,
                 output_path,
-                audio_dest,
+                output_target.audio_dest,
                 input_display,
                 provider_display,
             )
@@ -325,7 +366,7 @@ pub async fn run(ctx: &AppContext, args: Args) -> CliResult<()> {
                 args,
                 stt,
                 output_path,
-                audio_dest,
+                output_target.audio_dest,
                 ctx.trace_buffer(),
             )
             .await
@@ -555,9 +596,10 @@ async fn run_pretty(
 
     let result = finish_batch(handle.task.await, failure, handle.started)?;
     let response = &result.response;
-
     let pretty = output::format_pretty(response);
-    crate::output::write_text(output_path.as_deref(), pretty).await?;
+
+    crate::output::write_text(None, pretty.clone()).await?;
+    save_pretty_output(output_path.as_deref(), &pretty, response).await?;
 
     let audio_duration = response
         .metadata
@@ -639,6 +681,8 @@ mod tests {
     use std::io::Cursor;
     use std::path::Path;
 
+    use owhisper_interface::batch;
+
     use super::*;
 
     #[test]
@@ -678,5 +722,83 @@ mod tests {
         .unwrap();
 
         assert_eq!(params.keywords, vec!["roadmap", "planning"]);
+    }
+
+    #[test]
+    fn resolve_output_target_uses_json_session_artifact_by_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("input.mp3");
+        std::fs::write(&input, b"audio").unwrap();
+
+        let target = resolve_output_target(&input, None, Some(dir.path())).unwrap();
+
+        assert_eq!(target.output_path.file_name().unwrap(), "transcript.json");
+        assert_eq!(
+            target.audio_dest.as_ref().and_then(|path| path.file_name()),
+            Some(std::ffi::OsStr::new("audio.mp3"))
+        );
+    }
+
+    #[test]
+    fn saves_json_only_for_transcript_json() {
+        assert!(saves_json(Path::new("/tmp/transcript.json")));
+        assert!(!saves_json(Path::new("/tmp/output.txt")));
+    }
+
+    #[tokio::test]
+    async fn save_pretty_output_persists_json_response_for_transcript_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("transcript.json");
+        let response = batch::Response {
+            metadata: serde_json::json!({ "duration": 1.2 }),
+            results: batch::Results {
+                channels: vec![batch::Channel {
+                    alternatives: vec![batch::Alternatives {
+                        transcript: "hello world".to_string(),
+                        confidence: 1.0,
+                        words: vec![batch::Word {
+                            word: "hello".to_string(),
+                            start: 0.0,
+                            end: 0.5,
+                            confidence: 1.0,
+                            channel: 0,
+                            speaker: None,
+                            punctuated_word: Some("hello".to_string()),
+                        }],
+                    }],
+                }],
+            },
+        };
+
+        save_pretty_output(Some(&out), "pretty text", &response)
+            .await
+            .unwrap();
+
+        let saved = std::fs::read_to_string(out).unwrap();
+        let parsed: batch::Response = serde_json::from_str(&saved).unwrap();
+
+        assert_eq!(
+            parsed.results.channels[0].alternatives[0].transcript,
+            "hello world"
+        );
+        assert!(saved.starts_with('{'));
+    }
+
+    #[tokio::test]
+    async fn save_pretty_output_writes_pretty_text_for_non_json_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("transcript.txt");
+        let response = batch::Response {
+            metadata: serde_json::json!({}),
+            results: batch::Results {
+                channels: Vec::new(),
+            },
+        };
+
+        save_pretty_output(Some(&out), "pretty text", &response)
+            .await
+            .unwrap();
+
+        assert_eq!(std::fs::read_to_string(out).unwrap(), "pretty text\n");
     }
 }

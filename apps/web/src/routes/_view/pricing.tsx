@@ -1,11 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion } from "motion/react";
 
 import { MARKETING_PLAN_TIERS, type MarketingPlanData } from "@hypr/pricing";
 import { PlanFeatureList } from "@hypr/pricing/ui";
 import { cn } from "@hypr/utils";
-
-import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 
 export const Route = createFileRoute("/_view/pricing")({
   component: Component,
@@ -13,17 +11,11 @@ export const Route = createFileRoute("/_view/pricing")({
 
 function Component() {
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <main className="laptop:px-6 min-h-screen flex-1 px-4">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <PricingCardsSection />
-        <SlashSeparator />
         <FAQSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </main>
@@ -32,12 +24,12 @@ function Component() {
 
 function HeroSection() {
   return (
-    <section className="laptop:px-0 flex flex-col items-center gap-6 border-b border-neutral-100 px-4 py-24 text-center">
+    <section className="border-color-bright flex flex-col gap-6 border-b pt-16 pb-16 text-left md:pt-24">
       <div className="flex max-w-3xl flex-col gap-4">
-        <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+        <h1 className="text-fg font-mono text-4xl tracking-tight sm:text-5xl">
           Pricing
         </h1>
-        <p className="text-lg text-neutral-600 sm:text-xl">
+        <p className="text-fg text-lg sm:text-xl">
           Download the app, then upgrade in desktop when you need cloud
           features.
         </p>
@@ -48,8 +40,8 @@ function HeroSection() {
 
 function PricingCardsSection() {
   return (
-    <section className="laptop:px-0 px-4 py-16">
-      <div className="mx-auto grid max-w-5xl grid-cols-1 items-stretch gap-8 md:grid-cols-3">
+    <section className="py-16">
+      <div className="mx-auto grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
         {MARKETING_PLAN_TIERS.map((plan) => (
           <PricingCard key={plan.id} plan={plan} />
         ))}
@@ -60,28 +52,27 @@ function PricingCardsSection() {
 
 function PricingCard({ plan }: { plan: MarketingPlanData }) {
   return (
-    <div
+    <motion.div
+      whileHover={{ scale: 1.02, shadow: "0 0 10px 1 rgba(0, 0, 4, 0.35)" }}
+      transition={{ type: "easeInOut" }}
       className={cn([
-        "flex flex-col overflow-hidden rounded-xs border transition-transform",
+        "flex flex-col overflow-hidden rounded-xl border",
         plan.popular
-          ? "relative border-stone-600 shadow-lg"
-          : "border-neutral-100",
+          ? "border-color-bright surface relative shadow-lg"
+          : "border-color-bright surface",
       ])}
     >
-      {plan.popular ? (
-        <div className="bg-stone-600 px-4 py-2 text-center text-sm font-medium text-white">
-          Most Popular
-        </div>
-      ) : (
-        <div className="px-4 py-2 text-sm">&nbsp;</div>
-      )}
-
       <div className="flex flex-1 flex-col p-8">
         <div className="mb-6">
-          <h2 className="mb-2 font-serif text-2xl text-stone-700">
-            {plan.name}
-          </h2>
-          <p className="mb-4 min-h-[80px] text-sm text-neutral-600">
+          <div className="mb-4 flex flex-row gap-4">
+            <h2 className="text-fg font-mono text-2xl">{plan.name}</h2>
+            {plan.popular && (
+              <div className="bg-brand-dark flex h-8 items-center justify-center rounded-full px-4 text-left font-mono text-sm text-white">
+                Most Popular
+              </div>
+            )}
+          </div>
+          <p className="text-fg mb-4 min-h-[80px] text-sm opacity-60">
             {plan.description}
           </p>
 
@@ -89,12 +80,12 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
             {plan.price ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="font-serif text-4xl text-stone-700">
+                  <span className="text-fg font-mono text-4xl font-medium">
                     ${plan.price.monthly}
                   </span>
-                  <span className="text-neutral-600">/month</span>
+                  <span className="text-fg-muted">/month</span>
                   {plan.price.yearly != null ? (
-                    <span className="text-sm text-neutral-600">
+                    <span className="text-fg-muted text-sm">
                       or ${plan.price.yearly}/year
                     </span>
                   ) : null}
@@ -102,8 +93,10 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
               </div>
             ) : (
               <div className="flex items-baseline gap-2">
-                <span className="font-serif text-4xl text-stone-700">$0</span>
-                <span className="text-neutral-600">per month</span>
+                <span className="text-fg font-mono text-4xl font-medium">
+                  $0
+                </span>
+                <span className="text-fg-muted">per month</span>
               </div>
             )}
           </div>
@@ -125,7 +118,7 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
           </Link>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -164,36 +157,36 @@ function FAQSection() {
     {
       question: "What are advanced templates?",
       answer:
-        "Advanced templates let you override Char’s default system prompt by configuring template variables and the overall instructions given to the AI.",
+        "Advanced templates let you override Char's default system prompt by configuring template variables and the overall instructions given to the AI.",
     },
     {
       question: "What are shortcuts?",
       answer:
-        "Shortcuts are saved prompts you use repeatedly, like “Write a follow-up to blog blah” or “Create a one-pager of the important stuff that’s been discussed.” They’re available in chat via the / command.",
+        'Shortcuts are saved prompts you use repeatedly, like "Write a follow-up to blog blah" or "Create a one-pager of the important stuff that\'s been discussed." They\'re available in chat via the / command.',
     },
     {
       question: "Do you offer student discounts?",
       answer:
-        "Yes, we provide student discounts. Contact us and we’ll help you get set up with student pricing.",
+        "Yes, we provide student discounts. Contact us and we'll help you get set up with student pricing.",
     },
   ];
 
   return (
-    <section className="laptop:px-0 border-t border-neutral-100 px-4 py-16">
-      <div className="mx-auto max-w-3xl">
-        <h2 className="mb-16 text-center font-serif text-3xl text-stone-700">
+    <section className="border-color-brand border-t py-16">
+      <div className="flex flex-col gap-6 md:flex-row">
+        <h2 className="text-fg mb-4 text-left font-mono text-3xl md:mb-16">
           Frequently Asked Questions
         </h2>
         <div className="flex flex-col gap-6">
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="border-b border-neutral-100 pb-6 last:border-b-0"
+              className="border-color-bright border-b pb-6 last:border-b-0"
             >
-              <h3 className="mb-2 text-lg font-medium text-neutral-900">
+              <h3 className="text-fg mb-2 text-lg font-medium">
                 {faq.question}
               </h3>
-              <p className="text-neutral-600">{faq.answer}</p>
+              <p className="text-fg-muted text-base">{faq.answer}</p>
             </div>
           ))}
         </div>
@@ -204,28 +197,26 @@ function FAQSection() {
 
 function CTASection() {
   return (
-    <section className="laptop:px-0 border-t border-neutral-100 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-center">
-        <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
-          <Image
-            src="/api/images/hyprnote/icon.png"
-            alt="Char"
-            width={144}
-            height={144}
-            className="mx-auto size-36 rounded-[40px] border border-neutral-100"
-          />
-        </div>
-        <h2 className="font-serif text-2xl sm:text-3xl">Need a team plan?</h2>
+    <section className="laptop:px-0 border-t border-neutral-100 px-4 py-16">
+      <div className="flex flex-col items-center gap-6 text-left">
+        <h2 className="font-mono text-2xl sm:text-3xl">Need a team plan?</h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600">
           Book a call to discuss custom team pricing and enterprise solutions
         </p>
-        <div className="pt-6">
+        <div className="rounded-full bg-gradient-to-b from-gray-100 to-gray-700 pt-6 shadow-sm transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]">
           <Link
             to="/founders/"
             search={{ source: "team-plan" }}
-            className="flex h-12 items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-6 text-base text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] sm:text-lg"
+            className="surface-dark relative flex h-12 items-center justify-center overflow-hidden rounded-full px-6 text-base font-medium text-white sm:text-lg"
           >
-            Book a call
+            <div
+              className="pointer-events-none absolute -top-4 left-1/2 h-12 w-full -translate-x-1/2 opacity-40"
+              style={{
+                background:
+                  "radial-gradient(50% 100% at 50% 0%, white, transparent)",
+              }}
+            />
+            <span className="relative">Book a call</span>
           </Link>
         </div>
       </div>

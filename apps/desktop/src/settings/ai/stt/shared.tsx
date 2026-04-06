@@ -8,7 +8,7 @@ import {
 } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
-import type { AmModel, LocalModel } from "@hypr/plugin-local-stt";
+import type { LocalModel } from "@hypr/plugin-local-stt";
 
 import { env } from "~/env";
 import { CharProviderIcon } from "~/settings/ai/shared";
@@ -73,17 +73,12 @@ export const displayModelId = (model: string) => {
     return "Voxtral Mini Transcribe 2";
   }
 
-  if (model.startsWith("am-")) {
-    const am = model as AmModel;
-    if (am == "am-parakeet-v2") {
-      return "Parakeet V2";
-    }
-    if (am == "am-parakeet-v3") {
-      return "Parakeet V3";
-    }
-    if (am == "am-whisper-large-v3") {
-      return "Whisper Large V3";
-    }
+  if (model === "parakeet-tdt-0.6b-v3") {
+    return "Parakeet TDT 0.6B V3";
+  }
+
+  if (model === "faster-whisper-large-v3-turbo") {
+    return "Faster Whisper Large V3 Turbo";
   }
 
   return model;
@@ -97,12 +92,7 @@ const _PROVIDERS = [
     badge: "Recommended",
     icon: <CharProviderIcon />,
     baseUrl: new URL("/stt", env.VITE_API_URL).toString(),
-    models: [
-      "cloud",
-      "am-parakeet-v2",
-      "am-parakeet-v3",
-      "am-whisper-large-v3",
-    ],
+    models: ["cloud"],
     requirements: [],
   },
   {
@@ -140,10 +130,10 @@ const _PROVIDERS = [
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
-    disabled: false,
+    disabled: true,
     id: "openai",
     displayName: "OpenAI",
-    badge: "Beta",
+    badge: "Batch only",
     icon: <OpenAI size={16} />,
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
@@ -172,7 +162,7 @@ const _PROVIDERS = [
     badge: null,
     icon: (
       <img
-        src="/assets/soniox.jpeg"
+        src="/assets/soniox-black.png"
         alt="Soniox"
         className="size-5 rounded-xs"
       />
@@ -199,6 +189,22 @@ const _PROVIDERS = [
     icon: <Mistral size={16} />,
     baseUrl: "https://api.mistral.ai/v1",
     models: ["voxtral-mini-2602"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: true,
+    id: "pyannote",
+    displayName: "pyannoteAI",
+    badge: "Batch only",
+    icon: (
+      <img
+        src="/assets/pyannote-logo-black.png"
+        alt="pyannoteAI"
+        className="size-4"
+      />
+    ),
+    baseUrl: "https://api.pyannote.ai",
+    models: ["parakeet-tdt-0.6b-v3", "faster-whisper-large-v3-turbo"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as sfxCommands } from "@hypr/plugin-sfx";
+import { cn } from "@hypr/utils";
 
 import { LoginSection } from "./account";
 import { CalendarSection } from "./calendar";
@@ -23,6 +24,7 @@ import { OnboardingSection } from "./shared";
 import { useAuth } from "~/auth";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
+import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export const TabItemOnboarding: TabItem<
@@ -64,14 +66,63 @@ export function TabContentOnboarding({
 }: {
   tab: Extract<Tab, { type: "onboarding" }>;
 }) {
-  const queryClient = useQueryClient();
   const close = useTabs((state) => state.close);
   const currentTab = useTabs((state) => state.currentTab);
+
+  const handleFinish = useCallback(() => {
+    if (currentTab) {
+      close(currentTab);
+    }
+  }, [close, currentTab]);
+
+  return <OnboardingScreen onFinish={handleFinish} />;
+}
+
+export function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
+  return (
+    <OnboardingScreenContent
+      onFinish={onFinish}
+      headerClassName="px-12 pt-12 pb-8"
+    />
+  );
+}
+
+export function StandaloneOnboardingScreen({
+  onFinish,
+}: {
+  onFinish: () => void;
+}) {
+  const isMacOS = platform() === "macos";
+
+  return (
+    <StandaloneWindowShell>
+      <OnboardingScreenContent
+        onFinish={onFinish}
+        headerClassName={
+          isMacOS ? "pt-12 pr-12 pb-8 pl-20" : "px-12 pt-12 pb-8"
+        }
+        headerDragRegion
+      />
+    </StandaloneWindowShell>
+  );
+}
+
+function OnboardingScreenContent({
+  onFinish,
+  headerClassName,
+  headerDragRegion = false,
+}: {
+  onFinish: () => void;
+  headerClassName: string;
+  headerDragRegion?: boolean;
+}) {
+  const queryClient = useQueryClient();
   const auth = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [currentStep, setCurrentStep] = useState(getInitialStep);
   const [didSkipLogin, setDidSkipLogin] = useState(false);
   const onboardingVideoRef = useRef<HTMLVideoElement>(null);
+  const currentPlatform = platform();
 
   const goNext = useCallback(() => {
     const next = getNextStep(currentStep);
@@ -92,9 +143,9 @@ export function TabContentOnboarding({
     void analyticsCommands.event({
       event: "onboarding_step_viewed",
       step: currentStep,
-      platform: platform(),
+      platform: currentPlatform,
     });
-  }, [currentStep]);
+  }, [currentPlatform, currentStep]);
 
   useEffect(() => {
     sfxCommands
@@ -118,10 +169,8 @@ export function TabContentOnboarding({
 
   const handleFinish = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
-    if (currentTab) {
-      close(currentTab);
-    }
-  }, [close, currentTab, queryClient]);
+    onFinish();
+  }, [onFinish, queryClient]);
 
   return (
     <StandardTabWrapper noBorder>
@@ -158,12 +207,19 @@ export function TabContentOnboarding({
           />
         </div>
 
-        <div className="sticky top-0 z-10 flex items-center justify-between px-12 pt-12 pb-8">
+        <div
+          data-tauri-drag-region={headerDragRegion || undefined}
+          className={cn([
+            "sticky top-0 z-10 flex items-center justify-between",
+            headerClassName,
+          ])}
+        >
           <h1 className="font-serif text-3xl font-semibold text-neutral-900">
             Welcome to Char
           </h1>
           <button
             onClick={() => setIsMuted((prev) => !prev)}
+            data-tauri-drag-region="false"
             className="rounded-full p-1.5 transition-colors hover:bg-neutral-100"
             aria-label={isMuted ? "Unmute" : "Mute"}
           >

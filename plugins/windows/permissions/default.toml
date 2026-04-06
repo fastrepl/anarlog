@@ -9,6 +9,4 @@ permissions = [
     "allow-window-set-frame-animated",
     "allow-window-save-frame",
     "allow-window-restore-frame-animated",
-    "allow-control-set-always-on-top",
-    "allow-control-set-opacity",
 ]

@@ -2,10 +2,6 @@
 
 Default permissions for the plugin
 
-#### This default permission set includes the following:
-
-- `allow-ping`
-
 ## Permission Table
 
 <table>
@@ -18,12 +14,12 @@ Default permissions for the plugin
 <tr>
 <td>
 
-`screen:allow-ping`
+`screen:allow-capture-frontmost-window-context`
 
 </td>
 <td>
 
-Enables the ping command without any pre-configured scope.
+Enables the capture_frontmost_window_context command without any pre-configured scope.
 
 </td>
 </tr>
@@ -31,12 +27,38 @@ Enables the ping command without any pre-configured scope.
 <tr>
 <td>
 
-`screen:deny-ping`
+`screen:deny-capture-frontmost-window-context`
 
 </td>
 <td>
 
-Denies the ping command without any pre-configured scope.
+Denies the capture_frontmost_window_context command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`screen:allow-capture-target-window-context`
+
+</td>
+<td>
+
+Enables the capture_target_window_context command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`screen:deny-capture-target-window-context`
+
+</td>
+<td>
+
+Denies the capture_target_window_context command without any pre-configured scope.
 
 </td>
 </tr>

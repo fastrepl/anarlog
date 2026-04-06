@@ -34,7 +34,7 @@ export async function openUrlWithInstruction(
   } catch (error) {
     await commands.windowEmitNavigate(
       { type: "main" },
-      { path: "/app/main", search: null },
+      { path: "/app", search: null },
     );
     await commands.windowRestoreFrameAnimated({ type: "main" });
     throw error;
@@ -44,7 +44,7 @@ export async function openUrlWithInstruction(
 export async function dismissInstruction() {
   await commands.windowEmitNavigate(
     { type: "main" },
-    { path: "/app/main", search: null },
+    { path: "/app", search: null },
   );
   await new Promise((resolve) => setTimeout(resolve, 100));
   await commands.windowRestoreFrameAnimated({ type: "main" });

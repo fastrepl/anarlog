@@ -1,3 +1,4 @@
+export { FormatToolbar } from "./format-toolbar";
 export {
   type MentionConfig,
   MentionSuggestion,

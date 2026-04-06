@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-target-window-context"
+description = "Enables the capture_target_window_context command without any pre-configured scope."
+commands.allow = ["capture_target_window_context"]
+
+[[permission]]
+identifier = "deny-capture-target-window-context"
+description = "Denies the capture_target_window_context command without any pre-configured scope."
+commands.deny = ["capture_target_window_context"]

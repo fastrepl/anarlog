@@ -1,8 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { jwtDecode } from "jwt-decode";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
 import { cn } from "@hypr/utils";
 
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
@@ -138,12 +140,17 @@ function Component() {
     if (!search.access_token) return;
 
     try {
-      const payload = JSON.parse(atob(search.access_token.split(".")[1]));
+      const payload = jwtDecode<SupabaseJwtPayload>(search.access_token);
       const email = payload.email;
       const userId = payload.sub;
 
-      if (email && userId) {
-        identifyPosthog(userId, { email });
+      if (userId) {
+        const billing = deriveBillingInfo(payload);
+        identifyPosthog(userId, {
+          ...(email ? { email } : {}),
+          plan: billing.plan,
+          trial_end_date: billing.trialEnd?.toISOString() ?? null,
+        });
       }
     } catch (e) {
       console.error("Failed to decode JWT for identify:", e);
@@ -193,7 +200,7 @@ function Component() {
 
   if (search.error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-white via-stone-50/20 to-white p-6">
+      <div className="flex min-h-screen items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-8 text-center">
           <div className="flex flex-col gap-3">
             <h1 className="font-serif text-3xl tracking-tight text-stone-700">
@@ -224,7 +231,7 @@ function Component() {
     const hasTokens = search.access_token && search.refresh_token;
 
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-white via-stone-50/20 to-white p-6">
+      <div className="flex min-h-screen items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-8 text-center">
           <div className="flex flex-col gap-3">
             <h1 className="font-serif text-3xl tracking-tight text-stone-700">

@@ -1,5 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&display=swap&family=Instrument+Serif:ital@1&display=swap");
-
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Lora:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap");
 @font-face {
   font-family: "Redaction";
   src: url("/fonts/Redaction-Regular.otf") format("opentype");
@@ -52,19 +52,70 @@
 @import "tailwindcss";
 @import "tailwind-scrollbar-hide/v4";
 @plugin "@tailwindcss/typography";
+@import "../../../packages/ui/src/styles/scroll-fade.css";
 
 @source "../../../packages/ui/src";
 @source "../../../packages/tiptap/src";
 
 @theme {
-  --font-sans: "SF Pro", system-ui, -apple-system, sans-serif;
-  --font-serif: "Lora", Georgia, serif;
+  /* ── Typography ──────────────────────────────── */
+  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-serif: "Fraunces", Georgia, serif;
   --font-serif2: "Instrument Serif", serif;
+
+  /* ── Layout ──────────────────────────────────── */
   --breakpoint-laptop: 72rem;
+  --breakpoint-wide: 87.5rem;
+
+  /* ── Animations ──────────────────────────────── */
   --animate-ios-opacity-spin: ios-opacity-spin 1s linear infinite;
+  --animate-hypr-dancing-stick: hypr-dancing-stick 1s ease-in-out infinite;
+
+  /* ── Colors: greys ────────────────────────────── */
+  --grey-900: oklch(0.3 0.0197 81.53);
+  --grey-700: oklch(0.4922 0.0127 67.79);
+  --grey-500: oklch(0.7782 0.0018 67.8);
+  --grey-300: oklch(0.9213 0.0027 106.45);
+  --grey-100: oklch(0.9558 0.0045 78.3);
+
+  /* ── Colors: backgrounds ─────────────────────── */
+  --color-page: #f2f1ef;
+  --color-surface: #ffffff;
+  --color-surface-subtle: var(--grey-100);
+
+  /* ── Colors: foreground / text ───────────────── */
+  --color-fg: var(--grey-900);
+  --color-fg-muted: #57534e;
+  --color-fg-subtle: var(--color-border);
+
+  /* ── Colors: borders ─────────────────────────── */
+  --color-border: var(--grey-500);
+  --color-border-subtle: var(--grey-300);
+  --color-border-bright: oklch(0.5959 0.0333 78.6);
+  --color-border-active: oklch(0.9213 0.0027 106.45);
+
+  /* ── Colors: brand ───────────────────────────── */
+  --color-brand-dark: #57534e;
+  --brand-yellow: oklch(0.9484 0.0672 90.6);
+
+  /* ── Shadows ─────────────────────────────────── */
+  --shadow-ring: 0 0 0 1px var(--color-border);
+  --shadow-ring-left: -1px 0 0 1px var(--color-border);
 }
 
 @theme inline {
+  @keyframes hypr-dancing-stick {
+    0%,
+    100% {
+      transform: scaleY(0.2);
+    }
+
+    50% {
+      transform: scaleY(1);
+    }
+  }
+
   @keyframes ios-opacity-spin {
     0%,
     100% {
@@ -120,8 +171,43 @@
 @layer base {
   html,
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
     max-width: 100vw;
+    font-family: var(--font-sans);
+    background-color: var(--color-page);
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.3 !important;
+  }
+
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  small,
+  span,
+  li {
+    font-family: var(--font-sans);
+  }
+
+  p {
+    line-height: 1.5;
+    font-size: 1.3rem;
+  }
+
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"] {
+    font-family: var(--font-mono);
+    cursor: pointer;
   }
 
   [id] {
@@ -167,7 +253,7 @@
     width: 1rem;
     height: 1rem;
     min-width: 1rem;
-    border: 1.5px solid #a8a29e;
+    border: 1.5px solid var(--color-fg-subtle);
     border-radius: 0.25rem;
     background-color: transparent;
     cursor: pointer;
@@ -177,8 +263,8 @@
   }
 
   .prose li > input[type="checkbox"]:checked {
-    background-color: #57534e;
-    border-color: #57534e;
+    background-color: var(--color-brand-dark);
+    border-color: var(--color-brand-dark);
   }
 
   .prose li > input[type="checkbox"]:checked::after {
@@ -263,6 +349,126 @@
   .animate-fade-in-out {
     animation: fade-in-out 3s ease-in-out infinite;
   }
+
+  @keyframes dot-wave {
+    0%,
+    100% {
+      opacity: 0.1;
+    }
+    30% {
+      opacity: 0.8;
+    }
+  }
+
+  .animate-dot-wave {
+    animation: dot-wave 3s ease-in-out infinite;
+    opacity: 0.3;
+  }
+}
+
+.bg-lined-notebook {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    var(--color-border-subtle) 23px,
+    var(--color-border-subtle) 24px
+  );
+}
+
+.bg-lined-notebook-dark {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    var(--color-border) 23px,
+    var(--color-border) 24px
+  );
+}
+
+.bg-dotted {
+  background-image: radial-gradient(
+    circle,
+    var(--color-border-subtle) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+.bg-dotted-dark {
+  background-image: radial-gradient(
+    circle,
+    var(--color-border) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+}
+
+.mock-summary h4 {
+  font-weight: 600;
+  color: var(--color-neutral-900);
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.mock-summary h4:first-child {
+  margin-top: 0;
+}
+
+.mock-summary ul,
+.mock-summary ol {
+  padding-left: 18px;
+  margin: 4px 0;
+}
+
+.mock-summary li {
+  margin: 2px 0;
+}
+
+.mock-summary p {
+  margin: 4px 0;
+}
+
+.mock-background {
+  background-image: url("/bg-desktop.webp");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.bg-grid {
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      transparent,
+      transparent 23px,
+      var(--color-border-subtle) 23px,
+      var(--color-border-subtle) 24px
+    ),
+    repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    var(--color-border-subtle) 23px,
+    var(--color-border-subtle) 24px
+  );
+}
+
+.bg-grid-dark {
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      transparent,
+      transparent 23px,
+      var(--color-border) 23px,
+      var(--color-border) 24px
+    ),
+    repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 23px,
+    var(--color-border) 23px,
+    var(--color-border) 24px
+  );
 }
 
 .prose
@@ -274,12 +480,50 @@
   content: none;
 }
 
-@layer base {
-  button,
-  [role="button"],
-  [type="button"],
-  [type="submit"],
-  [type="reset"] {
-    cursor: pointer;
-  }
+.border-around {
+  box-shadow: var(--shadow-ring);
+}
+
+.border-color-brand {
+  border-color: var(--color-border);
+}
+
+.border-color-subtle {
+  border-color: var(--color-border-subtle);
+}
+
+.border-color-bright {
+  border-color: var(--color-border-bright);
+}
+
+.divide-brand {
+  border-color: var(--color-border);
+}
+
+.surface {
+  background-color: var(--color-surface);
+}
+
+.surface-subtle {
+  background-color: var(--color-surface-subtle);
+}
+
+.surface-dark {
+  background-color: var(--grey-900);
+}
+
+.brand-yellow {
+  background-color: var(--brand-yellow);
+}
+
+.text-color {
+  color: var(--color-fg);
+}
+
+.text-color-muted {
+  color: var(--color-fg-muted);
+}
+
+.brackets-footer {
+  color: var(--color-page);
 }

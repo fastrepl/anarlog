@@ -12,6 +12,7 @@ pub enum SttProvider {
     Gladia,
     Elevenlabs,
     Mistral,
+    Pyannote,
     #[cfg(target_os = "macos")]
     Whispercpp,
     #[cfg(all(target_os = "macos", any(target_arch = "arm", target_arch = "aarch64")))]
@@ -60,6 +61,11 @@ impl SttProvider {
                 "mistral",
                 owhisper_client::Provider::Mistral,
                 BatchProvider::Mistral,
+            ),
+            Self::Pyannote => ProviderMeta::cloud(
+                "pyannote",
+                owhisper_client::Provider::Pyannote,
+                BatchProvider::Pyannote,
             ),
             #[cfg(target_os = "macos")]
             Self::Whispercpp => ProviderMeta::local("whispercpp", BatchProvider::WhisperLocal),
@@ -133,6 +139,7 @@ fn providers() -> &'static [SttProvider] {
         SttProvider::Gladia,
         SttProvider::Elevenlabs,
         SttProvider::Mistral,
+        SttProvider::Pyannote,
         #[cfg(target_os = "macos")]
         SttProvider::Whispercpp,
         #[cfg(all(target_os = "macos", any(target_arch = "arm", target_arch = "aarch64")))]

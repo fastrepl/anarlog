@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createStore } from "zustand";
 
-import type { LiveTranscriptDelta } from "@hypr/plugin-listener";
+import type { LiveTranscriptDelta } from "@hypr/plugin-transcription";
 
 import {
   createTranscriptSlice,

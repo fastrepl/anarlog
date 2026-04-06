@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 const CATEGORIES = [
@@ -95,16 +94,12 @@ function Component() {
   );
 
   return (
-    <div
-      className="bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto min-h-screen max-w-6xl border-x border-neutral-100 bg-white">
+    <div>
+      <div className="mx-auto min-h-screen">
         <Header />
         {featuredArticles.length > 0 && (
           <FeaturedSection articles={featuredArticles} />
         )}
-        <SlashSeparator />
         <MobileCategoriesSection
           categories={categoriesWithCount}
           selectedCategory={selectedCategory}
@@ -136,13 +131,13 @@ function Component() {
 
 function Header() {
   return (
-    <header className="border-b border-neutral-100 bg-linear-to-b from-stone-50/30 to-stone-100/30 py-16 text-center">
-      <h1 className="mb-4 font-serif text-4xl text-stone-600 sm:text-5xl">
-        Blog
-      </h1>
-      <p className="mx-auto max-w-2xl px-4 text-lg text-neutral-600">
-        Insights, updates, and stories from the Char team
-      </p>
+    <header className="px-8 py-16 text-left">
+      <div className="border-border-bright border-b pb-8">
+        <h1 className="text-fg mb-4 font-mono text-4xl sm:text-5xl">Blog</h1>
+        <p className="text-fg max-w-2xl text-lg">
+          Insights, updates, and stories from the Char team
+        </p>
+      </div>
     </header>
   );
 }
@@ -222,7 +217,7 @@ function DesktopSidebar({
   return (
     <aside className="hidden w-56 shrink-0 lg:block">
       <div className="sticky top-21.25">
-        <h3 className="mb-4 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
+        <h3 className="text-fg-subtle mb-4 text-xs font-semibold tracking-wider uppercase">
           Categories
         </h3>
         <nav className="flex flex-col gap-1">
@@ -231,12 +226,12 @@ function DesktopSidebar({
             className={cn([
               "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
               selectedCategory === null
-                ? "bg-stone-100 text-stone-800"
-                : "text-stone-600 hover:bg-stone-50",
+                ? "bg-surface text-fg"
+                : "text-fg hover:bg-surface-subtle",
             ])}
           >
             All Articles
-            <span className="ml-2 text-xs text-neutral-400">
+            <span className="text-fg-subtle ml-2 text-xs">
               ({totalArticles})
             </span>
           </button>
@@ -246,8 +241,8 @@ function DesktopSidebar({
               className={cn([
                 "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
                 selectedCategory === "featured"
-                  ? "bg-stone-100 text-stone-800"
-                  : "text-stone-600 hover:bg-stone-50",
+                  ? "bg-surface text-fg"
+                  : "text-fg hover:bg-surface-subtle",
               ])}
             >
               Featured
@@ -263,8 +258,8 @@ function DesktopSidebar({
               className={cn([
                 "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
                 selectedCategory === category
-                  ? "bg-stone-100 text-stone-800"
-                  : "text-stone-600 hover:bg-stone-50",
+                  ? "text-fg bg-stone-100"
+                  : "text-fg hover:bg-surface-subtle",
               ])}
             >
               {category}
@@ -328,7 +323,7 @@ function AllArticlesSection({
 }) {
   if (articles.length === 0) {
     return (
-      <div className="py-16 text-center">
+      <div className="py-16 text-left">
         <p className="text-neutral-500">No articles yet. Check back soon!</p>
       </div>
     );
@@ -352,7 +347,7 @@ function AllArticlesSection({
 function SectionHeader({ title }: { title: string }) {
   return (
     <div className="mb-8 flex items-center gap-3">
-      <h2 className="font-serif text-2xl text-stone-600">{title}</h2>
+      <h2 className="font-mono text-2xl text-stone-600">{title}</h2>
       <div className="h-px flex-1 bg-neutral-200" />
     </div>
   );
@@ -399,7 +394,7 @@ function MostRecentFeaturedCard({ article }: { article: Article }) {
           )}
           <h3
             className={cn([
-              "mb-2 font-serif text-xl text-stone-600",
+              "mb-2 font-mono text-xl text-stone-600",
               "line-clamp-2 transition-colors group-hover:text-stone-800",
               "md:mb-3 md:text-2xl",
             ])}
@@ -512,7 +507,7 @@ function OtherFeaturedCard({
           )}
           <h3
             className={cn([
-              "mb-2 font-serif text-base text-stone-600",
+              "mb-2 font-mono text-base text-stone-600",
               "line-clamp-2 transition-colors group-hover:text-stone-800",
             ])}
           >
@@ -571,7 +566,7 @@ function ArticleListItem({ article }: { article: Article }) {
                 {article.category}
               </span>
             )}
-            <span className="truncate font-serif text-base text-stone-600 transition-colors group-hover:text-stone-800">
+            <span className="truncate font-mono text-base text-stone-600 transition-colors group-hover:text-stone-800">
               {article.title}
             </span>
             <div className="hidden shrink-0 items-center gap-3 sm:flex">

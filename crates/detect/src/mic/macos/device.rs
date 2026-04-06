@@ -28,10 +28,10 @@ pub(super) extern "C-unwind" fn device_listener(
         if addr.selector != ca::PropSelector::DEVICE_IS_RUNNING_SOMEWHERE {
             continue;
         }
-        if let Ok(device) = ca::System::default_input_device() {
-            if let Some(running) = is_mic_running(&device) {
-                data.ctx.handle_mic_change(running);
-            }
+        if let Ok(device) = ca::System::default_input_device()
+            && let Some(running) = is_mic_running(&device)
+        {
+            data.ctx.handle_mic_change(running);
         }
     }
 

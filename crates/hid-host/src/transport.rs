@@ -121,7 +121,7 @@ impl HidConnection {
     }
 
     pub fn write_packet(&self, packet: &Packet) -> Result<usize> {
-        self.write_output(&packet.encode()?).map_err(Into::into)
+        self.write_output(&packet.encode()?)
     }
 
     pub fn read_packet(&self, timeout: Option<Duration>) -> Result<Packet> {

@@ -240,32 +240,65 @@ function PlanBillingSection({
       plan
     </>
   );
+  const handleOpenBillingPortal = useCallback(async () => {
+    const url = await buildWebAppUrl("/app/portal");
+    void openBillingUrl(url);
+  }, [openBillingUrl]);
 
   const renderAction = (action: TierAction, compact: boolean) => {
     if (action == null) return null;
 
     if (action.style === "current") {
       if (compact) {
-        return <span className="text-xs text-neutral-400">{action.label}</span>;
+        if (!isPaid) {
+          return (
+            <span className="text-xs text-neutral-400">{action.label}</span>
+          );
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={handleOpenBillingPortal}
+            disabled={actionPending}
+            className={cn([
+              "group relative min-w-[88px] text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-700 disabled:opacity-50",
+            ])}
+          >
+            <span className="block transition-opacity duration-150 group-hover:opacity-0">
+              {action.label}
+            </span>
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              Cancel
+            </span>
+          </button>
+        );
       }
-      return (
-        <div className="flex flex-col items-center gap-1">
+
+      if (!isPaid) {
+        return (
           <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
             {action.label}
           </div>
-          {isPaid && (
-            <button
-              type="button"
-              onClick={async () => {
-                const url = await buildWebAppUrl("/app/portal");
-                void openBillingUrl(url);
-              }}
-              className="text-[11px] text-neutral-400 transition-colors hover:text-neutral-600"
-            >
-              Cancel
-            </button>
-          )}
-        </div>
+        );
+      }
+
+      return (
+        <button
+          type="button"
+          onClick={handleOpenBillingPortal}
+          disabled={actionPending}
+          className={cn([
+            "group relative flex h-8 w-full items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-xs font-medium text-neutral-600 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+          ])}
+        >
+          <span className="transition-opacity duration-150 group-hover:opacity-0">
+            {action.label}
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            Cancel
+          </span>
+        </button>
       );
     }
 
@@ -349,10 +382,7 @@ function PlanBillingSection({
         {isPaid && (
           <button
             type="button"
-            onClick={async () => {
-              const url = await buildWebAppUrl("/app/portal");
-              void openBillingUrl(url);
-            }}
+            onClick={handleOpenBillingPortal}
             className="text-xs text-neutral-500 transition-colors hover:text-neutral-700"
           >
             Manage billing

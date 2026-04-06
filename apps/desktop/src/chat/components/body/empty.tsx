@@ -61,7 +61,7 @@ export function ChatBodyEmpty({
         <div className="flex w-full flex-col">
           <div className="mb-2 flex items-center gap-2">
             <img
-              src="/assets/char-logo-icon-black.svg"
+              src="/assets/char-chat-bubble.svg"
               alt="Char"
               className="size-4 object-contain"
             />
@@ -93,7 +93,7 @@ export function ChatBodyEmpty({
       <div className="flex w-full flex-col">
         <div className="mb-2 flex items-center gap-2">
           <img
-            src="/assets/char-logo-icon-black.svg"
+            src="/assets/char-chat-bubble.svg"
             alt="Char"
             className="size-4 object-contain"
           />

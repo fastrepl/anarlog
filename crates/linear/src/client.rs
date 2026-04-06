@@ -34,11 +34,11 @@ impl<C: HttpClient> LinearClient<C> {
 
         let response: GraphQLResponse<T> = serde_json::from_slice(&response_bytes)?;
 
-        if let Some(errors) = response.errors {
-            if !errors.is_empty() {
-                let messages: Vec<_> = errors.iter().map(|e| e.message.as_str()).collect();
-                return Err(Error::GraphQL(messages.join("; ")));
-            }
+        if let Some(errors) = response.errors
+            && !errors.is_empty()
+        {
+            let messages: Vec<_> = errors.iter().map(|e| e.message.as_str()).collect();
+            return Err(Error::GraphQL(messages.join("; ")));
         }
 
         response

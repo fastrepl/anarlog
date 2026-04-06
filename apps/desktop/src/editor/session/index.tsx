@@ -33,6 +33,7 @@ import "@hypr/tiptap/styles.css";
 import {
   MentionNodeView,
   ResizableImageView,
+  SessionNodeView,
   TaskItemView,
 } from "../node-views";
 import {
@@ -50,14 +51,28 @@ import {
   searchReplaceAll,
   searchReplaceCurrent,
   setSearchState,
+  taskIdentityPlugin,
 } from "../plugins";
+import { TaskSourceProvider } from "../task-source";
+import { useTaskStorageOptional } from "../task-storage";
 import {
+  extractTasksFromContent,
+  hydrateTaskContent,
+  normalizeTaskContent,
+  type TaskSource,
+} from "../tasks";
+import {
+  FormatToolbar,
   type MentionConfig,
   MentionSuggestion,
   SlashCommandMenu,
   mentionSkipPlugin,
 } from "../widgets";
 import { buildInputRules, buildKeymap } from "./keymap";
+import {
+  LinkedItemOpenBehaviorContext,
+  type LinkedItemOpenBehavior,
+} from "./linked-item-open-behavior";
 import { schema } from "./schema";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
@@ -85,6 +100,7 @@ export interface EditorCommands {
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  replaceContent: (content: JSONContent) => void;
   setSearch: (query: string, caseSensitive: boolean) => void;
   replace: (params: SearchReplaceParams) => void;
 }
@@ -101,11 +117,14 @@ interface EditorProps {
   placeholderComponent?: PlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
   onNavigateToTitle?: (pixelWidth?: number) => void;
+  linkedItemOpenBehavior?: LinkedItemOpenBehavior;
+  taskSource?: TaskSource;
 }
 
 const nodeViews = {
   image: ResizableImageView,
   "mention-@": MentionNodeView,
+  session: SessionNodeView,
   taskItem: TaskItemView,
 };
 
@@ -130,6 +149,7 @@ const noopCommands: EditorCommands = {
   focusAtStart: () => {},
   focusAtPixelWidth: () => {},
   insertAtStartAndFocus: () => {},
+  replaceContent: () => {},
   setSearch: () => {},
   replace: () => {},
 };
@@ -209,6 +229,29 @@ function EditorCommandsBridge({
     },
   );
 
+  commandsRef.current.replaceContent = useEditorEventCallback(
+    (view, content: JSONContent) => {
+      if (!view || content.type !== "doc") return;
+
+      try {
+        const nextDoc = PMNode.fromJSON(schema, content);
+        if (nextDoc.eq(view.state.doc)) {
+          return;
+        }
+
+        view.dispatch(
+          view.state.tr.replaceWith(
+            0,
+            view.state.doc.content.size,
+            nextDoc.content,
+          ),
+        );
+      } catch {
+        // invalid content
+      }
+    },
+  );
+
   commandsRef.current.setSearch = useEditorEventCallback(
     (view, query: string, caseSensitive: boolean) => {
       if (!view) return;
@@ -263,9 +306,34 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       placeholderComponent,
       fileHandlerConfig,
       onNavigateToTitle,
+      linkedItemOpenBehavior = "current",
+      taskSource,
     } = props;
 
-    const previousContentRef = useRef<JSONContent | undefined>(initialContent);
+    const taskStorage = useTaskStorageOptional();
+    const normalizedInitialContent = useMemo(
+      () => normalizeTaskContent(initialContent),
+      [initialContent],
+    );
+    const reconciledInitialContent = useMemo(() => {
+      if (!normalizedInitialContent || !taskSource || !taskStorage) {
+        return normalizedInitialContent;
+      }
+
+      const sourceTasks = taskStorage.getTasksForSource(taskSource);
+      if (sourceTasks.length === 0) {
+        return normalizedInitialContent;
+      }
+
+      return hydrateTaskContent({
+        content: normalizedInitialContent,
+        sourceTasks,
+        getTask: taskStorage.getTask,
+      });
+    }, [normalizedInitialContent, taskSource, taskStorage]);
+    const previousContentRef = useRef<JSONContent | undefined>(
+      reconciledInitialContent,
+    );
     const viewRef = useRef<EditorView | null>(null);
     const commandsRef = useRef<EditorCommands>(noopCommands);
 
@@ -282,15 +350,40 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       [],
     );
 
+    const syncTasks = useCallback(
+      (content: JSONContent) => {
+        if (!taskSource || !taskStorage) {
+          return;
+        }
+
+        const previousTasks = new Map(
+          taskStorage
+            .getTasksForSource(taskSource)
+            .map((task) => [task.taskId, task]),
+        );
+        taskStorage.upsertTasksForSource(
+          taskSource,
+          extractTasksFromContent(content, taskSource, previousTasks),
+        );
+      },
+      [taskSource, taskStorage],
+    );
+
     const onUpdate = useDebounceCallback((view: EditorView) => {
-      if (!handleChange) return;
-      handleChange(view.state.doc.toJSON() as JSONContent);
+      const content = view.state.doc.toJSON() as JSONContent;
+      syncTasks(content);
+      if (!handleChange) {
+        return;
+      }
+
+      handleChange(content);
     }, 500);
 
     const plugins = useMemo(
       () => [
         reactKeys(),
         buildInputRules(),
+        taskIdentityPlugin(),
         buildKeymap(onNavigateToTitle),
         history(),
         dropCursor(),
@@ -316,26 +409,31 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
       let doc: PMNode;
       try {
         doc =
-          initialContent && initialContent.type === "doc"
-            ? PMNode.fromJSON(schema, initialContent)
+          reconciledInitialContent && reconciledInitialContent.type === "doc"
+            ? PMNode.fromJSON(schema, reconciledInitialContent)
             : schema.node("doc", null, [schema.node("paragraph")]);
       } catch {
         doc = schema.node("doc", null, [schema.node("paragraph")]);
       }
       return EditorState.create({ doc, plugins });
-    }, []);
+    }, [reconciledInitialContent, plugins]);
 
     useEffect(() => {
       const view = viewRef.current;
       if (!view) return;
-      if (previousContentRef.current === initialContent) return;
-      previousContentRef.current = initialContent;
+      if (previousContentRef.current === reconciledInitialContent) return;
+      previousContentRef.current = reconciledInitialContent;
 
-      if (!initialContent || initialContent.type !== "doc") return;
+      if (
+        !reconciledInitialContent ||
+        reconciledInitialContent.type !== "doc"
+      ) {
+        return;
+      }
 
       if (!view.hasFocus()) {
         try {
-          const doc = PMNode.fromJSON(schema, initialContent);
+          const doc = PMNode.fromJSON(schema, reconciledInitialContent);
           const state = EditorState.create({
             doc,
             plugins: view.state.plugins,
@@ -345,7 +443,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
           // invalid content
         }
       }
-    }, [initialContent]);
+    }, [reconciledInitialContent]);
 
     const onViewReady = useCallback(
       (view: EditorView) => {
@@ -355,31 +453,37 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
     );
 
     return (
-      <ProseMirror
-        defaultState={defaultState}
-        nodeViews={nodeViews}
-        dispatchTransaction={function (this: EditorView, tr: Transaction) {
-          const newState = this.state.apply(tr);
-          this.updateState(newState);
-          if (tr.docChanged) {
-            onUpdate(this);
-          }
-        }}
-        attributes={{
-          spellcheck: "false",
-          autocomplete: "off",
-          autocorrect: "off",
-          autocapitalize: "off",
-          role: "textbox",
-        }}
-        className="tiptap"
-      >
-        <ProseMirrorDoc />
-        <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
-        <EditorCommandsBridge commandsRef={commandsRef} />
-        <SlashCommandMenu />
-        {mentionConfig && <MentionSuggestion config={mentionConfig} />}
-      </ProseMirror>
+      <TaskSourceProvider source={taskSource ?? null}>
+        <LinkedItemOpenBehaviorContext.Provider value={linkedItemOpenBehavior}>
+          <ProseMirror
+            defaultState={defaultState}
+            nodeViews={nodeViews}
+            dispatchTransaction={function (this: EditorView, tr: Transaction) {
+              const { state: newState, transactions } =
+                this.state.applyTransaction(tr);
+              this.updateState(newState);
+              if (transactions.some((transaction) => transaction.docChanged)) {
+                onUpdate(this);
+              }
+            }}
+            attributes={{
+              spellcheck: "false",
+              autocomplete: "off",
+              autocorrect: "off",
+              autocapitalize: "off",
+              role: "textbox",
+            }}
+            className="tiptap"
+          >
+            <ProseMirrorDoc />
+            <ViewCapture viewRef={viewRef} onViewReady={onViewReady} />
+            <EditorCommandsBridge commandsRef={commandsRef} />
+            <FormatToolbar />
+            <SlashCommandMenu />
+            {mentionConfig && <MentionSuggestion config={mentionConfig} />}
+          </ProseMirror>
+        </LinkedItemOpenBehaviorContext.Provider>
+      </TaskSourceProvider>
     );
   },
 );

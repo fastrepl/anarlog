@@ -26,11 +26,8 @@ const DRAGGABLE_ICONS = [
 
 function Component() {
   return (
-    <div
-      className="relative h-[calc(100vh-65px)] overflow-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="relative mx-auto h-full max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="relative h-[calc(100vh-65px)] overflow-hidden">
+      <div className="relative mx-auto h-full">
         {DRAGGABLE_ICONS.map((icon, idx) => (
           <DraggableIcon
             key={idx}
@@ -44,8 +41,8 @@ function Component() {
         ))}
 
         <div className="pointer-events-none relative z-10 flex h-full items-center justify-center bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6">
-          <div className="pointer-events-auto mx-auto max-w-4xl text-center">
-            <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <div className="pointer-events-auto mx-auto max-w-4xl text-left">
+            <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Char Bot
             </h1>
             <p className="text-lg text-neutral-600 sm:text-xl">

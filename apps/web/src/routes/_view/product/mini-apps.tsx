@@ -5,8 +5,6 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/product/mini-apps")({
   component: Component,
   head: () => ({
@@ -24,23 +22,14 @@ export const Route = createFileRoute("/_view/product/mini-apps")({
 
 function Component() {
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <ContactsSection />
-        <SlashSeparator />
         <CalendarSection />
-        <SlashSeparator />
         <DailyNotesSection />
-        <SlashSeparator />
         <FoldersSection />
-        <SlashSeparator />
         <AdvancedSearchSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -50,8 +39,8 @@ function Component() {
 function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-12 lg:py-20">
-      <header className="mx-auto mb-12 max-w-4xl text-center">
-        <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+      <header className="mx-auto mb-12 max-w-4xl text-left">
+        <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
           Everything in one place
         </h1>
         <p className="text-lg text-neutral-600 sm:text-xl">
@@ -94,11 +83,9 @@ function ContactsSection() {
   return (
     <section id="contacts" className="bg-stone-50/30">
       <div>
-        <div className="text-center">
+        <div className="text-left">
           <div className="px-6 py-12">
-            <h2 className="mb-4 font-serif text-3xl text-stone-700">
-              Contacts
-            </h2>
+            <h2 className="mb-4 font-mono text-3xl text-stone-700">Contacts</h2>
             <p className="mx-auto max-w-2xl text-base text-neutral-600">
               A relationship-focused CRM that builds itself from your meetings.
               Import contacts and watch them come alive with context once you
@@ -133,7 +120,7 @@ function CalendarSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="font-serif text-3xl text-stone-700">Calendar</h2>
+            <h2 className="font-mono text-3xl text-stone-700">Calendar</h2>
             <p className="text-base leading-relaxed text-neutral-600">
               Connect your calendar for intelligent meeting preparation and
               automatic note organization.
@@ -168,7 +155,7 @@ function CalendarSection() {
                 className="mt-1 shrink-0 text-2xl text-stone-700"
               />
               <div className="flex-1">
-                <h4 className="mb-1 font-serif text-lg text-stone-700">
+                <h4 className="mb-1 font-mono text-lg text-stone-700">
                   Weekly Team Sync
                 </h4>
                 <p className="text-sm text-neutral-600">
@@ -201,7 +188,7 @@ function CalendarSection() {
 
       <div className="sm:hidden">
         <div className="border-b border-neutral-100 p-6">
-          <h2 className="mb-3 font-serif text-2xl text-stone-700">Calendar</h2>
+          <h2 className="mb-3 font-mono text-2xl text-stone-700">Calendar</h2>
           <p className="mb-4 text-sm leading-relaxed text-neutral-600">
             Connect your calendar for intelligent meeting preparation and
             automatic note organization.
@@ -235,7 +222,7 @@ function CalendarSection() {
                 className="mt-1 shrink-0 text-2xl text-stone-700"
               />
               <div className="flex-1">
-                <h4 className="mb-1 font-serif text-lg text-stone-700">
+                <h4 className="mb-1 font-mono text-lg text-stone-700">
                   Weekly Team Sync
                 </h4>
                 <p className="text-sm text-neutral-600">
@@ -275,7 +262,7 @@ function DailyNotesSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="font-serif text-3xl text-stone-700">Daily Notes</h2>
+            <h2 className="font-mono text-3xl text-stone-700">Daily Notes</h2>
             <p className="text-base leading-relaxed text-neutral-600">
               Consolidate all your meetings, action items, and insights in one
               place.
@@ -313,14 +300,14 @@ function DailyNotesSection() {
         </div>
         <div className="flex items-center justify-center overflow-hidden bg-stone-50 px-8 py-8">
           <div className="w-full max-w-lg rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
-            <p className="text-center text-neutral-600 italic">Coming soon</p>
+            <p className="text-left text-neutral-600 italic">Coming soon</p>
           </div>
         </div>
       </div>
 
       <div className="sm:hidden">
         <div className="border-b border-neutral-100 p-6">
-          <h2 className="mb-3 font-serif text-2xl text-stone-700">
+          <h2 className="mb-3 font-mono text-2xl text-stone-700">
             Daily Notes
           </h2>
           <p className="mb-4 text-sm leading-relaxed text-neutral-600">
@@ -359,7 +346,7 @@ function DailyNotesSection() {
         </div>
         <div className="overflow-clip bg-stone-50 px-6 pb-0">
           <div className="rounded-lg border-2 border-stone-200 bg-white p-6 shadow-lg">
-            <p className="text-center text-neutral-600 italic">Coming soon</p>
+            <p className="text-left text-neutral-600 italic">Coming soon</p>
           </div>
         </div>
       </div>
@@ -373,7 +360,7 @@ function FoldersSection() {
       <div className="hidden sm:grid sm:grid-cols-2">
         <div className="flex items-center p-8">
           <div className="flex flex-col gap-4">
-            <h2 className="font-serif text-3xl text-stone-700">Folders</h2>
+            <h2 className="font-mono text-3xl text-stone-700">Folders</h2>
             <p className="text-base leading-relaxed text-neutral-600">
               Organize your meetings and notes into folders for easy access and
               better structure.
@@ -411,7 +398,7 @@ function FoldersSection() {
 
       <div className="sm:hidden">
         <div className="border-b border-neutral-100 p-6">
-          <h2 className="mb-3 font-serif text-2xl text-stone-700">Folders</h2>
+          <h2 className="mb-3 font-mono text-2xl text-stone-700">Folders</h2>
           <p className="mb-4 text-sm leading-relaxed text-neutral-600">
             Organize your meetings and notes into folders for easy access and
             better structure.
@@ -522,12 +509,12 @@ function AdvancedSearchSection() {
   return (
     <section id="advanced-search" className="bg-stone-50/30">
       <div>
-        <div className="text-center">
+        <div className="text-left">
           <div className="px-6 py-12">
             <div className="mb-4 inline-block rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 py-1.5 text-xs font-medium text-white opacity-50">
               Coming Soon
             </div>
-            <h2 className="mb-4 font-serif text-3xl text-stone-700">
+            <h2 className="mb-4 font-mono text-3xl text-stone-700">
               Advanced Search
             </h2>
             <p className="text-base text-neutral-600">
@@ -540,7 +527,7 @@ function AdvancedSearchSection() {
               <button
                 key={image.id}
                 className={cn([
-                  "relative cursor-pointer overflow-hidden text-center transition-colors",
+                  "relative cursor-pointer overflow-hidden text-left transition-colors",
                   index < advancedSearchImages.length - 1 &&
                     "border-r border-neutral-100",
                 ])}
@@ -559,7 +546,7 @@ function AdvancedSearchSection() {
                   />
                 )}
                 <div className="relative p-6">
-                  <h3 className="mb-2 font-serif text-lg text-stone-700">
+                  <h3 className="mb-2 font-mono text-lg text-stone-700">
                     {image.title}
                   </h3>
                   <p className="text-sm text-neutral-600">
@@ -588,7 +575,7 @@ function AdvancedSearchSection() {
 function CTASection() {
   return (
     <section className="bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16 lg:px-0">
-      <div className="flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <img
             src="/api/images/hyprnote/icon.png"
@@ -598,7 +585,7 @@ function CTASection() {
             className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="font-serif text-2xl sm:text-3xl">
+        <h2 className="font-mono text-2xl sm:text-3xl">
           Get the complete experience
         </h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600">

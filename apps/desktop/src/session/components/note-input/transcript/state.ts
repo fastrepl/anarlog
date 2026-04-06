@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { DegradedError } from "@hypr/plugin-listener";
+import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
 import * as main from "~/store/tinybase/store/main";

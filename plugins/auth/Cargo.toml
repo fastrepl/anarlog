@@ -29,3 +29,4 @@ specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 
 thiserror = { workspace = true }
+tracing = { workspace = true }

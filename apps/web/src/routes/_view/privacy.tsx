@@ -3,8 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/privacy")({
   component: Component,
   head: () => ({
@@ -36,23 +34,14 @@ export const Route = createFileRoute("/_view/privacy")({
 
 function Component() {
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <PrivacyPromiseSection />
-        <SlashSeparator />
         <DataOwnershipSection />
-        <SlashSeparator />
         <NoTrackingSection />
-        <SlashSeparator />
         <TransparencySection />
-        <SlashSeparator />
         <PrivacyComparisonSection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -63,12 +52,12 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-12 max-w-4xl text-center">
+        <header className="mx-auto mb-12 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
             <Icon icon="mdi:eye-off" className="text-lg" />
             <span>Privacy-first by design</span>
           </div>
-          <h1 className="mb-6 font-serif text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
+          <h1 className="mb-6 font-mono text-4xl text-stone-600 sm:text-5xl lg:text-6xl">
             Your conversations
             <br />
             belong to you
@@ -115,10 +104,10 @@ function PrivacyPromiseSection() {
 
   return (
     <section className="px-6 py-12 lg:py-16">
-      <h2 className="mb-4 text-center font-serif text-3xl text-stone-600">
+      <h2 className="mb-4 text-left font-mono text-3xl text-stone-600">
         Our privacy promise
       </h2>
-      <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
+      <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
         These aren't just policies—they're principles embedded in our
         architecture. We couldn't violate your privacy even if we wanted to.
       </p>
@@ -132,7 +121,7 @@ function PrivacyPromiseSection() {
               icon={promise.icon}
               className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="mb-2 font-serif text-xl text-stone-600">
+            <h3 className="mb-2 font-mono text-xl text-stone-600">
               {promise.title}
             </h3>
             <p className="text-neutral-600">{promise.description}</p>
@@ -147,12 +136,12 @@ function DataOwnershipSection() {
   return (
     <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon
             icon="mdi:folder-lock"
             className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="mb-4 font-serif text-3xl text-stone-600">
+          <h2 className="mb-4 font-mono text-3xl text-stone-600">
             You own your data, completely
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -162,7 +151,7 @@ function DataOwnershipSection() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:folder-home"
               className="mx-auto mb-4 text-4xl text-stone-600"
@@ -173,7 +162,7 @@ function DataOwnershipSection() {
               database on your computer. No cloud dependency, no remote access.
             </p>
           </div>
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:export"
               className="mx-auto mb-4 text-4xl text-stone-600"
@@ -184,7 +173,7 @@ function DataOwnershipSection() {
               transcripts, and recordings are always accessible and portable.
             </p>
           </div>
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:delete-forever"
               className="mx-auto mb-4 text-4xl text-stone-600"
@@ -204,7 +193,7 @@ function DataOwnershipSection() {
               className="shrink-0 text-3xl text-stone-600"
             />
             <div>
-              <h3 className="mb-3 font-serif text-xl text-stone-600">
+              <h3 className="mb-3 font-mono text-xl text-stone-600">
                 Optional sync, your choice
               </h3>
               <p className="text-neutral-600">
@@ -226,12 +215,12 @@ function NoTrackingSection() {
   return (
     <section className="px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon
             icon="mdi:shield-off-outline"
             className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="mb-4 font-serif text-3xl text-stone-600">
+          <h2 className="mb-4 font-mono text-3xl text-stone-600">
             No tracking, no profiling
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -307,12 +296,12 @@ function TransparencySection() {
   return (
     <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon
             icon="mdi:code-braces"
             className="mb-4 text-5xl text-stone-600"
           />
-          <h2 className="mb-4 font-serif text-3xl text-stone-600">
+          <h2 className="mb-4 font-mono text-3xl text-stone-600">
             Verify, don't trust
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -327,7 +316,7 @@ function TransparencySection() {
               icon="mdi:source-repository"
               className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="mb-2 font-serif text-xl text-stone-600">
+            <h3 className="mb-2 font-mono text-xl text-stone-600">
               Open source code
             </h3>
             <p className="text-neutral-600">
@@ -341,7 +330,7 @@ function TransparencySection() {
               icon="mdi:file-document-check"
               className="mb-4 text-3xl text-stone-600"
             />
-            <h3 className="mb-2 font-serif text-xl text-stone-600">
+            <h3 className="mb-2 font-mono text-xl text-stone-600">
               Clear documentation
             </h3>
             <p className="text-neutral-600">
@@ -414,8 +403,8 @@ function PrivacyComparisonSection() {
   return (
     <section className="px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-600">
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-600">
             How we compare
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -431,10 +420,10 @@ function PrivacyComparisonSection() {
                 <th className="px-4 py-4 text-left font-medium text-stone-600">
                   Feature
                 </th>
-                <th className="bg-stone-50 px-4 py-4 text-center font-medium text-stone-600">
+                <th className="bg-stone-50 px-4 py-4 text-left font-medium text-stone-600">
                   Char
                 </th>
-                <th className="px-4 py-4 text-center font-medium text-neutral-500">
+                <th className="px-4 py-4 text-left font-medium text-neutral-500">
                   Others
                 </th>
               </tr>
@@ -443,7 +432,7 @@ function PrivacyComparisonSection() {
               {comparisons.map((row, index) => (
                 <tr key={index} className="border-b border-neutral-100">
                   <td className="px-4 py-4 text-neutral-600">{row.feature}</td>
-                  <td className="bg-stone-50 px-4 py-4 text-center">
+                  <td className="bg-stone-50 px-4 py-4 text-left">
                     <span className="inline-flex items-center gap-2 font-medium text-stone-600">
                       <Icon
                         icon="mdi:check-circle"
@@ -452,7 +441,7 @@ function PrivacyComparisonSection() {
                       {row.hyprnote}
                     </span>
                   </td>
-                  <td className="px-4 py-4 text-center text-neutral-500">
+                  <td className="px-4 py-4 text-left text-neutral-500">
                     {row.others}
                   </td>
                 </tr>
@@ -468,12 +457,12 @@ function PrivacyComparisonSection() {
 function CTASection() {
   return (
     <section className="bg-stone-50/30 px-6 py-16 lg:py-20">
-      <div className="mx-auto max-w-3xl text-center">
+      <div className="mx-auto max-w-3xl text-left">
         <Icon
           icon="mdi:shield-lock"
           className="mx-auto mb-6 text-5xl text-stone-600"
         />
-        <h2 className="mb-4 font-serif text-3xl text-stone-600">
+        <h2 className="mb-4 font-mono text-3xl text-stone-600">
           Take back control of your meeting data
         </h2>
         <p className="mb-8 text-neutral-600">

@@ -1,30 +1,21 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { cn } from "@hypr/utils";
 
-import { type Attachment, Attachments } from "./attachments";
 import { Enhanced } from "./enhanced";
-import { Header, useAttachments, useEditorTabs } from "./header";
+import { Header, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
-import { Transcript } from "./transcript";
 
 import type { NoteEditorRef } from "~/editor/session";
 import { useCaretNearBottom } from "~/session/components/caret-position-context";
@@ -84,13 +75,7 @@ export const NoteInput = forwardRef<
     currentTab.type === "enhanced"
       ? `enhanced-${currentTab.id}`
       : currentTab.type,
-    {
-      skipRestoration: currentTab.type === "transcript" && isMeetingInProgress,
-    },
   );
-
-  const fadeRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(fadeRef, "vertical", [currentTab]);
 
   const handleTabChange = useCallback(
     (tabView: TabEditorView) => {
@@ -110,9 +95,7 @@ export const NoteInput = forwardRef<
   });
 
   useEffect(() => {
-    if (currentTab.type === "transcript" || currentTab.type === "attachments") {
-      setView(null);
-    } else if (currentTab.type === "raw" && isMeetingInProgress) {
+    if (currentTab.type === "raw" && isMeetingInProgress) {
       requestAnimationFrame(() => {
         internalEditorRef.current?.commands.focus();
       });
@@ -129,8 +112,7 @@ export const NoteInput = forwardRef<
   useCaretNearBottom({
     view,
     container,
-    enabled:
-      currentTab.type !== "transcript" && currentTab.type !== "attachments",
+    enabled: true,
   });
 
   const search = useSearch();
@@ -141,9 +123,7 @@ export const NoteInput = forwardRef<
   }, [currentTab]);
 
   const handleContainerClick = () => {
-    if (currentTab.type !== "transcript" && currentTab.type !== "attachments") {
-      internalEditorRef.current?.commands.focus();
-    }
+    internalEditorRef.current?.commands.focus();
   };
 
   return (
@@ -159,34 +139,22 @@ export const NoteInput = forwardRef<
 
       {showSearchBar && (
         <div className="px-3 pt-1">
-          <SearchBar
-            editorRef={internalEditorRef}
-            isTranscript={currentTab.type === "transcript"}
-          />
+          <SearchBar editorRef={internalEditorRef} />
         </div>
       )}
 
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={(node) => {
-            fadeRef.current = node;
-            if (
-              currentTab.type !== "transcript" &&
-              currentTab.type !== "attachments"
-            ) {
-              scrollRef.current = node;
-              setContainer(node);
-            } else {
-              scrollRef.current = node;
-              setContainer(null);
-            }
+            scrollRef.current = node;
+            setContainer(node);
           }}
           onClick={handleContainerClick}
           className={cn([
             "h-full px-3",
-            currentTab.type === "transcript"
-              ? "overflow-hidden"
-              : ["overflow-auto", "pt-2", "pb-6"],
+            "scroll-fade-y overflow-auto",
+            "pt-2",
+            "pb-6",
           ])}
         >
           {currentTab.type === "enhanced" && (
@@ -204,15 +172,7 @@ export const NoteInput = forwardRef<
               onNavigateToTitle={onNavigateToTitle}
             />
           )}
-          {currentTab.type === "transcript" && (
-            <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-          )}
-          {currentTab.type === "attachments" && (
-            <AttachmentsContent sessionId={sessionId} />
-          )}
         </div>
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
       </div>
     </div>
   );
@@ -268,22 +228,6 @@ function useTabShortcuts({
   );
 
   useHotkeys(
-    "alt+t",
-    () => {
-      const transcriptTab = editorTabs.find((t) => t.type === "transcript");
-      if (transcriptTab && currentTab.type !== "transcript") {
-        handleTabChange(transcriptTab);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [currentTab, editorTabs, handleTabChange],
-  );
-
-  useHotkeys(
     "ctrl+alt+left",
     () => {
       const currentIndex = editorTabs.findIndex(
@@ -325,50 +269,5 @@ function useTabShortcuts({
       enableOnContentEditable: true,
     },
     [currentTab, editorTabs, handleTabChange],
-  );
-}
-
-function AttachmentsContent({ sessionId }: { sessionId: string }) {
-  const {
-    attachments: rawAttachments,
-    isLoading,
-    refetch,
-  } = useAttachments(sessionId);
-
-  const attachments = useMemo<Attachment[]>(() => {
-    return rawAttachments.map((info) => {
-      const fileUrl = convertFileSrc(info.path);
-      return {
-        attachmentId: info.attachmentId,
-        type: "image" as const,
-        url: fileUrl,
-        path: info.path,
-        title: info.attachmentId,
-        thumbnailUrl: fileUrl,
-        addedAt: info.modifiedAt,
-        isPersisted: true,
-      };
-    });
-  }, [rawAttachments]);
-
-  const handleRemove = useCallback(
-    async (attachmentId: string) => {
-      const result = await fsSyncCommands.attachmentRemove(
-        sessionId,
-        attachmentId,
-      );
-      if (result.status === "ok") {
-        refetch();
-      }
-    },
-    [sessionId, refetch],
-  );
-
-  return (
-    <Attachments
-      attachments={attachments}
-      onRemoveAttachment={handleRemove}
-      isLoading={isLoading}
-    />
   );
 }

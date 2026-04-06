@@ -295,30 +295,6 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the control_set_always_on_top command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-control-set-always-on-top",
-          "markdownDescription": "Enables the control_set_always_on_top command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the control_set_always_on_top command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-control-set-always-on-top",
-          "markdownDescription": "Denies the control_set_always_on_top command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the control_set_opacity command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-control-set-opacity",
-          "markdownDescription": "Enables the control_set_opacity command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the control_set_opacity command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-control-set-opacity",
-          "markdownDescription": "Denies the control_set_opacity command without any pre-configured scope."
-        },
-        {
           "description": "Enables the remove_fake_window command without any pre-configured scope.",
           "type": "string",
           "const": "allow-remove-fake-window",
@@ -439,10 +415,10 @@
           "markdownDescription": "Denies the window_show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-control-set-always-on-top`\n- `allow-control-set-opacity`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`\n- `allow-control-set-always-on-top`\n- `allow-control-set-opacity`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`"
         }
       ]
     }

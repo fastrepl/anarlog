@@ -54,7 +54,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: "/api/images/hyprnote/og-image.jpg",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
+      { rel: "stylesheet", href: appCss },
+    ],
   }),
   shellComponent: RootDocument,
   notFoundComponent: NotFoundDocument,

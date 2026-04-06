@@ -6,16 +6,9 @@ use crate::{BackgroundTask, DetectCallback, DetectEvent};
 
 const ZOOM_BUNDLE_ID: &str = "us.zoom.xos";
 
+#[derive(Default)]
 pub struct ZoomMuteWatcher {
     background: BackgroundTask,
-}
-
-impl Default for ZoomMuteWatcher {
-    fn default() -> Self {
-        Self {
-            background: BackgroundTask::default(),
-        }
-    }
 }
 
 struct WatcherState {
@@ -107,9 +100,7 @@ fn reconcile_zoom_mute_state(
             None
         }
         Ok(true) => {
-            let Some(muted) = mute_state else {
-                return None;
-            };
+            let muted = mute_state?;
 
             if state.last_mute_state == Some(muted) {
                 return None;

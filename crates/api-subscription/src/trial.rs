@@ -84,7 +84,7 @@ impl ToAnalyticsPayload for TrialOutcome {
                 let trial_end_date = (Utc::now() + chrono::Duration::days(14)).to_rfc3339();
                 Some(
                     PropertiesPayload::builder()
-                        .set("plan", "pro")
+                        .set("plan", "trial")
                         .set("trial_end_date", trial_end_date)
                         .build(),
                 )

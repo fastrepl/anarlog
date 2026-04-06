@@ -20,14 +20,11 @@ export const Route = createFileRoute("/_view/product/api")({
 
 function Component() {
   return (
-    <div
-      className="h-[calc(100vh-65px)] bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto h-full max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="h-[calc(100vh-65px)]">
+      <div className="mx-auto h-full">
         <div className="flex h-full items-center justify-center overflow-auto bg-[linear-gradient(to_bottom,rgba(245,245,244,0.2),white_50%,rgba(245,245,244,0.3))] px-6 py-12">
-          <header className="mx-auto mb-12 max-w-4xl text-center">
-            <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <header className="mx-auto mb-12 max-w-4xl text-left">
+            <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
               Char API
             </h1>
             <p className="mb-8 text-lg text-neutral-600 sm:text-xl">

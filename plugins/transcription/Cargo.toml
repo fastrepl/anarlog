@@ -1,0 +1,40 @@
+[package]
+name = "tauri-plugin-transcription"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-transcription"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+hypr-audio = { workspace = true }
+hypr-language = { workspace = true }
+hypr-storage = { workspace = true }
+hypr-transcript = { workspace = true }
+hypr-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
+
+owhisper-client = { workspace = true }
+
+tauri-plugin-hooks = { workspace = true }
+tauri-plugin-local-stt = { workspace = true }
+tauri-plugin-settings = { workspace = true }
+tauri-plugin-tray = { workspace = true }
+
+tauri = { workspace = true, features = ["specta", "test"] }
+
+specta = { workspace = true }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+
+ractor = { workspace = true, features = ["async-trait"] }
+
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

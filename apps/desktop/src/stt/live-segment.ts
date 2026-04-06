@@ -4,7 +4,7 @@ import type {
   RenderedTranscriptSegment,
   SegmentKey as BoundSegmentKey,
   SegmentWord as BoundSegmentWord,
-} from "@hypr/plugin-listener";
+} from "@hypr/plugin-transcription";
 
 export enum ChannelProfile {
   DirectMic = 0,

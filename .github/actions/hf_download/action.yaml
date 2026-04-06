@@ -1,0 +1,74 @@
+inputs:
+  repo-id:
+    description: "Hugging Face repository id"
+    required: true
+  filename:
+    description: "Path to the file inside the repo"
+    required: true
+  output:
+    description: "Output path"
+    required: true
+  revision:
+    description: "Optional repo revision"
+    required: false
+  token:
+    description: "Optional Hugging Face token"
+    required: false
+  sha256:
+    description: "Expected SHA-256 checksum"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      env:
+        HF_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        if ! command -v hf >/dev/null 2>&1; then
+          pip3 install --break-system-packages -U huggingface_hub
+        fi
+    - shell: bash
+      env:
+        REPO_ID: ${{ inputs.repo-id }}
+        FILENAME: ${{ inputs.filename }}
+        OUTPUT: ${{ inputs.output }}
+        REVISION: ${{ inputs.revision }}
+        HF_TOKEN: ${{ inputs.token }}
+        SHA256: ${{ inputs.sha256 }}
+      run: |
+        set -euo pipefail
+
+        mkdir -p "$(dirname "$OUTPUT")"
+        TMP_DIR=$(mktemp -d)
+
+        HF_ARGS=(
+          download
+          "$REPO_ID"
+          "$FILENAME"
+          --local-dir "$TMP_DIR"
+        )
+
+        if [[ -n "$REVISION" ]]; then
+          HF_ARGS+=(--revision "$REVISION")
+        fi
+
+        if [[ -n "$HF_TOKEN" ]]; then
+          HF_ARGS+=(--token "$HF_TOKEN")
+        fi
+
+        DOWNLOADED_PATH=$(hf "${HF_ARGS[@]}" | tail -n 1)
+        mv "$DOWNLOADED_PATH" "$OUTPUT"
+        rm -rf "$TMP_DIR"
+
+        if [[ -n "$SHA256" ]]; then
+          ACTUAL_SHA256=$(shasum -a 256 "$OUTPUT" | awk '{print $1}')
+          if [[ "$ACTUAL_SHA256" != "$SHA256" ]]; then
+            echo "::error::SHA-256 mismatch for $OUTPUT"
+            echo "expected: $SHA256"
+            echo "actual:   $ACTUAL_SHA256"
+            exit 1
+          fi
+        fi

@@ -1,6 +1,9 @@
 import type { StoreApi } from "zustand";
 
-import type { BatchResponse, BatchStreamEvent } from "@hypr/plugin-listener2";
+import type {
+  BatchResponse,
+  BatchStreamEvent,
+} from "@hypr/plugin-transcription";
 
 import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries } from "./utils";

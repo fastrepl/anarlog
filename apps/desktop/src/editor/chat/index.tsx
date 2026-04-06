@@ -186,11 +186,12 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
           const doc = chatSchema.node("doc", null, [
             chatSchema.node("paragraph"),
           ]);
-          const state = EditorState.create({
-            doc,
-            plugins: view.state.plugins,
-          });
-          view.updateState(state);
+          const tr = view.state.tr.replaceWith(
+            0,
+            view.state.doc.content.size,
+            doc.content,
+          );
+          view.dispatch(tr);
         },
       }),
       [],

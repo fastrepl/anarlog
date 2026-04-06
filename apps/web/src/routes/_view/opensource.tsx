@@ -5,17 +5,17 @@ import { Fragment, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
+import { RotatingAvatarGrid } from "@/components/github-open-source";
+import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 import {
   GITHUB_LAST_SEEN_FORKS,
   GITHUB_LAST_SEEN_STARS,
-  Stargazer,
   useGitHubStargazers,
   useGitHubStats,
 } from "@/queries";
-import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/opensource")({
   component: Component,
@@ -58,76 +58,15 @@ function Component() {
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <LetterSection />
-        <SlashSeparator />
         <TechStackSection />
-        <SlashSeparator />
         <SponsorsSection />
-        <SlashSeparator />
         <ProgressSection />
-        <SlashSeparator />
         <JoinMovementSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
-      </div>
-    </div>
-  );
-}
-
-function StargazerAvatar({ stargazer }: { stargazer: Stargazer }) {
-  return (
-    <a
-      href={`https://github.com/${stargazer.username}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block size-14 shrink-0 overflow-hidden rounded-xs border border-neutral-100/50 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400 hover:opacity-100"
-    >
-      <img
-        src={stargazer.avatar}
-        alt={`${stargazer.username}'s avatar`}
-        className="h-full w-full object-cover"
-        loading="lazy"
-      />
-    </a>
-  );
-}
-
-function StargazersGrid({ stargazers }: { stargazers: Stargazer[] }) {
-  const rows = 10;
-  const cols = 20;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 flex flex-col justify-center gap-1 px-4 opacity-40">
-        {Array.from({ length: rows }).map((_, rowIndex) => (
-          <div key={rowIndex} className="flex justify-center gap-1">
-            {Array.from({ length: cols }).map((_, colIndex) => {
-              const index = (rowIndex * cols + colIndex) % stargazers.length;
-              const stargazer = stargazers[index];
-              const delay = Math.random() * 3;
-
-              return (
-                <div
-                  key={`${rowIndex}-${colIndex}`}
-                  className="animate-fade-in-out pointer-events-auto"
-                  style={{
-                    animationDelay: `${delay}s`,
-                    animationDuration: "3s",
-                  }}
-                >
-                  <StargazerAvatar stargazer={stargazer} />
-                </div>
-              );
-            })}
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -137,38 +76,32 @@ function HeroSection() {
   const { data: stargazers = [] } = useGitHubStargazers();
 
   return (
-    <div className="relative overflow-hidden bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      {stargazers.length > 0 && <StargazersGrid stargazers={stargazers} />}
-      <div className="relative z-10 px-6 py-12 lg:py-20">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
-        <header className="relative mx-auto max-w-4xl py-6 text-center">
-          <h1 className="mb-6 font-serif text-4xl text-stone-700 sm:text-5xl lg:text-6xl">
+    <div className="isolate flex w-full overflow-visible pt-10 text-left">
+      <div className="border-brand-bright surface relative z-10 flex w-full flex-col rounded-lg border px-6 pt-8 pb-8 md:px-12 md:pt-12 md:pb-12">
+        <div className="flex flex-col gap-2">
+          <h1
+            className="text-color break-words"
+            style={{
+              fontSize: "clamp(1.5rem, 0.75rem + 3.2vw, 3.75rem)",
+            }}
+          >
             Built in the open,
             <br />
             for everyone
           </h1>
-          <p className="mx-auto max-w-3xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
+          <p className="text-fg-muted max-w-3xl text-base leading-relaxed break-words sm:text-xl">
             Char is fully open source under GPL-3.0. Every line of code is
             auditable, every decision is transparent, and every user has the
             freedom to inspect, modify, and contribute.
           </p>
-          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-            <a
-              href="https://github.com/fastrepl/char"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn([
-                "inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 font-medium",
-                "bg-linear-to-t from-neutral-800 to-neutral-700 text-white",
-                "transition-transform hover:scale-105 active:scale-95",
-              ])}
-            >
-              <Icon icon="mdi:github" className="text-lg" />
-              View on GitHub
-            </a>
+          <div className="mt-4 flex w-full flex-col items-stretch gap-4 lg:flex-row lg:items-start">
             <DownloadButton />
+            <GithubStars />
           </div>
-        </header>
+        </div>
+        {stargazers.length > 0 ? (
+          <RotatingAvatarGrid profiles={stargazers} rows={2} />
+        ) : null}
       </div>
     </div>
   );
@@ -176,22 +109,22 @@ function HeroSection() {
 
 function LetterSection() {
   return (
-    <section className="bg-[linear-gradient(to_right,#fafafa_1px,transparent_1px),linear-gradient(to_bottom,#fafafa_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-6 py-16 lg:py-24">
+    <section className="px-6 py-16 lg:py-24">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-8 text-center">
-          <span className="font-mono text-sm font-medium tracking-widest text-neutral-500 uppercase">
+        <div className="mb-8 text-left">
+          <span className="text-fg-muted font-mono text-sm font-medium tracking-widest uppercase">
             A letter from our team
           </span>
         </div>
 
         <article>
-          <h1 className="mb-12 text-center font-serif text-3xl text-stone-700 sm:text-4xl lg:text-5xl">
+          <h1 className="text-color mb-12 text-left font-mono text-3xl sm:text-4xl lg:text-5xl">
             Why Open Source is Inevitable
             <br />
             in the Age of AI
           </h1>
 
-          <div className="flex flex-col gap-6 leading-relaxed text-neutral-700">
+          <div className="text-fg-muted flex flex-col gap-6 leading-relaxed">
             <p className="text-lg">Hey friends,</p>
 
             <p>
@@ -268,14 +201,14 @@ function LetterSection() {
                   alt="John Jeong"
                   width={32}
                   height={32}
-                  className="rounded-full border border-neutral-100 object-cover"
+                  className="border-color-brand rounded-full border object-cover"
                 />
                 <Image
                   src="/api/images/team/yujong.png"
                   alt="Yujong Lee"
                   width={32}
                   height={32}
-                  className="rounded-full border border-neutral-100 object-cover"
+                  className="border-color-brand rounded-full border object-cover"
                 />
               </div>
 
@@ -424,43 +357,26 @@ function TechStackSection() {
   return (
     <section>
       <div>
-        <div className="py-12 lg:py-16">
-          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <div className="px-6 py-12 lg:py-16">
+          <h2 className="text-color mb-4 text-left font-mono text-3xl">
             Our Tech Stack
           </h2>
-          <p className="mx-auto max-w-2xl text-center text-neutral-600">
+          <p className="text-fg-muted max-w-2xl text-left">
             Built with modern, privacy-respecting technologies that run locally
             on your device.
           </p>
         </div>
 
-        <div className="grid grid-cols-6">
+        <div className="border-color-brand grid grid-cols-6 gap-4 rounded-lg border">
           {techStack.map((section) => {
             return (
               <Fragment key={section.category}>
-                <div className="col-span-6 border-t border-b border-neutral-100 bg-stone-50/50 p-6">
-                  <h3 className="font-serif text-xl text-stone-700">
+                <div className="col-span-6 px-8 pt-8">
+                  <h3 className="text-color font-mono text-xl">
                     {section.category}
                   </h3>
                 </div>
-                {section.items.map((tech, techIndex) => {
-                  const itemCount = section.items.length;
-                  const posInRow2 = techIndex % 2;
-                  const posInRow3 = techIndex % 3;
-                  const rowIn2Col = Math.floor(techIndex / 2);
-                  const rowIn3Col = Math.floor(techIndex / 3);
-                  const totalRows2Col = Math.ceil(itemCount / 2);
-                  const totalRows3Col = Math.ceil(itemCount / 3);
-                  const isLastItemMobile = techIndex === itemCount - 1;
-                  const isLastRowSm = rowIn2Col === totalRows2Col - 1;
-                  const isLastRowLg = rowIn3Col === totalRows3Col - 1;
-
-                  const hasBorderBMobile = !isLastItemMobile;
-                  const hasBorderRSm = posInRow2 < 1;
-                  const hasBorderRLg = posInRow3 < 2;
-                  const hasBorderBSm = !isLastRowSm;
-                  const hasBorderBLg = !isLastRowLg;
-
+                {section.items.map((tech) => {
                   return (
                     <a
                       key={tech.name}
@@ -469,16 +385,8 @@ function TechStackSection() {
                       rel="noopener noreferrer"
                       className={cn([
                         "col-span-6 sm:col-span-3 lg:col-span-2",
-                        "border-neutral-100 p-6",
-                        "group transition-all hover:bg-stone-50/30",
-                        hasBorderBMobile && "border-b",
-                        hasBorderRSm && "sm:border-r",
-                        !hasBorderBSm && "sm:border-b-0",
-                        hasBorderBSm && "sm:border-b",
-                        !hasBorderRLg && "lg:border-r-0",
-                        hasBorderRLg && "lg:border-r",
-                        !hasBorderBLg && "lg:border-b-0",
-                        hasBorderBLg && "lg:border-b",
+                        "p-6",
+                        "group transition-all",
                       ])}
                     >
                       <div className="mb-3 flex items-center gap-3">
@@ -491,14 +399,14 @@ function TechStackSection() {
                         ) : (
                           <Icon
                             icon={tech.icon}
-                            className="text-2xl text-stone-700 transition-colors group-hover:text-stone-800"
+                            className="text-color text-2xl transition-colors"
                           />
                         )}
-                        <h4 className="font-medium text-stone-700 transition-colors group-hover:text-stone-800">
+                        <h4 className="text-color font-medium transition-colors">
                           {tech.name}
                         </h4>
                       </div>
-                      <p className="text-sm text-neutral-600">
+                      <p className="text-fg-muted text-sm">
                         {tech.description}
                       </p>
                     </a>
@@ -517,39 +425,30 @@ function SponsorsSection() {
   return (
     <section>
       <div>
-        <div className="py-12 lg:py-16">
-          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <div className="px-6 py-12 lg:py-16">
+          <h2 className="text-color mb-4 text-left font-mono text-3xl">
             Paying It Forward
           </h2>
-          <p className="mx-auto max-w-2xl text-center text-neutral-600">
+          <p className="text-fg-muted max-w-2xl text-left">
             We love giving back to the community that makes Char possible. As we
             grow, we hope to sponsor even more projects and creators.
           </p>
         </div>
 
-        <div className="grid grid-cols-6">
-          <div className="col-span-6 border-t border-b border-neutral-100 bg-stone-50/50 p-6">
-            <h3 className="font-serif text-xl text-stone-700">
+        <div className="border-color-brand overflow-hidden rounded-lg border">
+          <div className="px-8 pt-8">
+            <h3 className="text-color font-mono text-xl">
               Projects We Sponsor
             </h3>
           </div>
-          {sponsors.map((sponsor, index) => {
-            const hasBorderR = index < sponsors.length - 1;
-
-            return (
+          <div className="grid grid-cols-1 gap-4 p-8 sm:grid-cols-3">
+            {sponsors.map((sponsor) => (
               <a
                 key={sponsor.name}
                 href={sponsor.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={cn([
-                  "col-span-6 sm:col-span-3 lg:col-span-2",
-                  "border-neutral-100 p-6",
-                  "group transition-all hover:bg-stone-50/30",
-                  index % 2 === 0 && "sm:border-r",
-                  index > 0 && "border-t sm:border-t-0",
-                  hasBorderR && "lg:border-r",
-                ])}
+                className="group transition-all"
               >
                 <div className="mb-3 flex items-center gap-3">
                   {"imageUrl" in sponsor ? (
@@ -561,25 +460,23 @@ function SponsorsSection() {
                   ) : (
                     <Icon
                       icon={sponsor.icon}
-                      className="text-2xl text-stone-700 transition-colors group-hover:text-stone-800"
+                      className="text-color text-2xl transition-colors"
                     />
                   )}
-                  <h4 className="font-medium text-stone-700 transition-colors group-hover:text-stone-800">
+                  <h4 className="text-color font-medium transition-colors">
                     {sponsor.name}
                   </h4>
                 </div>
-                <p className="text-sm text-neutral-600">
-                  {sponsor.description}
-                </p>
+                <p className="text-fg-muted text-sm">{sponsor.description}</p>
               </a>
-            );
-          })}
-          <div className="col-span-6 flex flex-col gap-4 border-t border-neutral-100 bg-stone-50/50 p-6 lg:flex-row lg:items-center lg:justify-between">
+            ))}
+          </div>
+          <div className="border-color-brand surface-subtle flex flex-col gap-4 border-t px-8 py-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h3 className="font-serif text-xl text-stone-700">
+              <h3 className="text-color font-mono text-xl">
                 We Appreciate Your Support
               </h3>
-              <p className="mt-2 text-sm text-neutral-600">
+              <p className="text-fg-muted mt-2 text-sm">
                 Your sponsorship keeps Char free, open source, and independent
                 for everyone.
               </p>
@@ -590,9 +487,8 @@ function SponsorsSection() {
               rel="noopener noreferrer"
               className={cn([
                 "inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3 font-medium",
-                "bg-linear-to-t from-pink-100 to-white text-stone-700",
-                "border border-pink-200",
-                "transition-transform hover:scale-105 active:scale-95",
+                "border-color-brand text-fg border",
+                "transition-transform hover:scale-[102%] active:scale-[98%]",
               ])}
             >
               <Icon icon="mdi:heart" className="text-lg text-red-400" />
@@ -689,7 +585,7 @@ function StatCard({
   return (
     <div
       className={cn([
-        "relative flex h-32 flex-col justify-between gap-3 border-neutral-100 p-6 text-center",
+        "border-color-brand relative flex h-32 flex-col justify-between gap-3 p-6 text-left",
         hasBorder && "border-r",
       ])}
       onMouseEnter={() => setIsHovered(true)}
@@ -712,8 +608,8 @@ function StatCard({
         ) : null}
       </div>
       <div>
-        <p className="text-2xl font-bold text-stone-700">{value}</p>
-        <p className="text-sm text-neutral-500">{label}</p>
+        <p className="text-color text-2xl font-bold">{value}</p>
+        <p className="text-fg-muted text-sm">{label}</p>
       </div>
     </div>
   );
@@ -760,16 +656,16 @@ function ProgressSection() {
   return (
     <section>
       <div>
-        <div className="py-12 lg:py-16">
-          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+        <div className="px-6 py-12 lg:py-16">
+          <h2 className="text-color mb-4 text-left font-mono text-3xl">
             How We're Doing
           </h2>
-          <p className="mx-auto max-w-2xl text-center text-neutral-600">
+          <p className="text-fg-muted max-w-2xl text-left">
             Our progress is measured by the community we're building together.
           </p>
         </div>
 
-        <div className="grid grid-cols-5 border-t border-neutral-100">
+        <div className="border-color-brand surface grid grid-cols-5 rounded-lg border">
           {stats.map((stat, index) => (
             <StatCard
               key={stat.label}
@@ -834,19 +730,19 @@ const contributions = [
 
 function JoinMovementSection() {
   return (
-    <section className="bg-stone-50/30">
+    <section>
       <div>
         <div className="px-6 py-12 lg:py-16">
-          <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+          <h2 className="text-color mb-4 text-left font-mono text-3xl">
             Be Part of the Movement
           </h2>
-          <p className="mx-auto max-w-2xl text-center text-neutral-600">
+          <p className="text-fg-muted max-w-2xl text-left">
             Every contribution, no matter how small, helps build a more private
             future for AI.
           </p>
         </div>
 
-        <div className="grid border-t border-neutral-100 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="border-color-brand surface grid rounded-lg border sm:grid-cols-2 lg:grid-cols-3">
           {contributions.map((item, index) => {
             const isLastMobile = index === contributions.length - 1;
             const isLastRowSm =
@@ -858,7 +754,7 @@ function JoinMovementSection() {
               <div
                 key={item.title}
                 className={cn([
-                  "flex flex-col justify-between border-neutral-100 p-6",
+                  "border-color-brand flex flex-col justify-between p-6",
                   !isLastMobile && "border-b",
                   !isLastRowSm && "sm:border-b",
                   isLastRowSm && "sm:border-b-0",
@@ -870,10 +766,8 @@ function JoinMovementSection() {
                 ])}
               >
                 <div>
-                  <h3 className="mb-2 font-medium text-stone-700">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-neutral-600">{item.description}</p>
+                  <h3 className="text-color mb-2 font-medium">{item.title}</h3>
+                  <p className="text-fg-muted text-sm">{item.description}</p>
                 </div>
                 <div className="mt-4">
                   <a
@@ -882,9 +776,8 @@ function JoinMovementSection() {
                     rel="noopener noreferrer"
                     className={cn([
                       "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium",
-                      "bg-linear-to-t from-neutral-100 to-white text-stone-700",
-                      "border border-neutral-200",
-                      "transition-transform hover:scale-105 active:scale-95",
+                      "border-color-brand text-fg border",
+                      "transition-transform hover:scale-[102%] active:scale-[98%]",
                     ])}
                   >
                     <Icon icon={item.icon} className="text-base" />

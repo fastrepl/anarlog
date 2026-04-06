@@ -263,7 +263,7 @@
           "url": {
             "description": "The url should be in the form media://object-key where the object-key can be any alpha-numeric string. The object-key is unique to your account API token so there is no risk of collision with other users.",
             "maxLength": 255,
-            "pattern": "/^media:\\/\\/[a-zA-Z0-9\\-_\\.\\/]+$/",
+            "pattern": "^media:\\/\\/[a-zA-Z0-9\\-_\\.\\/]+$",
             "type": "string"
           }
         },

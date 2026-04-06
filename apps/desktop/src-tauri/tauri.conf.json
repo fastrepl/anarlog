@@ -7,7 +7,7 @@
     "beforeDevCommand": "pnpm -F desktop dev",
     "devUrl": "http://localhost:1422",
     "beforeBuildCommand": "pnpm -F desktop build",
-    "beforeBundleCommand": "./src-tauri/scripts/compile-icons.sh && ./src-tauri/scripts/fix-dylib.sh",
+    "beforeBundleCommand": "node ./src-tauri/scripts/before-bundle.mjs",
     "frontendDist": "../dist"
   },
   "app": {

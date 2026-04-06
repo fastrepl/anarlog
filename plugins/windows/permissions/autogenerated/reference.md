@@ -12,8 +12,6 @@ Default permissions for the plugin
 - `allow-window-set-frame-animated`
 - `allow-window-save-frame`
 - `allow-window-restore-frame-animated`
-- `allow-control-set-always-on-top`
-- `allow-control-set-opacity`
 
 ## Permission Table
 
@@ -23,58 +21,6 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
-
-<tr>
-<td>
-
-`windows:allow-control-set-always-on-top`
-
-</td>
-<td>
-
-Enables the control_set_always_on_top command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`windows:deny-control-set-always-on-top`
-
-</td>
-<td>
-
-Denies the control_set_always_on_top command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`windows:allow-control-set-opacity`
-
-</td>
-<td>
-
-Enables the control_set_opacity command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`windows:deny-control-set-opacity`
-
-</td>
-<td>
-
-Denies the control_set_opacity command without any pre-configured scope.
-
-</td>
-</tr>
 
 <tr>
 <td>

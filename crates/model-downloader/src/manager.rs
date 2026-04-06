@@ -127,8 +127,10 @@ impl<M: DownloadableModel> ModelDownloadManager<M> {
         if let Some(entry) = existing {
             entry.token.cancel();
             wait_for_task_exit(entry.task, Self::TASK_JOIN_WARN_AFTER, "cancel_download").await;
-            self.runtime
-                .emit_progress(model, crate::runtime::DownloadStatus::Failed);
+            self.runtime.emit_progress(
+                model,
+                crate::runtime::DownloadStatus::Failed("Download cancelled".to_string()),
+            );
             let _ = fs::remove_file(entry.download_path).await;
             Ok(true)
         } else {

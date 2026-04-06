@@ -41,15 +41,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import {
-  fetchMediaItems,
+  getMediaItemsQueryOptions,
   type MediaItem,
   useMediaApi,
 } from "@/hooks/use-media-api";
@@ -187,15 +183,25 @@ function MediaLibrary() {
     setIsMounted(true);
   }, []);
 
+  const currentTab = tabs.find((t) => t.active);
+  const currentFolderPath = getFolderPathForTab(currentTab);
+
   const rootQuery = useQuery({
-    queryKey: ["mediaItems", ""],
-    queryFn: () => fetchMediaItems(""),
-    enabled: isMounted,
+    ...getMediaItemsQueryOptions(""),
+    enabled: isMounted && currentFolderPath !== "" && !rootLoaded,
   });
 
+  const currentPathQuery = useQuery({
+    ...getMediaItemsQueryOptions(currentFolderPath),
+    enabled: isMounted && currentTab !== undefined,
+  });
+
+  const rootItems =
+    currentFolderPath === "" ? currentPathQuery.data : rootQuery.data;
+
   useEffect(() => {
-    if (rootQuery.data && !rootLoaded) {
-      const children: TreeNode[] = rootQuery.data.map((item) => ({
+    if (rootItems && !rootLoaded) {
+      const children: TreeNode[] = rootItems.map((item) => ({
         path: getRelativePath(item.path),
         name: item.name,
         type: item.type,
@@ -206,16 +212,7 @@ function MediaLibrary() {
       setTreeNodes(children);
       setRootLoaded(true);
     }
-  }, [rootQuery.data, rootLoaded]);
-
-  const currentTab = tabs.find((t) => t.active);
-  const currentFolderPath = getFolderPathForTab(currentTab);
-
-  const currentPathQuery = useQuery({
-    queryKey: ["mediaItems", currentFolderPath],
-    queryFn: () => fetchMediaItems(currentFolderPath),
-    enabled: isMounted && currentTab !== undefined,
-  });
+  }, [rootItems, rootLoaded]);
 
   const currentItems = currentPathQuery.data || [];
   const isCurrentPathLoading = !isMounted || currentPathQuery.isLoading;
@@ -223,10 +220,9 @@ function MediaLibrary() {
   const loadFolderContents = async (path: string) => {
     setLoadingPaths((prev) => new Set(prev).add(path));
     try {
-      const items = await queryClient.fetchQuery({
-        queryKey: ["mediaItems", path],
-        queryFn: () => fetchMediaItems(path),
-      });
+      const items = await queryClient.fetchQuery(
+        getMediaItemsQueryOptions(path),
+      );
       const children: TreeNode[] = items.map((item) => ({
         path: getRelativePath(item.path),
         name: item.name,
@@ -451,7 +447,7 @@ function MediaLibrary() {
     moveMutation,
     renameMutation,
   } = useMediaApi({
-    currentFolderPath: currentTab?.type === "folder" ? currentTab.path : "",
+    currentFolderPath,
     onFolderCreated: (parentFolder) => {
       loadFolderContents(parentFolder);
       if (parentFolder === "") {
@@ -763,11 +759,6 @@ function Sidebar({
   onMove: (path: string, name: string, type: "file" | "dir") => void;
   onDelete: (path: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef, "vertical", [
-    filteredTreeNodes,
-  ]);
-
   return (
     <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
@@ -789,9 +780,7 @@ function Sidebar({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
-        <div ref={scrollRef} className="h-full overflow-y-auto">
+        <div className="scroll-fade-y h-full overflow-y-auto">
           {isCreatingFolder && (
             <NewFolderInlineInput
               existingNames={filteredTreeNodes.map((n) => n.name)}

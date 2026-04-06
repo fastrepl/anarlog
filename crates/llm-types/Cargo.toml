@@ -8,6 +8,7 @@ async-openai = { workspace = true }
 nom = "8.0.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 rand = "0.9.0"

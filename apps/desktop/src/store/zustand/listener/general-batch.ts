@@ -5,7 +5,7 @@ import {
   type BatchRunOutput,
   commands as listener2Commands,
   events as listener2Events,
-} from "@hypr/plugin-listener2";
+} from "@hypr/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
 

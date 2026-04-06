@@ -5,8 +5,7 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { DownloadButton } from "@/components/download-button";
-import { SlashSeparator } from "@/components/slash-separator";
+import { CTASection } from "@/components/cta-section";
 
 type GalleryType = "template" | "shortcut";
 
@@ -156,19 +155,14 @@ function Component() {
   }, [filteredItems]);
 
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
-        <ContributeBanner />
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           selectedType={selectedType}
           setSelectedType={setSelectedType}
         />
-        <QuoteSection />
         <MobileCategoriesSection
           categories={filteredCategories}
           selectedCategory={selectedCategory}
@@ -181,7 +175,6 @@ function Component() {
           itemsByCategory={filteredItemsByCategory}
           filteredItems={filteredItems}
         />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -195,10 +188,10 @@ function ContributeBanner() {
       target="_blank"
       rel="noopener noreferrer"
       className={cn([
-        "group flex cursor-pointer items-center justify-center gap-2 text-center",
-        "border-b border-stone-100 bg-stone-50/70 hover:bg-stone-100/70",
+        "group flex cursor-pointer items-center justify-center gap-2 text-left",
+        "border-color-bright border-b",
         "px-4 py-3",
-        "font-serif text-sm text-stone-700",
+        "text-fg font-mono text-sm",
         "transition-colors",
       ])}
     >
@@ -226,75 +219,73 @@ function HeroSection({
   setSelectedType: (type: GalleryType | null) => void;
 }) {
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <section className="laptop:px-0 flex flex-col items-center gap-8 px-4 py-24 text-center">
-        <div className="flex max-w-3xl flex-col gap-6">
-          <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+    <div className="px-4 pt-12">
+      <div className="border-brand-bright flex min-h-[60vh] flex-col justify-between rounded-xl border">
+        <ContributeBanner />
+        <header className="px-8 py-4 text-left lg:py-8">
+          <h1 className="text-fg mb-6 font-mono text-2xl tracking-tight sm:text-6xl">
             Gallery
           </h1>
-          <p className="text-lg text-neutral-600 sm:text-xl">
+          <p className="text-fg max-w-2xl text-lg sm:text-xl">
             Browse and discover templates and shortcuts for your workflow
           </p>
-        </div>
 
-        <div className="flex items-center gap-2 rounded-full bg-stone-100 p-1">
-          <button
-            onClick={() => setSelectedType(null)}
-            className={cn([
-              "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
-              selectedType === null
-                ? "bg-white text-stone-800 shadow-xs"
-                : "text-stone-700 hover:text-stone-800",
-            ])}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setSelectedType("template")}
-            className={cn([
-              "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
-              selectedType === "template"
-                ? "bg-white text-stone-800 shadow-xs"
-                : "text-stone-700 hover:text-stone-800",
-            ])}
-          >
-            Templates
-          </button>
-          <button
-            onClick={() => setSelectedType("shortcut")}
-            className={cn([
-              "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
-              selectedType === "shortcut"
-                ? "bg-white text-stone-800 shadow-xs"
-                : "text-stone-700 hover:text-stone-800",
-            ])}
-          >
-            Shortcuts
-          </button>
-        </div>
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 rounded-full bg-stone-100 p-1">
+              <button
+                onClick={() => setSelectedType(null)}
+                className={cn([
+                  "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  selectedType === null
+                    ? "text-fg bg-white shadow-xs"
+                    : "text-fg-subtle hover:text-fg",
+                ])}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setSelectedType("template")}
+                className={cn([
+                  "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  selectedType === "template"
+                    ? "text-fg bg-white shadow-xs"
+                    : "text-fg-subtle hover:text-fg",
+                ])}
+              >
+                Templates
+              </button>
+              <button
+                onClick={() => setSelectedType("shortcut")}
+                className={cn([
+                  "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                  selectedType === "shortcut"
+                    ? "text-fg bg-white shadow-xs"
+                    : "text-fg-subtle hover:text-fg",
+                ])}
+              >
+                Shortcuts
+              </button>
+            </div>
 
-        <div className="w-full max-w-xs">
-          <div className="relative flex items-center overflow-hidden rounded-full border-2 border-neutral-200 transition-all duration-200 focus-within:border-stone-500">
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-white px-4 py-2.5 text-center text-sm outline-hidden placeholder:text-center"
-            />
+            <div className="w-full max-w-xs">
+              <div className="surface border-color-subtle relative flex items-center overflow-hidden rounded-full border-1 transition-all duration-200 focus-within:border-[var(--color-brand-dark)]">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-2.5 text-left text-sm outline-hidden placeholder:text-left"
+                />
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function QuoteSection() {
-  return (
-    <div className="border-y border-neutral-100 bg-white bg-[linear-gradient(to_right,#f5f5f5_1px,transparent_1px),linear-gradient(to_bottom,#f5f5f5_1px,transparent_1px)] bg-size-[24px_24px] bg-position-[12px_12px,12px_12px] px-4 py-4 text-center">
-      <p className="font-serif text-base text-stone-700 italic">
-        "Curated by Char and the community"
-      </p>
+          <div className="bg-grid-dark border-color-brand mt-8 flex h-20 w-full items-center justify-start border p-8">
+            <p className="text-fg font-mono text-base italic">
+              "Curated by Char and the community"
+            </p>
+          </div>
+        </header>
+      </div>
     </div>
   );
 }
@@ -355,7 +346,7 @@ function GallerySection({
   filteredItems: GalleryItem[];
 }) {
   return (
-    <div className="px-6 pt-8 pb-12 lg:pt-12 lg:pb-20">
+    <div className="px-4 pt-8 pb-12 lg:pt-12 lg:pb-20">
       <div className="flex gap-8">
         <DesktopSidebar
           categories={categories}
@@ -395,14 +386,12 @@ function DesktopSidebar({
             className={cn([
               "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
               selectedCategory === null
-                ? "bg-stone-100 text-stone-800"
-                : "text-stone-700 hover:bg-stone-50",
+                ? "bg-surface text-fg"
+                : "text-fg hover:bg-surface-subtle",
             ])}
           >
             All
-            <span className="ml-2 text-xs text-neutral-400">
-              ({totalCount})
-            </span>
+            <span className="text-fg-subtle ml-2 text-xs">({totalCount})</span>
           </button>
           {categories.map((category) => (
             <button
@@ -411,12 +400,12 @@ function DesktopSidebar({
               className={cn([
                 "w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
                 selectedCategory === category
-                  ? "bg-stone-100 text-stone-800"
-                  : "text-stone-700 hover:bg-stone-50",
+                  ? "bg-surface text-fg"
+                  : "text-fg hover:bg-surface",
               ])}
             >
               {category}
-              <span className="ml-2 text-xs text-neutral-400">
+              <span className="text-fg-subtle ml-2 text-xs">
                 ({itemsByCategory[category]?.length || 0})
               </span>
             </button>
@@ -431,14 +420,12 @@ function GalleryGrid({ filteredItems }: { filteredItems: GalleryItem[] }) {
   if (filteredItems.length === 0) {
     return (
       <section className="min-w-0 flex-1">
-        <div className="py-12 text-center">
+        <div className="py-12 text-left">
           <Icon
             icon="mdi:file-search"
             className="mx-auto mb-4 text-6xl text-neutral-300"
           />
-          <p className="text-neutral-600">
-            No items found matching your search.
-          </p>
+          <p className="text-fg-subtle">No items found matching your search.</p>
         </div>
       </section>
     );
@@ -462,31 +449,31 @@ function ItemCard({ item }: { item: GalleryItem }) {
   return (
     <a
       href={`/gallery/${item.type}/${item.item.slug}`}
-      className="group flex cursor-pointer flex-col items-start rounded-xs border border-neutral-200 bg-white p-4 text-left transition-all hover:border-neutral-300 hover:shadow-md"
+      className="group border-color-subtle bg-surface hover:border-border-bright flex cursor-pointer flex-col items-start justify-between rounded-md border p-4 text-left transition-all hover:shadow-xl"
     >
       <div className="mb-4 w-full">
-        <p className="mb-2 text-xs text-neutral-500">
-          <span className="font-medium">
+        <p className="text-fg mb-2 text-xs">
+          <span className="text-fg-subtle font-medium">
             {isTemplate ? "Template" : "Shortcut"}
           </span>
-          <span className="mx-1">/</span>
-          <span>{item.item.category}</span>
+          <span className="text-fg-subtle mx-1.5" aria-hidden>
+            ·
+          </span>
+          <span className="text-fg-subtle">{item.item.category}</span>
         </p>
-        <h3 className="mb-1 font-serif text-lg text-stone-700 transition-colors group-hover:text-stone-800">
+        <h3 className="text-fg mb-2 font-mono text-lg transition-colors group-hover:underline group-hover:decoration-dotted group-hover:underline-offset-2">
           {item.item.title}
         </h3>
-        <p className="line-clamp-2 text-sm text-neutral-600">
-          {item.item.description}
-        </p>
+        <p className="text-fg line-clamp-2 text-sm">{item.item.description}</p>
       </div>
       {"targets" in item.item &&
         item.item.targets &&
         item.item.targets.length > 0 && (
-          <div className="w-full border-t border-neutral-100 pt-4">
-            <div className="mb-2 text-xs font-medium tracking-wider text-neutral-400 uppercase">
+          <div className="w-full pt-4">
+            <div className="text-fg-subtle mb-2 text-xs font-medium tracking-wider uppercase">
               For
             </div>
-            <div className="text-xs text-stone-700">
+            <div className="text-fg text-xs">
               {item.item.targets.join(", ")}
             </div>
           </div>
@@ -497,9 +484,9 @@ function ItemCard({ item }: { item: GalleryItem }) {
 
 function ContributeCard() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xs border border-dashed border-neutral-300 bg-stone-50/50 p-4 text-center">
-      <h3 className="mb-2 font-serif text-lg text-stone-700">Contribute</h3>
-      <p className="mb-4 text-sm text-neutral-500">
+    <div className="flex flex-col items-center justify-center rounded-xs border border-dashed border-neutral-300 bg-stone-50/50 p-4 text-left">
+      <h3 className="text-fg mb-2 text-center font-mono text-lg">Contribute</h3>
+      <p className="text-fg mb-4 text-center text-sm">
         Have an idea? Submit a PR and help the community.
       </p>
       <a
@@ -517,27 +504,5 @@ function ContributeCard() {
         Submit your idea
       </a>
     </div>
-  );
-}
-
-function CTASection() {
-  return (
-    <section className="px-6 py-16 text-center">
-      <div className="mx-auto flex max-w-2xl flex-col gap-6">
-        <h2 className="font-serif text-3xl text-stone-700 sm:text-4xl">
-          Ready to transform your meetings?
-        </h2>
-        <p className="text-lg text-neutral-600">
-          Download Char and start using these templates and shortcuts to capture
-          perfect meeting notes with AI.
-        </p>
-        <div className="flex flex-col items-center gap-4 pt-4">
-          <DownloadButton />
-          <p className="text-sm text-neutral-500">
-            Free to use. No credit card required.
-          </p>
-        </div>
-      </div>
-    </section>
   );
 }

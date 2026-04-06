@@ -23,12 +23,12 @@ reqwest = { workspace = true, features = ["json", "stream"] }
 tokio-tungstenite = { workspace = true }
 
 [dependencies]
+hypr-audio-chunking = { workspace = true }
 hypr-audio-interface = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-model-manager = { workspace = true, features = ["whisper-local"] }
 hypr-pyannote-local = { workspace = true }
 hypr-transcribe-core = { workspace = true }
-hypr-vad-chunking = { workspace = true }
 hypr-whisper = { workspace = true }
 hypr-whisper-local = { workspace = true }
 hypr-ws-utils = { workspace = true }
