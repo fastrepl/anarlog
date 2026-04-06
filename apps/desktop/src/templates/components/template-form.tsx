@@ -16,7 +16,7 @@ import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
 import {
-  getTemplateCreatorLabel,
+  getTemplateCreatorByline,
   useTemplateCreatorName,
   useToggleTemplateFavorite,
 } from "../shared";
@@ -228,12 +228,28 @@ export function TemplateForm({
         <div className="mt-3 min-w-0 pr-5 pl-3">
           <form.Field name="title">
             {(field) => (
-              <Input
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Enter template title"
-                className="h-auto border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
-              />
+              <div className="flex min-w-0 items-baseline gap-2">
+                <div className="relative max-w-full min-w-0">
+                  <span
+                    aria-hidden="true"
+                    className="invisible block px-0 py-0 text-lg font-semibold whitespace-pre md:text-lg"
+                  >
+                    {(field.state.value || " ") + " "}
+                  </span>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder="Enter template title"
+                    className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+                  />
+                </div>
+                <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
+                  {getTemplateCreatorByline({
+                    isUserTemplate: true,
+                    creatorName,
+                  })}
+                </span>
+              </div>
             )}
           </form.Field>
           <form.Field name="description">
@@ -299,12 +315,6 @@ export function TemplateForm({
               );
             }}
           </form.Field>
-          <p className="mt-2 text-xs text-neutral-400">
-            {getTemplateCreatorLabel({
-              isUserTemplate: true,
-              creatorName,
-            })}
-          </p>
         </div>
       </div>
 

@@ -127,6 +127,16 @@ export function getTemplateCreatorLabel({
     : "Created by Char";
 }
 
+export function getTemplateCreatorByline({
+  isUserTemplate,
+  creatorName,
+}: {
+  isUserTemplate: boolean;
+  creatorName?: string | null;
+}) {
+  return isUserTemplate ? `by ${creatorName?.trim() || "user"}` : "by Char";
+}
+
 export function useCreateTemplate() {
   const { user_id } = main.UI.useValues(main.STORE_ID);
 

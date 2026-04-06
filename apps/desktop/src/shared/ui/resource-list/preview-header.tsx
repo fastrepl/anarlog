@@ -18,6 +18,8 @@ export function ResourcePreviewHeader({
   actionVariant,
   actionClassName,
   actions,
+  titleMeta,
+  footer,
   children,
 }: {
   title: string;
@@ -30,6 +32,8 @@ export function ResourcePreviewHeader({
   actionVariant?: ButtonProps["variant"];
   actionClassName?: string;
   actions?: ReactNode;
+  titleMeta?: ReactNode;
+  footer?: ReactNode;
   children?: ReactNode;
 }) {
   const actionButton = onClone ? (
@@ -60,9 +64,12 @@ export function ResourcePreviewHeader({
         </div>
       </div>
       <div className="mt-3 min-w-0 pr-5 pl-3">
-        <h2 className="truncate text-lg font-semibold">
-          {title || "Untitled"}
-        </h2>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h2 className="min-w-0 truncate text-lg font-semibold">
+            {title || "Untitled"}
+          </h2>
+          {titleMeta}
+        </div>
         {description && (
           <p className="mt-1 text-sm text-neutral-500">{description}</p>
         )}
@@ -78,9 +85,13 @@ export function ResourcePreviewHeader({
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-neutral-400">
-          {getTemplateCreatorLabel({ isUserTemplate: false })}
-        </p>
+        {footer === undefined ? (
+          <p className="mt-2 text-xs text-neutral-400">
+            {getTemplateCreatorLabel({ isUserTemplate: false })}
+          </p>
+        ) : (
+          footer
+        )}
       </div>
       {children}
     </div>

@@ -12,6 +12,7 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
+import { getTemplateCreatorByline } from "../shared";
 import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 import { TemplateForm } from "./template-form";
@@ -140,6 +141,12 @@ function WebTemplatePreview({
         description={template.description}
         category={template.category}
         targets={template.targets}
+        titleMeta={
+          <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
+            {getTemplateCreatorByline({ isUserTemplate: false })}
+          </span>
+        }
+        footer={null}
         actions={
           <>
             <Button
