@@ -70,8 +70,7 @@ export function CalendarView() {
     main.QUERIES.enabledCalendars,
     main.STORE_ID,
   );
-  const hasEnabledCalendars =
-    Object.keys(enabledCalendars ?? {}).length > 0;
+  const hasEnabledCalendars = Object.keys(enabledCalendars ?? {}).length > 0;
   const hasAnyEvents =
     Object.keys(calendarData.eventIdsByDate).length > 0 ||
     Object.keys(calendarData.sessionIdsByDate).length > 0;
@@ -211,7 +210,9 @@ export function CalendarView() {
             <DayCell
               key={day.toISOString()}
               day={day}
-              isCurrentMonth={isMonthView ? isSameMonth(day, currentMonth) : true}
+              isCurrentMonth={
+                isMonthView ? isSameMonth(day, currentMonth) : true
+              }
               calendarData={calendarData}
             />
           ))}

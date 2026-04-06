@@ -107,10 +107,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
           />
         ))}
 
-        <ConnectedContent
-          config={config}
-          connections={providerConnections}
-        />
+        <ConnectedContent config={config} connections={providerConnections} />
       </div>
     );
   }
