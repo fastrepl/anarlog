@@ -12,7 +12,7 @@ pub enum Error {
     Audio(#[from] hypr_audio_utils::Error),
 
     #[error(transparent)]
-    Vad(#[from] hypr_vad_chunking::Error),
+    Chunking(#[from] hypr_audio_chunking::Error),
 
     #[error("{message}")]
     Protocol { message: String },

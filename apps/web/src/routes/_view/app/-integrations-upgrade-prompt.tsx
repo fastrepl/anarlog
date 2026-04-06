@@ -34,12 +34,8 @@ export function UpgradePrompt({
       </div>
 
       <div className="flex flex-col gap-3">
-        <Link
-          to="/app/checkout/"
-          search={{ period: "monthly" }}
-          className={integrationButtonClassName("primary")}
-        >
-          Upgrade to Pro
+        <Link to="/pricing/" className={integrationButtonClassName("primary")}>
+          Upgrade
         </Link>
 
         {flow === "desktop" ? (

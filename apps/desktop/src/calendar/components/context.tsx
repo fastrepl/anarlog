@@ -84,6 +84,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const cancelDebouncedSync = useCallback(() => {
     if (toggleSyncTimeoutRef.current) {
       clearTimeout(toggleSyncTimeoutRef.current);
+      toggleSyncTimeoutRef.current = null;
       setIsDebouncing(false);
     }
   }, []);

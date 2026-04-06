@@ -111,6 +111,7 @@ impl SonioxAdapter {
                 start: token.start_ms.unwrap_or(0) as f64 / 1000.0,
                 end: token.end_ms.unwrap_or(0) as f64 / 1000.0,
                 confidence: token.confidence.unwrap_or(1.0),
+                channel: 0,
                 speaker: token.speaker.as_ref().and_then(|s| s.as_usize()),
                 punctuated_word: Some(token.text.clone()),
             })

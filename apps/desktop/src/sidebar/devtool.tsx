@@ -1,17 +1,22 @@
 import { useCallback, useState } from "react";
 
-import { commands as windowsCommands } from "@hypr/plugin-windows";
+import {
+  commands as windowsCommands,
+  openUrlWithInstruction,
+} from "@hypr/plugin-windows";
 import { cn } from "@hypr/utils";
 
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+import { commands } from "~/types/tauri.gen";
 
 export function DevtoolView() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
+        <ToastsCard />
         <CountdownTestCard />
         <ErrorTestCard />
       </div>
@@ -54,6 +59,10 @@ function DevtoolCard({
 
 function NavigationCard() {
   const openNew = useTabs((s) => s.openNew);
+  const isClassicMain =
+    typeof window !== "undefined" &&
+    (window.location.pathname === "/app/main" ||
+      window.location.pathname.startsWith("/app/main/"));
 
   const showMainWindow = useCallback(async () => {
     await windowsCommands.windowShow({ type: "main" });
@@ -69,9 +78,13 @@ function NavigationCard() {
     openNew({ type: "onboarding" });
   }, [openNew, showMainWindow]);
 
-  const handleShowControl = useCallback(() => {
-    void windowsCommands.windowShow({ type: "control" });
-  }, []);
+  const showInstruction = useCallback(
+    (type: string) =>
+      openUrlWithInstruction(`https://example.com/${type}`, type, async () => ({
+        status: "ok" as const,
+      })),
+    [],
+  );
 
   const handleShowChangelog = useCallback(() => {
     const latestVersion = getLatestVersion();
@@ -99,32 +112,37 @@ function NavigationCard() {
         >
           Onboarding Tab
         </button>
-        <button
-          type="button"
-          onClick={() => void handleShowEmptyTab()}
-          className={cn([
-            "w-full rounded-md px-2.5 py-1.5",
-            "text-left text-xs font-medium",
-            "border border-neutral-200 text-neutral-700",
-            "cursor-pointer transition-colors",
-            "hover:border-neutral-300 hover:bg-neutral-50",
-          ])}
-        >
-          Empty Tab
-        </button>
-        <button
-          type="button"
-          onClick={handleShowControl}
-          className={cn([
-            "w-full rounded-md px-2.5 py-1.5",
-            "text-left text-xs font-medium",
-            "border border-neutral-200 text-neutral-700",
-            "cursor-pointer transition-colors",
-            "hover:border-neutral-300 hover:bg-neutral-50",
-          ])}
-        >
-          Control
-        </button>
+        {isClassicMain && (
+          <button
+            type="button"
+            onClick={() => void handleShowEmptyTab()}
+            className={cn([
+              "w-full rounded-md px-2.5 py-1.5",
+              "text-left text-xs font-medium",
+              "border border-neutral-200 text-neutral-700",
+              "cursor-pointer transition-colors",
+              "hover:border-neutral-300 hover:bg-neutral-50",
+            ])}
+          >
+            Empty Tab
+          </button>
+        )}
+        {["sign-in", "billing", "integration"].map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => void showInstruction(type)}
+            className={cn([
+              "w-full rounded-md px-2.5 py-1.5",
+              "text-left text-xs font-medium",
+              "border border-neutral-200 text-neutral-700",
+              "cursor-pointer transition-colors",
+              "hover:border-neutral-300 hover:bg-neutral-50",
+            ])}
+          >
+            Instruction: {type}
+          </button>
+        ))}
         <button
           type="button"
           onClick={handleShowChangelog}
@@ -137,6 +155,53 @@ function NavigationCard() {
           ])}
         >
           Changelog
+        </button>
+      </div>
+    </DevtoolCard>
+  );
+}
+
+function ToastsCard() {
+  const handleResetDismissed = useCallback(async () => {
+    await commands.setDismissedToasts([]);
+  }, []);
+
+  const handleResetShareOnly = useCallback(async () => {
+    const result = await commands.getDismissedToasts();
+    if (result.status === "ok") {
+      await commands.setDismissedToasts(
+        result.data.filter(
+          (id: string) =>
+            id !== "share-char" && !id.startsWith("share-char-snoozed:"),
+        ),
+      );
+    }
+  }, []);
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+  ]);
+
+  return (
+    <DevtoolCard title="Toasts">
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={() => void handleResetShareOnly()}
+          className={btnClass}
+        >
+          Reset Share Toast
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleResetDismissed()}
+          className={btnClass}
+        >
+          Reset All Dismissed
         </button>
       </div>
     </DevtoolCard>

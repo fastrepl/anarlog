@@ -81,4 +81,20 @@ pub fn init(app: tauri::AppHandle<tauri::Wry>) {
                 .event_fire_and_forget(AnalyticsPayload::builder("option_selected").build());
         });
     }
+
+    {
+        let app = app.clone();
+        hypr_notification::setup_footer_action_handler(move |ctx| {
+            if let Err(_e) = app.windows().show(tauri_plugin_windows::AppWindow::Main) {}
+
+            let _ = NotificationEvent::FooterAction {
+                key: ctx.key,
+                source: ctx.source,
+            }
+            .emit(&app);
+
+            app.analytics()
+                .event_fire_and_forget(AnalyticsPayload::builder("footer_action").build());
+        });
+    }
 }

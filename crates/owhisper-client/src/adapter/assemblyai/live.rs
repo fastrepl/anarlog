@@ -245,6 +245,7 @@ impl AssemblyAIAdapter {
         let words: Vec<_> = turn
             .words
             .iter()
+            .filter(|w| w.word_is_final)
             .map(|w| {
                 WordBuilder::new(&w.text)
                     .start(ms_to_secs(w.start))

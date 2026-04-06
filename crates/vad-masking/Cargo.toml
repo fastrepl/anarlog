@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dev-dependencies]
+clap = { workspace = true, features = ["derive"] }
 hound = { workspace = true }
+hypr-audacity = { workspace = true }
 hypr-data = { workspace = true }
 rodio = { workspace = true }
 

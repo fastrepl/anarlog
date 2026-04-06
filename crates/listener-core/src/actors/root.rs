@@ -11,6 +11,7 @@ use crate::actors::{
     SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
 };
 use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State, StopSessionParams};
+use hypr_audio::AudioProvider;
 
 pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
@@ -20,13 +21,16 @@ pub enum RootMsg {
 
 pub struct RootArgs {
     pub runtime: Arc<dyn ListenerRuntime>,
+    pub audio: Arc<dyn AudioProvider>,
 }
 
 pub struct RootState {
     runtime: Arc<dyn ListenerRuntime>,
+    audio: Arc<dyn AudioProvider>,
     session_id: Option<String>,
     supervisor: Option<ActorCell>,
     finalizing: bool,
+    pending_stop_reply: Option<RpcReplyPort<()>>,
 }
 
 pub struct RootActor;
@@ -50,9 +54,11 @@ impl Actor for RootActor {
     ) -> Result<Self::State, ActorProcessingErr> {
         Ok(RootState {
             runtime: args.runtime,
+            audio: args.audio,
             session_id: None,
             supervisor: None,
             finalizing: false,
+            pending_stop_reply: None,
         })
     }
 
@@ -69,7 +75,11 @@ impl Actor for RootActor {
             }
             RootMsg::StopSession(params, reply) => {
                 stop_session_impl(state, params).await;
-                let _ = reply.send(());
+                if state.supervisor.is_some() {
+                    state.pending_stop_reply = Some(reply);
+                } else {
+                    let _ = reply.send(());
+                }
             }
             RootMsg::GetState(reply) => {
                 let fsm_state = if state.finalizing {
@@ -103,6 +113,7 @@ impl Actor for RootActor {
                     tracing::info!(?reason, "session_supervisor_terminated");
                     state.supervisor = None;
                     state.finalizing = false;
+                    reply_pending_stop(state);
 
                     emit_session_ended(&*state.runtime, &session_id, reason);
                 }
@@ -117,11 +128,18 @@ impl Actor for RootActor {
                     tracing::warn!(?error, "session_supervisor_failed");
                     state.supervisor = None;
                     state.finalizing = false;
+                    reply_pending_stop(state);
                     emit_session_ended(&*state.runtime, &session_id, Some(format!("{:?}", error)));
                 }
             }
         }
         Ok(())
+    }
+}
+
+fn reply_pending_stop(state: &mut RootState) {
+    if let Some(reply) = state.pending_stop_reply.take() {
+        let _ = reply.send(());
     }
 }
 
@@ -152,6 +170,7 @@ async fn start_session_impl(
 
         let ctx = SessionContext {
             runtime: state.runtime.clone(),
+            audio: state.audio.clone(),
             params: params.clone(),
             app_dir,
             started_at_instant: Instant::now(),

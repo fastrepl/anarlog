@@ -46,3 +46,14 @@ pub struct StripeEnv {
 pub struct LoopsEnv {
     pub loops_key: String,
 }
+
+#[derive(Clone, Deserialize)]
+pub struct PyannoteEnv {
+    pub pyannote_api_key: String,
+    #[serde(default = "default_pyannote_api_base")]
+    pub pyannote_api_base: String,
+}
+
+fn default_pyannote_api_base() -> String {
+    "https://api.pyannote.ai".to_string()
+}

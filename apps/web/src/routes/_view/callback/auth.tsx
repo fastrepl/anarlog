@@ -1,9 +1,10 @@
-import { useOutlit } from "@outlit/browser/react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { jwtDecode } from "jwt-decode";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
 import { cn } from "@hypr/utils";
 
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
@@ -132,32 +133,29 @@ export const Route = createFileRoute("/_view/callback/auth")({
 function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { identify: identifyOutlit, isInitialized } = useOutlit();
   const { identify: identifyPosthog } = useAnalytics();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!search.access_token || !isInitialized) return;
+    if (!search.access_token) return;
 
     try {
-      const payload = JSON.parse(atob(search.access_token.split(".")[1]));
+      const payload = jwtDecode<SupabaseJwtPayload>(search.access_token);
       const email = payload.email;
       const userId = payload.sub;
 
-      if (email && userId) {
-        identifyOutlit({
-          email,
-          userId,
-          traits: {
-            auth_provider: payload.app_metadata?.provider,
-          },
+      if (userId) {
+        const billing = deriveBillingInfo(payload);
+        identifyPosthog(userId, {
+          ...(email ? { email } : {}),
+          plan: billing.plan,
+          trial_end_date: billing.trialEnd?.toISOString() ?? null,
         });
-        identifyPosthog(userId, { email });
       }
     } catch (e) {
       console.error("Failed to decode JWT for identify:", e);
     }
-  }, [search.access_token, identifyOutlit, isInitialized]);
+  }, [search.access_token, identifyPosthog]);
 
   const getDeeplink = () => {
     if (search.access_token && search.refresh_token) {

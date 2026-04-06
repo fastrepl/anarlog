@@ -1,8 +1,10 @@
 pub mod actors;
 mod events;
+mod live_transcript;
 mod runtime;
 
 pub use events::*;
+pub use live_transcript::*;
 pub use runtime::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

@@ -14,8 +14,8 @@ pub fn is_builtin_display_inactive() -> bool {
         }
     }
 
-    for i in 0..display_count as usize {
-        if CGDisplayIsBuiltin(displays[i]) {
+    for display in displays.iter().take(display_count as usize) {
+        if CGDisplayIsBuiltin(*display) {
             return false;
         }
     }

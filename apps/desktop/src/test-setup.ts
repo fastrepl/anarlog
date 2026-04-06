@@ -3,21 +3,20 @@ import { vi } from "vitest";
 
 Object.defineProperty(globalThis.crypto, "randomUUID", { value: randomUUID });
 
-Object.defineProperty(globalThis, "window", {
+Object.defineProperty(globalThis.window, "__TAURI_INTERNALS__", {
   value: {
-    ...globalThis.window,
-    __TAURI_INTERNALS__: {
-      metadata: {
-        currentWindow: {
-          label: "main",
-        },
-        currentWebview: {
-          label: "main",
-        },
+    metadata: {
+      currentWindow: {
+        label: "main",
+      },
+      currentWebview: {
+        label: "main",
       },
     },
+    invoke: vi.fn().mockRejectedValue(new Error("not available in test")),
   },
   writable: true,
+  configurable: true,
 });
 
 vi.mock("@tauri-apps/api/path", () => ({
@@ -35,6 +34,14 @@ vi.mock("@hypr/plugin-analytics", () => ({
 
 vi.mock("./types/tauri.gen", () => ({
   commands: {
+    getOnboardingNeeded: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: false }),
+    getCharV1p1Preview: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: false }),
+    getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+    setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     getRecentlyOpenedSessions: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: null }),

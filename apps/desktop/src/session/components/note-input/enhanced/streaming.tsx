@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 
-import { streamdownComponents } from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
+
+import { streamdownComponents } from "../../streamdown";
 
 import { useAITaskTask } from "~/ai/hooks";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";

@@ -1,8 +1,10 @@
 mod complete;
+mod request;
 mod result;
 mod stream;
 
 pub use hypr_llm_types::Message;
+pub use request::validate_messages;
 pub use result::CompletionResult;
 pub use stream::{CompletionStream, complete_stream};
 

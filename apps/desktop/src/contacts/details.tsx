@@ -11,6 +11,7 @@ import React, { useCallback, useState } from "react";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -546,11 +547,13 @@ function EditPersonOrganizationSelector({ personId }: { personId: string }) {
         </div>
       </PopoverTrigger>
 
-      <PopoverContent className="p-3 shadow-lg" align="start" side="bottom">
-        <OrganizationControl
-          onChange={handleChange}
-          closePopover={() => setOpen(false)}
-        />
+      <PopoverContent variant="app" align="start" side="bottom">
+        <AppFloatingPanel className="p-3">
+          <OrganizationControl
+            onChange={handleChange}
+            closePopover={() => setOpen(false)}
+          />
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

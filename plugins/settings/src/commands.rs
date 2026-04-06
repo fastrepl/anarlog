@@ -48,6 +48,18 @@ pub(crate) async fn copy_vault<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn move_vault<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    new_path: String,
+) -> Result<(), String> {
+    app.settings()
+        .move_vault(Utf8PathBuf::from(&new_path))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn set_vault_base<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     new_path: String,

@@ -16,6 +16,17 @@ const PLUGIN_NAME: &str = "windows";
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+#[derive(Clone, Copy)]
+pub struct SavedFrame {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
+#[derive(Default)]
+pub struct SavedFrames(pub Mutex<HashMap<String, SavedFrame>>);
+
 use tauri::Manager;
 use tokio::sync::oneshot;
 
@@ -57,6 +68,9 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::window_navigate,
             commands::window_emit_navigate,
             commands::window_is_exists,
+            commands::window_set_frame_animated,
+            commands::window_save_frame,
+            commands::window_restore_frame_animated,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -72,6 +86,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             {
                 let ready_state = WindowReadyState::default();
                 app.manage(ready_state);
+            }
+
+            {
+                let saved_frames = SavedFrames::default();
+                app.manage(saved_frames);
             }
 
             Ok(())

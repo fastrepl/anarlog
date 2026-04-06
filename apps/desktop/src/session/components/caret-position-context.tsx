@@ -1,3 +1,4 @@
+import type { EditorView } from "prosemirror-view";
 import {
   createContext,
   type ReactNode,
@@ -7,8 +8,6 @@ import {
   useMemo,
   useState,
 } from "react";
-
-import type { TiptapEditor } from "@hypr/tiptap/editor";
 
 interface CaretPositionContextValue {
   isCaretNearBottom: boolean;
@@ -45,11 +44,11 @@ export function useCaretPosition() {
 const BOTTOM_THRESHOLD = 70;
 
 export function useCaretNearBottom({
-  editor,
+  view,
   container,
   enabled,
 }: {
-  editor: TiptapEditor | null;
+  view: EditorView | null;
   container: HTMLDivElement | null;
   enabled: boolean;
 }) {
@@ -60,17 +59,16 @@ export function useCaretNearBottom({
       return;
     }
 
-    if (!editor || !container || !enabled) {
+    if (!view || !container || !enabled) {
       setCaretNearBottom(false);
       return;
     }
 
     const checkCaretPosition = () => {
-      if (!container || !editor.isFocused) {
+      if (!container || !view.hasFocus()) {
         return;
       }
 
-      const { view } = editor;
       const { from } = view.state.selection;
       const coords = view.coordsAtPos(from);
 
@@ -81,20 +79,23 @@ export function useCaretNearBottom({
 
     const handleBlur = () => setCaretNearBottom(false);
 
-    editor.on("selectionUpdate", checkCaretPosition);
-    editor.on("focus", checkCaretPosition);
-    editor.on("blur", handleBlur);
+    const dom = view.dom;
+    dom.addEventListener("focus", checkCaretPosition);
+    dom.addEventListener("blur", handleBlur);
+    dom.addEventListener("keyup", checkCaretPosition);
+    dom.addEventListener("mouseup", checkCaretPosition);
     container.addEventListener("scroll", checkCaretPosition);
     window.addEventListener("resize", checkCaretPosition);
 
     checkCaretPosition();
 
     return () => {
-      editor.off("selectionUpdate", checkCaretPosition);
-      editor.off("focus", checkCaretPosition);
-      editor.off("blur", handleBlur);
+      dom.removeEventListener("focus", checkCaretPosition);
+      dom.removeEventListener("blur", handleBlur);
+      dom.removeEventListener("keyup", checkCaretPosition);
+      dom.removeEventListener("mouseup", checkCaretPosition);
       container.removeEventListener("scroll", checkCaretPosition);
       window.removeEventListener("resize", checkCaretPosition);
     };
-  }, [editor, setCaretNearBottom, container, enabled]);
+  }, [view, setCaretNearBottom, container, enabled]);
 }

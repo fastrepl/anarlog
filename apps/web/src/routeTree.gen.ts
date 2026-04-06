@@ -35,7 +35,6 @@ import { Route as ViewPricingRouteImport } from './routes/_view/pricing'
 import { Route as ViewOssFriendsRouteImport } from './routes/_view/oss-friends'
 import { Route as ViewOpensourceRouteImport } from './routes/_view/opensource'
 import { Route as ViewFreeRouteImport } from './routes/_view/free'
-import { Route as ViewFileTranscriptionRouteImport } from './routes/_view/file-transcription'
 import { Route as ViewEnterpriseRouteImport } from './routes/_view/enterprise'
 import { Route as ViewChooseRouteImport } from './routes/_view/choose'
 import { Route as ViewBrandRouteImport } from './routes/_view/brand'
@@ -49,12 +48,12 @@ import { Route as AdminLeadFinderIndexRouteImport } from './routes/admin/lead-fi
 import { Route as AdminKanbanIndexRouteImport } from './routes/admin/kanban/index'
 import { Route as AdminCrmIndexRouteImport } from './routes/admin/crm/index'
 import { Route as AdminCollectionsIndexRouteImport } from './routes/admin/collections/index'
+import { Route as AdminBrandingIndexRouteImport } from './routes/admin/branding/index'
 import { Route as ViewUpdatesIndexRouteImport } from './routes/_view/updates/index'
-import { Route as ViewRoadmapIndexRouteImport } from './routes/_view/roadmap/index'
+import { Route as ViewSolutionsIndexRouteImport } from './routes/_view/solutions/index'
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
-import { Route as ViewJobsIndexRouteImport } from './routes/_view/jobs/index'
 import { Route as ViewGalleryIndexRouteImport } from './routes/_view/gallery/index'
 import { Route as ViewEvalIndexRouteImport } from './routes/_view/eval/index'
 import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
@@ -71,7 +70,6 @@ import { Route as ViewUpdatesSlugRouteImport } from './routes/_view/updates/$slu
 import { Route as ViewSolutionMeetingRouteImport } from './routes/_view/solution/meeting'
 import { Route as ViewSolutionEngineeringRouteImport } from './routes/_view/solution/engineering'
 import { Route as ViewSolutionSlugRouteImport } from './routes/_view/solution/$slug'
-import { Route as ViewRoadmapSlugRouteImport } from './routes/_view/roadmap/$slug'
 import { Route as ViewProductSelfHostingRouteImport } from './routes/_view/product/self-hosting'
 import { Route as ViewProductSearchRouteImport } from './routes/_view/product/search'
 import { Route as ViewProductNotepadRouteImport } from './routes/_view/product/notepad'
@@ -89,7 +87,6 @@ import { Route as ViewProductAiAssistantRouteImport } from './routes/_view/produ
 import { Route as ViewPressKitAppRouteImport } from './routes/_view/press-kit/app'
 import { Route as ViewLegalSlugRouteImport } from './routes/_view/legal/$slug'
 import { Route as ViewK6ReportsIdRouteImport } from './routes/_view/k6-reports/$id'
-import { Route as ViewJobsSlugRouteImport } from './routes/_view/jobs/$slug'
 import { Route as ViewDownloadWindowsRouteImport } from './routes/_view/download/windows'
 import { Route as ViewDownloadLinuxDebRouteImport } from './routes/_view/download/linux-deb'
 import { Route as ViewDownloadLinuxAppimageRouteImport } from './routes/_view/download/linux-appimage'
@@ -100,18 +97,24 @@ import { Route as ViewCompanyHandbookSplatRouteImport } from './routes/_view/com
 import { Route as ViewChangelogSlugRouteImport } from './routes/_view/changelog/$slug'
 import { Route as ViewCallbackSignoutRouteImport } from './routes/_view/callback/signout'
 import { Route as ViewCallbackIntegrationRouteImport } from './routes/_view/callback/integration'
+import { Route as ViewCallbackBillingRouteImport } from './routes/_view/callback/billing'
 import { Route as ViewCallbackAuthRouteImport } from './routes/_view/callback/auth'
 import { Route as ViewBlogSlugRouteImport } from './routes/_view/blog/$slug'
+import { Route as ViewAppSwitchPlanRouteImport } from './routes/_view/app/switch-plan'
+import { Route as ViewAppPortalRouteImport } from './routes/_view/app/portal'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
-import { Route as ViewAppFileTranscriptionRouteImport } from './routes/_view/app/file-transcription'
 import { Route as ViewAppCheckoutRouteImport } from './routes/_view/app/checkout'
 import { Route as ViewAppAccountRouteImport } from './routes/_view/app/account'
 import { Route as ApiAdminStarsResearchRouteImport } from './routes/api/admin/stars/research'
+import { Route as ApiAdminStarsPipelineRouteImport } from './routes/api/admin/stars/pipeline'
 import { Route as ApiAdminStarsLeadsRouteImport } from './routes/api/admin/stars/leads'
 import { Route as ApiAdminStarsFetchRouteImport } from './routes/api/admin/stars/fetch'
+import { Route as ApiAdminStarsDigestRouteImport } from './routes/api/admin/stars/digest'
 import { Route as ApiAdminMediaUploadRouteImport } from './routes/api/admin/media/upload'
+import { Route as ApiAdminMediaRegisterRouteImport } from './routes/api/admin/media/register'
 import { Route as ApiAdminMediaMoveRouteImport } from './routes/api/admin/media/move'
 import { Route as ApiAdminMediaListRouteImport } from './routes/api/admin/media/list'
+import { Route as ApiAdminMediaDownloadRouteImport } from './routes/api/admin/media/download'
 import { Route as ApiAdminMediaDeleteRouteImport } from './routes/api/admin/media/delete'
 import { Route as ApiAdminMediaCreateFolderRouteImport } from './routes/api/admin/media/create-folder'
 import { Route as ApiAdminKanbanUpdateRouteImport } from './routes/api/admin/kanban/update'
@@ -271,11 +274,6 @@ const ViewFreeRoute = ViewFreeRouteImport.update({
   path: '/free',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewFileTranscriptionRoute = ViewFileTranscriptionRouteImport.update({
-  id: '/file-transcription',
-  path: '/file-transcription',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
 const ViewEnterpriseRoute = ViewEnterpriseRouteImport.update({
   id: '/enterprise',
   path: '/enterprise',
@@ -342,14 +340,19 @@ const AdminCollectionsIndexRoute = AdminCollectionsIndexRouteImport.update({
   path: '/collections/',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminBrandingIndexRoute = AdminBrandingIndexRouteImport.update({
+  id: '/branding/',
+  path: '/branding/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const ViewUpdatesIndexRoute = ViewUpdatesIndexRouteImport.update({
   id: '/updates/',
   path: '/updates/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewRoadmapIndexRoute = ViewRoadmapIndexRouteImport.update({
-  id: '/roadmap/',
-  path: '/roadmap/',
+const ViewSolutionsIndexRoute = ViewSolutionsIndexRouteImport.update({
+  id: '/solutions/',
+  path: '/solutions/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewPressKitIndexRoute = ViewPressKitIndexRouteImport.update({
@@ -365,11 +368,6 @@ const ViewLegalIndexRoute = ViewLegalIndexRouteImport.update({
 const ViewK6ReportsIndexRoute = ViewK6ReportsIndexRouteImport.update({
   id: '/k6-reports/',
   path: '/k6-reports/',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewJobsIndexRoute = ViewJobsIndexRouteImport.update({
-  id: '/jobs/',
-  path: '/jobs/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewGalleryIndexRoute = ViewGalleryIndexRouteImport.update({
@@ -452,11 +450,6 @@ const ViewSolutionEngineeringRoute = ViewSolutionEngineeringRouteImport.update({
 const ViewSolutionSlugRoute = ViewSolutionSlugRouteImport.update({
   id: '/solution/$slug',
   path: '/solution/$slug',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
-const ViewRoadmapSlugRoute = ViewRoadmapSlugRouteImport.update({
-  id: '/roadmap/$slug',
-  path: '/roadmap/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewProductSelfHostingRoute = ViewProductSelfHostingRouteImport.update({
@@ -544,11 +537,6 @@ const ViewK6ReportsIdRoute = ViewK6ReportsIdRouteImport.update({
   path: '/k6-reports/$id',
   getParentRoute: () => ViewRouteRoute,
 } as any)
-const ViewJobsSlugRoute = ViewJobsSlugRouteImport.update({
-  id: '/jobs/$slug',
-  path: '/jobs/$slug',
-  getParentRoute: () => ViewRouteRoute,
-} as any)
 const ViewDownloadWindowsRoute = ViewDownloadWindowsRouteImport.update({
   id: '/download/windows',
   path: '/download/windows',
@@ -602,6 +590,11 @@ const ViewCallbackIntegrationRoute = ViewCallbackIntegrationRouteImport.update({
   path: '/callback/integration',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewCallbackBillingRoute = ViewCallbackBillingRouteImport.update({
+  id: '/callback/billing',
+  path: '/callback/billing',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewCallbackAuthRoute = ViewCallbackAuthRouteImport.update({
   id: '/callback/auth',
   path: '/callback/auth',
@@ -612,17 +605,21 @@ const ViewBlogSlugRoute = ViewBlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewAppSwitchPlanRoute = ViewAppSwitchPlanRouteImport.update({
+  id: '/switch-plan',
+  path: '/switch-plan',
+  getParentRoute: () => ViewAppRouteRoute,
+} as any)
+const ViewAppPortalRoute = ViewAppPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => ViewAppRouteRoute,
+} as any)
 const ViewAppIntegrationRoute = ViewAppIntegrationRouteImport.update({
   id: '/integration',
   path: '/integration',
   getParentRoute: () => ViewAppRouteRoute,
 } as any)
-const ViewAppFileTranscriptionRoute =
-  ViewAppFileTranscriptionRouteImport.update({
-    id: '/file-transcription',
-    path: '/file-transcription',
-    getParentRoute: () => ViewAppRouteRoute,
-  } as any)
 const ViewAppCheckoutRoute = ViewAppCheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
@@ -638,6 +635,11 @@ const ApiAdminStarsResearchRoute = ApiAdminStarsResearchRouteImport.update({
   path: '/api/admin/stars/research',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminStarsPipelineRoute = ApiAdminStarsPipelineRouteImport.update({
+  id: '/api/admin/stars/pipeline',
+  path: '/api/admin/stars/pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminStarsLeadsRoute = ApiAdminStarsLeadsRouteImport.update({
   id: '/api/admin/stars/leads',
   path: '/api/admin/stars/leads',
@@ -648,9 +650,19 @@ const ApiAdminStarsFetchRoute = ApiAdminStarsFetchRouteImport.update({
   path: '/api/admin/stars/fetch',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminStarsDigestRoute = ApiAdminStarsDigestRouteImport.update({
+  id: '/api/admin/stars/digest',
+  path: '/api/admin/stars/digest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminMediaUploadRoute = ApiAdminMediaUploadRouteImport.update({
   id: '/api/admin/media/upload',
   path: '/api/admin/media/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminMediaRegisterRoute = ApiAdminMediaRegisterRouteImport.update({
+  id: '/api/admin/media/register',
+  path: '/api/admin/media/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminMediaMoveRoute = ApiAdminMediaMoveRouteImport.update({
@@ -661,6 +673,11 @@ const ApiAdminMediaMoveRoute = ApiAdminMediaMoveRouteImport.update({
 const ApiAdminMediaListRoute = ApiAdminMediaListRouteImport.update({
   id: '/api/admin/media/list',
   path: '/api/admin/media/list',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminMediaDownloadRoute = ApiAdminMediaDownloadRouteImport.update({
+  id: '/api/admin/media/download',
+  path: '/api/admin/media/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAdminMediaDeleteRoute = ApiAdminMediaDeleteRouteImport.update({
@@ -844,7 +861,6 @@ export interface FileRoutesByFullPath {
   '/brand': typeof ViewBrandRoute
   '/choose': typeof ViewChooseRoute
   '/enterprise': typeof ViewEnterpriseRoute
-  '/file-transcription': typeof ViewFileTranscriptionRoute
   '/free': typeof ViewFreeRoute
   '/opensource': typeof ViewOpensourceRoute
   '/oss-friends': typeof ViewOssFriendsRoute
@@ -859,10 +875,12 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
-  '/app/file-transcription': typeof ViewAppFileTranscriptionRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/portal': typeof ViewAppPortalRoute
+  '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
+  '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -873,7 +891,6 @@ export interface FileRoutesByFullPath {
   '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/download/windows': typeof ViewDownloadWindowsRoute
-  '/jobs/$slug': typeof ViewJobsSlugRoute
   '/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/legal/$slug': typeof ViewLegalSlugRoute
   '/press-kit/app': typeof ViewPressKitAppRoute
@@ -891,7 +908,6 @@ export interface FileRoutesByFullPath {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/solution/$slug': typeof ViewSolutionSlugRoute
   '/solution/engineering': typeof ViewSolutionEngineeringRoute
   '/solution/meeting': typeof ViewSolutionMeetingRoute
@@ -908,12 +924,12 @@ export interface FileRoutesByFullPath {
   '/download/': typeof ViewDownloadIndexRoute
   '/eval/': typeof ViewEvalIndexRoute
   '/gallery/': typeof ViewGalleryIndexRoute
-  '/jobs/': typeof ViewJobsIndexRoute
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
-  '/roadmap/': typeof ViewRoadmapIndexRoute
+  '/solutions/': typeof ViewSolutionsIndexRoute
   '/updates/': typeof ViewUpdatesIndexRoute
+  '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
   '/admin/kanban/': typeof AdminKanbanIndexRoute
@@ -949,11 +965,15 @@ export interface FileRoutesByFullPath {
   '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/admin/media/create-folder': typeof ApiAdminMediaCreateFolderRoute
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
+  '/api/admin/media/download': typeof ApiAdminMediaDownloadRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
+  '/api/admin/stars/digest': typeof ApiAdminStarsDigestRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
+  '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
 }
 export interface FileRoutesByTo {
@@ -972,7 +992,6 @@ export interface FileRoutesByTo {
   '/brand': typeof ViewBrandRoute
   '/choose': typeof ViewChooseRoute
   '/enterprise': typeof ViewEnterpriseRoute
-  '/file-transcription': typeof ViewFileTranscriptionRoute
   '/free': typeof ViewFreeRoute
   '/opensource': typeof ViewOpensourceRoute
   '/oss-friends': typeof ViewOssFriendsRoute
@@ -988,10 +1007,12 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
-  '/app/file-transcription': typeof ViewAppFileTranscriptionRoute
   '/app/integration': typeof ViewAppIntegrationRoute
+  '/app/portal': typeof ViewAppPortalRoute
+  '/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/blog/$slug': typeof ViewBlogSlugRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
+  '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
   '/callback/signout': typeof ViewCallbackSignoutRoute
   '/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -1002,7 +1023,6 @@ export interface FileRoutesByTo {
   '/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/download/windows': typeof ViewDownloadWindowsRoute
-  '/jobs/$slug': typeof ViewJobsSlugRoute
   '/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/legal/$slug': typeof ViewLegalSlugRoute
   '/press-kit/app': typeof ViewPressKitAppRoute
@@ -1020,7 +1040,6 @@ export interface FileRoutesByTo {
   '/product/notepad': typeof ViewProductNotepadRoute
   '/product/search': typeof ViewProductSearchRoute
   '/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/solution/$slug': typeof ViewSolutionSlugRoute
   '/solution/engineering': typeof ViewSolutionEngineeringRoute
   '/solution/meeting': typeof ViewSolutionMeetingRoute
@@ -1037,12 +1056,12 @@ export interface FileRoutesByTo {
   '/download': typeof ViewDownloadIndexRoute
   '/eval': typeof ViewEvalIndexRoute
   '/gallery': typeof ViewGalleryIndexRoute
-  '/jobs': typeof ViewJobsIndexRoute
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
-  '/roadmap': typeof ViewRoadmapIndexRoute
+  '/solutions': typeof ViewSolutionsIndexRoute
   '/updates': typeof ViewUpdatesIndexRoute
+  '/admin/branding': typeof AdminBrandingIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
   '/admin/crm': typeof AdminCrmIndexRoute
   '/admin/kanban': typeof AdminKanbanIndexRoute
@@ -1078,11 +1097,15 @@ export interface FileRoutesByTo {
   '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/admin/media/create-folder': typeof ApiAdminMediaCreateFolderRoute
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
+  '/api/admin/media/download': typeof ApiAdminMediaDownloadRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
+  '/api/admin/stars/digest': typeof ApiAdminStarsDigestRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
+  '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
 }
 export interface FileRoutesById {
@@ -1107,7 +1130,6 @@ export interface FileRoutesById {
   '/_view/brand': typeof ViewBrandRoute
   '/_view/choose': typeof ViewChooseRoute
   '/_view/enterprise': typeof ViewEnterpriseRoute
-  '/_view/file-transcription': typeof ViewFileTranscriptionRoute
   '/_view/free': typeof ViewFreeRoute
   '/_view/opensource': typeof ViewOpensourceRoute
   '/_view/oss-friends': typeof ViewOssFriendsRoute
@@ -1123,10 +1145,12 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
-  '/_view/app/file-transcription': typeof ViewAppFileTranscriptionRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
+  '/_view/app/portal': typeof ViewAppPortalRoute
+  '/_view/app/switch-plan': typeof ViewAppSwitchPlanRoute
   '/_view/blog/$slug': typeof ViewBlogSlugRoute
   '/_view/callback/auth': typeof ViewCallbackAuthRoute
+  '/_view/callback/billing': typeof ViewCallbackBillingRoute
   '/_view/callback/integration': typeof ViewCallbackIntegrationRoute
   '/_view/callback/signout': typeof ViewCallbackSignoutRoute
   '/_view/changelog/$slug': typeof ViewChangelogSlugRoute
@@ -1137,7 +1161,6 @@ export interface FileRoutesById {
   '/_view/download/linux-appimage': typeof ViewDownloadLinuxAppimageRoute
   '/_view/download/linux-deb': typeof ViewDownloadLinuxDebRoute
   '/_view/download/windows': typeof ViewDownloadWindowsRoute
-  '/_view/jobs/$slug': typeof ViewJobsSlugRoute
   '/_view/k6-reports/$id': typeof ViewK6ReportsIdRoute
   '/_view/legal/$slug': typeof ViewLegalSlugRoute
   '/_view/press-kit/app': typeof ViewPressKitAppRoute
@@ -1155,7 +1178,6 @@ export interface FileRoutesById {
   '/_view/product/notepad': typeof ViewProductNotepadRoute
   '/_view/product/search': typeof ViewProductSearchRoute
   '/_view/product/self-hosting': typeof ViewProductSelfHostingRoute
-  '/_view/roadmap/$slug': typeof ViewRoadmapSlugRoute
   '/_view/solution/$slug': typeof ViewSolutionSlugRoute
   '/_view/solution/engineering': typeof ViewSolutionEngineeringRoute
   '/_view/solution/meeting': typeof ViewSolutionMeetingRoute
@@ -1172,12 +1194,12 @@ export interface FileRoutesById {
   '/_view/download/': typeof ViewDownloadIndexRoute
   '/_view/eval/': typeof ViewEvalIndexRoute
   '/_view/gallery/': typeof ViewGalleryIndexRoute
-  '/_view/jobs/': typeof ViewJobsIndexRoute
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
-  '/_view/roadmap/': typeof ViewRoadmapIndexRoute
+  '/_view/solutions/': typeof ViewSolutionsIndexRoute
   '/_view/updates/': typeof ViewUpdatesIndexRoute
+  '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
   '/admin/crm/': typeof AdminCrmIndexRoute
   '/admin/kanban/': typeof AdminKanbanIndexRoute
@@ -1213,11 +1235,15 @@ export interface FileRoutesById {
   '/api/admin/kanban/update': typeof ApiAdminKanbanUpdateRoute
   '/api/admin/media/create-folder': typeof ApiAdminMediaCreateFolderRoute
   '/api/admin/media/delete': typeof ApiAdminMediaDeleteRoute
+  '/api/admin/media/download': typeof ApiAdminMediaDownloadRoute
   '/api/admin/media/list': typeof ApiAdminMediaListRoute
   '/api/admin/media/move': typeof ApiAdminMediaMoveRoute
+  '/api/admin/media/register': typeof ApiAdminMediaRegisterRoute
   '/api/admin/media/upload': typeof ApiAdminMediaUploadRoute
+  '/api/admin/stars/digest': typeof ApiAdminStarsDigestRoute
   '/api/admin/stars/fetch': typeof ApiAdminStarsFetchRoute
   '/api/admin/stars/leads': typeof ApiAdminStarsLeadsRoute
+  '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
 }
 export interface FileRouteTypes {
@@ -1243,7 +1269,6 @@ export interface FileRouteTypes {
     | '/brand'
     | '/choose'
     | '/enterprise'
-    | '/file-transcription'
     | '/free'
     | '/opensource'
     | '/oss-friends'
@@ -1258,10 +1283,12 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/app/account'
     | '/app/checkout'
-    | '/app/file-transcription'
     | '/app/integration'
+    | '/app/portal'
+    | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
+    | '/callback/billing'
     | '/callback/integration'
     | '/callback/signout'
     | '/changelog/$slug'
@@ -1272,7 +1299,6 @@ export interface FileRouteTypes {
     | '/download/linux-appimage'
     | '/download/linux-deb'
     | '/download/windows'
-    | '/jobs/$slug'
     | '/k6-reports/$id'
     | '/legal/$slug'
     | '/press-kit/app'
@@ -1290,7 +1316,6 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/roadmap/$slug'
     | '/solution/$slug'
     | '/solution/engineering'
     | '/solution/meeting'
@@ -1307,12 +1332,12 @@ export interface FileRouteTypes {
     | '/download/'
     | '/eval/'
     | '/gallery/'
-    | '/jobs/'
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
-    | '/roadmap/'
+    | '/solutions/'
     | '/updates/'
+    | '/admin/branding/'
     | '/admin/collections/'
     | '/admin/crm/'
     | '/admin/kanban/'
@@ -1348,11 +1373,15 @@ export interface FileRouteTypes {
     | '/api/admin/kanban/update'
     | '/api/admin/media/create-folder'
     | '/api/admin/media/delete'
+    | '/api/admin/media/download'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
+    | '/api/admin/stars/digest'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
+    | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1371,7 +1400,6 @@ export interface FileRouteTypes {
     | '/brand'
     | '/choose'
     | '/enterprise'
-    | '/file-transcription'
     | '/free'
     | '/opensource'
     | '/oss-friends'
@@ -1387,10 +1415,12 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app/account'
     | '/app/checkout'
-    | '/app/file-transcription'
     | '/app/integration'
+    | '/app/portal'
+    | '/app/switch-plan'
     | '/blog/$slug'
     | '/callback/auth'
+    | '/callback/billing'
     | '/callback/integration'
     | '/callback/signout'
     | '/changelog/$slug'
@@ -1401,7 +1431,6 @@ export interface FileRouteTypes {
     | '/download/linux-appimage'
     | '/download/linux-deb'
     | '/download/windows'
-    | '/jobs/$slug'
     | '/k6-reports/$id'
     | '/legal/$slug'
     | '/press-kit/app'
@@ -1419,7 +1448,6 @@ export interface FileRouteTypes {
     | '/product/notepad'
     | '/product/search'
     | '/product/self-hosting'
-    | '/roadmap/$slug'
     | '/solution/$slug'
     | '/solution/engineering'
     | '/solution/meeting'
@@ -1436,12 +1464,12 @@ export interface FileRouteTypes {
     | '/download'
     | '/eval'
     | '/gallery'
-    | '/jobs'
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
-    | '/roadmap'
+    | '/solutions'
     | '/updates'
+    | '/admin/branding'
     | '/admin/collections'
     | '/admin/crm'
     | '/admin/kanban'
@@ -1477,11 +1505,15 @@ export interface FileRouteTypes {
     | '/api/admin/kanban/update'
     | '/api/admin/media/create-folder'
     | '/api/admin/media/delete'
+    | '/api/admin/media/download'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
+    | '/api/admin/stars/digest'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
+    | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
   id:
     | '__root__'
@@ -1505,7 +1537,6 @@ export interface FileRouteTypes {
     | '/_view/brand'
     | '/_view/choose'
     | '/_view/enterprise'
-    | '/_view/file-transcription'
     | '/_view/free'
     | '/_view/opensource'
     | '/_view/oss-friends'
@@ -1521,10 +1552,12 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/_view/app/account'
     | '/_view/app/checkout'
-    | '/_view/app/file-transcription'
     | '/_view/app/integration'
+    | '/_view/app/portal'
+    | '/_view/app/switch-plan'
     | '/_view/blog/$slug'
     | '/_view/callback/auth'
+    | '/_view/callback/billing'
     | '/_view/callback/integration'
     | '/_view/callback/signout'
     | '/_view/changelog/$slug'
@@ -1535,7 +1568,6 @@ export interface FileRouteTypes {
     | '/_view/download/linux-appimage'
     | '/_view/download/linux-deb'
     | '/_view/download/windows'
-    | '/_view/jobs/$slug'
     | '/_view/k6-reports/$id'
     | '/_view/legal/$slug'
     | '/_view/press-kit/app'
@@ -1553,7 +1585,6 @@ export interface FileRouteTypes {
     | '/_view/product/notepad'
     | '/_view/product/search'
     | '/_view/product/self-hosting'
-    | '/_view/roadmap/$slug'
     | '/_view/solution/$slug'
     | '/_view/solution/engineering'
     | '/_view/solution/meeting'
@@ -1570,12 +1601,12 @@ export interface FileRouteTypes {
     | '/_view/download/'
     | '/_view/eval/'
     | '/_view/gallery/'
-    | '/_view/jobs/'
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
-    | '/_view/roadmap/'
+    | '/_view/solutions/'
     | '/_view/updates/'
+    | '/admin/branding/'
     | '/admin/collections/'
     | '/admin/crm/'
     | '/admin/kanban/'
@@ -1611,11 +1642,15 @@ export interface FileRouteTypes {
     | '/api/admin/kanban/update'
     | '/api/admin/media/create-folder'
     | '/api/admin/media/delete'
+    | '/api/admin/media/download'
     | '/api/admin/media/list'
     | '/api/admin/media/move'
+    | '/api/admin/media/register'
     | '/api/admin/media/upload'
+    | '/api/admin/stars/digest'
     | '/api/admin/stars/fetch'
     | '/api/admin/stars/leads'
+    | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
   fileRoutesById: FileRoutesById
 }
@@ -1660,11 +1695,15 @@ export interface RootRouteChildren {
   ApiAdminKanbanUpdateRoute: typeof ApiAdminKanbanUpdateRoute
   ApiAdminMediaCreateFolderRoute: typeof ApiAdminMediaCreateFolderRoute
   ApiAdminMediaDeleteRoute: typeof ApiAdminMediaDeleteRoute
+  ApiAdminMediaDownloadRoute: typeof ApiAdminMediaDownloadRoute
   ApiAdminMediaListRoute: typeof ApiAdminMediaListRoute
   ApiAdminMediaMoveRoute: typeof ApiAdminMediaMoveRoute
+  ApiAdminMediaRegisterRoute: typeof ApiAdminMediaRegisterRoute
   ApiAdminMediaUploadRoute: typeof ApiAdminMediaUploadRoute
+  ApiAdminStarsDigestRoute: typeof ApiAdminStarsDigestRoute
   ApiAdminStarsFetchRoute: typeof ApiAdminStarsFetchRoute
   ApiAdminStarsLeadsRoute: typeof ApiAdminStarsLeadsRoute
+  ApiAdminStarsPipelineRoute: typeof ApiAdminStarsPipelineRoute
   ApiAdminStarsResearchRoute: typeof ApiAdminStarsResearchRoute
 }
 
@@ -1852,13 +1891,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewFreeRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/file-transcription': {
-      id: '/_view/file-transcription'
-      path: '/file-transcription'
-      fullPath: '/file-transcription'
-      preLoaderRoute: typeof ViewFileTranscriptionRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
     '/_view/enterprise': {
       id: '/_view/enterprise'
       path: '/enterprise'
@@ -1950,6 +1982,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCollectionsIndexRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/branding/': {
+      id: '/admin/branding/'
+      path: '/branding'
+      fullPath: '/admin/branding/'
+      preLoaderRoute: typeof AdminBrandingIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/_view/updates/': {
       id: '/_view/updates/'
       path: '/updates'
@@ -1957,11 +1996,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewUpdatesIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/roadmap/': {
-      id: '/_view/roadmap/'
-      path: '/roadmap'
-      fullPath: '/roadmap/'
-      preLoaderRoute: typeof ViewRoadmapIndexRouteImport
+    '/_view/solutions/': {
+      id: '/_view/solutions/'
+      path: '/solutions'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof ViewSolutionsIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/press-kit/': {
@@ -1983,13 +2022,6 @@ declare module '@tanstack/react-router' {
       path: '/k6-reports'
       fullPath: '/k6-reports/'
       preLoaderRoute: typeof ViewK6ReportsIndexRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/jobs/': {
-      id: '/_view/jobs/'
-      path: '/jobs'
-      fullPath: '/jobs/'
-      preLoaderRoute: typeof ViewJobsIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/gallery/': {
@@ -2102,13 +2134,6 @@ declare module '@tanstack/react-router' {
       path: '/solution/$slug'
       fullPath: '/solution/$slug'
       preLoaderRoute: typeof ViewSolutionSlugRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
-    '/_view/roadmap/$slug': {
-      id: '/_view/roadmap/$slug'
-      path: '/roadmap/$slug'
-      fullPath: '/roadmap/$slug'
-      preLoaderRoute: typeof ViewRoadmapSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/product/self-hosting': {
@@ -2230,13 +2255,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewK6ReportsIdRouteImport
       parentRoute: typeof ViewRouteRoute
     }
-    '/_view/jobs/$slug': {
-      id: '/_view/jobs/$slug'
-      path: '/jobs/$slug'
-      fullPath: '/jobs/$slug'
-      preLoaderRoute: typeof ViewJobsSlugRouteImport
-      parentRoute: typeof ViewRouteRoute
-    }
     '/_view/download/windows': {
       id: '/_view/download/windows'
       path: '/download/windows'
@@ -2307,6 +2325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewCallbackIntegrationRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/callback/billing': {
+      id: '/_view/callback/billing'
+      path: '/callback/billing'
+      fullPath: '/callback/billing'
+      preLoaderRoute: typeof ViewCallbackBillingRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/callback/auth': {
       id: '/_view/callback/auth'
       path: '/callback/auth'
@@ -2321,18 +2346,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewBlogSlugRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/app/switch-plan': {
+      id: '/_view/app/switch-plan'
+      path: '/switch-plan'
+      fullPath: '/app/switch-plan'
+      preLoaderRoute: typeof ViewAppSwitchPlanRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
+    '/_view/app/portal': {
+      id: '/_view/app/portal'
+      path: '/portal'
+      fullPath: '/app/portal'
+      preLoaderRoute: typeof ViewAppPortalRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
     '/_view/app/integration': {
       id: '/_view/app/integration'
       path: '/integration'
       fullPath: '/app/integration'
       preLoaderRoute: typeof ViewAppIntegrationRouteImport
-      parentRoute: typeof ViewAppRouteRoute
-    }
-    '/_view/app/file-transcription': {
-      id: '/_view/app/file-transcription'
-      path: '/file-transcription'
-      fullPath: '/app/file-transcription'
-      preLoaderRoute: typeof ViewAppFileTranscriptionRouteImport
       parentRoute: typeof ViewAppRouteRoute
     }
     '/_view/app/checkout': {
@@ -2356,6 +2388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminStarsResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/stars/pipeline': {
+      id: '/api/admin/stars/pipeline'
+      path: '/api/admin/stars/pipeline'
+      fullPath: '/api/admin/stars/pipeline'
+      preLoaderRoute: typeof ApiAdminStarsPipelineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/stars/leads': {
       id: '/api/admin/stars/leads'
       path: '/api/admin/stars/leads'
@@ -2370,11 +2409,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminStarsFetchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/stars/digest': {
+      id: '/api/admin/stars/digest'
+      path: '/api/admin/stars/digest'
+      fullPath: '/api/admin/stars/digest'
+      preLoaderRoute: typeof ApiAdminStarsDigestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/media/upload': {
       id: '/api/admin/media/upload'
       path: '/api/admin/media/upload'
       fullPath: '/api/admin/media/upload'
       preLoaderRoute: typeof ApiAdminMediaUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/media/register': {
+      id: '/api/admin/media/register'
+      path: '/api/admin/media/register'
+      fullPath: '/api/admin/media/register'
+      preLoaderRoute: typeof ApiAdminMediaRegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/media/move': {
@@ -2389,6 +2442,13 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/media/list'
       fullPath: '/api/admin/media/list'
       preLoaderRoute: typeof ApiAdminMediaListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/media/download': {
+      id: '/api/admin/media/download'
+      path: '/api/admin/media/download'
+      fullPath: '/api/admin/media/download'
+      preLoaderRoute: typeof ApiAdminMediaDownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/admin/media/delete': {
@@ -2600,16 +2660,18 @@ declare module '@tanstack/react-router' {
 interface ViewAppRouteRouteChildren {
   ViewAppAccountRoute: typeof ViewAppAccountRoute
   ViewAppCheckoutRoute: typeof ViewAppCheckoutRoute
-  ViewAppFileTranscriptionRoute: typeof ViewAppFileTranscriptionRoute
   ViewAppIntegrationRoute: typeof ViewAppIntegrationRoute
+  ViewAppPortalRoute: typeof ViewAppPortalRoute
+  ViewAppSwitchPlanRoute: typeof ViewAppSwitchPlanRoute
   ViewAppIndexRoute: typeof ViewAppIndexRoute
 }
 
 const ViewAppRouteRouteChildren: ViewAppRouteRouteChildren = {
   ViewAppAccountRoute: ViewAppAccountRoute,
   ViewAppCheckoutRoute: ViewAppCheckoutRoute,
-  ViewAppFileTranscriptionRoute: ViewAppFileTranscriptionRoute,
   ViewAppIntegrationRoute: ViewAppIntegrationRoute,
+  ViewAppPortalRoute: ViewAppPortalRoute,
+  ViewAppSwitchPlanRoute: ViewAppSwitchPlanRoute,
   ViewAppIndexRoute: ViewAppIndexRoute,
 }
 
@@ -2655,7 +2717,6 @@ interface ViewRouteRouteChildren {
   ViewBrandRoute: typeof ViewBrandRoute
   ViewChooseRoute: typeof ViewChooseRoute
   ViewEnterpriseRoute: typeof ViewEnterpriseRoute
-  ViewFileTranscriptionRoute: typeof ViewFileTranscriptionRoute
   ViewFreeRoute: typeof ViewFreeRoute
   ViewOpensourceRoute: typeof ViewOpensourceRoute
   ViewOssFriendsRoute: typeof ViewOssFriendsRoute
@@ -2666,6 +2727,7 @@ interface ViewRouteRouteChildren {
   ViewIndexRoute: typeof ViewIndexRoute
   ViewBlogSlugRoute: typeof ViewBlogSlugRoute
   ViewCallbackAuthRoute: typeof ViewCallbackAuthRoute
+  ViewCallbackBillingRoute: typeof ViewCallbackBillingRoute
   ViewCallbackIntegrationRoute: typeof ViewCallbackIntegrationRoute
   ViewCallbackSignoutRoute: typeof ViewCallbackSignoutRoute
   ViewChangelogSlugRoute: typeof ViewChangelogSlugRoute
@@ -2674,7 +2736,6 @@ interface ViewRouteRouteChildren {
   ViewDownloadLinuxAppimageRoute: typeof ViewDownloadLinuxAppimageRoute
   ViewDownloadLinuxDebRoute: typeof ViewDownloadLinuxDebRoute
   ViewDownloadWindowsRoute: typeof ViewDownloadWindowsRoute
-  ViewJobsSlugRoute: typeof ViewJobsSlugRoute
   ViewK6ReportsIdRoute: typeof ViewK6ReportsIdRoute
   ViewLegalSlugRoute: typeof ViewLegalSlugRoute
   ViewPressKitAppRoute: typeof ViewPressKitAppRoute
@@ -2692,7 +2753,6 @@ interface ViewRouteRouteChildren {
   ViewProductNotepadRoute: typeof ViewProductNotepadRoute
   ViewProductSearchRoute: typeof ViewProductSearchRoute
   ViewProductSelfHostingRoute: typeof ViewProductSelfHostingRoute
-  ViewRoadmapSlugRoute: typeof ViewRoadmapSlugRoute
   ViewSolutionSlugRoute: typeof ViewSolutionSlugRoute
   ViewSolutionEngineeringRoute: typeof ViewSolutionEngineeringRoute
   ViewSolutionMeetingRoute: typeof ViewSolutionMeetingRoute
@@ -2703,11 +2763,10 @@ interface ViewRouteRouteChildren {
   ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
   ViewEvalIndexRoute: typeof ViewEvalIndexRoute
   ViewGalleryIndexRoute: typeof ViewGalleryIndexRoute
-  ViewJobsIndexRoute: typeof ViewJobsIndexRoute
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
   ViewLegalIndexRoute: typeof ViewLegalIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
-  ViewRoadmapIndexRoute: typeof ViewRoadmapIndexRoute
+  ViewSolutionsIndexRoute: typeof ViewSolutionsIndexRoute
   ViewUpdatesIndexRoute: typeof ViewUpdatesIndexRoute
   ViewDownloadNightlyAppleIntelRoute: typeof ViewDownloadNightlyAppleIntelRoute
   ViewDownloadNightlyAppleSiliconRoute: typeof ViewDownloadNightlyAppleSiliconRoute
@@ -2728,7 +2787,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewBrandRoute: ViewBrandRoute,
   ViewChooseRoute: ViewChooseRoute,
   ViewEnterpriseRoute: ViewEnterpriseRoute,
-  ViewFileTranscriptionRoute: ViewFileTranscriptionRoute,
   ViewFreeRoute: ViewFreeRoute,
   ViewOpensourceRoute: ViewOpensourceRoute,
   ViewOssFriendsRoute: ViewOssFriendsRoute,
@@ -2739,6 +2797,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewIndexRoute: ViewIndexRoute,
   ViewBlogSlugRoute: ViewBlogSlugRoute,
   ViewCallbackAuthRoute: ViewCallbackAuthRoute,
+  ViewCallbackBillingRoute: ViewCallbackBillingRoute,
   ViewCallbackIntegrationRoute: ViewCallbackIntegrationRoute,
   ViewCallbackSignoutRoute: ViewCallbackSignoutRoute,
   ViewChangelogSlugRoute: ViewChangelogSlugRoute,
@@ -2747,7 +2806,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadLinuxAppimageRoute: ViewDownloadLinuxAppimageRoute,
   ViewDownloadLinuxDebRoute: ViewDownloadLinuxDebRoute,
   ViewDownloadWindowsRoute: ViewDownloadWindowsRoute,
-  ViewJobsSlugRoute: ViewJobsSlugRoute,
   ViewK6ReportsIdRoute: ViewK6ReportsIdRoute,
   ViewLegalSlugRoute: ViewLegalSlugRoute,
   ViewPressKitAppRoute: ViewPressKitAppRoute,
@@ -2765,7 +2823,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewProductNotepadRoute: ViewProductNotepadRoute,
   ViewProductSearchRoute: ViewProductSearchRoute,
   ViewProductSelfHostingRoute: ViewProductSelfHostingRoute,
-  ViewRoadmapSlugRoute: ViewRoadmapSlugRoute,
   ViewSolutionSlugRoute: ViewSolutionSlugRoute,
   ViewSolutionEngineeringRoute: ViewSolutionEngineeringRoute,
   ViewSolutionMeetingRoute: ViewSolutionMeetingRoute,
@@ -2776,11 +2833,10 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadIndexRoute: ViewDownloadIndexRoute,
   ViewEvalIndexRoute: ViewEvalIndexRoute,
   ViewGalleryIndexRoute: ViewGalleryIndexRoute,
-  ViewJobsIndexRoute: ViewJobsIndexRoute,
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
   ViewLegalIndexRoute: ViewLegalIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
-  ViewRoadmapIndexRoute: ViewRoadmapIndexRoute,
+  ViewSolutionsIndexRoute: ViewSolutionsIndexRoute,
   ViewUpdatesIndexRoute: ViewUpdatesIndexRoute,
   ViewDownloadNightlyAppleIntelRoute: ViewDownloadNightlyAppleIntelRoute,
   ViewDownloadNightlyAppleSiliconRoute: ViewDownloadNightlyAppleSiliconRoute,
@@ -2801,6 +2857,7 @@ const ViewRouteRouteWithChildren = ViewRouteRoute._addFileChildren(
 
 interface AdminRouteRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminBrandingIndexRoute: typeof AdminBrandingIndexRoute
   AdminCollectionsIndexRoute: typeof AdminCollectionsIndexRoute
   AdminCrmIndexRoute: typeof AdminCrmIndexRoute
   AdminKanbanIndexRoute: typeof AdminKanbanIndexRoute
@@ -2811,6 +2868,7 @@ interface AdminRouteRouteChildren {
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
+  AdminBrandingIndexRoute: AdminBrandingIndexRoute,
   AdminCollectionsIndexRoute: AdminCollectionsIndexRoute,
   AdminCrmIndexRoute: AdminCrmIndexRoute,
   AdminKanbanIndexRoute: AdminKanbanIndexRoute,
@@ -2864,11 +2922,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminKanbanUpdateRoute: ApiAdminKanbanUpdateRoute,
   ApiAdminMediaCreateFolderRoute: ApiAdminMediaCreateFolderRoute,
   ApiAdminMediaDeleteRoute: ApiAdminMediaDeleteRoute,
+  ApiAdminMediaDownloadRoute: ApiAdminMediaDownloadRoute,
   ApiAdminMediaListRoute: ApiAdminMediaListRoute,
   ApiAdminMediaMoveRoute: ApiAdminMediaMoveRoute,
+  ApiAdminMediaRegisterRoute: ApiAdminMediaRegisterRoute,
   ApiAdminMediaUploadRoute: ApiAdminMediaUploadRoute,
+  ApiAdminStarsDigestRoute: ApiAdminStarsDigestRoute,
   ApiAdminStarsFetchRoute: ApiAdminStarsFetchRoute,
   ApiAdminStarsLeadsRoute: ApiAdminStarsLeadsRoute,
+  ApiAdminStarsPipelineRoute: ApiAdminStarsPipelineRoute,
   ApiAdminStarsResearchRoute: ApiAdminStarsResearchRoute,
 }
 export const routeTree = rootRouteImport

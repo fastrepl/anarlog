@@ -55,7 +55,7 @@ pub(super) fn infer_existing_audio_channels(
 
     if encoded_path.exists() {
         let source = hypr_audio_utils::source_from_path(&encoded_path).map_err(into_actor_err)?;
-        return Ok(Some(source.channels()));
+        return Ok(Some(source.channels().into()));
     }
 
     Ok(None)

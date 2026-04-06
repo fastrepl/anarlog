@@ -69,6 +69,10 @@ impl AssemblyAIAdapter {
         let existing_params = super::extract_query_params(&url);
         url.set_query(None);
 
+        if url.host_str() == Some("api.assemblyai.com") {
+            let _ = url.set_host(Some("streaming.assemblyai.com"));
+        }
+
         super::append_path_if_missing(&mut url, Provider::AssemblyAI.ws_path());
         super::set_scheme_from_host(&mut url);
 
@@ -86,7 +90,8 @@ impl AssemblyAIAdapter {
                 .expect("invalid_default_api_url");
         }
 
-        let url: url::Url = api_base.parse().expect("invalid_api_base");
+        let mut url: url::Url = api_base.parse().expect("invalid_api_base");
+        super::append_path_if_missing(&mut url, "v2");
         url
     }
 }
@@ -98,7 +103,7 @@ mod tests {
     #[test]
     fn test_streaming_ws_url_appends_v3_ws() {
         let (url, params) = AssemblyAIAdapter::streaming_ws_url("https://api.assemblyai.com");
-        assert_eq!(url.as_str(), "wss://api.assemblyai.com/v3/ws");
+        assert_eq!(url.as_str(), "wss://streaming.assemblyai.com/v3/ws");
         assert!(params.is_empty());
     }
 
@@ -123,5 +128,23 @@ mod tests {
             AssemblyAIAdapter::streaming_ws_url("http://localhost:8787?provider=assemblyai");
         assert_eq!(url.as_str(), "ws://localhost:8787/listen");
         assert_eq!(params, vec![("provider".into(), "assemblyai".into())]);
+    }
+
+    #[test]
+    fn test_batch_api_url_empty_uses_default() {
+        let url = AssemblyAIAdapter::batch_api_url("");
+        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
+    }
+
+    #[test]
+    fn test_batch_api_url_appends_v2() {
+        let url = AssemblyAIAdapter::batch_api_url("https://api.assemblyai.com");
+        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
+    }
+
+    #[test]
+    fn test_batch_api_url_preserves_existing_v2() {
+        let url = AssemblyAIAdapter::batch_api_url("https://api.assemblyai.com/v2");
+        assert_eq!(url.as_str(), "https://api.assemblyai.com/v2");
     }
 }

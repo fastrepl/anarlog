@@ -2,23 +2,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@supabase/supabase-js";
 
 import { env, requireEnv } from "@/env";
+import { listCatalogMediaItems } from "@/functions/media-catalog";
 import {
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
   parseMediaFilename,
 } from "@/lib/media";
+import type { MediaItem } from "@/lib/media-library";
 
-export interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
+const MEDIA_LIST_CACHE_TTL_MS = 30_000;
+
+type MediaListResult = { items: MediaItem[]; error?: string };
+
+const mediaListCache = new Map<
+  string,
+  { expiresAt: number; result: MediaListResult }
+>();
+const mediaListInFlight = new Map<string, Promise<MediaListResult>>();
+let mediaListCacheVersion = 0;
 
 function getSupabaseClient() {
   const key =
@@ -27,14 +28,43 @@ function getSupabaseClient() {
   return createClient(requireEnv(env.SUPABASE_URL, "SUPABASE_URL"), key);
 }
 
-function getPublicUrl(path: string): string {
-  const supabase = getSupabaseClient();
+function getPublicUrl(supabase: SupabaseClient, path: string): string {
   const { data } = supabase.storage.from(MEDIA_BUCKET_NAME).getPublicUrl(path);
   return data.publicUrl;
 }
 
 function normalizePath(path: string): string {
   return path.split("/").filter(Boolean).join("/");
+}
+
+function arePathsRelated(a: string, b: string): boolean {
+  if (a === "" || b === "") return true;
+  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+}
+
+export function invalidateMediaListCache(paths: string[]) {
+  if (paths.length === 0) return;
+
+  const targets = [...new Set(paths.map((path) => normalizePath(path)))];
+  mediaListCacheVersion += 1;
+
+  if (targets.includes("")) {
+    mediaListCache.clear();
+    mediaListInFlight.clear();
+    return;
+  }
+
+  for (const key of [...mediaListCache.keys()]) {
+    if (targets.some((target) => arePathsRelated(key, target))) {
+      mediaListCache.delete(key);
+    }
+  }
+
+  for (const key of [...mediaListInFlight.keys()]) {
+    if (targets.some((target) => arePathsRelated(key, target))) {
+      mediaListInFlight.delete(key);
+    }
+  }
 }
 
 async function resolveUploadPath(
@@ -125,9 +155,7 @@ async function resolveUploadPath(
   };
 }
 
-export async function listMediaFiles(
-  path: string = "",
-): Promise<{ items: MediaItem[]; error?: string }> {
+async function loadMediaFiles(path: string): Promise<MediaListResult> {
   const supabase = getSupabaseClient();
 
   try {
@@ -146,7 +174,7 @@ export async function listMediaFiles(
       return { items: [] };
     }
 
-    const items: MediaItem[] = data
+    const storageItems: MediaItem[] = data
       .filter(
         (item) =>
           item.name !== ".emptyFolderPlaceholder" && item.name !== ".folder",
@@ -158,7 +186,7 @@ export async function listMediaFiles(
         return {
           name: item.name,
           path: fullPath,
-          publicUrl: isFolder ? "" : getPublicUrl(fullPath),
+          publicUrl: isFolder ? "" : getPublicUrl(supabase, fullPath),
           id: item.id || "",
           size: item.metadata?.size || 0,
           type: isFolder ? "dir" : "file",
@@ -168,8 +196,21 @@ export async function listMediaFiles(
         };
       });
 
-    const folders = items.filter((item) => item.type === "dir");
-    const files = items.filter((item) => item.type === "file");
+    const folders = storageItems.filter((item) => item.type === "dir");
+    const storageFiles = storageItems.filter((item) => item.type === "file");
+    const catalog = await listCatalogMediaItems(supabase, path);
+    const fileMap = new Map(
+      (catalog.supported ? catalog.items : []).map((item) => [item.path, item]),
+    );
+
+    for (const file of storageFiles) {
+      if (!fileMap.has(file.path)) {
+        fileMap.set(file.path, file);
+      }
+    }
+
+    const files = [...fileMap.values()];
+
     folders.sort((a, b) => a.name.localeCompare(b.name));
     files.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -180,6 +221,46 @@ export async function listMediaFiles(
       error: `Failed to list files: ${(error as Error).message}`,
     };
   }
+}
+
+export async function listMediaFiles(
+  path: string = "",
+): Promise<MediaListResult> {
+  const normalizedPath = normalizePath(path);
+  const now = Date.now();
+  const cached = mediaListCache.get(normalizedPath);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.result;
+  }
+
+  if (cached) {
+    mediaListCache.delete(normalizedPath);
+  }
+
+  const existingPromise = mediaListInFlight.get(normalizedPath);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const cacheVersion = mediaListCacheVersion;
+  const promise = loadMediaFiles(normalizedPath)
+    .then((result) => {
+      if (!result.error && cacheVersion === mediaListCacheVersion) {
+        mediaListCache.set(normalizedPath, {
+          expiresAt: Date.now() + MEDIA_LIST_CACHE_TTL_MS,
+          result,
+        });
+      }
+
+      return result;
+    })
+    .finally(() => {
+      mediaListInFlight.delete(normalizedPath);
+    });
+
+  mediaListInFlight.set(normalizedPath, promise);
+  return promise;
 }
 
 export async function uploadMediaFile(
@@ -271,7 +352,7 @@ export async function createSignedMediaUpload(
   return {
     success: true,
     path: resolvedPath.path,
-    publicUrl: getPublicUrl(resolvedPath.path),
+    publicUrl: getPublicUrl(supabase, resolvedPath.path),
     token: data.token,
     signedUrl: data.signedUrl,
   };

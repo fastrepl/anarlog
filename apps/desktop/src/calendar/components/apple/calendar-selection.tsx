@@ -1,47 +1,32 @@
-import { RefreshCwIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo } from "react";
-
-import { Button } from "@hypr/ui/components/ui/button";
-import { cn } from "@hypr/utils";
+import { useCallback, useMemo } from "react";
 
 import { useSync } from "../context";
-import { SyncIndicator } from "./status";
 
 import {
   type CalendarGroup,
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import * as main from "~/store/tinybase/store/main";
+
+const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
 
 export function AppleCalendarSelection({
   calendarClassName,
   leftAction,
 }: { calendarClassName?: string; leftAction?: React.ReactNode } = {}) {
-  const { groups, handleToggle, handleRefresh, isLoading } =
-    useAppleCalendarSelection();
+  const { groups, handleToggle, scheduleSync } = useAppleCalendarSelection();
+
+  useMountEffect(() => {
+    if (groups.length === 0) {
+      scheduleSync();
+    }
+  });
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <div>{leftAction}</div>
-
-        <div className="flex items-center gap-2">
-          <SyncIndicator />
-
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRefresh}
-            className="size-6"
-            disabled={isLoading}
-          >
-            <RefreshCwIcon
-              className={cn(["size-3.5", isLoading && "animate-spin"])}
-            />
-          </Button>
-        </div>
-      </div>
+      {leftAction && groups.length === 0 ? <div>{leftAction}</div> : null}
 
       <CalendarSelection
         groups={groups}
@@ -53,15 +38,10 @@ export function AppleCalendarSelection({
 }
 
 export function useAppleCalendarSelection() {
-  const { status, scheduleSync, scheduleDebouncedSync, cancelDebouncedSync } =
-    useSync();
+  const { status, scheduleDebouncedSync, scheduleSync } = useSync();
 
   const store = main.UI.useStore(main.STORE_ID);
   const calendars = main.UI.useTable("calendars", main.STORE_ID);
-
-  useEffect(() => {
-    scheduleSync();
-  }, [scheduleSync]);
 
   const groups = useMemo((): CalendarGroup[] => {
     const appleCalendars = Object.entries(calendars).filter(
@@ -80,10 +60,16 @@ export function useAppleCalendarSelection() {
       });
     }
 
-    return Array.from(grouped.entries()).map(([sourceName, calendars]) => ({
-      sourceName,
-      calendars,
-    }));
+    return Array.from(grouped.entries())
+      .map(([sourceName, calendars]) => ({
+        sourceName,
+        calendars,
+      }))
+      .sort((a, b) => {
+        if (a.sourceName === SUBSCRIBED_SOURCE_NAME) return 1;
+        if (b.sourceName === SUBSCRIBED_SOURCE_NAME) return -1;
+        return 0;
+      });
   }, [calendars]);
 
   const handleToggle = useCallback(
@@ -94,15 +80,10 @@ export function useAppleCalendarSelection() {
     [store, scheduleDebouncedSync],
   );
 
-  const handleRefresh = useCallback(() => {
-    cancelDebouncedSync();
-    scheduleSync();
-  }, [scheduleSync, cancelDebouncedSync]);
-
   return {
     groups,
     handleToggle,
-    handleRefresh,
     isLoading: status === "syncing",
+    scheduleSync,
   };
 }

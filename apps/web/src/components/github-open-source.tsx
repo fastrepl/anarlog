@@ -1,7 +1,10 @@
 import { Icon } from "@iconify-icon/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
+
+import { useMountEffect } from "@/hooks/useMountEffect";
 
 import {
   GITHUB_LAST_SEEN_FORKS,
@@ -11,216 +14,16 @@ import {
   useGitHubStats,
 } from "../queries";
 
-export const CURATED_PROFILES = [
-  {
-    username: "tobi",
-    avatar: "https://avatars.githubusercontent.com/u/347?v=4",
-  },
-  {
-    username: "DidierRLopes",
-    avatar: "https://avatars.githubusercontent.com/u/25267873?v=4",
-  },
-  {
-    username: "FelixMalfait",
-    avatar: "https://avatars.githubusercontent.com/u/6399865?v=4",
-  },
-  {
-    username: "jeremyfowers",
-    avatar: "https://avatars.githubusercontent.com/u/80718789?v=4",
-  },
-  {
-    username: "micheleriva",
-    avatar: "https://avatars.githubusercontent.com/u/14977595?v=4",
-  },
-  {
-    username: "thomwolf",
-    avatar: "https://avatars.githubusercontent.com/u/7353373?v=4",
-  },
-  {
-    username: "brodock",
-    avatar: "https://avatars.githubusercontent.com/u/20575?v=4",
-  },
-  {
-    username: "anthonycorletti",
-    avatar: "https://avatars.githubusercontent.com/u/3477132?v=4",
-  },
-  {
-    username: "followingell",
-    avatar: "https://avatars.githubusercontent.com/u/5324956?v=4",
-  },
-  {
-    username: "mbanzi",
-    avatar: "https://avatars.githubusercontent.com/u/405127?v=4",
-  },
-  {
-    username: "kevinxh",
-    avatar: "https://avatars.githubusercontent.com/u/10948652?v=4",
-  },
-  {
-    username: "gregnr",
-    avatar: "https://avatars.githubusercontent.com/u/4133076?v=4",
-  },
-  {
-    username: "JoeDo",
-    avatar: "https://avatars.githubusercontent.com/u/775702?v=4",
-  },
-  {
-    username: "toby",
-    avatar: "https://avatars.githubusercontent.com/u/83556?v=4",
-  },
-  {
-    username: "patrick91",
-    avatar: "https://avatars.githubusercontent.com/u/667029?v=4",
-  },
-  {
-    username: "timrogers",
-    avatar: "https://avatars.githubusercontent.com/u/116134?v=4",
-  },
-  {
-    username: "freeqaz",
-    avatar: "https://avatars.githubusercontent.com/u/4573221?v=4",
-  },
-  {
-    username: "robertefreeman",
-    avatar: "https://avatars.githubusercontent.com/u/6842762?v=4",
-  },
-  {
-    username: "mriley",
-    avatar: "https://avatars.githubusercontent.com/u/28009?v=4",
-  },
-  {
-    username: "pmdartus",
-    avatar: "https://avatars.githubusercontent.com/u/2567083?v=4",
-  },
-  {
-    username: "ezekg",
-    avatar: "https://avatars.githubusercontent.com/u/6979737?v=4",
-  },
-  {
-    username: "Jonathanvwersch",
-    avatar: "https://avatars.githubusercontent.com/u/38623677?v=4",
-  },
-  {
-    username: "thewh1teagle",
-    avatar: "https://avatars.githubusercontent.com/u/61390950?v=4",
-  },
-  {
-    username: "dguido",
-    avatar: "https://avatars.githubusercontent.com/u/294844?v=4",
-  },
-  {
-    username: "calvinfo",
-    avatar: "https://avatars.githubusercontent.com/u/487539?v=4",
-  },
-  {
-    username: "velyan",
-    avatar: "https://avatars.githubusercontent.com/u/1313779?v=4",
-  },
-  {
-    username: "mfts",
-    avatar: "https://avatars.githubusercontent.com/u/4049052?v=4",
-  },
-  {
-    username: "devgony",
-    avatar: "https://avatars.githubusercontent.com/u/51254761?v=4",
-  },
-  {
-    username: "bartoszgrabski",
-    avatar: "https://avatars.githubusercontent.com/u/5851315?v=4",
-  },
-  {
-    username: "mpazik",
-    avatar: "https://avatars.githubusercontent.com/u/4086126?v=4",
-  },
-  {
-    username: "Necromenta",
-    avatar: "https://avatars.githubusercontent.com/u/95664440?v=4",
-  },
-  {
-    username: "jonpage0",
-    avatar: "https://avatars.githubusercontent.com/u/48391075?v=4",
-  },
-  {
-    username: "ralder",
-    avatar: "https://avatars.githubusercontent.com/u/10889830?v=4",
-  },
-  {
-    username: "mateusrevoredo",
-    avatar: "https://avatars.githubusercontent.com/u/1175432?v=4",
-  },
-  {
-    username: "annieappflowy",
-    avatar: "https://avatars.githubusercontent.com/u/12026239?v=4",
-  },
-  {
-    username: "carllippert",
-    avatar: "https://avatars.githubusercontent.com/u/16457876?v=4",
-  },
-  {
-    username: "avneetsb",
-    avatar: "https://avatars.githubusercontent.com/u/5681972?v=4",
-  },
-  {
-    username: "anrath",
-    avatar: "https://avatars.githubusercontent.com/u/62771105?v=4",
-  },
-  {
-    username: "srikanta30",
-    avatar: "https://avatars.githubusercontent.com/u/28688901?v=4",
-  },
-  {
-    username: "allisoneer",
-    avatar: "https://avatars.githubusercontent.com/u/20910163?v=4",
-  },
-  {
-    username: "kebot",
-    avatar: "https://avatars.githubusercontent.com/u/289392?v=4",
-  },
-  {
-    username: "daevaorn",
-    avatar: "https://avatars.githubusercontent.com/u/37366?v=4",
-  },
-  {
-    username: "rdt712",
-    avatar: "https://avatars.githubusercontent.com/u/13369991?v=4",
-  },
-  {
-    username: "olabrainy",
-    avatar: "https://avatars.githubusercontent.com/u/28204401?v=4",
-  },
-  {
-    username: "aaronrau",
-    avatar: "https://avatars.githubusercontent.com/u/207538?v=4",
-  },
-  {
-    username: "jhbao",
-    avatar: "https://avatars.githubusercontent.com/u/1714002?v=4",
-  },
-  {
-    username: "dbkegley",
-    avatar: "https://avatars.githubusercontent.com/u/5727001?v=4",
-  },
-  {
-    username: "chrismalek",
-    avatar: "https://avatars.githubusercontent.com/u/9403?v=4",
-  },
-  {
-    username: "KlimDos",
-    avatar: "https://avatars.githubusercontent.com/u/17221993?v=4",
-  },
-  {
-    username: "maximilianmessing",
-    avatar: "https://avatars.githubusercontent.com/u/7516094?v=4",
-  },
-  {
-    username: "levysantanna",
-    avatar: "https://avatars.githubusercontent.com/u/1235238?v=4",
-  },
-  {
-    username: "falltodis",
-    avatar: "https://avatars.githubusercontent.com/u/7006864?v=4",
-  },
-];
+const AVATAR_SIZE = 40;
+const AVATAR_GAP = 4;
+const DEFAULT_DISPLAY_COUNT = 50;
+const DEFAULT_ROTATION_INTERVAL_MS = 1000;
+const WAVE_ROTATION_INTERVAL_MS = 120;
+const WAVE_REPEAT_DELAY_MS = 1200;
+const AVATAR_SWAP_TRANSITION = {
+  duration: 0.24,
+  ease: [0.22, 1, 0.36, 1],
+} as const;
 
 function StatBadge({
   type,
@@ -246,31 +49,80 @@ function StatBadge({
 
 function Avatar({ username, avatar }: { username: string; avatar: string }) {
   return (
-    <a
-      href={`https://github.com/${username}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="size-[40px] shrink-0 cursor-pointer overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-all hover:scale-110 hover:border-neutral-400"
-    >
-      <img
-        src={avatar}
-        alt={`${username}'s avatar`}
-        className="h-full w-full object-cover"
-      />
-    </a>
+    <div className="group relative size-[40px] shrink-0 overflow-hidden rounded-xs border border-neutral-200 bg-neutral-100 transition-colors hover:border-neutral-400">
+      <AnimatePresence initial={false}>
+        <motion.a
+          key={`${username}-${avatar}`}
+          href={`https://github.com/${username}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{
+            opacity: 0.5,
+            x: 4,
+            scale: 0.985,
+          }}
+          animate={{
+            opacity: 1,
+            x: 0,
+            scale: 1,
+          }}
+          exit={{
+            opacity: 0.35,
+            x: -4,
+            scale: 1.015,
+          }}
+          transition={AVATAR_SWAP_TRANSITION}
+          className="absolute inset-0 block cursor-pointer"
+        >
+          <img
+            src={avatar}
+            alt={`${username}'s avatar`}
+            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+          />
+        </motion.a>
+      </AnimatePresence>
+    </div>
   );
 }
 
-export function RotatingAvatarGrid({
+function getAvatarColumnCount(width: number) {
+  return Math.max(
+    1,
+    Math.floor((width + AVATAR_GAP) / (AVATAR_SIZE + AVATAR_GAP)),
+  );
+}
+
+function getPackedDisplayCount({
+  columnCount,
+  profileCount,
+  rows,
+}: {
+  columnCount: number;
+  profileCount: number;
+  rows: number;
+}) {
+  if (profileCount <= columnCount) {
+    return profileCount;
+  }
+
+  const maxVisible = Math.min(profileCount, columnCount * rows);
+  const fullRows = Math.floor(maxVisible / columnCount);
+
+  return fullRows > 0 ? fullRows * columnCount : maxVisible;
+}
+
+function RotatingAvatarSet({
   profiles,
+  displayCount,
+  columnCount,
 }: {
   profiles: { username: string; avatar: string }[];
+  displayCount: number;
+  columnCount?: number | null;
 }) {
-  const DISPLAY_COUNT = 50;
-  const [visible, setVisible] = useState(() =>
-    profiles.slice(0, DISPLAY_COUNT),
-  );
-  const poolRef = useRef(DISPLAY_COUNT);
+  const [visible, setVisible] = useState(() => profiles.slice(0, displayCount));
+  const poolRef = useRef(displayCount);
+  const waveSlotRef = useRef(0);
 
   const pickNext = useCallback(() => {
     const idx = poolRef.current % profiles.length;
@@ -279,31 +131,104 @@ export function RotatingAvatarGrid({
   }, [profiles]);
 
   useEffect(() => {
-    if (profiles.length <= DISPLAY_COUNT) return;
+    if (profiles.length <= displayCount) return;
 
-    const interval = setInterval(() => {
+    const isPackedRows =
+      Math.max(1, columnCount ?? displayCount) < displayCount;
+    const stepDelayMs = isPackedRows
+      ? WAVE_ROTATION_INTERVAL_MS
+      : DEFAULT_ROTATION_INTERVAL_MS;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const tick = () => {
+      const idx = waveSlotRef.current % displayCount;
+      waveSlotRef.current = idx + 1;
+      const nextProfile = pickNext();
+
       setVisible((prev) => {
         const next = [...prev];
-        const count = 1 + Math.floor(Math.random() * 2);
-        for (let i = 0; i < count; i++) {
-          const idx = Math.floor(Math.random() * next.length);
-          next[idx] = pickNext();
-        }
+        next[idx] = nextProfile;
         return next;
       });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [profiles.length, pickNext]);
+
+      const completedSweep = waveSlotRef.current % displayCount === 0;
+      const nextDelay =
+        isPackedRows && completedSweep ? WAVE_REPEAT_DELAY_MS : stepDelayMs;
+
+      timeoutId = setTimeout(tick, nextDelay);
+    };
+
+    timeoutId = setTimeout(tick, stepDelayMs);
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [columnCount, displayCount, profiles.length, pickNext]);
 
   return (
-    <div className="mt-12 flex flex-wrap gap-1">
+    <>
       {visible.map((profile, i) => (
-        <Avatar
-          key={`${i}-${profile.username}`}
-          username={profile.username}
-          avatar={profile.avatar}
-        />
+        <Avatar key={i} username={profile.username} avatar={profile.avatar} />
       ))}
+    </>
+  );
+}
+
+export function RotatingAvatarGrid({
+  profiles,
+  rows,
+}: {
+  profiles: { username: string; avatar: string }[];
+  rows?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [columnCount, setColumnCount] = useState<number | null>(null);
+
+  useMountEffect(() => {
+    if (!rows) {
+      return;
+    }
+
+    const el = containerRef.current;
+    if (!el) {
+      return;
+    }
+
+    const updateColumnCount = (width: number) => {
+      setColumnCount(getAvatarColumnCount(width));
+    };
+
+    updateColumnCount(el.clientWidth);
+
+    const observer = new ResizeObserver(([entry]) => {
+      updateColumnCount(entry.contentRect.width);
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  const displayCount =
+    rows && columnCount
+      ? getPackedDisplayCount({
+          columnCount,
+          profileCount: profiles.length,
+          rows,
+        })
+      : Math.min(profiles.length, DEFAULT_DISPLAY_COUNT);
+
+  const resetKey = `${displayCount}-${profiles.length}-${profiles[0]?.username ?? ""}`;
+
+  return (
+    <div ref={containerRef} className="mt-12 flex flex-wrap gap-1">
+      <RotatingAvatarSet
+        key={resetKey}
+        profiles={profiles}
+        displayCount={displayCount}
+        columnCount={columnCount}
+      />
     </div>
   );
 }
@@ -353,9 +278,9 @@ export function GitHubOpenSource() {
           </div>
         </div>
 
-        <RotatingAvatarGrid
-          profiles={stargazers.length > 0 ? stargazers : CURATED_PROFILES}
-        />
+        {stargazers.length > 0 ? (
+          <RotatingAvatarGrid profiles={stargazers} rows={2} />
+        ) : null}
       </div>
     </section>
   );

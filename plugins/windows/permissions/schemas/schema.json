@@ -367,6 +367,42 @@
           "markdownDescription": "Denies the window_navigate command without any pre-configured scope."
         },
         {
+          "description": "Enables the window_restore_frame_animated command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-restore-frame-animated",
+          "markdownDescription": "Enables the window_restore_frame_animated command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_restore_frame_animated command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-restore-frame-animated",
+          "markdownDescription": "Denies the window_restore_frame_animated command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_save_frame command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-save-frame",
+          "markdownDescription": "Enables the window_save_frame command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_save_frame command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-save-frame",
+          "markdownDescription": "Denies the window_save_frame command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the window_set_frame_animated command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-window-set-frame-animated",
+          "markdownDescription": "Enables the window_set_frame_animated command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the window_set_frame_animated command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-window-set-frame-animated",
+          "markdownDescription": "Denies the window_set_frame_animated command without any pre-configured scope."
+        },
+        {
           "description": "Enables the window_show command without any pre-configured scope.",
           "type": "string",
           "const": "allow-window-show",
@@ -379,10 +415,10 @@
           "markdownDescription": "Denies the window_show command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-window-show`\n- `allow-window-destroy`\n- `allow-window-navigate`\n- `allow-window-emit-navigate`\n- `allow-window-is-exists`\n- `allow-window-set-frame-animated`\n- `allow-window-save-frame`\n- `allow-window-restore-frame-animated`"
         }
       ]
     }

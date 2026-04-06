@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::time::Duration;
 
@@ -6,10 +7,154 @@ use futures_util::{Stream, StreamExt};
 use hypr_ws_client::client::{
     ClientRequestBuilder, Message, Utf8Bytes, WebSocketClient, WebSocketHandle, WebSocketIO,
 };
+use owhisper_interface::ListenParams;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
-use crate::{DeepgramAdapter, ListenClientBuilder, RealtimeSttAdapter};
+use crate::{
+    DeepgramAdapter, RealtimeSttAdapter, append_provider_param, is_hyprnote_proxy,
+    normalize_listen_params,
+};
+
+pub struct ListenClientBuilder<A: RealtimeSttAdapter = DeepgramAdapter> {
+    pub(crate) api_base: Option<String>,
+    pub(crate) api_key: Option<String>,
+    pub(crate) params: Option<ListenParams>,
+    pub(crate) extra_headers: Vec<(String, String)>,
+    pub(crate) connect_policy: Option<hypr_ws_client::client::WebSocketConnectPolicy>,
+    pub(crate) _marker: PhantomData<A>,
+}
+
+impl Default for ListenClientBuilder {
+    fn default() -> Self {
+        Self {
+            api_base: None,
+            api_key: None,
+            params: None,
+            extra_headers: Vec::new(),
+            connect_policy: None,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
+    pub fn api_base(mut self, api_base: impl Into<String>) -> Self {
+        self.api_base = Some(api_base.into());
+        self
+    }
+
+    pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
+        self.api_key = Some(api_key.into());
+        self
+    }
+
+    pub fn params(mut self, params: ListenParams) -> Self {
+        self.params = Some(params);
+        self
+    }
+
+    pub fn extra_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.extra_headers.push((name.into(), value.into()));
+        self
+    }
+
+    pub fn connect_policy(
+        mut self,
+        policy: hypr_ws_client::client::WebSocketConnectPolicy,
+    ) -> Self {
+        self.connect_policy = Some(policy);
+        self
+    }
+
+    pub fn adapter<B: RealtimeSttAdapter>(self) -> ListenClientBuilder<B> {
+        ListenClientBuilder {
+            api_base: self.api_base,
+            api_key: self.api_key,
+            params: self.params,
+            extra_headers: self.extra_headers,
+            connect_policy: self.connect_policy,
+            _marker: PhantomData,
+        }
+    }
+
+    fn get_api_base(&self) -> &str {
+        self.api_base.as_ref().expect("api_base is required")
+    }
+
+    pub(crate) fn normalized_params(&self) -> ListenParams {
+        normalize_listen_params(self.params.clone().unwrap_or_default())
+    }
+
+    async fn build_request(
+        &self,
+        adapter: &A,
+        params: &ListenParams,
+        channels: u8,
+    ) -> hypr_ws_client::client::ClientRequestBuilder {
+        let original_api_base = self.get_api_base();
+        let api_base = append_provider_param(original_api_base, adapter.provider_name());
+        let url = adapter
+            .build_ws_url_with_api_key(&api_base, params, channels, self.api_key.as_deref())
+            .await
+            .unwrap_or_else(|| adapter.build_ws_url(&api_base, params, channels));
+        let uri = url.to_string().parse().unwrap();
+
+        let mut request = hypr_ws_client::client::ClientRequestBuilder::new(uri);
+
+        if is_hyprnote_proxy(original_api_base) {
+            if let Some(api_key) = self.api_key.as_deref() {
+                request = request.with_header("Authorization", format!("Bearer {}", api_key));
+            }
+            for (name, value) in &self.extra_headers {
+                request = request.with_header(name, value);
+            }
+        } else if let Some((header_name, header_value)) =
+            adapter.build_auth_header(self.api_key.as_deref())
+        {
+            request = request.with_header(header_name, header_value);
+        }
+
+        request
+    }
+
+    pub async fn build_with_channels(self, channels: u8) -> ListenClient<A> {
+        let adapter = A::default();
+        let params = self.normalized_params();
+        let request = self.build_request(&adapter, &params, channels).await;
+        let initial_message = adapter.initial_message(self.api_key.as_deref(), &params, channels);
+
+        ListenClient {
+            adapter,
+            request,
+            initial_message,
+            connect_policy: self.connect_policy,
+        }
+    }
+
+    pub async fn build_single(self) -> ListenClient<A> {
+        self.build_with_channels(1).await
+    }
+
+    pub async fn build_dual(self) -> ListenClientDual<A> {
+        let adapter = A::default();
+        let channels = if adapter.supports_native_multichannel() {
+            2
+        } else {
+            1
+        };
+        let params = self.normalized_params();
+        let request = self.build_request(&adapter, &params, channels).await;
+        let initial_message = adapter.initial_message(self.api_key.as_deref(), &params, channels);
+
+        ListenClientDual {
+            adapter,
+            request,
+            initial_message,
+            connect_policy: self.connect_policy,
+        }
+    }
+}
 
 pub type ListenClientInput = MixedMessage<bytes::Bytes, ControlMessage>;
 pub type ListenClientDualInput = MixedMessage<(bytes::Bytes, bytes::Bytes), ControlMessage>;
@@ -554,6 +699,35 @@ mod tests {
         assert_eq!(second_spk.as_ref(), b"spk-2");
 
         let _: () = task.await.expect("forward task panicked");
+    }
+
+    #[tokio::test]
+    async fn build_single_normalizes_languages_before_initial_message() {
+        let client = ListenClient::builder()
+            .adapter::<SonioxAdapter>()
+            .api_base("https://api.soniox.com")
+            .params(owhisper_interface::ListenParams {
+                languages: vec![
+                    "en-US".parse().unwrap(),
+                    "en-GB".parse().unwrap(),
+                    hypr_language::ISO639::En.into(),
+                    "ko-KR".parse().unwrap(),
+                ],
+                ..Default::default()
+            })
+            .build_single()
+            .await;
+
+        let msg = client.initial_message.expect("missing initial message");
+        let Message::Text(text) = msg else {
+            panic!("expected text message");
+        };
+        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let hints = json["language_hints"].as_array().unwrap();
+
+        assert_eq!(hints.len(), 2);
+        assert_eq!(hints[0].as_str().unwrap(), "en");
+        assert_eq!(hints[1].as_str().unwrap(), "ko");
     }
 
     #[tokio::test]

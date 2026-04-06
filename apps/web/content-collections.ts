@@ -202,30 +202,22 @@ const articles = defineCollection({
 
 const changelog = defineCollection({
   name: "changelog",
-  directory: "content/changelog",
-  include: "*.mdx",
+  directory: "../../packages/changelog/content",
+  include: "*.md",
   exclude: "AGENTS.md",
   schema: z.object({
-    date: z.string(),
+    date: z
+      .string()
+      .trim()
+      .transform((value) => (value === "" ? undefined : value))
+      .optional(),
   }),
-  transform: async (document, context) => {
-    const mdx = await compileMDX(context, document, {
-      remarkPlugins: [remarkGfm, mdxMermaid],
-      rehypePlugins: [
-        rehypeSlug,
-        [
-          rehypeAutolinkHeadings,
-          {
-            behavior: "wrap",
-            properties: {
-              className: ["anchor"],
-            },
-          },
-        ],
-      ],
-    });
+  transform: async (document, { skip }) => {
+    if (!document.date) {
+      return skip("missing changelog date");
+    }
 
-    const version = document._meta.path.replace(/\.mdx$/, "");
+    const version = document._meta.path.replace(/\.md$/, "");
     const baseUrl = `https://github.com/fastrepl/char/releases/download/desktop_v${version}`;
     const downloads: Record<VersionPlatform, string> = {
       "dmg-aarch64": `${baseUrl}/char-macos-aarch64.dmg`,
@@ -237,7 +229,6 @@ const changelog = defineCollection({
 
     return {
       ...document,
-      mdx,
       slug: version,
       version,
       downloads,
@@ -253,6 +244,7 @@ const docs = defineCollection({
   schema: z.object({
     title: z.string(),
     section: z.string(),
+    description: z.string().optional(),
     summary: z.string().optional(),
   }),
   transform: async (document, context) => {
@@ -297,6 +289,8 @@ const docs = defineCollection({
 
     return {
       ...document,
+      description: document.description || document.summary,
+      summary: document.summary || document.description,
       mdx,
       slug,
       sectionFolder,
@@ -318,6 +312,7 @@ const legal = defineCollection({
     date: z.string(),
   }),
   transform: async (document, context) => {
+    const toc = extractToc(document.content);
     const mdx = await compileMDX(context, document, {
       remarkPlugins: [remarkGfm, mdxMermaid],
       rehypePlugins: [
@@ -340,6 +335,7 @@ const legal = defineCollection({
       ...document,
       mdx,
       slug,
+      toc,
     };
   },
 });
@@ -763,41 +759,55 @@ const updates = defineCollection({
   },
 });
 
-const jobs = defineCollection({
-  name: "jobs",
-  directory: "content/jobs",
+const solutions = defineCollection({
+  name: "solutions",
+  directory: "content/solutions",
   include: "*.mdx",
   exclude: "AGENTS.md",
   schema: z.object({
-    title: z.string(),
-    description: z.string(),
-    cardDescription: z.string(),
-    backgroundImage: z.string(),
-    applyUrl: z.string().optional(),
-    published: z.boolean().default(true),
+    label: z.string(),
+    icon: z.string(),
+    order: z.number().default(0),
+    metaTitle: z.string(),
+    metaDescription: z.string(),
+    hero: z.object({
+      badgeText: z.string(),
+      title: z.string(),
+      description: z.string(),
+      primaryCTA: z.object({ label: z.string(), to: z.string() }),
+      secondaryCTA: z.object({ label: z.string(), to: z.string() }).optional(),
+    }),
+    features: z.object({
+      title: z.string(),
+      description: z.string(),
+      items: z.array(
+        z.object({
+          icon: z.string(),
+          title: z.string(),
+          description: z.string(),
+        }),
+      ),
+    }),
+    useCases: z.object({
+      title: z.string(),
+      description: z.string(),
+      items: z.array(
+        z.object({
+          title: z.string(),
+          description: z.string(),
+        }),
+      ),
+    }),
+    cta: z.object({
+      title: z.string(),
+      description: z.string(),
+    }),
   }),
-  transform: async (document, context) => {
-    const mdx = await compileMDX(context, document, {
-      remarkPlugins: [remarkGfm, mdxMermaid],
-      rehypePlugins: [
-        rehypeSlug,
-        [
-          rehypeAutolinkHeadings,
-          {
-            behavior: "wrap",
-            properties: {
-              className: ["anchor"],
-            },
-          },
-        ],
-      ],
-    });
-
+  transform: async (document) => {
     const slug = document._meta.path.replace(/\.mdx$/, "");
 
     return {
       ...document,
-      mdx,
       slug,
     };
   },
@@ -872,7 +882,6 @@ export default defineConfig({
     handbook,
     roadmap,
     ossFriends,
-    jobs,
     updates,
     solutions,
   ],

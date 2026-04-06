@@ -20,8 +20,8 @@ export function OuterHeader({
         </div>
 
         <div className="flex shrink-0 items-center">
-          <MetadataButton sessionId={sessionId} />
           <ListenButton sessionId={sessionId} />
+          <MetadataButton sessionId={sessionId} />
           <OverflowButton sessionId={sessionId} currentView={currentView} />
         </div>
       </div>

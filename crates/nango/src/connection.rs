@@ -56,6 +56,8 @@ common_derives! {
         pub metadata: Option<serde_json::Value>,
         pub errors: Vec<ConnectionError>,
         pub end_user: Option<ConnectionEndUser>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tags: Option<std::collections::HashMap<String, String>>,
     }
 }
 
@@ -67,6 +69,8 @@ common_derives! {
         pub provider: String,
         pub errors: Vec<ConnectionError>,
         pub end_user: Option<ConnectionEndUser>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tags: Option<std::collections::HashMap<String, String>>,
         pub metadata: serde_json::Value,
         pub connection_config: serde_json::Value,
         pub created_at: String,
@@ -95,6 +99,8 @@ common_derives! {
     pub struct PatchConnectionRequest {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub end_user: Option<EndUser>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub tags: Option<std::collections::HashMap<String, String>>,
     }
 }
 

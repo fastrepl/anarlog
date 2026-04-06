@@ -171,6 +171,8 @@ export const templateSchema = z.object({
   user_id: z.string(),
   title: z.string(),
   description: z.string(),
+  pinned: z.preprocess((val) => val ?? false, z.boolean()),
+  pin_order: z.preprocess((val) => val ?? undefined, z.number().optional()),
   category: z.preprocess((val) => val ?? undefined, z.string().optional()),
   targets: z.preprocess(
     (val) => val ?? undefined,
@@ -216,6 +218,12 @@ export const memorySchema = z.object({
   created_at: z.string(),
 });
 
+export const dailyNoteSchema = z.object({
+  user_id: z.string(),
+  date: z.string(),
+  content: z.string(),
+});
+
 export const enhancedNoteSchema = z.object({
   user_id: z.string(),
   session_id: z.string(),
@@ -223,6 +231,21 @@ export const enhancedNoteSchema = z.object({
   template_id: z.preprocess((val) => val ?? undefined, z.string().optional()),
   position: z.number(),
   title: z.preprocess((val) => val ?? undefined, z.string().optional()),
+});
+
+export const taskStatusSchema = z.enum(["todo", "in_progress", "done"]);
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+
+export const taskSchema = z.object({
+  user_id: z.string(),
+  task_id: z.string(),
+  source_id: z.string(),
+  source_type: z.string(),
+  source_order: z.number(),
+  status: taskStatusSchema,
+  text_preview: z.string(),
+  body_json: z.string(),
+  due_date: z.preprocess((val) => val ?? undefined, z.string().optional()),
 });
 
 export const promptSchema = z.object({
@@ -267,6 +290,7 @@ export const generalSchema = z.object({
   ai_language: z.string().default("en"),
   spoken_languages: jsonObject(z.array(z.string()).default(["en"])),
   ignored_platforms: jsonObject(z.array(z.string()).default([])),
+  included_platforms: jsonObject(z.array(z.string()).default([])),
   ignored_events: jsonObject(z.array(ignoredEventEntrySchema).default([])),
   ignored_recurring_series: jsonObject(
     z.array(ignoredRecurringSeriesEntrySchema).default([]),
@@ -325,7 +349,9 @@ export type ChatMessageStatus = z.infer<typeof chatMessageStatusSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ChatShortcut = z.infer<typeof chatShortcutSchema>;
 export type Memory = z.infer<typeof memorySchema>;
+export type DailyNote = z.infer<typeof dailyNoteSchema>;
 export type EnhancedNote = z.infer<typeof enhancedNoteSchema>;
+export type Task = z.infer<typeof taskSchema>;
 export type Prompt = z.infer<typeof promptSchema>;
 export type AIProvider = z.infer<typeof aiProviderSchema>;
 export type General = z.infer<typeof generalSchema>;
@@ -337,11 +363,13 @@ export type SpeakerHintStorage = ToStorageType<typeof speakerHintSchema>;
 export type TemplateStorage = ToStorageType<typeof templateSchema>;
 export type ChatMessageStorage = ToStorageType<typeof chatMessageSchema>;
 export type EnhancedNoteStorage = ToStorageType<typeof enhancedNoteSchema>;
+export type TaskStorage = ToStorageType<typeof taskSchema>;
 export type HumanStorage = ToStorageType<typeof humanSchema>;
 export type OrganizationStorage = ToStorageType<typeof organizationSchema>;
 export type PromptStorage = ToStorageType<typeof promptSchema>;
 export type ChatShortcutStorage = ToStorageType<typeof chatShortcutSchema>;
 export type MemoryStorage = ToStorageType<typeof memorySchema>;
+export type DailyNoteStorage = ToStorageType<typeof dailyNoteSchema>;
 export type EventStorage = ToStorageType<typeof eventSchema>;
 export type MappingSessionParticipantStorage = ToStorageType<
   typeof mappingSessionParticipantSchema

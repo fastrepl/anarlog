@@ -14,7 +14,7 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const TITLE = "Char - AI notepad for private meetings";
+const TITLE = "Char - Meeting Notes You Own";
 const DESCRIPTION =
   "Char is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
 const KEYWORDS =
@@ -60,25 +60,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "stylesheet", href: appCss },
     ],
   }),
-  scripts: ({ matches }) => {
-    if (import.meta.env.DEV) {
-      return [];
-    }
-
-    const isAdminRoute = matches.some((match) =>
-      match.pathname.startsWith("/admin"),
-    );
-    if (isAdminRoute) {
-      return [];
-    }
-
-    return [
-      {
-        id: "ze-snippet",
-        src: "https://static.zdassets.com/ekr/snippet.js?key=15949e47-ed5a-4e52-846e-200dd0b8f4b9",
-      },
-    ];
-  },
   shellComponent: RootDocument,
   notFoundComponent: NotFoundDocument,
 });

@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum CalendarProviderType {
     Apple,

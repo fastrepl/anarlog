@@ -13,40 +13,11 @@ import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { json2md } from "@hypr/tiptap/shared";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
+import { formatDate, formatDuration } from "./export-utils";
+
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { EditorView } from "~/store/zustand/tabs/schema";
-import { buildSegments, SegmentKey } from "~/stt/segment";
-import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
-import { convertStorageHintsToRuntime } from "~/stt/speaker-hints";
-import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
-
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-function formatDuration(startMs: number, endMs: number): string {
-  const durationMs = endMs - startMs;
-  const minutes = Math.floor(durationMs / 60000);
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${remainingMinutes}m`;
-  }
-  return `${minutes}m`;
-}
 
 export function ExportPDF({
   sessionId,
@@ -123,71 +94,6 @@ export function ExportPDF({
     main.STORE_ID,
   );
 
-  const transcriptItems = useMemo((): TranscriptItem[] => {
-    if (!store || !transcriptIds || transcriptIds.length === 0) {
-      return [];
-    }
-
-    const wordIdToIndex = new Map<string, number>();
-    const collectedWords: Array<{
-      id: string;
-      text: string;
-      start_ms: number;
-      end_ms: number;
-      channel: number;
-    }> = [];
-
-    const firstStartedAt = store.getCell(
-      "transcripts",
-      transcriptIds[0],
-      "started_at",
-    );
-
-    for (const transcriptId of transcriptIds) {
-      const startedAt = store.getCell(
-        "transcripts",
-        transcriptId,
-        "started_at",
-      );
-      const offset =
-        typeof startedAt === "number" && typeof firstStartedAt === "number"
-          ? startedAt - firstStartedAt
-          : 0;
-
-      const words = parseTranscriptWords(store, transcriptId);
-      for (const word of words) {
-        if (word.text === undefined || word.start_ms === undefined) continue;
-        collectedWords.push({
-          id: word.id,
-          text: word.text,
-          start_ms: word.start_ms + offset,
-          end_ms: (word.end_ms ?? word.start_ms) + offset,
-          channel: word.channel ?? 0,
-        });
-      }
-    }
-
-    collectedWords.sort((a, b) => a.start_ms - b.start_ms);
-    collectedWords.forEach((w, i) => wordIdToIndex.set(w.id, i));
-
-    const storageHints = transcriptIds.flatMap((id) =>
-      parseTranscriptHints(store, id),
-    );
-    const speakerHints = convertStorageHintsToRuntime(
-      storageHints,
-      wordIdToIndex,
-    );
-
-    const segments = buildSegments(collectedWords, [], speakerHints);
-    const ctx = defaultRenderLabelContext(store);
-    const manager = SpeakerLabelManager.fromSegments(segments, ctx);
-
-    return segments.map((segment) => ({
-      speaker: SegmentKey.renderLabel(segment.key, ctx, manager),
-      text: segment.words.map((w) => w.text).join(" "),
-    }));
-  }, [store, transcriptIds]);
-
   const transcriptDuration = useMemo((): string | null => {
     if (!store || !transcriptIds || transcriptIds.length === 0) {
       return null;
@@ -225,6 +131,7 @@ export function ExportPDF({
   const getExportContent = useMemo(() => {
     return (): {
       enhancedMd: string;
+      memoMd: string | null;
       transcript: { items: TranscriptItem[] } | null;
       metadata: ExportMetadata | null;
     } => {
@@ -248,7 +155,8 @@ export function ExportPDF({
             }
           }
           return {
-            enhancedMd: memoMd,
+            enhancedMd: "",
+            memoMd,
             transcript: null,
             metadata,
           };
@@ -265,21 +173,15 @@ export function ExportPDF({
           }
           return {
             enhancedMd,
+            memoMd: null,
             transcript: null,
-            metadata,
-          };
-        }
-        case "transcript": {
-          return {
-            enhancedMd: "",
-            transcript:
-              transcriptItems.length > 0 ? { items: transcriptItems } : null,
             metadata,
           };
         }
         default:
           return {
             enhancedMd: "",
+            memoMd: null,
             transcript: null,
             metadata,
           };
@@ -289,7 +191,6 @@ export function ExportPDF({
     currentView,
     rawMd,
     enhancedNoteContent,
-    transcriptItems,
     sessionTitle,
     sessionCreatedAt,
     participantNames,
@@ -303,8 +204,6 @@ export function ExportPDF({
         return "Export Memo to PDF";
       case "enhanced":
         return "Export Summary to PDF";
-      case "transcript":
-        return "Export Transcript to PDF";
       default:
         return "Export to PDF";
     }
@@ -335,8 +234,7 @@ export function ExportPDF({
           event: "session_exported",
           format: "pdf",
           view_type: currentView.type,
-          has_transcript:
-            currentView.type === "transcript" && transcriptItems.length > 0,
+          has_transcript: false,
           has_enhanced:
             currentView.type === "enhanced" && !!enhancedNoteContent,
           has_memo: currentView.type === "raw" && !!rawMd,

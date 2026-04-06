@@ -5,6 +5,8 @@ import { cn } from "@hypr/utils";
 
 import { useFeedbackLanguageModel } from "~/ai/hooks";
 import { useAuth } from "~/auth";
+import { useChatwootEvents } from "~/chat/chatwoot/useChatwootEvents";
+import { useChatwootPersistence } from "~/chat/chatwoot/useChatwootPersistence";
 import { ChatBody } from "~/chat/components/body";
 import { ChatContent } from "~/chat/components/content";
 import { ChatSession } from "~/chat/components/session-provider";
@@ -17,6 +19,7 @@ import {
 import type { HyprUIMessage } from "~/chat/types";
 import { ElicitationProvider } from "~/contexts/elicitation";
 import { StandardTabWrapper } from "~/shared/main";
+import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 import type { Tab } from "~/store/zustand/tabs";
 import { useTabs } from "~/store/zustand/tabs";
@@ -55,6 +58,11 @@ function SupportChatTabView({
     respondToElicitation,
     isReady,
   } = useSupportMCP(true, session?.access_token);
+
+  const chatwoot = useChatwootPersistence(user_id, {
+    email: session?.user.email ?? undefined,
+    name: session?.user.user_metadata?.full_name as string | undefined,
+  });
 
   const mcpToolCount = Object.keys(mcpTools).length;
 
@@ -107,6 +115,7 @@ function SupportChatTabView({
               supportContextEntities={supportContextEntities}
               pendingElicitation={pendingElicitation}
               respondToElicitation={respondToElicitation}
+              chatwoot={chatwoot}
             />
           )}
         </ChatSession>
@@ -119,11 +128,12 @@ function SupportChatTabInner({
   tab,
   sessionProps,
   feedbackModel,
-  handleSendMessage,
+  handleSendMessage: rawHandleSendMessage,
   updateChatSupportTabState,
   supportContextEntities,
   pendingElicitation,
   respondToElicitation,
+  chatwoot,
 }: {
   tab: Extract<Tab, { type: "chat_support" }>;
   sessionProps: {
@@ -155,6 +165,7 @@ function SupportChatTabInner({
   supportContextEntities: ContextEntity[];
   pendingElicitation?: { message: string } | null;
   respondToElicitation?: (approved: boolean) => void;
+  chatwoot: ReturnType<typeof useChatwootPersistence>;
 }) {
   const {
     messages,
@@ -169,6 +180,84 @@ function SupportChatTabInner({
     isSystemPromptReady,
   } = sessionProps;
   const sentRef = useRef(false);
+  const chatwootConvStartedRef = useRef(false);
+  const lastPersistedMsgCountRef = useRef(0);
+
+  // Start a chatwoot conversation on first user message
+  const handleSendMessage = useCallback(
+    (
+      content: string,
+      parts: HyprUIMessage["parts"],
+      sendMsg: (message: HyprUIMessage) => void,
+    ) => {
+      if (chatwoot.isReady) {
+        if (!chatwootConvStartedRef.current) {
+          chatwootConvStartedRef.current = true;
+          chatwoot.startConversation();
+        }
+        chatwoot.persistMessage(content, "incoming");
+      }
+      rawHandleSendMessage(content, parts, sendMsg);
+    },
+    [
+      rawHandleSendMessage,
+      chatwoot.isReady,
+      chatwoot.startConversation,
+      chatwoot.persistMessage,
+    ],
+  );
+
+  // Persist AI responses to chatwoot when they finish streaming
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    const wasStreaming =
+      prevStatusRef.current === "streaming" ||
+      prevStatusRef.current === "submitted";
+    prevStatusRef.current = status;
+
+    if (wasStreaming && status === "ready" && chatwoot.conversationId != null) {
+      const assistantMsgs = messages.filter((m) => m.role === "assistant");
+      if (assistantMsgs.length > lastPersistedMsgCountRef.current) {
+        const latest = assistantMsgs[assistantMsgs.length - 1];
+        if ((latest.metadata as Record<string, unknown>)?.chatwootAgent) {
+          lastPersistedMsgCountRef.current = assistantMsgs.length;
+          return;
+        }
+        const textContent = latest.parts
+          .filter(
+            (p): p is Extract<typeof p, { type: "text" }> => p.type === "text",
+          )
+          .map((p) => p.text)
+          .join("");
+        if (textContent) {
+          chatwoot.persistMessage(textContent, "outgoing");
+        }
+        lastPersistedMsgCountRef.current = assistantMsgs.length;
+      }
+    }
+  }, [status, messages, chatwoot.conversationId, chatwoot.persistMessage]);
+
+  // Listen for human agent replies from chatwoot and inject into chat
+  const { setMessages } = sessionProps;
+  useChatwootEvents({
+    pubsubToken: chatwoot.pubsubToken,
+    conversationId: chatwoot.conversationId,
+    onAgentMessage: useCallback(
+      (content: string, senderName: string) => {
+        const agentMessage: HyprUIMessage = {
+          id: id(),
+          role: "assistant",
+          parts: [{ type: "text", text: `**${senderName}:** ${content}` }],
+          metadata: {
+            createdAt: Date.now(),
+            chatwootAgent: true,
+          } as HyprUIMessage["metadata"],
+        };
+        setMessages((prev) => [...prev, agentMessage]);
+      },
+      [setMessages],
+    ),
+  });
 
   useEffect(() => {
     const initialMessage = tab.state.initialMessage;

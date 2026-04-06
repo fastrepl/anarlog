@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use hypr_audio_utils::{Source, f32_to_i16_bytes, resample_audio, source_from_path};
 use owhisper_interface::batch::Response as BatchResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, ListenParams, MixedMessage};
 use tokio_stream::StreamExt as TokioStreamExt;
@@ -89,8 +90,8 @@ async fn decode_audio_to_linear16(path: PathBuf) -> Result<(bytes::Bytes, u32), 
         let decoder =
             source_from_path(&path).map_err(|err| Error::AudioProcessing(err.to_string()))?;
 
-        let channels = decoder.channels().max(1);
-        let sample_rate = decoder.sample_rate();
+        let channels: u16 = decoder.channels().into();
+        let sample_rate: u32 = decoder.sample_rate().into();
 
         let samples = resample_audio(decoder, sample_rate)
             .map_err(|err| Error::AudioProcessing(err.to_string()))?;
@@ -154,7 +155,7 @@ impl StreamingBatchConfig {
     }
 }
 
-pub use crate::adapter::{StreamingBatchEvent, StreamingBatchStream};
+pub use crate::adapter::StreamingBatchStream;
 
 impl ArgmaxAdapter {
     pub async fn transcribe_file_streaming<P: AsRef<Path>>(
@@ -216,15 +217,45 @@ impl ArgmaxAdapter {
             result
                 .map(|response| {
                     let percentage = compute_percentage(&response, audio_duration_secs);
-                    StreamingBatchEvent {
-                        response,
-                        percentage,
-                    }
+                    to_batch_stream_event(response, percentage)
                 })
                 .map_err(|e| Error::WebSocket(format!("{:?}", e)))
         });
 
         Ok(Box::pin(mapped_stream))
+    }
+}
+
+fn to_batch_stream_event(response: StreamResponse, percentage: f64) -> BatchStreamEvent {
+    match response {
+        StreamResponse::TranscriptResponse { .. } => BatchStreamEvent::Segment {
+            response,
+            percentage,
+        },
+        StreamResponse::TerminalResponse {
+            request_id,
+            created,
+            duration,
+            channels,
+        } => BatchStreamEvent::Terminal {
+            request_id,
+            created,
+            duration,
+            channels,
+        },
+        StreamResponse::ErrorResponse {
+            error_code,
+            error_message,
+            provider,
+        } => BatchStreamEvent::Error {
+            error_code,
+            error_message,
+            provider,
+        },
+        other => BatchStreamEvent::Segment {
+            response: other,
+            percentage,
+        },
     }
 }
 

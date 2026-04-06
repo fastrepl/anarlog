@@ -1,4 +1,83 @@
 .tiptap {
+  .task-checkbox-label {
+    flex: 0 0 auto;
+    margin-right: 6px;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .task-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #000000;
+    border-radius: 4px;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    transition: all 0.2s ease;
+    position: relative;
+    margin-top: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &[data-interactive="true"] {
+      cursor: pointer;
+    }
+
+    &[data-interactive="false"] {
+      cursor: default;
+    }
+
+    &[data-selected="true"] {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    &[data-status="done"],
+    &:checked {
+      background-color: #3b82f6;
+      border-color: #3b82f6;
+    }
+
+    &[data-status="in_progress"] {
+      background-color: #f59e0b;
+      border-color: #f59e0b;
+    }
+
+    &:focus,
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    &[data-interactive="true"]:hover:not([data-status="done"]):not([data-status="in_progress"]) {
+      border-color: #9ca3af;
+    }
+  }
+
+  input.task-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 4.5px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+
+  input.task-checkbox[data-interactive="true"]:hover:not(:checked) {
+    border-color: #9ca3af;
+  }
+
   /* task list */
   ul[data-type="taskList"] {
     list-style: none;
@@ -14,57 +93,9 @@
       display: flex;
       margin-bottom: 0.25rem;
 
-      > label {
-        flex: 0 0 auto;
-        margin-right: 6px;
-        user-select: none;
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-      }
-
       > div {
         flex: 1 1 auto;
         margin-top: 0;
-      }
-    }
-
-    input[type="checkbox"] {
-      cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      border: 1.5px solid #000000;
-      margin: 0;
-      transition: all 0.2s ease;
-      position: relative;
-      margin-top: 3px;
-
-      &:checked {
-        background-color: #3b82f6;
-        border-color: #3b82f6;
-      }
-
-      &:checked::after {
-        content: "";
-        position: absolute;
-        left: 4.5px;
-        top: 1px;
-        width: 5px;
-        height: 10px;
-        border: solid white;
-        border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-      }
-
-      &:focus {
-        outline: none;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-      }
-
-      &:hover:not(:checked) {
-        border-color: #9ca3af;
       }
     }
 

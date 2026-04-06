@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -11,28 +11,19 @@ import { useSessionTab } from "./use-session-tab";
 import { useLanguageModel } from "~/ai/hooks";
 import { useChatActions } from "~/chat/store/use-chat-actions";
 import { useShell } from "~/contexts/shell";
-import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 
 export function ChatView() {
   const { chat } = useShell();
-  const { groupId, setGroupId } = chat;
+  const { groupId, sessionId, setGroupId, startNewChat, selectChat } = chat;
 
   const { currentSessionId } = useSessionTab();
-
-  // sessionId drives the ChatSession key and useChat id.
-  // It is managed explicitly — not derived from groupId — so that we can distinguish:
-  //   handleNewChat:    new random ID → fresh useChat instance
-  //   handleSelectChat: set to groupId → forces ChatSession remount to load history
-  //   onGroupCreated:   groupId changes but sessionId stays stable → keeps useChat alive for the in-flight stream
-  const [sessionId, setSessionId] = useState<string>(() => groupId ?? id());
 
   const model = useLanguageModel("chat");
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
-      // Don't update sessionId — keep current one so useChat stays alive for the in-flight stream
       setGroupId(newGroupId);
     },
     [setGroupId],
@@ -43,31 +34,17 @@ export function ChatView() {
     onGroupCreated: handleGroupCreated,
   });
 
-  const handleNewChat = useCallback(() => {
-    setGroupId(undefined);
-    setSessionId(id());
-  }, [setGroupId]);
-
-  const handleSelectChat = useCallback(
-    (selectedGroupId: string) => {
-      setGroupId(selectedGroupId);
-      setSessionId(selectedGroupId);
-    },
-    [setGroupId],
-  );
-
   return (
     <div
       className={cn([
-        "flex h-full min-h-0 flex-col overflow-hidden bg-white",
-        chat.mode === "RightPanelOpen" &&
-          "overflow-hidden rounded-xl border border-neutral-200",
+        "flex h-full min-h-0 flex-col overflow-hidden",
+        chat.mode !== "RightPanelOpen" && "bg-stone-50",
       ])}
     >
       <ChatHeader
         currentChatGroupId={groupId}
-        onNewChat={handleNewChat}
-        onSelectChat={handleSelectChat}
+        onNewChat={startNewChat}
+        onSelectChat={selectChat}
         handleClose={() => chat.sendEvent({ type: "CLOSE" })}
       />
       {user_id && (

@@ -1,12 +1,8 @@
 import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Streamdown } from "streamdown";
+import { defaultRehypePlugins, Streamdown } from "streamdown";
 
-import {
-  isValidTiptapContent,
-  json2md,
-  streamdownComponents,
-} from "@hypr/tiptap/shared";
+import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 import {
   HoverCard,
   HoverCardContent,
@@ -14,13 +10,61 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
+import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { streamdownComponents } from "~/session/components/streamdown";
 import {
   useEnhancedNote,
   useEnhancedNotes,
 } from "~/session/hooks/useEnhancedNotes";
 import * as main from "~/store/tinybase/store/main";
-import { useTabs } from "~/store/zustand/tabs";
+
+const previewCardComponents: typeof streamdownComponents = {
+  ...streamdownComponents,
+  h1: (props) => (
+    <h1 className="text-md mt-3 mb-1 font-semibold first:mt-0">
+      {props.children}
+    </h1>
+  ),
+  h2: (props) => (
+    <h2 className="mt-3 mb-1 text-sm font-semibold first:mt-0">
+      {props.children}
+    </h2>
+  ),
+  h3: (props) => (
+    <h3 className="mt-2 mb-1 text-xs font-semibold first:mt-0">
+      {props.children}
+    </h3>
+  ),
+  h4: (props) => (
+    <h4 className="mt-2 mb-1 text-xs font-semibold first:mt-0">
+      {props.children}
+    </h4>
+  ),
+  img: (props) => {
+    const { editorWidth, title } = parseImageMetadata(props.title);
+
+    return (
+      <img
+        {...props}
+        title={title}
+        className={cn([
+          "block max-h-32 w-full rounded-md bg-white object-contain",
+          props.className,
+        ])}
+        style={{
+          ...(editorWidth ? { width: `${editorWidth}%` } : {}),
+          ...(props.style || {}),
+        }}
+      />
+    );
+  },
+};
+
+const previewCardRehypePlugins = [
+  defaultRehypePlugins.raw,
+  defaultRehypePlugins.sanitize,
+];
 
 const MAX_PREVIEW_LENGTH = 200;
 const FOLLOW_RANGE = 16;
@@ -31,6 +75,7 @@ const OPEN_DELAY_WARM = 0;
 const WARMUP_COOLDOWN_MS = 600;
 
 let lastPreviewClosedAt = 0;
+const MARKDOWN_IMAGE_REGEX = /!\[[^\]]*]\([^)]+\)|<img\s/i;
 
 function isWarmedUp() {
   return Date.now() - lastPreviewClosedAt < WARMUP_COOLDOWN_MS;
@@ -38,6 +83,36 @@ function isWarmedUp() {
 
 function markPreviewClosed() {
   lastPreviewClosedAt = Date.now();
+}
+
+function extractPreviewImage(markdown: string | null) {
+  if (!markdown) {
+    return null;
+  }
+
+  const markdownMatch = markdown.match(
+    /!\[(?<alt>[^\]]*)]\((?<src>\S+?)(?:\s+"(?<title>[^"]*)")?\)/,
+  );
+  if (markdownMatch?.groups?.src) {
+    return {
+      src: markdownMatch.groups.src,
+      alt: markdownMatch.groups.alt || "",
+      title: markdownMatch.groups.title || undefined,
+    };
+  }
+
+  const htmlMatch = markdown.match(
+    /<img\s[^>]*src=["'](?<src>[^"']+)["'][^>]*alt=["'](?<alt>[^"']*)["'][^>]*>/i,
+  );
+  if (htmlMatch?.groups?.src) {
+    return {
+      src: htmlMatch.groups.src,
+      alt: htmlMatch.groups.alt || "",
+      title: undefined,
+    };
+  }
+
+  return null;
 }
 
 function useSessionPreviewData(sessionId: string) {
@@ -77,7 +152,6 @@ function useSessionPreviewData(sessionId: string) {
   );
 
   const hasEnhanced = !!firstEnhancedNoteId && !!enhancedContent;
-
   const { previewMarkdown, previewPlainText } = useMemo(() => {
     const source = hasEnhanced ? (enhancedContent as string) : rawMd;
     if (typeof source !== "string" || !source.trim()) {
@@ -93,6 +167,10 @@ function useSessionPreviewData(sessionId: string) {
           if (md) return { previewMarkdown: md, previewPlainText: "" };
         }
       } catch {}
+    }
+
+    if (MARKDOWN_IMAGE_REGEX.test(trimmed)) {
+      return { previewMarkdown: trimmed, previewPlainText: "" };
     }
 
     const plain = extractPlainText(source);
@@ -221,12 +299,14 @@ export function SessionPreviewCard({
     title,
     previewMarkdown,
     previewPlainText,
-    previewLabel,
     dateDisplay,
     participantMappingIds,
   } = useSessionPreviewData(sessionId);
-  const hasPendingCloseConfirmation = useTabs(
-    (state) => state.pendingCloseConfirmationTab !== null,
+  const previewHasImage =
+    !!previewMarkdown && MARKDOWN_IMAGE_REGEX.test(previewMarkdown);
+  const previewImage = useMemo(
+    () => extractPreviewImage(previewMarkdown),
+    [previewMarkdown],
   );
 
   const followAxis = side === "right" ? "y" : "x";
@@ -250,7 +330,7 @@ export function SessionPreviewCard({
     setOpenDelay(isWarmedUp() ? OPEN_DELAY_WARM : OPEN_DELAY_COLD);
   }, []);
 
-  if (!enabled || hasPendingCloseConfirmation) {
+  if (!enabled) {
     return <>{children}</>;
   }
 
@@ -273,10 +353,9 @@ export function SessionPreviewCard({
       </HoverCardTrigger>
       <HoverCardContent
         side={side}
-        align="start"
         sideOffset={8}
         followStyle={style}
-        className={cn(["w-72 p-4", "pointer-events-none"])}
+        className={cn(["w-72 pb-0!", "pointer-events-none"])}
       >
         <div className="flex flex-col gap-1">
           {dateDisplay && (
@@ -286,29 +365,32 @@ export function SessionPreviewCard({
           <div className="text-sm font-medium">{title || "Untitled"}</div>
           <ParticipantsList mappingIds={participantMappingIds} />
 
-          {(previewMarkdown || previewPlainText) && (
-            <div className="mt-1 flex flex-col gap-1">
-              {previewLabel && (
-                <div className="text-xs font-medium text-neutral-400">
-                  {previewLabel}
+          {previewMarkdown || previewPlainText ? (
+            <div className="mt-1 flex max-h-32 flex-col overflow-hidden mask-[linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
+              {previewHasImage && previewImage ? (
+                <img
+                  src={previewImage.src}
+                  alt={previewImage.alt}
+                  title={previewImage.title}
+                  className="block w-full object-cover object-top"
+                />
+              ) : previewMarkdown ? (
+                <Streamdown
+                  components={previewCardComponents}
+                  className="flex flex-col text-xs"
+                  isAnimating={false}
+                  rehypePlugins={previewCardRehypePlugins}
+                >
+                  {previewMarkdown}
+                </Streamdown>
+              ) : (
+                <div className="text-xs leading-relaxed">
+                  {previewPlainText}
                 </div>
               )}
-              <div className="max-h-24 overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)] text-neutral-600">
-                {previewMarkdown ? (
-                  <Streamdown
-                    components={streamdownComponents}
-                    className="flex flex-col text-xs"
-                    isAnimating={false}
-                  >
-                    {previewMarkdown}
-                  </Streamdown>
-                ) : (
-                  <div className="text-xs leading-relaxed">
-                    {previewPlainText}
-                  </div>
-                )}
-              </div>
             </div>
+          ) : (
+            <div className="h-4" />
           )}
         </div>
       </HoverCardContent>

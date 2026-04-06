@@ -23,6 +23,10 @@
       "icons/nightly/icon.ico"
     ],
     "macOS": {
+      "files": {
+        "Resources/AppIcon.incs": "resources/nightly/AppIcon.icns",
+        "Resources/Assets.car": "resources/nightly/Assets.car"
+      },
       "dmg": {
         "background": "assets/dmg-background-nightly.png"
       }

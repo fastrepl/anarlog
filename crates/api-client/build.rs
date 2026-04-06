@@ -6,6 +6,7 @@ const ALLOWED_PATH_PREFIXES: &[&str] = &[
     "/nango",
     "/subscription",
     "/support",
+    "/ticket",
 ];
 
 const TYPE_REPLACEMENTS: &[(&str, &str)] = &[
@@ -25,6 +26,8 @@ const TYPE_REPLACEMENTS: &[(&str, &str)] = &[
         "OutlookListEventsResponse",
         "hypr_outlook_calendar::ListEventsResponse",
     ),
+    ("CollectionPage", "hypr_ticket_interface::CollectionPage"),
+    ("TicketPage", "hypr_ticket_interface::TicketPage"),
 ];
 
 fn main() {

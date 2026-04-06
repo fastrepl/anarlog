@@ -69,6 +69,11 @@ impl OwnedNangoHttpClient {
     pub fn new(proxy: OwnedNangoProxy) -> Self {
         Self { proxy }
     }
+
+    pub fn with_base_url_override(mut self, base_url: impl Into<String>) -> Self {
+        self.proxy = self.proxy.base_url_override(base_url);
+        self
+    }
 }
 
 impl hypr_http::HttpClient for OwnedNangoHttpClient {

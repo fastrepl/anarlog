@@ -16,6 +16,25 @@ pub use rodio::Source;
 
 const I16_SCALE: f32 = 32768.0;
 
+pub fn mono_frames(
+    mut source: impl Iterator<Item = f32>,
+    channel_count: usize,
+) -> impl Iterator<Item = f32> {
+    std::iter::from_fn(move || {
+        let first = source.next()?;
+        let mut sum = first;
+        let mut count = 1usize;
+        while count < channel_count {
+            let Some(sample) = source.next() else {
+                break;
+            };
+            sum += sample;
+            count += 1;
+        }
+        Some(sum / count as f32)
+    })
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct AudioMetadata {
     pub sample_rate: u32,
@@ -178,17 +197,9 @@ fn metadata_from_source<S>(source: &S) -> Result<AudioMetadata, crate::Error>
 where
     S: Source,
 {
-    let sample_rate = source.sample_rate();
-    if sample_rate == 0 {
-        return Err(crate::Error::InvalidSampleRate(sample_rate));
-    }
+    let sample_rate: u32 = source.sample_rate().into();
+    let channels_u16: u16 = source.channels().into();
 
-    let channels_u16 = source.channels();
-    if channels_u16 == 0 {
-        return Err(crate::Error::UnsupportedChannelCount {
-            count: channels_u16,
-        });
-    }
     let channels =
         u8::try_from(channels_u16).map_err(|_| crate::Error::UnsupportedChannelCount {
             count: channels_u16,
@@ -217,8 +228,8 @@ where
         WindowFunction,
     };
 
-    let from_rate = source.sample_rate() as f64;
-    let channels = source.channels() as usize;
+    let from_rate = u32::from(source.sample_rate()) as f64;
+    let channels = u16::from(source.channels()) as usize;
     let to_rate_f64 = to_rate as f64;
 
     let samples: Vec<f32> = source.collect();
@@ -227,6 +238,7 @@ where
         return Ok(samples);
     }
 
+    let chunk_size = 1024;
     let params = SincInterpolationParameters {
         sinc_len: 256,
         f_cutoff: 0.95,
@@ -239,32 +251,35 @@ where
         to_rate_f64 / from_rate,
         2.0,
         &params,
-        1024,
+        chunk_size,
         channels,
         FixedAsync::Input,
     )?;
 
     let frames_per_channel = samples.len() / channels;
     let mut input_channels: Vec<Vec<f32>> = vec![Vec::with_capacity(frames_per_channel); channels];
-
     for (i, &sample) in samples.iter().enumerate() {
         input_channels[i % channels].push(sample);
     }
 
     let input_adapter = SequentialSliceOfVecs::new(&input_channels, channels, frames_per_channel)
         .expect("input adapter");
-    let out_max = resampler.output_frames_max();
-    let mut output_vecs: Vec<Vec<f32>> = vec![vec![0.0; out_max]; channels];
-    let mut output_adapter = SequentialSliceOfVecs::new_mut(&mut output_vecs, channels, out_max)
-        .expect("output adapter");
+    let output_len = resampler.process_all_needed_output_len(frames_per_channel);
+    let mut output_channels: Vec<Vec<f32>> = vec![vec![0.0; output_len]; channels];
+    let mut output_adapter =
+        SequentialSliceOfVecs::new_mut(&mut output_channels, channels, output_len)
+            .expect("output adapter");
+    let (_, total_frames) = resampler.process_all_into_buffer(
+        &input_adapter,
+        &mut output_adapter,
+        frames_per_channel,
+        None,
+    )?;
 
-    let (_, out_frames) =
-        resampler.process_into_buffer(&input_adapter, &mut output_adapter, None)?;
-
-    let mut output = Vec::new();
-    for frame in 0..out_frames {
-        for channel in output_vecs.iter().take(channels) {
-            output.push(channel[frame]);
+    let mut output = Vec::with_capacity(total_frames * channels);
+    for frame in 0..total_frames {
+        for ch in output_channels.iter() {
+            output.push(ch[frame]);
         }
     }
 
@@ -356,5 +371,51 @@ mod tests {
         test_audio_file_metadata_flac: hypr_data::english_1::AUDIO_FLAC_PATH,
         test_audio_file_metadata_aac: hypr_data::english_1::AUDIO_AAC_PATH,
         test_audio_file_metadata_aiff: hypr_data::english_1::AUDIO_AIFF_PATH,
+    }
+
+    #[test]
+    fn resample_preserves_duration() {
+        let from_rate = 44100;
+        let to_rate = 16000;
+        let duration_secs = 5;
+        let channels = 2;
+        let total_samples = from_rate * duration_secs * channels;
+
+        let source = rodio::buffer::SamplesBuffer::new(
+            std::num::NonZeroU16::new(channels as u16).unwrap(),
+            std::num::NonZeroU32::new(from_rate as u32).unwrap(),
+            vec![0.5f32; total_samples],
+        );
+        let output = resample_audio(source, to_rate as u32).unwrap();
+
+        let expected_frames = duration_secs * to_rate;
+        let actual_frames = output.len() / channels;
+        let ratio = actual_frames as f64 / expected_frames as f64;
+        assert!(
+            (ratio - 1.0).abs() < 0.02,
+            "expected ~{expected_frames} frames, got {actual_frames} (ratio {ratio:.4})"
+        );
+    }
+
+    #[test]
+    fn resample_short_partial_chunk_preserves_duration() {
+        let from_rate = 44_100;
+        let to_rate = 16_000;
+        let channels = 2;
+        let input_frames = 200;
+
+        let source = rodio::buffer::SamplesBuffer::new(
+            std::num::NonZeroU16::new(channels as u16).unwrap(),
+            std::num::NonZeroU32::new(from_rate as u32).unwrap(),
+            vec![0.5f32; input_frames * channels],
+        );
+        let output = resample_audio(source, to_rate as u32).unwrap();
+
+        let actual_frames = output.len() / channels;
+        let expected_frames = (input_frames as f64 * to_rate as f64 / from_rate as f64).round();
+        assert!(
+            (actual_frames as f64 - expected_frames).abs() <= 2.0,
+            "expected ~{expected_frames} frames, got {actual_frames}"
+        );
     }
 }

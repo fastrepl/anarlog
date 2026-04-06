@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-outlit = "0.2.0"
 posthog-rs = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }

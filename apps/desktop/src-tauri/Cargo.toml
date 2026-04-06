@@ -22,6 +22,7 @@ tauri-build = { workspace = true, features = [] }
 [dependencies]
 tauri = { workspace = true, features = ["specta", "macos-private-api", "protocol-asset"] }
 
+tauri-plugin-activity-capture = { workspace = true }
 tauri-plugin-analytics = { workspace = true }
 tauri-plugin-audio-priority = { workspace = true }
 tauri-plugin-auth = { workspace = true }
@@ -46,8 +47,6 @@ tauri-plugin-http = { workspace = true }
 tauri-plugin-icon = { workspace = true }
 tauri-plugin-importer = { workspace = true }
 tauri-plugin-js = { workspace = true }
-tauri-plugin-listener = { workspace = true }
-tauri-plugin-listener2 = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
 tauri-plugin-mcp = { workspace = true }
 tauri-plugin-misc = { workspace = true }
@@ -74,7 +73,9 @@ tauri-plugin-store = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 tauri-plugin-tantivy = { workspace = true }
 tauri-plugin-template = { workspace = true }
+tauri-plugin-todo = { workspace = true }
 tauri-plugin-tracing = { workspace = true }
+tauri-plugin-transcription = { workspace = true }
 tauri-plugin-tray = { workspace = true }
 tauri-plugin-updater = { workspace = true }
 tauri-plugin-updater2 = { workspace = true }
@@ -98,8 +99,14 @@ pico-args = { workspace = true }
 ractor = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
+hypr-audio-actual = { workspace = true }
+hypr-audio-mock = { workspace = true, optional = true }
+
 [features]
-devtools = ["tauri/devtools"]
+default = []
+dev = ["dep:hypr-audio-mock"]
+new = ["tauri-plugin-windows/new"]
+devtools = ["tauri/devtools", "dep:hypr-audio-mock"]
 automation = ["tauri-plugin-automation"]
 
 [target.'cfg(target_os = "macos")'.dependencies]

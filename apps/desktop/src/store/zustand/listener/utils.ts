@@ -34,6 +34,7 @@ export type WordEntry = {
   punctuated_word?: string | null;
   start: number;
   end: number;
+  channel?: number;
   speaker?: number | null;
 };
 
@@ -59,7 +60,7 @@ export function transformWordEntries(
       text,
       start_ms: Math.round(word.start * 1000),
       end_ms: Math.round(word.end * 1000),
-      channel,
+      channel: typeof word.channel === "number" ? word.channel : channel,
     });
 
     if (typeof word.speaker === "number") {

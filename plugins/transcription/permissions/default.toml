@@ -1,0 +1,22 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = [
+    "allow-list-microphone-devices",
+    "allow-get-current-microphone-device",
+    "allow-start-session",
+    "allow-stop-session",
+    "allow-get-mic-muted",
+    "allow-set-mic-muted",
+    "allow-get-state",
+    "allow-is-supported-languages-live",
+    "allow-suggest-providers-for-languages-live",
+    "allow-list-documented-language-codes-live",
+    "allow-render-transcript-segments",
+    "allow-run-batch",
+    "allow-run-denoise",
+    "allow-parse-subtitle",
+    "allow-export-to-vtt",
+    "allow-is-supported-languages-batch",
+    "allow-suggest-providers-for-languages-batch",
+    "allow-list-documented-language-codes-batch",
+]

@@ -1,5 +1,6 @@
 import { AlertCircleIcon, AudioLinesIcon } from "lucide-react";
 
+import { Button } from "@hypr/ui/components/ui/button";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 
 export function TranscriptEmptyState({
@@ -8,12 +9,16 @@ export function TranscriptEmptyState({
   percentage,
   phase,
   error,
+  onUploadAudio,
+  onUploadTranscript,
 }: {
   isBatching?: boolean;
   hasAudio?: boolean;
   percentage?: number;
   phase?: "importing" | "transcribing";
   error?: string | null;
+  onUploadAudio?: () => void;
+  onUploadTranscript?: () => void;
 }) {
   if (error) {
     return (
@@ -54,11 +59,28 @@ export function TranscriptEmptyState({
           <p className="text-sm text-neutral-500">
             {hasAudio ? "Recording available" : "No transcript available"}
           </p>
-          {hasAudio && (
-            <p className="text-xs text-neutral-400">
-              Use the refresh button above to generate a transcript from this
-              recording.
-            </p>
+          <p className="text-xs text-neutral-400">
+            {hasAudio
+              ? "Use the refresh button above to generate a transcript, or upload a file."
+              : "Upload audio or a transcript file to populate this note."}
+          </p>
+          {(onUploadAudio || onUploadTranscript) && (
+            <div className="mt-3 flex items-center gap-2">
+              {onUploadAudio && (
+                <Button variant="outline" size="sm" onClick={onUploadAudio}>
+                  Upload audio
+                </Button>
+              )}
+              {onUploadTranscript && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onUploadTranscript}
+                >
+                  Upload transcript
+                </Button>
+              )}
+            </div>
           )}
         </div>
       )}

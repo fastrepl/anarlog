@@ -3,45 +3,33 @@ title: "Char Weekly: February 8, 2026"
 date: "2026-02-08"
 ---
 
-Two stable releases in one week. We shipped v1.0.4 and v1.0.5 back-to-back, bringing a redesigned calendar, backlink mentions, undo delete, and a bunch of quality-of-life improvements.
+Three stable releases shipped this week: v1.0.3, v1.0.4, and v1.0.5. The headline items are note recovery, a redesigned calendar, better navigation, and a stronger round of performance fixes.
+
+## Notes and navigation
+
+This week added a lot of everyday note-management polish. You can now open notes from a dedicated `Cmd+O` command, keep pinned tabs across restarts, undo deletes with a five-second restore window, and jump back into recently opened notes from the same command palette. Backlink mentions for notes, people, and companies also landed in stable.
 
 ## Calendar redesign
 
-The calendar got a complete overhaul. There's now a full calendar interface with a week view, event popovers, and improved navigation controls. You can see your week at a glance and jump directly into upcoming sessions without scrolling through day view.
+The calendar got its biggest update of the week. There's now a full calendar view with a week layout, event popovers, improved navigation, and a context menu for unignoring events directly from the sidebar timeline. We also fixed recurring event duplication and added a manual timezone override for the timeline.
 
-We also added the ability to unignore calendar events directly from the sidebar timeline via context menu. If you previously dismissed an event and changed your mind, you can restore it without digging through settings.
+## Quit behavior and notifications
 
-## Backlink mentions
-
-You can now mention notes, people, and companies inline using backlink mentions. Each mention displays a type badge--person, company, or note--so you can see what you're linking to at a glance. This creates a connected knowledge graph across your sessions.
-
-## Undo delete
-
-Deleted notes now show a dissolving animation with a 5-second countdown timer. Hover to pause the countdown and reveal a "Restore" button, or press Cmd+Z to instantly restore. You won't lose work to an accidental delete.
-
-## Hold-to-quit
-
-We redesigned the Cmd+Q behavior, inspired by Chrome. Instead of immediately hiding the app, you now hold Cmd+Q to quit with a visual overlay showing the progress. This replaces the previous Cmd+Shift+Q shortcut and prevents accidental quits.
-
-## In-meeting reminder
-
-There's a new experimental notification that alerts you when another app has been using your microphone for 3+ minutes while Char isn't listening. If you forgot to start recording, this nudge will catch it. It's opt-in in the lab settings and still early, but we think it'll be useful.
+We changed `Cmd+Q` to a hold-to-quit interaction so accidental quits are much less likely. On the notification side, the experimental in-meeting reminder is now available in lab settings and can alert you when another app has been using your microphone for a while but Char is not recording.
 
 ## Performance and stability
 
-Under the hood, we fixed memory leaks from actor subscriptions and timer accumulation, and resolved high CPU usage caused by a MutationObserver watching the entire document tree. We also upgraded to Tauri 2.10.1 and updated several core dependencies including cpal 0.17 for audio handling.
+We fixed memory leaks from actor subscriptions and timer cleanup, resolved high CPU usage caused by an overly broad DOM observer, and shipped a Tauri 2.10.1 upgrade. We also fixed duplicate tabs when reopening a note and cleaned up a few markdown and UI regressions.
 
 ## Other improvements
 
-- Cmd+Shift+N hotkey to create a new note and start listening in one action
-- Recently opened notes now appear in the Open Note dialog (Cmd+O) for quick access
-- Manual timezone override in Settings for sidebar timeline display
-- Fallback support for local AI models without tool calling (e.g., Gemma via LM Studio)
-- Fix for "invalid Refresh Token: Already Used" authentication error
-- Fix for opening a note now switching to an existing tab instead of creating a duplicate
+- `Cmd+Shift+N` now creates a new note and starts listening in one action
+- Dropdown keyboard navigation is better across settings and selectors
+- LM Studio errors now point to setup docs instead of failing silently
+- Shortcut and tooltip labeling are more consistent across the app
 
 ## What's next
 
-We're working on the next round of features. If you're on the nightly channel, you'll see improvements landing daily. If you're on stable, v1.0.5 is available now.
+We're continuing to tighten the core note-taking workflow and calendar experience. If you're on stable, v1.0.5 is available now.
 
 You can download the latest version from our [changelog](/changelog) or let the app auto-update.

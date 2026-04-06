@@ -99,7 +99,7 @@ pub struct SearchRequest {
     pub options: SearchOptions,
 }
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 pub struct CollectionConfig {
     pub name: String,

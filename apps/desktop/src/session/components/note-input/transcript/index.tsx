@@ -1,23 +1,22 @@
-import { type RefObject } from "react";
+import type { RefObject } from "react";
 
-import { useTranscriptOperations } from "./mutations";
 import { TranscriptViewer } from "./renderer";
 import { BatchState } from "./screens/batch";
 import { TranscriptEmptyState } from "./screens/empty";
 import { TranscriptListeningState } from "./screens/listening";
 import { useTranscriptScreen } from "./state";
 
+import { useUploadFile } from "~/stt/useUploadFile";
+
 export function Transcript({
   sessionId,
-  isEditing,
   scrollRef,
 }: {
   sessionId: string;
-  isEditing: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
-  const operations = useTranscriptOperations({ sessionId, isEditing });
-  const screen = useTranscriptScreen({ sessionId, operations });
+  const screen = useTranscriptScreen({ sessionId });
+  const { uploadAudio, uploadTranscript } = useUploadFile(sessionId);
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden">
@@ -43,16 +42,15 @@ export function Transcript({
           isBatching={false}
           hasAudio={screen.hasAudio}
           error={screen.error}
+          onUploadAudio={uploadAudio}
+          onUploadTranscript={uploadTranscript}
         />
       )}
       {screen.kind === "ready" && (
         <TranscriptViewer
           transcriptIds={screen.transcriptIds}
-          partialWords={screen.partialWords}
-          partialHints={screen.partialHints}
-          editable={screen.editable}
+          liveSegments={screen.liveSegments}
           currentActive={screen.currentActive}
-          operations={screen.operations}
           scrollRef={scrollRef}
         />
       )}

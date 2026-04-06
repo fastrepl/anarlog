@@ -7,7 +7,7 @@ description: "Location of the settings.json file in Char."
 The settings file is located at:
 
 ```bash
-~/Library/Application Support/hyprnote/settings.json
+~/Library/Application Support/char/settings.json
 ```
 
 You can edit this file directly, but changes only take effect after restarting Char. For most settings, use the in-app Settings panel instead.
@@ -19,6 +19,12 @@ Char detects your system timezone automatically. If you need to override it (e.g
 ## Week start day
 
 Under **Settings** > **General**, the **Week starts on** option lets you choose the first day of the week in the calendar view. You can pick **System** (follows your locale), **Sunday**, or **Monday**.
+
+## Storage location and Obsidian integration
+
+Under **Settings** > **General** > **Storage**, you can change where Char stores your data. The default location is the app's global data directory, but you can set a custom path — including an existing Obsidian vault. Char detects installed Obsidian vaults and lists them for one-click selection, so your meeting notes are stored directly alongside your other Obsidian files. You can also pick any arbitrary folder.
+
+When you change the storage location, Char moves your existing data (sessions, contacts, templates, etc.) to the new path automatically.
 
 ## Mic active threshold
 

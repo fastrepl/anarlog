@@ -1,8 +1,6 @@
 import { type RefObject, useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { PartialWord, RuntimeSpeakerHint } from "@hypr/transcript";
-import type { Operations } from "@hypr/transcript";
 import { cn } from "@hypr/utils";
 
 import { SelectionMenu } from "./selection-menu";
@@ -16,22 +14,17 @@ import {
 
 import { useAudioPlayer } from "~/audio-player";
 import { useAudioTime } from "~/audio-player/provider";
+import type { Segment } from "~/stt/live-segment";
 
 export function TranscriptViewer({
   transcriptIds,
-  partialWords,
-  partialHints,
-  editable,
+  liveSegments,
   currentActive,
-  operations,
   scrollRef,
 }: {
   transcriptIds: string[];
-  partialWords: PartialWord[];
-  partialHints: RuntimeSpeakerHint[];
-  editable: boolean;
+  liveSegments: Segment[];
   currentActive: boolean;
-  operations?: Operations;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,7 +74,7 @@ export function TranscriptViewer({
   const shouldAutoScroll = currentActive && autoScrollEnabled;
   useAutoScroll(
     containerRef,
-    [transcriptIds, partialWords, shouldAutoScroll],
+    [transcriptIds, liveSegments, shouldAutoScroll],
     shouldAutoScroll,
   );
 
@@ -109,19 +102,12 @@ export function TranscriptViewer({
               scrollElement={scrollElement}
               isLastTranscript={index === transcriptIds.length - 1}
               isAtBottom={isAtBottom}
-              editable={editable}
               transcriptId={transcriptId}
-              partialWords={
+              liveSegments={
                 index === transcriptIds.length - 1 && currentActive
-                  ? partialWords
+                  ? liveSegments
                   : []
               }
-              partialHints={
-                index === transcriptIds.length - 1 && currentActive
-                  ? partialHints
-                  : []
-              }
-              operations={operations}
               currentMs={currentMs}
               seek={seek}
               startPlayback={start}
@@ -131,12 +117,10 @@ export function TranscriptViewer({
           </div>
         ))}
 
-        {editable && (
-          <SelectionMenu
-            containerRef={containerRef}
-            onAction={handleSelectionAction}
-          />
-        )}
+        <SelectionMenu
+          containerRef={containerRef}
+          onAction={handleSelectionAction}
+        />
       </div>
 
       <button

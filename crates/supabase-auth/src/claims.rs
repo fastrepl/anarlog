@@ -35,6 +35,14 @@ impl Claims {
         self.entitlements.contains(&"hyprnote_pro".to_string())
     }
 
+    pub fn is_lite(&self) -> bool {
+        self.entitlements.contains(&"hyprnote_lite".to_string())
+    }
+
+    pub fn is_paid(&self) -> bool {
+        self.is_pro() || self.is_lite()
+    }
+
     pub fn decode_insecure(token: &str) -> Result<Self, Error> {
         use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
 
@@ -97,6 +105,46 @@ mod tests {
         assert!(claims.entitlements.is_empty());
         assert!(claims.subscription_status.is_none());
         assert!(claims.trial_end.is_none());
+    }
+
+    #[test]
+    fn test_decode_claims_lite() {
+        let payload = r#"{
+            "sub": "user-789",
+            "entitlements": ["hyprnote_lite"],
+            "subscription_status": "active"
+        }"#;
+        let token = make_test_token(payload);
+
+        let claims = Claims::decode_insecure(&token).unwrap();
+        assert!(!claims.is_pro());
+        assert!(claims.is_lite());
+        assert!(claims.is_paid());
+    }
+
+    #[test]
+    fn test_is_paid_with_pro() {
+        let payload = r#"{
+            "sub": "user-100",
+            "entitlements": ["hyprnote_pro"]
+        }"#;
+        let token = make_test_token(payload);
+
+        let claims = Claims::decode_insecure(&token).unwrap();
+        assert!(claims.is_pro());
+        assert!(!claims.is_lite());
+        assert!(claims.is_paid());
+    }
+
+    #[test]
+    fn test_is_paid_with_no_entitlements() {
+        let payload = r#"{"sub": "user-200"}"#;
+        let token = make_test_token(payload);
+
+        let claims = Claims::decode_insecure(&token).unwrap();
+        assert!(!claims.is_pro());
+        assert!(!claims.is_lite());
+        assert!(!claims.is_paid());
     }
 
     #[test]

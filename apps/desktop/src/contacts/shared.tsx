@@ -1,10 +1,10 @@
 import { stringHash } from "facehash";
 import { ArrowDownUp, Plus, Search, X } from "lucide-react";
-import React from "react";
-import { useState } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -50,36 +50,38 @@ export function SortDropdown({
           <ArrowDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={sortOption}
-          onValueChange={(value) => setSortOption(value as SortOption)}
-        >
-          <DropdownMenuRadioItem
-            value="alphabetical"
-            className="cursor-pointer text-xs"
+      <DropdownMenuContent variant="app" align="end">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuRadioGroup
+            value={sortOption}
+            onValueChange={(value) => setSortOption(value as SortOption)}
           >
-            A-Z
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="reverse-alphabetical"
-            className="cursor-pointer text-xs"
-          >
-            Z-A
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="oldest"
-            className="cursor-pointer text-xs"
-          >
-            Oldest
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem
-            value="newest"
-            className="cursor-pointer text-xs"
-          >
-            Newest
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+            <DropdownMenuRadioItem
+              value="alphabetical"
+              className="cursor-pointer text-xs"
+            >
+              A-Z
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="reverse-alphabetical"
+              className="cursor-pointer text-xs"
+            >
+              Z-A
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="oldest"
+              className="cursor-pointer text-xs"
+            >
+              Oldest
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem
+              value="newest"
+              className="cursor-pointer text-xs"
+            >
+              Newest
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -92,8 +94,7 @@ export function ColumnHeader({
   onAdd,
   searchValue,
   onSearchChange,
-  showSearch: showSearchProp,
-  onShowSearchChange,
+  searchInputRef,
 }: {
   title: string;
   sortOption?: SortOption;
@@ -101,43 +102,19 @@ export function ColumnHeader({
   onAdd: () => void;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
-  showSearch?: boolean;
-  onShowSearchChange?: (show: boolean) => void;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
 }) {
-  const [showSearchInternal, setShowSearchInternal] = useState(false);
-  const showSearch = showSearchProp ?? showSearchInternal;
-  const setShowSearch = onShowSearchChange ?? setShowSearchInternal;
-
-  const handleSearchToggle = () => {
-    if (showSearch) {
-      onSearchChange?.("");
-    }
-    setShowSearch(!showSearch);
-  };
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       onSearchChange?.("");
-      setShowSearch(false);
-      e.currentTarget.blur();
     }
   };
 
   return (
-    <div className="@container border-b border-neutral-200">
+    <div className="@container">
       <div className="flex h-12 min-w-0 items-center justify-between py-2 pr-1 pl-3">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="font-serif text-sm font-medium select-none">{title}</h3>
         <div className="flex shrink-0 items-center">
-          {onSearchChange && (
-            <Button
-              onClick={handleSearchToggle}
-              size="icon"
-              variant="ghost"
-              title="Search"
-            >
-              <Search size={16} />
-            </Button>
-          )}
           {sortOption && setSortOption && (
             <div className="hidden @[220px]:block">
               <SortDropdown
@@ -151,26 +128,29 @@ export function ColumnHeader({
           </Button>
         </div>
       </div>
-      {showSearch && onSearchChange && (
-        <div className="flex h-12 items-center gap-2 border-t border-neutral-200 bg-white px-3">
-          <Search className="h-4 w-4 shrink-0 text-neutral-400" />
-          <input
-            type="text"
-            value={searchValue || ""}
-            onChange={(e) => onSearchChange(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder="Search..."
-            className="w-full bg-transparent text-sm placeholder:text-neutral-400 focus:outline-hidden"
-            autoFocus
-          />
-          {searchValue && (
-            <button
-              onClick={() => onSearchChange("")}
-              className="shrink-0 rounded-xs p-1 transition-colors hover:bg-neutral-100"
-            >
-              <X className="h-4 w-4 text-neutral-400" />
-            </button>
-          )}
+      {onSearchChange && (
+        <div className="px-2 pb-2">
+          <div className="flex h-8 items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-200/50 px-3 transition-colors focus-within:bg-neutral-200">
+            <Search className="h-4 w-4 shrink-0 text-neutral-400" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchValue || ""}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search contacts..."
+              className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-sm placeholder:text-neutral-400 focus:outline-hidden"
+            />
+            {searchValue && (
+              <button
+                onClick={() => onSearchChange("")}
+                className="h-4 w-4 shrink-0 text-neutral-400 transition-colors hover:text-neutral-600"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

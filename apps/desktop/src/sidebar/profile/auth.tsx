@@ -13,7 +13,7 @@ export function AuthSection({
   const openNew = useTabs((state) => state.openNew);
 
   const handleOpenSettings = useCallback(() => {
-    openNew({ type: "settings" });
+    openNew({ type: "settings", state: { tab: "account" } });
     onClose();
   }, [openNew, onClose]);
 

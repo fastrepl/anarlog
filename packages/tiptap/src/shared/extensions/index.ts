@@ -1,6 +1,5 @@
 import FileHandler from "@tiptap/extension-file-handler";
 import Highlight from "@tiptap/extension-highlight";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import {
   Table,
@@ -8,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@tiptap/extension-table";
-import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import Underline from "@tiptap/extension-underline";
 import { Mark } from "@tiptap/pm/model";
@@ -22,10 +20,14 @@ import { ClearMarksOnEnter } from "../clear-marks-on-enter";
 import { ClipboardTextSerializer } from "../clipboard";
 import CustomListKeymap from "../custom-list-keymap";
 import { Hashtag } from "../hashtag";
+import { AttachmentImage } from "./image";
 import { Placeholder, type PlaceholderFunction } from "./placeholder";
 import { SearchAndReplace } from "./search-and-replace";
+import TaskItem from "./task-item";
 
 export type { PlaceholderFunction };
+export * from "./image";
+export * from "./image-metadata";
 
 export type ImageUploadResult = {
   url: string;
@@ -43,43 +45,54 @@ export type ExtensionOptions = {
   onLinkOpen?: (url: string) => void;
 };
 
-const AttachmentImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      attachmentId: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("data-attachment-id"),
-        renderHTML: (attributes) => {
-          if (!attributes.attachmentId) {
-            return {};
-          }
-          return { "data-attachment-id": attributes.attachmentId };
-        },
-      },
-    };
-  },
+const MarkdownUnderline = Underline.extend({
+  markdownTokenizer: {
+    name: "underline",
+    level: "inline",
+    start(src) {
+      const plusPlusIndex = src.indexOf("++");
+      const htmlIndex = src.indexOf("<u>");
 
-  parseMarkdown: (token: { href?: string; text?: string; title?: string }) => {
-    const src = token.href || "";
-    return {
-      type: "image",
-      attrs: {
-        src,
-        alt: token.text || "",
-        title: token.title || null,
-        attachmentId: null,
-      },
-    };
-  },
+      if (plusPlusIndex === -1) {
+        return htmlIndex;
+      }
 
-  renderMarkdown: (node: {
-    attrs?: { src?: string; alt?: string; title?: string };
-  }) => {
-    const src = node.attrs?.src || "";
-    const alt = node.attrs?.alt || "";
-    const title = node.attrs?.title;
-    return title ? `![${alt}](${src} "${title}")` : `![${alt}](${src})`;
+      if (htmlIndex === -1) {
+        return plusPlusIndex;
+      }
+
+      return Math.min(plusPlusIndex, htmlIndex);
+    },
+    tokenize(src, _tokens, lexer) {
+      const plusPlusMatch = /^(\+\+)([\s\S]+?)(\+\+)/.exec(src);
+      if (plusPlusMatch) {
+        const innerContent = plusPlusMatch[2].trim();
+
+        return {
+          type: "underline",
+          raw: plusPlusMatch[0],
+          text: innerContent,
+          tokens: lexer.inlineTokens(innerContent),
+        };
+      }
+
+      const htmlMatch = /^(<u>)([\s\S]+?)(<\/u>)/.exec(src);
+      if (!htmlMatch) {
+        return undefined;
+      }
+
+      const innerContent = htmlMatch[2];
+
+      return {
+        type: "underline",
+        raw: htmlMatch[0],
+        text: innerContent,
+        tokens: lexer.inlineTokens(innerContent),
+      };
+    },
+  },
+  renderMarkdown(node, helpers) {
+    return `<u>${helpers.renderChildren(node)}</u>`;
   },
 });
 
@@ -116,7 +129,7 @@ export const getExtensions = (
     allowBase64: true,
     HTMLAttributes: { class: "tiptap-image" },
   }),
-  Underline,
+  MarkdownUnderline,
   Placeholder.configure({
     placeholder:
       placeholderComponent ??

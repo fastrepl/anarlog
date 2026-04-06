@@ -71,7 +71,8 @@ impl Builder {
 
                 let env_filter = EnvFilter::try_from_default_env()
                     .unwrap_or_else(|_| EnvFilter::new("info"))
-                    .add_directive("ort=warn".parse().unwrap());
+                    .add_directive("ort=warn".parse().unwrap())
+                    .add_directive("tantivy=error".parse().unwrap());
 
                 let sentry_layer =
                     sentry::integrations::tracing::layer().event_filter(sentry_event_filter);

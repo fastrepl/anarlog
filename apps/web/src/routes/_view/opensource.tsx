@@ -7,10 +7,7 @@ import { cn } from "@hypr/utils";
 
 import { CTASection } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
-import {
-  CURATED_PROFILES,
-  RotatingAvatarGrid,
-} from "@/components/github-open-source";
+import { RotatingAvatarGrid } from "@/components/github-open-source";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
 import {
@@ -102,9 +99,9 @@ function HeroSection() {
             <GithubStars />
           </div>
         </div>
-        <RotatingAvatarGrid
-          profiles={stargazers.length > 0 ? stargazers : CURATED_PROFILES}
-        />
+        {stargazers.length > 0 ? (
+          <RotatingAvatarGrid profiles={stargazers} rows={2} />
+        ) : null}
       </div>
     </div>
   );
@@ -379,24 +376,7 @@ function TechStackSection() {
                     {section.category}
                   </h3>
                 </div>
-                {section.items.map((tech, techIndex) => {
-                  const itemCount = section.items.length;
-                  const posInRow2 = techIndex % 2;
-                  const posInRow3 = techIndex % 3;
-                  const rowIn2Col = Math.floor(techIndex / 2);
-                  const rowIn3Col = Math.floor(techIndex / 3);
-                  const totalRows2Col = Math.ceil(itemCount / 2);
-                  const totalRows3Col = Math.ceil(itemCount / 3);
-                  const isLastItemMobile = techIndex === itemCount - 1;
-                  const isLastRowSm = rowIn2Col === totalRows2Col - 1;
-                  const isLastRowLg = rowIn3Col === totalRows3Col - 1;
-
-                  const hasBorderBMobile = !isLastItemMobile;
-                  const hasBorderRSm = posInRow2 < 1;
-                  const hasBorderRLg = posInRow3 < 2;
-                  const hasBorderBSm = !isLastRowSm;
-                  const hasBorderBLg = !isLastRowLg;
-
+                {section.items.map((tech) => {
                   return (
                     <a
                       key={tech.name}

@@ -1,162 +1,169 @@
+mod app;
+mod cli;
 mod commands;
+mod config;
 mod error;
-mod event;
-mod frame;
-mod terminal;
-mod textarea_input;
-mod theme;
+mod output;
+mod stt;
+#[cfg(feature = "standalone")]
+pub(crate) mod tui;
 
-use clap::{Parser, Subcommand};
+use crate::cli::{Cli, Commands};
+use crate::error::CliResult;
+use clap::Parser;
 
-use crate::commands::OutputFormat;
-use crate::commands::batch::Provider as BatchProvider;
-use crate::commands::model::ModelCommands;
-use crate::error::{CliError, CliResult};
-
-#[derive(Parser)]
-#[command(name = "char", about = "Live transcription TUI and utilities", version)]
-struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-
-    #[arg(long, env = "CHAR_BASE_URL", value_parser = parse_base_url)]
-    base_url: Option<String>,
-
-    #[arg(long, env = "CHAR_API_KEY", default_value = "")]
-    api_key: String,
-
-    #[arg(long, env = "CHAR_MODEL", default_value = "")]
-    model: String,
-
-    #[arg(long, env = "CHAR_LANGUAGE", default_value = "en")]
-    language: String,
-
-    #[arg(long, env = "CHAR_RECORD")]
-    record: bool,
-}
-
-fn parse_base_url(value: &str) -> Result<String, String> {
-    let parsed =
-        url::Url::parse(value).map_err(|e| format!("invalid --base-url '{value}': {e}"))?;
-
-    if parsed.scheme() != "http" && parsed.scheme() != "https" {
-        return Err(format!(
-            "invalid --base-url '{value}': scheme must be http or https"
-        ));
-    }
-
-    Ok(value.to_string())
-}
-
-fn required_base_url(base_url: Option<String>) -> CliResult<String> {
-    base_url.ok_or_else(|| CliError::required_argument("--base-url (or CHAR_BASE_URL)"))
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    Listen,
-    Auth,
-    Desktop,
-    #[command(about = "Transcribe an audio file (batch mode)")]
-    Batch {
-        #[arg(long, value_name = "PATH", visible_alias = "file")]
-        input: std::path::PathBuf,
-        #[arg(long, value_enum)]
-        provider: BatchProvider,
-        #[arg(long, short = 'k', value_name = "KEYWORD")]
-        keyword: Vec<String>,
-        #[arg(long, value_name = "PATH")]
-        output: Option<std::path::PathBuf>,
-        #[arg(long, value_enum, default_value = "pretty")]
-        format: OutputFormat,
-        #[arg(long, hide = true, conflicts_with = "format")]
-        json: bool,
-        #[arg(long, short = 'q')]
-        quiet: bool,
-    },
-    Model {
-        #[command(subcommand)]
-        command: ModelCommands,
-    },
-}
-
-#[tokio::main]
-async fn main() {
+#[allow(clippy::let_unit_value)]
+fn main() {
     let cli = Cli::parse();
 
-    if let Err(error) = run(cli).await {
+    if cli.no_color || std::env::var_os("NO_COLOR").is_some() {
+        colored::control::set_override(false);
+    }
+
+    let trace_buffer = init_tracing(&cli);
+
+    #[cfg(all(feature = "standalone", target_os = "macos"))]
+    let result = if matches!(&cli.command, Some(Commands::ShortcutDaemon)) {
+        crate::commands::shortcut::daemon::run_blocking()
+    } else {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime");
+        runtime.block_on(run(cli, trace_buffer))
+    };
+
+    #[cfg(not(all(feature = "standalone", target_os = "macos")))]
+    let result = {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime");
+        runtime.block_on(run(cli, trace_buffer))
+    };
+
+    if let Err(error) = result {
         eprintln!("error: {error}");
         std::process::exit(1);
     }
 }
 
-async fn run(cli: Cli) -> CliResult<()> {
-    let Cli {
-        command,
-        base_url,
-        api_key,
-        model,
-        language,
-        record,
-    } = cli;
+#[cfg(feature = "standalone")]
+type OptTraceBuffer = Option<tui::TraceBuffer>;
+#[cfg(not(feature = "standalone"))]
+type OptTraceBuffer = ();
 
-    match command {
-        Some(Commands::Auth) => commands::auth::run(),
-        Some(Commands::Desktop) => commands::desktop::run().map(|_| ()),
-        Some(Commands::Listen) => commands::listen::run(commands::listen::Args {
-            base_url,
-            api_key,
-            model,
-            language,
-            record,
-        })
-        .await
-        .map(|_| ()),
-        Some(Commands::Batch {
-            input,
-            provider,
-            keyword,
-            output,
-            json,
-            format,
-            quiet,
-        }) => {
-            let base_url = if matches!(provider, BatchProvider::Cactus) {
-                base_url
-            } else {
-                Some(required_base_url(base_url)?)
-            };
+fn init_tracing(cli: &Cli) -> OptTraceBuffer {
+    let level = cli.verbose.tracing_level_filter();
 
-            commands::batch::run(commands::batch::Args {
-                input,
-                provider,
-                base_url,
-                api_key,
-                model: if model.is_empty() { None } else { Some(model) },
-                language,
-                keywords: keyword,
-                output,
-                format: if json { OutputFormat::Json } else { format },
-                quiet,
-            })
-            .await
-        }
-        Some(Commands::Model { command }) => commands::model::run(command).await,
-        None => match commands::entry::run(commands::entry::Args {
-            status_message: None,
+    let wants_json = matches!(
+        cli.command,
+        Some(Commands::Transcribe {
+            args: commands::transcribe::Args {
+                format: cli::OutputFormat::Json,
+                ..
+            },
         })
-        .await
-        {
-            commands::entry::EntryAction::Listen => commands::listen::run(commands::listen::Args {
-                base_url,
-                api_key,
-                model,
-                language,
-                record,
+    );
+
+    #[cfg(feature = "standalone")]
+    let wants_json = wants_json
+        || matches!(
+            cli.command,
+            Some(Commands::Record {
+                args: commands::record::Args {
+                    format: cli::OutputFormat::Json,
+                    ..
+                },
             })
-            .await
-            .map(|_| ()),
-            commands::entry::EntryAction::Quit => Ok(()),
-        },
+        );
+
+    #[cfg(feature = "standalone")]
+    let wants_capture = !wants_json
+        && std::io::IsTerminal::is_terminal(&std::io::stderr())
+        && matches!(
+            cli.command,
+            Some(
+                Commands::Transcribe { .. }
+                    | Commands::Models { .. }
+                    | Commands::Record { .. }
+                    | Commands::Play { .. },
+            )
+        );
+
+    #[cfg(feature = "standalone")]
+    if wants_capture {
+        let buf = tui::new_trace_buffer();
+        init_tracing_capture(level, buf.clone());
+        return Some(buf);
     }
+
+    if wants_json {
+        init_tracing_json(level);
+    } else {
+        init_tracing_stderr(level);
+    }
+
+    #[cfg(feature = "standalone")]
+    return None;
+    #[cfg(not(feature = "standalone"))]
+    return;
+}
+
+fn init_tracing_stderr(level: tracing_subscriber::filter::LevelFilter) {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+}
+
+fn init_tracing_json(level: tracing_subscriber::filter::LevelFilter) {
+    use tracing_subscriber::EnvFilter;
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .init();
+}
+
+#[cfg(feature = "standalone")]
+fn init_tracing_capture(level: tracing_subscriber::filter::LevelFilter, buffer: tui::TraceBuffer) {
+    use tracing_subscriber::EnvFilter;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    let filter = EnvFilter::builder()
+        .with_default_directive(level.into())
+        .from_env_lossy();
+    let capture = tui::CaptureLayer::new(buffer);
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(capture)
+        .init();
+}
+
+async fn run(cli: Cli, trace_buffer: OptTraceBuffer) -> CliResult<()> {
+    let base = cli
+        .command
+        .as_ref()
+        .and_then(Commands::base_override)
+        .map(std::path::Path::to_path_buf);
+    let tracked = cli.command.as_ref().map(Into::into);
+    let Cli {
+        command, verbose, ..
+    } = cli;
+    let ctx = app::AppContext::new(base.as_deref(), verbose.is_silent(), trace_buffer);
+
+    if let Some(subcommand) = tracked {
+        ctx.track_command(subcommand);
+    }
+
+    commands::run(&ctx, command).await
 }

@@ -1,0 +1,22 @@
+[package]
+name = "activity-capture-dev"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "activity-capture"
+path = "src/main.rs"
+
+[dependencies]
+hypr-activity-capture = { workspace = true }
+
+chrono = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+crossterm = { workspace = true }
+futures-util = { workspace = true }
+ratatui = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync"] }
+url = { workspace = true }

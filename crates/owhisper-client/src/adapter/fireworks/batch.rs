@@ -109,6 +109,7 @@ impl FireworksAdapter {
                 start: w.start,
                 end: w.end,
                 confidence: 1.0,
+                channel: 0,
                 speaker: None,
                 punctuated_word: Some(w.word),
             })

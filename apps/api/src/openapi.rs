@@ -14,7 +14,10 @@ use utoipa::{Modify, OpenApi};
     tags(
         (name = "stt", description = "Speech-to-text transcription endpoints"),
         (name = "llm", description = "LLM chat completions endpoints"),
+        (name = "pyannote", description = "Pyannote speaker diarization and voice processing"),
         (name = "calendar", description = "Calendar management"),
+        (name = "mail", description = "Mail management"),
+        (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "subscription", description = "Subscription and trial management")
     ),
@@ -27,14 +30,20 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 
     let stt_doc = hypr_transcribe_proxy::openapi();
     let llm_doc = hypr_llm_proxy::openapi();
+    let pyannote_doc = with_path_prefix(hypr_api_pyannote::openapi(), "/pyannote");
     let calendar_doc = with_path_prefix(hypr_api_calendar::openapi(), "/calendar");
+    let mail_doc = with_path_prefix(hypr_api_mail::openapi(), "/mail");
+    let ticket_doc = with_path_prefix(hypr_api_ticket::openapi(), "/ticket");
     let nango_doc = with_path_prefix(hypr_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(hypr_api_subscription::openapi(), "/subscription");
     let support_doc = hypr_api_support::openapi();
 
     doc.merge(stt_doc);
     doc.merge(llm_doc);
+    doc.merge(pyannote_doc);
     doc.merge(calendar_doc);
+    doc.merge(mail_doc);
+    doc.merge(ticket_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(support_doc);
@@ -100,8 +109,11 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
         }
 
         if path.starts_with("/calendar")
+            || path.starts_with("/mail")
+            || path.starts_with("/ticket")
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
+            || path.starts_with("/pyannote")
         {
             set_operation_security(item);
         }
@@ -154,6 +166,41 @@ fn with_each_operation(item: &mut PathItem, mut f: impl FnMut(&mut Operation)) {
 
 #[cfg(test)]
 mod tests {
+    fn assert_bearer(path: &utoipa::openapi::path::PathItem, method: &str) {
+        let operation = match method {
+            "get" => path.get.as_ref().unwrap(),
+            "post" => path.post.as_ref().unwrap(),
+            _ => unreachable!("unsupported method"),
+        };
+        let security = operation.security.as_ref().unwrap();
+
+        assert!(security.iter().any(|item| {
+            serde_json::to_value(item)
+                .unwrap()
+                .get("bearer_auth")
+                .is_some()
+        }));
+    }
+
+    #[test]
+    fn pyannote_paths_are_prefixed_and_protected() {
+        let doc = super::openapi();
+        assert_bearer(doc.paths.paths.get("/pyannote/v1/diarize").unwrap(), "post");
+        assert_bearer(
+            doc.paths.paths.get("/pyannote/v1/identify").unwrap(),
+            "post",
+        );
+        assert_bearer(
+            doc.paths.paths.get("/pyannote/v1/voiceprint").unwrap(),
+            "post",
+        );
+        assert!(!doc.paths.paths.contains_key("/pyannote/v1/jobs"));
+        assert!(!doc.paths.paths.contains_key("/pyannote/v1/jobs/{jobId}"));
+        assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/input"));
+        assert!(!doc.paths.paths.contains_key("/pyannote/v1/media/output"));
+        assert!(!doc.paths.paths.contains_key("/pyannote/v1/test"));
+    }
+
     #[test]
     fn gen_openapi_json() {
         super::write_openapi_json().unwrap();

@@ -34,7 +34,7 @@ describe("extractChangedTables", () => {
 
   describe("e2e: MergeableStore with persister", () => {
     let store: ReturnType<typeof createMergeableStore>;
-    let saveFn: ReturnType<typeof vi.fn>;
+    let saveFn: ReturnType<typeof vi.fn<(...args: any[]) => Promise<void>>>;
     let capturedChangedTables: ChangedTables | null;
 
     beforeEach(async () => {

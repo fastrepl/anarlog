@@ -20,10 +20,13 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 approx = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
 criterion = { workspace = true }
 dasp = { workspace = true }
 hound = { workspace = true }
+hypr-audacity = { workspace = true }
 hypr-audio-snapshot = { workspace = true }
+hypr-audio-utils = { workspace = true }
 rodio = { workspace = true }
 
 [[bench]]

@@ -1,7 +1,10 @@
 import * as settings from "~/store/tinybase/store/settings";
 import type { SettingsValueKey } from "~/store/tinybase/store/settings";
 
-type JsonParsedKeys = "spoken_languages" | "ignored_platforms";
+type JsonParsedKeys =
+  | "spoken_languages"
+  | "ignored_platforms"
+  | "included_platforms";
 
 type ConfigValueType<K extends SettingsValueKey> = K extends JsonParsedKeys
   ? string[]
@@ -28,7 +31,11 @@ export function useConfigValue<K extends SettingsValueKey>(
   const defaultValue = "default" in mapping ? mapping.default : undefined;
 
   if (storedValue !== undefined) {
-    if (key === "ignored_platforms" || key === "spoken_languages") {
+    if (
+      key === "ignored_platforms" ||
+      key === "included_platforms" ||
+      key === "spoken_languages"
+    ) {
       return tryParseJSON(
         storedValue,
         JSON.parse(defaultValue as string),
@@ -53,7 +60,11 @@ export function useConfigValues<K extends SettingsValueKey>(
     const defaultValue = "default" in mapping ? mapping.default : undefined;
 
     if (storedValue !== undefined) {
-      if (key === "ignored_platforms" || key === "spoken_languages") {
+      if (
+        key === "ignored_platforms" ||
+        key === "included_platforms" ||
+        key === "spoken_languages"
+      ) {
         result[key] = tryParseJSON(
           storedValue,
           defaultValue,

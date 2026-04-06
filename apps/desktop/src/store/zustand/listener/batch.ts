@@ -1,15 +1,14 @@
 import type { StoreApi } from "zustand";
 
-import type { BatchResponse, StreamResponse } from "@hypr/plugin-listener2";
+import type {
+  BatchResponse,
+  BatchStreamEvent,
+} from "@hypr/plugin-transcription";
 
-import type { HandlePersistCallback } from "./transcript";
+import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries } from "./utils";
 
-import {
-  ChannelProfile,
-  type RuntimeSpeakerHint,
-  type WordLike,
-} from "~/stt/segment";
+import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
 
 export type BatchPhase = "importing" | "transcribing";
 
@@ -30,7 +29,7 @@ export type BatchState = {
       hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
     }
   >;
-  batchPersist: Record<string, HandlePersistCallback>;
+  batchPersist: Record<string, BatchPersistCallback>;
 };
 
 export type BatchActions = {
@@ -39,12 +38,12 @@ export type BatchActions = {
   handleBatchResponse: (sessionId: string, response: BatchResponse) => void;
   handleBatchResponseStreamed: (
     sessionId: string,
-    response: StreamResponse,
-    percentage: number,
+    event: BatchStreamEvent,
   ) => void;
   handleBatchFailed: (sessionId: string, error: string) => void;
+  updateBatchProgress: (sessionId: string, percentage: number) => void;
   clearBatchSession: (sessionId: string) => void;
-  setBatchPersist: (sessionId: string, callback: HandlePersistCallback) => void;
+  setBatchPersist: (sessionId: string, callback: BatchPersistCallback) => void;
   clearBatchPersist: (sessionId: string) => void;
 };
 
@@ -117,8 +116,9 @@ export const createBatchSlice = <T extends BatchState>(
     });
   },
 
-  handleBatchResponseStreamed: (sessionId, response, percentage) => {
-    const isComplete = response.type === "Results" && response.from_finalize;
+  handleBatchResponseStreamed: (sessionId, event) => {
+    const percentage = getBatchStreamPercentage(event);
+    const isComplete = event.type === "result" || event.type === "terminal";
 
     set((state) => ({
       ...state,
@@ -137,10 +137,26 @@ export const createBatchSlice = <T extends BatchState>(
             wordsByChannel: {},
             hintsByChannel: {},
           },
-          response,
+          event,
         ),
       },
     }));
+  },
+
+  updateBatchProgress: (sessionId, percentage) => {
+    set((state) => {
+      const entry = state.batch[sessionId];
+      if (!entry) {
+        return state;
+      }
+      return {
+        ...state,
+        batch: {
+          ...state.batch,
+          [sessionId]: { ...entry, percentage },
+        },
+      };
+    });
   },
 
   handleBatchFailed: (sessionId, error) => {
@@ -212,7 +228,7 @@ function transformBatch(
   const allHints: RuntimeSpeakerHint[] = [];
   let wordOffset = 0;
 
-  response.results.channels.forEach((channel) => {
+  response.results.channels.forEach((channel, channelIndex) => {
     const alternative = channel.alternatives[0];
     if (!alternative || !alternative.words || !alternative.words.length) {
       return;
@@ -221,7 +237,7 @@ function transformBatch(
     const [words, hints] = transformWordEntries(
       alternative.words,
       alternative.transcript,
-      ChannelProfile.MixedCapture,
+      channelIndex,
     );
 
     hints.forEach((hint) => {
@@ -242,8 +258,13 @@ function mergeBatchPreview(
     wordsByChannel: Record<number, WordLike[]>;
     hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   },
-  response: StreamResponse,
+  event: BatchStreamEvent,
 ) {
+  if (event.type !== "segment") {
+    return preview;
+  }
+
+  const response = event.response;
   if (response.type !== "Results") {
     return preview;
   }
@@ -323,4 +344,17 @@ function mergeBatchPreview(
       [channelIndex]: [...hintsBefore, ...adjustedIncomingHints, ...hintsAfter],
     },
   };
+}
+
+function getBatchStreamPercentage(event: BatchStreamEvent): number {
+  switch (event.type) {
+    case "progress":
+    case "segment":
+      return event.percentage;
+    case "result":
+    case "terminal":
+      return 1;
+    case "error":
+      return 0;
+  }
 }

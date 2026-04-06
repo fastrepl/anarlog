@@ -483,7 +483,7 @@ describe("EnhancerService", () => {
       });
     }
 
-    it("triggers auto-enhance when live session stops", () => {
+    it("does not trigger auto-enhance from subscription (handled by callers directly)", () => {
       const deps = createEligibleDeps();
       const service = new EnhancerService(deps);
       const events: any[] = [];
@@ -497,75 +497,6 @@ describe("EnhancerService", () => {
       subscriber?.({
         live: { status: "inactive", sessionId: null },
         batch: {},
-      });
-
-      expect(events).toContainEqual({
-        type: "auto-enhance-started",
-        sessionId: "session-1",
-        noteId: expect.any(String),
-      });
-    });
-
-    it("triggers auto-enhance when finalizing session stops", () => {
-      const deps = createEligibleDeps();
-      const service = new EnhancerService(deps);
-      const events: any[] = [];
-      service.on((event) => events.push(event));
-      service.start();
-
-      subscriber?.({
-        live: { status: "finalizing", sessionId: "session-1" },
-        batch: {},
-      });
-      subscriber?.({
-        live: { status: "inactive", sessionId: null },
-        batch: {},
-      });
-
-      expect(events).toContainEqual({
-        type: "auto-enhance-started",
-        sessionId: "session-1",
-        noteId: expect.any(String),
-      });
-    });
-
-    it("triggers auto-enhance when batch completes", () => {
-      const deps = createEligibleDeps();
-      const service = new EnhancerService(deps);
-      const events: any[] = [];
-      service.on((event) => events.push(event));
-      service.start();
-
-      subscriber?.({
-        live: { status: "inactive", sessionId: null },
-        batch: { "session-1": { percentage: 50 } },
-      });
-      subscriber?.({
-        live: { status: "inactive", sessionId: null },
-        batch: {},
-      });
-
-      expect(events).toContainEqual({
-        type: "auto-enhance-started",
-        sessionId: "session-1",
-        noteId: expect.any(String),
-      });
-    });
-
-    it("does not trigger auto-enhance when batch errors", () => {
-      const deps = createEligibleDeps();
-      const service = new EnhancerService(deps);
-      const events: any[] = [];
-      service.on((event) => events.push(event));
-      service.start();
-
-      subscriber?.({
-        live: { status: "inactive", sessionId: null },
-        batch: { "session-1": { percentage: 50 } },
-      });
-      subscriber?.({
-        live: { status: "inactive", sessionId: null },
-        batch: { "session-1": { percentage: 50, error: "failed" } },
       });
 
       expect(events).toHaveLength(0);

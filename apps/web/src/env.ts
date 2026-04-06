@@ -26,6 +26,7 @@ export const env = createEnv({
     STRIPE_SECRET_KEY: requiredInProd(z.string().min(1)),
     STRIPE_MONTHLY_PRICE_ID: requiredInProd(z.string().min(1)),
     STRIPE_YEARLY_PRICE_ID: requiredInProd(z.string().min(1)),
+    STRIPE_LITE_MONTHLY_PRICE_ID: requiredInProd(z.string().min(1)),
 
     LOOPS_KEY: requiredInProd(z.string().min(1)),
 
@@ -48,7 +49,6 @@ export const env = createEnv({
     VITE_OTEL_SAMPLE_RATE: z.coerce.number().int().positive().default(10),
     VITE_SENTRY_DSN: z.string().min(1).optional(),
     VITE_APP_VERSION: z.string().min(1).optional(),
-    VITE_OUTLIT_PUBLIC_KEY: requiredInProd(z.string().min(1)),
   },
 
   runtimeEnv: { ...process.env, ...import.meta.env },

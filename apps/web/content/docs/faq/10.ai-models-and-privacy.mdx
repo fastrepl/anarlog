@@ -193,9 +193,8 @@ Here is the opt-out check — when disabled, the function returns immediately wi
 
 **Where it goes:**
 - [PostHog](https://posthog.com) — product analytics. [Privacy Policy](https://posthog.com/privacy)
-- [Outlit](https://outlit.dev) — product analytics
 
-The analytics client sends events to both services:
+The analytics client sends events to PostHog:
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/crates/analytics/src/lib.rs#L48-L69" />
 
@@ -292,7 +291,7 @@ When you sign in for Pro or cloud features, Char authenticates via Supabase.
 Char is open source. You can verify everything documented here by reading the code:
 
 - [Desktop app (Tauri backend)](https://github.com/fastrepl/char/tree/main/apps/desktop/src-tauri)
-- [Pro cloud server](https://github.com/fastrepl/char/tree/main/apps/pro)
+- [API server](https://github.com/fastrepl/char/tree/main/apps/api)
 - [Analytics plugin](https://github.com/fastrepl/char/tree/main/plugins/analytics)
 - [Analytics crate](https://github.com/fastrepl/char/tree/main/crates/analytics)
 - [Listener plugin](https://github.com/fastrepl/char/tree/main/plugins/listener)

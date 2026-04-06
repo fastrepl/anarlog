@@ -8,22 +8,15 @@ links = "tauri-plugin-calendar"
 description = ""
 
 [dependencies]
-hypr-api-client = { workspace = true }
-hypr-apple-calendar = { workspace = true, features = ["specta"] }
+hypr-calendar = { workspace = true, features = ["specta"] }
 hypr-calendar-interface = { workspace = true }
-hypr-google-calendar = { workspace = true, features = ["specta"] }
-hypr-outlook-calendar = { workspace = true, features = ["specta"] }
 
 tauri = { workspace = true, features = ["test"] }
 tauri-plugin-auth = { workspace = true }
 tauri-plugin-permissions = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
-chrono = { workspace = true, features = ["serde"] }
-chrono-tz = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"] }
 thiserror = { workspace = true }
 

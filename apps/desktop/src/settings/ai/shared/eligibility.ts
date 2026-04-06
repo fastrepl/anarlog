@@ -33,7 +33,7 @@ export function getRequiredConfigFields(
 
 export type ProviderEligibilityContext = {
   isAuthenticated: boolean;
-  isPro: boolean;
+  isPaid: boolean;
   config?: { base_url?: string; api_key?: string };
 };
 
@@ -51,7 +51,7 @@ export function getProviderSelectionBlockers(
         }
         break;
       case "requires_entitlement":
-        if (req.entitlement === "pro" && !context.isPro) {
+        if (req.entitlement === "pro" && !context.isPaid) {
           blockers.push({ code: "requires_entitlement", entitlement: "pro" });
         }
         break;

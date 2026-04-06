@@ -1,0 +1,23 @@
+[package]
+name = "notification-worker"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+tauri-event = ["dep:tauri-specta"]
+
+[dependencies]
+apalis = { workspace = true }
+apalis-cron = { workspace = true }
+cron = "0.15"
+
+chrono = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+specta = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+tauri-specta = { workspace = true, features = ["derive", "typescript"], optional = true }

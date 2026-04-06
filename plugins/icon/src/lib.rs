@@ -1,6 +1,10 @@
 mod commands;
 mod error;
 mod ext;
+#[cfg(feature = "examples")]
+pub mod overlay;
+#[cfg(not(feature = "examples"))]
+mod overlay;
 
 pub use error::{Error, Result};
 pub use ext::*;

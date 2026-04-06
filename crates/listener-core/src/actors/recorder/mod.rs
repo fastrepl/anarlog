@@ -27,8 +27,10 @@ pub struct RecState {
 }
 
 enum RecorderSink {
+    #[allow(dead_code)]
     Memory(memory::MemorySink),
     Disk(disk::DiskSink),
+    Disabled,
 }
 
 enum RecorderEncoder {
@@ -69,9 +71,7 @@ impl Actor for RecorderActor {
         std::fs::create_dir_all(&session_dir)?;
 
         let sink = match args.recording_mode {
-            RecordingMode::Memory => {
-                RecorderSink::Memory(memory::create_memory_sink(&session_dir)?)
-            }
+            RecordingMode::Memory => RecorderSink::Disabled,
             RecordingMode::Disk => RecorderSink::Disk(disk::create_disk_sink(&session_dir)?),
         };
 
@@ -106,6 +106,7 @@ impl Actor for RecorderActor {
             (RecorderSink::Disk(sink), RecMsg::AudioDual(mic, spk)) => {
                 disk::write_dual(sink, &mic, &spk)?;
             }
+            (RecorderSink::Disabled, RecMsg::AudioSingle(_) | RecMsg::AudioDual(_, _)) => {}
         }
 
         Ok(())
@@ -126,6 +127,7 @@ impl Actor for RecorderActor {
             RecorderSink::Disk(sink) => {
                 disk::finalize_disk_sink(sink)?;
             }
+            RecorderSink::Disabled => {}
         }
 
         Ok(())

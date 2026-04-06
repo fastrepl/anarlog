@@ -1,13 +1,9 @@
 export {
-  buildSegments,
   ChannelProfile,
   type PartialWord,
+  type RenderLabelContext,
   type RuntimeSpeakerHint,
-  type Segment,
-  type SegmentBuilderOptions,
-  SegmentKey,
-  type SegmentWord,
   type WordLike,
-} from "@hypr/transcript";
+} from "~/stt/live-segment";
 
 export { ChannelProfileSchema } from "./shared";

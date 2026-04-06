@@ -1,4 +1,5 @@
 import { getSupabaseBrowserClient } from "@/functions/supabase";
+import { fetchAdminJson } from "@/lib/admin-auth";
 import {
   extractBase64Images,
   extractSlugFromPath,
@@ -14,22 +15,36 @@ interface SignedUploadData {
   token: string;
 }
 
+async function registerUploadedMedia(params: {
+  path: string;
+  publicUrl: string;
+  mimeType: string | null;
+  size: number;
+}) {
+  await fetchAdminJson(
+    "/api/admin/media/register",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    },
+    "Failed to register media",
+  );
+}
+
 async function requestSignedUpload(
   endpoint: string,
   body: Record<string, unknown>,
 ) {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Upload failed");
-  }
-
-  return data as SignedUploadData;
+  return fetchAdminJson<SignedUploadData>(
+    endpoint,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+    "Upload failed",
+  );
 }
 
 async function uploadToSignedUrl(file: File, signedUpload: SignedUploadData) {
@@ -49,6 +64,13 @@ async function uploadToSignedUrl(file: File, signedUpload: SignedUploadData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await registerUploadedMedia({
+    path: signedUpload.path,
+    publicUrl: signedUpload.publicUrl,
+    mimeType: contentType || file.type || null,
+    size: file.size,
+  });
 
   return {
     path: signedUpload.path,

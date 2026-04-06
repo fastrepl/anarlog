@@ -7,29 +7,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
-
-interface MediaItem {
-  name: string;
-  path: string;
-  publicUrl: string;
-  id: string;
-  size: number;
-  type: "file" | "dir";
-  mimeType: string | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-}
-
-async function fetchMediaItems(path: string): Promise<MediaItem[]> {
-  const response = await fetch(
-    `/api/admin/media/list?path=${encodeURIComponent(path)}`,
-  );
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || "Failed to fetch media");
-  }
-  return data.items;
-}
+import { getMediaItemsQueryOptions } from "@/hooks/use-media-api";
 
 function getRelativePath(fullPath: string): string {
   return fullPath.replace(/^apps\/web\/public\/images\/?/, "");
@@ -92,8 +70,7 @@ export function MediaSelectorModal({
   };
 
   const mediaQuery = useQuery({
-    queryKey: ["mediaItems", selectedPath],
-    queryFn: () => fetchMediaItems(selectedPath),
+    ...getMediaItemsQueryOptions(selectedPath),
     enabled: open,
   });
 
@@ -348,18 +325,24 @@ export function MediaSelectorModal({
                           ])}
                           onClick={() => handleFileSelect(item.publicUrl)}
                         >
-                          <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
+                          <div
+                            className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
+                            style={{
+                              backgroundImage: "url(/patterns/dots.svg)",
+                            }}
+                          >
+                            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
                             {item.publicUrl ? (
                               <img
                                 src={item.publicUrl}
                                 alt={item.name}
-                                className="h-full w-full object-cover"
+                                className="relative z-10 h-full w-full object-contain p-4"
                                 loading="lazy"
                               />
                             ) : (
                               <Icon
                                 icon="mdi:file-outline"
-                                className="text-3xl text-neutral-400"
+                                className="relative z-10 text-3xl text-neutral-400"
                               />
                             )}
                           </div>

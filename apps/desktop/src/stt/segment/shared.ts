@@ -1,22 +1,16 @@
 import { Schema } from "effect";
 
-import { ChannelProfile, type RenderLabelContext } from "@hypr/transcript";
-
 import { type Store } from "~/store/tinybase/store/main";
+import { ChannelProfile, type RenderLabelContext } from "~/stt/live-segment";
 
 export {
   ChannelProfile,
-  type Operations,
   type PartialWord,
   type RenderLabelContext,
   type RuntimeSpeakerHint,
-  type Segment,
-  type SegmentBuilderOptions,
-  SegmentKey,
-  type SegmentWord,
   SpeakerLabelManager,
   type WordLike,
-} from "@hypr/transcript";
+} from "~/stt/live-segment";
 
 export const ChannelProfileSchema = Schema.Enums(ChannelProfile);
 

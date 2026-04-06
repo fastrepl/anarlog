@@ -75,27 +75,18 @@ function HeroSection() {
       </div>
 
       <div className="pb-8">
-        <div
-          className="border-border bg-surface-subtle overflow-hidden rounded-xl border bg-cover bg-center"
-          style={{
-            backgroundImage: "url(/api/images/texture/bg-stars.jpg)",
-          }}
-        >
-          <div className="py-16">
-            <div className="relative mx-auto flex max-w-2xl flex-col gap-3">
-              <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
-                <SearchIcon className="size-5 shrink-0 text-stone-400" />
-                <div className="min-w-0 flex-1 overflow-hidden text-left">
-                  <Typewriter
-                    text={searchQueries}
-                    speed={100}
-                    deleteSpeed={30}
-                    waitTime={2000}
-                    className="block truncate text-base font-light text-stone-700 sm:text-lg"
-                    cursorClassName="ml-1"
-                  />
-                </div>
-              </div>
+        <div className="relative mx-auto flex max-w-2xl flex-col gap-3 py-8">
+          <div className="flex items-center gap-3 rounded-full border border-stone-300 bg-white px-4 py-3 shadow-[0_4px_6px_-1px_rgba(255,255,255,0.3),0_2px_4px_-2px_rgba(255,255,255,0.3)]">
+            <SearchIcon className="size-5 shrink-0 text-stone-400" />
+            <div className="min-w-0 flex-1 overflow-hidden text-left">
+              <Typewriter
+                text={searchQueries}
+                speed={100}
+                deleteSpeed={30}
+                waitTime={2000}
+                className="block truncate text-base font-light text-stone-700 sm:text-lg"
+                cursorClassName="ml-1"
+              />
             </div>
           </div>
         </div>

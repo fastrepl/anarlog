@@ -1,6 +1,10 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+use backon::{ConstantBuilder, Retryable};
 use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
 
-pub type WebSocketRetryCallback = std::sync::Arc<dyn Fn(WebSocketRetryEvent) + Send + Sync>;
+pub type WebSocketRetryCallback = Arc<dyn Fn(WebSocketRetryEvent) + Send + Sync>;
 
 #[derive(Debug, Clone)]
 pub struct WebSocketConnectPolicy {
@@ -35,56 +39,64 @@ pub(crate) async fn connect_with_retry(
     crate::Error,
 > {
     let max_attempts = policy.max_attempts.max(1);
-    let mut attempts_made = 0usize;
-    let mut last_error: Option<crate::Error> = None;
+    let attempts_made = Arc::new(AtomicUsize::new(0));
+    let attempts_ref = attempts_made.clone();
 
-    for attempt in 1..=max_attempts {
-        attempts_made = attempt;
-        match try_connect(
-            request.clone(),
-            policy.connect_timeout,
+    let result = (|| {
+        let request = request.clone();
+        let attempts_ref = attempts_ref.clone();
+        async move {
+            let attempt = attempts_ref.fetch_add(1, Ordering::SeqCst) + 1;
+            try_connect(request, policy.connect_timeout, attempt, max_attempts).await
+        }
+    })
+    .retry(
+        ConstantBuilder::default()
+            .with_delay(policy.retry_delay)
+            .with_max_times(max_attempts - 1),
+    )
+    .when(|e: &crate::Error| e.is_retryable_connect_error())
+    .adjust(|e: &crate::Error, dur| {
+        if let crate::Error::ConnectFailed {
+            retry_after_secs: Some(secs),
+            ..
+        } = e
+        {
+            Some(std::time::Duration::from_secs(*secs))
+        } else {
+            dur
+        }
+    })
+    .notify(|e: &crate::Error, dur| {
+        let attempt = attempts_ref.load(Ordering::SeqCst);
+        tracing::warn!(
             attempt,
             max_attempts,
-        )
-        .await
-        {
-            Ok(stream) => return Ok(stream),
-            Err(error) => {
-                tracing::error!("ws_connect_failed: {:?}", error);
-
-                if !error.is_retryable_connect_error() {
-                    return Err(error);
-                }
-
-                if attempt >= max_attempts {
-                    last_error = Some(error);
-                    break;
-                }
-
-                if let Some(callback) = on_retry {
-                    callback(WebSocketRetryEvent {
-                        attempt: attempt + 1,
-                        max_attempts,
-                        error: error.to_string(),
-                    });
-                }
-
-                last_error = Some(error);
-                tokio::time::sleep(policy.retry_delay).await;
-            }
+            delay_ms = dur.as_millis() as u64,
+            "ws_connect_retry: {:?}",
+            e
+        );
+        if let Some(callback) = on_retry {
+            callback(WebSocketRetryEvent {
+                attempt: attempt + 1,
+                max_attempts,
+                error: e.to_string(),
+            });
         }
-    }
+    })
+    .await;
 
-    match last_error {
-        Some(error @ crate::Error::ConnectRetriesExhausted { .. }) => Err(error),
-        Some(error) => Err(crate::Error::connect_retries_exhausted(
-            attempts_made,
-            error.to_string(),
-        )),
-        None => Err(crate::Error::connect_retries_exhausted(
-            attempts_made,
-            "connect failed",
-        )),
+    match result {
+        Ok(stream) => Ok(stream),
+        Err(error @ crate::Error::ConnectRetriesExhausted { .. }) => Err(error),
+        Err(error) if !error.is_retryable_connect_error() => Err(error),
+        Err(error) => {
+            let attempts = attempts_made.load(Ordering::SeqCst);
+            Err(crate::Error::connect_retries_exhausted(
+                attempts,
+                error.to_string(),
+            ))
+        }
     }
 }
 
@@ -97,9 +109,17 @@ async fn try_connect(
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
     crate::Error,
 > {
-    let req = req
+    let mut req = req
         .into_client_request()
         .map_err(|error| crate::Error::invalid_request(error.to_string()))?;
+
+    // AWS WAF and similar firewalls reject WebSocket upgrades without a User-Agent.
+    if !req.headers().contains_key("user-agent") {
+        req.headers_mut().insert(
+            "user-agent",
+            tokio_tungstenite::tungstenite::http::HeaderValue::from_static("ws-client/0.1.0"),
+        );
+    }
 
     tracing::info!("connect_async: {}", loggable_uri(req.uri()));
 

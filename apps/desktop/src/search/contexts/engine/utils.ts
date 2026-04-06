@@ -110,6 +110,21 @@ export function toEpochMs(value: unknown): number {
   return 0;
 }
 
+export function getSessionSearchTimestamp(
+  row: Record<string, unknown>,
+): number {
+  const event = safeParseJSON(row.event_json);
+
+  if (event && typeof event === "object") {
+    const startedAt = toEpochMs((event as { started_at?: unknown }).started_at);
+    if (startedAt > 0) {
+      return startedAt;
+    }
+  }
+
+  return toEpochMs(row.created_at);
+}
+
 export function toString(value: unknown): string {
   if (typeof value === "string" && value.length > 0) {
     return value;

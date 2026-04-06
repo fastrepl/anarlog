@@ -213,33 +213,3 @@ impl DeviceMonitor {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    macro_rules! monitor_test {
-        ($name:ident, $monitor:ty, $duration_secs:expr) => {
-            #[test]
-            fn $name() {
-                let (tx, rx) = mpsc::channel();
-                let handle = <$monitor>::spawn(tx);
-
-                let start = std::time::Instant::now();
-                while start.elapsed() < Duration::from_secs($duration_secs) {
-                    match rx.recv_timeout(Duration::from_millis(100)) {
-                        Ok(event) => println!("{:?}", event),
-                        Err(mpsc::RecvTimeoutError::Timeout) => continue,
-                        Err(mpsc::RecvTimeoutError::Disconnected) => break,
-                    }
-                }
-                handle.stop();
-            }
-        };
-    }
-
-    monitor_test!(test_device_switch_monitor, DeviceSwitchMonitor, 30);
-    monitor_test!(test_device_update_monitor, DeviceUpdateMonitor, 30);
-    monitor_test!(test_device_monitor, DeviceMonitor, 30);
-}

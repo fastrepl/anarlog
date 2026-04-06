@@ -1,0 +1,14 @@
+---
+import type { CommandDoc } from "../lib/types";
+import cliData from "../data/cli.gen.json";
+
+interface Props {
+  command: string;
+}
+
+const { command } = Astro.props;
+const data = cliData as CommandDoc;
+const cmd = data.subcommands?.find((c) => c.name.split(" ").pop() === command);
+---
+
+{cmd?.about && <p>{cmd.about}</p>}

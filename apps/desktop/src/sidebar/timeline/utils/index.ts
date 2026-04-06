@@ -251,6 +251,15 @@ export function getItemTimestamp(item: TimelineItem): Date | null {
   return getItemTimeRange(item).start;
 }
 
+export function isTimelineItemInFuture(item: TimelineItem): boolean {
+  const timestamp = getItemTimestamp(item);
+  if (!timestamp) {
+    return false;
+  }
+
+  return timestamp.getTime() > Date.now();
+}
+
 function getTomorrowUpperBound(timezone?: string): number {
   const dayAfterTomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
   return startOfDay(toTZ(dayAfterTomorrow, timezone)).getTime();

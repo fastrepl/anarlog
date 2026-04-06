@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
-import { open as selectFolder } from "@tauri-apps/plugin-dialog";
+import { message, open as selectFolder } from "@tauri-apps/plugin-dialog";
 import { FolderIcon } from "lucide-react";
 
 import { commands as openerCommands } from "@hypr/plugin-opener2";
@@ -8,7 +8,21 @@ import { commands as settingsCommands } from "@hypr/plugin-settings";
 
 import { ObsidianVaultList } from "~/settings/general/storage/obsidian-vault-list";
 import { displayPath } from "~/settings/general/storage/path-utils";
-import { relaunch } from "~/store/tinybase/store/save";
+import { scheduleAutomaticRelaunch } from "~/store/tinybase/store/save";
+
+async function handleStorageUpdate() {
+  const restartStatus = await scheduleAutomaticRelaunch();
+
+  if (restartStatus === "deferred") {
+    void message(
+      "The app will restart after onboarding to apply your storage changes",
+      {
+        kind: "info",
+        title: "Storage Updated",
+      },
+    );
+  }
+}
 
 export function FolderLocationSection({
   onContinue,
@@ -52,7 +66,7 @@ export function FolderLocationSection({
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["vault-base-path"] });
-      await relaunch();
+      await handleStorageUpdate();
     },
   });
 
@@ -65,7 +79,7 @@ export function FolderLocationSection({
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["vault-base-path"] });
-      await relaunch();
+      await handleStorageUpdate();
     },
   });
 

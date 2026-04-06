@@ -3,11 +3,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 mod error;
-mod outlit;
 
 pub use error::*;
 
-use outlit::OutlitClient;
 use posthog_rs::{ClientOptions, Event};
 
 pub use posthog_rs::FlagValue;
@@ -82,14 +80,12 @@ impl LazyPosthogClient {
 #[derive(Clone)]
 pub struct AnalyticsClient {
     posthog: Option<Arc<LazyPosthogClient>>,
-    outlit: Option<OutlitClient>,
 }
 
 #[derive(Default)]
 pub struct AnalyticsClientBuilder {
     posthog_key: Option<String>,
     posthog_personal_key: Option<String>,
-    outlit: Option<OutlitClient>,
 }
 
 impl AnalyticsClientBuilder {
@@ -103,19 +99,11 @@ impl AnalyticsClientBuilder {
         self
     }
 
-    pub fn with_outlit(mut self, key: impl Into<String>) -> Self {
-        self.outlit = OutlitClient::new(key);
-        self
-    }
-
     pub fn build(self) -> AnalyticsClient {
         let posthog = self
             .posthog_key
             .map(|key| Arc::new(LazyPosthogClient::new(key, self.posthog_personal_key)));
-        AnalyticsClient {
-            posthog,
-            outlit: self.outlit,
-        }
+        AnalyticsClient { posthog }
     }
 }
 
@@ -136,10 +124,6 @@ impl AnalyticsClient {
             state.client.capture(event).await?;
         } else {
             tracing::info!("event: {:?}", payload);
-        }
-
-        if let Some(outlit) = &self.outlit {
-            outlit.event(&distinct_id, &payload).await;
         }
 
         Ok(())
@@ -168,10 +152,6 @@ impl AnalyticsClient {
             state.client.capture(event).await?;
         } else {
             tracing::info!("set_properties: {:?}", payload);
-        }
-
-        if let Some(outlit) = &self.outlit {
-            outlit.identify(&distinct_id, &payload).await;
         }
 
         Ok(())
@@ -291,10 +271,6 @@ impl AnalyticsClient {
                 anon_distinct_id,
                 payload
             );
-        }
-
-        if let Some(outlit) = &self.outlit {
-            outlit.identify(&user_id, &payload).await;
         }
 
         Ok(())

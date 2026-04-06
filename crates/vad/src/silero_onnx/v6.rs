@@ -25,11 +25,15 @@ const MODEL_BYTES: &[u8] = include_bytes!("../../data/models/silero_v6.2.onnx");
 
 impl Default for SileroVad {
     fn default() -> Self {
-        Self::new_from_bytes(MODEL_BYTES).unwrap()
+        Self::new_embedded().unwrap()
     }
 }
 
 impl SileroVad {
+    pub fn new_embedded() -> Result<Self, Error> {
+        Self::new_from_bytes(MODEL_BYTES)
+    }
+
     pub fn new(model_path: impl AsRef<std::path::Path>) -> Result<Self, Error> {
         let session = hypr_onnx::load_model_from_path(model_path)?;
         Ok(Self {
@@ -94,9 +98,8 @@ impl SileroVad {
         let prob = out_data.first().copied().unwrap_or(0.0);
 
         let (_, state_data) = outputs[1].try_extract_tensor::<f32>()?;
-        self.state =
-            Array3::from_shape_vec((2, 1, STATE_SIZE), state_data.iter().copied().collect())
-                .map_err(|e| Error::InvalidInput(e.to_string()))?;
+        self.state = Array3::from_shape_vec((2, 1, STATE_SIZE), state_data.to_vec())
+            .map_err(|e| Error::InvalidInput(e.to_string()))?;
 
         Ok(prob)
     }

@@ -1,40 +1,36 @@
 import { useQuery } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { StickyNoteIcon } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useCallback, useEffect, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import { cn } from "@hypr/utils";
 
+import { useSessionBottomAccessory } from "./components/bottom-accessory";
 import { CaretPositionProvider } from "./components/caret-position-context";
 import { FloatingActionButton } from "./components/floating";
-import { NoteInput } from "./components/note-input";
-import { SearchProvider } from "./components/note-input/transcript/search/context";
+import { NoteInput, type NoteInputHandle } from "./components/note-input";
+import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
 import { SessionPreviewCard } from "./components/session-preview-card";
+import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
-import { TitleInput } from "./components/title-input";
+import { TitleInput, type TitleInputHandle } from "./components/title-input";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
-import { getSessionTabVisualState } from "./tab-visual-state";
+import { getSessionTabStatus } from "./tab-visual-state";
 
 import { useTitleGeneration } from "~/ai/hooks";
 import * as AudioPlayer from "~/audio-player";
-import { useShell } from "~/contexts/shell";
-import { StandardTabWrapper } from "~/shared/main";
+import { useSessionStatusBanner } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
-import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
+import { consumePendingUpload } from "~/stt/pending-upload";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
-
-const SIDEBAR_WIDTH = 280;
-const LAYOUT_PADDING = 4;
+import { useUploadFile } from "~/stt/useUploadFile";
 
 export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   tab,
@@ -57,12 +53,18 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   const title = useSessionTitle(tab.id, storeTitle as string | undefined);
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const stop = useListener((state) => state.stop);
+  const degraded = useListener((state) => state.live.degraded);
   const isEnhancing = useIsSessionEnhancing(tab.id);
-  const { isActive, accent, showSpinner } = getSessionTabVisualState(
+  const status = getSessionTabStatus(
     sessionMode,
     isEnhancing,
+    !!degraded,
     tab.active,
   );
+  const isActive =
+    status === "listening" ||
+    status === "listening-degraded" ||
+    status === "finalizing";
 
   const showCloseConfirmation =
     pendingCloseConfirmationTab?.type === "sessions" &&
@@ -87,9 +89,7 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
         icon={<StickyNoteIcon className="h-4 w-4" />}
         title={title || "Untitled"}
         selected={tab.active}
-        active={isActive}
-        accent={accent}
-        finalizing={showSpinner}
+        status={status}
         pinned={tab.pinned}
         tabIndex={tabIndex}
         showCloseConfirmation={showCloseConfirmation}
@@ -111,23 +111,10 @@ export function TabContentNote({
   tab: Extract<Tab, { type: "sessions" }>;
 }) {
   const listenerStatus = useListener((state) => state.live.status);
-  const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const { conn } = useSTTConnection();
   const startListening = useStartListening(tab.id);
   const hasAttemptedAutoStart = useRef(false);
-
-  useEffect(() => {
-    if (
-      sessionMode === "running_batch" &&
-      tab.state.view?.type !== "transcript"
-    ) {
-      updateSessionTabState(tab, {
-        ...tab.state,
-        view: { type: "transcript" },
-      });
-    }
-  }, [sessionMode, tab, updateSessionTabState]);
 
   useEffect(() => {
     if (!tab.state.autoStart) {
@@ -172,16 +159,11 @@ export function TabContentNote({
     },
   });
 
-  const showTimeline =
-    tab.state.view?.type === "transcript" &&
-    Boolean(audioUrl) &&
-    listenerStatus === "inactive";
-
   return (
     <CaretPositionProvider>
       <SearchProvider>
         <AudioPlayer.Provider sessionId={tab.id} url={audioUrl ?? ""}>
-          <TabContentNoteInner tab={tab} showTimeline={showTimeline} />
+          <TabContentNoteInner tab={tab} audioUrl={audioUrl} />
         </AudioPlayer.Provider>
       </SearchProvider>
     </CaretPositionProvider>
@@ -190,15 +172,13 @@ export function TabContentNote({
 
 function TabContentNoteInner({
   tab,
-  showTimeline,
+  audioUrl,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
-  showTimeline: boolean;
+  audioUrl: string | null | undefined;
 }) {
-  const titleInputRef = React.useRef<HTMLInputElement>(null);
-  const noteInputRef = React.useRef<{
-    editor: import("@hypr/tiptap/editor").TiptapEditor | null;
-  }>(null);
+  const titleInputRef = React.useRef<TitleInputHandle>(null);
+  const noteInputRef = React.useRef<NoteInputHandle>(null);
 
   const currentView = useCurrentNoteTab(tab);
   const { generateTitle } = useTitleGeneration(tab);
@@ -206,166 +186,82 @@ function TabContentNoteInner({
 
   const sessionId = tab.id;
   const { skipReason } = useAutoEnhance(tab);
-  const [showConsentBanner, setShowConsentBanner] = useState(false);
-
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const prevSessionMode = useRef<string | null>(sessionMode);
 
   useAutoFocusTitle({ sessionId, titleInputRef });
+  usePendingUpload(sessionId);
 
-  useEffect(() => {
-    const justStartedListening =
-      prevSessionMode.current !== "active" && sessionMode === "active";
-    const justStoppedListening =
-      prevSessionMode.current === "active" && sessionMode !== "active";
+  const { bottomAccessory, bottomAccessoryState } = useSessionBottomAccessory({
+    sessionId,
+    sessionMode,
+    audioUrl,
+    hasTranscript,
+  });
 
-    prevSessionMode.current = sessionMode;
-
-    if (justStartedListening) {
-      setShowConsentBanner(true);
-    } else if (justStoppedListening) {
-      setShowConsentBanner(false);
+  const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
+    if (pixelWidth !== undefined) {
+      titleInputRef.current?.focusAtPixelWidth(pixelWidth);
+    } else {
+      titleInputRef.current?.focusAtEnd();
     }
-  }, [sessionMode]);
-
-  useEffect(() => {
-    if (!showConsentBanner) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowConsentBanner(false);
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [showConsentBanner]);
-
-  const focusTitle = React.useCallback(() => {
-    titleInputRef.current?.focus();
   }, []);
 
-  const focusEditor = React.useCallback(() => {
-    noteInputRef.current?.editor?.commands.focus();
+  const handleTransferContentToEditor = React.useCallback((content: string) => {
+    noteInputRef.current?.insertAtStartAndFocus(content);
   }, []);
+
+  const handleFocusEditorAtStart = React.useCallback(() => {
+    noteInputRef.current?.focusAtStart();
+  }, []);
+
+  const handleFocusEditorAtPixelWidth = React.useCallback(
+    (pixelWidth: number) => {
+      noteInputRef.current?.focusAtPixelWidth(pixelWidth);
+    },
+    [],
+  );
+
+  useSessionStatusBanner({
+    skipReason,
+    bottomAccessoryState,
+  });
 
   return (
-    <>
-      <StandardTabWrapper
-        afterBorder={showTimeline && <AudioPlayer.Timeline />}
-        floatingButton={<FloatingActionButton tab={tab} />}
-        showTimeline={showTimeline}
-      >
-        <div className="flex h-full flex-col">
-          <div className="pr-1 pl-2">
-            <OuterHeader sessionId={tab.id} currentView={currentView} />
-          </div>
-          <div className="mt-2 shrink-0 px-3">
-            <TitleInput
-              ref={titleInputRef}
-              tab={tab}
-              onNavigateToEditor={focusEditor}
-              onGenerateTitle={hasTranscript ? generateTitle : undefined}
-            />
-          </div>
-          <div className="mt-2 min-h-0 flex-1 px-2">
-            <NoteInput
-              ref={noteInputRef}
-              tab={tab}
-              onNavigateToTitle={focusTitle}
-            />
-          </div>
-        </div>
-      </StandardTabWrapper>
-      <StatusBanner
-        skipReason={skipReason}
-        showConsentBanner={showConsentBanner}
-        showTimeline={showTimeline}
+    <SessionSurface
+      header={<OuterHeader sessionId={tab.id} currentView={currentView} />}
+      title={
+        <TitleInput
+          ref={titleInputRef}
+          tab={tab}
+          onTransferContentToEditor={handleTransferContentToEditor}
+          onFocusEditorAtStart={handleFocusEditorAtStart}
+          onFocusEditorAtPixelWidth={handleFocusEditorAtPixelWidth}
+          onGenerateTitle={hasTranscript ? generateTitle : undefined}
+        />
+      }
+      afterBorder={bottomAccessory}
+      floatingButton={<FloatingActionButton tab={tab} />}
+    >
+      <NoteInput
+        ref={noteInputRef}
+        tab={tab}
+        onNavigateToTitle={handleNavigateToTitle}
       />
-    </>
+    </SessionSurface>
   );
 }
 
-function StatusBanner({
-  skipReason,
-  showConsentBanner,
-  showTimeline,
-}: {
-  skipReason: string | null;
-  showConsentBanner: boolean;
-  showTimeline: boolean;
-}) {
-  const { leftsidebar, chat } = useShell();
-  const [chatPanelWidth, setChatPanelWidth] = useState(0);
-  const hasUndoDeleteToast = useUndoDelete(
-    (state) => Object.keys(state.pendingDeletions).length > 0,
-  );
-
-  const isChatPanelOpen = chat.mode === "RightPanelOpen";
+function usePendingUpload(sessionId: string) {
+  const { processFile } = useUploadFile(sessionId);
+  const processFileRef = useRef(processFile);
+  processFileRef.current = processFile;
 
   useEffect(() => {
-    if (!isChatPanelOpen) {
-      setChatPanelWidth(0);
-      return;
+    const pending = consumePendingUpload(sessionId);
+    if (pending) {
+      processFileRef.current(pending.filePath, pending.kind);
     }
-
-    const updateChatWidth = () => {
-      const panels = document.querySelectorAll("[data-panel-id]");
-      const lastPanel = panels[panels.length - 1];
-      if (lastPanel) {
-        setChatPanelWidth(lastPanel.getBoundingClientRect().width);
-      }
-    };
-
-    updateChatWidth();
-    window.addEventListener("resize", updateChatWidth);
-
-    // Use ResizeObserver on the specific panel instead of MutationObserver on document.body
-    // MutationObserver on document.body with subtree:true causes high CPU usage
-    const resizeObserver = new ResizeObserver(updateChatWidth);
-    const panels = document.querySelectorAll("[data-panel-id]");
-    const lastPanel = panels[panels.length - 1];
-    if (lastPanel) {
-      resizeObserver.observe(lastPanel);
-    }
-
-    return () => {
-      window.removeEventListener("resize", updateChatWidth);
-      resizeObserver.disconnect();
-    };
-  }, [isChatPanelOpen]);
-
-  const leftOffset = leftsidebar.expanded
-    ? (SIDEBAR_WIDTH + LAYOUT_PADDING) / 2
-    : 0;
-  const rightOffset = chatPanelWidth / 2;
-  const totalOffset = leftOffset - rightOffset;
-
-  return createPortal(
-    <AnimatePresence>
-      {(skipReason || showConsentBanner) && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          style={{ left: `calc(50% + ${totalOffset}px)` }}
-          className={cn([
-            "fixed z-50 -translate-x-1/2",
-            "text-center text-xs whitespace-nowrap",
-            skipReason ? "text-red-400" : "text-stone-300",
-            hasUndoDeleteToast
-              ? "bottom-1"
-              : showTimeline
-                ? "bottom-[76px]"
-                : "bottom-6",
-          ])}
-        >
-          {skipReason || "Ask for consent when using Char"}
-        </motion.div>
-      )}
-    </AnimatePresence>,
-    document.body,
-  );
+  }, [sessionId]);
 }
 
 function useAutoFocusTitle({
@@ -373,7 +269,7 @@ function useAutoFocusTitle({
   titleInputRef,
 }: {
   sessionId: string;
-  titleInputRef: React.RefObject<HTMLInputElement | null>;
+  titleInputRef: React.RefObject<TitleInputHandle | null>;
 }) {
   // Prevent re-focusing when the user intentionally leaves the title empty.
   const didAutoFocus = useRef(false);

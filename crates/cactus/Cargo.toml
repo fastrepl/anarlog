@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
+[features]
+examples = ["dep:colored"]
+
 [dependencies]
-cactus-sys = { git = "https://github.com/cactus-compute/cactus", package = "cactus-sys", rev = "f8b714cc9782eafd4895d15fd66e9ffe141810bc" }
+cactus-sys = { git = "https://github.com/cactus-compute/cactus", package = "cactus-sys", rev = "a5acad3" }
 
 hypr-language = { workspace = true }
 hypr-llm-types = { workspace = true }
 
+colored = { version = "3", optional = true }
 futures-util = { workspace = true }
 tokio = { workspace = true, features = ["rt", "sync"] }
 tokio-stream = { workspace = true }
@@ -19,6 +23,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -28,3 +33,7 @@ insta = { workspace = true }
 [[bench]]
 name = "vad"
 harness = false
+
+[[example]]
+name = "chat"
+required-features = ["examples"]

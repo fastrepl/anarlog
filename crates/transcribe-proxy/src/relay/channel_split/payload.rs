@@ -24,6 +24,7 @@ pub(super) enum FinalizeMode {
     Terminal,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum SplitPayload {
     Single(StreamResponse),
     Batch(Vec<StreamResponse>),

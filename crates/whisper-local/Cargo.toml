@@ -25,12 +25,12 @@ hound = { workspace = true }
 
 hypr-audio-interface = { workspace = true }
 rodio = { workspace = true }
-whisper-rs = { git = "https://codeberg.org/tazz4843/whisper-rs", rev = "a23990c", features = ["raw-api", "tracing_backend"], optional = true }
+whisper-rs = { git = "https://codeberg.org/tazz4843/whisper-rs", rev = "129b982", features = ["raw-api", "tracing_backend"], optional = true }
 
 futures-util = { workspace = true }
 tracing = { workspace = true }
 
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }

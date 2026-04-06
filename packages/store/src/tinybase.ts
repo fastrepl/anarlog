@@ -6,6 +6,7 @@ import {
   chatGroupSchema,
   chatMessageSchema,
   chatShortcutSchema,
+  dailyNoteSchema,
   enhancedNoteSchema,
   eventSchema,
   generalSchema,
@@ -18,6 +19,7 @@ import {
   promptSchema,
   sessionSchema,
   tagSchema,
+  taskSchema,
   templateSchema,
   transcriptSchema,
 } from "./zod";
@@ -117,6 +119,10 @@ export const tableSchemaForTinybase = {
     user_id: { type: "string" },
     title: { type: "string" },
     description: { type: "string" },
+    pinned: { type: "boolean" },
+    pin_order: { type: "number" },
+    category: { type: "string" },
+    targets: { type: "string" },
     sections: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof templateSchema>,
   chat_groups: {
@@ -142,6 +148,17 @@ export const tableSchemaForTinybase = {
     position: { type: "number" },
     title: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof enhancedNoteSchema>,
+  tasks: {
+    user_id: { type: "string" },
+    task_id: { type: "string" },
+    source_id: { type: "string" },
+    source_type: { type: "string" },
+    source_order: { type: "number" },
+    status: { type: "string" },
+    text_preview: { type: "string" },
+    body_json: { type: "string" },
+    due_date: { type: "string" },
+  } as const satisfies InferTinyBaseSchema<typeof taskSchema>,
   prompts: {
     user_id: { type: "string" },
     task_type: { type: "string" },
@@ -158,6 +175,11 @@ export const tableSchemaForTinybase = {
     text: { type: "string" },
     created_at: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof memorySchema>,
+  daily_notes: {
+    user_id: { type: "string" },
+    date: { type: "string" },
+    content: { type: "string" },
+  } as const satisfies InferTinyBaseSchema<typeof dailyNoteSchema>,
 } as const satisfies TablesSchema;
 
 export const valueSchemaForTinybase = {
@@ -172,6 +194,7 @@ export const valueSchemaForTinybase = {
   ai_language: { type: "string" },
   spoken_languages: { type: "string" },
   ignored_platforms: { type: "string" },
+  included_platforms: { type: "string" },
   ignored_events: { type: "string" },
   ignored_recurring_series: { type: "string" },
   current_llm_provider: { type: "string" },

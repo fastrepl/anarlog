@@ -11,7 +11,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
     tauri_specta::Builder::<R>::new()
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
-            commands::ping::<tauri::Wry>,
+            commands::capture_frontmost_window_context::<tauri::Wry>,
+            commands::capture_target_window_context::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -44,20 +45,5 @@ mod test {
 
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
-    }
-
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
-        let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
-        ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
-        ctx.config_mut().version = Some("0.0.1".to_string());
-
-        builder.plugin(init()).build(ctx).unwrap()
-    }
-
-    #[tokio::test]
-    async fn test_ping() {
-        let app = create_app(tauri::test::mock_builder());
-        let result = app.screen().ping();
-        assert!(result.is_ok());
     }
 }

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { commands as templateCommands } from "@hypr/plugin-template";
-import { PromptEditor } from "@hypr/tiptap/prompt";
 import { Button } from "@hypr/ui/components/ui/button";
+
+import { PromptEditor } from "./editor";
 
 import * as main from "~/store/tinybase/store/main";
 import {

@@ -9,7 +9,7 @@ export function ConfigError({ status }: { status: LLMConnectionStatus }) {
   const openNew = useTabs((state) => state.openNew);
 
   const handleConfigureClick = () => {
-    openNew({ type: "ai", state: { tab: "intelligence" } });
+    openNew({ type: "settings", state: { tab: "intelligence" } });
   };
 
   const message = getMessageForStatus(status);
@@ -42,6 +42,10 @@ function getMessageForStatus(status: LLMConnectionStatus): string {
 
   if (status.status === "error" && status.reason === "unauthenticated") {
     return "You need to sign in to use Char's language model";
+  }
+
+  if (status.status === "error" && status.reason === "not_pro") {
+    return "Your Char plan has expired. Configure another language model or renew your plan";
   }
 
   if (status.status === "error" && status.reason === "missing_config") {

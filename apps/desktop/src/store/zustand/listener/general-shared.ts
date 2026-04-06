@@ -7,7 +7,7 @@ import type {
   SessionErrorEvent,
   SessionProgressEvent,
   TranscriptionMode,
-} from "@hypr/plugin-listener";
+} from "@hypr/plugin-transcription";
 
 export type LiveSessionStatus = "inactive" | "active" | "finalizing";
 export type SessionMode = LiveSessionStatus | "running_batch";

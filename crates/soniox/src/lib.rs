@@ -60,6 +60,8 @@ pub struct Token {
     pub is_final: Option<bool>,
     #[serde(default)]
     pub speaker: Option<SpeakerId>,
+    #[serde(default)]
+    pub language: Option<String>,
 }
 
 impl Token {

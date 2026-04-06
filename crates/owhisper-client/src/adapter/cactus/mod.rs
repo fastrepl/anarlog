@@ -1,6 +1,9 @@
-#[cfg(feature = "argmax")]
+#[cfg(feature = "local")]
 mod batch;
 mod live;
+
+#[cfg(feature = "local")]
+mod retry;
 
 #[derive(Clone, Default)]
 pub struct CactusAdapter;

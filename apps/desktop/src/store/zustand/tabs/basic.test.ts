@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { type Tab, useTabs } from ".";
 import {
   createContactsTab,
+  createSettingsTab,
   createSessionTab,
   resetTabsStore,
 } from "./test-utils";
@@ -99,6 +100,61 @@ describe("Basic Tab Actions", () => {
     expect(state).toHaveHistoryLength(1);
   });
 
+  test("openNew reuses settings tab and updates requested subsection", () => {
+    const settings = createSettingsTab({
+      active: false,
+      state: { tab: "app" },
+    });
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(settings);
+    useTabs.getState().openNew(session);
+    useTabs.getState().openNew(
+      createSettingsTab({
+        active: false,
+        state: { tab: "calendar" },
+      }),
+    );
+
+    const state = useTabs.getState();
+    expect(state).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "calendar" } },
+      { id: "tab1", active: false, type: "sessions" },
+    ]);
+    expect(state).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
+    expect(state).toHaveLastHistoryEntry({
+      type: "settings",
+      state: { tab: "calendar" },
+    });
+  });
+
+  test("openNew defaults bare settings tabs to app", () => {
+    useTabs.getState().openNew({ type: "settings" });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "app" },
+    });
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "app" } },
+    ]);
+  });
+
+  test("openNew preserves account settings tab requests", () => {
+    useTabs.getState().openNew({ type: "settings", state: { tab: "account" } });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "account" },
+    });
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { type: "settings", active: true, state: { tab: "account" } },
+    ]);
+  });
+
   test("select toggles active flag without changing history", () => {
     const tabA = createSessionTab({ active: true });
     const tabB = createSessionTab({ active: false });
@@ -119,6 +175,25 @@ describe("Basic Tab Actions", () => {
       { id: tabB.id, active: false },
     ]);
     expect(useTabs.getState()).toHaveHistoryLength(1);
+  });
+
+  test("clearSelection returns the store to a home-style no-selection state", () => {
+    const tabA = createSessionTab({ active: false });
+    const tabB = createSessionTab({ active: false });
+    useTabs.getState().openNew(tabA);
+    useTabs.getState().openNew(tabB);
+
+    useTabs.getState().clearSelection();
+
+    expect(useTabs.getState().currentTab).toBeNull();
+    expect(useTabs.getState()).toMatchTabsInOrder([
+      { id: tabA.id, active: false },
+      { id: tabB.id, active: false },
+    ]);
+    expect(useTabs.getState()).toHaveNavigationState({
+      canGoBack: false,
+      canGoNext: false,
+    });
   });
 
   test("close removes tab, picks fallback active, updates history", () => {

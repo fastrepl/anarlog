@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
-import { FAQ, FAQItem } from "@/components/mdx-jobs";
+import { FAQ, FAQItem } from "@/components/mdx-shared";
 
 export const Route = createFileRoute("/_view/product/flexible-ai")({
   component: Component,

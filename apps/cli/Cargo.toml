@@ -5,42 +5,107 @@ edition = "2024"
 homepage = "https://char.com"
 license = "GPL-3.0"
 repository = "https://github.com/fastrepl/char"
-description = "Live transcription TUI"
+description = "Live transcription and audio tools"
 
 [[bin]]
 name = "char"
 path = "src/main.rs"
 
 [dependencies]
-hypr-file = { workspace = true }
+hypr-analytics = { workspace = true }
+hypr-audio = { workspace = true, optional = true }
+hypr-audio-actual = { workspace = true, optional = true }
+hypr-audio-norm = { workspace = true }
+hypr-audio-utils = { workspace = true, optional = true }
+hypr-claude = { workspace = true, optional = true }
+hypr-codex = { workspace = true, optional = true }
+hypr-db-app = { workspace = true, features = ["cli"], optional = true }
+hypr-db-core2 = { workspace = true, optional = true }
+hypr-host = { workspace = true }
 hypr-language = { workspace = true }
-hypr-listener-core = { workspace = true }
 hypr-listener2-core = { workspace = true }
 hypr-local-model = { workspace = true }
-hypr-local-stt-core = { workspace = true }
-hypr-local-stt-server = { workspace = true }
-hypr-model-downloader = { workspace = true }
-hypr-storage = { workspace = true }
-hypr-transcript = { workspace = true }
+hypr-local-stt-core = { workspace = true, optional = true }
+hypr-model-downloader = { workspace = true, optional = true }
+hypr-opencode = { workspace = true, optional = true }
+hypr-shortcut-macos = { workspace = true, optional = true }
+hypr-transcript = { workspace = true, optional = true }
+owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 
+chrono = { workspace = true, optional = true }
 clap = { workspace = true, features = ["derive", "env"] }
+clap-verbosity-flag = { version = "3", features = ["tracing"] }
+clap_complete = { workspace = true }
+clio = { version = "0.3", features = ["clap-parse"] }
+colored = "3"
 comfy-table = "7"
-crossterm = { workspace = true }
+crossterm = { workspace = true, optional = true }
 dirs = { workspace = true }
-image = { version = "0.25", default-features = false, features = ["png"] }
-indicatif = "0.17"
-ratatui = { workspace = true }
-ratatui-image = { version = "10.0.6", default-features = false, features = ["crossterm", "image-defaults"] }
-tempfile = { workspace = true }
-textwrap = { version = "0.16", features = ["terminal_size"] }
-tui-textarea = { workspace = true }
-
+hypr-mp3 = { workspace = true, optional = true }
+libc = { version = "0.2", optional = true }
 open = { workspace = true }
-ractor = { workspace = true, features = ["async-trait"] }
+ratatui = { workspace = true, optional = true }
+reqwest = { workspace = true, features = ["json"] }
+rodio = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["sqlite", "runtime-tokio"], optional = true }
+strsim = "0.11"
+strum = { workspace = true, features = ["derive"] }
+tempfile = { workspace = true }
+textwrap = { version = "0.16", features = ["terminal_size"] }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
-tokio-stream = { workspace = true }
+tokio-stream = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+hypr-local-stt-server = { workspace = true, features = ["whisper-cpp"] }
+
+[target.'cfg(all(target_os = "macos", any(target_arch = "arm", target_arch = "aarch64")))'.dependencies]
+hypr-local-stt-server = { workspace = true, features = ["cactus", "whisper-cpp"] }
+
+[dev-dependencies]
+clap_complete = { workspace = true }
+cli-docs = { path = "../../crates/cli-docs" }
+clio = { version = "0.3", features = ["clap-parse"] }
+portable-pty = "0.9"
+strum = { workspace = true, features = ["derive"] }
+url = { workspace = true }
+vt100 = "0.15"
+
+[features]
+e2e = []
+todo = [
+  "desktop",
+  "dep:hypr-claude",
+  "dep:hypr-codex",
+  "dep:hypr-opencode",
+  "dep:hypr-shortcut-macos",
+]
+desktop = [
+  "dep:hypr-db-app",
+  "dep:hypr-db-core2",
+  "dep:hypr-transcript",
+  "dep:chrono",
+  "dep:sqlx",
+]
+standalone = [
+  "dep:chrono",
+  "dep:hypr-audio",
+  "dep:hypr-audio-actual",
+  "dep:hypr-audio-utils",
+  "dep:hypr-mp3",
+  "dep:hypr-local-stt-core",
+  "dep:hypr-model-downloader",
+  "dep:hypr-shortcut-macos",
+  "dep:ratatui",
+  "dep:crossterm",
+  "dep:libc",
+  "dep:rodio",
+  "dep:tokio-stream",
+]

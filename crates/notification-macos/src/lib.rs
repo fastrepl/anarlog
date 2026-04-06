@@ -63,6 +63,11 @@ define_notification_callback!(
     setup_option_selected_handler,
     rust_on_option_selected
 );
+define_notification_callback!(
+    FOOTER_ACTION_CB,
+    setup_footer_action_handler,
+    rust_on_footer_action
+);
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,14 +76,34 @@ struct NotificationPayload<'a> {
     title: &'a str,
     message: &'a str,
     timeout_seconds: f64,
+    source: Option<&'a NotificationSource>,
     start_time: Option<i64>,
     participants: Option<&'a [Participant]>,
     event_details: Option<&'a EventDetails>,
     action_label: Option<&'a str>,
     options: Option<&'a [String]>,
+    footer: Option<&'a NotificationFooter>,
+    icon: Option<&'a NotificationIcon>,
+}
+
+fn resolve_default_icon(
+    notification: &hypr_notification_interface::Notification,
+) -> hypr_notification_interface::Notification {
+    let mut resolved = notification.clone();
+
+    if resolved.icon.is_none() {
+        resolved.icon = resolved
+            .source
+            .as_ref()
+            .and_then(NotificationSource::default_icon);
+    }
+
+    resolved
 }
 
 pub fn show(notification: &hypr_notification_interface::Notification) {
+    let notification = resolve_default_icon(notification);
+
     let key = notification
         .key
         .as_deref()
@@ -90,11 +115,14 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
         title: &notification.title,
         message: &notification.message,
         timeout_seconds,
+        source: notification.source.as_ref(),
         start_time: notification.start_time,
         participants: notification.participants.as_deref(),
         event_details: notification.event_details.as_ref(),
         action_label: notification.action_label.as_deref(),
         options: notification.options.as_deref(),
+        footer: notification.footer.as_ref(),
+        icon: notification.icon.as_ref(),
     };
 
     let json = serde_json::to_string(&payload).unwrap();

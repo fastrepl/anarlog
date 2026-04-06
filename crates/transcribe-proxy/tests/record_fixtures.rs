@@ -132,7 +132,6 @@ mod record {
         owhisper_client::FireworksAdapter,
         Provider::Fireworks
     );
-    record_fixture_test!(openai, owhisper_client::OpenAIAdapter, Provider::OpenAI);
     record_fixture_test!(
         elevenlabs,
         owhisper_client::ElevenLabsAdapter,

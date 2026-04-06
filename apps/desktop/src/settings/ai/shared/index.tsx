@@ -48,6 +48,16 @@ type ProviderConfig = {
   };
 };
 
+export function CharProviderIcon() {
+  return (
+    <img
+      src="/assets/char-logo-icon-black.svg"
+      alt="Char"
+      className="size-3.5 object-contain"
+    />
+  );
+}
+
 export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
@@ -80,7 +90,7 @@ function useIsProviderConfigured(
   return (
     getProviderSelectionBlockers(providerDef.requirements, {
       isAuthenticated: true,
-      isPro: billing.isPro,
+      isPaid: billing.isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
     }).length === 0
   );
@@ -100,7 +110,7 @@ export function NonHyprProviderCard({
   const billing = useBillingAccess();
   const [provider, setProvider] = useProvider(providerType, config.id);
   const locked =
-    requiresEntitlement(config.requirements, "pro") && !billing.isPro;
+    requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
   const isConfigured = useIsProviderConfigured(
     config.id,
     providerType,
@@ -235,15 +245,29 @@ export function NonHyprProviderCard({
               )}
             </div>
           )}
-          {!showBaseUrl && config.baseUrl && (
+          {((!showBaseUrl && config.baseUrl) || !showApiKey) && (
             <details className="flex flex-col gap-4 pt-2">
               <summary className="cursor-pointer text-xs text-neutral-600 hover:text-neutral-900 hover:underline">
                 Advanced
               </summary>
-              <div className="mt-4">
-                <form.Field name="base_url">
-                  {(field) => <FormField field={field} label="Base URL" />}
-                </form.Field>
+              <div className="mt-4 flex flex-col gap-4">
+                {!showBaseUrl && config.baseUrl && (
+                  <form.Field name="base_url">
+                    {(field) => <FormField field={field} label="Base URL" />}
+                  </form.Field>
+                )}
+                {!showApiKey && (
+                  <form.Field name="api_key">
+                    {(field) => (
+                      <FormField
+                        field={field}
+                        label="API Key"
+                        placeholder="Enter your API key (optional)"
+                        type="password"
+                      />
+                    )}
+                  </form.Field>
+                )}
               </div>
             </details>
           )}

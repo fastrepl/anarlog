@@ -9,12 +9,14 @@ import { registerSaveHandler } from "./save";
 import { useCalendarPersister } from "~/store/tinybase/persister/calendar";
 import { useChatPersister } from "~/store/tinybase/persister/chat";
 import { useChatShortcutPersister } from "~/store/tinybase/persister/chat-shortcuts";
+import { useDailyNotePersister } from "~/store/tinybase/persister/daily-note";
 import { useEventsPersister } from "~/store/tinybase/persister/events";
 import { useHumanPersister } from "~/store/tinybase/persister/human";
 import { useMemoryPersister } from "~/store/tinybase/persister/memory";
 import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
 import { usePromptPersister } from "~/store/tinybase/persister/prompts";
 import { useSessionPersister } from "~/store/tinybase/persister/session";
+import { useTaskPersister } from "~/store/tinybase/persister/tasks";
 import { useTemplatePersister } from "~/store/tinybase/persister/templates";
 import { useValuesPersister } from "~/store/tinybase/persister/values";
 
@@ -30,6 +32,8 @@ export function useMainPersisters(store: Store) {
   const templatePersister = useTemplatePersister(store);
   const calendarPersister = useCalendarPersister(store);
   const memoryPersister = useMemoryPersister(store);
+  const dailyNotePersister = useDailyNotePersister(store);
+  const taskPersister = useTaskPersister(store);
 
   useEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -48,6 +52,8 @@ export function useMainPersisters(store: Store) {
       { id: "template", persister: templatePersister },
       { id: "calendar", persister: calendarPersister },
       { id: "memory", persister: memoryPersister },
+      { id: "dailyNote", persister: dailyNotePersister },
+      { id: "task", persister: taskPersister },
     ];
 
     const unsubscribes = persisters
@@ -73,6 +79,8 @@ export function useMainPersisters(store: Store) {
     templatePersister,
     calendarPersister,
     memoryPersister,
+    dailyNotePersister,
+    taskPersister,
   ]);
 
   useInitializeStore(store, {
@@ -93,5 +101,7 @@ export function useMainPersisters(store: Store) {
     templatePersister,
     calendarPersister,
     memoryPersister,
+    dailyNotePersister,
+    taskPersister,
   };
 }

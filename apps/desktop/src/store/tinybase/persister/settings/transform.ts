@@ -9,6 +9,7 @@ type ProviderRow = { type: "llm" | "stt"; base_url: string; api_key: string };
 const JSON_ARRAY_FIELDS = new Set([
   "spoken_languages",
   "ignored_platforms",
+  "included_platforms",
   "ignored_recurring_series",
 ]);
 
@@ -113,8 +114,20 @@ function settingsToProviderRows(
   return rows;
 }
 
+export type LanguageDefaults = {
+  ai_language?: string;
+  spoken_languages?: string[];
+};
+
+function languagePrefixMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  return longer.startsWith(shorter + "-");
+}
+
 export function storeValuesToSettings(
   values: Record<string, unknown>,
+  languageDefaults?: LanguageDefaults,
 ): Record<string, unknown> {
   const result: Record<string, Record<string, unknown>> = {
     ai: { llm: {}, stt: {} },
@@ -131,6 +144,27 @@ export function storeValuesToSettings(
     }
     if ("default" in config && value === config.default) {
       continue;
+    }
+    if (languageDefaults) {
+      if (
+        key === "ai_language" &&
+        languageDefaults.ai_language &&
+        languagePrefixMatch(value as string, languageDefaults.ai_language)
+      ) {
+        continue;
+      }
+      if (key === "spoken_languages" && languageDefaults.spoken_languages) {
+        try {
+          const storeArr = JSON.parse(value as string) as string[];
+          const defaultArr = languageDefaults.spoken_languages;
+          if (
+            storeArr.length === defaultArr.length &&
+            storeArr.every((v, i) => languagePrefixMatch(v, defaultArr[i]))
+          ) {
+            continue;
+          }
+        } catch {}
+      }
     }
     setByPath(result, config.path, fromStoreValue(key, value));
   }
@@ -166,13 +200,17 @@ export function settingsToContent(data: unknown): Content<Schemas> {
   return [{ ai_providers: aiProviders }, values] as Content<Schemas>;
 }
 
-export function storeToSettings(store: Store): Record<string, unknown> {
+export function storeToSettings(
+  store: Store,
+  languageDefaults?: LanguageDefaults,
+): Record<string, unknown> {
   const rows = store.getTable("ai_providers") ?? {};
   const providers = providerRowsToSettings(rows as Record<string, ProviderRow>);
 
   const storeValues = store.getValues();
   const settings = storeValuesToSettings(
     storeValues as Record<string, unknown>,
+    languageDefaults,
   );
 
   (settings as Record<string, Record<string, unknown>>).ai = {

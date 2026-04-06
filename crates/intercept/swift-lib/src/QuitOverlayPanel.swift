@@ -43,51 +43,17 @@ extension QuitInterceptor {
     container.layer?.cornerRadius = QuitOverlay.cornerRadius
     container.layer?.masksToBounds = true
 
-    let pressLabel = makeLabel(QuitOverlay.pressText, color: QuitOverlay.primaryTextColor)
-    let holdLabel = makeLabel(QuitOverlay.holdText, color: QuitOverlay.secondaryTextColor)
-    self.pressLabel = pressLabel
-    self.holdLabel = holdLabel
+    let messageLabel = makeLabel(QuitOverlay.messageText, color: QuitOverlay.primaryTextColor)
+    self.messageLabel = messageLabel
 
-    let prefixDelta =
-      NSAttributedString(
-        string: "Press ", attributes: [.font: QuitOverlay.font]
-      ).size().width
-      - NSAttributedString(
-        string: "Hold ", attributes: [.font: QuitOverlay.font]
-      ).size().width
-
-    let spacing: CGFloat = 10
-    let totalHeight = pressLabel.frame.height + spacing + holdLabel.frame.height
-    let topY = (size.height + totalHeight) / 2 - pressLabel.frame.height
-    let pressX = (size.width - pressLabel.frame.width) / 2
-
-    pressLabel.frame = NSRect(
-      x: pressX,
-      y: topY,
-      width: pressLabel.frame.width,
-      height: pressLabel.frame.height
-    )
-    holdLabel.frame = NSRect(
-      x: pressX + prefixDelta,
-      y: topY - spacing - holdLabel.frame.height,
-      width: holdLabel.frame.width,
-      height: holdLabel.frame.height
+    messageLabel.frame = NSRect(
+      x: (size.width - messageLabel.frame.width) / 2,
+      y: (size.height - messageLabel.frame.height) / 2,
+      width: messageLabel.frame.width,
+      height: messageLabel.frame.height
     )
 
-    container.addSubview(pressLabel)
-    container.addSubview(holdLabel)
-
-    let progress = CALayer()
-    progress.anchorPoint = CGPoint(x: 0, y: 0)
-    progress.frame = NSRect(
-      x: 0,
-      y: 0,
-      width: 0,
-      height: QuitOverlay.progressBarHeight
-    )
-    progress.backgroundColor = QuitOverlay.progressBarColor.cgColor
-    container.layer?.addSublayer(progress)
-    progressLayer = progress
+    container.addSubview(messageLabel)
 
     return container
   }

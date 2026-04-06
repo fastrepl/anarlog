@@ -7,7 +7,10 @@ import type {
   ProviderConnectionIds,
 } from "@hypr/plugin-calendar";
 
-import { findCalendarByTrackingId } from "~/calendar/utils";
+import {
+  findCalendarByTrackingId,
+  getCalendarTrackingKey,
+} from "~/calendar/utils";
 import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
 
 // ---
@@ -110,28 +113,51 @@ export async function syncCalendars(
       perConnection.push({ connectionId, calendars: result.data });
     }
 
-    const incomingIds = new Set(
-      perConnection.flatMap(({ calendars }) => calendars.map((cal) => cal.id)),
+    const requestedConnectionIds = new Set(connection_ids);
+    const successfulConnectionIds = new Set(
+      perConnection.map(({ connectionId }) => connectionId),
+    );
+
+    const incomingKeys = new Set(
+      perConnection.flatMap(({ connectionId, calendars }) =>
+        calendars.map((cal) =>
+          getCalendarTrackingKey({
+            provider,
+            connectionId,
+            trackingId: cal.id,
+          }),
+        ),
+      ),
     );
 
     store.transaction(() => {
-      const removedCalendarIds = new Set<string>();
+      const disabledCalendarIds = new Set<string>();
 
       for (const rowId of store.getRowIds("calendars")) {
         const row = store.getRow("calendars", rowId);
         if (
           row.provider === provider &&
-          !incomingIds.has(row.tracking_id_calendar as string)
+          (!requestedConnectionIds.has(row.connection_id as string) ||
+            (successfulConnectionIds.has(row.connection_id as string) &&
+              !incomingKeys.has(
+                getCalendarTrackingKey({
+                  provider: row.provider as string | undefined,
+                  connectionId: row.connection_id as string | undefined,
+                  trackingId: row.tracking_id_calendar as string | undefined,
+                }),
+              )))
         ) {
-          removedCalendarIds.add(rowId);
+          disabledCalendarIds.add(rowId);
           store.delRow("calendars", rowId);
+        } else if (row.provider === provider && !row.enabled) {
+          disabledCalendarIds.add(rowId);
         }
       }
 
-      if (removedCalendarIds.size > 0) {
+      if (disabledCalendarIds.size > 0) {
         for (const eventId of store.getRowIds("events")) {
           const event = store.getRow("events", eventId);
-          if (event.calendar_id && removedCalendarIds.has(event.calendar_id)) {
+          if (event.calendar_id && disabledCalendarIds.has(event.calendar_id)) {
             store.delRow("events", eventId);
           }
         }
@@ -139,7 +165,11 @@ export async function syncCalendars(
 
       for (const { connectionId, calendars } of perConnection) {
         for (const cal of calendars) {
-          const existingRowId = findCalendarByTrackingId(store, cal.id);
+          const existingRowId = findCalendarByTrackingId(store, {
+            provider,
+            connectionId,
+            trackingId: cal.id,
+          });
           const rowId = existingRowId ?? crypto.randomUUID();
           const existing = existingRowId
             ? store.getRow("calendars", existingRowId)

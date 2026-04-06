@@ -19,8 +19,8 @@ function TrialStatusDisplay({ trialPhase }: { trialPhase: TrialPhase }) {
         </>
       )}
 
-      {trialPhase === "already-pro" && (
-        <StepRow status="done" label="You have an active Pro plan" />
+      {trialPhase === "already-paid" && (
+        <StepRow status="done" label="You have an active plan" />
       )}
 
       {trialPhase === "already-trialing" && (

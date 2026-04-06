@@ -379,6 +379,18 @@
           "markdownDescription": "Denies the audio_path command without any pre-configured scope."
         },
         {
+          "description": "Enables the audio_source_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-source-metadata",
+          "markdownDescription": "Enables the audio_source_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_source_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-source-metadata",
+          "markdownDescription": "Denies the audio_source_metadata command without any pre-configured scope."
+        },
+        {
           "description": "Enables the chat_dir command without any pre-configured scope.",
           "type": "string",
           "const": "allow-chat-dir",
@@ -571,10 +583,10 @@
           "markdownDescription": "Denies the write_json_batch command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`",
+          "description": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`"
+          "markdownDescription": "Default permissions for the fs-sync plugin\n#### This default permission set includes:\n\n- `allow-deserialize`\n- `allow-write-json-batch`\n- `allow-write-document-batch`\n- `allow-read-document-batch`\n- `allow-list-folders`\n- `allow-move-session`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-cleanup-orphan`\n- `allow-audio-exist`\n- `allow-audio-delete`\n- `allow-audio-import`\n- `allow-audio-source-metadata`\n- `allow-audio-path`\n- `allow-session-dir`\n- `allow-load-session-content`\n- `allow-delete-session-folder`\n- `allow-scan-and-read`\n- `allow-chat-dir`\n- `allow-entity-dir`\n- `allow-attachment-save`\n- `allow-attachment-list`\n- `allow-attachment-remove`"
         }
       ]
     }

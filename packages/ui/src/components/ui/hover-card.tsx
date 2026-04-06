@@ -4,6 +4,11 @@ import * as React from "react";
 
 import { cn } from "@hypr/utils";
 
+import {
+  appFloatingContentClassName,
+  type FloatingContentVariant,
+} from "./floating-content";
+
 const HoverCard = HoverCardPrimitive.Root;
 const HoverCardTrigger = HoverCardPrimitive.Trigger;
 
@@ -11,6 +16,7 @@ const HoverCardContent = React.forwardRef<
   React.ComponentRef<typeof HoverCardPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof HoverCardPrimitive.Content> & {
     followStyle?: MotionStyle;
+    variant?: FloatingContentVariant;
   }
 >(
   (
@@ -20,6 +26,7 @@ const HoverCardContent = React.forwardRef<
       sideOffset = 4,
       side = "bottom",
       followStyle,
+      variant = "default",
       ...props
     },
     ref,
@@ -81,8 +88,11 @@ const HoverCardContent = React.forwardRef<
             }}
             style={followStyle}
             className={cn([
-              "bg-popover text-popover-foreground z-50 w-64 rounded-md border p-4 shadow-md outline-hidden",
+              "text-popover-foreground z-50 w-64 outline-hidden",
               "origin-(--radix-hover-card-content-transform-origin)",
+              variant === "app"
+                ? appFloatingContentClassName
+                : "bg-popover rounded-md border p-4 shadow-md",
               className,
             ])}
           >

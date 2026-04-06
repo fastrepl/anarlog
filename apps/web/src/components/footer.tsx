@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { allSolutions } from "content-collections";
 import { ExternalLinkIcon, MailIcon } from "lucide-react";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,7 +6,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
+import { CookiePreferencesButton } from "@/components/privacy-consent";
 import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
+import { sortedSolutions } from "@/lib/solutions";
 
 const vsList = [
   { slug: "otter", name: "Otter.ai" },
@@ -18,9 +19,10 @@ const vsList = [
   { slug: "obsidian", name: "Obsidian" },
 ];
 
-const useCasesList = allSolutions
-  .sort((a, b) => a.order - b.order)
-  .map((s) => ({ slug: s.slug, label: s.label.replace(/^For\s+/, "") }));
+const useCasesList = sortedSolutions.map((solution) => ({
+  slug: solution.slug,
+  label: solution.label.replace(/^For\s+/, ""),
+}));
 
 function getMaxWidthClass(pathname: string): string {
   const isBlogOrDocs =
@@ -34,7 +36,7 @@ export function Footer() {
   const maxWidthClass = getMaxWidthClass(router.location.pathname);
 
   return (
-    <footer className="relative overflow-hidden">
+    <footer className="relative isolate overflow-hidden">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0"
@@ -198,6 +200,8 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         >
           Privacy
         </Link>
+        {" · "}
+        <CookiePreferencesButton />
       </p>
       <p className="text-fg mt-2 text-sm opacity-30">
         Fastrepl © {currentYear}
@@ -236,14 +240,6 @@ function ProductLinks() {
             className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Changelog
-          </Link>
-        </li>
-        <li>
-          <Link
-            to="/roadmap/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
-          >
-            Roadmap
           </Link>
         </li>
         <li>
@@ -490,16 +486,6 @@ function CompanyLinks() {
             About us
           </Link>
         </li>
-        {import.meta.env.DEV ? (
-          <li>
-            <Link
-              to="/jobs/"
-              className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
-            >
-              Jobs
-            </Link>
-          </li>
-        ) : null}
         <li>
           <Link
             to="/brand/"
@@ -544,11 +530,10 @@ function ToolsLinks() {
         </li>
         <li>
           <Link
-            to="/file-transcription/"
-            search={{ id: undefined }}
+            to="/product/notepad/"
             className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
-            Audio Transcription
+            Notepad
           </Link>
         </li>
         <li>

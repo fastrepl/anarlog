@@ -77,27 +77,85 @@ jobs:
       comment_id: ${{ github.event.comment.id }}
     secrets: inherit
 
-  parse-staging-ref:
+  parse-staging-options:
     needs: check-permission
     if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/staging')
     runs-on: ubuntu-latest
     outputs:
       ref: ${{ steps.parse.outputs.ref }}
+      platform: ${{ steps.parse.outputs.platform }}
     steps:
       - id: parse
         env:
           COMMENT: ${{ github.event.comment.body }}
         run: |
-          if [[ "$COMMENT" =~ /staging[[:space:]]+([a-zA-Z0-9_.][a-zA-Z0-9_./-]*)($|[[:space:]]) ]]; then
-            echo "ref=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+          PLATFORM="macos-aarch64"
+          REF=""
+          EXPECT_PLATFORM="false"
+          SEEN_STAGING="false"
+
+          NORMALIZED_COMMENT=$(printf '%s' "$COMMENT" | tr '\n' ' ')
+          read -r -a TOKENS <<< "$NORMALIZED_COMMENT"
+
+          for TOKEN in "${TOKENS[@]}"; do
+            if [[ "$SEEN_STAGING" != "true" ]]; then
+              if [[ "$TOKEN" == "/staging" ]]; then
+                SEEN_STAGING="true"
+              fi
+              continue
+            fi
+
+            if [[ "$EXPECT_PLATFORM" == "true" ]]; then
+              case "$TOKEN" in
+                macos-aarch64|windows-x64|windows-arm64)
+                  PLATFORM="$TOKEN"
+                  ;;
+                *)
+                  echo "::error::Unsupported staging platform: $TOKEN"
+                  exit 1
+                  ;;
+              esac
+              EXPECT_PLATFORM="false"
+              continue
+            fi
+
+            case "$TOKEN" in
+              --platform)
+                EXPECT_PLATFORM="true"
+                ;;
+              /*)
+                break
+                ;;
+              -*)
+                echo "::error::Unsupported /staging option: $TOKEN"
+                exit 1
+                ;;
+              *)
+                if [[ -z "$REF" ]]; then
+                  REF="$TOKEN"
+                fi
+                ;;
+            esac
+          done
+
+          if [[ "$EXPECT_PLATFORM" == "true" ]]; then
+            echo "::error::Missing value for /staging --platform"
+            exit 1
           fi
 
+          if [[ -n "$REF" ]]; then
+            echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
+
   handle-staging:
-    needs: [check-permission, parse-staging-ref]
+    needs: [check-permission, parse-staging-options]
     if: needs.check-permission.outputs.allowed == 'true' && contains(github.event.comment.body, '/staging')
     uses: ./.github/workflows/handle_staging.yaml
     with:
-      ref: ${{ needs.parse-staging-ref.outputs.ref }}
+      ref: ${{ needs.parse-staging-options.outputs.ref }}
+      platform: ${{ needs.parse-staging-options.outputs.platform }}
       issue_number: ${{ github.event.issue.number }}
       comment_id: ${{ github.event.comment.id }}
     secrets: inherit
