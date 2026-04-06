@@ -90,22 +90,33 @@ function TemplateTargetsInput({
   onChange: (value: string[]) => void;
 }) {
   const [inputValue, setInputValue] = useState("");
+  const [isAddingTag, setIsAddingTag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const submitTargets = () => {
     const nextTargets = parseTargets(inputValue);
     if (nextTargets.length === 0) {
+      setInputValue("");
+      setIsAddingTag(false);
       return;
     }
 
     onChange([...value, ...nextTargets]);
     setInputValue("");
+    setIsAddingTag(false);
   };
 
   return (
     <div
       className="mt-2 flex min-h-6 w-full cursor-text flex-wrap items-center gap-1.5"
-      onClick={() => inputRef.current?.focus()}
+      onClick={() => {
+        if (!isAddingTag) {
+          setIsAddingTag(true);
+          return;
+        }
+
+        inputRef.current?.focus();
+      }}
     >
       {value.map((target, index) => (
         <Badge
@@ -131,39 +142,49 @@ function TemplateTargetsInput({
         </Badge>
       ))}
 
-      <button
-        type="button"
-        className="bg-muted text-muted-foreground hover:bg-muted/80 inline-flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors"
-        onClick={() => inputRef.current?.focus()}
-      >
-        <Plus className="h-3 w-3" />
-        Add tag
-      </button>
+      {!isAddingTag ? (
+        <button
+          type="button"
+          className="bg-muted text-muted-foreground hover:bg-muted/80 inline-flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors"
+          onClick={() => setIsAddingTag(true)}
+        >
+          <Plus className="h-3 w-3" />
+          Add tag
+        </button>
+      ) : (
+        <input
+          ref={inputRef}
+          type="text"
+          autoFocus
+          value={inputValue}
+          className="min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none text-neutral-500 outline-hidden"
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={submitTargets}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+              if (!inputValue.trim()) {
+                return;
+              }
 
-      <input
-        ref={inputRef}
-        type="text"
-        value={inputValue}
-        className="min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none text-neutral-500 outline-hidden"
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={submitTargets}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
-            if (!inputValue.trim()) {
+              e.preventDefault();
+              submitTargets();
               return;
             }
 
-            e.preventDefault();
-            submitTargets();
-            return;
-          }
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setInputValue("");
+              setIsAddingTag(false);
+              return;
+            }
 
-          if (e.key === "Backspace" && !inputValue && value.length > 0) {
-            e.preventDefault();
-            onChange(value.slice(0, -1));
-          }
-        }}
-      />
+            if (e.key === "Backspace" && !inputValue && value.length > 0) {
+              e.preventDefault();
+              onChange(value.slice(0, -1));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
