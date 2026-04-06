@@ -335,13 +335,6 @@ function HeroSection({
             <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-8 md:block md:w-1/2">
               <NotebookGrid />
 
-              <div className="absolute bottom-48 left-0 flex justify-start p-10">
-                <img
-                  src="/icons/reminder.svg"
-                  alt="Reminder to myself"
-                  className="h-24 object-contain"
-                />
-              </div>
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
@@ -350,7 +343,7 @@ function HeroSection({
                 >
                   <div className="h-full w-full">
                     <img
-                      src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
+                      src="/demo_thumbnail.webp"
                       alt="Product demo"
                       className="h-full w-full object-cover"
                     />
