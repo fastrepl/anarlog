@@ -139,6 +139,8 @@ export function SettingsAccount() {
             </div>
           </div>
         </section>
+
+        <GuestPlanSection onSignIn={handleSignIn} />
       </div>
     );
   }
@@ -402,6 +404,71 @@ function PlanBillingSection({
         renderAction={renderAction}
       />
     </div>
+  );
+}
+
+function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
+  const renderAction = (action: TierAction, compact: boolean) => {
+    if (action == null) return null;
+
+    if (action.style === "current") {
+      if (compact) {
+        return <span className="text-xs text-neutral-400">{action.label}</span>;
+      }
+
+      return (
+        <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+          {action.label}
+        </div>
+      );
+    }
+
+    const label =
+      action.targetPlan === "lite"
+        ? "Sign in for Lite"
+        : action.targetPlan === "pro"
+          ? "Sign in for Pro"
+          : "Sign in";
+
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={onSignIn}
+          className="text-xs font-medium text-stone-600 transition-colors hover:text-stone-800"
+        >
+          Sign in
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={onSignIn}
+        className="flex h-8 w-full cursor-pointer items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-xs font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <section className="border-t border-neutral-100 pt-6">
+      <div className="mb-4 flex flex-col gap-1">
+        <h2 className="font-serif text-lg font-semibold">Plans</h2>
+        <p className="text-sm text-neutral-600">
+          Compare Free, Lite, and Pro before you sign in.
+        </p>
+      </div>
+
+      <PlanTierList
+        currentTier="free"
+        isTrialing={false}
+        canStartTrial={false}
+        renderAction={renderAction}
+      />
+    </section>
   );
 }
 

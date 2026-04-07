@@ -1396,6 +1396,9 @@ importers:
 
   packages/pricing:
     dependencies:
+      '@hypr/ui':
+        specifier: workspace:^
+        version: link:../ui
       '@hypr/utils':
         specifier: workspace:^
         version: link:../utils
