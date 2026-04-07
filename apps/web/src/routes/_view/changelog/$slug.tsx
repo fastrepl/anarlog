@@ -79,7 +79,7 @@ function Component() {
           <div className="hidden gap-12 md:flex md:flex-col md:items-center">
             <div className="flex flex-col items-center gap-6">
               <img
-                src="/api/images/icons/stable-icon.png"
+                src="/api/assets/icons/stable-icon.png"
                 alt="Char"
                 className="size-32 rounded-2xl"
               />
@@ -106,7 +106,7 @@ function Component() {
           <div className="text-left md:hidden">
             <div className="mb-8 flex flex-col items-center gap-3">
               <img
-                src="/api/images/icons/stable-icon.png"
+                src="/api/assets/icons/stable-icon.png"
                 alt="Char"
                 className="size-16 rounded-2xl"
               />
@@ -298,7 +298,7 @@ function RelatedReleases({
                 ])}
               >
                 <img
-                  src="/api/images/icons/stable-icon.png"
+                  src="/api/assets/icons/stable-icon.png"
                   alt="Char"
                   className={cn([
                     "size-12 rounded-xl transition-all duration-300",

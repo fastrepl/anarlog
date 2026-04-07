@@ -41,7 +41,7 @@ function IntegrationIcon({
   return (
     <div className="size-20 shrink-0 overflow-hidden rounded-xl border border-neutral-100/50 bg-white shadow-xs transition-all hover:scale-110 hover:border-neutral-400">
       <Image
-        src={`/api/images/icons/${integration.image}`}
+        src={`/api/assets/icons/${integration.image}`}
         alt={integration.name}
         width={80}
         height={80}

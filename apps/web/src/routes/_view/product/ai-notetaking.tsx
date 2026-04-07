@@ -129,34 +129,34 @@ const CollaboratorsCell = memo(() => {
   const baseCollaborators = [
     {
       name: "Alex Johnson",
-      avatar: "/api/images/mock/alex-johnson.png",
+      avatar: "/api/assets/mock/alex-johnson.png",
       scope: "Can view",
     },
     {
       name: "Jessica Lee",
-      avatar: "/api/images/mock/jessica-lee.png",
+      avatar: "/api/assets/mock/jessica-lee.png",
       scope: "Can edit",
     },
     {
       name: "Sarah Chen",
-      avatar: "/api/images/mock/sarah-chen.png",
+      avatar: "/api/assets/mock/sarah-chen.png",
       scope: "Can edit",
     },
     {
       name: "Michael Park",
-      avatar: "/api/images/mock/michael-park.png",
+      avatar: "/api/assets/mock/michael-park.png",
       scope: "Can view",
     },
     {
       name: "Emily Rodriguez",
-      avatar: "/api/images/mock/emily-rodriguez.png",
+      avatar: "/api/assets/mock/emily-rodriguez.png",
       scope: "Can edit",
     },
   ];
 
   const davidKim = {
     name: "David Kim",
-    avatar: "/api/images/mock/david-kim.png",
+    avatar: "/api/assets/mock/david-kim.png",
     scope: davidScope,
   };
 

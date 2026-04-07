@@ -153,7 +153,7 @@ function FriendsSection({
           >
             <div className="aspect-40/21 shrink-0 overflow-hidden bg-neutral-100">
               <Image
-                src={friend.image || "/api/images/hyprnote/default-cover.jpg"}
+                src={friend.image || "/api/assets/hyprnote/default-cover.jpg"}
                 alt={friend.name}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 objectFit="cover"

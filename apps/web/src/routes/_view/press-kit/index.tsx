@@ -71,17 +71,17 @@ function Component() {
                   <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
                     <FinderFolder
                       to="/press-kit/app/"
-                      folderImage="/api/images/icons/macos-folder-blue.png"
+                      folderImage="/api/assets/icons/macos-folder-blue.png"
                       label="App"
                     />
                     <FinderFolder
                       to="/brand/"
-                      folderImage="/api/images/icons/macos-folder-red.png"
+                      folderImage="/api/assets/icons/macos-folder-red.png"
                       label="Brand"
                     />
                     <FinderFolder
                       to="/about/"
-                      folderImage="/api/images/icons/macos-folder-purple.png"
+                      folderImage="/api/assets/icons/macos-folder-purple.png"
                       label="Team"
                     />
                     <div className="invisible">
@@ -106,12 +106,12 @@ function Component() {
                     />
                     <FinderAction
                       href="mailto:founders@char.com"
-                      iconImage="/api/images/icons/macos-mail.png"
+                      iconImage="/api/assets/icons/macos-mail.png"
                       label="Contact"
                     />
                     <FinderAction
                       href="https://github.com/fastrepl/char"
-                      iconImage="/api/images/icons/github.webp"
+                      iconImage="/api/assets/icons/github.webp"
                       label="GitHub"
                       external
                       roundedIcon
@@ -191,7 +191,7 @@ function FinderAction({
       <div className="mb-3">
         {appIcon ? (
           <img
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             className="mx-auto h-16 w-16 rounded-[20px] border border-neutral-100 shadow-md transition-transform group-hover:scale-110"
           />

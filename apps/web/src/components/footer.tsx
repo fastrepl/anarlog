@@ -430,7 +430,7 @@ function ResourcesLinks() {
             aria-label={`Versus ${currentVs.name}`}
           >
             <img
-              src="/api/images/hyprnote/icon.png"
+              src="/api/assets/hyprnote/icon.png"
               alt="Char"
               width={12}
               height={12}

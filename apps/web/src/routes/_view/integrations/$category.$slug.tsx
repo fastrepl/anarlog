@@ -119,7 +119,7 @@ function HeroSection({
           </div>
           <div className="flex size-32 items-center justify-center rounded-[36px] border border-neutral-100 bg-white shadow-2xl">
             <img
-              src="/api/images/hyprnote/icon.png"
+              src="/api/assets/hyprnote/icon.png"
               alt="Char"
               className="size-24 rounded-[28px]"
             />

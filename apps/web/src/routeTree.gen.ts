@@ -66,7 +66,7 @@ import { Route as ViewBlogIndexRouteImport } from './routes/_view/blog/index'
 import { Route as ViewAppIndexRouteImport } from './routes/_view/app/index'
 import { Route as ApiWebhooksSlackInteractiveRouteImport } from './routes/api/webhooks/slack-interactive'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
-import { Route as ApiImagesSplatRouteImport } from './routes/api/images.$'
+import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
 import { Route as ViewVsSlugRouteImport } from './routes/_view/vs/$slug'
 import { Route as ViewUpdatesSlugRouteImport } from './routes/_view/updates/$slug'
 import { Route as ViewSolutionMeetingRouteImport } from './routes/_view/solution/meeting'
@@ -434,9 +434,9 @@ const ApiTweetIdRoute = ApiTweetIdRouteImport.update({
   path: '/api/tweet/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiImagesSplatRoute = ApiImagesSplatRouteImport.update({
-  id: '/api/images/$',
-  path: '/api/images/$',
+const ApiAssetsSplatRoute = ApiAssetsSplatRouteImport.update({
+  id: '/api/assets/$',
+  path: '/api/assets/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ViewVsSlugRoute = ViewVsSlugRouteImport.update({
@@ -926,7 +926,7 @@ export interface FileRoutesByFullPath {
   '/solution/meeting': typeof ViewSolutionMeetingRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app/': typeof ViewAppIndexRoute
@@ -1059,7 +1059,7 @@ export interface FileRoutesByTo {
   '/solution/meeting': typeof ViewSolutionMeetingRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app': typeof ViewAppIndexRoute
@@ -1199,7 +1199,7 @@ export interface FileRoutesById {
   '/_view/solution/meeting': typeof ViewSolutionMeetingRoute
   '/_view/updates/$slug': typeof ViewUpdatesSlugRoute
   '/_view/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/_view/app/': typeof ViewAppIndexRoute
@@ -1339,7 +1339,7 @@ export interface FileRouteTypes {
     | '/solution/meeting'
     | '/updates/$slug'
     | '/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app/'
@@ -1472,7 +1472,7 @@ export interface FileRouteTypes {
     | '/solution/meeting'
     | '/updates/$slug'
     | '/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app'
@@ -1611,7 +1611,7 @@ export interface FileRouteTypes {
     | '/_view/solution/meeting'
     | '/_view/updates/$slug'
     | '/_view/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/_view/app/'
@@ -1694,7 +1694,7 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiShortcutsRoute: typeof ApiShortcutsRoute
   ApiTemplatesRoute: typeof ApiTemplatesRoute
-  ApiImagesSplatRoute: typeof ApiImagesSplatRoute
+  ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
   ApiAdminBlogUploadImageRoute: typeof ApiAdminBlogUploadImageRoute
@@ -2130,11 +2130,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTweetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/images/$': {
-      id: '/api/images/$'
-      path: '/api/images/$'
-      fullPath: '/api/images/$'
-      preLoaderRoute: typeof ApiImagesSplatRouteImport
+    '/api/assets/$': {
+      id: '/api/assets/$'
+      path: '/api/assets/$'
+      fullPath: '/api/assets/$'
+      preLoaderRoute: typeof ApiAssetsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_view/vs/$slug': {
@@ -2949,7 +2949,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiShortcutsRoute: ApiShortcutsRoute,
   ApiTemplatesRoute: ApiTemplatesRoute,
-  ApiImagesSplatRoute: ApiImagesSplatRoute,
+  ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
   ApiAdminBlogUploadImageRoute: ApiAdminBlogUploadImageRoute,

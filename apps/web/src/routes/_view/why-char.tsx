@@ -251,14 +251,14 @@ function WhatWereBuildingTowardSection() {
 
             <div className="mt-12 mb-4 flex gap-2">
               <Image
-                src="/api/images/team/john.png"
+                src="/api/assets/team/john.png"
                 alt="John Jeong"
                 width={32}
                 height={32}
                 className="rounded-full border border-neutral-200 object-cover"
               />
               <Image
-                src="/api/images/team/yujong.png"
+                src="/api/assets/team/yujong.png"
                 alt="Yujong Lee"
                 width={32}
                 height={32}

@@ -78,7 +78,7 @@ function getStorageUrls(segments: string[]): string[] {
   return [`${STORAGE_BUCKETS.public_images}/${encodePath(segments)}`];
 }
 
-export const Route = createFileRoute("/api/images/$")({
+export const Route = createFileRoute("/api/assets/$")({
   server: {
     handlers: {
       GET: async ({ params }) => {

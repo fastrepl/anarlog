@@ -46,7 +46,7 @@ const mainFeatures = [
     title: "Real-time transcription",
     description:
       "While you take notes, Char listens and generates a live transcript",
-    image: "/api/images/hyprnote/transcript.jpg",
+    image: "/api/assets/hyprnote/transcript.jpg",
     muxPlaybackId: "rbkYuZpGJGLHx023foq9DCSt3pY1RegJU5PvMCkRE3rE",
     link: "/product/ai-notetaking/#transcription",
   },
@@ -55,7 +55,7 @@ const mainFeatures = [
     title: "AI summary",
     description:
       "Char combines your notes and the transcript to create a perfect summary",
-    image: "/api/images/hyprnote/summary.jpg",
+    image: "/api/assets/hyprnote/summary.jpg",
     muxPlaybackId: "lKr5l1fWGNnRqOehiz15mV79VHtFOCiuO9urmgqs6V8",
     link: "/product/ai-notetaking/#summaries",
   },
@@ -64,21 +64,21 @@ const mainFeatures = [
     title: "AI Chat",
     description:
       "Use natural language to get answers pulled directly from your transcript",
-    image: "/api/images/hyprnote/chat.jpg",
+    image: "/api/assets/hyprnote/chat.jpg",
     link: "/product/ai-assistant",
   },
   {
     icon: "mdi:window-restore",
     title: "Floating panel",
     description: "Overlay to quick access recording controls during calls",
-    image: "/api/images/hyprnote/floating.jpg",
+    image: "/api/assets/hyprnote/floating.jpg",
     link: "/product/ai-notetaking/#floating-panel",
   },
   {
     icon: "mdi:keyboard-outline",
     title: "Keyboard shortcuts",
     description: "Navigate and format quickly without touching your mouse",
-    image: "/api/images/hyprnote/editor.jpg",
+    image: "/api/assets/hyprnote/editor.jpg",
     muxPlaybackId: "sMWkuSxKWfH3RYnX51Xa2acih01ZP5yfQy01Q00XRd1yTQ",
     link: "/docs/faq/keyboard-shortcuts",
   },
@@ -1895,7 +1895,7 @@ export function MainFeaturesSection({
       <div className="px-4 py-16 text-left">
         <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-transparent shadow-xl">
           <Image
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={96}
             height={96}
@@ -1986,7 +1986,7 @@ function FeaturesMobileCarousel({
                     />
                   ) : (
                     <img
-                      src="/api/images/hyprnote/static.webp"
+                      src="/api/assets/hyprnote/static.webp"
                       alt={`${feature.title} feature`}
                       className="h-full w-full object-cover"
                     />
@@ -2206,7 +2206,7 @@ function FeaturesDesktopGrid() {
               />
             ) : (
               <img
-                src="/api/images/hyprnote/static.webp"
+                src="/api/assets/hyprnote/static.webp"
                 alt={`${feature.title} feature`}
                 className="h-full w-full object-cover"
               />
