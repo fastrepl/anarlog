@@ -85,7 +85,7 @@ pub(super) fn resolve_identities(
         .collect()
 }
 
-pub(super) fn assign_complete_channel_human_id(segment: &mut ProtoSegment, state: &SpeakerState) {
+pub(super) fn assign_channel_human_id(segment: &mut ProtoSegment, state: &SpeakerState) {
     if segment.key.speaker_human_id.is_some() {
         return;
     }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::types::{ChannelProfile, Segment, SegmentBuilderOptions, SegmentKey, SegmentWord};
 
 use super::model::{ProtoSegment, ResolvedWordFrame, SpeakerIdentity, SpeakerState};
-use super::speakers::assign_complete_channel_human_id;
+use super::speakers::assign_channel_human_id;
 
 pub(super) fn collect_segments(
     frames: Vec<ResolvedWordFrame>,
@@ -44,7 +44,7 @@ pub(super) fn propagate_identity(segments: &mut Vec<ProtoSegment>, speaker_state
     let mut last_kept_idx: Option<usize> = None;
 
     for read_index in 0..segments.len() {
-        assign_complete_channel_human_id(&mut segments[read_index], speaker_state);
+        assign_channel_human_id(&mut segments[read_index], speaker_state);
 
         let should_merge = last_kept_key.as_ref().is_some_and(|last_key| {
             *last_key == segments[read_index].key && segments[read_index].key.has_speaker_identity()
