@@ -10,6 +10,7 @@ import {
 } from "@hypr/ui/components/ui/select";
 import { cn } from "@hypr/utils";
 
+import { useLlmSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
 import { getPreferredProviderModel } from "./selection";
 import { PROVIDERS } from "./shared";
@@ -45,6 +46,7 @@ export function SelectProviderAndModel() {
   const configuredProviders = useConfiguredMapping();
   const billing = useBillingAccess();
   const queryClient = useQueryClient();
+  const { setAccordionValue } = useLlmSettings();
 
   const { current_llm_model, current_llm_provider } = useConfigValues([
     "current_llm_model",
@@ -121,6 +123,11 @@ export function SelectProviderAndModel() {
       return;
     }
 
+    const status = configuredProviders[provider];
+    if (!status?.listModels) {
+      setAccordionValue(provider);
+    }
+
     rememberModel(current_llm_provider, current_llm_model);
 
     const nextModel = getPreferredProviderModel(
@@ -181,7 +188,6 @@ export function SelectProviderAndModel() {
               </SelectTrigger>
               <SelectContent>
                 {PROVIDERS.map((provider) => {
-                  const status = configuredProviders[provider.id];
                   const requiresPro = requiresEntitlement(
                     provider.requirements,
                     "pro",
@@ -192,7 +198,7 @@ export function SelectProviderAndModel() {
                     <SelectItem
                       key={provider.id}
                       value={provider.id}
-                      disabled={!status?.listModels || locked}
+                      disabled={locked}
                     >
                       <div className="flex flex-col gap-0.5">
                         <div className="flex items-center gap-2">
