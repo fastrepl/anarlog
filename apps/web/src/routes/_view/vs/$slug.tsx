@@ -29,19 +29,17 @@ export const Route = createFileRoute("/_view/vs/$slug")({
 
     const { doc } = loaderData;
     const metaTitle = `Char vs ${doc.name} - Privacy-First AI Notetaking`;
+    const url = `https://char.com/vs/${doc.slug}`;
 
     return {
       meta: [
         { title: metaTitle },
         { name: "description", content: doc.metaDescription },
-        { name: "robots", content: "noindex, nofollow" },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
         { property: "og:title", content: metaTitle },
         { property: "og:description", content: doc.metaDescription },
         { property: "og:type", content: "website" },
-        {
-          property: "og:url",
-          content: `https://char.com/vs/${doc.slug}`,
-        },
+        { property: "og:url", content: url },
         { name: "twitter:card", content: "summary" },
         { name: "twitter:title", content: metaTitle },
         { name: "twitter:description", content: doc.metaDescription },

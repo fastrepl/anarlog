@@ -12,31 +12,32 @@ import { cn } from "@hypr/utils";
 
 export const Route = createFileRoute("/_view/solution/meeting")({
   component: Component,
-  head: () => ({
-    meta: [
-      { title: "All Your Meeting Notes in One Place - Char" },
-      {
-        name: "description",
-        content:
-          "Zoom, Teams, Meet, Discord, or in-person, Char records it all and generates searchable meeting summaries that never leave your device.",
-      },
-      { name: "robots", content: "noindex, nofollow" },
-      {
-        property: "og:title",
-        content: "All Your Meeting Notes in One Place - Char",
-      },
-      {
-        property: "og:description",
-        content:
-          "Real-time transcription, 45+ languages, no bots required. AI-powered meeting notes that stay on your device.",
-      },
-      { property: "og:type", content: "website" },
-      {
-        property: "og:url",
-        content: "https://char.com/solution/meeting",
-      },
-    ],
-  }),
+  head: () => {
+    const url = "https://char.com/solution/meeting";
+
+    return {
+      meta: [
+        { title: "All Your Meeting Notes in One Place - Char" },
+        {
+          name: "description",
+          content:
+            "Zoom, Teams, Meet, Discord, or in-person, Char records it all and generates searchable meeting summaries that never leave your device.",
+        },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
+        {
+          property: "og:title",
+          content: "All Your Meeting Notes in One Place - Char",
+        },
+        {
+          property: "og:description",
+          content:
+            "Real-time transcription, 45+ languages, no bots required. AI-powered meeting notes that stay on your device.",
+        },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
+      ],
+    };
+  },
 });
 
 const heroFeatures = [

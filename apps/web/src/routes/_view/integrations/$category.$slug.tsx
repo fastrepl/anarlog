@@ -31,19 +31,17 @@ export const Route = createFileRoute("/_view/integrations/$category/$slug")({
 
     const { doc } = loaderData;
     const metaTitle = `${doc.platform} ${doc.slug.charAt(0).toUpperCase() + doc.slug.slice(1).replace(/-/g, " ")} - Char`;
+    const url = `https://char.com/integrations/${doc.category}/${doc.slug}`;
 
     return {
       meta: [
         { title: metaTitle },
         { name: "description", content: doc.metaDescription },
-        { name: "robots", content: "noindex, nofollow" },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
         { property: "og:title", content: metaTitle },
         { property: "og:description", content: doc.metaDescription },
         { property: "og:type", content: "website" },
-        {
-          property: "og:url",
-          content: `https://char.com/integrations/${doc.category}/${doc.slug}`,
-        },
+        { property: "og:url", content: url },
         { name: "twitter:card", content: "summary" },
         { name: "twitter:title", content: metaTitle },
         { name: "twitter:description", content: doc.metaDescription },
