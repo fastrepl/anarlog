@@ -11,13 +11,13 @@ export const Route = createFileRoute("/_view/privacy")({
       {
         name: "description",
         content:
-          "Your privacy is not just a feature at Char—it's our foundation. Learn how we protect your meeting data with local-first architecture and zero data collection.",
+          "Char keeps core meeting data local by default and lets you choose when cloud services are involved. See what stays on your device, what can be sent externally, and how to disable analytics.",
       },
       { property: "og:title", content: "Privacy - Char" },
       {
         property: "og:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
+          "See what stays local in Char, what changes when you enable cloud features, and how privacy controls work.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://char.com/privacy" },
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/_view/privacy")({
       {
         name: "twitter:description",
         content:
-          "We believe your conversations belong to you, not to us or anyone else. Discover how Char puts your privacy first.",
+          "See what stays local in Char, what changes when you enable cloud features, and how privacy controls work.",
       },
     ],
   }),
@@ -78,27 +78,27 @@ function PrivacyPromiseSection() {
   const promises = [
     {
       icon: "mdi:cloud-off-outline",
-      title: "No cloud uploads",
+      title: "Cloud features are optional",
       description:
-        "Your audio recordings and transcripts are processed and stored entirely on your device. We never upload your meeting content to our servers.",
+        "Core local workflows stay on your device. Cloud transcription, sync, and managed AI are opt-in.",
     },
     {
       icon: "mdi:database-off",
-      title: "No data collection",
+      title: "No AI training on your content",
       description:
-        "We don't collect, analyze, or monetize your meeting data. Your conversations are not used to train AI models or sold to third parties.",
+        "Char does not use your meeting content to train models. If you use external providers, their handling follows their own policies.",
     },
     {
       icon: "mdi:account-off",
-      title: "No account required",
+      title: "Account optional",
       description:
-        "Use Char without creating an account. Your identity remains private, and there's no profile data for us to store or leak.",
+        "You can use local workflows without an account. Sign in only if you want cloud features such as sync or managed services.",
     },
     {
       icon: "mdi:chart-line",
-      title: "Minimal telemetry",
+      title: "Telemetry controls",
       description:
-        "Our optional, anonymized telemetry helps us improve the app without compromising your privacy. It's off by default and contains no personal data.",
+        "Usage analytics can be disabled in Settings. Meeting audio, transcript text, notes, and summaries are excluded.",
     },
   ];
 
@@ -108,8 +108,8 @@ function PrivacyPromiseSection() {
         Our privacy promise
       </h2>
       <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
-        These aren't just policies—they're principles embedded in our
-        architecture. We couldn't violate your privacy even if we wanted to.
+        These are product choices and documented defaults. When cloud features
+        are enabled, we spell out what gets sent and to whom.
       </p>
       <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
         {promises.map((promise, index) => (
@@ -158,8 +158,9 @@ function DataOwnershipSection() {
             />
             <h3 className="mb-2 font-medium text-stone-600">Local storage</h3>
             <p className="text-sm text-neutral-600">
-              All your notes, recordings, and transcripts are stored in a local
-              database on your computer. No cloud dependency, no remote access.
+              Core notes, transcripts, and recordings live as local files on
+              your computer by default. No proprietary format and no required
+              hosted storage.
             </p>
           </div>
           <div className="p-6 text-left">
@@ -197,11 +198,9 @@ function DataOwnershipSection() {
                 Optional sync, your choice
               </h3>
               <p className="text-neutral-600">
-                If you choose to sync across devices, your data is encrypted
-                before it leaves your device. We use end-to-end encryption so
-                even our servers can't read your content. But sync is entirely
-                optional—Char works perfectly as a standalone, offline
-                application.
+                If you configure sync or other cloud features, data is sent over
+                encrypted connections and handled according to that provider
+                flow. If you do not configure them, your data stays local.
               </p>
             </div>
           </div>
@@ -221,11 +220,11 @@ function NoTrackingSection() {
             className="mb-4 text-5xl text-stone-600"
           />
           <h2 className="mb-4 font-mono text-3xl text-stone-600">
-            No tracking, no profiling
+            No content profiling
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            We don't track your behavior, build profiles, or analyze your
-            content. Your meeting data is not a product.
+            We do not sell your meeting data or use it to build advertising
+            profiles. Meeting content is not the product.
           </p>
         </div>
 
@@ -241,9 +240,9 @@ function NoTrackingSection() {
                   No AI training on your data
                 </h3>
                 <p className="text-neutral-600">
-                  Your transcripts and notes are never used to train AI models.
-                  The AI features in Char run locally on your device, and your
-                  content stays private.
+                  Char does not use your transcripts or notes to train models.
+                  If you use cloud providers, their data handling follows their
+                  own policies.
                 </p>
               </div>
             </div>
@@ -257,12 +256,12 @@ function NoTrackingSection() {
               />
               <div>
                 <h3 className="mb-2 font-medium text-stone-600">
-                  No behavioral tracking
+                  Analytics controls
                 </h3>
                 <p className="text-neutral-600">
-                  We don't track how you use the app, what features you access,
-                  or how long you spend on different tasks. Your usage patterns
-                  are your business.
+                  Char collects anonymous usage analytics by default to improve
+                  the product, and you can turn them off in Settings. Meeting
+                  content is excluded.
                 </p>
               </div>
             </div>
@@ -370,13 +369,13 @@ function PrivacyComparisonSection() {
   const comparisons = [
     {
       feature: "Audio processing",
-      hyprnote: "On your device",
-      others: "Cloud servers",
+      hyprnote: "Local or chosen provider",
+      others: "Usually vendor servers",
     },
     {
       feature: "Data storage",
-      hyprnote: "Local only",
-      others: "Their servers",
+      hyprnote: "Local by default",
+      others: "Vendor-controlled",
     },
     {
       feature: "AI training",
@@ -385,8 +384,8 @@ function PrivacyComparisonSection() {
     },
     {
       feature: "Account required",
-      hyprnote: "No",
-      others: "Yes",
+      hyprnote: "No for local use",
+      others: "Usually yes",
     },
     {
       feature: "Data monetization",

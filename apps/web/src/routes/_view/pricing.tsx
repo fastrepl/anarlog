@@ -7,6 +7,24 @@ import { cn } from "@hypr/utils";
 
 export const Route = createFileRoute("/_view/pricing")({
   component: Component,
+  head: () => ({
+    meta: [
+      { title: "Pricing - Char" },
+      {
+        name: "description",
+        content:
+          "Start free with local transcription, BYOK AI, templates, shortcuts, and chat. Upgrade to Lite or Pro when you want hosted AI, speaker ID, sync, and team features.",
+      },
+      { property: "og:title", content: "Pricing - Char" },
+      {
+        property: "og:description",
+        content:
+          "Compare Char Free, Lite, and Pro. Use local workflows for free, then upgrade when you want managed cloud AI and collaboration features.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://char.com/pricing" },
+    ],
+  }),
 });
 
 function Component() {
@@ -127,7 +145,7 @@ function FAQSection() {
     {
       question: "What does on-device transcription mean?",
       answer:
-        "All transcription happens on your device. Your audio never leaves your computer, ensuring complete privacy.",
+        "The Free plan includes on-device transcription. Lite and Pro can also use Char-hosted cloud transcription when you want managed services instead.",
     },
     {
       question: "What is local-first data architecture?",

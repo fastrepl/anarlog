@@ -29,15 +29,20 @@ export const Route = createFileRoute("/_view/blog/")({
   },
   head: () => ({
     meta: [
-      { title: "Blog - Char Blog" },
+      { title: "Char Blog - Guides, Comparisons, and Engineering Notes" },
       {
         name: "description",
-        content: "Insights, updates, and stories from the Char team",
+        content:
+          "Guides for AI meeting notes, privacy research, product updates, and engineering notes from the Char team.",
       },
-      { property: "og:title", content: "Blog - Char Blog" },
+      {
+        property: "og:title",
+        content: "Char Blog - Guides, Comparisons, and Engineering Notes",
+      },
       {
         property: "og:description",
-        content: "Insights, updates, and stories from the Char team",
+        content:
+          "Guides for AI meeting notes, privacy research, product updates, and engineering notes from the Char team.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://char.com/blog" },
@@ -135,7 +140,8 @@ function Header() {
       <div className="border-border-bright border-b pb-8">
         <h1 className="text-fg mb-4 font-mono text-4xl sm:text-5xl">Blog</h1>
         <p className="text-fg max-w-2xl text-lg">
-          Insights, updates, and stories from the Char team
+          Guides, comparisons, privacy research, and engineering notes from the
+          Char team
         </p>
       </div>
     </header>

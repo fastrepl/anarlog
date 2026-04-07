@@ -9,6 +9,27 @@ import { useAnalytics } from "@/hooks/use-posthog";
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
+  head: () => ({
+    meta: [
+      { title: "Download Char - Private Meeting Notes for macOS" },
+      {
+        name: "description",
+        content:
+          "Download Char for macOS to take private, bot-free meeting notes with local transcription, BYOK AI, and optional cloud features. Apple Silicon and Intel builds available.",
+      },
+      {
+        property: "og:title",
+        content: "Download Char - Private Meeting Notes for macOS",
+      },
+      {
+        property: "og:description",
+        content:
+          "Get Char on macOS and start with local meeting notes, on-device transcription, and optional cloud upgrades when you need them.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://char.com/download" },
+    ],
+  }),
 });
 
 function Component() {
@@ -149,12 +170,12 @@ function FAQSection() {
     {
       question: "What's special about the Mac version?",
       answer:
-        "The Mac (Apple Silicon) version features on-device speech-to-text, ensuring your audio never leaves your device for complete privacy.",
+        "The Apple Silicon build includes on-device speech-to-text for local transcription. The Intel build is available with cloud-based transcription.",
     },
     {
       question: "Do I need an internet connection?",
       answer:
-        "For the free version with local transcription on Mac, no internet is required. Cloud features in the Pro plan require an internet connection.",
+        "For local workflows on Apple Silicon, no internet is required. Cloud transcription and other hosted features require an internet connection.",
     },
     {
       question: "How do I get started after downloading?",
