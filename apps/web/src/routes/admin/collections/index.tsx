@@ -3068,7 +3068,7 @@ function MetadataPanel({
               type="text"
               value={handlers.coverImage}
               onChange={(e) => handlers.onCoverImageChange(e.target.value)}
-              placeholder="/api/images/_bucket/blog/path/to/image.png"
+              placeholder="/api/images/blog/path/to/image.png"
               className="flex-1 bg-transparent text-neutral-900 outline-hidden placeholder:text-neutral-300"
             />
           </div>

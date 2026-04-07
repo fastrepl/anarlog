@@ -5,7 +5,7 @@ const STORAGE_BUCKETS = {
     "https://auth.hyprnote.com/storage/v1/object/public/public_images",
   blog: "https://auth.hyprnote.com/storage/v1/object/public/blog",
 } as const;
-const BUCKET_PREFIX = "_bucket";
+const LEGACY_BUCKET_PREFIX = "_bucket";
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._+\- ]+$/;
 
@@ -39,8 +39,8 @@ function encodePath(segments: string[]) {
   return segments.map((segment) => encodeURIComponent(segment)).join("/");
 }
 
-function getStorageUrl(segments: string[]): string | null {
-  if (segments[0] === BUCKET_PREFIX) {
+function getStorageUrls(segments: string[]): string[] {
+  if (segments[0] === LEGACY_BUCKET_PREFIX) {
     const [_, bucket, ...pathSegments] = segments;
     const storageBaseUrl =
       bucket && bucket in STORAGE_BUCKETS
@@ -48,13 +48,34 @@ function getStorageUrl(segments: string[]): string | null {
         : null;
 
     if (!storageBaseUrl || pathSegments.length === 0) {
-      return null;
+      return [];
     }
 
-    return `${storageBaseUrl}/${encodePath(pathSegments)}`;
+    return [`${storageBaseUrl}/${encodePath(pathSegments)}`];
   }
 
-  return `${STORAGE_BUCKETS.public_images}/${encodePath(segments)}`;
+  const [bucket, ...pathSegments] = segments;
+
+  if (bucket === "blog") {
+    if (pathSegments.length === 0) {
+      return [];
+    }
+
+    return [
+      `${STORAGE_BUCKETS.blog}/${encodePath(pathSegments)}`,
+      `${STORAGE_BUCKETS.public_images}/${encodePath(segments)}`,
+    ];
+  }
+
+  if (bucket === "public_images") {
+    if (pathSegments.length === 0) {
+      return [];
+    }
+
+    return [`${STORAGE_BUCKETS.public_images}/${encodePath(pathSegments)}`];
+  }
+
+  return [`${STORAGE_BUCKETS.public_images}/${encodePath(segments)}`];
 }
 
 export const Route = createFileRoute("/api/images/$")({
@@ -67,20 +88,29 @@ export const Route = createFileRoute("/api/images/$")({
           return new Response("Not found", { status: 404 });
         }
 
-        const url = getStorageUrl(sanitizedPath);
-        if (!url) {
+        const urls = getStorageUrls(sanitizedPath);
+        if (urls.length === 0) {
           return new Response("Not found", { status: 404 });
         }
 
-        const response = await fetch(url);
+        let response: Response | null = null;
+        for (const url of urls) {
+          const candidate = await fetch(url);
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            return new Response("Not found", { status: 404 });
+          if (candidate.ok) {
+            response = candidate;
+            break;
           }
-          return new Response("Upstream service error", {
-            status: 502,
-          });
+
+          if (candidate.status !== 404) {
+            return new Response("Upstream service error", {
+              status: 502,
+            });
+          }
+        }
+
+        if (!response) {
+          return new Response("Not found", { status: 404 });
         }
 
         const contentType = response.headers.get("content-type");
