@@ -6,6 +6,7 @@ use rmcp::{
 use serde::Deserialize;
 
 use crate::github;
+use crate::redact;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -22,7 +23,9 @@ pub(crate) async fn add_comment(
     state: &AppState,
     params: AddCommentParams,
 ) -> Result<CallToolResult, McpError> {
-    let url = github::add_issue_comment(state, params.issue_number, &params.body)
+    let body = redact::redact_pii(&params.body);
+
+    let url = github::add_issue_comment(state, params.issue_number, &body)
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 

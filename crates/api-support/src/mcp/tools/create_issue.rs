@@ -6,6 +6,7 @@ use rmcp::{
 use serde::Deserialize;
 
 use crate::github;
+use crate::redact;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -39,15 +40,13 @@ pub(crate) async fn create_issue(
     .await
     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-    let (url, number) = github::create_issue(
-        state,
-        &params.title,
-        &params.body,
-        &labels,
-        params.issue_type.as_deref(),
-    )
-    .await
-    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    let title = redact::redact_pii(&params.title);
+    let body = redact::redact_pii(&params.body);
+
+    let (url, number) =
+        github::create_issue(state, &title, &body, &labels, params.issue_type.as_deref())
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
     Ok(CallToolResult::success(vec![Content::text(
         serde_json::json!({

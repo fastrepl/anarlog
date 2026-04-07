@@ -6,6 +6,7 @@ mod github;
 mod logs;
 mod mcp;
 mod openapi;
+mod redact;
 mod routes;
 mod state;
 

@@ -11,6 +11,7 @@ hypr-llm-proxy = { workspace = true }
 hypr-mcp = { workspace = true }
 hypr-openrouter = { workspace = true }
 hypr-template-support = { workspace = true }
+regex = { workspace = true }
 reqwest = { workspace = true }
 urlencoding = { workspace = true }
 
