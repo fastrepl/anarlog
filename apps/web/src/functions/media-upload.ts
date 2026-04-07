@@ -109,16 +109,25 @@ export async function uploadMediaLibraryFile(params: {
   return uploadToSignedUrl(params.file, signedUpload);
 }
 
-async function dataUrlToFile(
-  dataUrl: string,
+function decodeBase64ToBytes(base64Data: string) {
+  const normalizedBase64 = base64Data.replace(/\s+/g, "");
+  const binary = atob(normalizedBase64);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return bytes;
+}
+
+function base64ImageToFile(
+  base64Data: string,
   filename: string,
   mimeType: string,
 ) {
-  const response = await fetch(dataUrl);
-  const blob = await response.blob();
-
-  return new File([blob], filename, {
-    type: blob.type || `image/${mimeType}`,
+  return new File([decodeBase64ToBytes(base64Data)], filename, {
+    type: getMimeTypeFromExtension(getExtensionFromMimeType(mimeType)),
   });
 }
 
@@ -137,11 +146,22 @@ export async function uploadInlineMarkdownImages(params: {
   for (let i = 0; i < base64Images.length; i++) {
     const image = base64Images[i];
     const extension = getExtensionFromMimeType(image.mimeType);
-    const file = await dataUrlToFile(
-      image.dataUrl,
-      `image-${i + 1}.${extension}`,
-      image.mimeType,
-    );
+    let file: File;
+
+    try {
+      file = base64ImageToFile(
+        image.base64Data,
+        `image-${i + 1}.${extension}`,
+        image.mimeType,
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to process pasted inline image ${i + 1}: ${
+          error instanceof Error ? error.message : "Invalid image data"
+        }`,
+      );
+    }
+
     const uploadResult = await uploadBlogImageFile({ file, folder });
 
     nextContent = nextContent.replace(
