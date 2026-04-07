@@ -462,6 +462,8 @@ pub fn source_for_access(access: CaptureAccess, preferred: SnapshotSource) -> Sn
 #[derive(Debug, Default, Clone)]
 pub struct EventCoalescer {
     current: Option<Event>,
+    current_suppressed_snapshot_count: u32,
+    sequence: u64,
 }
 
 impl EventCoalescer {
@@ -475,33 +477,80 @@ impl EventCoalescer {
             (None, Some(snapshot)) => {
                 let current = Event::from_snapshot(snapshot);
                 self.current = Some(current.clone());
+                self.current_suppressed_snapshot_count = 0;
+                self.sequence += 1;
                 Some(Transition {
                     previous: None,
                     current: Some(current),
+                    reason: TransitionReason::Started,
+                    sequence: self.sequence,
+                    suppressed_snapshot_count: 0,
                 })
             }
-            (Some(previous), None) => Some(Transition {
-                previous: Some(previous),
-                current: None,
-            }),
+            (Some(previous), None) => {
+                let suppressed_snapshot_count = self.current_suppressed_snapshot_count;
+                self.current_suppressed_snapshot_count = 0;
+                self.sequence += 1;
+                Some(Transition {
+                    previous: Some(previous),
+                    current: None,
+                    reason: TransitionReason::Idle,
+                    sequence: self.sequence,
+                    suppressed_snapshot_count,
+                })
+            }
             (Some(mut current), Some(snapshot)) => {
                 let fingerprint = snapshot.fingerprint();
                 if current.fingerprint == fingerprint {
                     current.ended_at = snapshot.captured_at;
                     current.snapshot = snapshot;
                     self.current = Some(current);
+                    self.current_suppressed_snapshot_count += 1;
                     None
                 } else {
                     let next = Event::from_snapshot(snapshot);
+                    let reason = transition_reason(&current.snapshot, &next.snapshot);
+                    let suppressed_snapshot_count = self.current_suppressed_snapshot_count;
                     self.current = Some(next.clone());
+                    self.current_suppressed_snapshot_count = 0;
+                    self.sequence += 1;
                     Some(Transition {
                         previous: Some(current),
                         current: Some(next),
+                        reason,
+                        sequence: self.sequence,
+                        suppressed_snapshot_count,
                     })
                 }
             }
         }
     }
+}
+
+fn transition_reason(previous: &Snapshot, current: &Snapshot) -> TransitionReason {
+    if previous.app.app_id != current.app.app_id {
+        return TransitionReason::AppChanged;
+    }
+
+    if previous.activity_kind != current.activity_kind {
+        return TransitionReason::ActivityKindChanged;
+    }
+
+    if previous.url != current.url {
+        return TransitionReason::UrlChanged;
+    }
+
+    if previous.window_title != current.window_title {
+        return TransitionReason::TitleChanged;
+    }
+
+    if previous.text_anchor_kind != current.text_anchor_kind
+        || previous.text_anchor_identity != current.text_anchor_identity
+    {
+        return TransitionReason::TextAnchorChanged;
+    }
+
+    TransitionReason::ContentChanged
 }
 
 fn watch_loop<F>(
@@ -683,6 +732,9 @@ mod tests {
         let transition = coalescer.push(Some(snapshot("Notes"))).unwrap();
 
         assert!(transition.previous.is_none());
+        assert_eq!(transition.reason, TransitionReason::Started);
+        assert_eq!(transition.sequence, 1);
+        assert_eq!(transition.suppressed_snapshot_count, 0);
         assert_eq!(
             transition.current.unwrap().snapshot.window_title.as_deref(),
             Some("Notes")
@@ -708,8 +760,14 @@ mod tests {
     fn coalescer_emits_change_transition() {
         let mut coalescer = EventCoalescer::default();
         let _ = coalescer.push(Some(snapshot("Notes")));
+        let mut same = snapshot("Notes");
+        same.captured_at += Duration::from_secs(5);
+        let _ = coalescer.push(Some(same));
         let transition = coalescer.push(Some(snapshot("Docs"))).unwrap();
 
+        assert_eq!(transition.reason, TransitionReason::TitleChanged);
+        assert_eq!(transition.sequence, 2);
+        assert_eq!(transition.suppressed_snapshot_count, 1);
         assert_eq!(
             transition
                 .previous
@@ -729,8 +787,14 @@ mod tests {
     fn coalescer_emits_idle_transition() {
         let mut coalescer = EventCoalescer::default();
         let _ = coalescer.push(Some(snapshot("Notes")));
+        let mut same = snapshot("Notes");
+        same.captured_at += Duration::from_secs(5);
+        let _ = coalescer.push(Some(same));
         let transition = coalescer.push(None).unwrap();
 
+        assert_eq!(transition.reason, TransitionReason::Idle);
+        assert_eq!(transition.sequence, 2);
+        assert_eq!(transition.suppressed_snapshot_count, 1);
         assert_eq!(
             transition
                 .previous
@@ -756,6 +820,21 @@ mod tests {
         right.text_anchor_text = Some("changed".to_string());
 
         assert_ne!(left.fingerprint(), right.fingerprint());
+    }
+
+    #[test]
+    fn coalescer_detects_app_change() {
+        let mut coalescer = EventCoalescer::default();
+        let _ = coalescer.push(Some(snapshot("Notes")));
+
+        let mut next = snapshot("Notes");
+        next.app.app_id = "com.google.Chrome".to_string();
+        next.app_name = "Google Chrome".to_string();
+        next.bundle_id = Some("com.google.Chrome".to_string());
+
+        let transition = coalescer.push(Some(next)).unwrap();
+
+        assert_eq!(transition.reason, TransitionReason::AppChanged);
     }
 
     #[test]

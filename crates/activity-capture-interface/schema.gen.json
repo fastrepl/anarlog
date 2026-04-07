@@ -626,8 +626,39 @@
               "type": "null"
             }
           ]
+        },
+        "reason": {
+          "$ref": "#/$defs/TransitionReason"
+        },
+        "sequence": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0
+        },
+        "suppressed_snapshot_count": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0
         }
-      }
+      },
+      "required": [
+        "reason",
+        "sequence",
+        "suppressed_snapshot_count"
+      ]
+    },
+    "TransitionReason": {
+      "type": "string",
+      "enum": [
+        "started",
+        "idle",
+        "app_changed",
+        "activity_kind_changed",
+        "url_changed",
+        "title_changed",
+        "text_anchor_changed",
+        "content_changed"
+      ]
     }
   }
 }

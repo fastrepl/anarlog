@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useResizeObserver } from "usehooks-ts";
 
 import {
   Tooltip,
@@ -142,11 +143,56 @@ const TitleInputInner = memo(
       ref,
     ) => {
       const [localTitle, setLocalTitle] = useState(() => getInitialTitle());
+      const [isOverflowing, setIsOverflowing] = useState(false);
+      const [isTitleFocused, setIsTitleFocused] = useState(false);
       const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
       const store = main.UI.useStore(main.STORE_ID);
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
+
+      const updateOverflowState = useCallback(
+        (node?: HTMLInputElement | null) => {
+          const input = node ?? internalRef.current;
+          if (!input) {
+            setIsOverflowing(false);
+            return;
+          }
+          setIsOverflowing(input.scrollWidth > input.clientWidth + 1);
+        },
+        [],
+      );
+
+      const setInputRef = useCallback(
+        (node: HTMLInputElement | null) => {
+          internalRef.current = node;
+          if (node) {
+            requestAnimationFrame(() => updateOverflowState(node));
+          } else {
+            setIsOverflowing(false);
+          }
+        },
+        [updateOverflowState],
+      );
+
+      useResizeObserver({
+        ref: internalRef as React.RefObject<HTMLInputElement>,
+        onResize: () => updateOverflowState(),
+      });
+
+      const overflowFadeStyle =
+        isOverflowing && !isTitleFocused
+          ? {
+              WebkitMaskImage:
+                "linear-gradient(to right, black, black calc(100% - 28px), transparent)",
+              maskImage:
+                "linear-gradient(to right, black, black calc(100% - 28px), transparent)",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskSize: "100% 100%",
+              maskSize: "100% 100%",
+            }
+          : undefined;
 
       useImperativeHandle(
         ref,
@@ -199,6 +245,7 @@ const TitleInputInner = memo(
           (_store, _tableId, _rowId, _cellId, newValue) => {
             if (!isFocused.current) {
               setLocalTitle((newValue as string) ?? "");
+              requestAnimationFrame(() => updateOverflowState());
             }
           },
         );
@@ -206,7 +253,7 @@ const TitleInputInner = memo(
         return () => {
           store.delListener(listenerId);
         };
-      }, [store, sessionId]);
+      }, [store, sessionId, updateOverflowState]);
 
       const setStoreTitle = main.UI.useSetPartialRowCallback(
         "sessions",
@@ -276,7 +323,7 @@ const TitleInputInner = memo(
       return (
         <div className="flex w-full items-center gap-2">
           <input
-            ref={internalRef}
+            ref={setInputRef}
             id={`title-input-${sessionId}-${editorId}`}
             placeholder="Untitled"
             type="text"
@@ -284,17 +331,22 @@ const TitleInputInner = memo(
               const value = e.target.value;
               setLocalTitle(value);
               setLiveTitle(sessionId, value);
+              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
               isFocused.current = true;
+              setIsTitleFocused(true);
             }}
-            onBlur={() => {
+            onBlur={(e) => {
               isFocused.current = false;
+              setIsTitleFocused(false);
               setStoreTitle(localTitle);
               clearLiveTitle(sessionId);
+              setIsOverflowing(e.target.scrollWidth > e.target.clientWidth + 1);
             }}
             value={localTitle}
+            style={overflowFadeStyle}
             className={cn([
               "min-w-0 flex-1 transition-opacity duration-200",
               "border-none bg-transparent focus:outline-hidden",

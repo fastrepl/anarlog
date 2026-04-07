@@ -10,6 +10,7 @@ pub enum StoreKey {
     RecentlyOpenedSessions,
     AppOpenCount,
     SurveyDismissed,
+    CharV1p1Preview,
 }
 
 impl ScopedStoreKey for StoreKey {}

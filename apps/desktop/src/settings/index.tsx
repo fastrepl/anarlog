@@ -3,7 +3,6 @@ import { SettingsIcon } from "lucide-react";
 import { cn } from "@hypr/utils";
 
 import { SettingsCalendar } from "./calendar";
-import { SettingsDontUseThis } from "./dont-use-this";
 import {
   SettingsAccount,
   SettingsApp,
@@ -84,8 +83,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsMemory />;
       case "todo":
         return <SettingsTodo />;
-      case "dont-use-this":
-        return <SettingsDontUseThis />;
     }
   };
 

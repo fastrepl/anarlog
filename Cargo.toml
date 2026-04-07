@@ -79,6 +79,7 @@ hypr-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
 hypr-codex = { path = "crates/codex", package = "codex" }
 hypr-data = { path = "crates/data", package = "data" }
 hypr-db-app = { path = "crates/db-app", package = "db-app" }
+hypr-db-app2 = { path = "crates/db-app2", package = "db-app2" }
 hypr-db-core = { path = "crates/db-core", package = "db-core" }
 hypr-db-core2 = { path = "crates/db-core2", package = "db-core2" }
 hypr-db-parser = { path = "crates/db-parser", package = "db-parser" }
@@ -148,6 +149,7 @@ hypr-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-loca
 hypr-recall = { path = "crates/recall", package = "recall" }
 hypr-resampler = { path = "crates/resampler", package = "resampler" }
 hypr-s3 = { path = "crates/s3", package = "s3" }
+hypr-screen-core = { path = "crates/screen-core", package = "screen-core" }
 hypr-segmentation = { path = "crates/segmentation", package = "segmentation" }
 hypr-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 hypr-slack-web = { path = "crates/slack-web", package = "slack-web" }
@@ -289,6 +291,7 @@ dotenvy = "0.15.7"
 envy = "0.4"
 governor = "0.10.4"
 http = "1"
+image = { version = "0.25.10", default-features = false, features = ["webp"] }
 include_url_macro = "0.1.0"
 indoc = "2"
 isolang = "2.4"
@@ -413,6 +416,7 @@ swift-rs = { git = "https://github.com/yujonglee/swift-rs", rev = "41a1605" }
 wasapi = "0.23.0"
 windows = "0.62.2"
 windows-core = "0.62.2"
+xcap = "0.9.3"
 
 rmcp = "0.14"
 rustls = { version = "0.23", default-features = false }

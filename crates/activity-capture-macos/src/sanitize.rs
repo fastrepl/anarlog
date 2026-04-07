@@ -113,7 +113,8 @@ fn normalize_window_title(
         | AppProfile::Chrome
         | AppProfile::Arc
         | AppProfile::Brave
-        | AppProfile::Edge => Some(
+        | AppProfile::Edge
+        | AppProfile::VsCode => Some(
             strip_app_name_suffix(trimmed, app_name)
                 .unwrap_or(trimmed)
                 .to_string(),

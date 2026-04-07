@@ -6,6 +6,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
+    #[error(transparent)]
+    ScreenCore(#[from] hypr_screen_core::Error),
 }
 
 impl Serialize for Error {

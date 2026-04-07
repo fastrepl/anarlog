@@ -13,7 +13,7 @@ use hypr_activity_capture_interface::{
 };
 
 use crate::{
-    com::ensure_com_initialized,
+    com::ComGuard,
     session::{CaptureState, clear_last_selected_session, find_active_render_session},
 };
 
@@ -45,7 +45,11 @@ impl WindowsCapture {
     }
 
     pub(crate) fn capture_snapshot(&self) -> Result<Option<Snapshot>, CaptureError> {
-        ensure_com_initialized()?;
+        let _com = ComGuard::initialize_mta()?;
+        self.capture_snapshot_on_initialized_thread()
+    }
+
+    fn capture_snapshot_on_initialized_thread(&self) -> Result<Option<Snapshot>, CaptureError> {
         resolve_active_session_snapshot(self)
     }
 }
@@ -77,9 +81,16 @@ impl ActivityCapture for WindowsCapture {
 
     fn watch(&self, options: WatchOptions) -> Result<CaptureStream, CaptureError> {
         let capture = self.clone();
+        let mut com = None;
         spawn_polling_watch_stream(
             "activity-capture-windows",
-            move || capture.capture_snapshot(),
+            move || {
+                if com.is_none() {
+                    com = Some(ComGuard::initialize_mta()?);
+                }
+
+                capture.capture_snapshot_on_initialized_thread()
+            },
             options,
         )
     }

@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { Volume2Icon, VolumeXIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as sfxCommands } from "@hypr/plugin-sfx";
+import { cn } from "@hypr/utils";
 
 import { LoginSection } from "./account";
 import { CalendarSection } from "./calendar";
@@ -22,6 +24,7 @@ import { OnboardingSection } from "./shared";
 import { useAuth } from "~/auth";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
+import { StandaloneWindowShell } from "~/shared/window-shell";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export const TabItemOnboarding: TabItem<
@@ -63,14 +66,63 @@ export function TabContentOnboarding({
 }: {
   tab: Extract<Tab, { type: "onboarding" }>;
 }) {
-  const queryClient = useQueryClient();
   const close = useTabs((state) => state.close);
   const currentTab = useTabs((state) => state.currentTab);
+
+  const handleFinish = useCallback(() => {
+    if (currentTab) {
+      close(currentTab);
+    }
+  }, [close, currentTab]);
+
+  return <OnboardingScreen onFinish={handleFinish} />;
+}
+
+export function OnboardingScreen({ onFinish }: { onFinish: () => void }) {
+  return (
+    <OnboardingScreenContent
+      onFinish={onFinish}
+      headerClassName="px-12 pt-12 pb-8"
+    />
+  );
+}
+
+export function StandaloneOnboardingScreen({
+  onFinish,
+}: {
+  onFinish: () => void;
+}) {
+  const isMacOS = platform() === "macos";
+
+  return (
+    <StandaloneWindowShell>
+      <OnboardingScreenContent
+        onFinish={onFinish}
+        headerClassName={
+          isMacOS ? "pt-12 pr-12 pb-8 pl-20" : "px-12 pt-12 pb-8"
+        }
+        headerDragRegion
+      />
+    </StandaloneWindowShell>
+  );
+}
+
+function OnboardingScreenContent({
+  onFinish,
+  headerClassName,
+  headerDragRegion = false,
+}: {
+  onFinish: () => void;
+  headerClassName: string;
+  headerDragRegion?: boolean;
+}) {
+  const queryClient = useQueryClient();
   const auth = useAuth();
   const [isMuted, setIsMuted] = useState(false);
   const [currentStep, setCurrentStep] = useState(getInitialStep);
   const [didSkipLogin, setDidSkipLogin] = useState(false);
   const onboardingVideoRef = useRef<HTMLVideoElement>(null);
+  const currentPlatform = platform();
 
   const goNext = useCallback(() => {
     const next = getNextStep(currentStep);
@@ -91,9 +143,9 @@ export function TabContentOnboarding({
     void analyticsCommands.event({
       event: "onboarding_step_viewed",
       step: currentStep,
-      platform: platform(),
+      platform: currentPlatform,
     });
-  }, [currentStep]);
+  }, [currentPlatform, currentStep]);
 
   useEffect(() => {
     sfxCommands
@@ -117,44 +169,62 @@ export function TabContentOnboarding({
 
   const handleFinish = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ["onboarding-needed"] });
-    if (currentTab) {
-      close(currentTab);
-    }
-  }, [close, currentTab, queryClient]);
+    onFinish();
+  }, [onFinish, queryClient]);
 
   return (
-    <StandardTabWrapper>
+    <StandardTabWrapper noBorder>
       <div className="relative flex h-full flex-col">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <video
-            ref={onboardingVideoRef}
-            className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            aria-hidden="true"
+          <motion.div
+            className="absolute inset-0"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 2, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
           >
-            <source src="/assets/onboarding-video.mp4" type="video/mp4" />
-          </video>
-          <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+            <video
+              ref={onboardingVideoRef}
+              className="absolute inset-0 h-full w-full object-cover object-bottom opacity-28"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              aria-hidden="true"
+            >
+              <source src="/assets/onboarding-video.mp4" type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-linear-to-t from-stone-50/8 via-stone-50/18 to-transparent" />
+          </motion.div>
           <div className="absolute inset-x-0 top-0 h-[80%] [mask-image:linear-gradient(to_bottom,black,black_18%,rgba(0,0,0,0.9)_36%,rgba(0,0,0,0.6)_58%,transparent)] backdrop-blur-[32px]" />
           <div className="absolute inset-x-0 top-0 h-[92%] [mask-image:linear-gradient(to_bottom,black,rgba(0,0,0,0.8)_34%,rgba(0,0,0,0.35)_62%,transparent)] backdrop-blur-[12px]" />
           <div className="absolute inset-x-0 top-0 h-[84%] bg-linear-to-b from-stone-50 via-stone-50/82 via-stone-50/97 via-18% via-42% to-stone-50/0" />
+          <motion.div
+            className="absolute inset-0 bg-stone-50"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 1.0, ease: "easeOut", delay: 0.1 }}
+          />
         </div>
 
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-4 pb-3">
-          <h1 className="font-serif text-2xl font-semibold text-neutral-900">
+        <div
+          data-tauri-drag-region={headerDragRegion || undefined}
+          className={cn([
+            "sticky top-0 z-10 flex items-center justify-between",
+            headerClassName,
+          ])}
+        >
+          <h1 className="font-serif text-3xl font-semibold text-neutral-900">
             Welcome to Char
           </h1>
           <button
             onClick={() => setIsMuted((prev) => !prev)}
+            data-tauri-drag-region="false"
             className="rounded-full p-1.5 transition-colors hover:bg-neutral-100"
             aria-label={isMuted ? "Unmute" : "Mute"}
           >
             {isMuted ? (
-              <VolumeXIcon size={16} className="text-neutral-600" />
+              <VolumeXIcon size={16} className="text-neutral-400" />
             ) : (
               <Volume2Icon size={16} className="text-neutral-600" />
             )}
@@ -162,12 +232,13 @@ export function TabContentOnboarding({
         </div>
 
         <div className="relative z-10 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3 px-6 pb-16">
+          <div className="flex flex-col gap-4 px-12 pb-16">
             <OnboardingSection
-              title="Permissions"
+              title="Start with permissions"
               completedTitle="Permissions granted"
-              description="Required for best experience"
+              description="Char needs access to your microphone and system audio to record and transcribe your meetings"
               status={getStepStatus("permissions", currentStep)}
+              skippable={false}
               onBack={goBack}
               onNext={goNext}
             >
@@ -175,8 +246,8 @@ export function TabContentOnboarding({
             </OnboardingSection>
 
             <OnboardingSection
-              title="Account"
-              description="Start using Char to focus on people, not note-taking"
+              title="Create account"
+              description="Sign in to unlock powerful Al models, sync across devices, personalization, and workflow integrations."
               completedTitle={
                 auth.session
                   ? "Signed in"
@@ -187,6 +258,12 @@ export function TabContentOnboarding({
               status={getStepStatus("login", currentStep)}
               onBack={goBack}
               onNext={goNext}
+              onSkip={() => {
+                setDidSkipLogin(true);
+                void analyticsCommands.event({
+                  event: "onboarding_login_skipped",
+                });
+              }}
             >
               <LoginSection
                 onContinue={goNext}
@@ -195,8 +272,8 @@ export function TabContentOnboarding({
             </OnboardingSection>
 
             <OnboardingSection
-              title="Calendar"
-              description="Connect your calendar to get meeting reminders"
+              title="Connect calendar"
+              description="Char will sync your calendar to get meeting reminders"
               completedTitle="Calendar connected"
               status={getStepStatus("calendar", currentStep)}
               onBack={goBack}
@@ -222,6 +299,7 @@ export function TabContentOnboarding({
             <OnboardingSection
               title="Ready to go"
               status={getStepStatus("final", currentStep)}
+              skippable={false}
               onBack={goBack}
               onNext={() => void finishOnboarding(handleFinish)}
             >

@@ -151,7 +151,7 @@ impl MicInput {
                 device.build_input_stream::<S, _, _>(
                     &config.config(),
                     move |data: &[S], _input_callback_info: &_| {
-                        let stats = crate::rt_ring::push_interleaved_first_channel_to_ringbuf(
+                        let stats = crate::rt_ring::push_interleaved_downmix_to_mono_ringbuf(
                             data,
                             channels,
                             &mut scratch,

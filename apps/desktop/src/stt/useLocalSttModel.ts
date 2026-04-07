@@ -63,7 +63,7 @@ export function useLocalModelDownload(
 ) {
   const [progress, setProgress] = useState<number>(0);
   const [isStarting, setIsStarting] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isDownloaded = useQuery(localSttQueries.isDownloaded(model));
   const isDownloading = useQuery(localSttQueries.isDownloading(model));
@@ -81,15 +81,15 @@ export function useLocalModelDownload(
     const unlisten = localSttEvents.downloadProgressPayload.listen((event) => {
       if (event.payload.model === model) {
         const { status } = event.payload;
-        if (status === "failed") {
-          setHasError(true);
+        if (typeof status === "object" && "failed" in status) {
+          setErrorMessage(status.failed);
           setIsStarting(false);
           setProgress(0);
         } else if (status === "completed") {
-          setHasError(false);
+          setErrorMessage(null);
           setProgress(100);
         } else if (typeof status === "object" && "downloading" in status) {
-          setHasError(false);
+          setErrorMessage(null);
           setProgress(Math.max(0, Math.min(100, status.downloading)));
         }
       }
@@ -111,12 +111,12 @@ export function useLocalModelDownload(
     if (isDownloaded.data || isDownloading.data || isStarting) {
       return;
     }
-    setHasError(false);
+    setErrorMessage(null);
     setIsStarting(true);
     setProgress(0);
     void localSttCommands.downloadModel(model).then((result) => {
       if (result.status === "error") {
-        setHasError(true);
+        setErrorMessage(result.error);
         setIsStarting(false);
       }
     });
@@ -138,7 +138,8 @@ export function useLocalModelDownload(
 
   return {
     progress,
-    hasError,
+    hasError: errorMessage !== null,
+    errorMessage,
     isDownloaded: isDownloaded.data ?? false,
     isDownloadedLoading: isDownloaded.isLoading,
     showProgress,

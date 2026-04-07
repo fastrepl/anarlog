@@ -4,55 +4,6 @@ use tauri::Manager;
 
 #[tauri::command]
 #[specta::specta]
-pub async fn control_set_always_on_top(
-    app: tauri::AppHandle<tauri::Wry>,
-    always_on_top: bool,
-) -> Result<(), String> {
-    let window = app
-        .get_webview_window("control")
-        .ok_or("control window not found")?;
-    window
-        .set_always_on_top(always_on_top)
-        .map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn control_set_opacity(
-    app: tauri::AppHandle<tauri::Wry>,
-    opacity: f64,
-) -> Result<(), String> {
-    let window = app
-        .get_webview_window("control")
-        .ok_or("control window not found")?;
-
-    #[cfg(target_os = "macos")]
-    {
-        let window_handle = window.clone();
-        window
-            .run_on_main_thread(move || {
-                if let Ok(ns_win) = window_handle.ns_window() {
-                    unsafe {
-                        let ns_window = &*(ns_win as *mut objc2_app_kit::NSWindow);
-                        ns_window.setAlphaValue(opacity);
-                    }
-                }
-            })
-            .map_err(|e| e.to_string())?;
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = opacity;
-        let _ = window;
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
 pub async fn window_show(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,

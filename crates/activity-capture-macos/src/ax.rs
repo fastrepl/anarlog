@@ -167,6 +167,12 @@ pub(crate) fn best_effort_bool_attribute(element: &AXUIElement, attribute: &str)
     bool_attribute(element, attribute).ok().flatten()
 }
 
+pub(crate) fn enable_manual_accessibility(element: &AXUIElement) {
+    let attribute = CFString::from_str("AXManualAccessibility");
+    let value = CFBoolean::new(true);
+    let _ = unsafe { element.set_attribute_value(&attribute, value.as_ref()) };
+}
+
 pub(crate) fn merge_fragments<I>(fragments: I) -> String
 where
     I: IntoIterator<Item = String>,

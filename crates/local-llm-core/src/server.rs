@@ -4,7 +4,6 @@ mod inner {
     use std::path::Path;
 
     use axum::http::StatusCode;
-    use axum::{Router, error_handling::HandleError};
     use hypr_llm_cactus::{CompleteService, ModelManagerBuilder};
     use tokio::net::TcpListener;
     use tower_http::cors::CorsLayer;
@@ -31,10 +30,8 @@ mod inner {
                 .default_model(name)
                 .build();
 
-            let service = HandleError::new(CompleteService::new(manager), handle_error);
-
-            let router = Router::new()
-                .route_service("/v1/chat/completions", service)
+            let router = CompleteService::new(manager)
+                .into_router(handle_error)
                 .layer(CorsLayer::permissive());
 
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0u16)).await?;

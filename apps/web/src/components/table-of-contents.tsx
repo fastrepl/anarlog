@@ -121,8 +121,9 @@ export function TableOfContents({
   return (
     <aside
       className={cn([
-        "fixed top-0 right-0 z-10 hidden h-screen xl:flex",
-        "w-64 items-center",
+        "fixed top-0 right-0 z-10 hidden h-screen md:flex",
+        "items-center",
+        "w-20 xl:w-64",
       ])}
     >
       <nav
@@ -152,8 +153,8 @@ export function TableOfContents({
                   isActive
                     ? "font-medium text-stone-800"
                     : "text-neutral-400 hover:text-neutral-600",
-                  item.level === 3 && "pl-9",
-                  item.level === 4 && "pl-12",
+                  item.level === 3 && "pl-9 xl:pl-9",
+                  item.level === 4 && "pl-12 xl:pl-12",
                 ])}
                 style={{
                   height: ITEM_HEIGHT,
@@ -167,7 +168,16 @@ export function TableOfContents({
                   fontSize: isActive ? 14 : 13,
                 }}
               >
-                <span className="line-clamp-1">{item.text}</span>
+                <span className="line-clamp-1 hidden xl:inline">
+                  {item.text}
+                </span>
+                <span
+                  className={cn([
+                    "block rounded-full bg-current xl:hidden",
+                    "h-[2px]",
+                    isActive ? "w-[60px]" : "w-[40px]",
+                  ])}
+                />
               </a>
             );
           })}

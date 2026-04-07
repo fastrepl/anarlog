@@ -162,6 +162,7 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
     app.set_recently_opened_sessions(v)
 }
 
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_app_open_count<R: tauri::Runtime>(
@@ -202,4 +203,21 @@ pub async fn set_survey_dismissed<R: tauri::Runtime>(
     v: bool,
 ) -> Result<(), String> {
     app.set_survey_dismissed(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_char_v1p1_preview<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<bool, String> {
+    app.get_char_v1p1_preview()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_char_v1p1_preview<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    v: bool,
+) -> Result<(), String> {
+    app.set_char_v1p1_preview(v)
 }

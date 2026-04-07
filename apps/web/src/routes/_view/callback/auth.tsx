@@ -1,8 +1,10 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { jwtDecode } from "jwt-decode";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { deriveBillingInfo, type SupabaseJwtPayload } from "@hypr/supabase";
 import { cn } from "@hypr/utils";
 
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
@@ -138,12 +140,17 @@ function Component() {
     if (!search.access_token) return;
 
     try {
-      const payload = JSON.parse(atob(search.access_token.split(".")[1]));
+      const payload = jwtDecode<SupabaseJwtPayload>(search.access_token);
       const email = payload.email;
       const userId = payload.sub;
 
-      if (email && userId) {
-        identifyPosthog(userId, { email });
+      if (userId) {
+        const billing = deriveBillingInfo(payload);
+        identifyPosthog(userId, {
+          ...(email ? { email } : {}),
+          plan: billing.plan,
+          trial_end_date: billing.trialEnd?.toISOString() ?? null,
+        });
       }
     } catch (e) {
       console.error("Failed to decode JWT for identify:", e);

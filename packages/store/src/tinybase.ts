@@ -19,6 +19,7 @@ import {
   promptSchema,
   sessionSchema,
   tagSchema,
+  taskSchema,
   templateSchema,
   transcriptSchema,
 } from "./zod";
@@ -147,6 +148,17 @@ export const tableSchemaForTinybase = {
     position: { type: "number" },
     title: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof enhancedNoteSchema>,
+  tasks: {
+    user_id: { type: "string" },
+    task_id: { type: "string" },
+    source_id: { type: "string" },
+    source_type: { type: "string" },
+    source_order: { type: "number" },
+    status: { type: "string" },
+    text_preview: { type: "string" },
+    body_json: { type: "string" },
+    due_date: { type: "string" },
+  } as const satisfies InferTinyBaseSchema<typeof taskSchema>,
   prompts: {
     user_id: { type: "string" },
     task_type: { type: "string" },

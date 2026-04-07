@@ -20,9 +20,11 @@ import {
 } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { commands as authPluginCommands } from "@hypr/plugin-auth";
 import { commands as miscCommands } from "@hypr/plugin-misc";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
 import { openUrlWithInstruction } from "@hypr/plugin-windows";
+import { deriveBillingInfo } from "@hypr/supabase";
 
 import { supabase } from "./client";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
@@ -114,38 +116,78 @@ async function initSession(
   }
 }
 
-let trackedUserId: string | null = null;
+let trackedIdentifySignature: string | null = null;
+let trackedSignedInUserId: string | null = null;
+
+async function getBillingAnalytics(accessToken: string) {
+  const result = await authPluginCommands.decodeClaims(accessToken);
+  if (result.status === "error") {
+    return {
+      plan: "free" as const,
+      trialEndDate: null,
+    };
+  }
+
+  const billing = deriveBillingInfo({
+    sub: result.data.sub,
+    email: result.data.email ?? undefined,
+    entitlements: result.data.entitlements,
+    subscription_status: result.data.subscription_status,
+    trial_end: result.data.trial_end,
+  });
+
+  return {
+    plan: billing.plan,
+    trialEndDate: billing.trialEnd?.toISOString() ?? null,
+  };
+}
 
 async function trackAuthEvent(
   event: AuthChangeEvent,
   session: Session | null,
 ): Promise<void> {
-  if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-    if (session.user.id === trackedUserId) {
-      return;
-    }
-
-    trackedUserId = session.user.id;
-
+  if (
+    (event === "SIGNED_IN" ||
+      event === "INITIAL_SESSION" ||
+      event === "TOKEN_REFRESHED") &&
+    session
+  ) {
     const appVersion = await getVersion();
-    void analyticsCommands.identify(session.user.id, {
-      email: session.user.email,
-      set: {
-        account_created_date: session.user.created_at,
-        is_signed_up: true,
-        app_version: appVersion,
-        os_version: osVersion(),
-        platform: platform(),
-      },
+    const billing = await getBillingAnalytics(session.access_token);
+    const identifySignature = JSON.stringify({
+      userId: session.user.id,
+      email: session.user.email ?? null,
+      plan: billing.plan,
+      trialEndDate: billing.trialEndDate,
+      appVersion,
     });
 
-    if (event === "SIGNED_IN") {
+    if (identifySignature !== trackedIdentifySignature) {
+      trackedIdentifySignature = identifySignature;
+
+      void analyticsCommands.identify(session.user.id, {
+        email: session.user.email,
+        set: {
+          account_created_date: session.user.created_at,
+          is_signed_up: true,
+          app_version: appVersion,
+          os_version: osVersion(),
+          platform: platform(),
+          plan: billing.plan,
+          trial_end_date: billing.trialEndDate,
+        },
+      });
+    }
+
+    if (event === "SIGNED_IN" && trackedSignedInUserId !== session.user.id) {
+      trackedSignedInUserId = session.user.id;
       void analyticsCommands.event({ event: "user_signed_in" });
     }
   }
 
   if (event === "SIGNED_OUT") {
-    trackedUserId = null;
+    trackedIdentifySignature = null;
+    trackedSignedInUserId = null;
   }
 }
 
@@ -294,7 +336,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error instanceof AuthRetryableFetchError ||
           error instanceof AuthSessionMissingError
         ) {
-          trackedUserId = null;
+          trackedIdentifySignature = null;
+          trackedSignedInUserId = null;
           await clearAuthStorage();
           setSession(null);
           return;
@@ -303,7 +346,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      trackedUserId = null;
+      trackedIdentifySignature = null;
+      trackedSignedInUserId = null;
       await clearAuthStorage();
       setSession(null);
     } catch (e) {
@@ -311,7 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         e instanceof AuthRetryableFetchError ||
         e instanceof AuthSessionMissingError
       ) {
-        trackedUserId = null;
+        trackedIdentifySignature = null;
+        trackedSignedInUserId = null;
         await clearAuthStorage();
         setSession(null);
       }

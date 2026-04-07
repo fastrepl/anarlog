@@ -15,9 +15,11 @@ const STORAGE_KEY = "char_web_tracking_consent_v1";
 const COOKIE_POLICY_PATH = "/legal/cookies/";
 const PRIVACY_POLICY_PATH = "/legal/privacy/";
 const ACCEPT_CTA_BUTTON_CLASS =
-  "rounded-full border-0 bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]";
+  "rounded-full border-0 surface-dark text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]";
 const MUTED_ACTION_BUTTON_CLASS =
-  "border-0 bg-transparent text-neutral-500 shadow-none hover:bg-transparent hover:text-neutral-700";
+  "border-0 bg-transparent text-fg-muted shadow-none hover:bg-transparent hover:text-fg";
+const COOKIE_CURSOR =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='24' font-size='24'>🍪</text></svg>\"), auto";
 
 type ConsentState = {
   analytics: boolean;
@@ -119,9 +121,11 @@ export function CookiePreferencesButton() {
       type="button"
       onClick={openPreferences}
       className={cn([
-        "cursor-pointer bg-transparent p-0 text-sm text-neutral-500 transition-colors",
-        "hover:text-stone-600 hover:underline hover:decoration-dotted",
+        "text-fg-muted cursor-pointer p-0 font-sans text-sm transition-colors",
+        "hover:text-fg hover:underline hover:decoration-dotted",
+        "hover:cursor-pointer",
       ])}
+      style={{ cursor: COOKIE_CURSOR }}
     >
       Cookie preferences
     </button>
@@ -269,21 +273,20 @@ function CookieConsentBanner({ isDialogOpen }: { isDialogOpen: boolean }) {
     <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[70] flex justify-center sm:justify-end">
       <div
         className={cn([
-          "pointer-events-auto w-full max-w-xl rounded-xs border border-neutral-200 bg-white/95 p-5 shadow-2xl shadow-neutral-900/10 backdrop-blur-md",
+          "border-color-brand surface pointer-events-auto w-full max-w-xl rounded-md border p-5 shadow-2xl",
           "sm:p-6",
         ])}
+        style={{ cursor: COOKIE_CURSOR }}
       >
         <div className="flex flex-col gap-4">
           <div className="space-y-2">
-            <p className="font-serif text-xl font-semibold text-neutral-900">
-              Your data choices
-            </p>
-            <p className="text-sm leading-6 text-neutral-600">
+            <p className="text-fg font-mono text-xl font-semibold">Cookies.</p>
+            <p className="text-fg text-sm leading-6">
               We use cookies and similar technologies for site analytics and
               support tools. You can accept analytics, reject non-essential
               tracking, or change your choice later from the footer.
             </p>
-            <p className="text-xs leading-5 text-neutral-500">
+            <p className="text-fg-muted text-xs leading-5">
               See our{" "}
               <a
                 href={COOKIE_POLICY_PATH}
@@ -348,10 +351,13 @@ function CookiePreferencesDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl rounded-xs border-neutral-200 p-0">
+      <DialogContent
+        className="border-color-brand surface max-w-xl rounded-md p-0"
+        style={{ cursor: COOKIE_CURSOR }}
+      >
         <div className="space-y-5 p-6">
           <DialogHeader>
-            <DialogTitle className="font-serif text-2xl text-neutral-900">
+            <DialogTitle className="font-mono text-2xl text-neutral-900">
               Cookie preferences
             </DialogTitle>
           </DialogHeader>

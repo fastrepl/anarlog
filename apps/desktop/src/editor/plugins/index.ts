@@ -27,3 +27,4 @@ export {
   searchReplaceNext,
   setSearchState,
 } from "./search";
+export { taskIdentityPlugin } from "./task-identity";

@@ -18,7 +18,9 @@ tokio = { workspace = true, features = ["macros"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
+hypr-screen-core = { workspace = true }
+
+base64 = { workspace = true }
 serde = { workspace = true }
 specta = { workspace = true }
-
 thiserror = { workspace = true }

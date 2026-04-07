@@ -8,7 +8,7 @@ license = "MIT"
 examples = ["dep:colored"]
 
 [dependencies]
-cactus-sys = { git = "https://github.com/cactus-compute/cactus", package = "cactus-sys", rev = "a5acad3" }
+cactus-sys = { git = "https://github.com/cactus-compute/cactus", package = "cactus-sys", rev = "aa21354" }
 
 hypr-language = { workspace = true }
 hypr-llm-types = { workspace = true }
@@ -23,6 +23,7 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

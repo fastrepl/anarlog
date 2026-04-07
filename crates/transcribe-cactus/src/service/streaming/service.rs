@@ -9,8 +9,10 @@ use axum::{
     body::Body,
     extract::{FromRequestParts, ws::WebSocketUpgrade},
     http::{Request, StatusCode},
+    response::Json,
     response::{IntoResponse, Response},
 };
+use hypr_cactus_model::{CactusHealthResponse, CactusHealthStatus};
 use hypr_model_manager::{ModelManager, ModelManagerBuilder};
 use tower::Service;
 
@@ -46,9 +48,19 @@ impl TranscribeService {
     {
         let svc = axum::error_handling::HandleError::new(self, on_error);
         axum::Router::new()
-            .route(HEALTH_PATH, axum::routing::get(|| async { "ok" }))
+            .route(HEALTH_PATH, axum::routing::get(health))
             .route_service(LISTEN_PATH, svc)
     }
+}
+
+async fn health() -> Json<CactusHealthResponse> {
+    Json(CactusHealthResponse {
+        service: "transcribe".to_string(),
+        live: true,
+        ready: true,
+        status: CactusHealthStatus::Ready,
+        error: None,
+    })
 }
 
 #[derive(Default)]

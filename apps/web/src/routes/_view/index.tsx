@@ -335,13 +335,6 @@ function HeroSection({
             <div className="relative hidden w-full shrink-0 self-stretch overflow-hidden p-8 md:block md:w-1/2">
               <NotebookGrid />
 
-              <div className="absolute bottom-48 left-0 flex justify-start p-10">
-                <img
-                  src="/icons/reminder.svg"
-                  alt="Reminder to myself"
-                  className="h-24 object-contain"
-                />
-              </div>
               <div className="absolute right-0 bottom-0 flex justify-end p-10">
                 <button
                   onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
@@ -350,7 +343,7 @@ function HeroSection({
                 >
                   <div className="h-full w-full">
                     <img
-                      src={`https://image.mux.com/${MUX_PLAYBACK_ID}/thumbnail.jpg?width=1280&height=720&fit_mode=smartcrop`}
+                      src="/demo_thumbnail.webp"
                       alt="Product demo"
                       className="h-full w-full object-cover"
                     />
@@ -1246,11 +1239,8 @@ function ChatPanel({ children }: { children: React.ReactNode }) {
           <span className="text-sm text-neutral-400">
             Ask about your notes...
           </span>
-          <div className="border-color-brand inline-flex h-7 items-center gap-1.5 rounded-lg border pr-1.5 pl-2.5 text-xs font-medium text-neutral-300">
+          <div className="border-color-brand inline-flex h-7 items-center rounded-lg border px-2.5 text-xs font-medium text-neutral-300">
             <span>Send</span>
-            <kbd className="rounded bg-neutral-100 px-1 py-0.5 text-[10px] text-neutral-400">
-              ⌘ ↩
-            </kbd>
           </div>
         </div>
       </div>

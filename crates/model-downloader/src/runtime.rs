@@ -8,7 +8,7 @@ use crate::model::DownloadableModel;
 pub enum DownloadStatus {
     Downloading(u8),
     Completed,
-    Failed,
+    Failed(String),
 }
 
 pub trait ModelDownloaderRuntime<M: DownloadableModel>: Send + Sync + 'static {

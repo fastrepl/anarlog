@@ -228,6 +228,7 @@ function CactusRow({
   const {
     progress,
     hasError,
+    errorMessage,
     isDownloaded,
     showProgress,
     handleDownload,
@@ -247,6 +248,9 @@ function CactusRow({
     <HyprProviderRow>
       <div className="flex-1">
         <span className="text-sm font-medium">{displayName}</span>
+        {hasError && errorMessage && (
+          <p className="text-xs text-red-500">{errorMessage}</p>
+        )}
       </div>
 
       <LocalModelAction
@@ -519,6 +523,7 @@ function HyprProviderLocalRow({
   const {
     progress,
     hasError,
+    errorMessage,
     isDownloaded,
     showProgress,
     handleDownload,
@@ -538,7 +543,11 @@ function HyprProviderLocalRow({
     <HyprProviderRow>
       <div className="flex-1">
         <span className="text-sm font-medium">{displayName}</span>
-        <p className="text-xs text-neutral-500">{description}</p>
+        {hasError && errorMessage ? (
+          <p className="text-xs text-red-500">{errorMessage}</p>
+        ) : (
+          <p className="text-xs text-neutral-500">{description}</p>
+        )}
       </div>
 
       <LocalModelAction

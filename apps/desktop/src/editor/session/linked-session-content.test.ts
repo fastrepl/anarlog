@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { mergeLinkedSessionsIntoContent } from "./linked-session-content";
 
+function buildSessionTitle(title: string) {
+  return [
+    {
+      type: "paragraph",
+      content: title ? [{ type: "text", text: title }] : undefined,
+    },
+  ];
+}
+
 describe("mergeLinkedSessionsIntoContent", () => {
   it("deduplicates existing session and event-backed content", () => {
     const result = mergeLinkedSessionsIntoContent({
@@ -11,7 +20,7 @@ describe("mergeLinkedSessionsIntoContent", () => {
           {
             type: "session",
             attrs: { sessionId: "session-1" },
-            content: [{ type: "text", text: "Existing session title" }],
+            content: buildSessionTitle("Existing session title"),
           },
           {
             type: "event",
@@ -49,17 +58,17 @@ describe("mergeLinkedSessionsIntoContent", () => {
         {
           type: "session",
           attrs: { sessionId: "session-1" },
-          content: [{ type: "text", text: "Existing session title" }],
+          content: buildSessionTitle("Existing session title"),
         },
         {
           type: "session",
           attrs: { sessionId: "session-2" },
-          content: [{ type: "text", text: "Session 2" }],
+          content: buildSessionTitle("Session 2"),
         },
         {
           type: "session",
           attrs: { sessionId: "session-3" },
-          content: [{ type: "text", text: "Session 3" }],
+          content: buildSessionTitle("Session 3"),
         },
         {
           type: "paragraph",
@@ -95,7 +104,7 @@ describe("mergeLinkedSessionsIntoContent", () => {
           {
             type: "session",
             attrs: { sessionId: "stale-session-1" },
-            content: [{ type: "text", text: "Existing title" }],
+            content: buildSessionTitle("Existing title"),
           },
           {
             type: "paragraph",
@@ -120,7 +129,7 @@ describe("mergeLinkedSessionsIntoContent", () => {
         {
           type: "session",
           attrs: { sessionId: "canonical-session" },
-          content: [{ type: "text", text: "Existing title" }],
+          content: buildSessionTitle("Existing title"),
         },
         {
           type: "paragraph",
@@ -138,12 +147,12 @@ describe("mergeLinkedSessionsIntoContent", () => {
           {
             type: "session",
             attrs: { sessionId: "stale-session" },
-            content: [{ type: "text", text: "Stale title" }],
+            content: buildSessionTitle("Stale title"),
           },
           {
             type: "session",
             attrs: { sessionId: "canonical-session" },
-            content: [{ type: "text", text: "Kept title" }],
+            content: buildSessionTitle("Kept title"),
           },
           {
             type: "paragraph",
@@ -168,7 +177,92 @@ describe("mergeLinkedSessionsIntoContent", () => {
         {
           type: "session",
           attrs: { sessionId: "canonical-session" },
-          content: [{ type: "text", text: "Kept title" }],
+          content: buildSessionTitle("Kept title"),
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Body content" }],
+        },
+      ],
+    });
+  });
+
+  it("preserves an existing linked session checked state", () => {
+    const result = mergeLinkedSessionsIntoContent({
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "session",
+            attrs: { sessionId: "session-1", status: "done", checked: true },
+            content: buildSessionTitle("Existing session title"),
+          },
+        ],
+      },
+      eventIds: [],
+      sessionIds: ["session-1"],
+      resolveEventSessionId: () => null,
+      getSessionTitle: () => "Session 1",
+    });
+
+    expect(result).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "session",
+          attrs: { sessionId: "session-1", status: "done", checked: true },
+          content: buildSessionTitle("Existing session title"),
+        },
+      ],
+    });
+  });
+
+  it("preserves linked session placement and appends missing linked sessions after the last linked node", () => {
+    const result = mergeLinkedSessionsIntoContent({
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Intro" }],
+          },
+          {
+            type: "session",
+            attrs: { sessionId: "session-1" },
+            content: buildSessionTitle("Moved title"),
+          },
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Body content" }],
+          },
+        ],
+      },
+      eventIds: [],
+      sessionIds: ["session-1", "session-2"],
+      resolveEventSessionId: () => null,
+      getSessionTitle: (sessionId) =>
+        ({
+          "session-1": "Session 1",
+          "session-2": "Session 2",
+        })[sessionId] ?? "",
+    });
+
+    expect(result).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Intro" }],
+        },
+        {
+          type: "session",
+          attrs: { sessionId: "session-1" },
+          content: buildSessionTitle("Moved title"),
+        },
+        {
+          type: "session",
+          attrs: { sessionId: "session-2" },
+          content: buildSessionTitle("Session 2"),
         },
         {
           type: "paragraph",

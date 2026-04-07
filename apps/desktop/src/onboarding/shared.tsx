@@ -22,6 +22,8 @@ export function OnboardingSection({
   status,
   onBack,
   onNext,
+  onSkip,
+  skippable = true,
   children,
 }: {
   title: string;
@@ -30,6 +32,8 @@ export function OnboardingSection({
   status: SectionStatus | null;
   onBack?: () => void;
   onNext?: () => void;
+  onSkip?: () => void;
+  skippable?: boolean;
   children: ReactNode;
 }) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -55,7 +59,7 @@ export function OnboardingSection({
       <div
         className={cn([
           "flex items-center gap-2 transition-all duration-300",
-          isActive && "mb-4",
+          isActive && "mb-6 pt-4",
         ])}
       >
         {isCompleted && (
@@ -71,14 +75,14 @@ export function OnboardingSection({
                 "transition-all duration-300",
                 isCompleted
                   ? "text-sm font-normal text-neutral-300"
-                  : "font-serif text-lg font-semibold text-neutral-900",
+                  : "mb-2 font-serif text-2xl font-semibold text-neutral-900",
               ])}
             >
               {isCompleted ? (completedTitle ?? title) : title}
             </h2>
-            {import.meta.env.DEV && isActive && (onBack || onNext) && (
-              <div className="flex items-center gap-2">
-                {onBack && (
+            {isActive && (
+              <div className="mb-1 flex items-center gap-2">
+                {import.meta.env.DEV && onBack && (
                   <button
                     onClick={onBack}
                     aria-label="Go to previous section"
@@ -87,15 +91,27 @@ export function OnboardingSection({
                     <ChevronLeftIcon className="size-3" />
                   </button>
                 )}
-                {onNext && (
-                  <button
-                    onClick={onNext}
-                    aria-label="Go to next section"
-                    className="rounded p-0.5 text-neutral-400 transition-colors hover:text-neutral-600"
-                  >
-                    <ChevronRightIcon className="size-3" />
-                  </button>
-                )}
+                {onNext &&
+                  (skippable ? (
+                    <button
+                      onClick={() => {
+                        onSkip?.();
+                        onNext?.();
+                      }}
+                      className="flex items-center gap-1 text-sm text-neutral-400 transition-colors hover:text-neutral-600"
+                    >
+                      Skip
+                      <ChevronRightIcon className="size-3" />
+                    </button>
+                  ) : import.meta.env.DEV ? (
+                    <button
+                      onClick={onNext}
+                      aria-label="Go to next section"
+                      className="rounded p-0.5 text-neutral-400 transition-colors hover:text-neutral-600"
+                    >
+                      <ChevronRightIcon className="size-3" />
+                    </button>
+                  ) : null)}
               </div>
             )}
           </div>
@@ -124,14 +140,22 @@ export function OnboardingSection({
 }
 
 export function OnboardingButton({
+  variant = "primary",
   className,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: {
+  variant?: "primary" | "secondary" | "ghost";
+} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       {...props}
       className={cn([
-        "w-fit rounded-full border-2 border-stone-600 bg-stone-800 px-6 py-2.5 text-sm font-medium text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] transition-all duration-200 hover:bg-stone-700",
+        "w-fit rounded-full px-6 py-2.5 text-sm font-medium transition-all duration-200",
+        variant === "primary" &&
+          "border-2 border-stone-600 bg-stone-800 text-white shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)] hover:bg-stone-700",
+        variant === "secondary" &&
+          "border border-neutral-300 text-neutral-600 hover:border-neutral-400 hover:text-neutral-800",
+        variant === "ghost" && "text-neutral-500 hover:text-neutral-700",
         className,
       ])}
     />

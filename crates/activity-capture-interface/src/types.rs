@@ -301,11 +301,37 @@ pub struct Event {
 }
 
 #[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum TransitionReason {
+    Started,
+    Idle,
+    AppChanged,
+    ActivityKindChanged,
+    UrlChanged,
+    TitleChanged,
+    TextAnchorChanged,
+    ContentChanged,
+}
+
+#[derive(
     Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 pub struct Transition {
     pub previous: Option<Event>,
     pub current: Option<Event>,
+    pub reason: TransitionReason,
+    pub sequence: u64,
+    pub suppressed_snapshot_count: u32,
 }
 
 #[derive(

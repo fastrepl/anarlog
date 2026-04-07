@@ -1,5 +1,4 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { allSolutions } from "content-collections";
 import {
   BookOpen,
   Building2,
@@ -17,12 +16,18 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
 import { SearchTrigger } from "@/components/search";
 import { getPlatformCTA, usePlatform } from "@/hooks/use-platform";
+import {
+  allSolutionMenuItems,
+  allSolutionsMenuItem,
+  featuredSolutionMenuItems,
+  showMoreSolutionsMenuItem,
+} from "@/lib/solutions";
 
 type MenuItem = {
   to: string;
@@ -45,13 +50,7 @@ const featuresList: MenuItem[] = [
   { to: "/opensource", label: "Open Source" },
 ];
 
-const solutionsList: MenuItem[] = [
-  ...allSolutions
-    .sort((a, b) => a.order - b.order)
-    .map((s) => ({ to: `/solution/${s.slug}`, label: s.label })),
-  { to: "/enterprise", label: "For Enterprises" },
-  { to: "/product/api", label: "For Developers" },
-];
+const solutionsList: MenuItem[] = featuredSolutionMenuItems;
 
 const resourcesList: MenuItem[] = [
   { to: "/blog/", label: "Blog", icon: FileText },
@@ -99,7 +98,8 @@ function isPathActive(pathname: string, to: string) {
 function findActiveSubItem(pathname: string) {
   const candidates = [
     ...featuresList.map((i) => ({ ...i, parent: "Product" })),
-    ...solutionsList.map((i) => ({ ...i, parent: "Product" })),
+    ...allSolutionMenuItems.map((i) => ({ ...i, parent: "Product" })),
+    { ...allSolutionsMenuItem, parent: "Product" as const },
     ...resourcesList
       .filter((i) => !i.external)
       .map((i) => ({ ...i, parent: "Resources" })),
@@ -568,6 +568,7 @@ function MenuGroupLinks({
   itemClassName,
   onItemClick,
   decorateOnHover = false,
+  footer,
 }: {
   group: MenuGroup;
   titleClassName: string;
@@ -575,6 +576,7 @@ function MenuGroupLinks({
   itemClassName: string;
   onItemClick?: () => void;
   decorateOnHover?: boolean;
+  footer?: React.ReactNode;
 }) {
   return (
     <div>
@@ -590,7 +592,36 @@ function MenuGroupLinks({
           />
         ))}
       </div>
+      {footer}
     </div>
+  );
+}
+
+function SolutionsIndexLink({
+  className,
+  onClick,
+  decorateOnHover = false,
+}: {
+  className: string;
+  onClick?: () => void;
+  decorateOnHover?: boolean;
+}) {
+  const label = decorateOnHover ? (
+    <span className="decoration-dotted group-hover:underline">
+      {showMoreSolutionsMenuItem.label}
+    </span>
+  ) : (
+    showMoreSolutionsMenuItem.label
+  );
+
+  return (
+    <Link
+      to={showMoreSolutionsMenuItem.to}
+      onClick={onClick}
+      className={className}
+    >
+      {label}
+    </Link>
   );
 }
 
@@ -613,6 +644,15 @@ function ProductMenuContent({
             itemClassName="group flex items-center py-2 text-sm text-fg"
             onItemClick={onItemClick}
             decorateOnHover
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink
+                  className="group text-fg mt-1 inline-flex py-2 text-sm font-medium"
+                  onClick={onItemClick}
+                  decorateOnHover
+                />
+              ) : null
+            }
           />
         ))}
       </div>
@@ -632,6 +672,14 @@ function ProductMenuContent({
             }
             itemClassName="py-1 text-sm text-neutral-600 transition-colors hover:text-neutral-900"
             onItemClick={onItemClick}
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink
+                  className="mt-2 inline-flex py-1 text-sm font-medium text-neutral-700 transition-colors hover:text-neutral-900"
+                  onClick={onItemClick}
+                />
+              ) : null
+            }
           />
         ))}
       </div>
@@ -650,6 +698,11 @@ function ProductMenuContent({
             titleClassName="px-3 pb-1 text-xs font-medium tracking-wide text-fg-subtle uppercase"
             listClassName="flex flex-col"
             itemClassName="px-3 py-1.5 text-sm text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950"
+            footer={
+              group.title === "Solutions" ? (
+                <SolutionsIndexLink className="mt-1 inline-flex px-3 py-1.5 text-sm font-medium text-stone-700 transition-colors hover:bg-stone-50 hover:text-stone-950" />
+              ) : null
+            }
           />
         </div>
       ))}
@@ -758,26 +811,13 @@ function SidebarFlyout({
   activeSubItem: { to: string; label: string } | null;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const open = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsOpen(true);
-  };
-
-  const close = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsOpen(false);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
 
   return (
-    <div className="relative" onMouseEnter={open} onMouseLeave={close}>
+    <div
+      className="relative"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+    >
       <Link
         to={to}
         className={cn(
@@ -808,12 +848,10 @@ function SidebarFlyout({
         {isOpen && (
           <motion.div
             className="absolute top-0 left-full z-[9999] pl-2"
-            initial={{ opacity: 0, x: -10 }}
+            initial={{ opacity: 0, x: 8 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
+            exit={{ opacity: 0, x: 8 }}
             transition={{ duration: 0.15, ease: "easeInOut" }}
-            onMouseEnter={open}
-            onMouseLeave={close}
           >
             <div className="border-color-brand surface w-56 rounded-lg border py-2 shadow-lg">
               {submenu === "product" ? (

@@ -47,9 +47,9 @@ vi.mock("~/sidebar", () => ({
   LeftSidebar: () => <div data-testid="left-sidebar" />,
 }));
 
-import { MainShellSidebar } from "./shell-sidebar";
+import { ClassicMainSidebar } from "~/main/shell-sidebar";
 
-describe("MainShellSidebar", () => {
+describe("ClassicMainSidebar", () => {
   beforeEach(() => {
     mockQuery = "";
     mockCurrentTab = { type: "empty" };
@@ -62,7 +62,7 @@ describe("MainShellSidebar", () => {
   it("forces custom-sidebar tabs open and restores the previous sidebar state", () => {
     mockCurrentTab = { type: "settings" };
 
-    const { rerender } = render(<MainShellSidebar />);
+    const { rerender } = render(<ClassicMainSidebar />);
 
     expect(setExpanded).toHaveBeenCalledWith(true);
     expect(setLocked).toHaveBeenCalledWith(true);
@@ -70,21 +70,21 @@ describe("MainShellSidebar", () => {
 
     mockCurrentTab = { type: "empty" };
 
-    rerender(<MainShellSidebar />);
+    rerender(<ClassicMainSidebar />);
 
     expect(setLocked).toHaveBeenLastCalledWith(false);
     expect(setExpanded).toHaveBeenLastCalledWith(false);
   });
 
   it("expands the sidebar when search starts from an empty query", () => {
-    const { rerender } = render(<MainShellSidebar />);
+    const { rerender } = render(<ClassicMainSidebar />);
 
     setExpanded.mockClear();
     hoisted.resizeWindowForSidebar.mockClear();
 
     mockQuery = "meeting";
 
-    rerender(<MainShellSidebar />);
+    rerender(<ClassicMainSidebar />);
 
     expect(setExpanded).toHaveBeenCalledWith(true);
     expect(hoisted.resizeWindowForSidebar).toHaveBeenCalledTimes(1);

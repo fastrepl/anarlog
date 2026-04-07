@@ -1,3 +1,20 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum CactusHealthStatus {
+    Loading,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct CactusHealthResponse {
+    pub service: String,
+    pub live: bool,
+    pub ready: bool,
+    pub status: CactusHealthStatus,
+    pub error: Option<String>,
+}
+
 #[derive(
     Debug,
     Clone,

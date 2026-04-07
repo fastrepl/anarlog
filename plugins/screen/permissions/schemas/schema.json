@@ -295,22 +295,34 @@
       "type": "string",
       "oneOf": [
         {
-          "description": "Enables the ping command without any pre-configured scope.",
+          "description": "Enables the capture_frontmost_window_context command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-ping",
-          "markdownDescription": "Enables the ping command without any pre-configured scope."
+          "const": "allow-capture-frontmost-window-context",
+          "markdownDescription": "Enables the capture_frontmost_window_context command without any pre-configured scope."
         },
         {
-          "description": "Denies the ping command without any pre-configured scope.",
+          "description": "Denies the capture_frontmost_window_context command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-ping",
-          "markdownDescription": "Denies the ping command without any pre-configured scope."
+          "const": "deny-capture-frontmost-window-context",
+          "markdownDescription": "Denies the capture_frontmost_window_context command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`",
+          "description": "Enables the capture_target_window_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-capture-target-window-context",
+          "markdownDescription": "Enables the capture_target_window_context command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the capture_target_window_context command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-capture-target-window-context",
+          "markdownDescription": "Denies the capture_target_window_context command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-ping`"
+          "markdownDescription": "Default permissions for the plugin"
         }
       ]
     }

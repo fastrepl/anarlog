@@ -68,14 +68,14 @@ export type ActivityCaptureAppIdentity = { pid: number; appName: string; appId: 
 export type ActivityCaptureCapabilities = { canWatch: boolean; canCaptureVisibleText: boolean; canCaptureBrowserUrl: boolean; requiresAccessibilityPermission: boolean }
 export type ActivityCaptureContentLevel = "metadata" | "url" | "full"
 export type ActivityCaptureErrorKind = "permission_denied" | "unsupported" | "temporarily_unavailable" | "platform"
-export type ActivityCaptureEvent = { startedAtMs: number; endedAtMs: number; fingerprint: string; snapshot: ActivityCaptureSnapshot }
 export type ActivityCaptureKind = "foreground_window" | "browser" | "audio_session"
-export type ActivityCapturePluginEvent = { type: "activityCaptureTransition"; transition: ActivityCaptureTransition } | { type: "activityCaptureError"; kind: ActivityCaptureErrorKind; message: string }
+export type ActivityCapturePluginEvent = { type: "activityCaptureSignal"; signal: ActivityCaptureSignal } | { type: "activityCaptureError"; kind: ActivityCaptureErrorKind; message: string }
+export type ActivityCaptureSignal = { sequence: number; occurredAtMs: number; reason: ActivityCaptureTransitionReason; suppressedSnapshotCount: number; fingerprint: string | null; snapshot: ActivityCaptureSnapshot | null }
 export type ActivityCaptureSnapshot = { app: ActivityCaptureAppIdentity; activityKind: ActivityCaptureKind; capturedAtMs: number; pid: number; appName: string; bundleId: string | null; windowTitle: string | null; url: string | null; visibleText: string | null; textAnchorKind: ActivityCaptureTextAnchorKind | null; textAnchorIdentity: string | null; textAnchorText: string | null; textAnchorPrefix: string | null; textAnchorSuffix: string | null; textAnchorSelectedText: string | null; textAnchorConfidence: ActivityCaptureTextAnchorConfidence | null; contentLevel: ActivityCaptureContentLevel; source: ActivityCaptureSource }
 export type ActivityCaptureSource = "accessibility" | "workspace"
 export type ActivityCaptureTextAnchorConfidence = "high" | "medium" | "low"
 export type ActivityCaptureTextAnchorKind = "focused_edit" | "selected_text" | "focused_element" | "document" | "none"
-export type ActivityCaptureTransition = { previous: ActivityCaptureEvent | null; current: ActivityCaptureEvent | null }
+export type ActivityCaptureTransitionReason = "started" | "idle" | "app_changed" | "activity_kind_changed" | "url_changed" | "title_changed" | "text_anchor_changed" | "content_changed"
 
 /** tauri-specta globals **/
 

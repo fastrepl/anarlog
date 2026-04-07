@@ -86,22 +86,6 @@ pub struct ActivityCaptureAppIdentity {
     pub executable_path: Option<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ActivityCaptureEvent {
-    pub started_at_ms: i64,
-    pub ended_at_ms: i64,
-    pub fingerprint: String,
-    pub snapshot: ActivityCaptureSnapshot,
-}
-
-#[derive(Debug, Clone, serde::Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct ActivityCaptureTransition {
-    pub previous: Option<ActivityCaptureEvent>,
-    pub current: Option<ActivityCaptureEvent>,
-}
-
 #[derive(Debug, Clone, Copy, serde::Serialize, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ActivityCaptureErrorKind {
@@ -109,6 +93,30 @@ pub enum ActivityCaptureErrorKind {
     Unsupported,
     TemporarilyUnavailable,
     Platform,
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ActivityCaptureTransitionReason {
+    Started,
+    Idle,
+    AppChanged,
+    ActivityKindChanged,
+    UrlChanged,
+    TitleChanged,
+    TextAnchorChanged,
+    ContentChanged,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivityCaptureSignal {
+    pub sequence: i64,
+    pub occurred_at_ms: i64,
+    pub reason: ActivityCaptureTransitionReason,
+    pub suppressed_snapshot_count: i32,
+    pub fingerprint: Option<String>,
+    pub snapshot: Option<ActivityCaptureSnapshot>,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, specta::Type)]
@@ -124,10 +132,8 @@ pub struct ActivityCaptureCapabilities {
 #[serde(tag = "type")]
 #[allow(clippy::large_enum_variant)]
 pub enum ActivityCapturePluginEvent {
-    #[serde(rename = "activityCaptureTransition")]
-    Transition {
-        transition: ActivityCaptureTransition,
-    },
+    #[serde(rename = "activityCaptureSignal")]
+    Signal { signal: ActivityCaptureSignal },
     #[serde(rename = "activityCaptureError")]
     Error {
         kind: ActivityCaptureErrorKind,
@@ -246,22 +252,45 @@ impl From<core::Snapshot> for ActivityCaptureSnapshot {
     }
 }
 
-impl From<core::Event> for ActivityCaptureEvent {
-    fn from(value: core::Event) -> Self {
+impl From<core::Transition> for ActivityCaptureSignal {
+    fn from(value: core::Transition) -> Self {
+        let occurred_at_ms = value
+            .current
+            .as_ref()
+            .map(|event| system_time_to_unix_ms(event.started_at))
+            .or_else(|| {
+                value
+                    .previous
+                    .as_ref()
+                    .map(|event| system_time_to_unix_ms(event.ended_at))
+            })
+            .unwrap_or_default();
+        let fingerprint = value
+            .current
+            .as_ref()
+            .map(|event| event.fingerprint.clone());
         Self {
-            started_at_ms: system_time_to_unix_ms(value.started_at),
-            ended_at_ms: system_time_to_unix_ms(value.ended_at),
-            fingerprint: value.fingerprint,
-            snapshot: value.snapshot.into(),
+            occurred_at_ms,
+            reason: value.reason.into(),
+            sequence: value.sequence.min(i64::MAX as u64) as i64,
+            suppressed_snapshot_count: value.suppressed_snapshot_count.min(i32::MAX as u32) as i32,
+            fingerprint,
+            snapshot: value.current.map(|event| event.snapshot.into()),
         }
     }
 }
 
-impl From<core::Transition> for ActivityCaptureTransition {
-    fn from(value: core::Transition) -> Self {
-        Self {
-            previous: value.previous.map(Into::into),
-            current: value.current.map(Into::into),
+impl From<core::TransitionReason> for ActivityCaptureTransitionReason {
+    fn from(value: core::TransitionReason) -> Self {
+        match value {
+            core::TransitionReason::Started => Self::Started,
+            core::TransitionReason::Idle => Self::Idle,
+            core::TransitionReason::AppChanged => Self::AppChanged,
+            core::TransitionReason::ActivityKindChanged => Self::ActivityKindChanged,
+            core::TransitionReason::UrlChanged => Self::UrlChanged,
+            core::TransitionReason::TitleChanged => Self::TitleChanged,
+            core::TransitionReason::TextAnchorChanged => Self::TextAnchorChanged,
+            core::TransitionReason::ContentChanged => Self::ContentChanged,
         }
     }
 }

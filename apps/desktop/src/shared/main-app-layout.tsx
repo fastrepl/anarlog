@@ -4,15 +4,12 @@ import { useEffect } from "react";
 
 import { events as windowsEvents } from "@hypr/plugin-windows";
 
-import { useNewNote } from "./main/useNewNote";
+import { useNewNote } from "./useNewNote";
 
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
 import { NetworkProvider } from "~/contexts/network";
-import {
-  UndoDeleteKeyboardHandler,
-  UndoDeleteToast,
-} from "~/sidebar/toast/undo-delete-toast";
+import { UndoDeleteToast } from "~/sidebar/toast/undo-delete-toast";
 import { isTabInputSupported, useTabs } from "~/store/zustand/tabs";
 
 export default function MainAppLayout() {
@@ -33,7 +30,6 @@ function MainAppContent() {
   return (
     <>
       <Outlet />
-      <UndoDeleteKeyboardHandler />
       <UndoDeleteToast />
     </>
   );

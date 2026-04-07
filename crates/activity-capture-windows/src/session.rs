@@ -1,10 +1,6 @@
 #![cfg(target_os = "windows")]
 
-use std::{
-    ffi::OsString,
-    os::windows::ffi::OsStringExt,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use hypr_activity_capture_interface::{
     ActivityKind, AppIdKind, AppIdentity, CaptureCandidate, CaptureError, CapturePolicy,
@@ -13,10 +9,11 @@ use hypr_activity_capture_interface::{
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use windows::{
     Win32::{
+        Foundation::S_OK,
         Media::Audio::{
             AudioSessionStateActive, IAudioSessionControl, IAudioSessionControl2,
-            IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eConsole,
-            eRender,
+            IAudioSessionEnumerator, IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator,
+            MMDeviceEnumerator, eConsole, eRender,
         },
         System::Com::{CLSCTX_ALL, CoCreateInstance, CoTaskMemFree},
         UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId},
@@ -56,77 +53,58 @@ pub(crate) fn clear_last_selected_session(state: &Arc<Mutex<CaptureState>>) {
 }
 
 fn list_active_render_sessions() -> Result<Vec<SessionCandidate>, CaptureError> {
-    let enumerator = match create_device_enumerator() {
+    let enumerator = match DeviceEnumerator::new() {
         Ok(enumerator) => enumerator,
         Err(_) => return Ok(Vec::new()),
     };
-    let device = match get_default_render_device(&enumerator) {
+    let device = match enumerator.default_render_device() {
         Ok(device) => device,
         Err(_) => return Ok(Vec::new()),
     };
-    let manager = match get_session_manager(&device) {
+    let manager = match device.session_manager() {
         Ok(manager) => manager,
         Err(_) => return Ok(Vec::new()),
     };
-    let sessions = match unsafe { manager.GetSessionEnumerator() } {
+    let sessions = match manager.session_enumerator() {
         Ok(sessions) => sessions,
         Err(_) => return Ok(Vec::new()),
     };
-    let session_count = unsafe { sessions.GetCount() }
-        .map_err(|error| CaptureError::platform(error.to_string()))?;
+    let session_count = sessions.len()?;
     let foreground_pid = foreground_process_id();
+    let mut system = System::new();
 
     let mut candidates = Vec::new();
     for index in 0..session_count {
-        let control = match unsafe { sessions.GetSession(index) } {
-            Ok(control) => control,
+        let session = match sessions.session(index) {
+            Ok(session) => session,
             Err(_) => continue,
         };
-        if !is_active_session(&control) {
+        if !session.is_active() {
             continue;
         }
 
-        let control2: IAudioSessionControl2 = match control.cast() {
-            Ok(control2) => control2,
-            Err(_) => continue,
-        };
-        candidates.push(build_session_candidate(control, control2, foreground_pid));
+        candidates.push(build_session_candidate(
+            session,
+            foreground_pid,
+            &mut system,
+        ));
     }
 
     Ok(candidates)
 }
 
-fn create_device_enumerator() -> Result<IMMDeviceEnumerator, CaptureError> {
-    unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }
-        .map_err(|error| CaptureError::platform(error.to_string()))
-}
-
-fn get_default_render_device(enumerator: &IMMDeviceEnumerator) -> Result<IMMDevice, CaptureError> {
-    unsafe { enumerator.GetDefaultAudioEndpoint(eRender, eConsole) }
-        .map_err(|error| CaptureError::platform(error.to_string()))
-}
-
-fn get_session_manager(device: &IMMDevice) -> Result<IAudioSessionManager2, CaptureError> {
-    unsafe { device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) }
-        .map_err(|error| CaptureError::platform(error.to_string()))
-}
-
-fn is_active_session(control: &IAudioSessionControl) -> bool {
-    matches!(unsafe { control.GetState() }, Ok(state) if state == AudioSessionStateActive)
-}
-
 fn build_session_candidate(
-    control: IAudioSessionControl,
-    control2: IAudioSessionControl2,
+    session: AudioSession,
     foreground_pid: Option<u32>,
+    system: &mut System,
 ) -> SessionCandidate {
-    let pid = unsafe { control2.GetProcessId() }.unwrap_or_default();
-    let session_identifier = pwstr_to_string(unsafe { control2.GetSessionIdentifier() }.ok());
-    let session_instance_id =
-        pwstr_to_string(unsafe { control2.GetSessionInstanceIdentifier() }.ok());
-    let display_name = pwstr_to_string(unsafe { control.GetDisplayName() }.ok());
-    let is_system_sounds = unsafe { control2.IsSystemSoundsSession().0 == 0 };
+    let pid = session.process_id().unwrap_or_default();
+    let session_identifier = session.session_identifier();
+    let session_instance_id = session.session_instance_identifier();
+    let display_name = session.display_name();
+    let is_system_sounds = session.is_system_sounds();
     let app = resolve_process_identity(
+        system,
         pid,
         display_name.as_deref(),
         session_identifier.as_deref(),
@@ -245,36 +223,14 @@ fn candidate_priority_tuple(
     )
 }
 
-fn pwstr_to_string(value: Option<PWSTR>) -> Option<String> {
-    let value = value?;
-    if value.is_null() {
-        return None;
-    }
-
-    let len = (0..)
-        .take_while(|&index| unsafe { *value.0.add(index) != 0 })
-        .count();
-    let slice = unsafe { std::slice::from_raw_parts(value.0, len) };
-    let string = OsString::from_wide(slice)
-        .to_string_lossy()
-        .trim()
-        .to_string();
-
-    unsafe {
-        CoTaskMemFree(Some(value.0 as *const _));
-    }
-
-    (!string.is_empty()).then_some(string)
-}
-
 fn resolve_process_identity(
+    system: &mut System,
     pid: u32,
     display_name: Option<&str>,
     session_identifier: Option<&str>,
     is_system_sounds: bool,
 ) -> AppIdentity {
     if pid != 0 {
-        let mut system = System::new();
         let process_pid = Pid::from_u32(pid);
         system.refresh_processes(ProcessesToUpdate::Some(&[process_pid]), true);
 
@@ -341,5 +297,136 @@ fn resolve_process_identity(
         app_id_kind,
         bundle_id: None,
         executable_path: None,
+    }
+}
+
+struct DeviceEnumerator {
+    inner: IMMDeviceEnumerator,
+}
+
+impl DeviceEnumerator {
+    fn new() -> Result<Self, CaptureError> {
+        let inner = unsafe { CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL) }
+            .map_err(|error| CaptureError::platform(error.to_string()))?;
+        Ok(Self { inner })
+    }
+
+    fn default_render_device(&self) -> Result<RenderDevice, CaptureError> {
+        let inner = unsafe { self.inner.GetDefaultAudioEndpoint(eRender, eConsole) }
+            .map_err(|error| CaptureError::platform(error.to_string()))?;
+        Ok(RenderDevice { inner })
+    }
+}
+
+struct RenderDevice {
+    inner: IMMDevice,
+}
+
+impl RenderDevice {
+    fn session_manager(&self) -> Result<AudioSessionManager, CaptureError> {
+        let inner = unsafe {
+            self.inner
+                .Activate::<IAudioSessionManager2>(CLSCTX_ALL, None)
+        }
+        .map_err(|error| CaptureError::platform(error.to_string()))?;
+        Ok(AudioSessionManager { inner })
+    }
+}
+
+struct AudioSessionManager {
+    inner: IAudioSessionManager2,
+}
+
+impl AudioSessionManager {
+    fn session_enumerator(&self) -> Result<AudioSessionEnumerator, CaptureError> {
+        let inner = unsafe { self.inner.GetSessionEnumerator() }
+            .map_err(|error| CaptureError::platform(error.to_string()))?;
+        Ok(AudioSessionEnumerator { inner })
+    }
+}
+
+struct AudioSessionEnumerator {
+    inner: IAudioSessionEnumerator,
+}
+
+impl AudioSessionEnumerator {
+    fn len(&self) -> Result<i32, CaptureError> {
+        unsafe { self.inner.GetCount() }.map_err(|error| CaptureError::platform(error.to_string()))
+    }
+
+    fn session(&self, index: i32) -> Result<AudioSession, CaptureError> {
+        let control = unsafe { self.inner.GetSession(index) }
+            .map_err(|error| CaptureError::platform(error.to_string()))?;
+        AudioSession::new(control)
+    }
+}
+
+struct AudioSession {
+    control: IAudioSessionControl,
+    control2: IAudioSessionControl2,
+}
+
+impl AudioSession {
+    fn new(control: IAudioSessionControl) -> Result<Self, CaptureError> {
+        let control2 = control
+            .cast()
+            .map_err(|error| CaptureError::platform(error.to_string()))?;
+        Ok(Self { control, control2 })
+    }
+
+    fn is_active(&self) -> bool {
+        matches!(unsafe { self.control.GetState() }, Ok(state) if state == AudioSessionStateActive)
+    }
+
+    fn process_id(&self) -> Option<u32> {
+        unsafe { self.control2.GetProcessId() }.ok()
+    }
+
+    fn session_identifier(&self) -> Option<String> {
+        Self::co_task_mem_string(unsafe { self.control2.GetSessionIdentifier() })
+    }
+
+    fn session_instance_identifier(&self) -> Option<String> {
+        Self::co_task_mem_string(unsafe { self.control2.GetSessionInstanceIdentifier() })
+    }
+
+    fn display_name(&self) -> Option<String> {
+        Self::co_task_mem_string(unsafe { self.control.GetDisplayName() })
+    }
+
+    fn is_system_sounds(&self) -> bool {
+        unsafe { self.control2.IsSystemSoundsSession() == S_OK }
+    }
+
+    fn co_task_mem_string(value: windows::core::Result<PWSTR>) -> Option<String> {
+        CoTaskMemWideString::from_result(value).and_then(CoTaskMemWideString::into_string)
+    }
+}
+
+// Session metadata APIs hand back CoTaskMem-allocated PWSTRs, and PWSTR itself does not own them.
+struct CoTaskMemWideString(PWSTR);
+
+impl CoTaskMemWideString {
+    fn from_result(value: windows::core::Result<PWSTR>) -> Option<Self> {
+        value.ok().and_then(Self::from_raw)
+    }
+
+    fn from_raw(value: PWSTR) -> Option<Self> {
+        (!value.is_null()).then_some(Self(value))
+    }
+
+    fn into_string(self) -> Option<String> {
+        let string = unsafe { self.0.to_string() }.ok()?;
+        let string = string.trim();
+
+        (!string.is_empty()).then(|| string.to_string())
+    }
+}
+
+impl Drop for CoTaskMemWideString {
+    fn drop(&mut self) {
+        unsafe {
+            CoTaskMemFree(Some(self.0.0 as *const _));
+        }
     }
 }

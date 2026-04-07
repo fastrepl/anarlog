@@ -12,13 +12,13 @@
 
 @property --scroll-fade-bottom-start {
   syntax: "<percentage>";
-  initial-value: 94%;
+  initial-value: 100%;
   inherits: false;
 }
 
 @property --scroll-fade-bottom-end {
   syntax: "<percentage>";
-  initial-value: 99%;
+  initial-value: 100%;
   inherits: false;
 }
 
@@ -36,17 +36,22 @@
 
 @property --scroll-fade-right-start {
   syntax: "<percentage>";
-  initial-value: 94%;
+  initial-value: 100%;
   inherits: false;
 }
 
 @property --scroll-fade-right-end {
   syntax: "<percentage>";
-  initial-value: 99%;
+  initial-value: 100%;
   inherits: false;
 }
 
 @keyframes scroll-fade-y-top {
+  from {
+    --scroll-fade-top-start: 0%;
+    --scroll-fade-top-end: 0%;
+  }
+
   to {
     --scroll-fade-top-start: 0%;
     --scroll-fade-top-end: 6%;
@@ -54,6 +59,11 @@
 }
 
 @keyframes scroll-fade-y-bottom {
+  from {
+    --scroll-fade-bottom-start: 94%;
+    --scroll-fade-bottom-end: 99%;
+  }
+
   to {
     --scroll-fade-bottom-start: 100%;
     --scroll-fade-bottom-end: 100%;
@@ -61,6 +71,11 @@
 }
 
 @keyframes scroll-fade-x-left {
+  from {
+    --scroll-fade-left-start: 0%;
+    --scroll-fade-left-end: 0%;
+  }
+
   to {
     --scroll-fade-left-start: 0%;
     --scroll-fade-left-end: 5%;
@@ -68,6 +83,11 @@
 }
 
 @keyframes scroll-fade-x-right {
+  from {
+    --scroll-fade-right-start: 94%;
+    --scroll-fade-right-end: 99%;
+  }
+
   to {
     --scroll-fade-right-start: 100%;
     --scroll-fade-right-end: 100%;
@@ -78,8 +98,8 @@
   .scroll-fade-y {
     --scroll-fade-top-start: 0%;
     --scroll-fade-top-end: 0%;
-    --scroll-fade-bottom-start: 94%;
-    --scroll-fade-bottom-end: 99%;
+    --scroll-fade-bottom-start: 100%;
+    --scroll-fade-bottom-end: 100%;
     -webkit-mask-image: linear-gradient(
       to bottom,
       transparent var(--scroll-fade-top-start),
@@ -112,8 +132,8 @@
   .scroll-fade-x {
     --scroll-fade-left-start: 0%;
     --scroll-fade-left-end: 0%;
-    --scroll-fade-right-start: 94%;
-    --scroll-fade-right-end: 99%;
+    --scroll-fade-right-start: 100%;
+    --scroll-fade-right-end: 100%;
     -webkit-mask-image: linear-gradient(
       to right,
       transparent var(--scroll-fade-left-start),

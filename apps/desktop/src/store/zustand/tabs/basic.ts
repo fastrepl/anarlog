@@ -24,6 +24,7 @@ export type BasicActions = {
   openCurrent: (tab: TabInput) => void;
   openNew: (tab: TabInput, options?: { position?: "start" | "end" }) => void;
   select: (tab: Tab) => void;
+  clearSelection: () => void;
   selectNext: () => void;
   selectPrev: () => void;
   close: (tab: Tab) => void;
@@ -94,6 +95,13 @@ export const createBasicSlice = <
     if (tab.type === "sessions") {
       addRecentlyOpened(tab.id);
     }
+  },
+  clearSelection: () => {
+    const { tabs } = get();
+    set({
+      tabs: tabs.map((tab) => ({ ...tab, active: false })),
+      currentTab: null,
+    } as Partial<T>);
   },
   selectNext: () => {
     const { tabs, currentTab } = get();

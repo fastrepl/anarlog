@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("./tab-chrome", () => ({
-  MainTabChrome: () => <div data-testid="main-tab-chrome" />,
+vi.mock("~/main/tab-chrome", () => ({
+  ClassicMainTabChrome: () => <div data-testid="main-tab-chrome" />,
 }));
 
-vi.mock("./tab-content", () => ({
-  MainTabContent: ({ tab }: { tab: { type: string } }) => (
+vi.mock("~/main/tab-content", () => ({
+  ClassicMainTabContent: ({ tab }: { tab: { type: string } }) => (
     <div data-testid="main-tab-content">{tab.type}</div>
   ),
 }));
@@ -26,11 +26,11 @@ vi.mock("~/store/zustand/tabs", () => ({
   ),
 }));
 
-import { Body } from "./body";
+import { ClassicMainBody } from "~/main/body";
 
-describe("Body", () => {
+describe("ClassicMainBody", () => {
   it("renders the extracted tab chrome and current tab content", () => {
-    render(<Body />);
+    render(<ClassicMainBody />);
 
     expect(screen.getByTestId("main-tab-chrome")).toBeTruthy();
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
@@ -49,7 +49,7 @@ describe("Body", () => {
         currentTab: null,
       })) as typeof useTabs);
 
-    const { container } = render(<Body />);
+    const { container } = render(<ClassicMainBody />);
 
     expect(container.firstChild).toBeNull();
   });

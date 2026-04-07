@@ -5,6 +5,7 @@ import { cn } from "@hypr/utils";
 
 import { ExpandToggle } from "./expand-toggle";
 
+import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
 import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
 import { SegmentKeyUtils, type Segment } from "~/stt/live-segment";
@@ -42,15 +43,7 @@ export function LiveTranscriptFooter({
   }, [labelContext, segments, store]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const lastSegment = segments[segments.length - 1];
-  const lastSegmentText = lastSegment ? getSegmentText(lastSegment) : null;
-  const lastSegmentLabel = lastSegment
-    ? SegmentKeyUtils.renderLabel(
-        lastSegment.key,
-        labelContext,
-        speakerLabelManager,
-      )
-    : null;
+  const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
 
   return (
     <div className="relative w-full pt-3 select-none">
@@ -70,13 +63,9 @@ export function LiveTranscriptFooter({
           ])}
         >
           <div className="min-w-0 flex-1 select-none">
-            {lastSegmentText ? (
-              <p className="truncate text-xs text-neutral-600">
-                <span className="font-medium text-neutral-500">
-                  {lastSegmentLabel}
-                </span>
-                {"  "}
-                {lastSegmentText}
+            {previewText ? (
+              <p className="truncate text-left text-xs text-neutral-600 [direction:rtl]">
+                {previewText}
               </p>
             ) : (
               <span className="text-xs text-neutral-400">Listening...</span>
@@ -95,21 +84,15 @@ export function LiveTranscriptFooter({
               </span>
             ) : (
               segments.map((segment, index) => (
-                <div
+                <TranscriptSegmentRow
                   key={getSegmentIdentity(segment, index)}
-                  className="grid min-w-0 grid-cols-[auto_1fr] items-baseline gap-x-2"
-                >
-                  <span className="text-[11px] font-medium whitespace-nowrap text-neutral-400">
-                    {SegmentKeyUtils.renderLabel(
-                      segment.key,
-                      labelContext,
-                      speakerLabelManager,
-                    )}
-                  </span>
-                  <span className="text-xs text-neutral-700">
-                    {getSegmentText(segment)}
-                  </span>
-                </div>
+                  segment={segment}
+                  label={SegmentKeyUtils.renderLabel(
+                    segment.key,
+                    labelContext,
+                    speakerLabelManager,
+                  )}
+                />
               ))
             )}
           </div>
@@ -185,4 +168,50 @@ function getSegmentText(segment: Segment): string {
     .join("")
     .trim();
   return text || "…";
+}
+
+function getTranscriptPreview(segments: Segment[]): string | null {
+  const transcript = segments
+    .map((segment) =>
+      segment.words
+        .map((word) => word.text)
+        .join("")
+        .trim(),
+    )
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (!transcript) {
+    return null;
+  }
+
+  return transcript.length > 500 ? transcript.slice(-500) : transcript;
+}
+
+function TranscriptSegmentRow({
+  segment,
+  label,
+}: {
+  segment: Segment;
+  label: string;
+}) {
+  const color = getSegmentColor(segment.key);
+
+  return (
+    <div className="grid min-w-0 grid-cols-[92px_1fr] items-start gap-x-3">
+      <span
+        className="mt-0.5 inline-flex min-h-5 items-center justify-start rounded-full px-2 text-[11px] font-medium whitespace-nowrap"
+        style={{
+          backgroundColor: `${color}1A`,
+          color,
+        }}
+      >
+        {label}
+      </span>
+      <span className="min-w-0 text-xs leading-5 text-neutral-700">
+        {getSegmentText(segment)}
+      </span>
+    </div>
+  );
 }

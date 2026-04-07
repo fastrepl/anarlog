@@ -11,7 +11,7 @@ use crate::{
     app_profile::AppProfile,
     ax::{
         TextAnchorCapture, bool_attribute, collect_generic_visible_text, collect_text_anchor,
-        copy_element_attribute, string_attribute,
+        copy_element_attribute, enable_manual_accessibility, string_attribute,
     },
     frontmost,
     handlers::{CaptureContext, CaptureTextMode, resolve_capture_plan},
@@ -75,6 +75,9 @@ impl MacosCapture {
             ensure_trusted()?;
 
             let ax_application = unsafe { AXUIElement::new_application(pid) };
+            if app_profile.prefers_manual_accessibility() {
+                enable_manual_accessibility(&ax_application);
+            }
             let focused_window = copy_element_attribute(&ax_application, "AXFocusedWindow")
                 .or_else(|_| copy_element_attribute(&ax_application, "AXMainWindow"))?;
 

@@ -12,7 +12,6 @@ import {
   SmartphoneIcon,
   SparklesIcon,
   TicketIcon,
-  TriangleAlertIcon,
   UserIcon,
 } from "lucide-react";
 import { useCallback } from "react";
@@ -63,14 +62,7 @@ const GROUPS: {
 
 const DONT_USE_THIS_GROUP = {
   label: "Do not use",
-  items: [
-    {
-      id: "dont-use-this" as SettingsTab,
-      label: "General",
-      icon: TriangleAlertIcon,
-    },
-    { id: "todo" as SettingsTab, label: "Ticket", icon: TicketIcon },
-  ],
+  items: [{ id: "todo" as SettingsTab, label: "Ticket", icon: TicketIcon }],
 };
 
 export function SettingsNav() {

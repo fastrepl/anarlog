@@ -39,6 +39,7 @@ import { Route as ViewEnterpriseRouteImport } from './routes/_view/enterprise'
 import { Route as ViewChooseRouteImport } from './routes/_view/choose'
 import { Route as ViewBrandRouteImport } from './routes/_view/brand'
 import { Route as ViewAboutRouteImport } from './routes/_view/about'
+import { Route as ViewLegalRouteRouteImport } from './routes/_view/legal/route'
 import { Route as ViewDocsRouteRouteImport } from './routes/_view/docs/route'
 import { Route as ViewCompanyHandbookRouteRouteImport } from './routes/_view/company-handbook/route'
 import { Route as ViewAppRouteRouteImport } from './routes/_view/app/route'
@@ -50,6 +51,7 @@ import { Route as AdminCrmIndexRouteImport } from './routes/admin/crm/index'
 import { Route as AdminCollectionsIndexRouteImport } from './routes/admin/collections/index'
 import { Route as AdminBrandingIndexRouteImport } from './routes/admin/branding/index'
 import { Route as ViewUpdatesIndexRouteImport } from './routes/_view/updates/index'
+import { Route as ViewSolutionsIndexRouteImport } from './routes/_view/solutions/index'
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
@@ -293,6 +295,11 @@ const ViewAboutRoute = ViewAboutRouteImport.update({
   path: '/about',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewLegalRouteRoute = ViewLegalRouteRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewDocsRouteRoute = ViewDocsRouteRouteImport.update({
   id: '/docs',
   path: '/docs',
@@ -349,15 +356,20 @@ const ViewUpdatesIndexRoute = ViewUpdatesIndexRouteImport.update({
   path: '/updates/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewSolutionsIndexRoute = ViewSolutionsIndexRouteImport.update({
+  id: '/solutions/',
+  path: '/solutions/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewPressKitIndexRoute = ViewPressKitIndexRouteImport.update({
   id: '/press-kit/',
   path: '/press-kit/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewLegalIndexRoute = ViewLegalIndexRouteImport.update({
-  id: '/legal/',
-  path: '/legal/',
-  getParentRoute: () => ViewRouteRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => ViewLegalRouteRoute,
 } as any)
 const ViewK6ReportsIndexRoute = ViewK6ReportsIndexRouteImport.update({
   id: '/k6-reports/',
@@ -522,9 +534,9 @@ const ViewPressKitAppRoute = ViewPressKitAppRouteImport.update({
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewLegalSlugRoute = ViewLegalSlugRouteImport.update({
-  id: '/legal/$slug',
-  path: '/legal/$slug',
-  getParentRoute: () => ViewRouteRoute,
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => ViewLegalRouteRoute,
 } as any)
 const ViewK6ReportsIdRoute = ViewK6ReportsIdRouteImport.update({
   id: '/k6-reports/$id',
@@ -851,6 +863,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof ViewAppRouteRouteWithChildren
   '/company-handbook': typeof ViewCompanyHandbookRouteRouteWithChildren
   '/docs': typeof ViewDocsRouteRouteWithChildren
+  '/legal': typeof ViewLegalRouteRouteWithChildren
   '/about': typeof ViewAboutRoute
   '/brand': typeof ViewBrandRoute
   '/choose': typeof ViewChooseRoute
@@ -921,6 +934,7 @@ export interface FileRoutesByFullPath {
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
+  '/solutions/': typeof ViewSolutionsIndexRoute
   '/updates/': typeof ViewUpdatesIndexRoute
   '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
@@ -1052,6 +1066,7 @@ export interface FileRoutesByTo {
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
+  '/solutions': typeof ViewSolutionsIndexRoute
   '/updates': typeof ViewUpdatesIndexRoute
   '/admin/branding': typeof AdminBrandingIndexRoute
   '/admin/collections': typeof AdminCollectionsIndexRoute
@@ -1118,6 +1133,7 @@ export interface FileRoutesById {
   '/_view/app': typeof ViewAppRouteRouteWithChildren
   '/_view/company-handbook': typeof ViewCompanyHandbookRouteRouteWithChildren
   '/_view/docs': typeof ViewDocsRouteRouteWithChildren
+  '/_view/legal': typeof ViewLegalRouteRouteWithChildren
   '/_view/about': typeof ViewAboutRoute
   '/_view/brand': typeof ViewBrandRoute
   '/_view/choose': typeof ViewChooseRoute
@@ -1189,6 +1205,7 @@ export interface FileRoutesById {
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
+  '/_view/solutions/': typeof ViewSolutionsIndexRoute
   '/_view/updates/': typeof ViewUpdatesIndexRoute
   '/admin/branding/': typeof AdminBrandingIndexRoute
   '/admin/collections/': typeof AdminCollectionsIndexRoute
@@ -1256,6 +1273,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/company-handbook'
     | '/docs'
+    | '/legal'
     | '/about'
     | '/brand'
     | '/choose'
@@ -1326,6 +1344,7 @@ export interface FileRouteTypes {
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
+    | '/solutions/'
     | '/updates/'
     | '/admin/branding/'
     | '/admin/collections/'
@@ -1457,6 +1476,7 @@ export interface FileRouteTypes {
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
+    | '/solutions'
     | '/updates'
     | '/admin/branding'
     | '/admin/collections'
@@ -1522,6 +1542,7 @@ export interface FileRouteTypes {
     | '/_view/app'
     | '/_view/company-handbook'
     | '/_view/docs'
+    | '/_view/legal'
     | '/_view/about'
     | '/_view/brand'
     | '/_view/choose'
@@ -1593,6 +1614,7 @@ export interface FileRouteTypes {
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
+    | '/_view/solutions/'
     | '/_view/updates/'
     | '/admin/branding/'
     | '/admin/collections/'
@@ -1907,6 +1929,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewAboutRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/legal': {
+      id: '/_view/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof ViewLegalRouteRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/docs': {
       id: '/_view/docs'
       path: '/docs'
@@ -1984,6 +2013,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewUpdatesIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/solutions/': {
+      id: '/_view/solutions/'
+      path: '/solutions'
+      fullPath: '/solutions/'
+      preLoaderRoute: typeof ViewSolutionsIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/press-kit/': {
       id: '/_view/press-kit/'
       path: '/press-kit'
@@ -1993,10 +2029,10 @@ declare module '@tanstack/react-router' {
     }
     '/_view/legal/': {
       id: '/_view/legal/'
-      path: '/legal'
+      path: '/'
       fullPath: '/legal/'
       preLoaderRoute: typeof ViewLegalIndexRouteImport
-      parentRoute: typeof ViewRouteRoute
+      parentRoute: typeof ViewLegalRouteRoute
     }
     '/_view/k6-reports/': {
       id: '/_view/k6-reports/'
@@ -2224,10 +2260,10 @@ declare module '@tanstack/react-router' {
     }
     '/_view/legal/$slug': {
       id: '/_view/legal/$slug'
-      path: '/legal/$slug'
+      path: '/$slug'
       fullPath: '/legal/$slug'
       preLoaderRoute: typeof ViewLegalSlugRouteImport
-      parentRoute: typeof ViewRouteRoute
+      parentRoute: typeof ViewLegalRouteRoute
     }
     '/_view/k6-reports/$id': {
       id: '/_view/k6-reports/$id'
@@ -2690,10 +2726,25 @@ const ViewDocsRouteRouteWithChildren = ViewDocsRouteRoute._addFileChildren(
   ViewDocsRouteRouteChildren,
 )
 
+interface ViewLegalRouteRouteChildren {
+  ViewLegalSlugRoute: typeof ViewLegalSlugRoute
+  ViewLegalIndexRoute: typeof ViewLegalIndexRoute
+}
+
+const ViewLegalRouteRouteChildren: ViewLegalRouteRouteChildren = {
+  ViewLegalSlugRoute: ViewLegalSlugRoute,
+  ViewLegalIndexRoute: ViewLegalIndexRoute,
+}
+
+const ViewLegalRouteRouteWithChildren = ViewLegalRouteRoute._addFileChildren(
+  ViewLegalRouteRouteChildren,
+)
+
 interface ViewRouteRouteChildren {
   ViewAppRouteRoute: typeof ViewAppRouteRouteWithChildren
   ViewCompanyHandbookRouteRoute: typeof ViewCompanyHandbookRouteRouteWithChildren
   ViewDocsRouteRoute: typeof ViewDocsRouteRouteWithChildren
+  ViewLegalRouteRoute: typeof ViewLegalRouteRouteWithChildren
   ViewAboutRoute: typeof ViewAboutRoute
   ViewBrandRoute: typeof ViewBrandRoute
   ViewChooseRoute: typeof ViewChooseRoute
@@ -2718,7 +2769,6 @@ interface ViewRouteRouteChildren {
   ViewDownloadLinuxDebRoute: typeof ViewDownloadLinuxDebRoute
   ViewDownloadWindowsRoute: typeof ViewDownloadWindowsRoute
   ViewK6ReportsIdRoute: typeof ViewK6ReportsIdRoute
-  ViewLegalSlugRoute: typeof ViewLegalSlugRoute
   ViewPressKitAppRoute: typeof ViewPressKitAppRoute
   ViewProductAiAssistantRoute: typeof ViewProductAiAssistantRoute
   ViewProductAiNotetakingRoute: typeof ViewProductAiNotetakingRoute
@@ -2745,8 +2795,8 @@ interface ViewRouteRouteChildren {
   ViewEvalIndexRoute: typeof ViewEvalIndexRoute
   ViewGalleryIndexRoute: typeof ViewGalleryIndexRoute
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
-  ViewLegalIndexRoute: typeof ViewLegalIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
+  ViewSolutionsIndexRoute: typeof ViewSolutionsIndexRoute
   ViewUpdatesIndexRoute: typeof ViewUpdatesIndexRoute
   ViewDownloadNightlyAppleIntelRoute: typeof ViewDownloadNightlyAppleIntelRoute
   ViewDownloadNightlyAppleSiliconRoute: typeof ViewDownloadNightlyAppleSiliconRoute
@@ -2763,6 +2813,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewAppRouteRoute: ViewAppRouteRouteWithChildren,
   ViewCompanyHandbookRouteRoute: ViewCompanyHandbookRouteRouteWithChildren,
   ViewDocsRouteRoute: ViewDocsRouteRouteWithChildren,
+  ViewLegalRouteRoute: ViewLegalRouteRouteWithChildren,
   ViewAboutRoute: ViewAboutRoute,
   ViewBrandRoute: ViewBrandRoute,
   ViewChooseRoute: ViewChooseRoute,
@@ -2787,7 +2838,6 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadLinuxDebRoute: ViewDownloadLinuxDebRoute,
   ViewDownloadWindowsRoute: ViewDownloadWindowsRoute,
   ViewK6ReportsIdRoute: ViewK6ReportsIdRoute,
-  ViewLegalSlugRoute: ViewLegalSlugRoute,
   ViewPressKitAppRoute: ViewPressKitAppRoute,
   ViewProductAiAssistantRoute: ViewProductAiAssistantRoute,
   ViewProductAiNotetakingRoute: ViewProductAiNotetakingRoute,
@@ -2814,8 +2864,8 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewEvalIndexRoute: ViewEvalIndexRoute,
   ViewGalleryIndexRoute: ViewGalleryIndexRoute,
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
-  ViewLegalIndexRoute: ViewLegalIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
+  ViewSolutionsIndexRoute: ViewSolutionsIndexRoute,
   ViewUpdatesIndexRoute: ViewUpdatesIndexRoute,
   ViewDownloadNightlyAppleIntelRoute: ViewDownloadNightlyAppleIntelRoute,
   ViewDownloadNightlyAppleSiliconRoute: ViewDownloadNightlyAppleSiliconRoute,

@@ -212,10 +212,10 @@ impl AppWindow {
     }
 
     fn finalize_show(&self, window: &WebviewWindow) -> Result<(), crate::Error> {
-        if let Self::Main = self {
-            use tauri_plugin_window_state::{StateFlags, WindowExt};
-            let _ = window.restore_state(StateFlags::SIZE);
-        }
+        use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+        let _ = self;
+        let _ = window.restore_state(StateFlags::SIZE);
 
         window.show()?;
         window.set_focus()?;

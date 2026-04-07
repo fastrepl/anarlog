@@ -768,9 +768,6 @@ function MockChatPanel({ onClose }: { onClose: () => void }) {
                 ])}
               >
                 <span>Send</span>
-                <kbd className="rounded bg-neutral-700 px-1 py-0.5 text-[10px] text-neutral-300">
-                  ⌘↩
-                </kbd>
               </div>
             </div>
           </div>

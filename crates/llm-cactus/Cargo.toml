@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 hypr-cactus = { workspace = true }
+hypr-cactus-model = { workspace = true }
 hypr-llm-types = { workspace = true }
 hypr-model-manager = { workspace = true, features = ["cactus"] }
 

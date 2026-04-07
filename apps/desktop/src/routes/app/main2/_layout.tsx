@@ -1,62 +1,18 @@
-import {
-  createFileRoute,
-  Outlet,
-  useRouteContext,
-} from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-import { AITaskProvider } from "~/ai/contexts";
-import { NotificationProvider } from "~/contexts/notifications";
-import { ShellProvider } from "~/contexts/shell";
-import { ToolRegistryProvider } from "~/contexts/tool";
-import { SearchEngineProvider } from "~/search/contexts/engine";
-import { SearchUIProvider } from "~/search/contexts/ui";
-import { useTabs } from "~/store/zustand/tabs";
+import { Main2Layout } from "~/main2/layout";
+import { useMain2Lifecycle } from "~/main2/lifecycle";
 
 export const Route = createFileRoute("/app/main2/_layout")({
   component: Component,
 });
 
 function Component() {
-  const { persistedStore, aiTaskStore, toolRegistry } = useRouteContext({
-    from: "__root__",
-  });
-  const { openNew, registerOnEmpty } = useTabs();
-  const hasOpenedInitialTab = useRef(false);
-
-  useEffect(() => {
-    if (hasOpenedInitialTab.current) {
-      return;
-    }
-
-    hasOpenedInitialTab.current = true;
-
-    if (useTabs.getState().tabs.length === 0) {
-      openNew({ type: "daily" });
-    }
-
-    registerOnEmpty(() => {
-      openNew({ type: "daily" });
-    });
-  }, [openNew, registerOnEmpty]);
-
-  if (!aiTaskStore) {
-    return null;
-  }
+  useMain2Lifecycle();
 
   return (
-    <SearchEngineProvider store={persistedStore}>
-      <SearchUIProvider>
-        <ShellProvider>
-          <ToolRegistryProvider registry={toolRegistry}>
-            <AITaskProvider store={aiTaskStore}>
-              <NotificationProvider>
-                <Outlet />
-              </NotificationProvider>
-            </AITaskProvider>
-          </ToolRegistryProvider>
-        </ShellProvider>
-      </SearchUIProvider>
-    </SearchEngineProvider>
+    <Main2Layout>
+      <Outlet />
+    </Main2Layout>
   );
 }

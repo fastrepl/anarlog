@@ -131,6 +131,7 @@ export const RawEditor = forwardRef<
       placeholderComponent={Placeholder}
       onNavigateToTitle={onNavigateToTitle}
       fileHandlerConfig={fileHandlerConfig}
+      taskSource={{ type: "session_raw_note", id: sessionId }}
     />
   );
 });

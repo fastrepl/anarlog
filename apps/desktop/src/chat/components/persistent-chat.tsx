@@ -117,15 +117,16 @@ export function PersistentChatPanel({
       {isFloating && (
         <motion.div
           className="fixed inset-0 z-100 flex items-end justify-center px-4 pb-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              chat.sendEvent({ type: "CLOSE" });
+            }
+          }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <div
-            className="absolute inset-0 bg-black/20"
-            onClick={() => chat.sendEvent({ type: "CLOSE" })}
-          />
           <motion.div
             className={cn([
               "relative flex flex-col overflow-hidden",

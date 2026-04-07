@@ -34,6 +34,14 @@ vi.mock("@hypr/plugin-analytics", () => ({
 
 vi.mock("./types/tauri.gen", () => ({
   commands: {
+    getOnboardingNeeded: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: false }),
+    getCharV1p1Preview: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: false }),
+    getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
+    setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     getRecentlyOpenedSessions: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: null }),

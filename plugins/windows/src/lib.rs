@@ -68,8 +68,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::window_navigate,
             commands::window_emit_navigate,
             commands::window_is_exists,
-            commands::control_set_always_on_top,
-            commands::control_set_opacity,
             commands::window_set_frame_animated,
             commands::window_save_frame,
             commands::window_restore_frame_animated,

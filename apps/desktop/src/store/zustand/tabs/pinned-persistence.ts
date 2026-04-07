@@ -29,9 +29,17 @@ const serializePinnedTabs = (tabs: Tab[]): string => {
 
 const deserializePinnedTabs = (data: string): PinnedTab[] => {
   try {
-    const parsed = JSON.parse(data) as PinnedTab[];
+    const parsed = JSON.parse(data) as unknown[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
     return parsed.flatMap((tab) => {
-      if ((tab as any).type === "ai") {
+      if (!tab || typeof tab !== "object") {
+        return [];
+      }
+
+      if ((tab as { type?: string }).type === "ai") {
         return {
           ...tab,
           type: "settings",
@@ -40,11 +48,29 @@ const deserializePinnedTabs = (data: string): PinnedTab[] => {
       }
 
       const tabType = (tab as { type: string }).type;
-      if (tabType === "extension" || tabType === "extensions") {
-        return [];
+      switch (tabType) {
+        case "sessions":
+        case "contacts":
+        case "templates":
+        case "prompts":
+        case "chat_shortcuts":
+        case "humans":
+        case "organizations":
+        case "folders":
+        case "calendar":
+        case "changelog":
+        case "settings":
+        case "chat_support":
+        case "onboarding":
+        case "edit":
+          return [tab as PinnedTab];
+        case "empty":
+        case "daily":
+        case "extension":
+        case "extensions":
+        default:
+          return [];
       }
-
-      return [tab];
     });
   } catch {
     return [];

@@ -13,7 +13,9 @@ use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 use tracing::error;
-use wasapi::{Direction, SampleType, ShareMode, StreamMode, WaveFormat, get_default_device};
+use wasapi::{
+    DeviceEnumerator, Direction, SampleType, ShareMode, StreamMode, WaveFormat, initialize_mta,
+};
 
 use crate::async_ring::RingbufAsyncReader;
 use crate::rt_ring::{PushStats, push_f32le_bytes_first_channel_to_ringbuf};
@@ -132,7 +134,14 @@ fn capture_audio_loop(
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
     let setup_result = (|| -> Result<_> {
-        let device = get_default_device(&Direction::Render)
+        initialize_mta()
+            .ok()
+            .context("Failed to initialize WASAPI COM apartment")?;
+
+        let enumerator =
+            DeviceEnumerator::new().context("Failed to create WASAPI device enumerator")?;
+        let device = enumerator
+            .get_default_device(&Direction::Render)
             .context("Failed to get default render device")?;
         let mut audio_client = device
             .get_iaudioclient()

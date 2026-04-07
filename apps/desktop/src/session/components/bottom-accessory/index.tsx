@@ -44,7 +44,7 @@ export function useSessionBottomAccessory({
     }
   }, [isBatching]);
 
-  const showPostSession = isInactive;
+  const showPostSession = isInactive && (hasAudio || hasTranscript);
   const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
     ? "live"
     : isFinalizing
