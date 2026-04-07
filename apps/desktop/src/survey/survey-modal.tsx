@@ -3,6 +3,7 @@ import { CheckIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   Dialog,
@@ -159,7 +160,7 @@ export function SurveyModal({
       return;
     }
 
-    if (hasChecked.current || !isTauri()) {
+    if (hasChecked.current || !isTauri() || getCurrentWebviewWindowLabel() !== "main") {
       return;
     }
     hasChecked.current = true;
