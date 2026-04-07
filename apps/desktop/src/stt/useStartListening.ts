@@ -1,15 +1,16 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
-import type {
-  RecordingMode,
-  TranscriptionMode,
-} from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
+import {
+  canRunBatchTranscription,
+  isStoppedTranscriptionError,
+  useRunBatch,
+} from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { getEnhancerService } from "~/services/enhancer";
@@ -27,58 +28,71 @@ import { applyLiveTranscriptDelta, parseTranscriptWords } from "~/stt/utils";
 const MIN_DURATION_SECONDS = 10;
 const MIN_WORD_COUNT = 5;
 
+export function getPostCaptureAction(
+  details: {
+    audioPath: string | null;
+    liveTranscriptionActive: boolean;
+  },
+  canRunBatch: boolean,
+) {
+  if (details.liveTranscriptionActive) {
+    return "enhance_only" as const;
+  }
+
+  if (!!details.audioPath && canRunBatch) {
+    return "batch_then_enhance" as const;
+  }
+
+  return "none" as const;
+}
+
 export function useStartListening(
   sessionId: string,
   options?: {
-    transcriptionMode?: TranscriptionMode;
-    recordingMode?: RecordingMode;
+    liveTranscription?: boolean;
   },
 ) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
   const indexes = main.UI.useIndexes(main.STORE_ID);
 
-  const record_enabled = useConfigValue("save_recordings");
   const languages = useConfigValue("spoken_languages");
 
   const start = useListener((state) => state.start);
-  const { conn } = useSTTConnection();
+  const { conn, isLocalModel } = useSTTConnection();
+  const runBatch = useRunBatch(sessionId);
 
   const keywords = useKeywords(sessionId);
-  const transcriptionMode = options?.transcriptionMode ?? "live";
-  const recordingMode =
-    options?.recordingMode ?? (record_enabled ? "disk" : "memory");
+  const requestedLiveTranscription =
+    options?.liveTranscription ?? !isLocalModel;
+  const liveTranscription = requestedLiveTranscription && !!conn;
+  const runBatchRef = useRef(runBatch);
+  const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  runBatchRef.current = runBatch;
+  canRunBatchRef.current = canRunBatchTranscription(conn);
 
   const startListening = useCallback(async () => {
-    if (!conn || !store) {
-      console.error("no_stt_connection");
+    if (!store) {
       return;
     }
 
-    const transcriptId = id();
+    let transcriptId: string | null = null;
     const startedAt = Date.now();
     const memoMd = store.getCell("sessions", sessionId, "raw_md");
-    const transcriptRow = {
-      session_id: sessionId,
-      user_id: user_id ?? "",
-      created_at: new Date().toISOString(),
-      started_at: startedAt,
-      words: "[]",
-      speaker_hints: "[]",
-      memo_md: typeof memoMd === "string" ? memoMd : "",
-    } satisfies TranscriptStorage;
+    const createdAt = new Date().toISOString();
 
-    store.setRow("transcripts", transcriptId, transcriptRow);
-
-    const onStopped: OnStoppedCallback = (_sessionId, durationSeconds) => {
-      const words = parseTranscriptWords(store, transcriptId);
+    const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+      const words =
+        transcriptId == null ? [] : parseTranscriptWords(store, transcriptId);
 
       if (
-        durationSeconds < MIN_DURATION_SECONDS &&
+        details.durationSeconds < MIN_DURATION_SECONDS &&
         words.length < MIN_WORD_COUNT
       ) {
         store.transaction(() => {
-          store.delRow("transcripts", transcriptId);
+          if (transcriptId) {
+            store.delRow("transcripts", transcriptId);
+          }
 
           if (indexes) {
             const enhancedNoteIds = indexes.getSliceRowIds(
@@ -107,6 +121,30 @@ export function useStartListening(
         return;
       }
 
+      const postCaptureAction = getPostCaptureAction(
+        details,
+        canRunBatchRef.current,
+      );
+
+      if (postCaptureAction === "batch_then_enhance") {
+        try {
+          await runBatchRef.current(details.audioPath!);
+        } catch (error) {
+          if (isStoppedTranscriptionError(error)) {
+            return;
+          }
+          console.error(
+            "[listener] failed to run post-capture transcription",
+            error,
+          );
+          return;
+        }
+      }
+
+      if (postCaptureAction === "none") {
+        return;
+      }
+
       getEnhancerService()?.queueAutoEnhance(sessionId);
     };
 
@@ -115,8 +153,23 @@ export function useStartListening(
         return;
       }
 
+      if (!transcriptId) {
+        transcriptId = id();
+        const transcriptRow = {
+          session_id: sessionId,
+          user_id: user_id ?? "",
+          created_at: createdAt,
+          started_at: startedAt,
+          words: "[]",
+          speaker_hints: "[]",
+          memo_md: typeof memoMd === "string" ? memoMd : "",
+        } satisfies TranscriptStorage;
+
+        store.setRow("transcripts", transcriptId, transcriptRow);
+      }
+
       store.transaction(() => {
-        applyLiveTranscriptDelta(store, transcriptId, delta);
+        applyLiveTranscriptDelta(store, transcriptId!, delta);
       });
     };
 
@@ -146,11 +199,10 @@ export function useStartListening(
         session_id: sessionId,
         languages,
         onboarding: false,
-        transcription_mode: transcriptionMode,
-        recording_mode: recordingMode,
-        model: conn.model,
-        base_url: conn.baseUrl,
-        api_key: conn.apiKey,
+        live_transcription: liveTranscription,
+        model: conn?.model ?? "",
+        base_url: conn?.baseUrl ?? "",
+        api_key: conn?.apiKey ?? "",
         keywords,
         participant_human_ids: participantHumanIds,
         self_human_id: typeof user_id === "string" ? user_id : null,
@@ -162,15 +214,21 @@ export function useStartListening(
     );
 
     if (!started) {
-      store.delRow("transcripts", transcriptId);
+      if (transcriptId) {
+        store.delRow("transcripts", transcriptId);
+      }
       return;
     }
 
     void analyticsCommands.event({
       event: "session_started",
       has_calendar_event: !!getSessionEventById(store, sessionId),
-      stt_provider: conn.provider,
-      stt_model: conn.model,
+      ...(conn
+        ? {
+            stt_provider: conn.provider,
+            stt_model: conn.model,
+          }
+        : {}),
     });
   }, [
     conn,
@@ -181,8 +239,7 @@ export function useStartListening(
     keywords,
     user_id,
     languages,
-    recordingMode,
-    transcriptionMode,
+    liveTranscription,
   ]);
 
   return startListening;

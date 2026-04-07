@@ -29,9 +29,8 @@ export function Transcript({
       )}
       {screen.kind === "batch_fallback" && (
         <BatchState
-          requestedTranscriptionMode={screen.requestedTranscriptionMode}
+          requestedLiveTranscription={screen.requestedLiveTranscription}
           error={screen.error}
-          recordingMode={screen.recordingMode}
         />
       )}
       {screen.kind === "listening" && (

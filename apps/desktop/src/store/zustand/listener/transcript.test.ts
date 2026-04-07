@@ -54,7 +54,9 @@ describe("transcript slice", () => {
   });
 
   test("groups partial snapshot by channel and reindexes hints", () => {
-    store.getState().handleTranscriptDelta(createDelta({ 0: 0, 2: 1 }));
+    store
+      .getState()
+      .handleTranscriptDelta("session-1", createDelta({ 0: 0, 2: 1 }));
 
     expect(
       store.getState().partialWordsByChannel[0]?.map((word) => word.text),
@@ -87,7 +89,7 @@ describe("transcript slice", () => {
 
   test("forwards persisted transcript deltas to the callback", () => {
     const persist = vi.fn();
-    store.getState().setTranscriptPersist(persist);
+    store.getState().setTranscriptPersist("session-1", persist);
 
     const delta: LiveTranscriptDelta = {
       new_words: [
@@ -105,7 +107,7 @@ describe("transcript slice", () => {
       partials: [],
     };
 
-    store.getState().handleTranscriptDelta(delta);
+    store.getState().handleTranscriptDelta("session-1", delta);
 
     expect(persist).toHaveBeenCalledTimes(1);
     expect(persist).toHaveBeenCalledWith(delta);
@@ -114,15 +116,19 @@ describe("transcript slice", () => {
   });
 
   test("resetTranscript clears partial state and callbacks", () => {
-    store.getState().setTranscriptPersist(vi.fn());
-    store.getState().setOnStopped(vi.fn());
-    store.getState().handleTranscriptDelta(createDelta());
+    store.getState().setTranscriptPersist("session-1", vi.fn());
+    store.getState().setOnStopped("session-1", vi.fn());
+    store.getState().handleTranscriptDelta("session-1", createDelta());
 
     store.getState().resetTranscript();
 
     expect(store.getState().partialWordsByChannel).toEqual({});
     expect(store.getState().partialHintsByChannel).toEqual({});
-    expect(store.getState().handlePersist).toBeUndefined();
-    expect(store.getState().onStopped).toBeUndefined();
+    expect(store.getState().handlePersistBySession).toEqual({
+      "session-1": expect.any(Function),
+    });
+    expect(store.getState().onStoppedBySession).toEqual({
+      "session-1": expect.any(Function),
+    });
   });
 });

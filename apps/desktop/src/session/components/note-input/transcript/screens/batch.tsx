@@ -4,26 +4,16 @@ import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { useListener } from "~/stt/contexts";
 
 export function BatchState({
-  requestedTranscriptionMode,
+  requestedLiveTranscription,
   error,
-  recordingMode,
 }: {
-  requestedTranscriptionMode: "live" | "batch" | null;
+  requestedLiveTranscription: boolean | null;
   error: DegradedError | null;
-  recordingMode: "memory" | "disk" | null;
 }) {
   const amplitude = useListener((state) => state.live.amplitude);
-  const isFallbackFromLive = requestedTranscriptionMode === "live";
-  const title =
-    recordingMode === "disk"
-      ? "on disk"
-      : isFallbackFromLive
-        ? "in memory"
-        : "in memory for now";
+  const isFallbackFromLive = requestedLiveTranscription === true;
   const continuation =
-    recordingMode === "disk"
-      ? "Recording continues on disk."
-      : "Recording continues in memory for now and will be saved to disk when you stop.";
+    "Recording continues and audio will be saved when you stop.";
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-8">
@@ -39,7 +29,7 @@ export function BatchState({
         <p className="text-base font-semibold text-neutral-700">
           {isFallbackFromLive
             ? "Live transcription stopped"
-            : `Recording continues ${title}`}
+            : "Recording continues"}
         </p>
         <p className="text-sm leading-relaxed text-neutral-400">
           {isFallbackFromLive

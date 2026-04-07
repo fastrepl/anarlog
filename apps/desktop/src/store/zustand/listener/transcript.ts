@@ -22,7 +22,12 @@ export type LiveTranscriptPersistCallback = (
 
 export type OnStoppedCallback = (
   sessionId: string,
-  durationSeconds: number,
+  details: {
+    durationSeconds: number;
+    audioPath: string | null;
+    requestedLiveTranscription: boolean;
+    liveTranscriptionActive: boolean;
+  },
 ) => void;
 
 export type TranscriptState = {
@@ -30,15 +35,22 @@ export type TranscriptState = {
   liveSegmentsById: Record<string, LiveTranscriptSegment>;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
-  handlePersist?: LiveTranscriptPersistCallback;
-  onStopped?: OnStoppedCallback;
+  handlePersistBySession: Record<string, LiveTranscriptPersistCallback>;
+  onStoppedBySession: Record<string, OnStoppedCallback>;
 };
 
 export type TranscriptActions = {
-  setTranscriptPersist: (callback?: LiveTranscriptPersistCallback) => void;
-  setOnStopped: (callback?: OnStoppedCallback) => void;
-  handleTranscriptDelta: (delta: LiveTranscriptDelta) => void;
+  setTranscriptPersist: (
+    sessionId: string,
+    callback?: LiveTranscriptPersistCallback,
+  ) => void;
+  setOnStopped: (sessionId: string, callback?: OnStoppedCallback) => void;
+  handleTranscriptDelta: (
+    sessionId: string,
+    delta: LiveTranscriptDelta,
+  ) => void;
   handleTranscriptSegmentDelta: (delta: LiveTranscriptSegmentDelta) => void;
+  takeOnStopped: (sessionId: string) => OnStoppedCallback | undefined;
   resetTranscript: () => void;
 };
 
@@ -47,8 +59,8 @@ const initialState: TranscriptState = {
   liveSegmentsById: {},
   partialWordsByChannel: {},
   partialHintsByChannel: {},
-  handlePersist: undefined,
-  onStopped: undefined,
+  handlePersistBySession: {},
+  onStoppedBySession: {},
 };
 
 export const createTranscriptSlice = <
@@ -58,22 +70,30 @@ export const createTranscriptSlice = <
   get: StoreApi<T>["getState"],
 ): TranscriptState & TranscriptActions => ({
   ...initialState,
-  setTranscriptPersist: (callback) => {
+  setTranscriptPersist: (sessionId, callback) => {
     set((state) =>
       mutate(state, (draft) => {
-        draft.handlePersist = callback;
+        if (callback) {
+          draft.handlePersistBySession[sessionId] = callback;
+        } else {
+          delete draft.handlePersistBySession[sessionId];
+        }
       }),
     );
   },
-  setOnStopped: (callback) => {
+  setOnStopped: (sessionId, callback) => {
     set((state) =>
       mutate(state, (draft) => {
-        draft.onStopped = callback;
+        if (callback) {
+          draft.onStoppedBySession[sessionId] = callback;
+        } else {
+          delete draft.onStoppedBySession[sessionId];
+        }
       }),
     );
   },
-  handleTranscriptDelta: (delta) => {
-    const { handlePersist } = get();
+  handleTranscriptDelta: (sessionId, delta) => {
+    const handlePersist = get().handlePersistBySession[sessionId];
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
     );
@@ -106,6 +126,16 @@ export const createTranscriptSlice = <
       }),
     );
   },
+  takeOnStopped: (sessionId) => {
+    const callback = get().onStoppedBySession[sessionId];
+    set((state) =>
+      mutate(state, (draft) => {
+        delete draft.onStoppedBySession[sessionId];
+        delete draft.handlePersistBySession[sessionId];
+      }),
+    );
+    return callback;
+  },
   resetTranscript: () => {
     set((state) =>
       mutate(state, (draft) => {
@@ -113,8 +143,6 @@ export const createTranscriptSlice = <
         draft.liveSegmentsById = {};
         draft.partialWordsByChannel = {};
         draft.partialHintsByChannel = {};
-        draft.handlePersist = undefined;
-        draft.onStopped = undefined;
       }),
     );
   },

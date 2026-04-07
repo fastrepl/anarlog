@@ -79,9 +79,8 @@ describe("Transcript", () => {
     batch: Record<string, { error?: string | null }>;
     live: {
       degraded: null;
-      requestedTranscriptionMode: "live";
-      currentTranscriptionMode: "live";
-      recordingMode: "disk";
+      requestedLiveTranscription: boolean;
+      liveTranscriptionActive: boolean;
     };
     liveSegments: unknown[];
     partialWordsByChannel: Record<number, unknown[]>;
@@ -103,9 +102,8 @@ describe("Transcript", () => {
       batch: {},
       live: {
         degraded: null,
-        requestedTranscriptionMode: "live",
-        currentTranscriptionMode: "live",
-        recordingMode: "disk",
+        requestedLiveTranscription: true,
+        liveTranscriptionActive: true,
       },
       liveSegments: [],
       partialWordsByChannel: {},
@@ -151,5 +149,21 @@ describe("Transcript", () => {
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
     expect(screen.queryByTestId("transcript-viewer")).not.toBeNull();
+  });
+
+  it("shows recording state for record-only capture sessions", () => {
+    listenerState = {
+      ...listenerState,
+      live: {
+        ...listenerState.live,
+        requestedLiveTranscription: false,
+        liveTranscriptionActive: false,
+      },
+    };
+
+    render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
+
+    expect(screen.queryByTestId("listening-state")).toBeNull();
+    expect(screen.getByTestId("batch-state")).not.toBeNull();
   });
 });

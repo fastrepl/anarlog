@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { LiveTranscriptFooter } from "./live-transcript";
+import { DuringSessionAccessory } from "./during-session";
 import { PostSessionAccessory } from "./post-session";
+
+import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
+import { useListener } from "~/stt/contexts";
 
 export type BottomAccessoryState = {
   mode: "live" | "playback" | "transcript_only" | "finalizing";
@@ -25,10 +28,14 @@ export function useSessionBottomAccessory({
   const [isExpanded, setIsExpanded] = useState(false);
   const isLive = sessionMode === "active";
   const isFinalizing = sessionMode === "finalizing";
-  const isInactive =
-    sessionMode === "inactive" || sessionMode === "running_batch";
   const isBatching = sessionMode === "running_batch";
+  const isInactive = sessionMode === "inactive" || isBatching;
   const hasAudio = Boolean(audioUrl) && isInactive;
+  const live = useListener((state) => state.live);
+  const liveCaptureMode = getLiveCaptureUiMode(live);
+  const canExpandLiveTranscript = isLive && liveCaptureMode === "live";
+  const effectiveExpanded =
+    isLive && !canExpandLiveTranscript ? false : isExpanded;
 
   const prevLive = useRef(isLive);
   useEffect(() => {
@@ -39,12 +46,13 @@ export function useSessionBottomAccessory({
   }, [isLive]);
 
   useEffect(() => {
-    if (isBatching) {
-      setIsExpanded(true);
+    if (isLive && !canExpandLiveTranscript && isExpanded) {
+      setIsExpanded(false);
     }
-  }, [isBatching]);
+  }, [isLive, canExpandLiveTranscript, isExpanded]);
 
-  const showPostSession = isInactive && (hasAudio || hasTranscript);
+  const showPostSession =
+    isInactive && (isBatching || hasAudio || hasTranscript);
   const mode: NonNullable<BottomAccessoryState>["mode"] | null = isLive
     ? "live"
     : isFinalizing
@@ -56,35 +64,21 @@ export function useSessionBottomAccessory({
         : null;
 
   const bottomAccessoryState: BottomAccessoryState = useMemo(
-    () => (mode ? { mode, expanded: isExpanded } : null),
-    [mode, isExpanded],
+    () => (mode ? { mode, expanded: effectiveExpanded } : null),
+    [effectiveExpanded, mode],
   );
 
-  if (isLive) {
+  if (isLive || isFinalizing) {
     return {
       bottomAccessory: (
-        <LiveTranscriptFooter
+        <DuringSessionAccessory
           sessionId={sessionId}
-          isExpanded={isExpanded}
-          onToggleExpand={() => setIsExpanded((v) => !v)}
+          isFinalizing={isFinalizing}
+          isExpanded={effectiveExpanded}
+          onToggleExpand={
+            canExpandLiveTranscript ? () => setIsExpanded((v) => !v) : undefined
+          }
         />
-      ),
-      bottomAccessoryState,
-    };
-  }
-
-  if (isFinalizing) {
-    return {
-      bottomAccessory: (
-        <div className="relative w-full pt-1 select-none">
-          <div className="rounded-xl bg-neutral-50">
-            <div className="flex min-h-12 items-center gap-2 p-2">
-              <div className="min-w-0 flex-1">
-                <span className="text-xs text-neutral-400">Finalizing...</span>
-              </div>
-            </div>
-          </div>
-        </div>
       ),
       bottomAccessoryState,
     };

@@ -32,10 +32,6 @@ impl SessionModeState {
         self.listener_buffering_enabled = false;
     }
 
-    pub(super) fn current_transcription_mode(&self) -> TranscriptionMode {
-        self.current_transcription_mode
-    }
-
     pub(super) fn listener_routing(&self, listener_cell: Option<&ActorCell>) -> ListenerRouting {
         if let Some(cell) = listener_cell {
             ListenerRouting::Attached(cell.clone().into())
@@ -116,7 +112,7 @@ mod tests {
         let mut state = SessionModeState::new(TranscriptionMode::Live);
         state.enter_batch_fallback();
 
-        assert_eq!(state.current_transcription_mode(), TranscriptionMode::Batch);
+        assert_eq!(state.current_transcription_mode, TranscriptionMode::Batch);
         assert!(matches!(
             state.listener_routing(None),
             ListenerRouting::Dropped

@@ -1,7 +1,8 @@
 use ractor::{ActorRef, call_t, registry};
 
+use crate::{CaptureParams, CaptureState};
 use hypr_transcription_core::listener::{
-    StartSessionError, State, StopSessionParams,
+    StartSessionError,
     actors::{RootActor, RootMsg, SessionParams, SourceActor, SourceMsg},
 };
 
@@ -34,15 +35,15 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn get_state(&self) -> State {
+    pub async fn get_capture_state(&self) -> CaptureState {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
             match call_t!(actor, RootMsg::GetState, 100) {
-                Ok(fsm_state) => fsm_state,
-                Err(_) => State::Inactive,
+                Ok(fsm_state) => CaptureState::from(fsm_state),
+                Err(_) => CaptureState::Inactive,
             }
         } else {
-            State::Inactive
+            CaptureState::Inactive
         }
     }
 
@@ -65,7 +66,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn start_session(&self, params: SessionParams) -> Result<(), crate::Error> {
+    pub async fn start_capture(&self, params: CaptureParams) -> Result<(), crate::Error> {
+        let params: SessionParams = params.into();
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
             match ractor::call!(actor, RootMsg::StartSession, params) {
@@ -82,10 +84,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
-    pub async fn stop_session(&self, params: StopSessionParams) {
+    pub async fn stop_capture(&self) {
         if let Some(cell) = registry::where_is(RootActor::name()) {
             let actor: ActorRef<RootMsg> = cell.into();
-            let _ = ractor::call!(actor, RootMsg::StopSession, params);
+            let _ = ractor::call!(actor, RootMsg::StopSession);
         }
     }
 }

@@ -90,7 +90,6 @@ pub(super) async fn spawn_recorder(
         RecArgs {
             app_dir: ctx.app_dir.clone(),
             session_id: ctx.params.session_id.clone(),
-            recording_mode: ctx.params.recording_mode,
         },
         supervisor_cell,
     )

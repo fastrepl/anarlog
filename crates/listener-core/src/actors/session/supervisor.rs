@@ -1,12 +1,11 @@
 mod children;
 mod mode;
-mod stop_policy;
 
 use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
 use tracing::Instrument;
 
+use crate::DegradedError;
 use crate::actors::session::types::{SessionContext, session_span, session_supervisor_name};
-use crate::{DegradedError, StopSessionParams};
 
 use self::children::{ChildKind, RESTART_BUDGET};
 use self::mode::SessionModeState;
@@ -26,7 +25,7 @@ pub struct SessionActor;
 
 #[derive(Debug)]
 pub enum SessionMsg {
-    Shutdown(StopSessionParams),
+    Shutdown,
 }
 
 #[ractor::async_trait]
@@ -119,9 +118,8 @@ impl Actor for SessionActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            SessionMsg::Shutdown(params) => {
+            SessionMsg::Shutdown => {
                 state.shutting_down = true;
-                apply_stop_session_params(state, &params).await;
                 children::shutdown_children(state, "session_stop").await;
                 myself.stop(None);
             }
@@ -248,25 +246,6 @@ async fn enter_batch_fallback(state: &mut SessionState, degraded: DegradedError)
     emit_active_lifecycle_event(state, Some(degraded)).await;
 }
 
-async fn apply_stop_session_params(state: &SessionState, params: &StopSessionParams) {
-    let Some(disposition) = stop_policy::resolve_in_memory_recording_disposition(
-        state.ctx.params.recording_mode,
-        state.mode.current_transcription_mode(),
-        params,
-    ) else {
-        return;
-    };
-
-    if let Some(recorder_cell) = &state.recorder_cell {
-        let recorder_ref: ractor::ActorRef<crate::actors::RecMsg> = recorder_cell.clone().into();
-        if let Err(error) = ractor::call!(recorder_ref, |reply| {
-            crate::actors::RecMsg::SetStopDispositionAndAck(disposition, reply)
-        }) {
-            tracing::warn!(?error, "failed_to_apply_recorder_stop_disposition");
-        }
-    }
-}
-
 async fn meltdown(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
     state.shutting_down = true;
     children::shutdown_children(state, "meltdown").await;
@@ -390,7 +369,6 @@ mod tests {
                 languages: vec![],
                 onboarding: false,
                 transcription_mode: crate::TranscriptionMode::Live,
-                recording_mode: crate::RecordingMode::Disk,
                 model: "test-model".to_string(),
                 base_url: "http://localhost:1234".to_string(),
                 api_key: "test-key".to_string(),

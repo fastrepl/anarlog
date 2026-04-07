@@ -3,14 +3,12 @@ import type { StoreApi } from "zustand";
 
 import type {
   DegradedError,
-  RecordingMode,
-  SessionErrorEvent,
-  SessionProgressEvent,
-  TranscriptionMode,
+  CaptureStatusEvent,
 } from "@hypr/plugin-transcription";
 
 export type LiveSessionStatus = "inactive" | "active" | "finalizing";
 export type SessionMode = LiveSessionStatus | "running_batch";
+export type LiveCaptureUiMode = "live" | "record_only" | "fallback_record_only";
 
 export type LoadingPhase =
   | "idle"
@@ -19,23 +17,25 @@ export type LoadingPhase =
   | "connecting"
   | "connected";
 
+export type LiveIntervalId = ReturnType<typeof setInterval>;
+
 export type GeneralState = {
   live: {
-    eventUnlisteners?: (() => void)[];
+    eventUnlistenersBySession: Record<string, (() => void)[]>;
     loading: boolean;
     loadingPhase: LoadingPhase;
     status: LiveSessionStatus;
     amplitude: { mic: number; speaker: number };
     seconds: number;
-    intervalId?: NodeJS.Timeout;
+    intervalId?: LiveIntervalId;
     sessionId: string | null;
     muted: boolean;
     lastError: string | null;
     device: string | null;
     degraded: DegradedError | null;
-    requestedTranscriptionMode: TranscriptionMode | null;
-    currentTranscriptionMode: TranscriptionMode | null;
-    recordingMode: RecordingMode | null;
+    requestedLiveTranscription: boolean | null;
+    liveTranscriptionActive: boolean | null;
+    finalizingBySession: Record<string, { startedAtMs: number }>;
   };
 };
 
@@ -43,6 +43,7 @@ type LiveState = GeneralState["live"];
 
 const initialLiveState: LiveState = {
   status: "inactive",
+  eventUnlistenersBySession: {},
   loading: false,
   loadingPhase: "idle",
   amplitude: { mic: 0, speaker: 0 },
@@ -52,9 +53,9 @@ const initialLiveState: LiveState = {
   lastError: null,
   device: null,
   degraded: null,
-  requestedTranscriptionMode: null,
-  currentTranscriptionMode: null,
-  recordingMode: null,
+  requestedLiveTranscription: null,
+  liveTranscriptionActive: null,
+  finalizingBySession: {},
 };
 
 export const initialGeneralState: GeneralState = {
@@ -75,22 +76,21 @@ export const setLiveState = <T extends GeneralState>(
 export const markLiveStartRequested = (
   live: LiveState,
   sessionId: string,
-  requestedTranscriptionMode: TranscriptionMode,
-  recordingMode: RecordingMode,
+  requestedLiveTranscription: boolean,
 ) => {
   live.loading = true;
+  live.status = "inactive";
   live.sessionId = sessionId;
-  live.requestedTranscriptionMode = requestedTranscriptionMode;
-  live.currentTranscriptionMode = requestedTranscriptionMode;
-  live.recordingMode = recordingMode;
+  live.requestedLiveTranscription = requestedLiveTranscription;
+  live.liveTranscriptionActive = requestedLiveTranscription;
 };
 
 export const markLiveActive = (
   live: LiveState,
   sessionId: string,
-  intervalId: NodeJS.Timeout,
-  requestedTranscriptionMode: TranscriptionMode,
-  transcriptionMode: TranscriptionMode,
+  intervalId: LiveIntervalId,
+  requestedLiveTranscription: boolean,
+  liveTranscriptionActive: boolean,
   degraded: DegradedError | null,
 ) => {
   live.status = "active";
@@ -100,14 +100,17 @@ export const markLiveActive = (
   live.intervalId = intervalId;
   live.sessionId = sessionId;
   live.degraded = degraded;
-  live.requestedTranscriptionMode = requestedTranscriptionMode;
-  live.currentTranscriptionMode = transcriptionMode;
+  live.requestedLiveTranscription = requestedLiveTranscription;
+  live.liveTranscriptionActive = liveTranscriptionActive;
 };
 
-export const markLiveFinalizing = (live: LiveState) => {
-  live.status = "finalizing";
-  live.loading = true;
-  live.intervalId = undefined;
+export const markLiveFinalizing = (live: LiveState, sessionId: string) => {
+  if (live.sessionId === sessionId) {
+    live.status = "finalizing";
+    live.loading = true;
+    live.intervalId = undefined;
+  }
+  live.finalizingBySession[sessionId] = { startedAtMs: Date.now() };
 };
 
 export const markLiveInactive = (live: LiveState, error: string | null) => {
@@ -115,19 +118,16 @@ export const markLiveInactive = (live: LiveState, error: string | null) => {
   live.loading = false;
   live.loadingPhase = "idle";
   live.sessionId = null;
-  live.eventUnlisteners = undefined;
   live.intervalId = undefined;
   live.lastError = error;
   live.device = null;
   live.degraded = null;
-  live.requestedTranscriptionMode = null;
-  live.currentTranscriptionMode = null;
-  live.recordingMode = null;
+  live.requestedLiveTranscription = null;
+  live.liveTranscriptionActive = null;
   live.muted = initialLiveState.muted;
 };
 
 export const markLiveStartFailed = (live: LiveState) => {
-  live.eventUnlisteners = undefined;
   live.intervalId = undefined;
   live.loading = false;
   live.loadingPhase = "idle";
@@ -139,14 +139,13 @@ export const markLiveStartFailed = (live: LiveState) => {
   live.lastError = null;
   live.device = null;
   live.degraded = null;
-  live.requestedTranscriptionMode = null;
-  live.currentTranscriptionMode = null;
-  live.recordingMode = null;
+  live.requestedLiveTranscription = null;
+  live.liveTranscriptionActive = null;
 };
 
 export const updateLiveProgress = (
   live: LiveState,
-  payload: SessionProgressEvent,
+  payload: CaptureStatusEvent,
 ) => {
   switch (payload.type) {
     case "audio_initializing":
@@ -163,14 +162,6 @@ export const updateLiveProgress = (
     case "connected":
       live.loadingPhase = "connected";
       return;
-  }
-};
-
-export const updateLiveError = (
-  live: LiveState,
-  payload: SessionErrorEvent,
-) => {
-  switch (payload.type) {
     case "audio_error":
       live.lastError = payload.error;
       if (payload.is_fatal) {
@@ -192,4 +183,19 @@ export const updateLiveAmplitude = (
     mic: Math.max(0, Math.min(1, mic / 1000)),
     speaker: Math.max(0, Math.min(1, speaker / 1000)),
   };
+};
+
+export const getLiveCaptureUiMode = (
+  live: Pick<
+    LiveState,
+    "requestedLiveTranscription" | "liveTranscriptionActive"
+  >,
+): LiveCaptureUiMode => {
+  if (live.liveTranscriptionActive === false) {
+    return live.requestedLiveTranscription === true
+      ? "fallback_record_only"
+      : "record_only";
+  }
+
+  return "live";
 };
