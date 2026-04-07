@@ -614,7 +614,7 @@ function MediaLibrary() {
     <>
       <ResizablePanelGroup
         direction="horizontal"
-        className="h-[calc(100vh-64px)]"
+        className="h-full min-h-0 min-w-0"
       >
         <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
           <Sidebar
@@ -760,7 +760,7 @@ function Sidebar({
   onDelete: (path: string) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
+    <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
         <div className="relative flex w-full items-center gap-1.5">
           <SearchIcon className="size-4 shrink-0 text-neutral-400" />
@@ -1316,7 +1316,7 @@ function ContentPanel({
   onSetDropTarget: (path: string | null) => void;
 }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {currentTab ? (
         <>
           <div className="flex items-end">
@@ -1361,7 +1361,7 @@ function ContentPanel({
             onSetDropTarget={onSetDropTarget}
           />
 
-          <div className="flex-1 overflow-hidden">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {currentTab.type === "folder" ? (
               <FolderView
                 dragOver={dragOver}
@@ -1967,7 +1967,7 @@ function FolderView({
   return (
     <div
       className={cn([
-        "relative h-full overflow-y-auto p-4",
+        "relative h-full min-h-0 min-w-0 overflow-y-auto p-4",
         dragOver && "bg-blue-50",
       ])}
       onDrop={onDrop}
@@ -2631,7 +2631,7 @@ function FilePreview({
 
   return (
     <div
-      className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-white p-4"
+      className="relative flex h-full min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-white p-4"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
