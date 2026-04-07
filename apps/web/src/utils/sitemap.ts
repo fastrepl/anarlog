@@ -44,6 +44,10 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.7,
         changeFrequency: "monthly",
       },
+      "/integrations/": {
+        priority: 0.7,
+        changeFrequency: "monthly",
+      },
       "/solution/meeting": {
         priority: 0.8,
         changeFrequency: "monthly",

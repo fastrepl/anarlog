@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CHAR_SITE_URL } from "@/lib/seo";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 const CATEGORIES = [
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/_view/blog/")({
     };
   },
   head: () => ({
+    links: [{ rel: "canonical", href: `${CHAR_SITE_URL}/blog` }],
     meta: [
       { title: "Char Blog - Guides, Comparisons, and Engineering Notes" },
       {
@@ -45,7 +47,7 @@ export const Route = createFileRoute("/_view/blog/")({
           "Guides for AI meeting notes, privacy research, product updates, and engineering notes from the Char team.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://char.com/blog" },
+      { property: "og:url", content: `${CHAR_SITE_URL}/blog` },
     ],
   }),
 });

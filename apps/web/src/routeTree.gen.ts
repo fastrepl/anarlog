@@ -55,6 +55,7 @@ import { Route as ViewSolutionsIndexRouteImport } from './routes/_view/solutions
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
+import { Route as ViewIntegrationsIndexRouteImport } from './routes/_view/integrations/index'
 import { Route as ViewGalleryIndexRouteImport } from './routes/_view/gallery/index'
 import { Route as ViewEvalIndexRouteImport } from './routes/_view/eval/index'
 import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
@@ -374,6 +375,11 @@ const ViewLegalIndexRoute = ViewLegalIndexRouteImport.update({
 const ViewK6ReportsIndexRoute = ViewK6ReportsIndexRouteImport.update({
   id: '/k6-reports/',
   path: '/k6-reports/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
+const ViewIntegrationsIndexRoute = ViewIntegrationsIndexRouteImport.update({
+  id: '/integrations/',
+  path: '/integrations/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
 const ViewGalleryIndexRoute = ViewGalleryIndexRouteImport.update({
@@ -931,6 +937,7 @@ export interface FileRoutesByFullPath {
   '/download/': typeof ViewDownloadIndexRoute
   '/eval/': typeof ViewEvalIndexRoute
   '/gallery/': typeof ViewGalleryIndexRoute
+  '/integrations/': typeof ViewIntegrationsIndexRoute
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
@@ -1063,6 +1070,7 @@ export interface FileRoutesByTo {
   '/download': typeof ViewDownloadIndexRoute
   '/eval': typeof ViewEvalIndexRoute
   '/gallery': typeof ViewGalleryIndexRoute
+  '/integrations': typeof ViewIntegrationsIndexRoute
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
@@ -1202,6 +1210,7 @@ export interface FileRoutesById {
   '/_view/download/': typeof ViewDownloadIndexRoute
   '/_view/eval/': typeof ViewEvalIndexRoute
   '/_view/gallery/': typeof ViewGalleryIndexRoute
+  '/_view/integrations/': typeof ViewIntegrationsIndexRoute
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
@@ -1341,6 +1350,7 @@ export interface FileRouteTypes {
     | '/download/'
     | '/eval/'
     | '/gallery/'
+    | '/integrations/'
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
@@ -1473,6 +1483,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/eval'
     | '/gallery'
+    | '/integrations'
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
@@ -1611,6 +1622,7 @@ export interface FileRouteTypes {
     | '/_view/download/'
     | '/_view/eval/'
     | '/_view/gallery/'
+    | '/_view/integrations/'
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
@@ -2039,6 +2051,13 @@ declare module '@tanstack/react-router' {
       path: '/k6-reports'
       fullPath: '/k6-reports/'
       preLoaderRoute: typeof ViewK6ReportsIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
+    '/_view/integrations/': {
+      id: '/_view/integrations/'
+      path: '/integrations'
+      fullPath: '/integrations/'
+      preLoaderRoute: typeof ViewIntegrationsIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
     '/_view/gallery/': {
@@ -2794,6 +2813,7 @@ interface ViewRouteRouteChildren {
   ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
   ViewEvalIndexRoute: typeof ViewEvalIndexRoute
   ViewGalleryIndexRoute: typeof ViewGalleryIndexRoute
+  ViewIntegrationsIndexRoute: typeof ViewIntegrationsIndexRoute
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
   ViewSolutionsIndexRoute: typeof ViewSolutionsIndexRoute
@@ -2863,6 +2883,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadIndexRoute: ViewDownloadIndexRoute,
   ViewEvalIndexRoute: ViewEvalIndexRoute,
   ViewGalleryIndexRoute: ViewGalleryIndexRoute,
+  ViewIntegrationsIndexRoute: ViewIntegrationsIndexRoute,
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
   ViewSolutionsIndexRoute: ViewSolutionsIndexRoute,

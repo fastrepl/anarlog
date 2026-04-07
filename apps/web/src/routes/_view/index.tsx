@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
 
+import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
 import {
   ContactSearchToolCall,
   TranscriptToolCall,
@@ -29,6 +30,13 @@ import { addContact } from "@/functions/loops";
 import { useHeroContext } from "@/hooks/use-hero-context";
 import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  CHAR_SITE_URL,
+  ROOT_DESCRIPTION,
+  getOrganizationJsonLd,
+  getSoftwareApplicationJsonLd,
+  getStructuredDataGraph,
+} from "@/lib/seo";
 
 const MUX_PLAYBACK_ID = "1s01BC9LBwzygOUWk9Pdn011KuxvIQRMbTEfCpOypfdrw";
 
@@ -81,6 +89,29 @@ const FEATURES_AUTO_ADVANCE_DURATION = 8000;
 
 export const Route = createFileRoute("/_view/")({
   component: Component,
+  head: () => ({
+    links: [{ rel: "canonical", href: CHAR_SITE_URL }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          getStructuredDataGraph([
+            getOrganizationJsonLd(),
+            getSoftwareApplicationJsonLd({
+              description: ROOT_DESCRIPTION,
+              featureList: [
+                "Bot-free meeting capture",
+                "Local transcription",
+                "Bring your own AI keys",
+                "Markdown files you own",
+                "Optional cloud AI and sync",
+              ],
+            }),
+          ]),
+        ),
+      },
+    ],
+  }),
 });
 
 function useHasEnteredView<T extends Element>(
@@ -117,6 +148,7 @@ function Component() {
         <AISection />
         <GrowsWithYouSection />
         <SolutionsTabbar />
+        <ExplorePathsSection />
         <SocialTestimonialsSection />
         <GitHubOpenSource />
         <FAQSection />
@@ -2527,6 +2559,60 @@ function SolutionsTabbar() {
         </div>
       </div>
     </section>
+  );
+}
+
+function ExplorePathsSection() {
+  return (
+    <AcquisitionLinkGrid
+      title="Explore Char by workflow, platform, or alternative"
+      description="These are the highest-intent paths on the site: team workflows, meeting platform guides, and direct comparisons against the tools people switch from."
+      className="px-4 pt-16 pb-8"
+      items={[
+        {
+          eyebrow: "Solutions",
+          title: "Browse team workflows",
+          description:
+            "Start with the use cases Char is already built around, from sales to research to developer-heavy teams.",
+          href: "/solutions/",
+        },
+        {
+          eyebrow: "Solutions",
+          title: "AI meeting notes for sales",
+          description:
+            "See how Char supports revenue teams with searchable notes, summaries, and fewer meeting follow-up gaps.",
+          href: "/solution/sales",
+        },
+        {
+          eyebrow: "Solutions",
+          title: "Char for developers",
+          description:
+            "Open source, local-first, and flexible enough for teams that want to inspect and extend the stack.",
+          href: "/solution/engineering",
+        },
+        {
+          eyebrow: "Integrations",
+          title: "Browse meeting platform guides",
+          description:
+            "See how Char works with Zoom, Google Meet, Microsoft Teams, and Webex without meeting bots.",
+          href: "/integrations/",
+        },
+        {
+          eyebrow: "Integrations",
+          title: "Zoom AI notetaker guide",
+          description:
+            "Read the Zoom-specific landing page for note capture, transcription, and bot-free workflows.",
+          href: "/integrations/zoom/notetaker",
+        },
+        {
+          eyebrow: "Comparisons",
+          title: "Compare Char vs Otter",
+          description:
+            "See the control, privacy, and workflow differences that make Char a stronger fit for high-agency teams.",
+          href: "/vs/otter",
+        },
+      ]}
+    />
   );
 }
 

@@ -6,9 +6,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
 import { CTASection } from "@/components/cta-section";
 import { defaultMDXComponents } from "@/components/mdx";
 import { useBlogToc } from "@/hooks/use-blog-toc";
+import {
+  CHAR_SITE_URL,
+  getBreadcrumbListJsonLd,
+  getOrganizationJsonLd,
+  getStructuredDataGraph,
+} from "@/lib/seo";
 import { AUTHOR_AVATARS } from "@/lib/team";
 
 export const Route = createFileRoute("/_view/blog/$slug")({
@@ -48,7 +55,7 @@ export const Route = createFileRoute("/_view/blog/$slug")({
     }
 
     const { article } = loaderData;
-    const url = `https://char.com/blog/${article.slug}`;
+    const url = `${CHAR_SITE_URL}/blog/${article.slug}`;
 
     const title = article.title ?? "";
     const metaDescription = article.meta_description ?? "";
@@ -56,11 +63,44 @@ export const Route = createFileRoute("/_view/blog/$slug")({
       article.coverImage ||
       `https://char.com/og?type=blog&title=${encodeURIComponent(title)}${article.author.length > 0 ? `&author=${encodeURIComponent(article.author.join(", "))}` : ""}${article.date ? `&date=${encodeURIComponent(new Date(article.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }))}` : ""}&v=1`;
 
+    const structuredImage = ogImage.startsWith("http")
+      ? ogImage
+      : `${CHAR_SITE_URL}${ogImage}`;
+
     return {
+      links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            getStructuredDataGraph([
+              {
+                "@type": "BlogPosting",
+                headline: title,
+                description: metaDescription,
+                image: [structuredImage],
+                datePublished: article.date,
+                mainEntityOfPage: url,
+                url,
+                articleSection: article.category,
+                author: article.author.map((name: string) => ({
+                  "@type": "Person",
+                  name,
+                })),
+                publisher: getOrganizationJsonLd(),
+              },
+              getBreadcrumbListJsonLd([
+                { name: "Home", item: CHAR_SITE_URL },
+                { name: "Blog", item: `${CHAR_SITE_URL}/blog` },
+                { name: title, item: url },
+              ]),
+            ]),
+          ),
+        },
+      ],
       meta: [
         { title: `${title} - Char Blog` },
         { name: "description", content: metaDescription },
-        { tag: "link", attrs: { rel: "canonical", href: url } },
         {
           property: "og:title",
           content: `${title} - Char Blog`,
@@ -104,6 +144,7 @@ function Component() {
         <HeroSection article={article} />
         <div className="px-4 py-8">
           <ArticleContent article={article} />
+          <ArticleExploreSection article={article} />
           <RelatedArticlesSection relatedArticles={relatedArticles} />
         </div>
         <CTASection />
@@ -174,6 +215,17 @@ function ArticleContent({ article }: { article: any }) {
   );
 }
 
+function ArticleExploreSection({ article }: { article: any }) {
+  return (
+    <AcquisitionLinkGrid
+      title="Keep exploring"
+      description="Continue from this article into the matching workflow pages, platform guides, or comparison pages."
+      className="mt-16"
+      items={getArticleExploreItems(article.slug)}
+    />
+  );
+}
+
 function RelatedArticlesSection({
   relatedArticles,
 }: {
@@ -201,6 +253,127 @@ function RelatedArticlesSection({
       </div>
     </div>
   );
+}
+
+function getArticleExploreItems(slug: string) {
+  const normalizedSlug = slug.toLowerCase();
+
+  const solutionItem =
+    normalizedSlug.includes("sales") ||
+    normalizedSlug.includes("crm") ||
+    normalizedSlug.includes("gong")
+      ? {
+          eyebrow: "Solutions",
+          title: "AI meeting notes for sales",
+          description:
+            "See how Char supports revenue teams that need searchable calls, clearer follow-ups, and fewer admin gaps.",
+          href: "/solution/sales",
+        }
+      : normalizedSlug.includes("research") ||
+          normalizedSlug.includes("interview") ||
+          normalizedSlug.includes("journal")
+        ? {
+            eyebrow: "Solutions",
+            title: "Research and interview workflows",
+            description:
+              "Explore the workflow page for research teams capturing interviews, themes, and synthesis work.",
+            href: "/solution/research",
+          }
+        : normalizedSlug.includes("privacy") ||
+            normalizedSlug.includes("legal") ||
+            normalizedSlug.includes("retention")
+          ? {
+              eyebrow: "Solutions",
+              title: "Privacy-sensitive workflows",
+              description:
+                "See how Char fits legal, compliance-heavy, and privacy-sensitive teams that need tighter control.",
+              href: "/solution/legal",
+            }
+          : normalizedSlug.includes("developer") ||
+              normalizedSlug.includes("markdown") ||
+              normalizedSlug.includes("obsidian") ||
+              normalizedSlug.includes("notion")
+            ? {
+                eyebrow: "Solutions",
+                title: "Char for developers",
+                description:
+                  "Open source, local-first, and extensible for teams that want to own and inspect the stack.",
+                href: "/solution/engineering",
+              }
+            : {
+                eyebrow: "Solutions",
+                title: "Browse team workflows",
+                description:
+                  "Start with the solution pages for sales, research, legal, coaching, and more.",
+                href: "/solutions/",
+              };
+
+  const integrationItem = normalizedSlug.includes("zoom")
+    ? {
+        eyebrow: "Integrations",
+        title: "Zoom AI notetaker guide",
+        description:
+          "Read the Zoom-specific page for bot-free notes, transcription, and meeting summaries.",
+        href: "/integrations/zoom/notetaker",
+      }
+    : normalizedSlug.includes("google-meet")
+      ? {
+          eyebrow: "Integrations",
+          title: "Google Meet AI notetaker guide",
+          description:
+            "See how Char handles Google Meet notes and transcription without joining the room as a bot.",
+          href: "/integrations/google-meet/notetaker",
+        }
+      : normalizedSlug.includes("microsoft-teams")
+        ? {
+            eyebrow: "Integrations",
+            title: "Teams AI notetaker guide",
+            description:
+              "See the Teams-specific workflow for bot-free capture, transcription, and follow-up notes.",
+            href: "/integrations/teams/notetaker",
+          }
+        : {
+            eyebrow: "Integrations",
+            title: "Browse meeting platform guides",
+            description:
+              "Explore Zoom, Google Meet, Teams, and Webex landing pages for notetaking, transcription, and meeting assistance.",
+            href: "/integrations/",
+          };
+
+  const comparisonItems = [
+    { fragment: "otter", label: "Otter", href: "/vs/otter" },
+    { fragment: "fireflies", label: "Fireflies", href: "/vs/fireflies" },
+    { fragment: "fathom", label: "Fathom", href: "/vs/fathom" },
+    { fragment: "granola", label: "Granola", href: "/vs/granola" },
+    { fragment: "tldv", label: "tl;dv", href: "/vs/tldv" },
+    { fragment: "read-ai", label: "Read AI", href: "/vs/read-ai" },
+    { fragment: "meetgeek", label: "MeetGeek", href: "/vs/meetgeek" },
+    { fragment: "notta", label: "Notta", href: "/vs/notta" },
+    { fragment: "notion", label: "Notion", href: "/vs/notion" },
+    { fragment: "obsidian", label: "Obsidian", href: "/vs/obsidian" },
+  ];
+
+  const matchingComparison = comparisonItems.find((item) =>
+    normalizedSlug.includes(item.fragment),
+  );
+
+  const comparisonItem = matchingComparison
+    ? {
+        eyebrow: "Comparisons",
+        title: `Compare Char vs ${matchingComparison.label}`,
+        description:
+          "See the direct comparison page for workflow, privacy, and ownership differences.",
+        href: matchingComparison.href,
+      }
+    : {
+        eyebrow: "Comparisons",
+        title: "Compare Char vs Otter",
+        description:
+          "Start with one of the most common evaluation paths on the site and compare workflow tradeoffs directly.",
+        href: "/vs/otter",
+      };
+
+  return [solutionItem, integrationItem, comparisonItem];
 }
 
 function TableOfContents({

@@ -1,6 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { allDocs } from "content-collections";
 
+import {
+  CHAR_SITE_URL,
+  getBreadcrumbListJsonLd,
+  getOrganizationJsonLd,
+  getStructuredDataGraph,
+} from "@/lib/seo";
+
 import { DocLayout } from "./-components";
 import { docsStructure } from "./-structure";
 
@@ -50,10 +57,43 @@ export const Route = createFileRoute("/_view/docs/$")({
     }
 
     const { doc } = loaderData;
-    const url = `https://char.com/docs/${doc.slug}`;
-    const ogImageUrl = `https://char.com/og?type=docs&title=${encodeURIComponent(doc.title)}&section=${encodeURIComponent(doc.section)}${doc.summary ? `&description=${encodeURIComponent(doc.summary)}` : ""}&v=1`;
+    const url = `${CHAR_SITE_URL}/docs/${doc.slug}`;
+    const ogImageUrl = `${CHAR_SITE_URL}/og?type=docs&title=${encodeURIComponent(doc.title)}&section=${encodeURIComponent(doc.section)}${doc.summary ? `&description=${encodeURIComponent(doc.summary)}` : ""}&v=1`;
 
     return {
+      links: [{ rel: "canonical", href: url }],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            getStructuredDataGraph([
+              {
+                "@type": "TechArticle",
+                headline: doc.title,
+                name: doc.title,
+                description: doc.summary || doc.title,
+                url,
+                image: [ogImageUrl],
+                about: {
+                  "@type": "Thing",
+                  name: doc.section,
+                },
+                isPartOf: {
+                  "@type": "WebSite",
+                  name: "Char Documentation",
+                  url: `${CHAR_SITE_URL}/docs`,
+                },
+                publisher: getOrganizationJsonLd(),
+              },
+              getBreadcrumbListJsonLd([
+                { name: "Home", item: CHAR_SITE_URL },
+                { name: "Docs", item: `${CHAR_SITE_URL}/docs` },
+                { name: doc.title, item: url },
+              ]),
+            ]),
+          ),
+        },
+      ],
       meta: [
         { title: `${doc.title} - Char Documentation` },
         { name: "description", content: doc.summary || doc.title },
