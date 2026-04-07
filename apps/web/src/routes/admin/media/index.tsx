@@ -760,7 +760,7 @@ function Sidebar({
   onDelete: (path: string) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-neutral-200 bg-white">
+    <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-neutral-200 bg-white select-none">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
         <div className="relative flex w-full items-center gap-1.5">
           <SearchIcon className="size-4 shrink-0 text-neutral-400" />
@@ -770,7 +770,7 @@ function Sidebar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
             className={cn([
-              "w-full py-1 text-sm",
+              "w-full py-1 text-sm select-text",
               "bg-transparent",
               "focus:outline-hidden",
               "placeholder:text-neutral-400",
@@ -780,7 +780,7 @@ function Sidebar({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        <div className="scroll-fade-y h-full overflow-y-auto">
+        <div className="scroll-fade-y h-full overflow-y-auto select-none">
           {isCreatingFolder && (
             <NewFolderInlineInput
               existingNames={filteredTreeNodes.map((n) => n.name)}
@@ -900,7 +900,7 @@ function NewFolderInlineInput({
           disabled={isLoading}
           placeholder="folder-name"
           className={cn([
-            "flex-1 bg-transparent text-sm outline-hidden",
+            "flex-1 bg-transparent text-sm outline-hidden select-text",
             error ? "text-red-700" : "text-neutral-600",
             "placeholder:text-neutral-400",
           ])}
@@ -1151,7 +1151,7 @@ function TreeNodeItem({
               if (e.key === "Escape") cancelRename();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-blue-500 bg-white px-1 text-sm outline-none"
+            className="min-w-0 flex-1 rounded border border-blue-500 bg-white px-1 text-sm outline-none select-text"
           />
         ) : (
           <span
