@@ -1,4 +1,5 @@
 export const MEDIA_BUCKET_NAME = "blog";
+export const MEDIA_PROXY_BASE_PATH = "/api/assets";
 
 const MEDIA_MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -75,4 +76,12 @@ export function parseMediaFilename(filename: string) {
     baseName,
     filename: `${baseName}.${extension}`,
   };
+}
+
+export function getMediaProxyUrl(path: string): string {
+  const normalizedPath = path.split("/").filter(Boolean);
+
+  return `${MEDIA_PROXY_BASE_PATH}/blog/${normalizedPath
+    .map((segment) => encodeURIComponent(segment))
+    .join("/")}`;
 }

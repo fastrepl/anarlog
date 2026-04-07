@@ -107,15 +107,15 @@ export function MediaSelectorModal({
     }
   };
 
-  const handleFileSelect = (publicUrl: string) => {
+  const handleFileSelect = (proxyUrl: string) => {
     if (selectionMode === "single") {
-      setSelectedFile(selectedFile === publicUrl ? null : publicUrl);
+      setSelectedFile(selectedFile === proxyUrl ? null : proxyUrl);
     } else {
       const newSelection = new Set(selectedFiles);
-      if (newSelection.has(publicUrl)) {
-        newSelection.delete(publicUrl);
+      if (newSelection.has(proxyUrl)) {
+        newSelection.delete(proxyUrl);
       } else {
-        newSelection.add(publicUrl);
+        newSelection.add(proxyUrl);
       }
       setSelectedFiles(newSelection);
     }
@@ -310,10 +310,11 @@ export function MediaSelectorModal({
                   </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                     {filteredFiles.map((item) => {
+                      const contentUrl = item.proxyUrl || item.publicUrl;
                       const isSelected =
                         selectionMode === "single"
-                          ? selectedFile === item.publicUrl
-                          : selectedFiles.has(item.publicUrl);
+                          ? selectedFile === contentUrl
+                          : selectedFiles.has(contentUrl);
                       return (
                         <div
                           key={item.path}
@@ -323,7 +324,7 @@ export function MediaSelectorModal({
                               ? "border-blue-500 ring-1 ring-blue-500"
                               : "border-neutral-200 hover:border-neutral-300",
                           ])}
-                          onClick={() => handleFileSelect(item.publicUrl)}
+                          onClick={() => handleFileSelect(contentUrl)}
                         >
                           <div
                             className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
@@ -332,9 +333,9 @@ export function MediaSelectorModal({
                             }}
                           >
                             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
-                            {item.publicUrl ? (
+                            {contentUrl ? (
                               <img
-                                src={item.publicUrl}
+                                src={contentUrl}
                                 alt={item.name}
                                 className="relative z-10 h-full w-full object-contain p-4"
                                 loading="lazy"

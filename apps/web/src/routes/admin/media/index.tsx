@@ -644,6 +644,7 @@ function MediaLibrary() {
                 size: 0,
                 mimeType: null,
                 publicUrl: "",
+                proxyUrl: "",
                 createdAt: null,
                 updatedAt: null,
               });

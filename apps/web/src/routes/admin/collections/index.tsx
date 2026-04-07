@@ -3617,7 +3617,7 @@ const FileEditor = React.forwardRef<
   const handleImageUpload = useCallback(
     async (file: File): Promise<{ url: string; attachmentId: string }> => {
       const result = await uploadBlogImageFile({ file });
-      return { url: result.publicUrl, attachmentId: "" };
+      return { url: result.proxyUrl, attachmentId: "" };
     },
     [],
   );
@@ -3704,14 +3704,14 @@ const FileEditor = React.forwardRef<
   );
 
   const handleMediaLibrarySelect = useCallback(
-    (publicUrl: string) => {
+    (assetUrl: string) => {
       if (editor) {
         editor
           .chain()
           .focus()
           .insertContent({
             type: "image",
-            attrs: { src: publicUrl },
+            attrs: { src: assetUrl },
           })
           .run();
         setContent(getEditorMarkdown(editor, content));

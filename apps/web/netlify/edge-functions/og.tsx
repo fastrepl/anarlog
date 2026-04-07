@@ -302,7 +302,7 @@ function renderChangelogTemplate(params: z.infer<typeof changelogSchema>) {
             bottom: -69,
             position: "absolute",
           }}
-          src="https://hyprnote.com/api/images/icons/nightly-icon.png"
+          src="https://hyprnote.com/api/assets/icons/nightly-icon.png"
         />
       </div>
     );
@@ -400,7 +400,7 @@ function renderChangelogTemplate(params: z.infer<typeof changelogSchema>) {
           bottom: -69,
           position: "absolute",
         }}
-        src="https://hyprnote.com/api/images/icons/stable-icon.png"
+        src="https://hyprnote.com/api/assets/icons/stable-icon.png"
       />
     </div>
   );
@@ -408,15 +408,15 @@ function renderChangelogTemplate(params: z.infer<typeof changelogSchema>) {
 
 // Keep in sync with apps/web/src/lib/team.ts
 const AUTHOR_AVATARS: Record<string, string> = {
-  "John Jeong": "https://hyprnote.com/api/images/team/john.png",
-  "Yujong Lee": "https://hyprnote.com/api/images/team/yujong.png",
-  Harshika: "https://hyprnote.com/api/images/team/harshika.jpeg",
+  "John Jeong": "https://hyprnote.com/api/assets/team/john.png",
+  "Yujong Lee": "https://hyprnote.com/api/assets/team/yujong.png",
+  Harshika: "https://hyprnote.com/api/assets/team/harshika.jpeg",
 };
 
 function getAuthorAvatar(author: string): string {
   return (
     AUTHOR_AVATARS[author] ||
-    "https://hyprnote.com/api/images/icons/stable-icon.png"
+    "https://hyprnote.com/api/assets/icons/stable-icon.png"
   );
 }
 
@@ -502,7 +502,7 @@ function renderBlogTemplate(params: z.infer<typeof blogSchema>) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img
             style={{ width: 48, height: 48 }}
-            src="https://hyprnote.com/api/images/icons/stable-icon.png"
+            src="https://hyprnote.com/api/assets/icons/stable-icon.png"
           />
           <div
             style={{
@@ -556,7 +556,7 @@ function renderGenericTemplate({
       >
         <img
           style={{ width: 48, height: 48 }}
-          src="https://hyprnote.com/api/images/icons/stable-icon.png"
+          src="https://hyprnote.com/api/assets/icons/stable-icon.png"
         />
         <div
           style={{

@@ -12,6 +12,7 @@ import {
 interface SignedUploadData {
   path: string;
   publicUrl: string;
+  proxyUrl: string;
   token: string;
 }
 
@@ -75,6 +76,7 @@ async function uploadToSignedUrl(file: File, signedUpload: SignedUploadData) {
   return {
     path: signedUpload.path,
     publicUrl: signedUpload.publicUrl,
+    proxyUrl: signedUpload.proxyUrl,
   };
 }
 
@@ -166,7 +168,7 @@ export async function uploadInlineMarkdownImages(params: {
 
     nextContent = nextContent.replace(
       image.fullMatch,
-      `![](${uploadResult.publicUrl})`,
+      `![](${uploadResult.proxyUrl})`,
     );
   }
 

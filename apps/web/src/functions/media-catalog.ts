@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { MEDIA_BUCKET_NAME } from "@/lib/media";
+import { getMediaProxyUrl, MEDIA_BUCKET_NAME } from "@/lib/media";
 import {
   getMediaFolderFromPath,
   getMediaKind,
@@ -54,6 +54,10 @@ function mapCatalogRowToMediaItem(row: MediaAssetRow): MediaItem {
     name: row.name || getMediaNameFromPath(row.library_path),
     path: row.library_path,
     publicUrl: row.public_url || "",
+    proxyUrl:
+      row.provider === "supabase"
+        ? getMediaProxyUrl(row.library_path)
+        : row.public_url || "",
     id: row.id,
     size:
       typeof row.size === "number"
