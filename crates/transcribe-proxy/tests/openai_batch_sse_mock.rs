@@ -201,10 +201,10 @@ async fn direct_batch_sse_returns_sse_for_non_streaming_provider() {
 #[tokio::test]
 async fn hyprnote_batch_sse_falls_back_before_openai_emits_progress() {
     let openai_addr = start_openai_error_upstream(StatusCode::TOO_MANY_REQUESTS).await;
-    let deepgram_addr = start_json_batch_upstream("deepgram fallback").await;
+    let mistral_addr = start_mistral_batch_upstream("mistral fallback").await;
 
     let mut env = transcribe_proxy::Env::default();
-    env.stt.deepgram_api_key = Some("deepgram-key".to_string());
+    env.stt.mistral_api_key = Some("mistral-key".to_string());
     env.stt.openai_api_key = Some("openai-key".to_string());
 
     let supabase_env = hypr_api_env::SupabaseEnv {
@@ -216,9 +216,9 @@ async fn hyprnote_batch_sse_falls_back_before_openai_emits_progress() {
     let config = SttProxyConfig::new(&env, &supabase_env)
         .with_default_provider(Provider::OpenAI)
         .with_upstream_url(Provider::OpenAI, &format!("http://{openai_addr}/v1"))
-        .with_upstream_url(Provider::Deepgram, &format!("http://{deepgram_addr}/v1"))
+        .with_upstream_url(Provider::Mistral, &format!("http://{mistral_addr}/v1"))
         .with_hyprnote_routing(HyprnoteRoutingConfig {
-            priorities: vec![Provider::OpenAI, Provider::Deepgram],
+            priorities: vec![Provider::OpenAI, Provider::Mistral],
             retry_config: Default::default(),
         });
     let addr = start_server(config).await;
@@ -251,7 +251,7 @@ async fn hyprnote_batch_sse_falls_back_before_openai_emits_progress() {
 
     assert_eq!(
         result.results.channels[0].alternatives[0].transcript,
-        "deepgram fallback"
+        "mistral fallback"
     );
     assert!(
         !events
@@ -261,10 +261,174 @@ async fn hyprnote_batch_sse_falls_back_before_openai_emits_progress() {
     );
 }
 
+#[tokio::test]
+async fn direct_openai_batch_sse_emits_single_error_when_stream_ends_before_done() {
+    let openai_addr = start_openai_incomplete_sse_upstream().await;
+
+    let env = env_with_provider(Provider::OpenAI, "openai-key".to_string());
+    let supabase_env = hypr_api_env::SupabaseEnv {
+        supabase_url: String::new(),
+        supabase_anon_key: String::new(),
+        supabase_service_role_key: String::new(),
+    };
+
+    let config = SttProxyConfig::new(&env, &supabase_env)
+        .with_default_provider(Provider::OpenAI)
+        .with_upstream_url(Provider::OpenAI, &format!("http://{openai_addr}/v1"));
+    let addr = start_server(config).await;
+
+    let audio_bytes =
+        std::fs::read(hypr_data::english_1::AUDIO_PATH).expect("failed to read test audio");
+
+    let response = reqwest::Client::new()
+        .post(format!(
+            "http://{addr}/listen?provider=openai&model=gpt-4o-transcribe&language=en"
+        ))
+        .header("content-type", "audio/wav")
+        .header("accept", "text/event-stream")
+        .body(audio_bytes)
+        .send()
+        .await
+        .expect("request failed");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response.text().await.expect("failed to read SSE response");
+    let events = parse_batch_sse_messages(&body);
+
+    assert_eq!(count_errors(&events), 1);
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, BatchSseMessage::Progress { .. }))
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, BatchSseMessage::Result { .. }))
+    );
+}
+
+#[tokio::test]
+async fn hyprnote_batch_sse_does_not_fallback_after_openai_progress() {
+    let openai_addr = start_openai_incomplete_sse_upstream().await;
+    let mistral_addr = start_mistral_batch_upstream("mistral fallback").await;
+
+    let mut env = transcribe_proxy::Env::default();
+    env.stt.mistral_api_key = Some("mistral-key".to_string());
+    env.stt.openai_api_key = Some("openai-key".to_string());
+
+    let supabase_env = hypr_api_env::SupabaseEnv {
+        supabase_url: String::new(),
+        supabase_anon_key: String::new(),
+        supabase_service_role_key: String::new(),
+    };
+
+    let config = SttProxyConfig::new(&env, &supabase_env)
+        .with_default_provider(Provider::OpenAI)
+        .with_upstream_url(Provider::OpenAI, &format!("http://{openai_addr}/v1"))
+        .with_upstream_url(Provider::Mistral, &format!("http://{mistral_addr}/v1"))
+        .with_hyprnote_routing(HyprnoteRoutingConfig {
+            priorities: vec![Provider::OpenAI, Provider::Mistral],
+            retry_config: Default::default(),
+        });
+    let addr = start_server(config).await;
+
+    let audio_bytes =
+        std::fs::read(hypr_data::english_1::AUDIO_PATH).expect("failed to read test audio");
+
+    let response = reqwest::Client::new()
+        .post(format!(
+            "http://{addr}/listen?provider=hyprnote&model=gpt-4o-transcribe&language=en"
+        ))
+        .header("content-type", "audio/wav")
+        .header("accept", "text/event-stream")
+        .body(audio_bytes)
+        .send()
+        .await
+        .expect("request failed");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response.text().await.expect("failed to read SSE response");
+    let events = parse_batch_sse_messages(&body);
+
+    assert_eq!(count_errors(&events), 1);
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, BatchSseMessage::Progress { .. }))
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, BatchSseMessage::Result { .. }))
+    );
+}
+
+#[tokio::test]
+async fn hyprnote_batch_sse_preflight_failures_return_http_json() {
+    let env = transcribe_proxy::Env::default();
+    let supabase_env = hypr_api_env::SupabaseEnv {
+        supabase_url: String::new(),
+        supabase_anon_key: String::new(),
+        supabase_service_role_key: String::new(),
+    };
+
+    let config = SttProxyConfig::new(&env, &supabase_env)
+        .with_hyprnote_routing(HyprnoteRoutingConfig::default());
+    let addr = start_server(config).await;
+
+    let audio_bytes =
+        std::fs::read(hypr_data::english_1::AUDIO_PATH).expect("failed to read test audio");
+
+    let response = reqwest::Client::new()
+        .post(format!(
+            "http://{addr}/listen?provider=hyprnote&language=en"
+        ))
+        .header("content-type", "audio/wav")
+        .header("accept", "text/event-stream")
+        .body(audio_bytes)
+        .send()
+        .await
+        .expect("request failed");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| value.contains("application/json"))
+    );
+
+    let body: serde_json::Value = response.json().await.expect("json body");
+    assert_eq!(body["error"], "no_providers_available");
+}
+
 async fn start_openai_sse_upstream() -> SocketAddr {
     let app = Router::new().route(
         "/v1/audio/transcriptions",
         post(|| async { openai_sse_response() }),
+    );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind upstream listener");
+    let addr = listener.local_addr().expect("upstream local addr");
+
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("serve upstream");
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    addr
+}
+
+async fn start_openai_incomplete_sse_upstream() -> SocketAddr {
+    let app = Router::new().route(
+        "/v1/audio/transcriptions",
+        post(|| async { openai_incomplete_sse_response() }),
     );
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -345,6 +509,38 @@ async fn start_json_batch_upstream(transcript: &'static str) -> SocketAddr {
     addr
 }
 
+async fn start_mistral_batch_upstream(transcript: &'static str) -> SocketAddr {
+    let app = Router::new().route(
+        "/v1/audio/transcriptions",
+        post(move || async move {
+            (
+                [(header::CONTENT_TYPE, "application/json")],
+                Body::from(
+                    serde_json::json!({
+                        "text": transcript,
+                        "words": [],
+                        "segments": [],
+                    })
+                    .to_string(),
+                ),
+            )
+                .into_response()
+        }),
+    );
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind upstream listener");
+    let addr = listener.local_addr().expect("upstream local addr");
+
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("serve upstream");
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    addr
+}
+
 fn openai_sse_response() -> Response {
     let delta = serde_json::json!({
         "type": "transcript.text.delta",
@@ -364,6 +560,19 @@ fn openai_sse_response() -> Response {
     (
         [(header::CONTENT_TYPE, "text/event-stream")],
         Body::from(format!("data: {delta}\n\ndata: {done}\n\n")),
+    )
+        .into_response()
+}
+
+fn openai_incomplete_sse_response() -> Response {
+    let delta = serde_json::json!({
+        "type": "transcript.text.delta",
+        "delta": "hello ",
+    });
+
+    (
+        [(header::CONTENT_TYPE, "text/event-stream")],
+        Body::from(format!("data: {delta}\n\n")),
     )
         .into_response()
 }
@@ -389,4 +598,11 @@ fn parse_batch_sse_messages(body: &str) -> Vec<BatchSseMessage> {
             serde_json::from_str(&data).ok()
         })
         .collect()
+}
+
+fn count_errors(events: &[BatchSseMessage]) -> usize {
+    events
+        .iter()
+        .filter(|event| matches!(event, BatchSseMessage::Error { .. }))
+        .count()
 }

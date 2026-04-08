@@ -109,7 +109,7 @@ struct PreparedBatchRoute {
 struct BatchChainFailure {
     last_error: Option<String>,
     providers_tried: Vec<Provider>,
-    trace: BatchRoutingTrace,
+    terminal_provider: Option<Provider>,
 }
 
 enum AttemptOutcome<T> {
@@ -170,6 +170,17 @@ fn prepare_routed_batch(
     })
 }
 
+fn no_providers_available_response(detail: impl Into<String>) -> Response {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(serde_json::json!({
+            "error": "no_providers_available",
+            "detail": detail.into()
+        })),
+    )
+        .into_response()
+}
+
 async fn run_routed_batch_chain<T, F, Fut>(
     prepared: PreparedBatchRoute,
     listen_params: &ListenParams,
@@ -221,6 +232,7 @@ where
                 error: e,
                 retries,
                 can_fallback,
+                ..
             } => {
                 tracing::warn!(
                     hyprnote.stt.provider.name = ?provider,
@@ -244,7 +256,7 @@ where
                     return Err(BatchChainFailure {
                         last_error,
                         providers_tried,
-                        trace,
+                        terminal_provider: Some(provider),
                     });
                 }
             }
@@ -257,7 +269,7 @@ where
     Err(BatchChainFailure {
         last_error,
         providers_tried,
-        trace,
+        terminal_provider: None,
     })
 }
 
@@ -268,55 +280,49 @@ pub(super) fn handle_routed_batch_sse(
     body: Bytes,
     content_type: &str,
 ) -> Response {
-    let prepared = prepare_routed_batch(state, params, &listen_params, &body, content_type);
+    let prepared = match prepare_routed_batch(state, params, &listen_params, &body, content_type) {
+        Ok(prepared) => prepared,
+        Err(detail) => return no_providers_available_response(detail),
+    };
     let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<BatchSseMessage>();
 
-    match prepared {
-        Ok(prepared) => {
-            let content_type = content_type.to_string();
-            tokio::spawn(async move {
-                let result = run_routed_batch_chain(
-                    prepared,
-                    &listen_params,
-                    &body,
-                    &content_type,
-                    |selected, params, body, content_type, retry_config| {
-                        let event_tx = event_tx.clone();
-                        async move {
-                            stream_batch_attempt_as_sse(
-                                &selected,
-                                params,
-                                &body,
-                                &content_type,
-                                &retry_config,
-                                &event_tx,
-                            )
-                            .await
-                        }
-                    },
-                )
-                .await;
-
-                if let Err(failure) = result {
-                    let detail = failure
-                        .last_error
-                        .unwrap_or_else(|| "Unknown error".to_string());
-                    let error = if failure.trace.provider_chain.is_empty() {
-                        "no_providers_available".to_string()
-                    } else {
-                        "all_providers_failed".to_string()
-                    };
-                    let _ = event_tx.send(BatchSseMessage::Error { error, detail });
+    let content_type = content_type.to_string();
+    tokio::spawn(async move {
+        let result = run_routed_batch_chain(
+            prepared,
+            &listen_params,
+            &body,
+            &content_type,
+            |selected, params, body, content_type, retry_config| {
+                let event_tx = event_tx.clone();
+                async move {
+                    stream_batch_attempt_as_sse(
+                        &selected,
+                        params,
+                        &body,
+                        &content_type,
+                        &retry_config,
+                        &event_tx,
+                    )
+                    .await
                 }
-            });
-        }
-        Err(detail) => {
+            },
+        )
+        .await;
+
+        if let Err(failure) = result {
+            let detail = failure
+                .last_error
+                .unwrap_or_else(|| "Unknown error".to_string());
             let _ = event_tx.send(BatchSseMessage::Error {
-                error: "no_providers_available".to_string(),
+                error: failure
+                    .terminal_provider
+                    .map(|provider| provider.to_string())
+                    .unwrap_or_else(|| "all_providers_failed".to_string()),
                 detail,
             });
         }
-    }
+    });
 
     batch_sse_response(event_rx)
 }
@@ -362,16 +368,7 @@ pub(super) async fn handle_routed_batch_json(
 ) -> Response {
     let prepared = match prepare_routed_batch(state, params, &listen_params, &body, content_type) {
         Ok(prepared) => prepared,
-        Err(detail) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "error": "no_providers_available",
-                    "detail": detail
-                })),
-            )
-                .into_response();
-        }
+        Err(detail) => return no_providers_available_response(detail),
     };
 
     match run_routed_batch_chain(
@@ -483,13 +480,6 @@ async fn stream_openai_batch_sse_with_retry(
                 tokio::time::sleep(delay).await;
             }
             Err(failure) => {
-                if failure.emitted_output {
-                    let _ = event_tx.send(BatchSseMessage::Error {
-                        error: selected.provider().to_string(),
-                        detail: failure.error.to_string(),
-                    });
-                }
-
                 return AttemptOutcome::Failure {
                     error: failure.error,
                     retries,
@@ -545,6 +535,12 @@ async fn stream_openai_batch_sse_once(
                     },
                 });
             }
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Segment {
+                response, ..
+            }) => {
+                emitted_output = true;
+                let _ = event_tx.send(BatchSseMessage::Segment { response });
+            }
             Ok(owhisper_interface::batch_stream::BatchStreamEvent::Result { response }) => {
                 emitted_output = true;
                 let _ = event_tx.send(BatchSseMessage::Result { response });
@@ -563,8 +559,7 @@ async fn stream_openai_batch_sse_once(
                     emitted_output,
                 });
             }
-            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Segment { .. })
-            | Ok(owhisper_interface::batch_stream::BatchStreamEvent::Terminal { .. }) => {}
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Terminal { .. }) => {}
             Err(error) => {
                 return Err(StreamingAttemptFailure {
                     error: map_provider_error(error),

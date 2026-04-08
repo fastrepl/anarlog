@@ -8,6 +8,9 @@ pub enum ParsedTranscriptionStreamEvent {
         partial_text: String,
         logprobs: Vec<TranscriptionLogprob>,
     },
+    TextSegment {
+        segment: DiarizedTranscriptionSegment,
+    },
     TextDone {
         text: String,
         logprobs: Vec<TranscriptionLogprob>,
@@ -65,6 +68,22 @@ impl TranscriptionStreamEventParser {
                     })
                 }
             }
+            TranscriptionStreamEvent::TextSegment {
+                id,
+                end,
+                speaker,
+                start,
+                text,
+            } => Some(ParsedTranscriptionStreamEvent::TextSegment {
+                segment: DiarizedTranscriptionSegment {
+                    id,
+                    end,
+                    speaker,
+                    start,
+                    text,
+                    segment_type: TranscriptionDiarizedSegmentType::TranscriptTextSegment,
+                },
+            }),
             TranscriptionStreamEvent::TextDone {
                 text,
                 logprobs,
@@ -266,6 +285,14 @@ pub enum TranscriptionStreamEvent {
         #[serde(default)]
         logprobs: Vec<TranscriptionLogprob>,
     },
+    #[serde(rename = "transcript.text.segment")]
+    TextSegment {
+        id: String,
+        end: f64,
+        speaker: String,
+        start: f64,
+        text: String,
+    },
     #[serde(rename = "transcript.text.done")]
     TextDone {
         text: String,
@@ -366,6 +393,17 @@ mod tests {
             }"#,
         )
         .expect("parse delta");
+        let segment: TranscriptionStreamEvent = serde_json::from_str(
+            r#"{
+                "type": "transcript.text.segment",
+                "id": "seg_001",
+                "start": 0.0,
+                "end": 1.5,
+                "text": "hello there",
+                "speaker": "agent"
+            }"#,
+        )
+        .expect("parse segment");
         let done: TranscriptionStreamEvent = serde_json::from_str(
             r#"{
                 "type": "transcript.text.done",
@@ -382,6 +420,10 @@ mod tests {
         .expect("parse done");
 
         assert!(matches!(delta, TranscriptionStreamEvent::TextDelta { .. }));
+        assert!(matches!(
+            segment,
+            TranscriptionStreamEvent::TextSegment { .. }
+        ));
         assert!(matches!(done, TranscriptionStreamEvent::TextDone { .. }));
     }
 
@@ -409,5 +451,26 @@ mod tests {
             done,
             ParsedTranscriptionStreamEvent::TextDone { text, .. } if text == "hello"
         ));
+    }
+
+    #[test]
+    fn parser_preserves_diarized_segment_events() {
+        let mut parser = TranscriptionStreamEventParser::new();
+
+        let segment = parser
+            .parse_sse_block(
+                r#"data: {"type":"transcript.text.segment","id":"seg_001","start":0.0,"end":1.5,"text":"hello there","speaker":"agent"}"#,
+            )
+            .expect("parse segment")
+            .expect("expected segment");
+
+        assert!(matches!(
+            segment,
+            ParsedTranscriptionStreamEvent::TextSegment { segment }
+                if segment.id == "seg_001"
+                    && segment.speaker == "agent"
+                    && segment.text == "hello there"
+        ));
+        assert_eq!(parser.partial_text(), "");
     }
 }

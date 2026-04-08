@@ -3,11 +3,13 @@ use std::path::{Path, PathBuf};
 use futures_util::StreamExt;
 use openai_transcription::batch::{
     CreateTranscriptionOptions, CreateTranscriptionResponse, DiarizedTranscriptionResponse,
-    ParsedTranscriptionStreamEvent, TranscriptionStreamEventParser, TranscriptionUsage,
+    DiarizedTranscriptionSegment, ParsedTranscriptionStreamEvent, TranscriptionStreamEventParser,
+    TranscriptionUsage,
 };
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{Alternatives, Channel, Response as BatchResponse, Results, Word};
 use owhisper_interface::batch_stream::BatchStreamEvent;
+use owhisper_interface::stream;
 use reqwest::multipart::{Form, Part};
 
 use crate::adapter::{
@@ -102,6 +104,9 @@ impl OpenAIAdapter {
                                 if let Some(event) = state.pending_events.pop_front() {
                                     return Some((event, state));
                                 }
+                            }
+                            if let Some(event) = state.finish_stream() {
+                                return Some((event, state));
                             }
                             return None;
                         }
@@ -233,6 +238,10 @@ struct OpenAISseParserState<S> {
     pending_events: std::collections::VecDeque<Result<StreamingBatchEvent, Error>>,
     parser: TranscriptionStreamEventParser,
     progress: OpenAISyntheticProgress,
+    speaker_labels: Vec<String>,
+    saw_transcript_event: bool,
+    saw_terminal_result: bool,
+    emitted_incomplete_stream_error: bool,
 }
 
 impl<S> OpenAISseParserState<S> {
@@ -243,6 +252,10 @@ impl<S> OpenAISseParserState<S> {
             pending_events: std::collections::VecDeque::new(),
             parser: TranscriptionStreamEventParser::new(),
             progress: OpenAISyntheticProgress::default(),
+            speaker_labels: Vec::new(),
+            saw_transcript_event: false,
+            saw_terminal_result: false,
+            emitted_incomplete_stream_error: false,
         }
     }
 
@@ -261,6 +274,33 @@ impl<S> OpenAISseParserState<S> {
         }
     }
 
+    fn finish_stream(&mut self) -> Option<Result<StreamingBatchEvent, Error>> {
+        if self.emitted_incomplete_stream_error
+            || !self.saw_transcript_event
+            || self.saw_terminal_result
+        {
+            return None;
+        }
+
+        self.emitted_incomplete_stream_error = true;
+        Some(Err(Error::WebSocket(
+            "OpenAI stream ended before transcript.text.done".to_string(),
+        )))
+    }
+
+    fn speaker_index_for(&mut self, speaker: &str) -> i32 {
+        if let Some(index) = self
+            .speaker_labels
+            .iter()
+            .position(|label| label == speaker)
+        {
+            return index as i32;
+        }
+
+        self.speaker_labels.push(speaker.to_string());
+        (self.speaker_labels.len() - 1) as i32
+    }
+
     fn parse_sse_block(&mut self, block: &str) -> Option<Result<StreamingBatchEvent, Error>> {
         let event = match self.parser.parse_sse_block(block) {
             Ok(Some(event)) => event,
@@ -274,12 +314,23 @@ impl<S> OpenAISseParserState<S> {
 
         match event {
             ParsedTranscriptionStreamEvent::TextDelta { partial_text, .. } => {
+                self.saw_transcript_event = true;
                 Some(Ok(BatchStreamEvent::Progress {
                     percentage: self.progress.observe_delta(&partial_text),
                     partial_text: Some(partial_text),
                 }))
             }
+            ParsedTranscriptionStreamEvent::TextSegment { segment } => {
+                self.saw_transcript_event = true;
+                let speaker_index = self.speaker_index_for(&segment.speaker);
+                Some(Ok(BatchStreamEvent::Segment {
+                    percentage: self.progress.observe_delta(&segment.text),
+                    response: build_stream_response_for_segment(&segment, speaker_index),
+                }))
+            }
             ParsedTranscriptionStreamEvent::TextDone { text, usage, .. } => {
+                self.saw_transcript_event = true;
+                self.saw_terminal_result = true;
                 Some(Ok(BatchStreamEvent::Result {
                     response: build_batch_response(
                         text.trim().to_string(),
@@ -462,6 +513,70 @@ fn convert_diarized_words(response: &DiarizedTranscriptionResponse) -> (Vec<Word
     (words, speaker_labels)
 }
 
+fn convert_diarized_segment_words(
+    segment: &DiarizedTranscriptionSegment,
+    speaker_index: i32,
+) -> Vec<stream::Word> {
+    let tokens = segment.text.split_whitespace().collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return Vec::new();
+    }
+
+    let segment_duration = (segment.end - segment.start).max(0.0);
+    let word_duration = segment_duration / tokens.len() as f64;
+
+    tokens
+        .iter()
+        .enumerate()
+        .map(|(index, token)| {
+            let normalized = strip_punctuation(token);
+            let start = segment.start + word_duration * index as f64;
+            let end = if index + 1 == tokens.len() {
+                segment.end
+            } else {
+                segment.start + word_duration * (index + 1) as f64
+            };
+
+            stream::Word {
+                word: if normalized.is_empty() {
+                    (*token).to_string()
+                } else {
+                    normalized
+                },
+                start,
+                end,
+                confidence: 1.0,
+                speaker: Some(speaker_index),
+                punctuated_word: Some((*token).to_string()),
+                language: None,
+            }
+        })
+        .collect()
+}
+
+fn build_stream_response_for_segment(
+    segment: &DiarizedTranscriptionSegment,
+    speaker_index: i32,
+) -> stream::StreamResponse {
+    stream::StreamResponse::TranscriptResponse {
+        start: segment.start,
+        duration: (segment.end - segment.start).max(0.0),
+        is_final: true,
+        speech_final: false,
+        from_finalize: false,
+        channel: stream::Channel {
+            alternatives: vec![stream::Alternatives {
+                transcript: segment.text.clone(),
+                words: convert_diarized_segment_words(segment, speaker_index),
+                confidence: 1.0,
+                languages: vec![],
+            }],
+        },
+        metadata: stream::Metadata::default(),
+        channel_index: vec![0, 1],
+    }
+}
+
 fn build_batch_response(
     transcript: String,
     words: Vec<Word>,
@@ -627,6 +742,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_sse_segment_emits_stream_segment() {
+        let mut state = OpenAISseParserState::new(());
+        let event = state
+            .parse_sse_block(
+                r#"data: {"type":"transcript.text.segment","id":"seg_001","start":0.0,"end":1.5,"text":"hello there","speaker":"agent"}"#,
+            )
+            .expect("expected segment event")
+            .expect("expected valid segment event");
+
+        let BatchStreamEvent::Segment { response, .. } = event else {
+            panic!("expected segment event");
+        };
+
+        let stream::StreamResponse::TranscriptResponse { channel, .. } = response else {
+            panic!("expected transcript response");
+        };
+
+        assert_eq!(channel.alternatives[0].transcript, "hello there");
+        assert_eq!(channel.alternatives[0].words[0].speaker, Some(0));
+    }
+
+    #[test]
     fn parse_buffer_handles_crlf_delimited_sse_blocks() {
         let mut state = OpenAISseParserState::new(());
         state.buffer =
@@ -661,6 +798,24 @@ mod tests {
         assert!(first > 0.0);
         assert!(second >= first);
         assert!(capped <= OPENAI_PROGRESS_CAP);
+    }
+
+    #[test]
+    fn finish_stream_after_progress_returns_error() {
+        let mut state = OpenAISseParserState::new(());
+        let _ = state
+            .parse_sse_block(r#"data: {"type":"transcript.text.delta","delta":"hello"}"#)
+            .expect("expected progress event");
+
+        let event = state
+            .finish_stream()
+            .expect("expected incomplete stream error");
+        let Err(Error::WebSocket(message)) = event else {
+            panic!("expected websocket error");
+        };
+
+        assert!(message.contains("transcript.text.done"));
+        assert!(state.finish_stream().is_none());
     }
 
     #[test]
