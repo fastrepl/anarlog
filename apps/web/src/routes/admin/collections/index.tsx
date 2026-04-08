@@ -1423,10 +1423,12 @@ function FileItemSidebar({
       onContextMenu={handleContextMenu}
     >
       <FileTextIcon className="size-4 shrink-0 text-neutral-400" />
-      <span className="truncate text-neutral-600">{displayName}</span>
+      <span className="min-w-0 flex-1 truncate text-neutral-600">
+        {displayName}
+      </span>
 
       {item.isDraft && (
-        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+        <span className="ml-auto shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
           Draft
         </span>
       )}
