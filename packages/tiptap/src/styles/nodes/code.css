@@ -27,8 +27,10 @@
     border-radius: 0.4rem;
     color: var(--black);
     font-size: 0.85rem;
-    padding: 0.25em 0.3em;
+    line-height: 1;
+    padding: 0.15em 0.3em;
     border: 1px solid #e5e5e5;
+    vertical-align: middle;
     font-family:
       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
       "Courier New", monospace;

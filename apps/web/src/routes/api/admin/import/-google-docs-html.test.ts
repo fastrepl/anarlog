@@ -33,7 +33,7 @@ test("wraps consecutive Google Docs monospace paragraphs in a code block", () =>
   assert.doesNotMatch(normalized, /<p class="c4">/);
 });
 
-test("keeps inline monospace spans inside regular paragraphs as prose", () => {
+test("converts inline monospace spans into inline code without creating code blocks", () => {
   const html = `
     <html>
       <head>
@@ -56,5 +56,9 @@ test("keeps inline monospace spans inside regular paragraphs as prose", () => {
   const normalized = normalizeGoogleDocsBodyContent(html);
 
   assert.doesNotMatch(normalized, /<pre><code>/);
-  assert.match(normalized, /<p class="c2">/);
+  assert.match(
+    normalized,
+    /<p class="c2">[\s\S]*<code>role<\/code>[\s\S]*<\/p>/,
+  );
+  assert.doesNotMatch(normalized, /<span class="c7">role<\/span>/);
 });

@@ -1,8 +1,10 @@
 const BODY_REGEX = /<body[^>]*>([\s\S]*?)<\/body>/i;
 const SIMPLE_CLASS_RULE_REGEX = /\.([A-Za-z0-9_-]+)\{([^}]*)\}/g;
 const PARAGRAPH_REGEX = /<p\b[^>]*>[\s\S]*?<\/p>/gi;
+const PRE_BLOCK_REGEX = /<pre\b[^>]*>[\s\S]*?<\/pre>/gi;
 const OPEN_TAG_REGEX = /<(?!\/)([a-z0-9]+)\b([^>]*)>/gi;
 const CLASS_ATTR_REGEX = /\bclass=(["'])(.*?)\1/i;
+const SPAN_REGEX = /<span\b([^>]*)>([\s\S]*?)<\/span>/gi;
 
 const MONOSPACE_FONT_MARKERS = [
   "courier",
@@ -123,6 +125,59 @@ function convertParagraphsToCodeBlock(paragraphs: string[]): string {
   return `<pre><code>${lines.join("\n")}</code></pre>`;
 }
 
+function wrapMonospaceSpansInCode(
+  html: string,
+  monospaceClasses: Set<string>,
+): string {
+  return html.replace(
+    SPAN_REGEX,
+    (fullMatch, attributes: string, innerHtml: string) => {
+      const spanClasses = getClassNames(attributes);
+      if (!spanClasses.some((className) => monospaceClasses.has(className))) {
+        return fullMatch;
+      }
+
+      const visibleText = innerHtml
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .trim();
+
+      if (!visibleText) {
+        return fullMatch;
+      }
+
+      return `<code>${innerHtml}</code>`;
+    },
+  );
+}
+
+function normalizeInlineMonospaceSpans(
+  html: string,
+  monospaceClasses: Set<string>,
+): string {
+  let normalized = "";
+  let lastIndex = 0;
+
+  for (const preBlockMatch of html.matchAll(PRE_BLOCK_REGEX)) {
+    const preBlockHtml = preBlockMatch[0];
+    const preBlockIndex = preBlockMatch.index ?? 0;
+
+    normalized += wrapMonospaceSpansInCode(
+      html.slice(lastIndex, preBlockIndex),
+      monospaceClasses,
+    );
+    normalized += preBlockHtml;
+    lastIndex = preBlockIndex + preBlockHtml.length;
+  }
+
+  normalized += wrapMonospaceSpansInCode(
+    html.slice(lastIndex),
+    monospaceClasses,
+  );
+
+  return normalized;
+}
+
 export function normalizeGoogleDocsBodyContent(html: string): string {
   const bodyContent = extractGoogleDocsBodyContent(html).replace(
     /&nbsp;/g,
@@ -142,7 +197,7 @@ export function normalizeGoogleDocsBodyContent(html: string): string {
       .map(([className]) => className),
   );
 
-  if (!monospaceClasses.size || !compactParagraphClasses.size) {
+  if (!monospaceClasses.size) {
     return bodyContent;
   }
 
@@ -192,5 +247,5 @@ export function normalizeGoogleDocsBodyContent(html: string): string {
   flushPendingCodeParagraphs();
   normalized += bodyContent.slice(lastIndex);
 
-  return normalized;
+  return normalizeInlineMonospaceSpans(normalized, monospaceClasses);
 }
