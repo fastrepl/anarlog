@@ -6,6 +6,7 @@ import {
   getExtensionFromMimeType,
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
+  normalizeBase64Data,
   parseMediaFilename,
 } from "@/lib/media";
 
@@ -112,7 +113,7 @@ export async function uploadMediaLibraryFile(params: {
 }
 
 function decodeBase64ToBytes(base64Data: string) {
-  const normalizedBase64 = base64Data.replace(/\s+/g, "");
+  const normalizedBase64 = normalizeBase64Data(base64Data);
   const binary = atob(normalizedBase64);
   const bytes = new Uint8Array(binary.length);
 
@@ -131,6 +132,18 @@ function base64ImageToFile(
   return new File([decodeBase64ToBytes(base64Data)], filename, {
     type: getMimeTypeFromExtension(getExtensionFromMimeType(mimeType)),
   });
+}
+
+function buildMarkdownImage(
+  src: string,
+  altText: string,
+  title?: string | null,
+) {
+  if (!title) {
+    return `![${altText}](${src})`;
+  }
+
+  return `![${altText}](${src} ${JSON.stringify(title)})`;
 }
 
 export async function uploadInlineMarkdownImages(params: {
@@ -168,7 +181,7 @@ export async function uploadInlineMarkdownImages(params: {
 
     nextContent = nextContent.replace(
       image.fullMatch,
-      `![](${uploadResult.proxyUrl})`,
+      buildMarkdownImage(uploadResult.proxyUrl, image.altText, image.title),
     );
   }
 
