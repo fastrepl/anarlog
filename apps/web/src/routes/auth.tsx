@@ -371,22 +371,11 @@ function PasswordForm({
   const [errorMessage, setErrorMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  // TODO: remove DEV_BYPASS_AUTH — temporary bypass for local dev without Supabase
-  const DEV_BYPASS_AUTH = true;
-
   const signInMutation = useMutation({
-    mutationFn: () => {
-      if (DEV_BYPASS_AUTH) {
-        return Promise.resolve({
-          success: true as const,
-          access_token: "dev-token",
-          refresh_token: "dev-token",
-        });
-      }
-      return doPasswordSignIn({
+    mutationFn: () =>
+      doPasswordSignIn({
         data: { email, password, flow, scheme, redirect },
-      });
-    },
+      }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
@@ -412,17 +401,10 @@ function PasswordForm({
   });
 
   const signUpMutation = useMutation({
-    mutationFn: () => {
-      if (DEV_BYPASS_AUTH) {
-        return Promise.resolve({
-          success: true as const,
-          needsConfirmation: true as const,
-        });
-      }
-      return doPasswordSignUp({
+    mutationFn: () =>
+      doPasswordSignUp({
         data: { email, password, flow, scheme, redirect },
-      });
-    },
+      }),
     onSuccess: (result) => {
       if (result && "error" in result && result.error) {
         setErrorMessage(
