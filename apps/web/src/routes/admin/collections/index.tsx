@@ -135,6 +135,14 @@ interface DeleteConfirmation {
   collectionName: AdminCollectionName;
 }
 
+interface DeleteResponse {
+  success: boolean;
+  mode?: "discard-branch" | "delete-file";
+  branch?: string;
+  prNumber?: number;
+  prUrl?: string;
+}
+
 interface FileContent {
   content: string;
   mdx: string;
@@ -733,16 +741,23 @@ function CollectionsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (params: { path: string; branch?: string }) =>
-      postAdminJson<any>(
+      postAdminJson<DeleteResponse>(
         "/api/admin/content/delete",
         params,
         "Failed to delete",
       ),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       const deletedPath = variables.path;
+      const deletedBranch = data.branch || variables.branch;
       setDeleteConfirmation(null);
       setTabs((prev) => {
-        const filtered = prev.filter((t) => t.path !== deletedPath);
+        const filtered = prev.filter((tab) => {
+          if (data.mode === "discard-branch" && deletedBranch) {
+            return !(tab.path === deletedPath && tab.branch === deletedBranch);
+          }
+
+          return tab.path !== deletedPath;
+        });
         if (filtered.length > 0 && !filtered.some((t) => t.active)) {
           return filtered.map((t, i) =>
             i === filtered.length - 1 ? { ...t, active: true } : t,
@@ -751,8 +766,24 @@ function CollectionsPage() {
         return filtered;
       });
       setLocalDraftItems((prev) =>
-        prev.filter((item) => item.path !== deletedPath),
+        prev.filter((item) => {
+          if (item.path !== deletedPath) {
+            return true;
+          }
+
+          if (data.mode === "discard-branch" && deletedBranch) {
+            return item.branch !== deletedBranch;
+          }
+
+          return false;
+        }),
       );
+      void queryClient.invalidateQueries({
+        queryKey: ["pendingPR", deletedPath],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pendingPRFile", deletedPath],
+      });
       void queryClient.invalidateQueries({
         queryKey: DRAFT_ARTICLES_QUERY_KEY,
       });
@@ -900,6 +931,8 @@ function CollectionsPage() {
     );
   });
 
+  const isDiscardDelete = Boolean(deleteConfirmation?.item.branch);
+
   return (
     <ResizablePanelGroup
       direction="horizontal"
@@ -1006,15 +1039,21 @@ function CollectionsPage() {
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete File</DialogTitle>
+            <DialogTitle>
+              {isDiscardDelete ? "Discard Draft" : "Delete File"}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <p className="text-sm text-neutral-600">
-              Are you sure you want to delete{" "}
+              Are you sure you want to{" "}
+              {isDiscardDelete ? "discard changes for" : "delete"}{" "}
               <span className="font-medium text-neutral-900">
                 {deleteConfirmation?.item.name}
               </span>
-              ? This action cannot be undone.
+              ?{" "}
+              {isDiscardDelete
+                ? "This will close any pending PR for this draft and delete its branch."
+                : "This action cannot be undone."}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -1040,7 +1079,13 @@ function CollectionsPage() {
                 {deleteMutation.isPending && (
                   <Spinner size={14} color="white" />
                 )}
-                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                {deleteMutation.isPending
+                  ? isDiscardDelete
+                    ? "Discarding..."
+                    : "Deleting..."
+                  : isDiscardDelete
+                    ? "Discard Draft"
+                    : "Delete"}
               </button>
             </div>
           </div>
