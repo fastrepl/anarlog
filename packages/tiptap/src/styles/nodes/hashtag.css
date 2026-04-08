@@ -10,4 +10,15 @@
     border: none;
     font-weight: 500;
   }
+
+  code .hashtag,
+  pre .hashtag {
+    color: inherit;
+    text-decoration: none;
+    padding: 0;
+    border-radius: 0;
+    background: none;
+    border: none;
+    font-weight: inherit;
+  }
 }
