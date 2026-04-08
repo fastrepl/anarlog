@@ -1787,7 +1787,11 @@ export async function publishArticle(
   prUrl?: string;
   error?: string;
 }> {
-  const actionLabel = action === "publish" ? "Publish" : "Unpublish";
+  const actionLabel = await getArticlePullRequestActionLabel(
+    filePath,
+    branchName,
+    action,
+  );
   const title = `${actionLabel}: ${metadata.meta_title || filePath}`;
   const statusText =
     action === "publish" ? "Ready for Publication" : "To Be Unpublished";
@@ -1834,6 +1838,30 @@ Auto-generated PR from admin panel.`;
   }
 
   return prResult;
+}
+
+async function getArticlePullRequestActionLabel(
+  filePath: string,
+  branchName: string,
+  action: "publish" | "unpublish",
+): Promise<"Publish" | "Edit" | "Unpublish"> {
+  if (action === "unpublish") {
+    return "Unpublish";
+  }
+
+  if (branchName === buildDraftBranchName(filePath)) {
+    return "Publish";
+  }
+
+  if (isDev()) {
+    return "Edit";
+  }
+
+  const existingArticle = await getFileContentFromBranch(
+    filePath,
+    GITHUB_BRANCH,
+  );
+  return existingArticle.success ? "Edit" : "Publish";
 }
 
 export async function publishContentPR(
