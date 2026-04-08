@@ -146,10 +146,8 @@ If you want a structured table view instead of backlinks, use a Base. The [Autom
 ```
 filters:
   and:
-  file.hasLink(this.file.name)
-'type = "meeting"'
-
-
+    file.hasLink(this.file.name)
+    'type = "meeting"'
 ```
 
 Embed this Base in Sarah's person note and it renders a table of every meeting note that links to her, filterable and sortable. This uses Obsidian's built-in Bases feature — no community plugins needed.
