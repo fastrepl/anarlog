@@ -2,8 +2,8 @@ use owhisper_client::AdapterKind;
 use std::str::FromStr;
 
 use crate::listener::ListenerPluginExt;
+use crate::{CaptureParams, CaptureState};
 use hypr_transcript::{RenderTranscriptRequest, RenderedTranscriptSegment};
-use hypr_transcription_core::listener::{State, StopSessionParams, actors::SessionParams};
 
 #[tauri::command]
 #[specta::specta]
@@ -45,32 +45,29 @@ pub async fn set_mic_muted<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn start_session<R: tauri::Runtime>(
+pub async fn start_capture<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-    params: SessionParams,
+    params: CaptureParams,
 ) -> Result<(), String> {
     app.listener()
-        .start_session(params)
+        .start_capture(params)
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn stop_session<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    params: Option<StopSessionParams>,
-) -> Result<(), String> {
-    app.listener()
-        .stop_session(params.unwrap_or_default())
-        .await;
+pub async fn stop_capture<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), String> {
+    app.listener().stop_capture().await;
     Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_state<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<State, String> {
-    Ok(app.listener().get_state().await)
+pub async fn get_capture_state<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<CaptureState, String> {
+    Ok(app.listener().get_capture_state().await)
 }
 
 #[tauri::command]

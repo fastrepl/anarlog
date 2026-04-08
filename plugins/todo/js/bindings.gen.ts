@@ -38,6 +38,14 @@ async fetchTodos(filter: ReminderFilter) : Promise<Result<Reminder[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async readPath(path: string, limit: number | null, cursor: string | null) : Promise<Result<ReadPathResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:todo|read_path", { path, limit, cursor }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async createTodo(input: CreateReminderInput) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:todo|create_todo", { input }) };
@@ -46,17 +54,17 @@ async createTodo(input: CreateReminderInput) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async completeTodo(id: string) : Promise<Result<null, string>> {
+async completeTodo(target: ReminderIdentifierInput) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:todo|complete_todo", { id }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:todo|complete_todo", { target }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async deleteTodo(id: string) : Promise<Result<null, string>> {
+async deleteTodo(target: ReminderIdentifierInput) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:todo|delete_todo", { id }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:todo|delete_todo", { target }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -112,12 +120,13 @@ name: string;
  * Short identifier. GitHub: "owner/repo", Linear: team key (e.g., "ENG").
  */
 key: string | null; url: string | null }
-export type CreateReminderInput = { title: string; list_id: string | null; notes: string | null; url: string | null; priority: ReminderPriority | null; due_date: string | null; start_date: string | null }
+export type CreateReminderInput = { title: string; list_id: string | null; notes: string | null; url: string | null; priority: ReminderPriority | null; due_date: DateComponents | null; start_date: DateComponents | null }
 export type DateComponents = { date: string | null; time: string | null; time_zone: string | null }
 export type GeoLocation = { latitude: number; longitude: number }
 export type LabelRef = { id: string; name: string; color: string | null }
 export type PersonRef = { id: string | null; name: string | null; email: string | null; avatar_url: string | null }
 export type PullRequestDetail = { is_draft: boolean; is_merged: boolean; source_branch: string | null; target_branch: string | null; merged_at: string | null; merged_by: PersonRef | null }
+export type ReadPathResult = { kind: "reminder_lists"; data: ReminderList[] } | { kind: "reminders"; data: Reminder[] } | { kind: "collections"; data: CollectionPage } | { kind: "tickets"; data: TicketPage }
 export type RecurrenceDayOfWeek = { weekday: Weekday; week_number: number | null }
 export type RecurrenceEnd = { Count: number } | { Until: string }
 export type RecurrenceFrequency = "Daily" | "Weekly" | "Monthly" | "Yearly"
@@ -125,6 +134,7 @@ export type RecurrenceRule = { frequency: RecurrenceFrequency; interval: number;
 export type Reminder = { calendar_item_identifier: string; external_identifier: string; list: ReminderListRef; title: string; notes: string | null; url: string | null; priority: ReminderPriority; is_completed: boolean; completion_date: string | null; start_date_components: DateComponents | null; due_date_components: DateComponents | null; creation_date: string | null; last_modified_date: string | null; has_alarms: boolean; has_recurrence_rules: boolean; alarms: Alarm[]; recurrence_rules: RecurrenceRule[] }
 export type ReminderFilter = { kind: ReminderFilterKind; list_ids: string[] | null }
 export type ReminderFilterKind = "All" | { Incomplete: { from: string | null; to: string | null } } | { Completed: { from: string | null; to: string | null } }
+export type ReminderIdentifierInput = { calendar_item_identifier: string | null; external_identifier: string | null; list_id: string | null }
 export type ReminderList = { id: string; title: string; calendar_type: CalendarType; color: CalendarColor | null; allows_content_modifications: boolean; is_default: boolean; source: CalendarSource }
 export type ReminderListRef = { id: string; title: string }
 export type ReminderPriority = "None" | "High" | "Medium" | "Low"

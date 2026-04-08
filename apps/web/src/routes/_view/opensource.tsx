@@ -197,14 +197,14 @@ function LetterSection() {
             <div className="flex flex-col gap-4">
               <div className="flex gap-2">
                 <Image
-                  src="/api/images/team/john.png"
+                  src="/api/assets/team/john.png"
                   alt="John Jeong"
                   width={32}
                   height={32}
                   className="border-color-brand rounded-full border object-cover"
                 />
                 <Image
-                  src="/api/images/team/yujong.png"
+                  src="/api/assets/team/yujong.png"
                   alt="Yujong Lee"
                   width={32}
                   height={32}
@@ -642,7 +642,7 @@ function ProgressSection() {
     {
       label: "Downloads",
       value: "40k+",
-      imageUrl: "/api/images/hyprnote/icon.png",
+      imageUrl: "/api/assets/hyprnote/icon.png",
       color: "text-purple-500",
     },
     {

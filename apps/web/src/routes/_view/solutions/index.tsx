@@ -7,24 +7,29 @@ import { sortedSolutions } from "@/lib/solutions";
 
 export const Route = createFileRoute("/_view/solutions/")({
   component: Component,
-  head: () => ({
-    meta: [
-      { title: "Solutions - Char" },
-      {
-        name: "description",
-        content:
-          "Browse how teams across sales, consulting, healthcare, research, and more use Char to capture and act on every conversation.",
-      },
-      { property: "og:title", content: "Solutions - Char" },
-      {
-        property: "og:description",
-        content:
-          "Browse how teams across sales, consulting, healthcare, research, and more use Char to capture and act on every conversation.",
-      },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://char.com/solutions" },
-    ],
-  }),
+  head: () => {
+    const url = "https://char.com/solutions";
+
+    return {
+      meta: [
+        { title: "Solutions - Char" },
+        {
+          name: "description",
+          content:
+            "Browse how teams across sales, consulting, healthcare, research, and more use Char to capture and act on every conversation.",
+        },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
+        { property: "og:title", content: "Solutions - Char" },
+        {
+          property: "og:description",
+          content:
+            "Browse how teams across sales, consulting, healthcare, research, and more use Char to capture and act on every conversation.",
+        },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
+      ],
+    };
+  },
 });
 
 function Component() {

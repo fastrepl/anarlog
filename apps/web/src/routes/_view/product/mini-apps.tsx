@@ -68,8 +68,8 @@ function ContactsSection() {
   const [currentImage, setCurrentImage] = useState(0);
 
   const images = [
-    "/api/images/hyprnote/mini-apps/contacts-human.jpg",
-    "/api/images/hyprnote/mini-apps/contacts-org.jpg",
+    "/api/assets/hyprnote/mini-apps/contacts-human.jpg",
+    "/api/assets/hyprnote/mini-apps/contacts-org.jpg",
   ];
 
   useEffect(() => {
@@ -389,7 +389,7 @@ function FoldersSection() {
         </div>
         <div className="aspect-4/3 overflow-hidden bg-stone-50">
           <img
-            src="/api/images/hyprnote/mini-apps/folders.jpg"
+            src="/api/assets/hyprnote/mini-apps/folders.jpg"
             alt="Folders interface"
             className="h-full w-full object-cover"
           />
@@ -426,7 +426,7 @@ function FoldersSection() {
         </div>
         <div className="aspect-4/3 overflow-hidden bg-stone-50">
           <img
-            src="/api/images/hyprnote/mini-apps/folders.jpg"
+            src="/api/assets/hyprnote/mini-apps/folders.jpg"
             alt="Folders interface"
             className="h-full w-full object-cover"
           />
@@ -441,20 +441,20 @@ const ADVANCED_SEARCH_AUTO_ADVANCE_DURATION = 5000;
 const advancedSearchImages = [
   {
     id: 1,
-    url: "/api/images/hyprnote/mini-apps/search-default.jpg",
+    url: "/api/assets/hyprnote/mini-apps/search-default.jpg",
     title: "Suggestions",
     description:
       "Get instant search result suggestions based on recent activities",
   },
   {
     id: 2,
-    url: "/api/images/hyprnote/mini-apps/search-semantic.jpg",
+    url: "/api/assets/hyprnote/mini-apps/search-semantic.jpg",
     title: "Semantic search",
     description: "Find relevant info even without exact keywords",
   },
   {
     id: 3,
-    url: "/api/images/hyprnote/mini-apps/search-filter.jpg",
+    url: "/api/assets/hyprnote/mini-apps/search-filter.jpg",
     title: "Filters",
     description: "Filter out result types easily",
   },
@@ -578,7 +578,7 @@ function CTASection() {
       <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <img
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={144}
             height={144}

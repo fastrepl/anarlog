@@ -1,74 +1,71 @@
 inputs:
-  repo-id:
-    description: "Hugging Face repository id"
+  repo:
     required: true
-  filename:
-    description: "Path to the file inside the repo"
+    type: string
+  path:
     required: true
-  output:
-    description: "Output path"
+    type: string
+  local-dir:
     required: true
-  revision:
-    description: "Optional repo revision"
-    required: false
+    type: string
   token:
-    description: "Optional Hugging Face token"
     required: false
-  sha256:
-    description: "Expected SHA-256 checksum"
+    default: ""
+    type: string
+  revision:
     required: false
+    default: ""
+    type: string
+  repo-type:
+    required: false
+    default: ""
+    type: string
+  hf-hub-download-timeout:
+    required: false
+    default: "60"
+    type: string
+
+outputs:
+  downloaded-path:
+    description: Downloaded file path printed by `hf download`.
+    value: ${{ steps.download.outputs.downloaded-path }}
 
 runs:
   using: "composite"
   steps:
-    - shell: bash
-      env:
-        HF_TOKEN: ${{ inputs.token }}
+    - name: Install Hugging Face CLI
+      shell: bash
       run: |
-        set -euo pipefail
+        pipx install huggingface_hub
+        pipx ensurepath
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-        if ! command -v hf >/dev/null 2>&1; then
-          pip3 install --break-system-packages -U huggingface_hub
-        fi
-    - shell: bash
+    - id: download
+      name: Download from Hugging Face Hub
+      shell: bash
       env:
-        REPO_ID: ${{ inputs.repo-id }}
-        FILENAME: ${{ inputs.filename }}
-        OUTPUT: ${{ inputs.output }}
-        REVISION: ${{ inputs.revision }}
-        HF_TOKEN: ${{ inputs.token }}
-        SHA256: ${{ inputs.sha256 }}
+        HF_HUB_DOWNLOAD_TIMEOUT: ${{ inputs.hf-hub-download-timeout }}
       run: |
-        set -euo pipefail
-
-        mkdir -p "$(dirname "$OUTPUT")"
-        TMP_DIR=$(mktemp -d)
-
-        HF_ARGS=(
+        args=(
           download
-          "$REPO_ID"
-          "$FILENAME"
-          --local-dir "$TMP_DIR"
+          "${{ inputs.repo }}"
+          "${{ inputs.path }}"
+          --local-dir
+          "${{ inputs.local-dir }}"
+          --quiet
         )
 
-        if [[ -n "$REVISION" ]]; then
-          HF_ARGS+=(--revision "$REVISION")
+        if [[ -n "${{ inputs.repo-type }}" ]]; then
+          args+=(--repo-type "${{ inputs.repo-type }}")
         fi
 
-        if [[ -n "$HF_TOKEN" ]]; then
-          HF_ARGS+=(--token "$HF_TOKEN")
+        if [[ -n "${{ inputs.revision }}" ]]; then
+          args+=(--revision "${{ inputs.revision }}")
         fi
 
-        DOWNLOADED_PATH=$(hf "${HF_ARGS[@]}" | tail -n 1)
-        mv "$DOWNLOADED_PATH" "$OUTPUT"
-        rm -rf "$TMP_DIR"
-
-        if [[ -n "$SHA256" ]]; then
-          ACTUAL_SHA256=$(shasum -a 256 "$OUTPUT" | awk '{print $1}')
-          if [[ "$ACTUAL_SHA256" != "$SHA256" ]]; then
-            echo "::error::SHA-256 mismatch for $OUTPUT"
-            echo "expected: $SHA256"
-            echo "actual:   $ACTUAL_SHA256"
-            exit 1
-          fi
+        if [[ -n "${{ inputs.token }}" ]]; then
+          args+=(--token "${{ inputs.token }}")
         fi
+
+        downloaded_path=$(hf "${args[@]}")
+        echo "downloaded-path=$downloaded_path" >> "$GITHUB_OUTPUT"

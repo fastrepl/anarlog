@@ -37,16 +37,24 @@ export const displayModelId = (model: string) => {
     return "Pro (Cloud)";
   }
 
+  if (
+    model === "universal-3-pro" ||
+    model === "u3-rt-pro" ||
+    model === "universal"
+  ) {
+    return "Universal-3 Pro";
+  }
+
+  if (model === "whisper-rt") {
+    return "Whisper RT";
+  }
+
   if (model === "stt-v4" || model === "stt-rt-v4" || model === "stt-async-v4") {
     return "Soniox v4";
   }
 
   if (model === "stt-v3" || model === "stt-rt-v3" || model === "stt-async-v3") {
     return "Soniox v3";
-  }
-
-  if (model === "universal") {
-    return "Universal";
   }
 
   if (model === "solaria-1") {
@@ -126,11 +134,11 @@ const _PROVIDERS = [
     badge: "Beta",
     icon: <AssemblyAI size={12} />,
     baseUrl: "https://api.assemblyai.com",
-    models: ["universal"],
+    models: ["universal-3-pro"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
-    disabled: true,
+    disabled: false,
     id: "openai",
     displayName: "OpenAI",
     badge: "Batch only",
@@ -192,7 +200,7 @@ const _PROVIDERS = [
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
-    disabled: true,
+    disabled: false,
     id: "pyannote",
     displayName: "pyannoteAI",
     badge: "Batch only",

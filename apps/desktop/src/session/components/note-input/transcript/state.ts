@@ -4,14 +4,14 @@ import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
 import * as main from "~/store/tinybase/store/main";
+import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
 import { parseTranscriptWords } from "~/stt/utils";
 
 type ListeningStatus = "listening" | "finalizing";
 type BatchPhase = "importing" | "transcribing";
-type RecordingMode = "memory" | "disk" | null;
-type RequestedTranscriptionMode = "live" | "batch" | null;
+type RequestedLiveTranscription = boolean | null;
 
 export type TranscriptScreen =
   | {
@@ -21,9 +21,8 @@ export type TranscriptScreen =
     }
   | {
       kind: "batch_fallback";
-      requestedTranscriptionMode: RequestedTranscriptionMode;
+      requestedLiveTranscription: RequestedLiveTranscription;
       error: DegradedError | null;
-      recordingMode: RecordingMode;
     }
   | {
       kind: "listening";
@@ -59,8 +58,8 @@ export function useTranscriptScreen({
 
   const currentActive =
     sessionMode === "active" || sessionMode === "finalizing";
-  const isBatchMode =
-    currentActive && live.currentTranscriptionMode === "batch";
+  const captureMode = getLiveCaptureUiMode(live);
+  const isRecordOnlyMode = sessionMode === "active" && captureMode !== "live";
   const hasVisibleTranscriptState =
     hasTranscriptWords || liveSegments.length > 0 || !!batchError;
 
@@ -72,12 +71,11 @@ export function useTranscriptScreen({
     };
   }
 
-  if (isBatchMode) {
+  if (isRecordOnlyMode) {
     return {
       kind: "batch_fallback",
-      requestedTranscriptionMode: live.requestedTranscriptionMode,
+      requestedLiveTranscription: live.requestedLiveTranscription,
       error: live.degraded,
-      recordingMode: live.recordingMode,
     };
   }
 

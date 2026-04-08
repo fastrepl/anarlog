@@ -13,6 +13,6 @@ impl CactusAdapter {
         _languages: &[hypr_language::Language],
         _model: Option<&str>,
     ) -> bool {
-        true
+        false
     }
 }

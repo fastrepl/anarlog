@@ -16,7 +16,7 @@ import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
-import { useRunBatch } from "./useRunBatch";
+import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
@@ -225,6 +225,9 @@ export function useUploadFile(sessionId: string) {
         Effect.tap(() => Effect.sync(() => triggerEnhance())),
         Effect.catchAll((error: unknown) =>
           Effect.sync(() => {
+            if (isStoppedTranscriptionError(error)) {
+              return;
+            }
             const msg = error instanceof Error ? error.message : String(error);
             handleBatchFailed(sessionId, msg);
           }),

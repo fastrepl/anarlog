@@ -3,7 +3,6 @@ import {
   AlertCircle,
   Download,
   FolderOpen,
-  HelpCircle,
   Loader2,
   Trash2,
   X,
@@ -150,24 +149,24 @@ function HyprProviderCard({
             <>
               <div className="flex items-center gap-3 py-2">
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
-                <a
-                  href="https://char.com/docs/developers/local-models"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:underline"
-                >
+                <div className="flex items-center gap-1 text-xs text-neutral-400">
                   <span>or use on-device model</span>
-                  <HelpCircle className="size-3" />
-                </a>
+                </div>
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
               </div>
 
-              {cactusModels.filter((m) => String(m.key).includes("whisper"))
+              <StyledStreamdown>
+                {
+                  "We intentionally **disable realtime transcription** for local models to ensure the best experience.\n\nAudio will be **batch processed** after recording is done."
+                }
+              </StyledStreamdown>
+
+              {cactusModels.filter((m) => String(m.key).includes("parakeet"))
                 .length > 0 && (
                 <>
                   <ModelGroupLabel label="Recommended" />
                   {cactusModels
-                    .filter((m) => String(m.key).includes("whisper"))
+                    .filter((m) => String(m.key).includes("parakeet"))
                     .map((model) => (
                       <CactusRow
                         key={model.key as string}
@@ -178,12 +177,12 @@ function HyprProviderCard({
                 </>
               )}
 
-              {cactusModels.filter((m) => !String(m.key).includes("whisper"))
+              {cactusModels.filter((m) => !String(m.key).includes("parakeet"))
                 .length > 0 && (
                 <>
-                  <ModelGroupLabel label="Experimental" />
+                  <ModelGroupLabel label="Others" />
                   {cactusModels
-                    .filter((m) => !String(m.key).includes("whisper"))
+                    .filter((m) => !String(m.key).includes("parakeet"))
                     .map((model) => (
                       <CactusRow
                         key={model.key as string}
@@ -568,7 +567,7 @@ function HyprProviderLocalRow({
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
     providerId === "hyprnote"
-      ? "Char curates list of on-device models and also cloud models with high-availability and performance."
+      ? "**Char Cloud** routes request to the **best available model** for highest accuracy and performance."
       : providerId === "deepgram"
         ? `Use [Deepgram](https://deepgram.com) for transcriptions. \
     If you want to use a [Dedicated](https://developers.deepgram.com/reference/custom-endpoints#deepgram-dedicated-endpoints)

@@ -104,11 +104,24 @@ export const changelogComponents = {
         "mb-2 rounded-xl border px-5 pt-4 pb-4",
         variant === "warning"
           ? "border-amber-300 bg-amber-50 text-amber-900"
-          : "border-amber-200 bg-amber-50/60 text-stone-800",
+          : variant === "info"
+            ? "border-blue-300 bg-blue-50 text-blue-900"
+            : "border-amber-200 bg-amber-50/60 text-stone-800",
       ])}
     >
       {title && (
-        <div className="mb-1 text-sm font-semibold text-amber-900">{title}</div>
+        <div
+          className={cn([
+            "mb-1 text-sm font-semibold",
+            variant === "warning"
+              ? "text-amber-900"
+              : variant === "info"
+                ? "text-blue-900"
+                : "text-amber-900",
+          ])}
+        >
+          {title}
+        </div>
       )}
       <div className="text-sm text-stone-600 [&_p:last-child]:mb-0 [&_ul:last-child]:mb-0">
         <Streamdown

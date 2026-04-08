@@ -5,6 +5,7 @@ permissions = [
     "allow-request-full-access",
     "allow-list-todo-lists",
     "allow-fetch-todos",
+    "allow-read-path",
     "allow-create-todo",
     "allow-complete-todo",
     "allow-delete-todo",

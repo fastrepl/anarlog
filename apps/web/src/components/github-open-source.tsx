@@ -1,4 +1,5 @@
 import { Icon } from "@iconify-icon/react";
+import { Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -257,20 +258,38 @@ export function GitHubOpenSource() {
               Char values privacy and community, so it's been transparent from
               day one.
             </p>
-            <a
-              href={`https://github.com/${GITHUB_ORG_REPO}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <div
               className={cn([
-                "group inline-flex h-14 items-center justify-center gap-2 px-8",
-                "text-fg border-color-brand rounded-full border",
-                "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
-                "cursor-pointer transition-all",
+                "flex flex-col items-center gap-3",
+                "sm:flex-row md:items-start",
               ])}
             >
-              <Icon icon="mdi:github" className="text-lg" />
-              View on GitHub
-            </a>
+              <a
+                href={`https://github.com/${GITHUB_ORG_REPO}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn([
+                  "group inline-flex h-14 items-center justify-center gap-2 px-8",
+                  "text-fg border-color-brand rounded-full border",
+                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
+                  "cursor-pointer transition-all",
+                ])}
+              >
+                <Icon icon="mdi:github" className="text-lg" />
+                View on GitHub
+              </a>
+              <Link
+                to="/opensource/"
+                className={cn([
+                  "inline-flex h-14 items-center justify-center px-8",
+                  "text-fg border-color-brand rounded-full border",
+                  "hover:scale-[102%] hover:bg-[var(--color-brand-dark)] hover:text-white active:scale-[98%]",
+                  "cursor-pointer transition-all",
+                ])}
+              >
+                Why Open source?
+              </Link>
+            </div>
           </div>
           <div className="flex shrink-0 gap-2">
             <StatBadge type="stars" count={STARS_COUNT} />

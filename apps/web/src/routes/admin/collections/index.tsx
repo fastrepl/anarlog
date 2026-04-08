@@ -1,3 +1,5 @@
+import "./collections.css";
+
 import { MDXContent } from "@content-collections/mdx/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
@@ -61,6 +63,10 @@ import BlogEditor, {
   type TiptapEditor,
   useBlogEditor,
 } from "@/components/admin/blog-editor";
+import {
+  ContentAuditReviewDialog,
+  type ContentAuditPreview,
+} from "@/components/admin/content-audit-review-dialog";
 import { MediaSelectorModal } from "@/components/admin/media-selector-modal";
 import { defaultMDXComponents } from "@/components/mdx";
 import { fetchGitHubCredentials } from "@/functions/admin";
@@ -135,6 +141,16 @@ interface DeleteConfirmation {
   collectionName: AdminCollectionName;
 }
 
+interface DeleteResponse {
+  success: boolean;
+  mode?: "discard-branch" | "delete-file";
+  branch?: string;
+  prNumber?: number;
+  prUrl?: string;
+  mediaDeleted?: string[];
+  mediaCleanupErrors?: string[];
+}
+
 interface FileContent {
   content: string;
   mdx: string;
@@ -189,7 +205,16 @@ interface EditorData {
 
 type FileEditorHandle = {
   getData: () => EditorData | null;
+  applyContent: (content: string) => void;
 };
+
+interface AuditContentResponse {
+  success: boolean;
+  revisedContent: string;
+  summary: string[];
+  changed: boolean;
+  model: string;
+}
 
 function getEditorMarkdown(editor: TiptapEditor | null, fallback = "") {
   if (!editor?.isInitialized) {
@@ -733,16 +758,23 @@ function CollectionsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (params: { path: string; branch?: string }) =>
-      postAdminJson<any>(
+      postAdminJson<DeleteResponse>(
         "/api/admin/content/delete",
         params,
         "Failed to delete",
       ),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
       const deletedPath = variables.path;
+      const deletedBranch = data.branch || variables.branch;
       setDeleteConfirmation(null);
       setTabs((prev) => {
-        const filtered = prev.filter((t) => t.path !== deletedPath);
+        const filtered = prev.filter((tab) => {
+          if (data.mode === "discard-branch" && deletedBranch) {
+            return !(tab.path === deletedPath && tab.branch === deletedBranch);
+          }
+
+          return tab.path !== deletedPath;
+        });
         if (filtered.length > 0 && !filtered.some((t) => t.active)) {
           return filtered.map((t, i) =>
             i === filtered.length - 1 ? { ...t, active: true } : t,
@@ -751,11 +783,33 @@ function CollectionsPage() {
         return filtered;
       });
       setLocalDraftItems((prev) =>
-        prev.filter((item) => item.path !== deletedPath),
+        prev.filter((item) => {
+          if (item.path !== deletedPath) {
+            return true;
+          }
+
+          if (data.mode === "discard-branch" && deletedBranch) {
+            return item.branch !== deletedBranch;
+          }
+
+          return false;
+        }),
       );
+      void queryClient.invalidateQueries({
+        queryKey: ["pendingPR", deletedPath],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["pendingPRFile", deletedPath],
+      });
       void queryClient.invalidateQueries({
         queryKey: DRAFT_ARTICLES_QUERY_KEY,
       });
+
+      if (data.mediaCleanupErrors && data.mediaCleanupErrors.length > 0) {
+        sonnerToast.error("Deleted with media cleanup issues", {
+          description: data.mediaCleanupErrors.join("\n"),
+        });
+      }
     },
     onError: (error: unknown) => {
       if (isAdminSignInRedirectError(error)) {
@@ -900,6 +954,8 @@ function CollectionsPage() {
     );
   });
 
+  const isDiscardDelete = Boolean(deleteConfirmation?.item.branch);
+
   return (
     <ResizablePanelGroup
       direction="horizontal"
@@ -1004,17 +1060,23 @@ function CollectionsPage() {
         open={deleteConfirmation !== null}
         onOpenChange={(open) => !open && setDeleteConfirmation(null)}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="content-admin-chrome max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete File</DialogTitle>
+            <DialogTitle>
+              {isDiscardDelete ? "Discard Draft" : "Delete File"}
+            </DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <p className="text-sm text-neutral-600">
-              Are you sure you want to delete{" "}
+              Are you sure you want to{" "}
+              {isDiscardDelete ? "discard changes for" : "delete"}{" "}
               <span className="font-medium text-neutral-900">
                 {deleteConfirmation?.item.name}
               </span>
-              ? This action cannot be undone.
+              ?{" "}
+              {isDiscardDelete
+                ? "This will close any pending PR for this draft and delete its branch."
+                : "This action cannot be undone."}
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -1040,7 +1102,13 @@ function CollectionsPage() {
                 {deleteMutation.isPending && (
                   <Spinner size={14} color="white" />
                 )}
-                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                {deleteMutation.isPending
+                  ? isDiscardDelete
+                    ? "Discarding..."
+                    : "Deleting..."
+                  : isDiscardDelete
+                    ? "Discard Draft"
+                    : "Delete"}
               </button>
             </div>
           </div>
@@ -1176,7 +1244,7 @@ function Sidebar({
   }, [activeCollection]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
+    <div className="content-admin-chrome flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
         <div className="relative flex w-full items-center gap-1.5">
           <SearchIcon className="size-4 shrink-0 text-neutral-400" />
@@ -1378,10 +1446,12 @@ function FileItemSidebar({
       onContextMenu={handleContextMenu}
     >
       <FileTextIcon className="size-4 shrink-0 text-neutral-400" />
-      <span className="truncate text-neutral-600">{displayName}</span>
+      <span className="min-w-0 flex-1 truncate text-neutral-600">
+        {displayName}
+      </span>
 
       {item.isDraft && (
-        <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+        <span className="ml-auto shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
           Draft
         </span>
       )}
@@ -1595,7 +1665,7 @@ function NewPostInlineInput({
   };
 
   return (
-    <div>
+    <div className="content-admin-chrome">
       <div
         className={cn([
           "flex items-center gap-1.5 py-1.5 pr-2 pl-4 text-sm",
@@ -1708,7 +1778,7 @@ function StructuredPageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="content-admin-chrome max-w-md">
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Create page" : "Move or rename page"}
@@ -1977,6 +2047,9 @@ function ContentPanel({
 }) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editorData, setEditorData] = useState<EditorData | null>(null);
+  const [auditPreview, setAuditPreview] = useState<ContentAuditPreview | null>(
+    null,
+  );
   const fileEditorRef = useRef<FileEditorHandle | null>(null);
   const queryClient = useQueryClient();
 
@@ -1989,6 +2062,10 @@ function ContentPanel({
     currentTab?.type === "file"
       ? (currentTab.path.split("/")[0] as AdminCollectionName)
       : undefined;
+
+  useEffect(() => {
+    setAuditPreview(null);
+  }, [currentTab?.id]);
 
   const saveFile = useCallback(
     async (params: {
@@ -2146,6 +2223,29 @@ function ContentPanel({
     },
   });
 
+  const { mutateAsync: auditContent, isPending: isAuditing } = useMutation({
+    mutationFn: async (params: {
+      path: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }) =>
+      postAdminJson<AuditContentResponse>(
+        "/api/admin/content/audit",
+        params,
+        "Failed to run audit",
+      ),
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
+      sonnerToast.error("Audit failed", {
+        description:
+          error instanceof Error ? error.message : "Failed to run audit",
+      });
+    },
+  });
+
   const handlePublish = useCallback(async () => {
     const currentEditorData = getCurrentEditorData();
 
@@ -2183,6 +2283,52 @@ function ContentPanel({
     }
   }, [currentTab, getCurrentEditorData, publish]);
 
+  const handleAudit = useCallback(async () => {
+    const currentEditorData = getCurrentEditorData();
+
+    if (
+      !currentTab ||
+      !currentEditorData ||
+      currentCollection !== "articles" ||
+      !currentEditorData.content.trim()
+    ) {
+      return;
+    }
+
+    const result = await auditContent({
+      path: currentTab.path,
+      content: currentEditorData.content,
+      metadata: currentEditorData.metadata,
+    });
+
+    if (
+      !result.changed ||
+      result.revisedContent === currentEditorData.content
+    ) {
+      sonnerToast.success("No audit changes suggested");
+      return;
+    }
+
+    setAuditPreview({
+      model: result.model,
+      originalContent: currentEditorData.content,
+      revisedContent: result.revisedContent,
+      summary: result.summary,
+    });
+  }, [auditContent, currentCollection, currentTab, getCurrentEditorData]);
+
+  const handleApplyAudit = useCallback(() => {
+    if (!auditPreview) {
+      return;
+    }
+
+    fileEditorRef.current?.applyContent(auditPreview.revisedContent);
+    setAuditPreview(null);
+    sonnerToast.success("Audit applied", {
+      description: "Review the updated draft and save when you're ready.",
+    });
+  }, [auditPreview]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {currentTab ? (
@@ -2200,6 +2346,8 @@ function ContentPanel({
             onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
             onSave={handleSave}
             isSaving={isSaving}
+            onAudit={currentCollection === "articles" ? handleAudit : undefined}
+            isAuditing={isAuditing}
             onPublish={handlePublish}
             isPublishing={isPublishing}
             hasPendingPR={pendingPRData?.hasPendingPR}
@@ -2238,6 +2386,16 @@ function ContentPanel({
           />
         </div>
       )}
+      <ContentAuditReviewDialog
+        open={auditPreview !== null}
+        preview={auditPreview}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAuditPreview(null);
+          }
+        }}
+        onApply={handleApplyAudit}
+      />
     </div>
   );
 }
@@ -2255,6 +2413,8 @@ function EditorHeader({
   onTogglePreview,
   onSave,
   isSaving,
+  onAudit,
+  isAuditing,
   onPublish,
   isPublishing,
   hasPendingPR,
@@ -2277,6 +2437,8 @@ function EditorHeader({
   onTogglePreview: () => void;
   onSave: () => void;
   isSaving: boolean;
+  onAudit?: () => void;
+  isAuditing?: boolean;
   onPublish?: () => void;
   isPublishing?: boolean;
   hasPendingPR?: boolean;
@@ -2455,6 +2617,25 @@ function EditorHeader({
                   </span>
                 )}
             </button>
+            {onAudit && (
+              <button
+                onClick={onAudit}
+                disabled={isAuditing}
+                className={cn([
+                  "flex cursor-pointer items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-xs font-medium transition-colors",
+                  "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                ])}
+                title="Run article audit"
+              >
+                {isAuditing ? (
+                  <Spinner size={16} color="currentColor" />
+                ) : (
+                  <RefreshCwIcon className="size-4" />
+                )}
+                Audit
+              </button>
+            )}
             {onPublish && (
               <button
                 onClick={onPublish}
@@ -2966,7 +3147,7 @@ function MetadataPanel({
     <div
       key={filePath}
       className={cn([
-        "relative shrink-0",
+        "content-admin-chrome relative shrink-0",
         isExpanded && "border-b border-neutral-200",
       ])}
     >
@@ -3068,7 +3249,7 @@ function MetadataPanel({
               type="text"
               value={handlers.coverImage}
               onChange={(e) => handlers.onCoverImageChange(e.target.value)}
-              placeholder="/api/images/blog/slug/cover.png"
+              placeholder="/api/assets/blog/path/to/image.png"
               className="flex-1 bg-transparent text-neutral-900 outline-hidden placeholder:text-neutral-300"
             />
           </div>
@@ -3211,7 +3392,7 @@ function MetadataSidePanel({
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
 
   return (
-    <div className="text-sm" key={filePath}>
+    <div className="content-admin-chrome text-sm" key={filePath}>
       <div className="flex border-b border-neutral-200">
         <button
           onClick={() => setIsTitleExpanded(!isTitleExpanded)}
@@ -3361,7 +3542,7 @@ function StructuredContentMetadataPanel({
     collection === "docs" ? onDescriptionChange : onSummaryChange;
 
   return (
-    <div className="text-sm" key={filePath}>
+    <div className="content-admin-chrome text-sm" key={filePath}>
       <MetadataRow label="Title" required>
         <input
           type="text"
@@ -3617,7 +3798,7 @@ const FileEditor = React.forwardRef<
   const handleImageUpload = useCallback(
     async (file: File): Promise<{ url: string; attachmentId: string }> => {
       const result = await uploadBlogImageFile({ file });
-      return { url: result.publicUrl, attachmentId: "" };
+      return { url: result.proxyUrl, attachmentId: "" };
     },
     [],
   );
@@ -3704,14 +3885,14 @@ const FileEditor = React.forwardRef<
   );
 
   const handleMediaLibrarySelect = useCallback(
-    (publicUrl: string) => {
+    (assetUrl: string) => {
       if (editor) {
         editor
           .chain()
           .focus()
           .insertContent({
             type: "image",
-            attrs: { src: publicUrl },
+            attrs: { src: assetUrl },
           })
           .run();
         setContent(getEditorMarkdown(editor, content));
@@ -3774,12 +3955,25 @@ const FileEditor = React.forwardRef<
     };
   }, [autoSaveCountdown, content, editor, getMetadata, hasUnsavedChanges]);
 
+  const applyContent = useCallback(
+    (nextContent: string) => {
+      setContent(nextContent);
+      setHasUnsavedChanges(true);
+      editor?.commands.setContent(nextContent, {
+        contentType: "markdown",
+        emitUpdate: false,
+      });
+    },
+    [editor],
+  );
+
   React.useImperativeHandle(
     _ref,
     () => ({
       getData: getCurrentData,
+      applyContent,
     }),
-    [getCurrentData],
+    [applyContent, getCurrentData],
   );
 
   useEffect(() => {
@@ -4185,7 +4379,7 @@ function FileItem({
   return (
     <div
       className={cn([
-        "flex cursor-pointer items-center justify-between rounded px-3 py-2",
+        "content-admin-chrome flex cursor-pointer items-center justify-between rounded px-3 py-2",
         "transition-colors hover:bg-neutral-50",
         "border border-transparent hover:border-neutral-200",
       ])}

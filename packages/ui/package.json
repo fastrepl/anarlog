@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./components/*": "./src/components/*.tsx",
+    "./components/ui/*": "./src/components/ui/*.tsx",
     "./contexts/*": "./src/contexts/*.tsx",
     "./docs": "./src/docs/index.tsx",
     "./globals.css": "./dist/globals.css",

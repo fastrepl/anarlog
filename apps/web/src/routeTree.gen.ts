@@ -55,6 +55,7 @@ import { Route as ViewSolutionsIndexRouteImport } from './routes/_view/solutions
 import { Route as ViewPressKitIndexRouteImport } from './routes/_view/press-kit/index'
 import { Route as ViewLegalIndexRouteImport } from './routes/_view/legal/index'
 import { Route as ViewK6ReportsIndexRouteImport } from './routes/_view/k6-reports/index'
+import { Route as ViewIntegrationsIndexRouteImport } from './routes/_view/integrations/index'
 import { Route as ViewGalleryIndexRouteImport } from './routes/_view/gallery/index'
 import { Route as ViewEvalIndexRouteImport } from './routes/_view/eval/index'
 import { Route as ViewDownloadIndexRouteImport } from './routes/_view/download/index'
@@ -65,7 +66,7 @@ import { Route as ViewBlogIndexRouteImport } from './routes/_view/blog/index'
 import { Route as ViewAppIndexRouteImport } from './routes/_view/app/index'
 import { Route as ApiWebhooksSlackInteractiveRouteImport } from './routes/api/webhooks/slack-interactive'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
-import { Route as ApiImagesSplatRouteImport } from './routes/api/images.$'
+import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
 import { Route as ViewVsSlugRouteImport } from './routes/_view/vs/$slug'
 import { Route as ViewUpdatesSlugRouteImport } from './routes/_view/updates/$slug'
 import { Route as ViewSolutionMeetingRouteImport } from './routes/_view/solution/meeting'
@@ -135,6 +136,7 @@ import { Route as ApiAdminContentGetBranchFileRouteImport } from './routes/api/a
 import { Route as ApiAdminContentDuplicateRouteImport } from './routes/api/admin/content/duplicate'
 import { Route as ApiAdminContentDeleteRouteImport } from './routes/api/admin/content/delete'
 import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/content/create'
+import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiAdminBlogUploadImageRouteImport } from './routes/api/admin/blog/upload-image'
 import { Route as ViewIntegrationsCategorySlugRouteImport } from './routes/_view/integrations/$category.$slug'
 import { Route as ViewGalleryTypeSlugRouteImport } from './routes/_view/gallery/$type.$slug'
@@ -376,6 +378,11 @@ const ViewK6ReportsIndexRoute = ViewK6ReportsIndexRouteImport.update({
   path: '/k6-reports/',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewIntegrationsIndexRoute = ViewIntegrationsIndexRouteImport.update({
+  id: '/integrations/',
+  path: '/integrations/',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewGalleryIndexRoute = ViewGalleryIndexRouteImport.update({
   id: '/gallery/',
   path: '/gallery/',
@@ -428,9 +435,9 @@ const ApiTweetIdRoute = ApiTweetIdRouteImport.update({
   path: '/api/tweet/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiImagesSplatRoute = ApiImagesSplatRouteImport.update({
-  id: '/api/images/$',
-  path: '/api/images/$',
+const ApiAssetsSplatRoute = ApiAssetsSplatRouteImport.update({
+  id: '/api/assets/$',
+  path: '/api/assets/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ViewVsSlugRoute = ViewVsSlugRouteImport.update({
@@ -787,6 +794,11 @@ const ApiAdminContentCreateRoute = ApiAdminContentCreateRouteImport.update({
   path: '/api/admin/content/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminContentAuditRoute = ApiAdminContentAuditRouteImport.update({
+  id: '/api/admin/content/audit',
+  path: '/api/admin/content/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
   id: '/api/admin/blog/upload-image',
   path: '/api/admin/blog/upload-image',
@@ -920,7 +932,7 @@ export interface FileRoutesByFullPath {
   '/solution/meeting': typeof ViewSolutionMeetingRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app/': typeof ViewAppIndexRoute
@@ -931,6 +943,7 @@ export interface FileRoutesByFullPath {
   '/download/': typeof ViewDownloadIndexRoute
   '/eval/': typeof ViewEvalIndexRoute
   '/gallery/': typeof ViewGalleryIndexRoute
+  '/integrations/': typeof ViewIntegrationsIndexRoute
   '/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/legal/': typeof ViewLegalIndexRoute
   '/press-kit/': typeof ViewPressKitIndexRoute
@@ -953,6 +966,7 @@ export interface FileRoutesByFullPath {
   '/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1052,7 +1066,7 @@ export interface FileRoutesByTo {
   '/solution/meeting': typeof ViewSolutionMeetingRoute
   '/updates/$slug': typeof ViewUpdatesSlugRoute
   '/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/app': typeof ViewAppIndexRoute
@@ -1063,6 +1077,7 @@ export interface FileRoutesByTo {
   '/download': typeof ViewDownloadIndexRoute
   '/eval': typeof ViewEvalIndexRoute
   '/gallery': typeof ViewGalleryIndexRoute
+  '/integrations': typeof ViewIntegrationsIndexRoute
   '/k6-reports': typeof ViewK6ReportsIndexRoute
   '/legal': typeof ViewLegalIndexRoute
   '/press-kit': typeof ViewPressKitIndexRoute
@@ -1085,6 +1100,7 @@ export interface FileRoutesByTo {
   '/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1191,7 +1207,7 @@ export interface FileRoutesById {
   '/_view/solution/meeting': typeof ViewSolutionMeetingRoute
   '/_view/updates/$slug': typeof ViewUpdatesSlugRoute
   '/_view/vs/$slug': typeof ViewVsSlugRoute
-  '/api/images/$': typeof ApiImagesSplatRoute
+  '/api/assets/$': typeof ApiAssetsSplatRoute
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/_view/app/': typeof ViewAppIndexRoute
@@ -1202,6 +1218,7 @@ export interface FileRoutesById {
   '/_view/download/': typeof ViewDownloadIndexRoute
   '/_view/eval/': typeof ViewEvalIndexRoute
   '/_view/gallery/': typeof ViewGalleryIndexRoute
+  '/_view/integrations/': typeof ViewIntegrationsIndexRoute
   '/_view/k6-reports/': typeof ViewK6ReportsIndexRoute
   '/_view/legal/': typeof ViewLegalIndexRoute
   '/_view/press-kit/': typeof ViewPressKitIndexRoute
@@ -1224,6 +1241,7 @@ export interface FileRoutesById {
   '/_view/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/_view/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1330,7 +1348,7 @@ export interface FileRouteTypes {
     | '/solution/meeting'
     | '/updates/$slug'
     | '/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app/'
@@ -1341,6 +1359,7 @@ export interface FileRouteTypes {
     | '/download/'
     | '/eval/'
     | '/gallery/'
+    | '/integrations/'
     | '/k6-reports/'
     | '/legal/'
     | '/press-kit/'
@@ -1363,6 +1382,7 @@ export interface FileRouteTypes {
     | '/gallery/$type/$slug'
     | '/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1462,7 +1482,7 @@ export interface FileRouteTypes {
     | '/solution/meeting'
     | '/updates/$slug'
     | '/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/app'
@@ -1473,6 +1493,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/eval'
     | '/gallery'
+    | '/integrations'
     | '/k6-reports'
     | '/legal'
     | '/press-kit'
@@ -1495,6 +1516,7 @@ export interface FileRouteTypes {
     | '/gallery/$type/$slug'
     | '/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1600,7 +1622,7 @@ export interface FileRouteTypes {
     | '/_view/solution/meeting'
     | '/_view/updates/$slug'
     | '/_view/vs/$slug'
-    | '/api/images/$'
+    | '/api/assets/$'
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/_view/app/'
@@ -1611,6 +1633,7 @@ export interface FileRouteTypes {
     | '/_view/download/'
     | '/_view/eval/'
     | '/_view/gallery/'
+    | '/_view/integrations/'
     | '/_view/k6-reports/'
     | '/_view/legal/'
     | '/_view/press-kit/'
@@ -1633,6 +1656,7 @@ export interface FileRouteTypes {
     | '/_view/gallery/$type/$slug'
     | '/_view/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1682,10 +1706,11 @@ export interface RootRouteChildren {
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
   ApiShortcutsRoute: typeof ApiShortcutsRoute
   ApiTemplatesRoute: typeof ApiTemplatesRoute
-  ApiImagesSplatRoute: typeof ApiImagesSplatRoute
+  ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
   ApiAdminBlogUploadImageRoute: typeof ApiAdminBlogUploadImageRoute
+  ApiAdminContentAuditRoute: typeof ApiAdminContentAuditRoute
   ApiAdminContentCreateRoute: typeof ApiAdminContentCreateRoute
   ApiAdminContentDeleteRoute: typeof ApiAdminContentDeleteRoute
   ApiAdminContentDuplicateRoute: typeof ApiAdminContentDuplicateRoute
@@ -2041,6 +2066,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewK6ReportsIndexRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/integrations/': {
+      id: '/_view/integrations/'
+      path: '/integrations'
+      fullPath: '/integrations/'
+      preLoaderRoute: typeof ViewIntegrationsIndexRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/gallery/': {
       id: '/_view/gallery/'
       path: '/gallery'
@@ -2111,11 +2143,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTweetIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/images/$': {
-      id: '/api/images/$'
-      path: '/api/images/$'
-      fullPath: '/api/images/$'
-      preLoaderRoute: typeof ApiImagesSplatRouteImport
+    '/api/assets/$': {
+      id: '/api/assets/$'
+      path: '/api/assets/$'
+      fullPath: '/api/assets/$'
+      preLoaderRoute: typeof ApiAssetsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_view/vs/$slug': {
@@ -2601,6 +2633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminContentCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/content/audit': {
+      id: '/api/admin/content/audit'
+      path: '/api/admin/content/audit'
+      fullPath: '/api/admin/content/audit'
+      preLoaderRoute: typeof ApiAdminContentAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/blog/upload-image': {
       id: '/api/admin/blog/upload-image'
       path: '/api/admin/blog/upload-image'
@@ -2794,6 +2833,7 @@ interface ViewRouteRouteChildren {
   ViewDownloadIndexRoute: typeof ViewDownloadIndexRoute
   ViewEvalIndexRoute: typeof ViewEvalIndexRoute
   ViewGalleryIndexRoute: typeof ViewGalleryIndexRoute
+  ViewIntegrationsIndexRoute: typeof ViewIntegrationsIndexRoute
   ViewK6ReportsIndexRoute: typeof ViewK6ReportsIndexRoute
   ViewPressKitIndexRoute: typeof ViewPressKitIndexRoute
   ViewSolutionsIndexRoute: typeof ViewSolutionsIndexRoute
@@ -2863,6 +2903,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewDownloadIndexRoute: ViewDownloadIndexRoute,
   ViewEvalIndexRoute: ViewEvalIndexRoute,
   ViewGalleryIndexRoute: ViewGalleryIndexRoute,
+  ViewIntegrationsIndexRoute: ViewIntegrationsIndexRoute,
   ViewK6ReportsIndexRoute: ViewK6ReportsIndexRoute,
   ViewPressKitIndexRoute: ViewPressKitIndexRoute,
   ViewSolutionsIndexRoute: ViewSolutionsIndexRoute,
@@ -2928,10 +2969,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiMediaUploadRoute: ApiMediaUploadRoute,
   ApiShortcutsRoute: ApiShortcutsRoute,
   ApiTemplatesRoute: ApiTemplatesRoute,
-  ApiImagesSplatRoute: ApiImagesSplatRoute,
+  ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
   ApiAdminBlogUploadImageRoute: ApiAdminBlogUploadImageRoute,
+  ApiAdminContentAuditRoute: ApiAdminContentAuditRoute,
   ApiAdminContentCreateRoute: ApiAdminContentCreateRoute,
   ApiAdminContentDeleteRoute: ApiAdminContentDeleteRoute,
   ApiAdminContentDuplicateRoute: ApiAdminContentDuplicateRoute,

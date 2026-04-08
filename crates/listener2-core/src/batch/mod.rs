@@ -226,8 +226,6 @@ fn build_listen_params(
     channels: u8,
     sample_rate: u32,
 ) -> owhisper_interface::ListenParams {
-    let custom_query = build_custom_query(params);
-
     owhisper_interface::ListenParams {
         model: params.model.clone(),
         channels,
@@ -235,28 +233,10 @@ fn build_listen_params(
         languages: params.languages.clone(),
         keywords: params.keywords.clone(),
         num_speakers: params.num_speakers,
-        custom_query,
+        min_speakers: params.min_speakers,
+        max_speakers: params.max_speakers,
+        custom_query: None,
     }
-}
-
-fn build_custom_query(params: &BatchParams) -> Option<std::collections::HashMap<String, String>> {
-    let mut query = std::collections::HashMap::new();
-
-    if let Some(min_speakers) = params.min_speakers {
-        query.insert(
-            "pyannote_min_speakers".to_string(),
-            min_speakers.to_string(),
-        );
-    }
-
-    if let Some(max_speakers) = params.max_speakers {
-        query.insert(
-            "pyannote_max_speakers".to_string(),
-            max_speakers.to_string(),
-        );
-    }
-
-    (!query.is_empty()).then_some(query)
 }
 
 pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
@@ -368,20 +348,9 @@ mod tests {
         params.max_speakers = Some(4);
 
         let listen_params = build_listen_params(&params, 1, 16_000);
-        let custom_query = listen_params.custom_query.expect("missing custom query");
-
-        assert_eq!(
-            custom_query
-                .get("pyannote_min_speakers")
-                .map(String::as_str),
-            Some("2")
-        );
-        assert_eq!(
-            custom_query
-                .get("pyannote_max_speakers")
-                .map(String::as_str),
-            Some("4")
-        );
+        assert_eq!(listen_params.min_speakers, Some(2));
+        assert_eq!(listen_params.max_speakers, Some(4));
+        assert!(listen_params.custom_query.is_none());
     }
 
     #[test]

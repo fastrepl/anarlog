@@ -42,6 +42,13 @@ const isUrlFragmentHashtag = (text: string, hashtagStart: number): boolean => {
   }
 };
 
+const isCodeTextNode = (
+  node: ProseMirrorNode,
+  parent: ProseMirrorNode | null,
+): boolean =>
+  Boolean(parent?.type.spec.code) ||
+  node.marks.some((mark) => Boolean(mark.type.spec.code));
+
 export const findHashtags = (
   text: string,
 ): Array<{ tag: string; start: number; end: number }> => {
@@ -112,25 +119,39 @@ export const Hashtag = Extension.create({
           const { doc } = state;
           const decorations: Decoration[] = [];
 
-          doc.descendants((node: ProseMirrorNode, pos: number) => {
-            if (!node.isText) {
-              return;
-            }
+          doc.descendants(
+            (
+              node: ProseMirrorNode,
+              pos: number,
+              parent: ProseMirrorNode | null,
+            ) => {
+              if (!node.isText) {
+                if (node.type.spec.code) {
+                  return false;
+                }
 
-            const text = node.text as string;
-            const matches = findHashtags(text);
+                return;
+              }
 
-            for (const match of matches) {
-              const start = pos + match.start;
-              const end = pos + match.end;
+              if (isCodeTextNode(node, parent)) {
+                return;
+              }
 
-              decorations.push(
-                Decoration.inline(start, end, {
-                  class: "hashtag",
-                }),
-              );
-            }
-          });
+              const text = node.text as string;
+              const matches = findHashtags(text);
+
+              for (const match of matches) {
+                const start = pos + match.start;
+                const end = pos + match.end;
+
+                decorations.push(
+                  Decoration.inline(start, end, {
+                    class: "hashtag",
+                  }),
+                );
+              }
+            },
+          );
 
           return DecorationSet.create(doc, decorations);
         },

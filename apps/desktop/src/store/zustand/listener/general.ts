@@ -3,9 +3,9 @@ import type { StoreApi } from "zustand";
 
 import {
   commands as listenerCommands,
-  type SessionParams,
+  type CaptureParams,
 } from "@hypr/plugin-transcription";
-import type { BatchParams } from "@hypr/plugin-transcription";
+import type { TranscriptionParams } from "@hypr/plugin-transcription";
 
 import type { BatchActions, BatchState } from "./batch";
 import { runBatchSession } from "./general-batch";
@@ -29,7 +29,7 @@ export type { GeneralState, SessionMode } from "./general-shared";
 
 export type GeneralActions = {
   start: (
-    params: SessionParams,
+    params: CaptureParams,
     options?: {
       handlePersist?: LiveTranscriptPersistCallback;
       onStopped?: OnStoppedCallback;
@@ -37,10 +37,11 @@ export type GeneralActions = {
   ) => Promise<boolean>;
   stop: () => void;
   setMuted: (value: boolean) => void;
-  runBatch: (
-    params: BatchParams,
+  startTranscription: (
+    params: TranscriptionParams,
     options?: { handlePersist?: BatchPersistCallback },
   ) => Promise<void>;
+  stopTranscription: (sessionId: string) => Promise<void>;
   getSessionMode: (sessionId: string) => SessionMode;
 };
 
@@ -56,7 +57,7 @@ export const createGeneralSlice = <
   get: StoreApi<T>["getState"],
 ): GeneralState & GeneralActions => ({
   ...initialGeneralState,
-  start: async (params: SessionParams, options) => {
+  start: async (params: CaptureParams, options) => {
     const targetSessionId = params.session_id;
 
     if (!targetSessionId) {
@@ -81,28 +82,23 @@ export const createGeneralSlice = <
     }
 
     setLiveState(set, (live) => {
-      markLiveStartRequested(
-        live,
-        targetSessionId,
-        params.transcription_mode,
-        params.recording_mode,
-      );
+      markLiveStartRequested(live, targetSessionId);
     });
 
     if (options?.handlePersist) {
-      get().setTranscriptPersist(options.handlePersist);
+      get().setTranscriptPersist(targetSessionId, options.handlePersist);
     }
     if (options?.onStopped) {
-      get().setOnStopped(options.onStopped);
+      get().setOnStopped(targetSessionId, options.onStopped);
     }
 
     const started = await startLiveSession(set, get, targetSessionId, params);
     if (!started) {
       if (options?.handlePersist) {
-        get().setTranscriptPersist(undefined);
+        get().setTranscriptPersist(targetSessionId, undefined);
       }
       if (options?.onStopped) {
-        get().setOnStopped(undefined);
+        get().setOnStopped(targetSessionId, undefined);
       }
     }
 
@@ -119,27 +115,26 @@ export const createGeneralSlice = <
       }),
     );
   },
-  runBatch: async (params, options) => {
+  startTranscription: async (params, options) => {
     const sessionId = params.session_id;
 
     if (!sessionId) {
-      console.error("[listener] 'runBatch' requires params.session_id");
-      return;
+      throw new Error(
+        "[listener] startTranscription requires params.session_id",
+      );
     }
 
     const mode = get().getSessionMode(sessionId);
     if (mode === "active" || mode === "finalizing") {
-      console.warn(
+      throw new Error(
         `[listener] cannot start batch processing while session ${sessionId} is live`,
       );
-      return;
     }
 
     if (mode === "running_batch") {
-      console.warn(
+      throw new Error(
         `[listener] session ${sessionId} is already processing in batch mode`,
       );
-      return;
     }
 
     if (options?.handlePersist) {
@@ -147,6 +142,13 @@ export const createGeneralSlice = <
     }
 
     await runBatchSession(get, sessionId, params);
+  },
+  stopTranscription: async (sessionId) => {
+    if (!sessionId) {
+      return;
+    }
+
+    await listenerCommands.stopTranscription(sessionId).catch(console.error);
   },
   getSessionMode: (sessionId) => {
     if (!sessionId) {
@@ -159,7 +161,11 @@ export const createGeneralSlice = <
       return state.live.status;
     }
 
-    if (state.batch[sessionId] && !state.batch[sessionId].error) {
+    if (state.live.finalizingBySession[sessionId]) {
+      return "finalizing";
+    }
+
+    if (state.batch[sessionId] && !state.batch[sessionId].terminalReason) {
       return "running_batch";
     }
 

@@ -124,7 +124,9 @@ pub fn get_current_model_selection(
     store: &dyn ModelStore,
     models_dir: &Path,
 ) -> Result<ModelSelection, Error> {
-    if let Ok(Some(selection)) = store.get_model_selection() {
+    if let Ok(Some(selection)) = store.get_model_selection()
+        && selection.ensure_supported().is_ok()
+    {
         return Ok(selection);
     }
 
@@ -139,6 +141,8 @@ pub fn set_current_model_selection(
     store: &dyn ModelStore,
     model: ModelSelection,
 ) -> Result<(), Error> {
+    model.ensure_supported()?;
+
     if let ModelSelection::Predefined { key } = &model {
         let _ = store.set_model(key);
     }

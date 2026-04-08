@@ -52,6 +52,11 @@ export function Main2Home() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    window.addEventListener("scroll-to-today", scrollToToday);
+    return () => window.removeEventListener("scroll-to-today", scrollToToday);
+  }, [scrollToToday]);
+
   return (
     <StandardTabWrapper>
       <div className="relative flex-1 overflow-hidden">

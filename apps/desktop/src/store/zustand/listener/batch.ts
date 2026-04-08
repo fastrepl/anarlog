@@ -1,6 +1,7 @@
 import type { StoreApi } from "zustand";
 
 import type {
+  BatchErrorCode,
   BatchResponse,
   BatchStreamEvent,
 } from "@hypr/plugin-transcription";
@@ -11,6 +12,7 @@ import { transformWordEntries } from "./utils";
 import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
 
 export type BatchPhase = "importing" | "transcribing";
+export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
 
 export type BatchState = {
   batch: Record<
@@ -20,6 +22,8 @@ export type BatchState = {
       isComplete?: boolean;
       error?: string;
       phase?: BatchPhase;
+      terminalReason?: BatchTerminalReason;
+      errorCode?: BatchErrorCode;
     }
   >;
   batchPreview: Record<
@@ -40,7 +44,13 @@ export type BatchActions = {
     sessionId: string,
     event: BatchStreamEvent,
   ) => void;
-  handleBatchFailed: (sessionId: string, error: string) => void;
+  handleBatchFailed: (
+    sessionId: string,
+    error: string,
+    terminalReason?: Exclude<BatchTerminalReason, "stopped">,
+    errorCode?: BatchErrorCode,
+  ) => void;
+  handleBatchStopped: (sessionId: string) => void;
   updateBatchProgress: (sessionId: string, percentage: number) => void;
   clearBatchSession: (sessionId: string) => void;
   setBatchPersist: (sessionId: string, callback: BatchPersistCallback) => void;
@@ -64,6 +74,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage: 0,
           isComplete: false,
           phase: phase ?? "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
       batchPreview: {
@@ -86,6 +99,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage: 1,
           isComplete: true,
           phase: "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
     }));
@@ -128,6 +144,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage,
           isComplete: isComplete || false,
           phase: "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
       batchPreview: {
@@ -159,7 +178,12 @@ export const createBatchSlice = <T extends BatchState>(
     });
   },
 
-  handleBatchFailed: (sessionId, error) => {
+  handleBatchFailed: (
+    sessionId,
+    error,
+    terminalReason = "failed",
+    errorCode,
+  ) => {
     set((state) => ({
       ...state,
       batch: {
@@ -168,6 +192,31 @@ export const createBatchSlice = <T extends BatchState>(
           ...(state.batch[sessionId] ?? { percentage: 0 }),
           error,
           isComplete: false,
+          terminalReason,
+          errorCode,
+        },
+      },
+      batchPreview: {
+        ...state.batchPreview,
+        [sessionId]: {
+          wordsByChannel: {},
+          hintsByChannel: {},
+        },
+      },
+    }));
+  },
+
+  handleBatchStopped: (sessionId) => {
+    set((state) => ({
+      ...state,
+      batch: {
+        ...state.batch,
+        [sessionId]: {
+          ...(state.batch[sessionId] ?? { percentage: 0 }),
+          error: "Transcription stopped.",
+          isComplete: false,
+          terminalReason: "stopped",
+          errorCode: undefined,
         },
       },
       batchPreview: {

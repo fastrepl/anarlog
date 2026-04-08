@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use super::SessionParams;
 use super::session_span;
+use crate::actors::recorder::resolve_final_audio_path;
 use crate::{ListenerRuntime, SessionLifecycleEvent};
 
 pub(crate) fn configure_sentry_session_context(params: &SessionParams) {
@@ -30,10 +32,6 @@ pub(crate) fn configure_sentry_session_context(params: &SessionParams) {
             format!("{:?}", params.transcription_mode).into(),
         );
         session_context.insert(
-            "hyprnote.session.recording_mode".to_string(),
-            format!("{:?}", params.recording_mode).into(),
-        );
-        session_context.insert(
             "hyprnote.session.onboarding".to_string(),
             params.onboarding.into(),
         );
@@ -58,14 +56,19 @@ pub(crate) fn clear_sentry_session_context() {
 
 pub(crate) fn emit_session_ended(
     runtime: &dyn ListenerRuntime,
+    sessions_base: &Path,
     session_id: &str,
     failure_reason: Option<String>,
+    clear_sentry_context: bool,
 ) {
     let span = session_span(session_id);
     let _guard = span.enter();
+    let audio_path = resolve_final_audio_path(sessions_base, session_id)
+        .map(|path| path.to_string_lossy().into_owned());
 
     runtime.emit_lifecycle(SessionLifecycleEvent::Inactive {
         session_id: session_id.to_string(),
+        audio_path,
         error: failure_reason.clone(),
     });
 
@@ -75,5 +78,7 @@ pub(crate) fn emit_session_ended(
         tracing::info!("session_stopped");
     }
 
-    clear_sentry_session_context();
+    if clear_sentry_context {
+        clear_sentry_session_context();
+    }
 }

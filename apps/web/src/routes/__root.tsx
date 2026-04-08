@@ -8,17 +8,17 @@ import {
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
 import { NotFoundDocument } from "@/components/not-found";
+import {
+  DEFAULT_OG_IMAGE_URL,
+  ROOT_DESCRIPTION,
+  ROOT_KEYWORDS,
+  ROOT_TITLE,
+} from "@/lib/seo";
 import appCss from "@/styles.css?url";
 
 interface RouterContext {
   queryClient: QueryClient;
 }
-
-const TITLE = "Char - Meeting Notes You Own";
-const DESCRIPTION =
-  "Char is a private, on-device AI notepad that enhances your own notes—without bots, cloud recording, or meeting intrusion. Stay engaged, build your personal knowledge base, and export to tools like Notion on your terms.";
-const KEYWORDS =
-  "AI notepad, privacy-first AI, on-device AI, local AI, edge AI, meeting notes, personal knowledge base, AI notetaking, AI notetaker, Argmax, Deepgram, secure transcription, notepad app, notetaking app";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -28,30 +28,30 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         name: "viewport",
         content: "width=device-width, initial-scale=1",
       },
-      { title: TITLE },
-      { name: "description", content: DESCRIPTION },
-      { name: "keywords", content: KEYWORDS },
+      { title: ROOT_TITLE },
+      { name: "description", content: ROOT_DESCRIPTION },
+      { name: "keywords", content: ROOT_KEYWORDS },
       { name: "ai-sitemap", content: "https://char.com/llms.txt" },
       { name: "ai-content", content: "public" },
       { property: "og:type", content: "website" },
-      { property: "og:title", content: TITLE },
-      { property: "og:description", content: DESCRIPTION },
+      { property: "og:title", content: ROOT_TITLE },
+      { property: "og:description", content: ROOT_DESCRIPTION },
       { property: "og:url", content: "https://char.com" },
       {
         property: "og:image",
-        content: "/api/images/hyprnote/og-image.jpg",
+        content: DEFAULT_OG_IMAGE_URL,
       },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@getcharnotes" },
       { name: "twitter:creator", content: "@getcharnotes" },
-      { name: "twitter:title", content: TITLE },
-      { name: "twitter:description", content: DESCRIPTION },
+      { name: "twitter:title", content: ROOT_TITLE },
+      { name: "twitter:description", content: ROOT_DESCRIPTION },
       { name: "twitter:url", content: "https://char.com" },
       {
         name: "twitter:image",
-        content: "/api/images/hyprnote/og-image.jpg",
+        content: DEFAULT_OG_IMAGE_URL,
       },
     ],
     links: [

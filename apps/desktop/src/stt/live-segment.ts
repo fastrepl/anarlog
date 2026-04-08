@@ -90,7 +90,7 @@ export const SegmentKeyUtils = {
       return true;
     }
 
-    if (ctx && key.channel === "DirectMic") {
+    if (ctx && key.channel === "DirectMic" && key.speaker_index == null) {
       return Boolean(ctx.getSelfHumanId());
     }
 
@@ -109,7 +109,7 @@ export const SegmentKeyUtils = {
       }
     }
 
-    if (ctx && key.channel === "DirectMic") {
+    if (ctx && key.channel === "DirectMic" && key.speaker_index == null) {
       const selfHumanId = ctx.getSelfHumanId();
       if (selfHumanId) {
         const selfHuman = ctx.getHumanName(selfHumanId);

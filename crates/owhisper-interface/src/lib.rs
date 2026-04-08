@@ -149,6 +149,10 @@ common_derives! {
         #[serde(default)]
         pub num_speakers: Option<u32>,
         #[serde(default)]
+        pub min_speakers: Option<u32>,
+        #[serde(default)]
+        pub max_speakers: Option<u32>,
+        #[serde(default)]
         #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub custom_query: Option<std::collections::HashMap<String, String>>,
     }
@@ -163,6 +167,8 @@ impl Default for ListenParams {
             languages: Vec::new(),
             keywords: Vec::new(),
             num_speakers: None,
+            min_speakers: None,
+            max_speakers: None,
             custom_query: None,
         }
     }

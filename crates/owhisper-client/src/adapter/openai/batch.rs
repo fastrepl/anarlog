@@ -11,14 +11,15 @@ use owhisper_interface::batch_stream::BatchStreamEvent;
 use reqwest::multipart::{Form, Part};
 
 use crate::adapter::{
-    BatchFuture, BatchSttAdapter, ClientWithMiddleware, StreamingBatchEvent, StreamingBatchStream,
-    append_path_if_missing,
+    BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL, StreamingBatchEvent,
+    StreamingBatchStream, append_path_if_missing,
 };
 use crate::error::Error;
 
 use super::OpenAIAdapter;
 
 const DEFAULT_API_BASE: &str = "https://api.openai.com/v1";
+const OPENAI_PROGRESS_CAP: f64 = 0.99;
 
 impl BatchSttAdapter for OpenAIAdapter {
     fn provider_name(&self) -> &'static str {
@@ -221,6 +222,7 @@ struct OpenAISseParserState<S> {
     buffer: Vec<u8>,
     pending_events: std::collections::VecDeque<Result<StreamingBatchEvent, Error>>,
     parser: TranscriptionStreamEventParser,
+    progress: OpenAISyntheticProgress,
 }
 
 impl<S> OpenAISseParserState<S> {
@@ -230,55 +232,94 @@ impl<S> OpenAISseParserState<S> {
             buffer: Vec::new(),
             pending_events: std::collections::VecDeque::new(),
             parser: TranscriptionStreamEventParser::new(),
+            progress: OpenAISyntheticProgress::default(),
         }
     }
 
     fn parse_buffer(&mut self) {
         while let Ok(text) = std::str::from_utf8(&self.buffer) {
-            let Some(end) = text.find("\n\n") else {
+            let Some((end, delimiter_len)) = find_sse_block_end(text) else {
                 break;
             };
 
             let block = text[..end].to_string();
-            self.buffer.drain(..end + 2);
+            self.buffer.drain(..end + delimiter_len);
 
-            if let Some(event) = parse_sse_block(&block, &mut self.parser) {
+            if let Some(event) = self.parse_sse_block(&block) {
                 self.pending_events.push_back(event);
+            }
+        }
+    }
+
+    fn parse_sse_block(&mut self, block: &str) -> Option<Result<StreamingBatchEvent, Error>> {
+        let event = match self.parser.parse_sse_block(block) {
+            Ok(Some(event)) => event,
+            Ok(None) => return None,
+            Err(error) => {
+                return Some(Err(Error::WebSocket(format!(
+                    "failed to parse OpenAI batch stream event: {error}"
+                ))));
+            }
+        };
+
+        match event {
+            ParsedTranscriptionStreamEvent::TextDelta { partial_text, .. } => {
+                Some(Ok(BatchStreamEvent::Progress {
+                    percentage: self.progress.observe_delta(&partial_text),
+                    partial_text: Some(partial_text),
+                }))
+            }
+            ParsedTranscriptionStreamEvent::TextDone { text, usage, .. } => {
+                Some(Ok(BatchStreamEvent::Result {
+                    response: build_batch_response(
+                        text.trim().to_string(),
+                        Vec::new(),
+                        transcription_usage_metadata(usage),
+                    ),
+                }))
             }
         }
     }
 }
 
-fn parse_sse_block(
-    block: &str,
-    parser: &mut TranscriptionStreamEventParser,
-) -> Option<Result<StreamingBatchEvent, Error>> {
-    let event = match parser.parse_sse_block(block) {
-        Ok(Some(event)) => event,
-        Ok(None) => return None,
-        Err(error) => {
-            return Some(Err(Error::WebSocket(format!(
-                "failed to parse OpenAI batch stream event: {error}"
-            ))));
-        }
-    };
+#[derive(Debug, Clone, Default)]
+struct OpenAISyntheticProgress {
+    last_percentage: f64,
+    delta_count: usize,
+}
 
-    match event {
-        ParsedTranscriptionStreamEvent::TextDelta { partial_text, .. } => {
-            Some(Ok(BatchStreamEvent::Progress {
-                percentage: 0.0,
-                partial_text: Some(partial_text),
-            }))
-        }
-        ParsedTranscriptionStreamEvent::TextDone { text, usage, .. } => {
-            Some(Ok(BatchStreamEvent::Result {
-                response: build_batch_response(
-                    text.trim().to_string(),
-                    Vec::new(),
-                    transcription_usage_metadata(usage),
-                ),
-            }))
-        }
+impl OpenAISyntheticProgress {
+    const CHAR_SCALE: f64 = 160.0;
+    const CHAR_PROGRESS_CAP: f64 = 0.85;
+    const TRICKLE_SCALE: f64 = 32.0;
+    const TRICKLE_PROGRESS_CAP: f64 = 0.9;
+
+    fn observe_delta(&mut self, partial_text: &str) -> f64 {
+        self.delta_count += 1;
+
+        let char_count = partial_text.chars().count() as f64;
+        let char_progress =
+            (char_count / (char_count + Self::CHAR_SCALE)).min(Self::CHAR_PROGRESS_CAP);
+        let trickle_progress = ((self.delta_count as f64)
+            / (self.delta_count as f64 + Self::TRICKLE_SCALE))
+            .min(Self::TRICKLE_PROGRESS_CAP);
+
+        self.last_percentage = char_progress
+            .max(trickle_progress)
+            .max(self.last_percentage)
+            .min(OPENAI_PROGRESS_CAP);
+        self.last_percentage
+    }
+}
+
+fn find_sse_block_end(text: &str) -> Option<(usize, usize)> {
+    let lf = text.find("\n\n").map(|index| (index, 2));
+    let crlf = text.find("\r\n\r\n").map(|index| (index, 4));
+
+    match (lf, crlf) {
+        (Some(left), Some(right)) => Some(if left.0 <= right.0 { left } else { right }),
+        (Some(found), None) | (None, Some(found)) => Some(found),
+        (None, None) => None,
     }
 }
 
@@ -401,7 +442,7 @@ fn convert_diarized_words(response: &DiarizedTranscriptionResponse) -> (Vec<Word
                 start,
                 end,
                 confidence: 1.0,
-                channel: 0,
+                channel: MIXED_CAPTURE_CHANNEL,
                 speaker: Some(speaker_index),
                 punctuated_word: Some((*token).to_string()),
             });
@@ -475,47 +516,84 @@ mod tests {
 
     #[test]
     fn parse_sse_delta_accumulates_partial_text() {
-        let mut parser = TranscriptionStreamEventParser::new();
-        let event = parse_sse_block(
-            r#"data: {"type":"transcript.text.delta","delta":"hello"}"#,
-            &mut parser,
-        )
-        .expect("expected progress event")
-        .expect("expected valid progress event");
+        let mut state = OpenAISseParserState::new(());
+        let event = state
+            .parse_sse_block(r#"data: {"type":"transcript.text.delta","delta":"hello"}"#)
+            .expect("expected progress event")
+            .expect("expected valid progress event");
 
-        assert_eq!(parser.partial_text(), "hello");
+        assert_eq!(state.parser.partial_text(), "hello");
         assert!(matches!(
             event,
             BatchStreamEvent::Progress {
+                percentage,
                 partial_text: Some(ref text),
                 ..
-            } if text == "hello"
+            } if text == "hello" && percentage > 0.0
         ));
     }
 
     #[test]
     fn parse_sse_done_emits_final_result() {
-        let mut parser = TranscriptionStreamEventParser::new();
-        parser
+        let mut state = OpenAISseParserState::new(());
+        state
+            .parser
             .parse_sse_block(r#"data: {"type":"transcript.text.delta","delta":"hello"}"#)
             .expect("seed parser");
-        let event = parse_sse_block(
-            r#"data: {"type":"transcript.text.done","text":"hello world","usage":{"type":"tokens","input_tokens":1,"output_tokens":2,"total_tokens":3}}"#,
-            &mut parser,
-        )
-        .expect("expected result event")
-        .expect("expected valid result event");
+        let event = state
+            .parse_sse_block(
+                r#"data: {"type":"transcript.text.done","text":"hello world","usage":{"type":"tokens","input_tokens":1,"output_tokens":2,"total_tokens":3}}"#,
+            )
+            .expect("expected result event")
+            .expect("expected valid result event");
 
         let BatchStreamEvent::Result { response } = event else {
             panic!("expected result event");
         };
 
-        assert_eq!(parser.partial_text(), "hello world");
+        assert_eq!(state.parser.partial_text(), "hello world");
         assert_eq!(
             response.results.channels[0].alternatives[0].transcript,
             "hello world"
         );
         assert_eq!(response.metadata["usage"]["type"], "tokens");
+    }
+
+    #[test]
+    fn parse_buffer_handles_crlf_delimited_sse_blocks() {
+        let mut state = OpenAISseParserState::new(());
+        state.buffer =
+            b"data: {\"type\":\"transcript.text.delta\",\"delta\":\"hello\"}\r\n\r\n".to_vec();
+
+        state.parse_buffer();
+
+        let event = state
+            .pending_events
+            .pop_front()
+            .expect("expected parsed event")
+            .expect("expected valid event");
+
+        assert!(state.buffer.is_empty());
+        assert!(matches!(
+            event,
+            BatchStreamEvent::Progress {
+                percentage,
+                partial_text: Some(ref text),
+                ..
+            } if text == "hello" && percentage > 0.0
+        ));
+    }
+
+    #[test]
+    fn estimate_openai_progress_is_monotonic_and_capped() {
+        let mut progress = OpenAISyntheticProgress::default();
+        let first = progress.observe_delta("hello");
+        let second = progress.observe_delta("hello world from openai");
+        let capped = progress.observe_delta(&"a".repeat(10_000));
+
+        assert!(first > 0.0);
+        assert!(second >= first);
+        assert!(capped <= OPENAI_PROGRESS_CAP);
     }
 
     #[test]
@@ -551,6 +629,7 @@ mod tests {
         let words = &batch.results.channels[0].alternatives[0].words;
 
         assert_eq!(words.len(), 4);
+        assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(words[0].speaker, Some(0));
         assert_eq!(words[2].speaker, Some(1));
         assert_eq!(batch.metadata["speaker_labels"][0], "agent");

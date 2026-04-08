@@ -40,7 +40,8 @@
       "icons/stable/icon.icns": "icons/stable.icns",
       "icons/nightly/icon.icns": "icons/nightly.icns",
       "icons/staging/icon.icns": "icons/staging.icns",
-      "icons/pro/icon.icns": "icons/pro.icns"
+      "icons/pro/icon.icns": "icons/pro.icns",
+      "resources/models/cactus/char-vlm/": "models/cactus/char-vlm/"
     },
     "macOS": {
       "minimumSystemVersion": "14.2",

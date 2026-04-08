@@ -6,6 +6,7 @@ export interface MediaItem {
   name: string;
   path: string;
   publicUrl: string;
+  proxyUrl: string;
   id: string;
   size: number;
   type: "file" | "dir";

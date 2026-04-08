@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Instant, SystemTime};
 
@@ -10,12 +11,12 @@ use crate::actors::session::lifecycle::{
 use crate::actors::{
     SessionContext, SessionMsg, SessionParams, session_span, spawn_session_supervisor,
 };
-use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State, StopSessionParams};
+use crate::{ListenerRuntime, SessionLifecycleEvent, StartSessionError, State};
 use hypr_audio::AudioProvider;
 
 pub enum RootMsg {
     StartSession(SessionParams, RpcReplyPort<Result<(), StartSessionError>>),
-    StopSession(StopSessionParams, RpcReplyPort<()>),
+    StopSession(RpcReplyPort<()>),
     GetState(RpcReplyPort<State>),
 }
 
@@ -27,10 +28,9 @@ pub struct RootArgs {
 pub struct RootState {
     runtime: Arc<dyn ListenerRuntime>,
     audio: Arc<dyn AudioProvider>,
-    session_id: Option<String>,
-    supervisor: Option<ActorCell>,
-    finalizing: bool,
-    pending_stop_reply: Option<RpcReplyPort<()>>,
+    active_session_id: Option<String>,
+    active_supervisor: Option<ActorCell>,
+    finalizing_sessions: HashMap<String, ActorCell>,
 }
 
 pub struct RootActor;
@@ -55,10 +55,9 @@ impl Actor for RootActor {
         Ok(RootState {
             runtime: args.runtime,
             audio: args.audio,
-            session_id: None,
-            supervisor: None,
-            finalizing: false,
-            pending_stop_reply: None,
+            active_session_id: None,
+            active_supervisor: None,
+            finalizing_sessions: HashMap::new(),
         })
     }
 
@@ -73,19 +72,15 @@ impl Actor for RootActor {
                 let result = start_session_impl(myself.get_cell(), params, state).await;
                 let _ = reply.send(result);
             }
-            RootMsg::StopSession(params, reply) => {
-                stop_session_impl(state, params).await;
-                if state.supervisor.is_some() {
-                    state.pending_stop_reply = Some(reply);
-                } else {
-                    let _ = reply.send(());
-                }
+            RootMsg::StopSession(reply) => {
+                stop_session_impl(state).await;
+                let _ = reply.send(());
             }
             RootMsg::GetState(reply) => {
-                let fsm_state = if state.finalizing {
-                    State::Finalizing
-                } else if state.supervisor.is_some() {
+                let fsm_state = if state.active_supervisor.is_some() {
                     State::Active
+                } else if !state.finalizing_sessions.is_empty() {
+                    State::Finalizing
                 } else {
                     State::Inactive
                 };
@@ -104,42 +99,13 @@ impl Actor for RootActor {
         match message {
             SupervisionEvent::ActorStarted(_) | SupervisionEvent::ProcessGroupChanged(_) => {}
             SupervisionEvent::ActorTerminated(cell, _, reason) => {
-                if let Some(supervisor) = &state.supervisor
-                    && cell.get_id() == supervisor.get_id()
-                {
-                    let session_id = state.session_id.take().unwrap_or_default();
-                    let span = session_span(&session_id);
-                    let _guard = span.enter();
-                    tracing::info!(?reason, "session_supervisor_terminated");
-                    state.supervisor = None;
-                    state.finalizing = false;
-                    reply_pending_stop(state);
-
-                    emit_session_ended(&*state.runtime, &session_id, reason);
-                }
+                handle_supervisor_completion(state, cell, reason, false);
             }
             SupervisionEvent::ActorFailed(cell, error) => {
-                if let Some(supervisor) = &state.supervisor
-                    && cell.get_id() == supervisor.get_id()
-                {
-                    let session_id = state.session_id.take().unwrap_or_default();
-                    let span = session_span(&session_id);
-                    let _guard = span.enter();
-                    tracing::warn!(?error, "session_supervisor_failed");
-                    state.supervisor = None;
-                    state.finalizing = false;
-                    reply_pending_stop(state);
-                    emit_session_ended(&*state.runtime, &session_id, Some(format!("{:?}", error)));
-                }
+                handle_supervisor_completion(state, cell, Some(format!("{:?}", error)), true);
             }
         }
         Ok(())
-    }
-}
-
-fn reply_pending_stop(state: &mut RootState) {
-    if let Some(reply) = state.pending_stop_reply.take() {
-        let _ = reply.send(());
     }
 }
 
@@ -152,8 +118,13 @@ async fn start_session_impl(
     let span = session_span(&session_id);
 
     async {
-        if state.supervisor.is_some() {
+        if state.active_supervisor.is_some() {
             tracing::warn!("session_already_running");
+            return Err(StartSessionError::SessionAlreadyRunning);
+        }
+
+        if state.finalizing_sessions.contains_key(&params.session_id) {
+            tracing::warn!("session_is_still_finalizing");
             return Err(StartSessionError::SessionAlreadyRunning);
         }
 
@@ -181,8 +152,8 @@ async fn start_session_impl(
             Ok((supervisor_cell, _handle)) => {
                 supervisor_cell.link(root_cell);
 
-                state.session_id = Some(params.session_id.clone());
-                state.supervisor = Some(supervisor_cell);
+                state.active_session_id = Some(params.session_id.clone());
+                state.active_supervisor = Some(supervisor_cell);
 
                 let evt = SessionLifecycleEvent::Active {
                     session_id: params.session_id,
@@ -207,29 +178,98 @@ async fn start_session_impl(
     .await
 }
 
-async fn stop_session_impl(state: &mut RootState, params: StopSessionParams) {
-    if let Some(supervisor) = &state.supervisor {
-        state.finalizing = true;
+async fn stop_session_impl(state: &mut RootState) {
+    if let Some(supervisor) = state.active_supervisor.take() {
+        let session_id = state.active_session_id.take().unwrap_or_default();
+        state
+            .finalizing_sessions
+            .insert(session_id.clone(), supervisor.clone());
 
-        if let Some(session_id) = &state.session_id {
-            let span = session_span(session_id);
-            let _guard = span.enter();
-            tracing::info!("session_finalizing");
+        let span = session_span(&session_id);
+        let _guard = span.enter();
+        tracing::info!("session_finalizing");
 
-            state
-                .runtime
-                .emit_lifecycle(SessionLifecycleEvent::Finalizing {
-                    session_id: session_id.clone(),
-                });
-        }
+        state
+            .runtime
+            .emit_lifecycle(SessionLifecycleEvent::Finalizing {
+                session_id: session_id.clone(),
+            });
 
         let session_ref: ActorRef<SessionMsg> = supervisor.clone().into();
-        if let Err(error) = session_ref.cast(SessionMsg::Shutdown(params)) {
+        if let Err(error) = session_ref.cast(SessionMsg::Shutdown) {
             tracing::warn!(
                 ?error,
                 "failed_to_cast_session_shutdown_falling_back_to_stop"
             );
             supervisor.stop(Some("session_stop_cast_failed".to_string()));
         }
+    }
+}
+
+fn handle_supervisor_completion(
+    state: &mut RootState,
+    cell: ActorCell,
+    reason: Option<String>,
+    failed: bool,
+) {
+    if let Some(supervisor) = &state.active_supervisor
+        && cell.get_id() == supervisor.get_id()
+    {
+        let session_id = state.active_session_id.take().unwrap_or_default();
+        let span = session_span(&session_id);
+        let _guard = span.enter();
+
+        if failed {
+            tracing::warn!(?reason, "active_session_supervisor_failed");
+        } else {
+            tracing::info!(?reason, "active_session_supervisor_terminated");
+        }
+
+        state.active_supervisor = None;
+
+        let sessions_base = state
+            .runtime
+            .vault_base()
+            .map(|base| base.join("sessions"))
+            .unwrap_or_else(|_| std::env::temp_dir());
+        emit_session_ended(
+            &*state.runtime,
+            &sessions_base,
+            &session_id,
+            reason,
+            state.active_session_id.is_none(),
+        );
+        return;
+    }
+
+    if let Some((session_id, _)) = state
+        .finalizing_sessions
+        .iter()
+        .find(|(_, tracked)| tracked.get_id() == cell.get_id())
+        .map(|(session_id, tracked)| (session_id.clone(), tracked.clone()))
+    {
+        let span = session_span(&session_id);
+        let _guard = span.enter();
+
+        if failed {
+            tracing::warn!(?reason, "finalizing_session_supervisor_failed");
+        } else {
+            tracing::info!(?reason, "finalizing_session_supervisor_terminated");
+        }
+
+        state.finalizing_sessions.remove(&session_id);
+
+        let sessions_base = state
+            .runtime
+            .vault_base()
+            .map(|base| base.join("sessions"))
+            .unwrap_or_else(|_| std::env::temp_dir());
+        emit_session_ended(
+            &*state.runtime,
+            &sessions_base,
+            &session_id,
+            reason,
+            state.active_session_id.is_none(),
+        );
     }
 }

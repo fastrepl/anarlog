@@ -805,7 +805,7 @@ mod tests {
             .adapter::<AssemblyAIAdapter>()
             .api_base(&format!("http://{}", proxy_base()))
             .params(owhisper_interface::ListenParams {
-                model: Some("universal-streaming-english".to_string()),
+                model: Some("u3-rt-pro".to_string()),
                 languages: vec![hypr_language::ISO639::En.into()],
                 ..Default::default()
             })
@@ -822,7 +822,7 @@ mod tests {
             .adapter::<AssemblyAIAdapter>()
             .api_base(&format!("http://{}", proxy_base()))
             .params(owhisper_interface::ListenParams {
-                model: Some("universal-streaming-english".to_string()),
+                model: Some("u3-rt-pro".to_string()),
                 languages: vec![hypr_language::ISO639::En.into()],
                 ..Default::default()
             })

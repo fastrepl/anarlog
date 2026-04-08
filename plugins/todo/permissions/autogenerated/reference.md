@@ -8,6 +8,7 @@ Default permissions for the plugin
 - `allow-request-full-access`
 - `allow-list-todo-lists`
 - `allow-fetch-todos`
+- `allow-read-path`
 - `allow-create-todo`
 - `allow-complete-todo`
 - `allow-delete-todo`
@@ -253,6 +254,32 @@ Enables the ping command without any pre-configured scope.
 <td>
 
 Denies the ping command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`todo:allow-read-path`
+
+</td>
+<td>
+
+Enables the read_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`todo:deny-read-path`
+
+</td>
+<td>
+
+Denies the read_path command without any pre-configured scope.
 
 </td>
 </tr>

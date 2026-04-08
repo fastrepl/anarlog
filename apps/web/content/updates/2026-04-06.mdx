@@ -1,0 +1,42 @@
+---
+title: "Char Weekly: April 6, 2026"
+date: "2026-04-06"
+---
+
+Two stable desktop releases shipped this week — v1.0.19 and v1.0.20. The first brings Outlook Calendar support and promotes templates to a first-class sidebar tab. The second overhauls the note editor, replaces the local transcription engine, and reworks the notification system.
+
+## Outlook Calendar and calendar reliability
+
+Desktop v1.0.19 adds Outlook Calendar support as a public beta. Calendar sync is also more resilient now: integrations can be reconnected without losing data if a sync fails, and connected calendars expand automatically after setup. The calendar list moved to the left sidebar for quicker day-to-day access.
+
+## Templates as a sidebar workflow
+
+Templates got their own dedicated sidebar tab in v1.0.19. Personal templates sort above Char templates in the picker, and the editing flow for personal templates is smoother. These changes make templates a quicker reach when starting a new session.
+
+## Chat and export
+
+Chat in v1.0.19 picks up structured mention context, shared session state for new-chat hotkeys, and a polished composer and reasoning UI. The composer also hides itself when no LLM is configured, which removes a dead-end for users who haven't set one up yet. On the export side, a new Memo option was added to the export modal for PDF and text formats.
+
+## New note editor
+
+Desktop v1.0.20 introduces a new rich note editor powered by ProseMirror. You can paste or drag images and files directly into notes, use `@` mentions and linked session blocks, and right-click note tabs for actions like copy, regenerate, and remove.
+
+## Local transcription migration
+
+The previous local transcription provider was removed in v1.0.20 and replaced with a new engine. If you use local transcription, open Settings and download the replacement model. LM Studio model detection is also more reliable in this release.
+
+## Notifications overhaul
+
+The notification system in v1.0.20 was rebuilt with richer, more interactive calendar and meeting notifications. Notifications now include app-aware icons and nearby meeting context. Share prompts were simplified with direct social sharing to X, LinkedIn, and Reddit.
+
+## Other improvements
+
+- Standalone note dates are now editable, and uploaded audio note dates are estimated from file metadata (v1.0.19)
+- Session metadata tags render as editable chips (v1.0.19)
+- Lite Plan added with synced pricing tier messaging (v1.0.19)
+- Account settings auto-refresh session on open (v1.0.19)
+- Improved browser handoff for sign-in, checkout, and billing flows (v1.0.20)
+- Settings now open to the App tab by default (v1.0.20)
+- Template quick actions to favorite, duplicate, and set as default from the preview pane (v1.0.20)
+
+Full version details on the [changelog](/changelog).

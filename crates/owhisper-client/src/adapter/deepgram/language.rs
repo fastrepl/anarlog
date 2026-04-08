@@ -1,5 +1,6 @@
 use owhisper_interface::ListenParams;
 
+use crate::adapter::deepgram::{DeepgramAdapter, DeepgramModel};
 use crate::adapter::deepgram_compat::{
     LanguageQueryStrategy, Serializer, TranscriptionMode, UrlQuery,
 };
@@ -46,7 +47,7 @@ impl LanguageQueryStrategy for DeepgramLanguageStrategy {
             }
             1 => {
                 if let Some(language) = params.languages.first() {
-                    let code = language.bcp47_code();
+                    let code = single_language_query_code(params, language);
                     query_pairs.append_pair("language", &code);
                 }
             }
@@ -56,10 +57,35 @@ impl LanguageQueryStrategy for DeepgramLanguageStrategy {
                 } else if mode == TranscriptionMode::Batch {
                     query_pairs.append_pair("detect_language", "true");
                 } else if let Some(language) = params.languages.first() {
-                    let code = language.bcp47_code();
+                    let code = single_language_query_code(params, language);
                     query_pairs.append_pair("language", &code);
                 }
             }
         }
     }
+}
+
+fn single_language_query_code(params: &ListenParams, language: &hypr_language::Language) -> String {
+    let Some(region) = language.region() else {
+        return language.iso639().code().to_string();
+    };
+
+    let Some(model) = effective_model(params) else {
+        return language.iso639().code().to_string();
+    };
+
+    let regional = format!("{}-{region}", language.iso639().code());
+    if model.supported_languages().contains(&regional.as_str()) {
+        regional
+    } else {
+        language.iso639().code().to_string()
+    }
+}
+
+fn effective_model(params: &ListenParams) -> Option<DeepgramModel> {
+    params
+        .model
+        .as_deref()
+        .and_then(|model| model.parse::<DeepgramModel>().ok())
+        .or_else(|| DeepgramAdapter::find_model(&params.languages))
 }

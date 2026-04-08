@@ -6,16 +6,17 @@ Default permissions for the plugin
 
 - `allow-list-microphone-devices`
 - `allow-get-current-microphone-device`
-- `allow-start-session`
-- `allow-stop-session`
+- `allow-start-capture`
+- `allow-stop-capture`
 - `allow-get-mic-muted`
 - `allow-set-mic-muted`
-- `allow-get-state`
+- `allow-get-capture-state`
 - `allow-is-supported-languages-live`
 - `allow-suggest-providers-for-languages-live`
 - `allow-list-documented-language-codes-live`
 - `allow-render-transcript-segments`
-- `allow-run-batch`
+- `allow-start-transcription`
+- `allow-stop-transcription`
 - `allow-run-denoise`
 - `allow-parse-subtitle`
 - `allow-export-to-vtt`
@@ -54,6 +55,32 @@ Enables the export_to_vtt command without any pre-configured scope.
 <td>
 
 Denies the export_to_vtt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-get-capture-state`
+
+</td>
+<td>
+
+Enables the get_capture_state command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-get-capture-state`
+
+</td>
+<td>
+
+Denies the get_capture_state command without any pre-configured scope.
 
 </td>
 </tr>
@@ -106,32 +133,6 @@ Enables the get_mic_muted command without any pre-configured scope.
 <td>
 
 Denies the get_mic_muted command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:allow-get-state`
-
-</td>
-<td>
-
-Enables the get_state command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-get-state`
-
-</td>
-<td>
-
-Denies the get_state command without any pre-configured scope.
 
 </td>
 </tr>
@@ -321,32 +322,6 @@ Denies the render_transcript_segments command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-run-batch`
-
-</td>
-<td>
-
-Enables the run_batch command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-run-batch`
-
-</td>
-<td>
-
-Denies the run_batch command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `transcription:allow-run-denoise`
 
 </td>
@@ -399,25 +374,12 @@ Denies the set_mic_muted command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-start-session`
+`transcription:allow-start-capture`
 
 </td>
 <td>
 
-Enables the start_session command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`transcription:deny-start-session`
-
-</td>
-<td>
-
-Denies the start_session command without any pre-configured scope.
+Enables the start_capture command without any pre-configured scope.
 
 </td>
 </tr>
@@ -425,12 +387,12 @@ Denies the start_session command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:allow-stop-session`
+`transcription:deny-start-capture`
 
 </td>
 <td>
 
-Enables the stop_session command without any pre-configured scope.
+Denies the start_capture command without any pre-configured scope.
 
 </td>
 </tr>
@@ -438,12 +400,77 @@ Enables the stop_session command without any pre-configured scope.
 <tr>
 <td>
 
-`transcription:deny-stop-session`
+`transcription:allow-start-transcription`
 
 </td>
 <td>
 
-Denies the stop_session command without any pre-configured scope.
+Enables the start_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-start-transcription`
+
+</td>
+<td>
+
+Denies the start_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-stop-capture`
+
+</td>
+<td>
+
+Enables the stop_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-stop-capture`
+
+</td>
+<td>
+
+Denies the stop_capture command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-stop-transcription`
+
+</td>
+<td>
+
+Enables the stop_transcription command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-stop-transcription`
+
+</td>
+<td>
+
+Denies the stop_transcription command without any pre-configured scope.
 
 </td>
 </tr>

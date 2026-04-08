@@ -5,13 +5,11 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { useAITaskTask } from "~/ai/hooks";
-import { useNetwork } from "~/contexts/network";
 import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
-import { useSTTConnection } from "~/stt/useSTTConnection";
 
 export { computeCurrentNoteTab } from "./compute-note-tab";
 
@@ -62,34 +60,13 @@ export function useListenButtonState(sessionId: string) {
   const taskId = createTaskId(sessionId, "enhance");
   const { status } = useAITaskTask(taskId, "enhance");
   const generating = status === "generating";
-  const { conn: sttConnection, local, isLocalModel } = useSTTConnection();
-  const { isOnline } = useNetwork();
-
-  const localServerStatus = local.data?.status ?? "unavailable";
-  const isLocalServerLoading = localServerStatus === "loading";
-  const isLocalModelNotDownloaded = localServerStatus === "not_downloaded";
-
-  const isOfflineWithCloudModel = !isOnline && !isLocalModel;
 
   const shouldRender = !active && !generating;
-  const isDisabled =
-    !sttConnection ||
-    batching ||
-    isLocalServerLoading ||
-    isLocalModelNotDownloaded ||
-    isOfflineWithCloudModel;
+  const isDisabled = batching;
 
   let warningMessage = "";
   if (lastError) {
     warningMessage = `Session failed: ${lastError}`;
-  } else if (isLocalModelNotDownloaded) {
-    warningMessage = "Selected model is not downloaded.";
-  } else if (isLocalServerLoading) {
-    warningMessage = "Local STT server is starting up...";
-  } else if (isOfflineWithCloudModel) {
-    warningMessage = "You're offline. Use on-device models to continue.";
-  } else if (!sttConnection) {
-    warningMessage = "Transcription model not available.";
   } else if (batching) {
     warningMessage = "Batch transcription in progress.";
   }

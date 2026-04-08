@@ -21,19 +21,17 @@ export const Route = createFileRoute("/_view/solution/$slug")({
     }
 
     const { doc } = loaderData;
+    const url = `https://char.com/solution/${doc.slug}`;
 
     return {
       meta: [
         { title: doc.metaTitle },
         { name: "description", content: doc.metaDescription },
-        { name: "robots", content: "noindex, nofollow" },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
         { property: "og:title", content: doc.metaTitle },
         { property: "og:description", content: doc.metaDescription },
         { property: "og:type", content: "website" },
-        {
-          property: "og:url",
-          content: `https://char.com/solution/${doc.slug}`,
-        },
+        { property: "og:url", content: url },
       ],
     };
   },

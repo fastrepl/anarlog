@@ -15,6 +15,18 @@ pub struct CactusHealthResponse {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub enum CactusModelSource {
+    Downloadable {
+        url: &'static str,
+        checksum: Option<u32>,
+    },
+    BundledResource {
+        relative_path: &'static str,
+    },
+    Unavailable,
+}
+
 #[derive(
     Debug,
     Clone,
@@ -170,71 +182,81 @@ impl CactusSttModel {
         format!("{}.zip", self.dir_name())
     }
 
-    pub fn model_url(&self) -> Option<&str> {
+    pub fn source(&self) -> CactusModelSource {
         match self {
-            CactusSttModel::WhisperSmallInt4 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
-            ),
-            CactusSttModel::WhisperSmallInt4Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4-apple.zip",
-            ),
-            CactusSttModel::WhisperSmallInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8.zip",
-            ),
-            CactusSttModel::WhisperSmallInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8-apple.zip",
-            ),
-            CactusSttModel::WhisperMediumInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8.zip",
-            ),
-            CactusSttModel::WhisperMediumInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8-apple.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt4 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4-apple.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8-apple.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4-apple.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8-apple.zip",
-            ),
-            _ => None,
+            CactusSttModel::WhisperSmallInt4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+                checksum: Some(3458434299),
+            },
+            CactusSttModel::WhisperSmallInt4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4-apple.zip",
+                checksum: Some(978654274),
+            },
+            CactusSttModel::WhisperSmallInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8.zip",
+                checksum: Some(4195045602),
+            },
+            CactusSttModel::WhisperSmallInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8-apple.zip",
+                checksum: Some(3401367684),
+            },
+            CactusSttModel::WhisperMediumInt4 | CactusSttModel::WhisperMediumInt4Apple => {
+                CactusModelSource::Unavailable
+            }
+            CactusSttModel::WhisperMediumInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8.zip",
+                checksum: Some(472491622),
+            },
+            CactusSttModel::WhisperMediumInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8-apple.zip",
+                checksum: Some(3175773054),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4.zip",
+                checksum: Some(110471502),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4-apple.zip",
+                checksum: Some(3331532191),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8.zip",
+                checksum: Some(1392408083),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8-apple.zip",
+                checksum: Some(3465716349),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
+                checksum: Some(4186460235),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4-apple.zip",
+                checksum: Some(215115681),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
+                checksum: Some(1102737485),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8-apple.zip",
+                checksum: Some(1011398120),
+            },
+        }
+    }
+
+    pub fn model_url(&self) -> Option<&str> {
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
     pub fn checksum(&self) -> Option<u32> {
-        match self {
-            CactusSttModel::WhisperSmallInt4 => Some(3458434299),
-            CactusSttModel::WhisperSmallInt4Apple => Some(978654274),
-            CactusSttModel::WhisperSmallInt8 => Some(4195045602),
-            CactusSttModel::WhisperSmallInt8Apple => Some(3401367684),
-            CactusSttModel::WhisperMediumInt8 => Some(472491622),
-            CactusSttModel::WhisperMediumInt8Apple => Some(3175773054),
-            CactusSttModel::ParakeetCtc0_6bInt4 => Some(110471502),
-            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(3331532191),
-            CactusSttModel::ParakeetCtc0_6bInt8 => Some(1392408083),
-            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(3465716349),
-            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(4186460235),
-            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => Some(215115681),
-            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(1102737485),
-            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => Some(1011398120),
-            _ => None,
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
@@ -386,12 +408,36 @@ impl CactusLlmModel {
         format!("{}.zip", self.dir_name())
     }
 
+    pub fn source(&self) -> CactusModelSource {
+        match self {
+            CactusLlmModel::Lfm2Vl450mApple => CactusModelSource::BundledResource {
+                relative_path: "models/cactus/char-vlm/weight",
+            },
+            _ => CactusModelSource::Unavailable,
+        }
+    }
+
     pub fn model_url(&self) -> Option<&str> {
-        None
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
+        }
+    }
+
+    pub fn checksum(&self) -> Option<u32> {
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
+        }
     }
 
     pub fn description(&self) -> &str {
-        ""
+        match self {
+            CactusLlmModel::Lfm2Vl450mApple | CactusLlmModel::Lfm2_5Vl1_6bApple => {
+                "Apple Neural Engine"
+            }
+            _ => "",
+        }
     }
 
     pub fn display_name(&self) -> &str {
@@ -463,17 +509,24 @@ impl CactusModel {
         }
     }
 
-    pub fn model_url(&self) -> Option<&str> {
+    pub fn source(&self) -> CactusModelSource {
         match self {
-            CactusModel::Stt(m) => m.model_url(),
-            CactusModel::Llm(m) => m.model_url(),
+            CactusModel::Stt(m) => m.source(),
+            CactusModel::Llm(m) => m.source(),
+        }
+    }
+
+    pub fn model_url(&self) -> Option<&str> {
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
     pub fn checksum(&self) -> Option<u32> {
-        match self {
-            CactusModel::Stt(m) => m.checksum(),
-            CactusModel::Llm(_) => None,
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
@@ -489,5 +542,51 @@ impl CactusModel {
             CactusModel::Stt(m) => m.display_name(),
             CactusModel::Llm(m) => m.display_name(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_llm_uses_resource_source() {
+        assert_eq!(
+            CactusLlmModel::Lfm2Vl450mApple.source(),
+            CactusModelSource::BundledResource {
+                relative_path: "models/cactus/char-vlm/weight",
+            }
+        );
+    }
+
+    #[test]
+    fn downloadable_stt_reports_source_metadata() {
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.source(),
+            CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+                checksum: Some(3458434299),
+            }
+        );
+    }
+
+    #[test]
+    fn bundled_models_do_not_expose_download_metadata() {
+        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.model_url(), None);
+        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.checksum(), None);
+    }
+
+    #[test]
+    fn downloadable_models_keep_existing_metadata() {
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.model_url(),
+            Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+            )
+        );
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.checksum(),
+            Some(3458434299)
+        );
     }
 }

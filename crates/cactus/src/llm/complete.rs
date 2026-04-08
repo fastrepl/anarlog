@@ -73,8 +73,6 @@ impl Model {
                 std::ptr::null(),
                 callback,
                 user_data,
-                std::ptr::null(),
-                0,
             )
         };
 
@@ -154,7 +152,7 @@ impl Model {
         };
 
         let (rc, buf) = self.call_complete(
-            &guard,
+            guard,
             &request.messages_c,
             &request.options_c,
             Some(token_trampoline::<F>),

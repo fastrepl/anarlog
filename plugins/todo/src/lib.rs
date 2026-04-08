@@ -2,6 +2,7 @@ mod commands;
 mod error;
 mod events;
 mod fetch;
+mod read_path;
 
 pub use error::Error;
 pub use events::*;
@@ -20,6 +21,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::request_full_access,
             commands::list_todo_lists,
             commands::fetch_todos,
+            commands::read_path::<tauri::Wry>,
             commands::create_todo,
             commands::complete_todo,
             commands::delete_todo,

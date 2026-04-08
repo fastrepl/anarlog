@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { allDocs } from "content-collections";
 import { useMemo } from "react";
 
+import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
 import { defaultMDXComponents } from "@/components/mdx";
 import { TableOfContents } from "@/components/table-of-contents";
 
@@ -21,6 +22,7 @@ export function DocLayout({
         <ArticleHeader doc={doc} showSectionTitle={showSectionTitle} />
         <ArticleContent doc={doc} />
         <PageNavigation currentSlug={doc.slug} />
+        <DocExploreSection doc={doc} />
       </main>
       <TableOfContents toc={doc.toc} />
     </>
@@ -160,5 +162,89 @@ function PageNavigation({ currentSlug }: { currentSlug: string }) {
         <div />
       )}
     </nav>
+  );
+}
+
+function DocExploreSection({ doc }: { doc: any }) {
+  const items =
+    doc.sectionFolder === "developers"
+      ? [
+          {
+            eyebrow: "Solutions",
+            title: "Char for developers",
+            description:
+              "See the landing page for teams that want local-first, open-source meeting notes they can inspect and extend.",
+            href: "/solution/engineering",
+          },
+          {
+            eyebrow: "Integrations",
+            title: "Browse meeting platform guides",
+            description:
+              "See how Char works with Zoom, Google Meet, Teams, and Webex without inviting a bot.",
+            href: "/integrations/",
+          },
+          {
+            eyebrow: "Comparisons",
+            title: "Compare Char vs Otter",
+            description:
+              "Start with one of the most common evaluation paths for teams leaving cloud-first note takers.",
+            href: "/vs/otter",
+          },
+        ]
+      : doc.sectionFolder === "faq" || doc.sectionFolder === "pro"
+        ? [
+            {
+              eyebrow: "Pricing",
+              title: "Compare Free, Lite, and Pro",
+              description:
+                "See what stays local on the free plan and what the managed cloud plans unlock.",
+              href: "/pricing",
+            },
+            {
+              eyebrow: "Integrations",
+              title: "Meeting platform guides",
+              description:
+                "Jump from the docs into the landing pages for Zoom, Meet, Teams, and Webex workflows.",
+              href: "/integrations/",
+            },
+            {
+              eyebrow: "Solutions",
+              title: "Browse team workflows",
+              description:
+                "Explore the solution pages for sales, research, legal, and other conversation-heavy teams.",
+              href: "/solutions/",
+            },
+          ]
+        : [
+            {
+              eyebrow: "Solutions",
+              title: "Browse team workflows",
+              description:
+                "See the use-case pages for sales, research, legal, coaching, and more.",
+              href: "/solutions/",
+            },
+            {
+              eyebrow: "Integrations",
+              title: "Browse meeting platform guides",
+              description:
+                "Find the platform-specific pages for Zoom, Google Meet, Teams, and Webex.",
+              href: "/integrations/",
+            },
+            {
+              eyebrow: "Comparisons",
+              title: "Compare Char vs Otter",
+              description:
+                "See a direct evaluation page for one of the most common note-taking alternatives.",
+              href: "/vs/otter",
+            },
+          ];
+
+  return (
+    <AcquisitionLinkGrid
+      title="Popular next steps"
+      description="If you came here from evaluation or implementation work, these are the shortest paths back to the core acquisition pages."
+      className="mt-12"
+      items={items}
+    />
   );
 }

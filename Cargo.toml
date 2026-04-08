@@ -32,8 +32,11 @@ hypr-activity-capture-windows = { path = "crates/activity-capture-windows", pack
 hypr-aec = { path = "crates/aec", package = "aec" }
 hypr-afconvert = { path = "crates/afconvert", package = "afconvert" }
 hypr-agc = { path = "crates/agc", package = "agc" }
+hypr-agent-core = { path = "crates/agent-core", package = "agent-core" }
 hypr-am = { path = "crates/am", package = "am" }
+hypr-amp = { path = "crates/amp", package = "amp" }
 hypr-analytics = { path = "crates/analytics", package = "analytics" }
+hypr-api-agent = { path = "crates/api-agent", package = "api-agent" }
 hypr-api-auth = { path = "crates/api-auth", package = "api-auth" }
 hypr-api-bot = { path = "crates/api-bot", package = "api-bot" }
 hypr-api-cactus = { path = "crates/api-cactus", package = "api-cactus" }
@@ -75,8 +78,10 @@ hypr-calendar = { path = "crates/calendar", package = "calendar" }
 hypr-calendar-interface = { path = "crates/calendar-interface", package = "calendar-interface" }
 hypr-chatwoot = { path = "crates/chatwoot", package = "chatwoot" }
 hypr-claude = { path = "crates/claude", package = "claude" }
+hypr-cli-process = { path = "crates/cli-process", package = "cli-process" }
 hypr-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
 hypr-codex = { path = "crates/codex", package = "codex" }
+hypr-cursor = { path = "crates/cursor", package = "cursor" }
 hypr-data = { path = "crates/data", package = "data" }
 hypr-db-app = { path = "crates/db-app", package = "db-app" }
 hypr-db-app2 = { path = "crates/db-app2", package = "db-app2" }
@@ -88,6 +93,7 @@ hypr-db-watch = { path = "crates/db-watch", package = "db-watch" }
 hypr-denoise = { path = "crates/denoise", package = "denoise" }
 hypr-detect = { path = "crates/detect", package = "detect" }
 hypr-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
+hypr-devin = { path = "crates/devin", package = "devin" }
 hypr-docs = { path = "crates/docs", package = "docs" }
 hypr-download-interface = { path = "crates/download-interface", package = "download-interface" }
 hypr-embedding = { path = "crates/embedding", package = "embedding" }
@@ -210,6 +216,7 @@ tauri-plugin-updater = "2.10"
 tauri-plugin-window-state = "2.4"
 
 tauri-plugin-activity-capture = { path = "plugins/activity-capture" }
+tauri-plugin-agent = { path = "plugins/agent" }
 tauri-plugin-analytics = { path = "plugins/analytics" }
 tauri-plugin-audio-priority = { path = "plugins/audio-priority" }
 tauri-plugin-auth = { path = "plugins/auth" }

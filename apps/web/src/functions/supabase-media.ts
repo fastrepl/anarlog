@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { env, requireEnv } from "@/env";
 import { listCatalogMediaItems } from "@/functions/media-catalog";
 import {
+  getMediaProxyUrl,
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
   parseMediaFilename,
@@ -187,6 +188,7 @@ async function loadMediaFiles(path: string): Promise<MediaListResult> {
           name: item.name,
           path: fullPath,
           publicUrl: isFolder ? "" : getPublicUrl(supabase, fullPath),
+          proxyUrl: isFolder ? "" : getMediaProxyUrl(fullPath),
           id: item.id || "",
           size: item.metadata?.size || 0,
           type: isFolder ? "dir" : "file",
@@ -272,6 +274,7 @@ export async function uploadMediaFile(
   success: boolean;
   path?: string;
   publicUrl?: string;
+  proxyUrl?: string;
   error?: string;
 }> {
   const resolvedPath = await resolveUploadPath(supabase, { filename, folder });
@@ -303,6 +306,7 @@ export async function uploadMediaFile(
       success: true,
       path: resolvedPath.path,
       publicUrl: data.publicUrl,
+      proxyUrl: getMediaProxyUrl(resolvedPath.path),
     };
   } catch (error) {
     return {
@@ -324,6 +328,7 @@ export async function createSignedMediaUpload(
   success: boolean;
   path?: string;
   publicUrl?: string;
+  proxyUrl?: string;
   token?: string;
   signedUrl?: string;
   error?: string;
@@ -353,6 +358,7 @@ export async function createSignedMediaUpload(
     success: true,
     path: resolvedPath.path,
     publicUrl: getPublicUrl(supabase, resolvedPath.path),
+    proxyUrl: getMediaProxyUrl(resolvedPath.path),
     token: data.token,
     signedUrl: data.signedUrl,
   };

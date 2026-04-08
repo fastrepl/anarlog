@@ -114,18 +114,44 @@ pub(super) async fn spawn_rx_task(
 }
 
 fn build_listen_params(args: &ListenerArgs) -> owhisper_interface::ListenParams {
+    let adapter_kind =
+        AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let redemption_time_ms = if args.onboarding { "60" } else { "400" };
+    let mut custom_query = std::collections::HashMap::from([(
+        "redemption_time_ms".to_string(),
+        redemption_time_ms.to_string(),
+    )]);
+
+    if adapter_kind == AdapterKind::AssemblyAI
+        && let Some(expected_speakers) = assemblyai_expected_speakers(args)
+    {
+        custom_query.insert("speaker_labels".to_string(), "true".to_string());
+        custom_query.insert("max_speakers".to_string(), expected_speakers.to_string());
+    }
+
     owhisper_interface::ListenParams {
         model: Some(args.model.clone()),
         languages: args.languages.clone(),
         sample_rate: super::super::SAMPLE_RATE,
         keywords: args.keywords.clone(),
-        custom_query: Some(std::collections::HashMap::from([(
-            "redemption_time_ms".to_string(),
-            redemption_time_ms.to_string(),
-        )])),
+        custom_query: Some(custom_query),
         ..Default::default()
     }
+}
+
+fn assemblyai_expected_speakers(args: &ListenerArgs) -> Option<u32> {
+    let mut participants = args.participant_human_ids.clone();
+
+    if let Some(self_human_id) = &args.self_human_id
+        && !participants.iter().any(|id| id == self_human_id)
+    {
+        participants.push(self_human_id.clone());
+    }
+
+    participants.sort();
+    participants.dedup();
+
+    (participants.len() > 1).then_some(participants.len() as u32)
 }
 
 fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
@@ -270,4 +296,93 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
     });
 
     Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::{Instant, SystemTime};
+
+    use super::*;
+
+    struct NoopRuntime;
+
+    impl hypr_storage::StorageRuntime for NoopRuntime {
+        fn global_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+            Ok(std::path::PathBuf::from("/tmp"))
+        }
+
+        fn vault_base(&self) -> Result<std::path::PathBuf, hypr_storage::Error> {
+            Ok(std::path::PathBuf::from("/tmp"))
+        }
+    }
+
+    impl crate::ListenerRuntime for NoopRuntime {
+        fn emit_lifecycle(&self, _event: crate::SessionLifecycleEvent) {}
+
+        fn emit_progress(&self, _event: crate::SessionProgressEvent) {}
+
+        fn emit_data(&self, _event: crate::SessionDataEvent) {}
+
+        fn emit_error(&self, _event: crate::SessionErrorEvent) {}
+    }
+
+    fn listener_args(base_url: &str, model: &str) -> ListenerArgs {
+        ListenerArgs {
+            runtime: Arc::new(NoopRuntime),
+            languages: vec![hypr_language::ISO639::En.into()],
+            onboarding: false,
+            model: model.to_string(),
+            base_url: base_url.to_string(),
+            api_key: String::new(),
+            keywords: vec![],
+            mode: crate::actors::ChannelMode::MicOnly,
+            session_started_at: Instant::now(),
+            session_started_at_unix: SystemTime::now(),
+            session_id: "session".to_string(),
+            participant_human_ids: vec![],
+            self_human_id: None,
+        }
+    }
+
+    #[test]
+    fn assemblyai_expected_speakers_counts_distinct_participants() {
+        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
+        args.participant_human_ids = vec!["remote".to_string(), "self".to_string()];
+        args.self_human_id = Some("self".to_string());
+
+        assert_eq!(assemblyai_expected_speakers(&args), Some(2));
+    }
+
+    #[test]
+    fn build_listen_params_adds_assemblyai_diarization_hints() {
+        let mut args = listener_args("https://api.assemblyai.com", "u3-rt-pro");
+        args.participant_human_ids = vec!["remote".to_string()];
+        args.self_human_id = Some("self".to_string());
+
+        let params = build_listen_params(&args);
+        let custom_query = params.custom_query.expect("custom query");
+
+        assert_eq!(
+            custom_query.get("speaker_labels").map(String::as_str),
+            Some("true")
+        );
+        assert_eq!(
+            custom_query.get("max_speakers").map(String::as_str),
+            Some("2")
+        );
+    }
+
+    #[test]
+    fn build_listen_params_does_not_add_assemblyai_hints_for_other_providers() {
+        let mut args = listener_args("https://api.deepgram.com/v1", "nova-3");
+        args.participant_human_ids = vec!["remote".to_string()];
+        args.self_human_id = Some("self".to_string());
+
+        let params = build_listen_params(&args);
+        let custom_query = params.custom_query.expect("custom query");
+
+        assert!(!custom_query.contains_key("speaker_labels"));
+        assert!(!custom_query.contains_key("max_speakers"));
+    }
 }

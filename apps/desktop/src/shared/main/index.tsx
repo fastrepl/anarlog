@@ -28,7 +28,7 @@ export function StandardTabWrapper({
     <div className="flex h-full flex-col">
       <div
         className={cn([
-          "relative flex flex-1 flex-col overflow-hidden rounded-xl bg-white",
+          "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white",
           !noBorder && "border border-neutral-200",
         ])}
       >

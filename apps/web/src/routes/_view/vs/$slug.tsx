@@ -29,19 +29,17 @@ export const Route = createFileRoute("/_view/vs/$slug")({
 
     const { doc } = loaderData;
     const metaTitle = `Char vs ${doc.name} - Privacy-First AI Notetaking`;
+    const url = `https://char.com/vs/${doc.slug}`;
 
     return {
       meta: [
         { title: metaTitle },
         { name: "description", content: doc.metaDescription },
-        { name: "robots", content: "noindex, nofollow" },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
         { property: "og:title", content: metaTitle },
         { property: "og:description", content: doc.metaDescription },
         { property: "og:type", content: "website" },
-        {
-          property: "og:url",
-          content: `https://char.com/vs/${doc.slug}`,
-        },
+        { property: "og:url", content: url },
         { name: "twitter:card", content: "summary" },
         { name: "twitter:title", content: metaTitle },
         { name: "twitter:description", content: doc.metaDescription },
@@ -114,7 +112,7 @@ function HeroSection({
             </div>
             <div className="absolute right-0 bottom-0 z-10 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-white shadow-2xl">
               <img
-                src="/api/images/hyprnote/icon.png"
+                src="/api/assets/hyprnote/icon.png"
                 alt="Char"
                 className="size-24 rounded-[28px] border border-neutral-100"
               />
@@ -133,7 +131,7 @@ function HeroSection({
             </div>
             <div className="flex size-32 scale-110 items-center justify-center rounded-[40px] border border-neutral-100 bg-transparent shadow-2xl">
               <img
-                src="/api/images/hyprnote/icon.png"
+                src="/api/assets/hyprnote/icon.png"
                 alt="Char"
                 className="size-28 rounded-4xl border border-neutral-100"
               />

@@ -67,6 +67,7 @@ export const Route = createFileRoute("/api/admin/media/upload")({
           JSON.stringify({
             path: result.path,
             publicUrl: result.publicUrl,
+            proxyUrl: result.proxyUrl,
             token: result.token,
             signedUrl: result.signedUrl,
           }),

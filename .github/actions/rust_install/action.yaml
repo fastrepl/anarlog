@@ -41,7 +41,7 @@ runs:
       uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ steps.toolchain.outputs.channel }}
-        targets: x86_64-pc-windows-msvc,aarch64-pc-windows-msvc
+        targets: x86_64-pc-windows-msvc
         components: ${{ steps.toolchain.outputs.components }}
     - if: inputs.platform == 'windows'
       run: cargo install trusted-signing-cli

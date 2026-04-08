@@ -269,14 +269,12 @@ impl MistralAdapter {
             return vec![];
         }
 
-        let transcript: String = text.split_whitespace().collect::<Vec<_>>().join(" ");
-
         let start = words.first().map(|w| w.start).unwrap_or(0.0);
         let end = words.last().map(|w| w.end).unwrap_or(0.0);
 
         let channel = Channel {
             alternatives: vec![Alternatives {
-                transcript,
+                transcript: text.to_string(),
                 words,
                 confidence: 1.0,
                 languages: vec![],
@@ -428,7 +426,7 @@ mod tests {
                 is_final, channel, ..
             } => {
                 assert!(is_final);
-                assert_eq!(channel.alternatives[0].transcript, "Maybe");
+                assert_eq!(channel.alternatives[0].transcript, " Maybe");
                 let words = &channel.alternatives[0].words;
                 assert_eq!(words.len(), 1);
                 assert_eq!(words[0].start, 0.0);
@@ -442,10 +440,30 @@ mod tests {
         assert_eq!(responses.len(), 1);
         match &responses[0] {
             StreamResponse::TranscriptResponse { channel, .. } => {
+                assert_eq!(channel.alternatives[0].transcript, " this");
                 let words = &channel.alternatives[0].words;
                 assert_eq!(words.len(), 1);
                 assert_eq!(words[0].start, 1.0);
                 assert_eq!(words[0].end, 2.0);
+            }
+            _ => panic!("expected TranscriptResponse"),
+        }
+    }
+
+    #[test]
+    fn test_parse_text_delta_preserves_internal_spacing() {
+        let adapter = MistralAdapter::default();
+        let responses =
+            adapter.parse_response(r#"{"type":"transcription.text.delta","text":" in terms"}"#);
+
+        assert_eq!(responses.len(), 1);
+        match &responses[0] {
+            StreamResponse::TranscriptResponse { channel, .. } => {
+                assert_eq!(channel.alternatives[0].transcript, " in terms");
+                let words = &channel.alternatives[0].words;
+                assert_eq!(words.len(), 2);
+                assert_eq!(words[0].word, "in");
+                assert_eq!(words[1].word, "terms");
             }
             _ => panic!("expected TranscriptResponse"),
         }

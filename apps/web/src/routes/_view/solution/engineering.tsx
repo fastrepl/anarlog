@@ -11,50 +11,52 @@ import { cn } from "@hypr/utils";
 
 export const Route = createFileRoute("/_view/solution/engineering")({
   component: Component,
-  head: () => ({
-    meta: [
-      {
-        title:
-          "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
-      },
-      {
-        name: "description",
-        content:
-          "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
-      },
-      {
-        property: "og:title",
-        content:
-          "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
-      },
-      {
-        property: "og:description",
-        content:
-          "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
-      },
-      { property: "og:type", content: "website" },
-      {
-        property: "og:url",
-        content: "https://char.com/solution/engineering",
-      },
-      { name: "twitter:card", content: "summary_large_image" },
-      {
-        name: "twitter:title",
-        content:
-          "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
-      },
-      {
-        name: "twitter:description",
-        content:
-          "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local.",
-      },
-      {
-        name: "keywords",
-        content:
-          "open source, meeting notes, AI transcription, developer tools, Rust, Tauri, React, TypeScript, BYOK, local AI, whisper, llm, API, CLI, extensions",
-      },
-    ],
-  }),
+  head: () => {
+    const url = "https://char.com/solution/engineering";
+
+    return {
+      meta: [
+        {
+          title:
+            "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
+        },
+        {
+          name: "description",
+          content:
+            "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
+        },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
+        {
+          property: "og:title",
+          content:
+            "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
+        },
+        {
+          property: "og:description",
+          content:
+            "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local. No proprietary modules, just open source code you can inspect and modify.",
+        },
+        { property: "og:type", content: "website" },
+        { property: "og:url", content: url },
+        { name: "twitter:card", content: "summary_large_image" },
+        {
+          name: "twitter:title",
+          content:
+            "For Developers - The Only Meeting AI You Can Fork, Fix & Make Your Own",
+        },
+        {
+          name: "twitter:description",
+          content:
+            "Build React extensions, automate with shell hooks, bring your own keys. Self-host or run local.",
+        },
+        {
+          name: "keywords",
+          content:
+            "open source, meeting notes, AI transcription, developer tools, Rust, Tauri, React, TypeScript, BYOK, local AI, whisper, llm, API, CLI, extensions",
+        },
+      ],
+    };
+  },
 });
 
 const technicalSpecs = [

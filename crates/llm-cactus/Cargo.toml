@@ -19,3 +19,12 @@ futures-util = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tower = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true, features = ["json"] }
+tokio = { workspace = true }
+
+pico-args = { workspace = true }
+
+[[example]]
+name = "complete"

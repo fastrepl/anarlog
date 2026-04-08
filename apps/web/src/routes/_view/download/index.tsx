@@ -9,6 +9,27 @@ import { useAnalytics } from "@/hooks/use-posthog";
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
+  head: () => ({
+    meta: [
+      { title: "Download Char - Private Meeting Notes for macOS" },
+      {
+        name: "description",
+        content:
+          "Download Char for macOS to take private, bot-free meeting notes with local transcription, BYOK AI, and optional cloud features. Apple Silicon and Intel builds available.",
+      },
+      {
+        property: "og:title",
+        content: "Download Char - Private Meeting Notes for macOS",
+      },
+      {
+        property: "og:description",
+        content:
+          "Get Char on macOS and start with local meeting notes, on-device transcription, and optional cloud upgrades when you need them.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://char.com/download" },
+    ],
+  }),
 });
 
 function Component() {
@@ -149,12 +170,12 @@ function FAQSection() {
     {
       question: "What's special about the Mac version?",
       answer:
-        "The Mac (Apple Silicon) version features on-device speech-to-text, ensuring your audio never leaves your device for complete privacy.",
+        "The Apple Silicon build includes on-device speech-to-text for local transcription. The Intel build is available with cloud-based transcription.",
     },
     {
       question: "Do I need an internet connection?",
       answer:
-        "For the free version with local transcription on Mac, no internet is required. Cloud features in the Pro plan require an internet connection.",
+        "For local workflows on Apple Silicon, no internet is required. Cloud transcription and other hosted features require an internet connection.",
     },
     {
       question: "How do I get started after downloading?",
@@ -193,7 +214,7 @@ function CTASection() {
       <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={144}
             height={144}

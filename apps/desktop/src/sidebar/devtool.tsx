@@ -166,40 +166,19 @@ function ToastsCard() {
     await commands.setDismissedToasts([]);
   }, []);
 
-  const handleResetShareOnly = useCallback(async () => {
-    const result = await commands.getDismissedToasts();
-    if (result.status === "ok") {
-      await commands.setDismissedToasts(
-        result.data.filter(
-          (id: string) =>
-            id !== "share-char" && !id.startsWith("share-char-snoozed:"),
-        ),
-      );
-    }
-  }, []);
-
-  const btnClass = cn([
-    "w-full rounded-md px-2.5 py-1.5",
-    "text-left text-xs font-medium",
-    "border border-neutral-200 text-neutral-700",
-    "cursor-pointer transition-colors",
-    "hover:border-neutral-300 hover:bg-neutral-50",
-  ]);
-
   return (
     <DevtoolCard title="Toasts">
       <div className="flex flex-col gap-1.5">
         <button
           type="button"
-          onClick={() => void handleResetShareOnly()}
-          className={btnClass}
-        >
-          Reset Share Toast
-        </button>
-        <button
-          type="button"
           onClick={() => void handleResetDismissed()}
-          className={btnClass}
+          className={cn([
+            "w-full rounded-md px-2.5 py-1.5",
+            "text-left text-xs font-medium",
+            "border border-neutral-200 text-neutral-700",
+            "cursor-pointer transition-colors",
+            "hover:border-neutral-300 hover:bg-neutral-50",
+          ])}
         >
           Reset All Dismissed
         </button>

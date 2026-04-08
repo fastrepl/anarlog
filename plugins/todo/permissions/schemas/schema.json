@@ -403,6 +403,18 @@
           "markdownDescription": "Denies the ping command without any pre-configured scope."
         },
         {
+          "description": "Enables the read_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-read-path",
+          "markdownDescription": "Enables the read_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the read_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-read-path",
+          "markdownDescription": "Denies the read_path command without any pre-configured scope."
+        },
+        {
           "description": "Enables the request_full_access command without any pre-configured scope.",
           "type": "string",
           "const": "allow-request-full-access",
@@ -415,10 +427,10 @@
           "markdownDescription": "Denies the request_full_access command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-authorization-status`\n- `allow-request-full-access`\n- `allow-list-todo-lists`\n- `allow-fetch-todos`\n- `allow-create-todo`\n- `allow-complete-todo`\n- `allow-delete-todo`\n- `allow-linear-list-teams`\n- `allow-linear-list-tickets`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-authorization-status`\n- `allow-request-full-access`\n- `allow-list-todo-lists`\n- `allow-fetch-todos`\n- `allow-read-path`\n- `allow-create-todo`\n- `allow-complete-todo`\n- `allow-delete-todo`\n- `allow-linear-list-teams`\n- `allow-linear-list-tickets`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-authorization-status`\n- `allow-request-full-access`\n- `allow-list-todo-lists`\n- `allow-fetch-todos`\n- `allow-create-todo`\n- `allow-complete-todo`\n- `allow-delete-todo`\n- `allow-linear-list-teams`\n- `allow-linear-list-tickets`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-authorization-status`\n- `allow-request-full-access`\n- `allow-list-todo-lists`\n- `allow-fetch-todos`\n- `allow-read-path`\n- `allow-create-todo`\n- `allow-complete-todo`\n- `allow-delete-todo`\n- `allow-linear-list-teams`\n- `allow-linear-list-tickets`"
         }
       ]
     }

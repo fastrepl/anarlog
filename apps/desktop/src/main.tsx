@@ -13,6 +13,7 @@ import {
 } from "tinytick/ui-react";
 
 import { init as initWindowsPlugin } from "@hypr/plugin-windows";
+import { Toaster } from "@hypr/ui/components/ui/toast";
 import "@hypr/ui/globals.css";
 
 import { createToolRegistry } from "./contexts/tool-registry/core";
@@ -109,6 +110,7 @@ function AppWithTiny() {
           <App />
           <TaskManager />
           <EventListeners />
+          <Toaster />
         </TinyBaseProvider>
       </TinyTickProvider>
     </QueryClientProvider>

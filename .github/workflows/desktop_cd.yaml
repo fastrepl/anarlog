@@ -1,3 +1,4 @@
+# https://docs.crabnebula.dev/cloud/ci/tauri-v2-workflow/
 on:
   workflow_dispatch:
     inputs:
@@ -6,33 +7,338 @@ on:
         required: true
         type: choice
         options:
+          - staging
           - nightly
           - stable
       publish:
-        description: "Publish to Crabnebula and create GitHub release"
+        description: "Publish to Crabnebula and create GitHub release (ignored for staging)"
         type: boolean
         default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.channel }}
   cancel-in-progress: true
-
-permissions:
-  contents: write
+env:
+  CN_APPLICATION: "fastrepl/hyprnote2"
+  RELEASE_CHANNEL: ${{ inputs.channel }}
+  TAURI_CONF_PATH: ./src-tauri/tauri.conf.${{ inputs.channel }}.json
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
-  build:
-    uses: ./.github/workflows/desktop_build.yaml
-    with:
-      channel: ${{ inputs.channel }}
-      platforms: '["macos-aarch64", "macos-x86_64"]'
-    secrets: inherit
+  compute-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+      - run: |
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git fetch --tags --force
+      - uses: ./.github/actions/doxxer_install
+      - id: version
+        run: |
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            VERSION=$(doxxer --config doxxer.desktop.toml next dev)
+          elif [[ "${{ inputs.channel }}" == "nightly" ]]; then
+            LATEST_TAG=$(git tag -l 'desktop_v*' --sort=-creatordate | head -n1)
+            if [[ "$LATEST_TAG" == *"-nightly"* ]]; then
+              VERSION=$(doxxer --config doxxer.desktop.toml next prerelease)
+            else
+              VERSION=$(doxxer --config doxxer.desktop.toml next pre-patch)
+            fi
+          elif [[ "${{ inputs.channel }}" == "stable" ]]; then
+            VERSION=$(doxxer --config doxxer.desktop.toml next patch)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Computed version: $VERSION"
+
+  cn-draft:
+    if: ${{ inputs.channel != 'staging' }}
+    needs: compute-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - uses: ./.github/actions/cn_release
+        with:
+          cmd: draft
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+
+  build-macos:
+    needs: [compute-version, cn-draft]
+    if: ${{ !cancelled() && (needs.cn-draft.result == 'success' || needs.cn-draft.result == 'skipped') }}
+    permissions:
+      contents: write
+    runs-on: depot-macos-15
+    strategy:
+      fail-fast: true
+      matrix:
+        include: ${{ inputs.channel == 'staging' && fromJSON('[{"target":"aarch64-apple-darwin","arch":"aarch64","artifact_name":"silicon","include_am":true}]') || fromJSON('[{"target":"aarch64-apple-darwin","arch":"aarch64","artifact_name":"silicon","include_am":true},{"target":"x86_64-apple-darwin","arch":"x86_64","artifact_name":"intel","include_am":false}]') }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+      - run: |
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git fetch --tags --force
+      - uses: ./.github/actions/macos_tcc
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - uses: ./.github/actions/install_desktop_deps
+        with:
+          target: macos
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: macos
+      - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F ui build
+      - if: ${{ matrix.target == 'aarch64-apple-darwin' }}
+        uses: ./.github/actions/hf_unzip_resource
+        with:
+          repo: Cactus-Compute/LFM2-VL-450M
+          path: weights/lfm2-vl-450m-int8-apple.zip
+          local-dir: apps/desktop/src-tauri/resources/models/cactus/_downloads
+          output-dir: apps/desktop/src-tauri/resources/models/cactus/char-vlm/weight
+          token: ${{ secrets.HF_TOKEN }}
+      - if: ${{ matrix.include_am }}
+        run: |
+          aws s3 cp s3://argmax/stt apps/desktop/src-tauri/binaries/char-sidecar-stt-${{ matrix.target }} \
+            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
+            --region auto
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      - if: ${{ matrix.include_am }}
+        run: |
+          chmod +x ./apps/desktop/src-tauri/binaries/char-sidecar-stt-${{ matrix.target }}
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-sidecar-stt"
+      - run: |
+          TAURI_ENV_TARGET_TRIPLE=${{ matrix.target }} cargo xtask prepare-binaries
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/char-chrome-native-host"
+          ./scripts/sidecar.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "binaries/check-permissions"
+      # - run: ./scripts/resource.sh "./apps/desktop/${{ env.TAURI_CONF_PATH }}" "resources/libonnxruntime.dylib"
+      - uses: ./.github/actions/apple_cert
+        id: apple-cert
+        with:
+          apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
+      - run: |
+          FEATURES_FLAG=""
+          if [[ "${{ inputs.channel }}" == "staging" ]]; then
+            FEATURES_FLAG="--features devtools"
+          fi
+          pnpm -F desktop tauri build --target ${{ matrix.target }} --config ${{ env.TAURI_CONF_PATH }} --verbose $FEATURES_FLAG
+        env:
+          # https://v2.tauri.app/reference/environment-variables/
+          CI: false
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AM_API_KEY: ${{ matrix.include_am && secrets.AM_API_KEY || '' }}
+          CACTUS_CLOUD_API_BASE: "https://api.char.com/cactus"
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          APP_VERSION: ${{ needs.compute-version.outputs.version }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ steps.apple-cert.outputs.cert-id }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_APP_URL: "https://char.com"
+          VITE_API_URL: "https://api.char.com"
+          VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - id: find-dmg
+        shell: bash
+        run: |
+          DMG_FILE=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/" -name "*.dmg" -type f | head -1)
+          if [[ -z "$DMG_FILE" ]]; then
+            echo "::error::No DMG found in bundle output"
+            exit 1
+          fi
+          echo "path=$DMG_FILE" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/macos_notarize_dmg
+        with:
+          dmg-path: ${{ steps.find-dmg.outputs.path }}
+          signing-identity: ${{ steps.apple-cert.outputs.cert-id }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
+      - run: |
+          mkdir -p target/release/
+          find target/${{ matrix.target }}/release -type f -not -path "*/\.*" -exec cp {} target/release/ \;
+        shell: bash
+        working-directory: ./apps/desktop/src-tauri
+      - if: ${{ inputs.channel != 'staging' }}
+        uses: ./.github/actions/cn_release
+        with:
+          cmd: upload
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+      - if: ${{ inputs.channel == 'staging' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyprnote-staging-macos-${{ matrix.artifact_name }}
+          path: apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          retention-days: 3
+      - if: ${{ inputs.channel == 'staging' }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y%m%d%H%M%S")
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          DMG_FILE=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/" -name "*.dmg" -type f)
+          FILENAME="hyprnote-staging-${TIMESTAMP}-${COMMIT_HASH}-macos-${{ matrix.arch }}.dmg"
+          cp "$DMG_FILE" "$FILENAME"
+          aws s3 cp "$FILENAME" \
+            "s3://hyprnote-build/desktop/staging/$FILENAME" \
+            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
+            --region auto
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+
+  create-tag:
+    if: ${{ inputs.channel != 'staging' && !cancelled() && needs.build-macos.result == 'success' }}
+    needs: [compute-version, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: desktop_v${{ needs.compute-version.outputs.version }}
+          tag_prefix: ""
+
+  cn-publish:
+    if: ${{ inputs.channel != 'staging' && inputs.publish }}
+    needs: [compute-version, build-macos, create-tag]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "${{ needs.compute-version.outputs.version }}"
+      - uses: ./.github/actions/cn_release
+        with:
+          cmd: publish
+          app: ${{ env.CN_APPLICATION }}
+          key: ${{ secrets.CN_API_KEY }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          framework: tauri
+          working-directory: ./apps/desktop
+
   release:
-    needs: build
-    uses: ./.github/workflows/desktop_release.yaml
-    with:
-      channel: ${{ inputs.channel }}
-      version: ${{ needs.build.outputs.version }}
-      publish: ${{ inputs.publish }}
-      release_assets: '[{"platform":"dmg-aarch64","output":"hyprnote-macos-aarch64.dmg"},{"platform":"dmg-x86_64","output":"hyprnote-macos-x86_64.dmg"}]'
-    secrets: inherit
+    if: ${{ inputs.channel != 'staging' && inputs.publish && !cancelled() && needs.cn-publish.result == 'success' && needs.build-macos.result == 'success' }}
+    needs: [compute-version, build-macos, cn-publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - run: git fetch --tags --force
+      - if: ${{ needs.build-macos.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: dmg-aarch64
+          output: hyprnote-macos-aarch64.dmg
+          key: ${{ secrets.CN_API_KEY }}
+      - if: ${{ needs.build-macos.result == 'success' }}
+        uses: ./.github/actions/cn_download
+        with:
+          app: ${{ env.CN_APPLICATION }}
+          version: ${{ needs.compute-version.outputs.version }}
+          channel: ${{ env.RELEASE_CHANNEL }}
+          platform: dmg-x86_64
+          output: hyprnote-macos-x86_64.dmg
+          key: ${{ secrets.CN_API_KEY }}
+      - id: checksums
+        uses: ./.github/actions/generate_checksums
+        with:
+          files: |
+            ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-aarch64.dmg' || '' }}
+            ${{ needs.build-macos.result == 'success' && 'hyprnote-macos-x86_64.dmg' || '' }}
+      - id: artifacts
+        run: |
+          ARTIFACTS=""
+          if [[ "${{ needs.build-macos.result }}" == "success" ]]; then
+            ARTIFACTS="hyprnote-macos-aarch64.dmg,hyprnote-macos-x86_64.dmg"
+          fi
+          if [[ -z "$ARTIFACTS" ]]; then
+            echo "No artifacts to release" >&2
+            exit 1
+          fi
+          if [[ -n "${{ steps.checksums.outputs.checksum_files }}" ]]; then
+            ARTIFACTS="$ARTIFACTS,${{ steps.checksums.outputs.checksum_files }}"
+          fi
+          echo "list=$ARTIFACTS" >> $GITHUB_OUTPUT
+      - id: release-body
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          VERSION: ${{ needs.compute-version.outputs.version }}
+        run: |
+          if [[ "$CHANNEL" != "nightly" ]]; then
+            echo "value=https://char.com/changelog/$VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CURRENT_TAG="desktop_v$VERSION"
+          PREV_TAG=""
+          LAST_TAG=""
+          LAST_NIGHTLY_TAG=""
+
+          while IFS= read -r tag; do
+            if [[ "$tag" == "$CURRENT_TAG" ]]; then
+              PREV_TAG="$LAST_NIGHTLY_TAG"
+              if [[ -z "$PREV_TAG" ]]; then
+                PREV_TAG="$LAST_TAG"
+              fi
+              break
+            fi
+
+            if [[ "$tag" == *"-nightly."* ]]; then
+              LAST_NIGHTLY_TAG="$tag"
+            fi
+
+            LAST_TAG="$tag"
+          done < <(git tag -l 'desktop_v*' --sort=v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "value=https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=https://github.com/${{ github.repository }}/commits/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: ncipollo/release-action@v1
+        with:
+          tag: desktop_v${{ needs.compute-version.outputs.version }}
+          name: desktop_v${{ needs.compute-version.outputs.version }}
+          body: ${{ steps.release-body.outputs.value }}
+          prerelease: ${{ inputs.channel == 'nightly' }}
+          makeLatest: ${{ inputs.channel == 'nightly' && 'false' || 'true' }}
+          artifacts: ${{ steps.artifacts.outputs.list }}

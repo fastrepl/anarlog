@@ -10,8 +10,18 @@ pub enum Error {
     ReminderNotFound,
     #[error("reminder list not found")]
     ReminderListNotFound,
+    #[error("reminder list is read-only")]
+    ReminderListReadOnly,
+    #[error("invalid reminder identifier")]
+    InvalidReminderIdentifier,
+    #[error("reminder identifier is ambiguous")]
+    AmbiguousReminderIdentifier,
     #[error("invalid date range")]
     InvalidDateRange,
+    #[error("invalid read path: {0}")]
+    InvalidReadPath(String),
+    #[error("invalid reminder date components: {0}")]
+    InvalidDateComponents(String),
     #[error("objective-c exception: {0}")]
     ObjectiveCException(String),
     #[error("xpc connection failed")]

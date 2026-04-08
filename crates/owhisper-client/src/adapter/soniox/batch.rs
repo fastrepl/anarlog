@@ -7,7 +7,7 @@ use owhisper_interface::batch::{
 };
 
 use super::SonioxAdapter;
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
+use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
 
 impl SonioxAdapter {
@@ -111,7 +111,7 @@ impl SonioxAdapter {
                 start: token.start_ms.unwrap_or(0) as f64 / 1000.0,
                 end: token.end_ms.unwrap_or(0) as f64 / 1000.0,
                 confidence: token.confidence.unwrap_or(1.0),
-                channel: 0,
+                channel: MIXED_CAPTURE_CHANNEL,
                 speaker: token.speaker.as_ref().and_then(|s| s.as_usize()),
                 punctuated_word: Some(token.text.clone()),
             })
@@ -170,6 +170,41 @@ impl BatchSttAdapter for SonioxAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn speaker_labeled_tokens_use_mixed_capture_channel() {
+        let transcript = soniox::TranscriptResponse {
+            text: "hello there".to_string(),
+            tokens: vec![
+                soniox::Token {
+                    text: "hello".to_string(),
+                    start_ms: Some(0),
+                    end_ms: Some(400),
+                    confidence: Some(0.9),
+                    is_final: Some(true),
+                    speaker: Some(soniox::SpeakerId::Str("speaker_0".to_string())),
+                    language: Some("en".to_string()),
+                },
+                soniox::Token {
+                    text: "there".to_string(),
+                    start_ms: Some(400),
+                    end_ms: Some(900),
+                    confidence: Some(0.8),
+                    is_final: Some(true),
+                    speaker: Some(soniox::SpeakerId::Num(1)),
+                    language: Some("en".to_string()),
+                },
+            ],
+        };
+
+        let batch = SonioxAdapter::to_batch_response(transcript);
+        let words = &batch.results.channels[0].alternatives[0].words;
+
+        assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
+        assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
+        assert_eq!(words[1].speaker, Some(1));
+    }
 
     #[tokio::test]
     #[ignore]

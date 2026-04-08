@@ -8,6 +8,7 @@ use crate::BatchRunMode;
 #[serde(rename_all = "snake_case")]
 pub enum BatchErrorCode {
     Unknown,
+    TimedOut,
     AudioMetadataJoinFailed,
     AudioMetadataReadFailed,
     BatchCapabilityUnsupported,

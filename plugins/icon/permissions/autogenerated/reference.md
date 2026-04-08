@@ -99,6 +99,32 @@ Denies the set_dock_icon command without any pre-configured scope.
 <tr>
 <td>
 
+`icon:allow-set-notification-badge`
+
+</td>
+<td>
+
+Enables the set_notification_badge command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`icon:deny-set-notification-badge`
+
+</td>
+<td>
+
+Denies the set_notification_badge command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `icon:allow-set-recording-indicator`
 
 </td>

@@ -53,6 +53,8 @@ pub use reqwest_middleware::ClientWithMiddleware;
 
 pub type BatchFuture<'a> = Pin<Box<dyn Future<Output = Result<BatchResponse, Error>> + Send + 'a>>;
 
+pub(crate) const MIXED_CAPTURE_CHANNEL: i32 = 2;
+
 pub type StreamingBatchEvent = BatchStreamEvent;
 
 pub type StreamingBatchStream =
@@ -690,6 +692,13 @@ mod tests {
                 None,
                 AdapterKind::Argmax,
             ),
+            // localhost cactus
+            (
+                "http://localhost:50060/v1",
+                &[En],
+                Some("cactus-parakeet-tdt-0.6b-v3-int8"),
+                AdapterKind::Cactus,
+            ),
         ];
 
         for (url, langs, model, expected) in cases {
@@ -843,6 +852,14 @@ mod tests {
         assert_eq!(
             AdapterKind::from_url_and_languages("http://localhost:50060/v1", &en, None),
             AdapterKind::Argmax,
+        );
+        assert_eq!(
+            AdapterKind::from_url_and_languages(
+                "http://localhost:50060/v1",
+                &en,
+                Some("cactus-parakeet-tdt-0.6b-v3-int8"),
+            ),
+            AdapterKind::Cactus,
         );
     }
 

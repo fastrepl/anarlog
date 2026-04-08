@@ -3,13 +3,19 @@ use objc2::AnyThread;
 #[cfg(target_os = "macos")]
 use objc2::rc::Retained;
 #[cfg(target_os = "macos")]
-use objc2_app_kit::{NSBezierPath, NSColor, NSImage};
+use objc2::runtime::AnyObject;
 #[cfg(target_os = "macos")]
-use objc2_foundation::{NSPoint, NSRect, NSSize};
+use objc2_app_kit::{
+    NSBezierPath, NSColor, NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSImage,
+    NSStringDrawingDeprecated, NSStringDrawingOptions,
+};
+#[cfg(target_os = "macos")]
+use objc2_foundation::{NSCopying, NSDictionary, NSPoint, NSRect, NSSize, NSString};
 
 pub enum Overlay {
     Recording,
     Degraded,
+    Notification(u8),
 }
 
 #[cfg(target_os = "macos")]
@@ -19,6 +25,7 @@ impl Overlay {
         match self {
             Overlay::Recording => draw_recording(base_image),
             Overlay::Degraded => draw_degraded(base_image),
+            Overlay::Notification(count) => draw_notification(base_image, *count),
         }
     }
 }
@@ -85,6 +92,14 @@ fn draw_badge(
     composite_image
 }
 
+pub(crate) fn notification_badge_label(count: u8) -> Option<String> {
+    match count {
+        0 => None,
+        1..=99 => Some(count.to_string()),
+        _ => Some("99+".to_string()),
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn draw_recording(base_image: &NSImage) -> Retained<NSImage> {
     draw_badge(base_image, &NSColor::systemRedColor(), |geo| {
@@ -129,4 +144,82 @@ fn draw_degraded(base_image: &NSImage) -> Retained<NSImage> {
         let excl_dot_path = NSBezierPath::bezierPathWithOvalInRect(excl_dot_rect);
         excl_dot_path.fill();
     })
+}
+
+#[cfg(target_os = "macos")]
+#[allow(deprecated)]
+fn draw_notification(base_image: &NSImage, count: u8) -> Retained<NSImage> {
+    let Some(label) = notification_badge_label(count) else {
+        return base_image.copy();
+    };
+
+    draw_badge(base_image, &NSColor::systemRedColor(), |geo| {
+        let text = NSString::from_str(&label);
+        let font_size = match label.len() {
+            1 => geo.inner_size * 0.6,
+            2 => geo.inner_size * 0.48,
+            _ => geo.inner_size * 0.38,
+        };
+        let font = NSFont::boldSystemFontOfSize(font_size);
+        let text_color = NSColor::whiteColor();
+
+        let keys = unsafe { [NSFontAttributeName, NSForegroundColorAttributeName] };
+        let values = [
+            font.into_super().into_super(),
+            text_color.into_super().into_super(),
+        ];
+        let attributes: Retained<NSDictionary<_, AnyObject>> =
+            NSDictionary::from_retained_objects(&keys, &values);
+
+        let bounds = unsafe {
+            text.boundingRectWithSize_options_attributes(
+                NSSize::new(geo.inner_size, geo.inner_size),
+                NSStringDrawingOptions::UsesLineFragmentOrigin
+                    | NSStringDrawingOptions::UsesFontLeading,
+                Some(&attributes),
+            )
+        };
+
+        let text_rect = NSRect::new(
+            NSPoint::new(
+                geo.inner_origin.x + (geo.inner_size - bounds.size.width) / 2.0,
+                geo.inner_origin.y + (geo.inner_size - bounds.size.height) / 2.0 - 1.0,
+            ),
+            bounds.size,
+        );
+
+        unsafe {
+            text.drawWithRect_options_attributes(
+                text_rect,
+                NSStringDrawingOptions::UsesLineFragmentOrigin
+                    | NSStringDrawingOptions::UsesFontLeading,
+                Some(&attributes),
+            );
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::notification_badge_label;
+
+    #[test]
+    fn notification_badge_label_clears_zero() {
+        assert_eq!(notification_badge_label(0), None);
+    }
+
+    #[test]
+    fn notification_badge_label_shows_small_count() {
+        assert_eq!(notification_badge_label(1), Some("1".to_string()));
+    }
+
+    #[test]
+    fn notification_badge_label_shows_two_digits() {
+        assert_eq!(notification_badge_label(99), Some("99".to_string()));
+    }
+
+    #[test]
+    fn notification_badge_label_caps_at_ninety_nine_plus() {
+        assert_eq!(notification_badge_label(100), Some("99+".to_string()));
+    }
 }

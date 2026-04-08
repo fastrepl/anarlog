@@ -33,18 +33,22 @@ fn notify(payload: &str) -> CliResult<()> {
 
 fn install() -> CliResult<()> {
     let config_path = hypr_codex::config_path();
+    let command = hypr_codex::notify_command();
 
     let mut table = hypr_codex::read_config(&config_path)
         .map_err(|e| CliError::operation_failed("read codex config", e))?;
 
-    hypr_codex::set_notify(
-        &mut table,
-        vec![
-            "char".to_string(),
-            "codex".to_string(),
-            "notify".to_string(),
-        ],
-    );
+    if table.contains_key("notify") && !hypr_codex::has_notify(&table, &command) {
+        return Err(CliError::operation_failed(
+            "install codex integration",
+            format!(
+                "refusing to replace existing notify handler in {}",
+                config_path.display()
+            ),
+        ));
+    }
+
+    hypr_codex::set_notify(&mut table, command);
 
     hypr_codex::write_config(&config_path, &table)
         .map_err(|e| CliError::operation_failed("write codex config", e))?;
@@ -58,11 +62,14 @@ fn install() -> CliResult<()> {
 
 fn uninstall() -> CliResult<()> {
     let config_path = hypr_codex::config_path();
+    let command = hypr_codex::notify_command();
 
     let mut table = hypr_codex::read_config(&config_path)
         .map_err(|e| CliError::operation_failed("read codex config", e))?;
 
-    hypr_codex::remove_notify(&mut table);
+    if hypr_codex::has_notify(&table, &command) {
+        hypr_codex::remove_notify(&mut table);
+    }
 
     hypr_codex::write_config(&config_path, &table)
         .map_err(|e| CliError::operation_failed("write codex config", e))?;

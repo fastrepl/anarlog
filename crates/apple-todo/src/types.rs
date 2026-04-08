@@ -30,18 +30,6 @@ pub enum ReminderFilterKind {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-pub struct CreateReminderInput {
-    pub title: String,
-    pub list_id: Option<String>,
-    pub notes: Option<String>,
-    pub url: Option<String>,
-    pub priority: Option<ReminderPriority>,
-    pub due_date: Option<DateTime<Utc>>,
-    pub start_date: Option<DateTime<Utc>>,
-}
-
 common_derives! {
     pub struct CalendarColor {
         pub red: f32,
@@ -144,6 +132,26 @@ common_derives! {
         pub time: Option<NaiveTime>,
         pub time_zone: Option<String>,
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct CreateReminderInput {
+    pub title: String,
+    pub list_id: Option<String>,
+    pub notes: Option<String>,
+    pub url: Option<String>,
+    pub priority: Option<ReminderPriority>,
+    pub due_date: Option<DateComponents>,
+    pub start_date: Option<DateComponents>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+pub struct ReminderIdentifierInput {
+    pub calendar_item_identifier: Option<String>,
+    pub external_identifier: Option<String>,
+    pub list_id: Option<String>,
 }
 
 common_derives! {
@@ -261,4 +269,12 @@ common_derives! {
         pub alarms: Vec<Alarm>,
         pub recurrence_rules: Vec<RecurrenceRule>,
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+pub enum ReadPathResult {
+    Lists(Vec<ReminderList>),
+    Reminders(Vec<Reminder>),
 }

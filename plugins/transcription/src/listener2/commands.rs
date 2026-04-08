@@ -2,18 +2,29 @@ use std::str::FromStr;
 
 use hypr_transcription_core::listener2 as core;
 
+use crate::TranscriptionParams;
 use crate::listener2::Listener2PluginExt;
 
 #[tauri::command]
 #[specta::specta]
-pub async fn run_batch<R: tauri::Runtime>(
+pub async fn start_transcription<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
-    params: core::BatchParams,
-) -> Result<core::BatchRunOutput, String> {
+    params: TranscriptionParams,
+) -> Result<(), String> {
     app.listener2()
-        .run_batch(params)
+        .start_transcription(params)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_transcription<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    session_id: String,
+) -> Result<(), String> {
+    app.listener2().stop_transcription(session_id).await;
+    Ok(())
 }
 
 #[tauri::command]

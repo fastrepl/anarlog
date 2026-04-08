@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the export_to_vtt command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_capture_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-capture-state",
+          "markdownDescription": "Enables the get_capture_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_capture_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-capture-state",
+          "markdownDescription": "Denies the get_capture_state command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_current_microphone_device command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-current-microphone-device",
@@ -329,18 +341,6 @@
           "type": "string",
           "const": "deny-get-mic-muted",
           "markdownDescription": "Denies the get_mic_muted command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the get_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-get-state",
-          "markdownDescription": "Enables the get_state command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the get_state command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-get-state",
-          "markdownDescription": "Denies the get_state command without any pre-configured scope."
         },
         {
           "description": "Enables the is_supported_languages_batch command without any pre-configured scope.",
@@ -427,18 +427,6 @@
           "markdownDescription": "Denies the render_transcript_segments command without any pre-configured scope."
         },
         {
-          "description": "Enables the run_batch command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-run-batch",
-          "markdownDescription": "Enables the run_batch command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the run_batch command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-run-batch",
-          "markdownDescription": "Denies the run_batch command without any pre-configured scope."
-        },
-        {
           "description": "Enables the run_denoise command without any pre-configured scope.",
           "type": "string",
           "const": "allow-run-denoise",
@@ -463,28 +451,52 @@
           "markdownDescription": "Denies the set_mic_muted command without any pre-configured scope."
         },
         {
-          "description": "Enables the start_session command without any pre-configured scope.",
+          "description": "Enables the start_capture command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-start-session",
-          "markdownDescription": "Enables the start_session command without any pre-configured scope."
+          "const": "allow-start-capture",
+          "markdownDescription": "Enables the start_capture command without any pre-configured scope."
         },
         {
-          "description": "Denies the start_session command without any pre-configured scope.",
+          "description": "Denies the start_capture command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-start-session",
-          "markdownDescription": "Denies the start_session command without any pre-configured scope."
+          "const": "deny-start-capture",
+          "markdownDescription": "Denies the start_capture command without any pre-configured scope."
         },
         {
-          "description": "Enables the stop_session command without any pre-configured scope.",
+          "description": "Enables the start_transcription command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-stop-session",
-          "markdownDescription": "Enables the stop_session command without any pre-configured scope."
+          "const": "allow-start-transcription",
+          "markdownDescription": "Enables the start_transcription command without any pre-configured scope."
         },
         {
-          "description": "Denies the stop_session command without any pre-configured scope.",
+          "description": "Denies the start_transcription command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-stop-session",
-          "markdownDescription": "Denies the stop_session command without any pre-configured scope."
+          "const": "deny-start-transcription",
+          "markdownDescription": "Denies the start_transcription command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_capture command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-capture",
+          "markdownDescription": "Enables the stop_capture command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_capture command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-capture",
+          "markdownDescription": "Denies the stop_capture command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_transcription command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-transcription",
+          "markdownDescription": "Enables the stop_transcription command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_transcription command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-transcription",
+          "markdownDescription": "Denies the stop_transcription command without any pre-configured scope."
         },
         {
           "description": "Enables the suggest_providers_for_languages_batch command without any pre-configured scope.",
@@ -511,10 +523,10 @@
           "markdownDescription": "Denies the suggest_providers_for_languages_live command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-run-batch`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-session`\n- `allow-stop-session`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-run-batch`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-microphone-devices`\n- `allow-get-current-microphone-device`\n- `allow-start-capture`\n- `allow-stop-capture`\n- `allow-get-mic-muted`\n- `allow-set-mic-muted`\n- `allow-get-capture-state`\n- `allow-is-supported-languages-live`\n- `allow-suggest-providers-for-languages-live`\n- `allow-list-documented-language-codes-live`\n- `allow-render-transcript-segments`\n- `allow-start-transcription`\n- `allow-stop-transcription`\n- `allow-run-denoise`\n- `allow-parse-subtitle`\n- `allow-export-to-vtt`\n- `allow-is-supported-languages-batch`\n- `allow-suggest-providers-for-languages-batch`\n- `allow-list-documented-language-codes-batch`"
         }
       ]
     }

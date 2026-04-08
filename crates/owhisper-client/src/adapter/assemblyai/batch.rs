@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use std::{collections::HashMap, mem};
 
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{
@@ -60,9 +61,21 @@ struct TranscriptRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     speaker_labels: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    speakers_expected: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    speaker_options: Option<SpeakerOptions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     multichannel: Option<bool>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     keyterms_prompt: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct SpeakerOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_speakers_expected: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_speakers_expected: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,6 +136,9 @@ struct Utterance {
 impl AssemblyAIAdapter {
     fn resolve_batch_speech_models(params: &ListenParams) -> Vec<String> {
         match params.model.as_deref() {
+            Some("u3-rt-pro" | "universal-3-pro") => {
+                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+            }
             Some(m) if !m.is_empty() && !crate::providers::is_meta_model(m) => {
                 vec![m.to_string()]
             }
@@ -130,6 +146,20 @@ impl AssemblyAIAdapter {
                 vec!["universal-3-pro".to_string(), "universal-2".to_string()]
             }
         }
+    }
+
+    fn assemblyai_speaker_range_option(
+        params: &ListenParams,
+        value: Option<u32>,
+        legacy_key: &str,
+    ) -> Option<u32> {
+        value.or_else(|| {
+            params
+                .custom_query
+                .as_ref()
+                .and_then(|query| query.get(legacy_key))
+                .and_then(|value| value.parse().ok())
+        })
     }
 
     async fn do_transcribe_file(
@@ -184,6 +214,24 @@ impl AssemblyAIAdapter {
         };
 
         let speech_models = Self::resolve_batch_speech_models(params);
+        let speaker_options = match (
+            Self::assemblyai_speaker_range_option(
+                params,
+                params.min_speakers,
+                "pyannote_min_speakers",
+            ),
+            Self::assemblyai_speaker_range_option(
+                params,
+                params.max_speakers,
+                "pyannote_max_speakers",
+            ),
+        ) {
+            (None, None) => None,
+            (min_speakers_expected, max_speakers_expected) => Some(SpeakerOptions {
+                min_speakers_expected,
+                max_speakers_expected,
+            }),
+        };
 
         let transcript_request = TranscriptRequest {
             audio_url: upload_result.upload_url,
@@ -191,6 +239,8 @@ impl AssemblyAIAdapter {
             language_code,
             language_detection,
             speaker_labels: Some(true),
+            speakers_expected: params.num_speakers,
+            speaker_options,
             multichannel: Some(params.channels > 1),
             keyterms_prompt: params.keywords.clone(),
         };
@@ -246,11 +296,17 @@ impl AssemblyAIAdapter {
         .await
     }
 
-    fn convert_word(w: AssemblyAIBatchWord) -> BatchWord {
-        let speaker = w.speaker.and_then(|s| {
-            s.trim_start_matches(|c: char| !c.is_ascii_digit())
-                .parse::<usize>()
-                .ok()
+    fn convert_word(
+        w: AssemblyAIBatchWord,
+        speaker_ids: &mut HashMap<String, usize>,
+        next_speaker_id: &mut usize,
+    ) -> BatchWord {
+        let speaker = w.speaker.as_deref().map(|label| {
+            *speaker_ids.entry(label.to_string()).or_insert_with(|| {
+                let current = *next_speaker_id;
+                *next_speaker_id += 1;
+                current
+            })
         });
         let channel = w
             .channel
@@ -272,12 +328,17 @@ impl AssemblyAIAdapter {
     }
 
     fn convert_to_batch_response(response: TranscriptResponse) -> BatchResponse {
-        let all_words = response.words.unwrap_or_default();
+        let mut all_words = response.words.unwrap_or_default();
         let num_channels = response.audio_channels.unwrap_or(1).max(1) as usize;
         let confidence = response.confidence.unwrap_or(1.0);
+        let mut speaker_ids = HashMap::new();
+        let mut next_speaker_id = 0;
 
         let channels = if num_channels <= 1 {
-            let words: Vec<BatchWord> = all_words.into_iter().map(Self::convert_word).collect();
+            let words: Vec<BatchWord> = all_words
+                .into_iter()
+                .map(|word| Self::convert_word(word, &mut speaker_ids, &mut next_speaker_id))
+                .collect();
             let transcript = response.text.unwrap_or_default();
             vec![BatchChannel {
                 alternatives: vec![BatchAlternatives {
@@ -288,7 +349,7 @@ impl AssemblyAIAdapter {
             }]
         } else {
             let mut channel_words: Vec<Vec<BatchWord>> = vec![Vec::new(); num_channels];
-            for w in all_words {
+            for w in mem::take(&mut all_words) {
                 let ch = w
                     .channel
                     .as_deref()
@@ -296,7 +357,11 @@ impl AssemblyAIAdapter {
                     .unwrap_or(1)
                     .saturating_sub(1)
                     .min(num_channels - 1);
-                channel_words[ch].push(Self::convert_word(w));
+                channel_words[ch].push(Self::convert_word(
+                    w,
+                    &mut speaker_ids,
+                    &mut next_speaker_id,
+                ));
             }
 
             channel_words
@@ -333,6 +398,96 @@ mod tests {
     use crate::http_client::create_client;
 
     #[test]
+    fn batch_defaults_expand_to_current_model_stack() {
+        assert_eq!(
+            AssemblyAIAdapter::resolve_batch_speech_models(&ListenParams::default()),
+            vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+        );
+    }
+
+    #[test]
+    fn batch_explicit_u3_models_expand_to_current_model_stack() {
+        for model in ["u3-rt-pro", "universal-3-pro"] {
+            let params = ListenParams {
+                model: Some(model.to_string()),
+                ..Default::default()
+            };
+
+            assert_eq!(
+                AssemblyAIAdapter::resolve_batch_speech_models(&params),
+                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+            );
+        }
+    }
+
+    #[test]
+    fn batch_explicit_universal_2_is_preserved() {
+        let params = ListenParams {
+            model: Some("universal-2".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            AssemblyAIAdapter::resolve_batch_speech_models(&params),
+            vec!["universal-2".to_string()]
+        );
+    }
+
+    #[test]
+    fn assemblyai_prefers_listen_params_speaker_range_fields() {
+        let params = ListenParams {
+            min_speakers: Some(2),
+            max_speakers: Some(4),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            AssemblyAIAdapter::assemblyai_speaker_range_option(
+                &params,
+                params.min_speakers,
+                "pyannote_min_speakers",
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            AssemblyAIAdapter::assemblyai_speaker_range_option(
+                &params,
+                params.max_speakers,
+                "pyannote_max_speakers",
+            ),
+            Some(4)
+        );
+    }
+
+    #[test]
+    fn assemblyai_falls_back_to_legacy_custom_query_speaker_range_keys() {
+        let params = ListenParams {
+            custom_query: Some(std::collections::HashMap::from([
+                ("pyannote_min_speakers".to_string(), "2".to_string()),
+                ("pyannote_max_speakers".to_string(), "4".to_string()),
+            ])),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            AssemblyAIAdapter::assemblyai_speaker_range_option(
+                &params,
+                params.min_speakers,
+                "pyannote_min_speakers",
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            AssemblyAIAdapter::assemblyai_speaker_range_option(
+                &params,
+                params.max_speakers,
+                "pyannote_max_speakers",
+            ),
+            Some(4)
+        );
+    }
+
+    #[test]
     fn multichannel_words_are_normalized_to_zero_based_channels() {
         let response = TranscriptResponse {
             id: "id".to_string(),
@@ -340,7 +495,7 @@ mod tests {
             text: None,
             words: Some(vec![
                 AssemblyAIBatchWord {
-                    text: "left".to_string(),
+                    text: "left-one".to_string(),
                     start: 0,
                     end: 500,
                     confidence: 0.9,
@@ -348,9 +503,17 @@ mod tests {
                     channel: Some("1".to_string()),
                 },
                 AssemblyAIBatchWord {
-                    text: "right".to_string(),
+                    text: "left-two".to_string(),
                     start: 500,
                     end: 1000,
+                    confidence: 0.85,
+                    speaker: Some("1B".to_string()),
+                    channel: Some("1".to_string()),
+                },
+                AssemblyAIBatchWord {
+                    text: "right".to_string(),
+                    start: 1000,
+                    end: 1500,
                     confidence: 0.8,
                     speaker: Some("2A".to_string()),
                     channel: Some("2".to_string()),
@@ -366,13 +529,26 @@ mod tests {
         let result = AssemblyAIAdapter::convert_to_batch_response(response);
 
         assert_eq!(result.results.channels.len(), 2);
+        assert_eq!(result.results.channels[0].alternatives[0].words.len(), 2);
         assert_eq!(
             result.results.channels[0].alternatives[0].words[0].channel,
             0
         );
         assert_eq!(
+            result.results.channels[0].alternatives[0].words[0].speaker,
+            Some(0)
+        );
+        assert_eq!(
+            result.results.channels[0].alternatives[0].words[1].speaker,
+            Some(1)
+        );
+        assert_eq!(
             result.results.channels[1].alternatives[0].words[0].channel,
             1
+        );
+        assert_eq!(
+            result.results.channels[1].alternatives[0].words[0].speaker,
+            Some(2)
         );
     }
 

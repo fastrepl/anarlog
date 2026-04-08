@@ -29,8 +29,10 @@ jobs:
         include:
           - platform: "macos"
             runner: "depot-macos-15"
-          - platform: "windows"
-            runner: "depot-windows-2025-4"
+          - platform: "linux-x86_64"
+            runner: "depot-ubuntu-22.04-8"
+          - platform: "linux-aarch64"
+            runner: "depot-ubuntu-22.04-arm-8"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4

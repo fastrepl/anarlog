@@ -225,6 +225,9 @@ importers:
       '@hypr/plugin-activity-capture':
         specifier: workspace:*
         version: link:../../plugins/activity-capture
+      '@hypr/plugin-agent':
+        specifier: workspace:*
+        version: link:../../plugins/agent
       '@hypr/plugin-analytics':
         specifier: workspace:*
         version: link:../../plugins/analytics
@@ -1801,6 +1804,12 @@ importers:
         version: 3.2.4(@types/debug@4.1.12)(@types/node@25.2.3)(happy-dom@20.7.0)(jiti@2.6.1)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
 
   plugins/activity-capture:
+    dependencies:
+      '@tauri-apps/api':
+        specifier: ^2.10.1
+        version: 2.10.1
+
+  plugins/agent:
     dependencies:
       '@tauri-apps/api':
         specifier: ^2.10.1

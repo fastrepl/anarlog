@@ -1,0 +1,45 @@
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to download"
+        required: true
+        type: choice
+        options:
+          - macos-aarch64
+
+jobs:
+  download-staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest staging build from R2
+        run: |
+          PLATFORM="${{ inputs.platform }}"
+
+          LATEST_FILE=$(aws s3 ls "s3://hyprnote-build/desktop/staging/" \
+            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
+            --region auto | grep "hyprnote-staging-.*-${PLATFORM}" | sort -r | head -1 | awk '{print $4}')
+
+          if [[ -z "$LATEST_FILE" ]]; then
+            echo "No staging build found for platform: $PLATFORM"
+            exit 1
+          fi
+
+          echo "Latest staging build: $LATEST_FILE"
+
+          aws s3 cp "s3://hyprnote-build/desktop/staging/$LATEST_FILE" \
+            "./$LATEST_FILE" \
+            --endpoint-url ${{ secrets.CLOUDFLARE_R2_ENDPOINT_URL }} \
+            --region auto
+
+          echo "Downloaded: $LATEST_FILE"
+          ls -lh "$LATEST_FILE"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hyprnote-staging-${{ inputs.platform }}
+          path: hyprnote-staging-*
+          retention-days: 7

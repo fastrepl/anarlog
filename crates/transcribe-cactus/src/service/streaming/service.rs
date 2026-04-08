@@ -84,8 +84,6 @@ impl TranscribeServiceBuilder {
     pub fn build(self) -> TranscribeService {
         crate::service::ensure_log_init();
 
-        tracing::info!("TODOTODOTO");
-
         let model_path = self
             .model_path
             .expect("TranscribeServiceBuilder requires model_path");

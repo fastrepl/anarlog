@@ -22,12 +22,9 @@ type ToastRegistryParams = {
   activeDownloads: DownloadProgress[];
   localSttStatus: ServerStatus | null;
   isLocalSttModel: boolean;
-  sessionCount: number;
-  shareSnoozedAtCount: number | null;
   onSignIn: () => void | Promise<void>;
   onOpenLLMSettings: () => void;
   onOpenSTTSettings: () => void;
-  onShareExpand: () => void;
 };
 
 export function createToastRegistry({
@@ -45,12 +42,9 @@ export function createToastRegistry({
   activeDownloads,
   localSttStatus,
   isLocalSttModel,
-  sessionCount,
-  shareSnoozedAtCount,
   onSignIn,
   onOpenLLMSettings,
   onOpenSTTSettings,
-  onShareExpand,
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1
@@ -194,24 +188,6 @@ export function createToastRegistry({
         hasSttConfigured &&
         !hasProSttConfigured &&
         !hasProLlmConfigured,
-    },
-    {
-      toast: {
-        id: "share-char",
-        gradient: "#FFEDBB",
-        title: "Enjoying Char? Share with others!",
-        description: "Help us grow by sharing your experience on socials.",
-        primaryAction: {
-          label: "Share now",
-          onClick: onShareExpand,
-        },
-        dismissible: true,
-      },
-      condition: () => {
-        if (sessionCount < 3) return false;
-        if (shareSnoozedAtCount === null) return true;
-        return sessionCount >= shareSnoozedAtCount + 2;
-      },
     },
   ];
 }

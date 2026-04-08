@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
 
+import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
 import {
   ContactSearchToolCall,
   TranscriptToolCall,
@@ -29,6 +30,13 @@ import { addContact } from "@/functions/loops";
 import { useHeroContext } from "@/hooks/use-hero-context";
 import { getHeroCTA, usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  CHAR_SITE_URL,
+  ROOT_DESCRIPTION,
+  getOrganizationJsonLd,
+  getSoftwareApplicationJsonLd,
+  getStructuredDataGraph,
+} from "@/lib/seo";
 
 const MUX_PLAYBACK_ID = "1s01BC9LBwzygOUWk9Pdn011KuxvIQRMbTEfCpOypfdrw";
 
@@ -38,7 +46,7 @@ const mainFeatures = [
     title: "Real-time transcription",
     description:
       "While you take notes, Char listens and generates a live transcript",
-    image: "/api/images/hyprnote/transcript.jpg",
+    image: "/api/assets/hyprnote/transcript.jpg",
     muxPlaybackId: "rbkYuZpGJGLHx023foq9DCSt3pY1RegJU5PvMCkRE3rE",
     link: "/product/ai-notetaking/#transcription",
   },
@@ -47,7 +55,7 @@ const mainFeatures = [
     title: "AI summary",
     description:
       "Char combines your notes and the transcript to create a perfect summary",
-    image: "/api/images/hyprnote/summary.jpg",
+    image: "/api/assets/hyprnote/summary.jpg",
     muxPlaybackId: "lKr5l1fWGNnRqOehiz15mV79VHtFOCiuO9urmgqs6V8",
     link: "/product/ai-notetaking/#summaries",
   },
@@ -56,21 +64,21 @@ const mainFeatures = [
     title: "AI Chat",
     description:
       "Use natural language to get answers pulled directly from your transcript",
-    image: "/api/images/hyprnote/chat.jpg",
+    image: "/api/assets/hyprnote/chat.jpg",
     link: "/product/ai-assistant",
   },
   {
     icon: "mdi:window-restore",
     title: "Floating panel",
     description: "Overlay to quick access recording controls during calls",
-    image: "/api/images/hyprnote/floating.jpg",
+    image: "/api/assets/hyprnote/floating.jpg",
     link: "/product/ai-notetaking/#floating-panel",
   },
   {
     icon: "mdi:keyboard-outline",
     title: "Keyboard shortcuts",
     description: "Navigate and format quickly without touching your mouse",
-    image: "/api/images/hyprnote/editor.jpg",
+    image: "/api/assets/hyprnote/editor.jpg",
     muxPlaybackId: "sMWkuSxKWfH3RYnX51Xa2acih01ZP5yfQy01Q00XRd1yTQ",
     link: "/docs/faq/keyboard-shortcuts",
   },
@@ -81,6 +89,29 @@ const FEATURES_AUTO_ADVANCE_DURATION = 8000;
 
 export const Route = createFileRoute("/_view/")({
   component: Component,
+  head: () => ({
+    links: [{ rel: "canonical", href: CHAR_SITE_URL }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify(
+          getStructuredDataGraph([
+            getOrganizationJsonLd(),
+            getSoftwareApplicationJsonLd({
+              description: ROOT_DESCRIPTION,
+              featureList: [
+                "Bot-free meeting capture",
+                "Local transcription",
+                "Bring your own AI keys",
+                "Markdown files you own",
+                "Optional cloud AI and sync",
+              ],
+            }),
+          ]),
+        ),
+      },
+    ],
+  }),
 });
 
 function useHasEnteredView<T extends Element>(
@@ -117,6 +148,7 @@ function Component() {
         <AISection />
         <GrowsWithYouSection />
         <SolutionsTabbar />
+        <ExplorePathsSection />
         <SocialTestimonialsSection />
         <GitHubOpenSource />
         <FAQSection />
@@ -1863,7 +1895,7 @@ export function MainFeaturesSection({
       <div className="px-4 py-16 text-left">
         <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-transparent shadow-xl">
           <Image
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={96}
             height={96}
@@ -1954,7 +1986,7 @@ function FeaturesMobileCarousel({
                     />
                   ) : (
                     <img
-                      src="/api/images/hyprnote/static.webp"
+                      src="/api/assets/hyprnote/static.webp"
                       alt={`${feature.title} feature`}
                       className="h-full w-full object-cover"
                     />
@@ -2174,7 +2206,7 @@ function FeaturesDesktopGrid() {
               />
             ) : (
               <img
-                src="/api/images/hyprnote/static.webp"
+                src="/api/assets/hyprnote/static.webp"
                 alt={`${feature.title} feature`}
                 className="h-full w-full object-cover"
               />
@@ -2527,6 +2559,60 @@ function SolutionsTabbar() {
         </div>
       </div>
     </section>
+  );
+}
+
+function ExplorePathsSection() {
+  return (
+    <AcquisitionLinkGrid
+      title="Explore Char by workflow, platform, or alternative"
+      description="These are the highest-intent paths on the site: team workflows, meeting platform guides, and direct comparisons against the tools people switch from."
+      className="px-4 pt-16 pb-8"
+      items={[
+        {
+          eyebrow: "Solutions",
+          title: "Browse team workflows",
+          description:
+            "Start with the use cases Char is already built around, from sales to research to developer-heavy teams.",
+          href: "/solutions/",
+        },
+        {
+          eyebrow: "Solutions",
+          title: "AI meeting notes for sales",
+          description:
+            "See how Char supports revenue teams with searchable notes, summaries, and fewer meeting follow-up gaps.",
+          href: "/solution/sales",
+        },
+        {
+          eyebrow: "Solutions",
+          title: "Char for developers",
+          description:
+            "Open source, local-first, and flexible enough for teams that want to inspect and extend the stack.",
+          href: "/solution/engineering",
+        },
+        {
+          eyebrow: "Integrations",
+          title: "Browse meeting platform guides",
+          description:
+            "See how Char works with Zoom, Google Meet, Microsoft Teams, and Webex without meeting bots.",
+          href: "/integrations/",
+        },
+        {
+          eyebrow: "Integrations",
+          title: "Zoom AI notetaker guide",
+          description:
+            "Read the Zoom-specific landing page for note capture, transcription, and bot-free workflows.",
+          href: "/integrations/zoom/notetaker",
+        },
+        {
+          eyebrow: "Comparisons",
+          title: "Compare Char vs Otter",
+          description:
+            "See the control, privacy, and workflow differences that make Char a stronger fit for high-agency teams.",
+          href: "/vs/otter",
+        },
+      ]}
+    />
   );
 }
 

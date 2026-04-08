@@ -84,7 +84,7 @@ window.__char_plugins.register({
   id: "hello-world",
   onload(ctx) {
     ctx.registerEvent(
-      ctx.events.tauri.listener.sessionLifecycleEvent.listen(({ payload }) => {
+      ctx.events.tauri.listener.captureLifecycleEvent.listen(({ payload }) => {
         setLifecycleState({
           status: payload.type,
           sessionId: payload.session_id,

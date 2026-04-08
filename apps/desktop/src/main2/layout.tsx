@@ -5,6 +5,7 @@ import { NotificationProvider } from "~/contexts/notifications";
 import { ShellProvider } from "~/contexts/shell";
 import { ToolRegistryProvider } from "~/contexts/tool";
 import { TaskStorageProvider } from "~/editor/task-storage";
+import { ClassicMainServices } from "~/main/lifecycle";
 import { SearchEngineProvider } from "~/search/contexts/engine";
 import { SearchUIProvider } from "~/search/contexts/ui";
 
@@ -24,7 +25,10 @@ export function Main2Layout({ children }: { children: React.ReactNode }) {
           <ShellProvider>
             <ToolRegistryProvider registry={toolRegistry}>
               <AITaskProvider store={aiTaskStore}>
-                <NotificationProvider>{children}</NotificationProvider>
+                <NotificationProvider>
+                  <ClassicMainServices />
+                  {children}
+                </NotificationProvider>
               </AITaskProvider>
             </ToolRegistryProvider>
           </ShellProvider>

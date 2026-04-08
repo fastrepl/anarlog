@@ -216,7 +216,7 @@ function OurStoryGrid({
         >
           <div className="mb-3 flex h-16 w-16 items-center justify-center">
             <Image
-              src="/api/images/icons/textedit.webp"
+              src="/api/assets/icons/textedit.webp"
               alt="Our Story"
               width={64}
               height={64}
@@ -481,7 +481,7 @@ function OurStorySidebar({
       >
         <div className="flex h-12 w-12 shrink-0 items-center justify-center">
           <Image
-            src="/api/images/icons/textedit.webp"
+            src="/api/assets/icons/textedit.webp"
             alt="Our Story"
             width={48}
             height={48}

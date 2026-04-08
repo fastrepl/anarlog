@@ -51,10 +51,10 @@ const deploymentFeatures = [
 
 const securityFeatures = [
   {
-    text: "Encryption at rest (AES-256) with end-to-end encryption in development",
+    text: "Self-hosted deployments, private networking, and traffic paths your team can inspect",
   },
   {
-    text: "Zero-knowledge architecture. We can't access your unencrypted data",
+    text: "Encrypted transport for network requests and explicit control over which providers are involved",
   },
   {
     text: "SSO integration (SAML, OAuth) with multi-factor authentication",
@@ -125,7 +125,7 @@ const faqs = [
   {
     question: "How secure is the platform?",
     answer:
-      "We deeply prioritize security. We're working on end-to-end encryption, seamless SSO and MFA integration, and are actively pursuing SOC 2 Type II certification. All enterprise deployments meet industry-standard security requirements.",
+      "We focus on controls you can verify today: self-hosting options, auditable network paths, provider choice, and SSO or MFA support. Additional encryption work is on the roadmap, but we avoid presenting roadmap items as already shipped controls.",
   },
   {
     question: "How do you manage access control?",

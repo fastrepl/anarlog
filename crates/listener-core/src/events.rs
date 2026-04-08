@@ -8,6 +8,7 @@ pub enum SessionLifecycleEvent {
     #[serde(rename = "inactive")]
     Inactive {
         session_id: String,
+        audio_path: Option<String>,
         error: Option<String>,
     },
     #[serde(rename = "active")]

@@ -57,7 +57,7 @@ pub(crate) fn render(
 
 fn render_frame(frame: &mut Frame, screen: &mut ScreenData<'_>) {
     let layout = Layout::vertical([
-        Constraint::Length(7),
+        Constraint::Length(8),
         Constraint::Min(1),
         Constraint::Length(1),
     ]);
@@ -76,32 +76,56 @@ fn render_frame(frame: &mut Frame, screen: &mut ScreenData<'_>) {
 
 fn render_header(screen: &ScreenData<'_>, area: Rect, frame: &mut Frame) {
     let selection = screen.selection_summary.as_deref().unwrap_or("single row");
-    let export = screen.status_message.as_deref().unwrap_or(
-        "y copy JSON  s save selection/current  S save full session  r raw JSON  v range",
-    );
+    let status_message = screen.status_message.as_deref().unwrap_or("No export yet");
+    let layout = Layout::vertical([Constraint::Length(3), Constraint::Min(5)]);
+    let [summary_area, detail_area] = area.layout(&layout);
 
-    let lines = vec![
+    Paragraph::new(Line::from(vec![
+        Span::styled("activity-capture", screen.theme.title()),
+        Span::raw(format!("  poll={}ms", screen.options.poll_ms)),
+        Span::raw(format!("  runtime={}", screen.runtime_summary)),
+        Span::raw(match screen.view {
+            View::List => "  view=list",
+            View::Details => "  view=details",
+        }),
+    ]))
+    .block(Block::bordered().title("Session"))
+    .render(summary_area, frame.buffer_mut());
+
+    let columns = Layout::horizontal([
+        Constraint::Fill(3),
+        Constraint::Fill(4),
+        Constraint::Fill(4),
+    ]);
+    let [stats_area, policy_area, export_area] = detail_area.layout(&columns);
+
+    Paragraph::new(Text::from(vec![
         Line::from(vec![
-            Span::styled("activity-capture", screen.theme.title()),
-            Span::raw(format!("  poll={}ms", screen.options.poll_ms)),
-            Span::raw(format!("  runtime={}", screen.runtime_summary)),
-            Span::raw(match screen.view {
-                View::List => "  view=list",
-                View::Details => "  view=details",
-            }),
+            Span::styled("events", screen.theme.label()),
+            Span::raw(format!(
+                "  {}  apps  {}",
+                screen.session_stats.event_count, screen.session_stats.distinct_apps
+            )),
         ]),
         Line::from(vec![
-            Span::styled("session", screen.theme.label()),
+            Span::styled("focus", screen.theme.label()),
             Span::raw(format!(
-                "  events={}  apps={}  focus={}  update={}  idle={}  snap={}  selected={selection}",
-                screen.session_stats.event_count,
-                screen.session_stats.distinct_apps,
+                "  {}  update  {}  idle  {}  snap  {}",
                 screen.session_stats.focus_count,
                 screen.session_stats.update_count,
                 screen.session_stats.idle_count,
                 screen.session_stats.screenshot_count,
             )),
         ]),
+        Line::from(vec![
+            Span::styled("selected", screen.theme.label()),
+            Span::raw(format!("  {selection}")),
+        ]),
+    ]))
+    .block(Block::bordered().title("Stats"))
+    .render(stats_area, frame.buffer_mut());
+
+    Paragraph::new(Text::from(vec![
         Line::from(vec![
             Span::styled("policy", screen.theme.label()),
             Span::raw(format!("  {}", screen.policy_label)),
@@ -111,7 +135,7 @@ fn render_header(screen: &ScreenData<'_>, area: Rect, frame: &mut Frame) {
             Span::raw(format!("  {}", screen.browser_policy_label)),
         ]),
         Line::from(vec![
-            Span::styled("capabilities", screen.theme.label()),
+            Span::styled("caps", screen.theme.label()),
             Span::raw(format!(
                 "  watch={} text={} url={} ax={}",
                 yes_no(screen.capabilities.can_watch),
@@ -120,15 +144,21 @@ fn render_header(screen: &ScreenData<'_>, area: Rect, frame: &mut Frame) {
                 yes_no(screen.capabilities.requires_accessibility_permission),
             )),
         ]),
-        Line::from(vec![
-            Span::styled("export", screen.theme.label()),
-            Span::raw(format!("  {export}")),
-        ]),
-    ];
+    ]))
+    .block(Block::bordered().title("Policy"))
+    .render(policy_area, frame.buffer_mut());
 
-    Paragraph::new(Text::from(lines))
-        .block(Block::bordered().title("Session"))
-        .render(area, frame.buffer_mut());
+    Paragraph::new(Text::from(vec![
+        Line::from(vec![
+            Span::styled("status", screen.theme.label()),
+            Span::raw(format!("  {status_message}")),
+        ]),
+        Line::from("y copy JSON  s save current/range"),
+        Line::from("S save session  r raw JSON  v range"),
+    ]))
+    .block(Block::bordered().title("Export"))
+    .wrap(Wrap { trim: false })
+    .render(export_area, frame.buffer_mut());
 }
 
 fn render_list(screen: &mut ScreenData<'_>, area: Rect, frame: &mut Frame) {

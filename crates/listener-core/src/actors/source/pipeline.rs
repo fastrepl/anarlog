@@ -10,7 +10,6 @@ use crate::{
     ListenerRuntime, SessionDataEvent,
     actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_audio::CaptureFrame;
 use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
 
@@ -319,6 +318,8 @@ mod tests {
 
     use ractor::{Actor, ActorProcessingErr, ActorRef};
 
+    use hypr_audio::CaptureFrame;
+
     use super::*;
     use crate::{
         ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
@@ -422,7 +423,6 @@ mod tests {
                     let _ = (mic.len(), spk.len());
                     let _ = self.0.send(ProbeEvent::RecorderDual);
                 }
-                RecMsg::SetStopDispositionAndAck(_, _) => {}
             }
             Ok(())
         }

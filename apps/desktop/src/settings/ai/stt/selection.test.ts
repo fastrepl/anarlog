@@ -47,6 +47,15 @@ describe("getPreferredProviderModel", () => {
     ).toBe("");
   });
 
+  test("migrates AssemblyAI universal to universal-3-pro when available", () => {
+    expect(
+      getPreferredProviderModel("universal", [
+        { id: "universal-3-pro" },
+        { id: "universal-2" },
+      ]),
+    ).toBe("universal-3-pro");
+  });
+
   test("keeps the remembered value when the provider does not expose a static list", () => {
     expect(
       getPreferredProviderModel("whisper-large-v3", [], {

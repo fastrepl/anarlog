@@ -8,7 +8,7 @@ use owhisper_interface::batch::{
 use serde::Deserialize;
 
 use super::{ElevenLabsAdapter, ElevenLabsWord};
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
+use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL};
 use crate::error::Error;
 
 impl BatchSttAdapter for ElevenLabsAdapter {
@@ -131,7 +131,7 @@ impl ElevenLabsAdapter {
                     start: w.start,
                     end: w.end,
                     confidence: 1.0,
-                    channel: 0,
+                    channel: MIXED_CAPTURE_CHANNEL,
                     speaker,
                     punctuated_word: Some(w.text.clone()),
                 }
@@ -163,6 +163,38 @@ impl ElevenLabsAdapter {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+
+    #[test]
+    fn speaker_labeled_words_use_mixed_capture_channel() {
+        let response = TranscriptResponse {
+            language_code: Some("en".to_string()),
+            text: "hello there".to_string(),
+            words: vec![
+                ElevenLabsWord {
+                    text: "hello".to_string(),
+                    start: 0.0,
+                    end: 0.5,
+                    word_type: Some("word".to_string()),
+                    speaker_id: Some("speaker_0".to_string()),
+                },
+                ElevenLabsWord {
+                    text: "there".to_string(),
+                    start: 0.5,
+                    end: 1.0,
+                    word_type: Some("word".to_string()),
+                    speaker_id: Some("speaker_1".to_string()),
+                },
+            ],
+        };
+
+        let batch = ElevenLabsAdapter::convert_to_batch_response(response);
+        let words = &batch.results.channels[0].alternatives[0].words;
+
+        assert_eq!(words[0].channel, MIXED_CAPTURE_CHANNEL);
+        assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[1].channel, MIXED_CAPTURE_CHANNEL);
+        assert_eq!(words[1].speaker, Some(1));
+    }
 
     #[tokio::test]
     #[ignore]

@@ -1,3 +1,4 @@
+import { useRouteContext } from "@tanstack/react-router";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   ArrowLeftIcon,
@@ -27,10 +28,9 @@ import {
 } from "~/shared/main";
 import { OpenNoteDialog } from "~/shared/open-note-dialog";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
-import { useNewNoteAndListen } from "~/shared/useNewNote";
+import { id } from "~/shared/utils";
 import { LeftSidebar } from "~/sidebar";
 import { uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
-import { useListener } from "~/stt/contexts";
 import { commands } from "~/types/tauri.gen";
 
 export function Main2Shell() {
@@ -75,6 +75,10 @@ export function Main2Shell() {
   );
   const setTabRef = useScrollActiveTabIntoView(tabs);
   const { chat, leftsidebar } = useShell();
+  const { persistedStore, internalStore } = useRouteContext({
+    from: "__root__",
+  });
+  const openNew = useTabs((state) => state.openNew);
 
   const hasCustomSidebar =
     currentTab?.type === "calendar" ||
@@ -96,11 +100,6 @@ export function Main2Shell() {
     wasSidebarVisibleRef.current = showSidebar;
   }, [showSidebar, leftsidebar]);
 
-  const stop = useListener((state) => state.stop);
-  const isRecording = useListener((state) => {
-    return state.live.status === "active" || state.live.status === "finalizing";
-  });
-  const newNoteAndListen = useNewNoteAndListen();
   const isHomeActive = currentTab === null;
   const isChatOpen =
     chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
@@ -115,18 +114,50 @@ export function Main2Shell() {
     [setOpenNoteDialogOpen],
   );
 
-  const handleHome = useCallback(() => {
-    clearSelection();
-  }, [clearSelection]);
+  const handleAdHoc = useCallback(() => {
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const period = h < 12 ? "am" : "pm";
+    const hour = h % 12 || 12;
+    const time =
+      m === 0
+        ? `${hour}${period}`
+        : `${hour}:${String(m).padStart(2, "0")}${period}`;
+    const title = `Ad-hoc conversation at ${time}`;
 
-  const handleRecord = useCallback(() => {
-    if (isRecording) {
-      stop();
-      return;
+    const userId = internalStore?.getValue("user_id");
+    const sessionId = id();
+
+    persistedStore?.setRow("sessions", sessionId, {
+      user_id: userId,
+      created_at: now.toISOString(),
+      title,
+    });
+
+    if (typeof userId === "string") {
+      persistedStore?.setRow("mapping_session_participant", id(), {
+        user_id: userId,
+        session_id: sessionId,
+        human_id: userId,
+        source: "manual",
+      });
     }
 
-    newNoteAndListen();
-  }, [isRecording, newNoteAndListen, stop]);
+    openNew({
+      type: "sessions",
+      id: sessionId,
+      state: { view: null, autoStart: true },
+    });
+  }, [persistedStore, internalStore, openNew]);
+
+  const handleHome = useCallback(() => {
+    if (isHomeActive) {
+      window.dispatchEvent(new CustomEvent("scroll-to-today"));
+    } else {
+      clearSelection();
+    }
+  }, [isHomeActive, clearSelection]);
 
   const handleChat = useCallback(() => {
     chat.sendEvent(isChatOpen ? { type: "TOGGLE" } : { type: "OPEN" });
@@ -243,42 +274,15 @@ export function Main2Shell() {
             </div>
           </div>
 
-          {isHomeActive && (
+          <div className="ml-auto flex shrink-0 items-center gap-1">
             <button
               type="button"
-              onClick={handleRecord}
-              className={cn([
-                "ml-1 shrink-0",
-                "group flex h-7 items-center gap-1.5 text-xs font-medium",
-                isRecording
-                  ? "rounded-md bg-red-50 px-2.5 text-red-700 hover:bg-red-100"
-                  : "rounded-full bg-neutral-800 px-3 text-white hover:bg-neutral-700",
-              ])}
-              title={isRecording ? "Stop recording" : "Start recording"}
+              onClick={handleAdHoc}
+              title="New ad-hoc session"
+              className="relative h-3.5 w-3.5 overflow-hidden rounded-full border border-red-500/60 bg-linear-to-b from-red-400 to-red-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(127,29,29,0.14)] hover:brightness-110"
             >
-              <span
-                className={cn([
-                  "relative h-2.5 w-2.5 overflow-hidden border transition-all",
-                  isRecording
-                    ? [
-                        "rounded-[2px]",
-                        "border-red-700/60 bg-linear-to-b from-red-500 to-red-600",
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]",
-                      ]
-                    : [
-                        "rounded-full",
-                        "border-red-500/60 bg-linear-to-b from-red-400 to-red-500",
-                        "shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_1px_2px_rgba(127,29,29,0.14)]",
-                      ],
-                ])}
-              >
-                <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
-              </span>
-              <span>{isRecording ? "Stop recording" : "Start recording"}</span>
+              <span className="pointer-events-none absolute top-[1px] left-1/2 h-[22%] w-[68%] -translate-x-1/2 rounded-full bg-white/18" />
             </button>
-          )}
-
-          <div className="ml-auto flex shrink-0 items-center gap-1">
             <Button
               onClick={() => setOpenNoteDialogOpen(true)}
               variant="ghost"

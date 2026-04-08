@@ -38,6 +38,7 @@ import {
 } from "~/settings/ai/shared/eligibility";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
+import { isLiveTranscriptionSupported } from "~/stt/capabilities";
 
 export function SelectProviderAndModel() {
   const { current_stt_provider, current_stt_model, spoken_languages } =
@@ -53,23 +54,39 @@ export function SelectProviderAndModel() {
 
   const isConfigured = !!(current_stt_provider && current_stt_model);
   const hasError = isConfigured && health.status === "error";
+  const liveSupport = useQuery({
+    queryKey: ["stt-live-support", current_stt_provider, current_stt_model],
+    queryFn: () =>
+      isLiveTranscriptionSupported(current_stt_provider, current_stt_model),
+    enabled: isConfigured,
+  });
 
   const languageSupport = useQuery({
     queryKey: [
       "stt-language-support",
       current_stt_provider,
       current_stt_model,
+      liveSupport.data,
       spoken_languages,
     ],
     queryFn: async () => {
-      const result = await listenerCommands.isSupportedLanguagesLive(
-        current_stt_provider!,
-        current_stt_model ?? null,
-        spoken_languages ?? [],
-      );
+      const result = liveSupport.data
+        ? await listenerCommands.isSupportedLanguagesLive(
+            current_stt_provider!,
+            current_stt_model ?? null,
+            spoken_languages ?? [],
+          )
+        : await listenerCommands.isSupportedLanguagesBatch(
+            current_stt_provider!,
+            current_stt_model ?? null,
+            spoken_languages ?? [],
+          );
       return result.status === "ok" ? result.data : true;
     },
-    enabled: !!(current_stt_provider && spoken_languages?.length),
+    enabled:
+      isConfigured &&
+      liveSupport.data !== undefined &&
+      !!spoken_languages?.length,
   });
 
   const hasLanguageWarning =
@@ -234,7 +251,7 @@ export function SelectProviderAndModel() {
                         {showHeader && (
                           <div className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-neutral-400 uppercase">
                             {model.category === "experimental"
-                              ? "Experimental"
+                              ? "Others"
                               : "Recommended"}
                           </div>
                         )}
@@ -350,8 +367,12 @@ function useConfiguredMapping(): Record<
         ];
 
         if (isAppleSilicon) {
-          cactusModels.forEach((model, i) => {
-            const isRecommended = String(model.key).includes("whisper");
+          const sorted = [...cactusModels].sort((a) =>
+            String(a.key).includes("parakeet") ? -1 : 1,
+          );
+          sorted.forEach((model) => {
+            const i = cactusModels.indexOf(model);
+            const isRecommended = String(model.key).includes("parakeet");
             models.push({
               id: model.key,
               isDownloaded: cactusDownloaded[i]?.data ?? false,

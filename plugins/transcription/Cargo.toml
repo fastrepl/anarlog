@@ -21,6 +21,7 @@ hypr-transcript = { workspace = true }
 hypr-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
 
 owhisper-client = { workspace = true }
+owhisper-interface = { workspace = true }
 
 tauri-plugin-hooks = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
@@ -37,4 +38,5 @@ ractor = { workspace = true, features = ["async-trait"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }

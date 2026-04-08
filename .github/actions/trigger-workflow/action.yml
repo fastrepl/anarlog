@@ -10,20 +10,11 @@ inputs:
     required: true
   channel:
     description: Channel input for the workflow
-    required: false
-    default: ""
+    required: true
   publish:
     description: Publish to Crabnebula and create GitHub release
     required: false
-    default: ""
-  platform:
-    description: Platform input for the workflow
-    required: false
-    default: ""
-  request_id:
-    description: Unique request identifier for matching the dispatched run
-    required: false
-    default: ""
+    default: "true"
   token:
     description: GitHub token
     required: true
@@ -47,29 +38,11 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token }}
-        REQUEST_ID: ${{ inputs.request_id }}
       run: |
-        CMD=(gh workflow run "${{ inputs.workflow }}" --repo "${{ inputs.repo }}" --ref "${{ inputs.ref }}")
-        if [[ -n "${{ inputs.channel }}" ]]; then
-          CMD+=(-f "channel=${{ inputs.channel }}")
-        fi
-        if [[ -n "${{ inputs.publish }}" ]]; then
-          CMD+=(-f "publish=${{ inputs.publish }}")
-        fi
-        if [[ -n "${{ inputs.platform }}" ]]; then
-          CMD+=(-f "platform=${{ inputs.platform }}")
-        fi
-        if [[ -n "$REQUEST_ID" ]]; then
-          CMD+=(-f "request_id=$REQUEST_ID")
-        fi
-        "${CMD[@]}"
+        gh workflow run ${{ inputs.workflow }} --repo ${{ inputs.repo }} --ref "${{ inputs.ref }}" -f channel=${{ inputs.channel }} -f publish=${{ inputs.publish }}
         for i in $(seq 1 ${{ inputs.max_attempts }}); do
           sleep 5
-          if [[ -n "$REQUEST_ID" ]]; then
-            RUN_ID=$(gh run list --workflow="${{ inputs.workflow }}" --repo "${{ inputs.repo }}" --branch="${{ inputs.ref }}" --json databaseId,createdAt,displayTitle --jq 'map(select(.displayTitle | contains(env.REQUEST_ID))) | sort_by(.createdAt) | reverse | .[0].databaseId // empty')
-          else
-            RUN_ID=$(gh run list --workflow="${{ inputs.workflow }}" --repo "${{ inputs.repo }}" --branch="${{ inputs.ref }}" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
-          fi
+          RUN_ID=$(gh run list --workflow=${{ inputs.workflow }} --repo ${{ inputs.repo }} --branch="${{ inputs.ref }}" --json databaseId,createdAt --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty')
           [ -n "$RUN_ID" ] && break
         done
         echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT

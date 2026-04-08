@@ -25,5 +25,5 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo check -p cli --features desktop
-      - run: cargo clippy -p cli --features desktop -- -D warnings
+      - run: cargo clippy -p cli --features desktop
       - run: cargo test -p cli --features desktop

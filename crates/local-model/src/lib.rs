@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 pub use hypr_am::AmModel;
-pub use hypr_cactus_model::{CactusLlmModel, CactusModel, CactusSttModel};
+pub use hypr_cactus_model::{CactusLlmModel, CactusModel, CactusModelSource, CactusSttModel};
 use hypr_model_downloader::{DownloadableModel, Error, extract_zip};
 pub use hypr_whisper_local_model::WhisperModel;
 

@@ -59,7 +59,7 @@ impl SegmentKey {
             Some(SpeakerLabelContext {
                 self_human_id: Some(_),
                 ..
-            }) if self.channel == ChannelProfile::DirectMic
+            }) if self.channel == ChannelProfile::DirectMic && self.speaker_index.is_none()
         )
     }
 }
@@ -78,6 +78,7 @@ pub fn render_speaker_label(
         }
 
         if key.channel == ChannelProfile::DirectMic
+            && key.speaker_index.is_none()
             && let Some(self_human_id) = ctx.self_human_id.as_ref()
         {
             if let Some(name) = ctx.human_name_by_id.get(self_human_id) {
@@ -148,5 +149,21 @@ mod tests {
         assert_eq!(labeler.label_for(&a, None), "Speaker 1");
         assert_eq!(labeler.label_for(&b, None), "Speaker 2");
         assert_eq!(labeler.label_for(&a, None), "Speaker 1");
+    }
+
+    #[test]
+    fn does_not_treat_direct_mic_with_provider_speaker_as_self() {
+        let ctx = SpeakerLabelContext {
+            self_human_id: Some("self".to_string()),
+            human_name_by_id: HashMap::new(),
+        };
+        let key = SegmentKey {
+            channel: ChannelProfile::DirectMic,
+            speaker_index: Some(2),
+            speaker_human_id: None,
+        };
+
+        assert!(!key.is_known_speaker(Some(&ctx)));
+        assert_eq!(render_speaker_label(&key, Some(&ctx), None), "Speaker 3");
     }
 }

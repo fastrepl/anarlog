@@ -40,6 +40,7 @@
     "@hypr/changelog": "workspace:^",
     "@hypr/codemirror": "workspace:^",
     "@hypr/plugin-analytics": "workspace:*",
+    "@hypr/plugin-agent": "workspace:*",
     "@hypr/plugin-activity-capture": "workspace:*",
     "@hypr/plugin-audio-priority": "workspace:*",
     "@hypr/plugin-auth": "workspace:*",

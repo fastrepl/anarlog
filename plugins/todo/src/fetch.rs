@@ -61,3 +61,55 @@ pub async fn linear_list_tickets(
 
     Ok(response.into_inner())
 }
+
+pub async fn github_list_repos(
+    api_base_url: &str,
+    access_token: &str,
+    connection_id: &str,
+    limit: Option<u32>,
+    cursor: Option<String>,
+) -> Result<CollectionPage, Error> {
+    let client = make_client(api_base_url, access_token)?;
+
+    let body = hypr_api_client::types::GitHubListReposRequest {
+        connection_id: connection_id.to_string(),
+        limit: limit.map(|l| l as i32),
+        cursor,
+    };
+
+    let response = client
+        .github_list_repos(&body)
+        .await
+        .map_err(|e| Error::Api(e.to_string()))?;
+
+    Ok(response.into_inner())
+}
+
+pub async fn github_list_tickets(
+    api_base_url: &str,
+    access_token: &str,
+    connection_id: &str,
+    owner: &str,
+    repo: &str,
+    limit: Option<u32>,
+    cursor: Option<String>,
+) -> Result<TicketPage, Error> {
+    let client = make_client(api_base_url, access_token)?;
+
+    let body = hypr_api_client::types::GitHubListTicketsRequest {
+        connection_id: connection_id.to_string(),
+        owner: owner.to_string(),
+        repo: repo.to_string(),
+        state: None,
+        labels: None,
+        limit: limit.map(|l| l as i32),
+        cursor,
+    };
+
+    let response = client
+        .github_list_tickets(&body)
+        .await
+        .map_err(|e| Error::Api(e.to_string()))?;
+
+    Ok(response.into_inner())
+}

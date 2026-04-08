@@ -37,5 +37,5 @@ thiserror = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 objc2 = { workspace = true }
-objc2-app-kit = { workspace = true, features = ["NSApplication", "NSImage", "NSBitmapImageRep", "NSGraphicsContext", "NSImageRep", "NSColor", "NSBezierPath"] }
-objc2-foundation = { workspace = true, features = ["NSString", "NSData", "NSArray", "NSObject"] }
+objc2-app-kit = { workspace = true, features = ["NSApplication", "NSAttributedString", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSFont", "NSGraphicsContext", "NSImage", "NSImageRep", "NSStringDrawing"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSDictionary", "NSObject", "NSString"] }

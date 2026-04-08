@@ -89,7 +89,7 @@ function HeroSection() {
         <h1 className="mb-6 flex flex-wrap items-center justify-center font-mono text-4xl tracking-tight text-stone-600 sm:text-5xl">
           <span>AI Chat</span>
           <img
-            src="/api/images/hyprnote/ai-assistant.gif"
+            src="/api/assets/hyprnote/ai-assistant.gif"
             alt="AI Chat"
             className="mr-3 ml-1 inline-block size-16 rounded-full object-cover sm:mr-0"
           />
@@ -1122,7 +1122,7 @@ function CTASection() {
       <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <img
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={144}
             height={144}

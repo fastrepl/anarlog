@@ -331,6 +331,18 @@
           "markdownDescription": "Denies the set_dock_icon command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_notification_badge command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-notification-badge",
+          "markdownDescription": "Enables the set_notification_badge command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_notification_badge command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-notification-badge",
+          "markdownDescription": "Denies the set_notification_badge command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_recording_indicator command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-recording-indicator",

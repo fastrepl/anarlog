@@ -22,7 +22,7 @@ export function parseFrontmatter(content: string): {
 
 export function fixImageUrls(content: string): string {
   return content.replace(
-    /!\[([^\]]*)\]\(\/api\/images\/([^)]+)\)/g,
+    /!\[([^\]]*)\]\(\/api\/assets\/([^)]+)\)/g,
     "![$1](https://auth.hyprnote.com/storage/v1/object/public/public_images/$2)",
   );
 }

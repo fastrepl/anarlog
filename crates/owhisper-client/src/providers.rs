@@ -284,7 +284,7 @@ impl Provider {
         match self {
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-rt-v3",
-            Self::AssemblyAI => "universal",
+            Self::AssemblyAI => "u3-rt-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe",
             Self::Gladia => "solaria-1",
@@ -307,7 +307,7 @@ impl Provider {
         match self {
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-async-v3",
-            Self::AssemblyAI => "universal",
+            Self::AssemblyAI => "universal-3-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe-diarize",
             Self::Gladia => "solaria-1",

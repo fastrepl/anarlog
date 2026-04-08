@@ -10,6 +10,8 @@ import { getSupabaseServerClient } from "@/functions/supabase";
 import { uploadMediaFile } from "@/functions/supabase-media";
 import { getExtensionFromMimeType } from "@/lib/media";
 
+import { normalizeGoogleDocsBodyContent } from "./-google-docs-html";
+
 interface ImportRequest {
   url: string;
   title?: string;
@@ -327,9 +329,7 @@ export const Route = createFileRoute("/api/admin/import/google-docs")({
           const extractedTitle = extractTitle(html) || "Untitled";
           const finalTitle = title || extractedTitle;
 
-          const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-          let bodyContent = bodyMatch ? bodyMatch[1] : html;
-          bodyContent = bodyContent.replace(/&nbsp;/g, " ");
+          const bodyContent = normalizeGoogleDocsBodyContent(html);
 
           const blogImportExtensions = getBlogImportExtensions();
 
@@ -363,8 +363,8 @@ export const Route = createFileRoute("/api/admin/import/google-docs")({
                 image.base64Data,
                 folder,
               );
-              if (uploadResult.success && uploadResult.publicUrl) {
-                image.node.attrs!.src = uploadResult.publicUrl;
+              if (uploadResult.success && uploadResult.proxyUrl) {
+                image.node.attrs!.src = uploadResult.proxyUrl;
               }
             }
           }

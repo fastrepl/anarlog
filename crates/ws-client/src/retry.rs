@@ -1,7 +1,9 @@
+use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use backon::{ConstantBuilder, Retryable};
+use tokio_tungstenite::tungstenite::http::{HeaderMap, HeaderValue};
 use tokio_tungstenite::{connect_async, tungstenite::client::IntoClientRequest};
 
 pub type WebSocketRetryCallback = Arc<dyn Fn(WebSocketRetryEvent) + Send + Sync>;
@@ -121,25 +123,122 @@ async fn try_connect(
         );
     }
 
-    tracing::info!("connect_async: {}", loggable_uri(req.uri()));
+    let redacted_request = format!("{:?}", RedactedRequest(&req));
+
+    tracing::info!(
+        attempt,
+        max_attempts,
+        request = %redacted_request,
+        "connect_async"
+    );
 
     let connect_result = tokio::time::timeout(timeout, connect_async(req)).await;
     let (ws_stream, _) = match connect_result {
         Ok(Ok(stream)) => stream,
-        Ok(Err(error)) => return Err(crate::Error::connect_failed(attempt, max_attempts, &error)),
+        Ok(Err(error)) => {
+            tracing::error!(
+                attempt,
+                max_attempts,
+                request = %redacted_request,
+                error = %error,
+                "connect_async_failed"
+            );
+            return Err(crate::Error::connect_failed(attempt, max_attempts, &error));
+        }
         Err(_) => return Err(crate::Error::connect_timeout(attempt, max_attempts)),
     };
 
     Ok(ws_stream)
 }
 
-fn loggable_uri(uri: &tokio_tungstenite::tungstenite::http::Uri) -> String {
-    let mut parts = uri.clone().into_parts();
-    if let Some(path_and_query) = parts.path_and_query.as_ref() {
-        parts.path_and_query = path_and_query.path().parse().ok();
+struct RedactedRequest<'a>(&'a tokio_tungstenite::tungstenite::handshake::client::Request);
+
+impl fmt::Debug for RedactedRequest<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RedactedRequest")
+            .field("uri", &self.0.uri())
+            .field("headers", &RedactedHeaders(self.0.headers()))
+            .finish()
+    }
+}
+
+struct RedactedHeaders<'a>(&'a HeaderMap<HeaderValue>);
+
+impl fmt::Debug for RedactedHeaders<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut entries = self
+            .0
+            .iter()
+            .map(|(name, value)| {
+                let key = name.as_str().to_ascii_lowercase();
+                let value = if is_sensitive_header(&key) {
+                    redact_header_value(&key, value)
+                } else {
+                    value.to_str().unwrap_or("<non-utf8>").to_string()
+                };
+                (key, value)
+            })
+            .collect::<Vec<_>>();
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+        f.debug_list()
+            .entries(
+                entries
+                    .iter()
+                    .map(|(name, value)| (name.as_str(), value.as_str())),
+            )
+            .finish()
+    }
+}
+
+fn is_sensitive_header(name: &str) -> bool {
+    matches!(
+        name,
+        "authorization" | "proxy-authorization" | "x-api-key" | "xi-api-key" | "x-gladia-key"
+    )
+}
+
+fn redact_header_value(name: &str, value: &HeaderValue) -> String {
+    let raw = value.to_str().unwrap_or("<non-utf8>");
+    if name == "authorization" || name == "proxy-authorization" {
+        let mut parts = raw.splitn(2, ' ');
+        let scheme = parts.next().unwrap_or_default();
+        if parts.next().is_some() && !scheme.is_empty() {
+            return format!("{scheme} <redacted>");
+        }
+    }
+    "<redacted>".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio_tungstenite::tungstenite::http::{HeaderMap, HeaderValue};
+
+    use super::{RedactedHeaders, redact_header_value};
+
+    #[test]
+    fn redacted_headers_redacts_sensitive_values() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Token secret-key"),
+        );
+        headers.insert("x-api-key", HeaderValue::from_static("secret-api-key"));
+        headers.insert("user-agent", HeaderValue::from_static("ws-client/0.1.0"));
+
+        let redacted = format!("{:?}", RedactedHeaders(&headers));
+
+        assert!(redacted.contains("(\"authorization\", \"Token <redacted>\")"));
+        assert!(redacted.contains("(\"x-api-key\", \"<redacted>\")"));
+        assert!(redacted.contains("(\"user-agent\", \"ws-client/0.1.0\")"));
     }
 
-    tokio_tungstenite::tungstenite::http::Uri::from_parts(parts)
-        .map(|uri| uri.to_string())
-        .unwrap_or_else(|_| uri.path().to_string())
+    #[test]
+    fn redact_authorization_preserves_scheme() {
+        let value = HeaderValue::from_static("Bearer abc123");
+        assert_eq!(
+            redact_header_value("authorization", &value),
+            "Bearer <redacted>"
+        );
+    }
 }

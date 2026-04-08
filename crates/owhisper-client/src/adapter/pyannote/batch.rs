@@ -12,7 +12,11 @@ use serde::{Deserialize, Serialize};
 use super::model::PyannoteDiarizationModel;
 use super::{PyannoteAdapter, PyannoteTranscriptionModel};
 use crate::adapter::http::{ensure_success, mime_type_from_extension};
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
+use crate::adapter::parsing::parse_speaker_id;
+use crate::adapter::{
+    BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL,
+    append_path_if_missing,
+};
 use crate::error::Error;
 use crate::polling::{PollingConfig, PollingResult, poll_until};
 
@@ -229,8 +233,16 @@ impl PyannoteAdapter {
                 transcription_config: TranscriptionConfig {
                     model: Self::resolve_transcription_model(params.model.as_deref()),
                 },
-                max_speakers: Self::pyannote_u32_option(params, "pyannote_max_speakers"),
-                min_speakers: Self::pyannote_u32_option(params, "pyannote_min_speakers"),
+                max_speakers: Self::pyannote_speaker_range_option(
+                    params,
+                    params.max_speakers,
+                    "pyannote_max_speakers",
+                ),
+                min_speakers: Self::pyannote_speaker_range_option(
+                    params,
+                    params.min_speakers,
+                    "pyannote_min_speakers",
+                ),
                 num_speakers: params.num_speakers,
                 turn_level_confidence: None,
             })
@@ -325,8 +337,8 @@ impl PyannoteAdapter {
                 start: segment.start,
                 end: segment.end,
                 confidence: 1.0,
-                channel: 0,
-                speaker: parse_speaker_label(&segment.speaker),
+                channel: MIXED_CAPTURE_CHANNEL,
+                speaker: parse_speaker_id(&segment.speaker),
                 punctuated_word: Some(segment.text.clone()),
             })
             .collect();
@@ -359,20 +371,19 @@ impl PyannoteAdapter {
             .unwrap_or_else(|| format!("pyannote job {}", job.status))
     }
 
-    fn pyannote_u32_option(params: &ListenParams, key: &str) -> Option<u32> {
-        params
-            .custom_query
-            .as_ref()
-            .and_then(|query| query.get(key))
-            .and_then(|value| value.parse::<u32>().ok())
+    fn pyannote_speaker_range_option(
+        params: &ListenParams,
+        value: Option<u32>,
+        legacy_key: &str,
+    ) -> Option<u32> {
+        value.or_else(|| {
+            params
+                .custom_query
+                .as_ref()
+                .and_then(|query| query.get(legacy_key))
+                .and_then(|value| value.parse::<u32>().ok())
+        })
     }
-}
-
-fn parse_speaker_label(label: &str) -> Option<usize> {
-    label
-        .trim_start_matches(|c: char| !c.is_ascii_digit())
-        .parse::<usize>()
-        .ok()
 }
 
 fn is_retryable_status(status: StatusCode) -> bool {
@@ -392,9 +403,63 @@ mod tests {
 
     #[test]
     fn parse_speaker_label_accepts_prefixed_ids() {
-        assert_eq!(parse_speaker_label("SPEAKER_00"), Some(0));
-        assert_eq!(parse_speaker_label("speaker_12"), Some(12));
-        assert_eq!(parse_speaker_label("alice"), None);
+        assert_eq!(parse_speaker_id("SPEAKER_00"), Some(0));
+        assert_eq!(parse_speaker_id("speaker_12"), Some(12));
+        assert_eq!(parse_speaker_id("alice"), None);
+    }
+
+    #[test]
+    fn pyannote_prefers_listen_params_speaker_range_fields() {
+        let params = ListenParams {
+            min_speakers: Some(2),
+            max_speakers: Some(4),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            PyannoteAdapter::pyannote_speaker_range_option(
+                &params,
+                params.min_speakers,
+                "pyannote_min_speakers"
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            PyannoteAdapter::pyannote_speaker_range_option(
+                &params,
+                params.max_speakers,
+                "pyannote_max_speakers"
+            ),
+            Some(4)
+        );
+    }
+
+    #[test]
+    fn pyannote_falls_back_to_legacy_custom_query_speaker_range_keys() {
+        let params = ListenParams {
+            custom_query: Some(std::collections::HashMap::from([
+                ("pyannote_min_speakers".to_string(), "2".to_string()),
+                ("pyannote_max_speakers".to_string(), "4".to_string()),
+            ])),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            PyannoteAdapter::pyannote_speaker_range_option(
+                &params,
+                params.min_speakers,
+                "pyannote_min_speakers"
+            ),
+            Some(2)
+        );
+        assert_eq!(
+            PyannoteAdapter::pyannote_speaker_range_option(
+                &params,
+                params.max_speakers,
+                "pyannote_max_speakers"
+            ),
+            Some(4)
+        );
     }
 
     #[test]
@@ -447,6 +512,7 @@ mod tests {
         let alternative = &response.results.channels[0].alternatives[0];
         assert_eq!(alternative.transcript, "Hello world");
         assert_eq!(alternative.words.len(), 2);
+        assert_eq!(alternative.words[0].channel, MIXED_CAPTURE_CHANNEL);
         assert_eq!(alternative.words[0].speaker, Some(0));
         assert_eq!(alternative.words[1].speaker, Some(1));
         assert_eq!(response.metadata["job_id"], "job-123");
