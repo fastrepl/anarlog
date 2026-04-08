@@ -992,6 +992,94 @@ export async function getBranchSha(
   }
 }
 
+export async function deleteBranch(
+  branchName: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (isDev()) {
+    return { success: true };
+  }
+
+  const credentials = await getGitHubCredentials();
+  if (!credentials) {
+    return { success: false, error: "GitHub token not configured" };
+  }
+  const { token: githubToken } = credentials;
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${branchName}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
+
+    if (!response.ok && response.status !== 404 && response.status !== 422) {
+      const error = await response.json();
+      return {
+        success: false,
+        error: error.message || `GitHub API error: ${response.status}`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to delete branch: ${(error as Error).message}`,
+    };
+  }
+}
+
+export async function closePullRequest(
+  prNumber: number,
+): Promise<{ success: boolean; error?: string }> {
+  if (isDev()) {
+    return { success: true };
+  }
+
+  const credentials = await getGitHubCredentials();
+  if (!credentials) {
+    return { success: false, error: "GitHub token not configured" };
+  }
+  const { token: githubToken } = credentials;
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/pulls/${prNumber}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          state: "closed",
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      return {
+        success: false,
+        error: error.message || `GitHub API error: ${response.status}`,
+      };
+    }
+
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: `Failed to close PR: ${(error as Error).message}`,
+    };
+  }
+}
+
 export async function createBranch(
   branchName: string,
   baseBranch: string = GITHUB_BRANCH,
@@ -1138,6 +1226,58 @@ export async function createPullRequest(
       success: false,
       error: `Failed to create PR: ${(error as Error).message}`,
     };
+  }
+}
+
+export async function findOpenPullRequestByBranch(branchName: string): Promise<{
+  found: boolean;
+  prNumber?: number;
+  prUrl?: string;
+}> {
+  if (isDev()) {
+    return { found: false };
+  }
+
+  const credentials = await getGitHubCredentials();
+  if (!credentials) {
+    return { found: false };
+  }
+  const { token: githubToken } = credentials;
+
+  try {
+    const params = new URLSearchParams({
+      head: `fastrepl:${branchName}`,
+      base: GITHUB_BRANCH,
+      state: "open",
+    });
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/pulls?${params}`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return { found: false };
+    }
+
+    const prs = await response.json();
+    const pr = Array.isArray(prs) ? prs[0] : undefined;
+
+    if (!pr) {
+      return { found: false };
+    }
+
+    return {
+      found: true,
+      prNumber: pr.number,
+      prUrl: pr.html_url,
+    };
+  } catch {
+    return { found: false };
   }
 }
 

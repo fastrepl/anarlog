@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { fetchAdminUser } from "@/functions/admin";
 import {
+  closePullRequest,
+  deleteBranch,
   deleteContentFile,
   ensureContentEditBranch,
+  findExistingEditPRForPath,
+  findOpenPullRequestByBranch,
   getCollectionFromPath,
 } from "@/functions/github-content";
 
@@ -47,6 +51,92 @@ export const Route = createFileRoute("/api/admin/content/delete")({
         }
 
         const collection = getCollectionFromPath(path);
+
+        if (!isDev && collection) {
+          if (branch) {
+            const pendingPR = await findOpenPullRequestByBranch(branch);
+
+            if (pendingPR.found && pendingPR.prNumber) {
+              const closeResult = await closePullRequest(pendingPR.prNumber);
+              if (!closeResult.success) {
+                return new Response(
+                  JSON.stringify({ error: closeResult.error }),
+                  {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+              }
+            }
+
+            const deleteBranchResult = await deleteBranch(branch);
+            if (!deleteBranchResult.success) {
+              return new Response(
+                JSON.stringify({ error: deleteBranchResult.error }),
+                {
+                  status: 500,
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                mode: "discard-branch",
+                branch,
+                prNumber: pendingPR.prNumber,
+                prUrl: pendingPR.prUrl,
+              }),
+              {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          }
+
+          const pendingPR = await findExistingEditPRForPath(path);
+          if (pendingPR.found && pendingPR.branchName) {
+            if (pendingPR.prNumber) {
+              const closeResult = await closePullRequest(pendingPR.prNumber);
+              if (!closeResult.success) {
+                return new Response(
+                  JSON.stringify({ error: closeResult.error }),
+                  {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" },
+                  },
+                );
+              }
+            }
+
+            const deleteBranchResult = await deleteBranch(pendingPR.branchName);
+            if (!deleteBranchResult.success) {
+              return new Response(
+                JSON.stringify({ error: deleteBranchResult.error }),
+                {
+                  status: 500,
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+            }
+
+            return new Response(
+              JSON.stringify({
+                success: true,
+                mode: "discard-branch",
+                branch: pendingPR.branchName,
+                prNumber: pendingPR.prNumber,
+                prUrl: pendingPR.prUrl,
+              }),
+              {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          }
+        }
+
         let targetBranch = branch;
         let pendingPR: Awaited<
           ReturnType<typeof ensureContentEditBranch>
@@ -75,6 +165,7 @@ export const Route = createFileRoute("/api/admin/content/delete")({
         return new Response(
           JSON.stringify({
             success: true,
+            mode: "delete-file",
             branch: targetBranch,
             prNumber: pendingPR?.prNumber,
             prUrl: pendingPR?.prUrl,
