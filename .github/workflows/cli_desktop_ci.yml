@@ -17,6 +17,8 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      LIBONNXRUNTIME_NO_PKG_CONFIG: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install_cli_deps
