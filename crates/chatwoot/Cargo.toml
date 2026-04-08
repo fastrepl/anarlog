@@ -12,3 +12,4 @@ serde_json = { workspace = true }
 
 [build-dependencies]
 progenitor-utils = { path = "../progenitor-utils" }
+serde_json = { workspace = true }

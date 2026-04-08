@@ -60,6 +60,7 @@ export const Route = createFileRoute("/api/admin/blog/upload-image")({
           JSON.stringify({
             path: result.path,
             publicUrl: result.publicUrl,
+            proxyUrl: result.proxyUrl,
             token: result.token,
             signedUrl: result.signedUrl,
           }),

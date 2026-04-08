@@ -4,13 +4,16 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
 } from "react";
 
 import { canStartTrial as canStartTrialApi } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 import { commands as authCommands } from "@hypr/plugin-auth";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { openUrlWithInstruction } from "@hypr/plugin-windows";
 import {
   type BillingInfo,
   deriveBillingInfo,
@@ -18,8 +21,11 @@ import {
 } from "@hypr/supabase";
 
 import { env } from "../env";
+import { configurePaidSettings } from "../shared/config/configure-paid-settings";
 import { buildWebAppUrl } from "../shared/utils";
 import { useAuth } from "./context";
+
+import * as settings from "~/store/tinybase/store/settings";
 
 async function getClaimsFromToken(
   accessToken: string,
@@ -49,6 +55,8 @@ const BillingContext = createContext<BillingContextValue | null>(null);
 
 export function BillingProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const settingsStore = settings.UI.useStore(settings.STORE_ID);
+  const { current_llm_provider } = settings.UI.useValues(settings.STORE_ID);
 
   const claimsQuery = useQuery({
     queryKey: ["tokenInfo", auth?.session?.access_token ?? ""],
@@ -57,10 +65,10 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   });
 
   const billing = deriveBillingInfo(claimsQuery.data ?? null);
-  const isReady = !claimsQuery.isPending;
+  const isReady = !claimsQuery.isPending && !claimsQuery.isError;
 
   const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !billing.isPro,
+    enabled: !!auth?.session && !billing.isPaid,
     queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
     queryFn: async () => {
       const headers = auth?.getHeaders();
@@ -78,16 +86,47 @@ export function BillingProvider({ children }: { children: ReactNode }) {
 
   const canStartTrial = useMemo(
     () => ({
-      data: billing.isPro ? false : (canTrialQuery.data ?? false),
+      data: billing.isPaid ? false : (canTrialQuery.data ?? false),
       isPending: canTrialQuery.isPending,
     }),
-    [billing.isPro, canTrialQuery.data, canTrialQuery.isPending],
+    [billing.isPaid, canTrialQuery.data, canTrialQuery.isPending],
   );
 
   const upgradeToPro = useCallback(async () => {
     const url = await buildWebAppUrl("/app/checkout", { period: "monthly" });
-    void openerCommands.openUrl(url, null);
+    await openUrlWithInstruction(url, "billing", (u) =>
+      openerCommands.openUrl(u, null),
+    );
   }, []);
+
+  useEffect(() => {
+    if (!auth?.session?.user.id || !isReady || billing.isPaid) {
+      return;
+    }
+
+    if (current_llm_provider !== "hyprnote") {
+      return;
+    }
+
+    settingsStore?.setValue("current_llm_provider", "");
+    settingsStore?.setValue("current_llm_model", "");
+  }, [
+    auth?.session?.user.id,
+    billing.isPaid,
+    current_llm_provider,
+    isReady,
+    settingsStore,
+  ]);
+
+  const prevIsPaidRef = useRef(billing.isPaid);
+  useEffect(() => {
+    const wasPaid = prevIsPaidRef.current;
+    prevIsPaidRef.current = billing.isPaid;
+
+    if (!wasPaid && billing.isPaid && isReady && settingsStore) {
+      configurePaidSettings(settingsStore);
+    }
+  }, [billing.isPaid, isReady, settingsStore]);
 
   const value = useMemo<BillingContextValue>(
     () => ({

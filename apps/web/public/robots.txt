@@ -29,13 +29,9 @@ Allow: /download
 Allow: /faq
 Allow: /about
 
-# Disallow noindex routes
+# Disallow private or intentionally non-indexed routes
 Disallow: /product/
-Disallow: /solution/
-Disallow: /integrations/
 Disallow: /press-kit
-
-Disallow: /vs/
 
 # AI-specific content reference
 # AI crawlers can find detailed content at /llms.txt

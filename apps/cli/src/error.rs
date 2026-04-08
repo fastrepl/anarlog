@@ -67,20 +67,6 @@ impl CliError {
         }
     }
 
-    pub fn invalid_argument_with_hint(
-        name: &'static str,
-        value: impl Into<String>,
-        reason: impl Into<String>,
-        hint: impl Into<String>,
-    ) -> Self {
-        Self::InvalidArgument {
-            name,
-            value: value.into(),
-            reason: reason.into(),
-            hint: Some(hint.into()),
-        }
-    }
-
     pub fn operation_failed(action: &'static str, reason: impl Into<String>) -> Self {
         Self::OperationFailed {
             action,
@@ -164,9 +150,10 @@ mod tests {
 
     #[test]
     fn did_you_mean_finds_close_match() {
-        let candidates = &["deepgram", "soniox", "cactus"];
+        let candidates = &["deepgram", "soniox", "whispercpp", "cactus"];
         assert_eq!(did_you_mean("deepgran", candidates), Some("deepgram"));
         assert_eq!(did_you_mean("sonix", candidates), Some("soniox"));
+        assert_eq!(did_you_mean("whispr", candidates), Some("whispercpp"));
         assert_eq!(did_you_mean("completely-wrong", candidates), None);
     }
 

@@ -14,5 +14,7 @@
     <string>This app requires access to your local network to function properly.</string>
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
   </dict>
 </plist>

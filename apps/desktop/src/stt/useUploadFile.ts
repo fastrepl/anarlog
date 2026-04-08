@@ -9,13 +9,14 @@ import {
   commands as fsSyncCommands,
   events as fsSyncEvents,
 } from "@hypr/plugin-fs-sync";
-import { commands as listener2Commands } from "@hypr/plugin-listener2";
+import { commands as listener2Commands } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
+import { estimateUploadedAudioSessionCreatedAt } from "./audio-note-date";
 import { useListener } from "./contexts";
 import { fromResult } from "./fromResult";
 import { ChannelProfile } from "./segment";
-import { useRunBatch } from "./useRunBatch";
+import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
 import * as main from "~/store/tinybase/store/main";
@@ -56,6 +57,38 @@ export function useUploadFile(sessionId: string) {
     }
   }, [sessionId, sessionTab, updateSessionTabState]);
 
+  const applyEstimatedAudioNoteDate = useCallback(
+    async (filePath: string) => {
+      try {
+        if (!store) {
+          return;
+        }
+
+        const eventJson = store.getCell("sessions", sessionId, "event_json");
+        if (typeof eventJson === "string" && eventJson.trim()) {
+          return;
+        }
+
+        const result = await fsSyncCommands.audioSourceMetadata(filePath);
+        if (result.status === "error") {
+          return;
+        }
+
+        const estimatedCreatedAt = estimateUploadedAudioSessionCreatedAt(
+          result.data,
+        );
+        if (!estimatedCreatedAt) {
+          return;
+        }
+
+        store.setCell("sessions", sessionId, "created_at", estimatedCreatedAt);
+      } catch (error) {
+        console.error("[upload] audio metadata inspection failed:", error);
+      }
+    },
+    [sessionId, store],
+  );
+
   const processFile = useCallback(
     (filePath: string, kind: "audio" | "transcript") => {
       const normalizedPath = filePath.toLowerCase();
@@ -74,13 +107,6 @@ export function useUploadFile(sessionId: string) {
             Effect.sync(() => {
               if (!store || subtitle.tokens.length === 0) {
                 return;
-              }
-
-              if (sessionTab) {
-                updateSessionTabState(sessionTab, {
-                  ...sessionTab.state,
-                  view: { type: "transcript" },
-                });
               }
 
               const transcriptId = crypto.randomUUID();
@@ -139,15 +165,12 @@ export function useUploadFile(sessionId: string) {
       }
 
       const program = pipe(
-        Effect.sync(() => {
-          if (sessionTab) {
-            updateSessionTabState(sessionTab, {
-              ...sessionTab.state,
-              view: { type: "transcript" },
-            });
-          }
-          handleBatchStarted(sessionId, "importing");
-        }),
+        Effect.promise(() => applyEstimatedAudioNoteDate(filePath)),
+        Effect.tap(() =>
+          Effect.sync(() => {
+            handleBatchStarted(sessionId, "importing");
+          }),
+        ),
         Effect.flatMap(() =>
           Effect.tryPromise({
             try: async () => {
@@ -202,6 +225,9 @@ export function useUploadFile(sessionId: string) {
         Effect.tap(() => Effect.sync(() => triggerEnhance())),
         Effect.catchAll((error: unknown) =>
           Effect.sync(() => {
+            if (isStoppedTranscriptionError(error)) {
+              return;
+            }
             const msg = error instanceof Error ? error.message : String(error);
             handleBatchFailed(sessionId, msg);
           }),
@@ -223,6 +249,7 @@ export function useUploadFile(sessionId: string) {
       sessionTab,
       store,
       triggerEnhance,
+      applyEstimatedAudioNoteDate,
       updateSessionTabState,
       user_id,
     ],

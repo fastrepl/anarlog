@@ -20,17 +20,22 @@ impl ModelDownloaderRuntime<LocalModel> for CliModelRuntime {
         Ok(self.models_base.clone())
     }
 
-    fn emit_progress(&self, _model: &LocalModel, progress: i8) {
+    fn emit_progress(&self, _model: &LocalModel, status: hypr_model_downloader::DownloadStatus) {
         let Some(tx) = &self.progress_tx else {
             return;
         };
 
-        if progress < 0 {
-            let _ = tx.send(DownloadEvent::Failed);
-        } else if progress >= 100 {
-            let _ = tx.send(DownloadEvent::Completed);
-        } else {
-            let _ = tx.send(DownloadEvent::Progress(progress as u8));
+        use hypr_model_downloader::DownloadStatus;
+        match status {
+            DownloadStatus::Downloading(p) => {
+                let _ = tx.send(DownloadEvent::Progress(p));
+            }
+            DownloadStatus::Completed => {
+                let _ = tx.send(DownloadEvent::Completed);
+            }
+            DownloadStatus::Failed(_) => {
+                let _ = tx.send(DownloadEvent::Failed);
+            }
         }
     }
 }

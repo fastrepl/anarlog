@@ -301,9 +301,10 @@ export function TimelineView() {
           const isToday = bucket.label === "Today";
           const shouldRenderIndicatorBefore =
             !hasToday && indicatorIndex === index;
+          const isTopIndicator = shouldRenderIndicatorBefore && index === 0;
 
           return (
-            <div key={bucket.label}>
+            <div key={bucket.label} className={cn([isTopIndicator && "pt-3"])}>
               {shouldRenderIndicatorBefore && (
                 <CurrentTimeIndicator
                   ref={setCurrentTimeIndicatorRef}

@@ -4,7 +4,7 @@ use std::time::{Instant, SystemTime};
 
 use hypr_audio::AudioProvider;
 
-use crate::{ListenerRuntime, RecordingMode, TranscriptionMode};
+use crate::{ListenerRuntime, TranscriptionMode};
 
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
 
@@ -19,11 +19,14 @@ pub struct SessionParams {
     pub languages: Vec<hypr_language::Language>,
     pub onboarding: bool,
     pub transcription_mode: TranscriptionMode,
-    pub recording_mode: RecordingMode,
     pub model: String,
     pub base_url: String,
     pub api_key: String,
     pub keywords: Vec<String>,
+    #[serde(default)]
+    pub participant_human_ids: Vec<String>,
+    #[serde(default)]
+    pub self_human_id: Option<String>,
 }
 
 #[derive(Clone)]

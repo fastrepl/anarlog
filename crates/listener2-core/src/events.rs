@@ -1,5 +1,5 @@
 use owhisper_interface::batch::Response as BatchResponse;
-use owhisper_interface::stream::StreamResponse;
+use owhisper_interface::batch_stream::BatchStreamEvent;
 
 use crate::BatchRunMode;
 
@@ -8,16 +8,20 @@ use crate::BatchRunMode;
 #[serde(rename_all = "snake_case")]
 pub enum BatchErrorCode {
     Unknown,
+    TimedOut,
     AudioMetadataJoinFailed,
     AudioMetadataReadFailed,
-    ProviderRequestFailed,
-    ActorSpawnFailed,
-    StreamStartCancelled,
-    StreamStoppedWithoutCompletionSignal,
-    StreamFinishedWithoutStatus,
-    StreamStartFailed,
-    StreamError,
-    StreamTimeout,
+    BatchCapabilityUnsupported,
+    DirectBatchUnsupported,
+    ProgressiveBatchUnsupported,
+    DirectRequestFailed,
+    ProgressiveActorSpawnFailed,
+    ProgressiveStartCancelled,
+    ProgressiveStoppedWithoutCompletionSignal,
+    ProgressiveFinishedWithoutStatus,
+    ProgressiveStartFailed,
+    ProgressiveStreamError,
+    ProgressiveStreamTimeout,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -38,8 +42,7 @@ pub enum BatchEvent {
     #[serde(rename = "batchProgress")]
     BatchResponseStreamed {
         session_id: String,
-        response: StreamResponse,
-        percentage: f64,
+        event: BatchStreamEvent,
     },
     #[serde(rename = "batchFailed")]
     BatchFailed {

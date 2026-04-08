@@ -3,7 +3,6 @@ import {
   AlertCircle,
   Download,
   FolderOpen,
-  HelpCircle,
   Loader2,
   Trash2,
   X,
@@ -29,6 +28,7 @@ import { ProviderId, PROVIDERS } from "./shared";
 
 import { useBillingAccess } from "~/auth/billing";
 import {
+  CharProviderIcon,
   HyprCloudCTAButton,
   HyprProviderRow,
   NonHyprProviderCard,
@@ -56,7 +56,7 @@ export function ConfigureProviders() {
           ref={hyprAccordionRef}
           providerId="hyprnote"
           providerName="Char"
-          icon={<img src="/assets/icon.png" alt="Char" className="size-5" />}
+          icon={<CharProviderIcon />}
           badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
         />
         {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
@@ -108,17 +108,12 @@ function HyprProviderCard({
     staleTime: Infinity,
   });
 
-  const argmaxModels =
-    supportedModels.data?.filter((m) => m.model_type === "argmax") ?? [];
   const whispercppModels =
     supportedModels.data?.filter((m) => m.model_type === "whispercpp") ?? [];
   const cactusModels =
     supportedModels.data?.filter((m) => m.model_type === "cactus") ?? [];
 
-  const hasLocalModels =
-    argmaxModels.length > 0 ||
-    whispercppModels.length > 0 ||
-    cactusModels.length > 0;
+  const hasLocalModels = whispercppModels.length > 0 || cactusModels.length > 0;
 
   const providerDef = PROVIDERS.find((p) => p.id === providerId);
   const isConfigured = providerDef?.requirements.length === 0;
@@ -154,29 +149,47 @@ function HyprProviderCard({
             <>
               <div className="flex items-center gap-3 py-2">
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
-                <a
-                  href="https://char.com/docs/developers/local-models"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:underline"
-                >
+                <div className="flex items-center gap-1 text-xs text-neutral-400">
                   <span>or use on-device model</span>
-                  <HelpCircle className="size-3" />
-                </a>
+                </div>
                 <div className="flex-1 border-t border-dashed border-neutral-300" />
               </div>
 
-              {argmaxModels.length > 0 && (
+              <StyledStreamdown>
+                {
+                  "We intentionally **disable realtime transcription** for local models to ensure the best experience.\n\nAudio will be **batch processed** after recording is done."
+                }
+              </StyledStreamdown>
+
+              {cactusModels.filter((m) => String(m.key).includes("parakeet"))
+                .length > 0 && (
                 <>
-                  <ModelGroupLabel label="Argmax" />
-                  {argmaxModels.map((model) => (
-                    <HyprProviderLocalRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
-                      description={model.description}
-                    />
-                  ))}
+                  <ModelGroupLabel label="Recommended" />
+                  {cactusModels
+                    .filter((m) => String(m.key).includes("parakeet"))
+                    .map((model) => (
+                      <CactusRow
+                        key={model.key as string}
+                        model={model.key}
+                        displayName={model.display_name}
+                      />
+                    ))}
+                </>
+              )}
+
+              {cactusModels.filter((m) => !String(m.key).includes("parakeet"))
+                .length > 0 && (
+                <>
+                  <ModelGroupLabel label="Others" />
+                  {cactusModels
+                    .filter((m) => !String(m.key).includes("parakeet"))
+                    .map((model) => (
+                      <CactusRow
+                        key={model.key as string}
+                        model={model.key}
+                        displayName={model.display_name}
+                      />
+                    ))}
                 </>
               )}
 
@@ -189,21 +202,6 @@ function HyprProviderCard({
                       model={model.key}
                       displayName={model.display_name}
                       description={model.description}
-                    />
-                  ))}
-                </>
-              )}
-
-              {cactusModels.length > 0 && (
-                <>
-                  <ModelGroupLabel label="Cactus (Experimental)" />
-                  {/* <CactusSettings models={cactusModels.map((m) => m.key)} /> */}
-
-                  {cactusModels.map((model) => (
-                    <CactusRow
-                      key={model.key as string}
-                      model={model.key}
-                      displayName={model.display_name}
                     />
                   ))}
                 </>
@@ -229,6 +227,7 @@ function CactusRow({
   const {
     progress,
     hasError,
+    errorMessage,
     isDownloaded,
     showProgress,
     handleDownload,
@@ -248,6 +247,9 @@ function CactusRow({
     <HyprProviderRow>
       <div className="flex-1">
         <span className="text-sm font-medium">{displayName}</span>
+        {hasError && errorMessage && (
+          <p className="text-xs text-red-500">{errorMessage}</p>
+        )}
       </div>
 
       <LocalModelAction
@@ -332,7 +334,7 @@ function CactusSettings({ models }: { models: LocalModel[] }) {
 }
 
 function HyprProviderCloudRow() {
-  const { isPro, canStartTrial, upgradeToPro } = useBillingAccess();
+  const { isPaid, canStartTrial, upgradeToPro } = useBillingAccess();
   const { shouldHighlightDownload } = useSttSettings();
 
   const handleSelectProvider = settings.UI.useSetValueCallback(
@@ -350,13 +352,13 @@ function HyprProviderCloudRow() {
   );
 
   const handleClick = useCallback(() => {
-    if (!isPro) {
+    if (!isPaid) {
       upgradeToPro();
     } else {
       handleSelectProvider("hyprnote");
       handleSelectModel("cloud");
     }
-  }, [isPro, upgradeToPro, handleSelectProvider, handleSelectModel]);
+  }, [isPaid, upgradeToPro, handleSelectProvider, handleSelectModel]);
 
   return (
     <HyprProviderRow>
@@ -367,7 +369,7 @@ function HyprProviderCloudRow() {
         </p>
       </div>
       <HyprCloudCTAButton
-        isPro={isPro}
+        isPaid={isPaid}
         canStartTrial={canStartTrial.data}
         highlight={shouldHighlightDownload}
         onClick={handleClick}
@@ -520,6 +522,7 @@ function HyprProviderLocalRow({
   const {
     progress,
     hasError,
+    errorMessage,
     isDownloaded,
     showProgress,
     handleDownload,
@@ -539,7 +542,11 @@ function HyprProviderLocalRow({
     <HyprProviderRow>
       <div className="flex-1">
         <span className="text-sm font-medium">{displayName}</span>
-        <p className="text-xs text-neutral-500">{description}</p>
+        {hasError && errorMessage ? (
+          <p className="text-xs text-red-500">{errorMessage}</p>
+        ) : (
+          <p className="text-xs text-neutral-500">{description}</p>
+        )}
       </div>
 
       <LocalModelAction
@@ -560,7 +567,7 @@ function HyprProviderLocalRow({
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
     providerId === "hyprnote"
-      ? "Char curates list of on-device models and also cloud models with high-availability and performance."
+      ? "**Char Cloud** routes request to the **best available model** for highest accuracy and performance."
       : providerId === "deepgram"
         ? `Use [Deepgram](https://deepgram.com) for transcriptions. \
     If you want to use a [Dedicated](https://developers.deepgram.com/reference/custom-endpoints#deepgram-dedicated-endpoints)
@@ -590,6 +597,13 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
 }
 
 function useSafeSelectModel() {
+  const handleSelectProvider = settings.UI.useSetValueCallback(
+    "current_stt_provider",
+    (provider: string) => provider,
+    [],
+    settings.STORE_ID,
+  );
+
   const handleSelectModel = settings.UI.useSetValueCallback(
     "current_stt_model",
     (model: LocalModel) => model,
@@ -604,9 +618,10 @@ function useSafeSelectModel() {
       if (active) {
         return;
       }
+      handleSelectProvider("hyprnote");
       handleSelectModel(model);
     },
-    [active, handleSelectModel],
+    [active, handleSelectProvider, handleSelectModel],
   );
 
   return handler;

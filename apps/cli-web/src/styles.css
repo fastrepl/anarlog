@@ -39,7 +39,7 @@
 main h2 {
   margin-top: 3rem;
   margin-bottom: 2rem;
-  font-size: 1.125rem;
+  font-size: 1.5rem;
   color: #e5e5e5;
 }
 
@@ -59,6 +59,55 @@ main h3 {
 main h3::before {
   content: "###";
   margin-right: 0.5rem;
+  color: #525252;
+}
+
+/* ---- Prose links ---- */
+
+main a {
+  color: #a3a3a3;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: #525252;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+main a:hover {
+  color: #e5e5e5;
+  text-decoration-color: #a3a3a3;
+}
+
+/* ---- Prose lists ---- */
+
+main ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+main li {
+  margin-top: 0.25rem;
+  color: #a3a3a3;
+  font-size: 0.875rem;
+}
+
+/* ---- Inline code ---- */
+
+main code {
+  color: #e5e5e5;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.05rem 0.15rem;
+  border-radius: 0.125rem;
+}
+
+main code::before {
+  content: "`";
+  color: #525252;
+}
+
+main code::after {
+  content: "`";
   color: #525252;
 }
 

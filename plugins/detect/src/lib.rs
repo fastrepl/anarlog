@@ -8,6 +8,7 @@ mod error;
 mod events;
 mod ext;
 mod mic_usage_tracker;
+mod timer_registry;
 
 #[cfg(feature = "test-support")]
 pub mod env;

@@ -20,8 +20,11 @@ import {
 } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
+import { commands as authPluginCommands } from "@hypr/plugin-auth";
 import { commands as miscCommands } from "@hypr/plugin-misc";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
+import { openUrlWithInstruction } from "@hypr/plugin-windows";
+import { deriveBillingInfo } from "@hypr/supabase";
 
 import { supabase } from "./client";
 import { clearAuthStorage, isFatalSessionError } from "./errors";
@@ -35,7 +38,8 @@ import {
 
 type AuthState = {
   supabase: SupabaseClient | null;
-  session: Session | null;
+  // undefined = initial load in progress, null = known unauthenticated
+  session: Session | null | undefined;
   isRefreshingSession: boolean;
 };
 
@@ -95,57 +99,100 @@ async function initSession(
     if (error) {
       if (isFatalSessionError(error)) {
         await onClear();
+      } else {
+        setSession(null);
       }
       return;
     }
 
-    if (data.session) {
-      setSession(data.session);
-    }
+    // Always resolve to null so session never stays undefined after init
+    setSession(data.session ?? null);
   } catch (e) {
     if (isFatalSessionError(e)) {
       await onClear();
+    } else {
+      setSession(null);
     }
   }
 }
 
-let trackedUserId: string | null = null;
+let trackedIdentifySignature: string | null = null;
+let trackedSignedInUserId: string | null = null;
+
+async function getBillingAnalytics(accessToken: string) {
+  const result = await authPluginCommands.decodeClaims(accessToken);
+  if (result.status === "error") {
+    return {
+      plan: "free" as const,
+      trialEndDate: null,
+    };
+  }
+
+  const billing = deriveBillingInfo({
+    sub: result.data.sub,
+    email: result.data.email ?? undefined,
+    entitlements: result.data.entitlements,
+    subscription_status: result.data.subscription_status,
+    trial_end: result.data.trial_end,
+  });
+
+  return {
+    plan: billing.plan,
+    trialEndDate: billing.trialEnd?.toISOString() ?? null,
+  };
+}
 
 async function trackAuthEvent(
   event: AuthChangeEvent,
   session: Session | null,
 ): Promise<void> {
-  if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) {
-    if (session.user.id === trackedUserId) {
-      return;
-    }
-
-    trackedUserId = session.user.id;
-
+  if (
+    (event === "SIGNED_IN" ||
+      event === "INITIAL_SESSION" ||
+      event === "TOKEN_REFRESHED") &&
+    session
+  ) {
     const appVersion = await getVersion();
-    void analyticsCommands.identify(session.user.id, {
-      email: session.user.email,
-      set: {
-        account_created_date: session.user.created_at,
-        is_signed_up: true,
-        app_version: appVersion,
-        os_version: osVersion(),
-        platform: platform(),
-      },
+    const billing = await getBillingAnalytics(session.access_token);
+    const identifySignature = JSON.stringify({
+      userId: session.user.id,
+      email: session.user.email ?? null,
+      plan: billing.plan,
+      trialEndDate: billing.trialEndDate,
+      appVersion,
     });
 
-    if (event === "SIGNED_IN") {
+    if (identifySignature !== trackedIdentifySignature) {
+      trackedIdentifySignature = identifySignature;
+
+      void analyticsCommands.identify(session.user.id, {
+        email: session.user.email,
+        set: {
+          account_created_date: session.user.created_at,
+          is_signed_up: true,
+          app_version: appVersion,
+          os_version: osVersion(),
+          platform: platform(),
+          plan: billing.plan,
+          trial_end_date: billing.trialEndDate,
+        },
+      });
+    }
+
+    if (event === "SIGNED_IN" && trackedSignedInUserId !== session.user.id) {
+      trackedSignedInUserId = session.user.id;
       void analyticsCommands.event({ event: "user_signed_in" });
     }
   }
 
   if (event === "SIGNED_OUT") {
-    trackedUserId = null;
+    trackedIdentifySignature = null;
+    trackedSignedInUserId = null;
   }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
   // Prevents double initSession in React StrictMode, which can cause refresh token races
   const initStartedRef = useRef(false);
@@ -272,7 +319,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async () => {
     const url = await buildWebAppUrl("/auth");
-    await openerCommands.openUrl(url, null);
+    await openUrlWithInstruction(url, "sign-in", (u) =>
+      openerCommands.openUrl(u, null),
+    );
   }, []);
 
   const signOut = useCallback(async () => {
@@ -287,17 +336,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error instanceof AuthRetryableFetchError ||
           error instanceof AuthSessionMissingError
         ) {
+          trackedIdentifySignature = null;
+          trackedSignedInUserId = null;
           await clearAuthStorage();
           setSession(null);
           return;
         }
         console.error(error);
+        return;
       }
+
+      trackedIdentifySignature = null;
+      trackedSignedInUserId = null;
+      await clearAuthStorage();
+      setSession(null);
     } catch (e) {
       if (
         e instanceof AuthRetryableFetchError ||
         e instanceof AuthSessionMissingError
       ) {
+        trackedIdentifySignature = null;
+        trackedSignedInUserId = null;
         await clearAuthStorage();
         setSession(null);
       }

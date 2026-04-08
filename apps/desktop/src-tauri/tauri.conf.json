@@ -7,7 +7,7 @@
     "beforeDevCommand": "pnpm -F desktop dev",
     "devUrl": "http://localhost:1422",
     "beforeBuildCommand": "pnpm -F desktop build",
-    "beforeBundleCommand": "./src-tauri/scripts/compile-icons.sh && ./src-tauri/scripts/fix-dylib.sh",
+    "beforeBundleCommand": "node ./src-tauri/scripts/before-bundle.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -40,7 +40,8 @@
       "icons/stable/icon.icns": "icons/stable.icns",
       "icons/nightly/icon.icns": "icons/nightly.icns",
       "icons/staging/icon.icns": "icons/staging.icns",
-      "icons/pro/icon.icns": "icons/pro.icns"
+      "icons/pro/icon.icns": "icons/pro.icns",
+      "resources/models/cactus/char-vlm/": "models/cactus/char-vlm/"
     },
     "macOS": {
       "minimumSystemVersion": "14.2",
@@ -62,6 +63,7 @@
         }
       },
       "files": {
+        "Resources/AppIcon.incs": "resources/stable/AppIcon.icns",
         "Resources/Assets.car": "resources/stable/Assets.car"
       }
     }

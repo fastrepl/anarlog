@@ -143,7 +143,9 @@ jobs:
             --exclude tauri-plugin-webhook \
             --exclude tauri-plugin-windows \
             --exclude db3 \
-            --exclude db-core2
+            --exclude db-core2 \
+            --exclude activity-capture-macos \
+            --exclude tauri-plugin-activity-capture
 
   ci:
     if: always()

@@ -1,7 +1,7 @@
 use crate::adapter::{LanguageQuality, LanguageSupport};
 
-// https://www.assemblyai.com/docs/universal-streaming/multilingual-transcription
-pub(super) const STREAMING_LANGUAGES: &[&str] = &["en", "es", "fr", "de", "it", "pt"];
+// https://www.assemblyai.com/docs/api-reference/streaming-api/universal-3-pro-streaming/universal-3-pro-streaming
+pub(super) const U3_STREAMING_LANGUAGES: &[&str] = &["en", "es", "fr", "de", "it", "pt"];
 
 // https://www.assemblyai.com/docs/pre-recorded-audio/supported-languages
 pub(super) const BATCH_LANGUAGES: &[&str] = &[
@@ -16,11 +16,17 @@ pub(super) const BATCH_LANGUAGES: &[&str] = &[
     "te", "uz",
 ];
 
+pub(super) const STREAMING_LANGUAGES: &[&str] = BATCH_LANGUAGES;
+
 pub(super) fn single_language_support_live(language: &hypr_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
-    if STREAMING_LANGUAGES.contains(&code) {
+    if U3_STREAMING_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {
             quality: LanguageQuality::High,
+        }
+    } else if STREAMING_LANGUAGES.contains(&code) {
+        LanguageSupport::Supported {
+            quality: LanguageQuality::NoData,
         }
     } else {
         LanguageSupport::NotSupported

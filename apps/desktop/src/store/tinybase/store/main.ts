@@ -138,6 +138,10 @@ export const StoreComponent = () => {
           ({ select }) => {
             select("title");
             select("description");
+            select("pinned");
+            select("pin_order");
+            select("category");
+            select("targets");
             select("sections");
           },
         )
@@ -194,6 +198,10 @@ export const StoreComponent = () => {
           ({ select, where, param }) => {
             select("title");
             select("description");
+            select("pinned");
+            select("pin_order");
+            select("category");
+            select("targets");
             select("sections");
             select("user_id");
             where("user_id", (param("user_id") as string) ?? "");
@@ -324,6 +332,21 @@ export const StoreComponent = () => {
         INDEXES.mentionsByTarget,
         "mapping_mention",
         "target_id",
+      )
+      .setIndexDefinition(
+        INDEXES.tasksBySource,
+        "tasks",
+        (getCell) => {
+          const sourceType = getCell("source_type");
+          const sourceId = getCell("source_id");
+
+          if (typeof sourceType !== "string" || typeof sourceId !== "string") {
+            return "";
+          }
+
+          return `${sourceType}:${sourceId}`;
+        },
+        "source_order",
       ),
   );
 
@@ -390,6 +413,7 @@ export const INDEXES = {
   enhancedNotesByTemplate: "enhancedNotesByTemplate",
   mentionsBySource: "mentionsBySource",
   mentionsByTarget: "mentionsByTarget",
+  tasksBySource: "tasksBySource",
 } as const;
 
 export const RELATIONSHIPS = {

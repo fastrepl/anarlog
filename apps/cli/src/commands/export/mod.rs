@@ -10,8 +10,8 @@ mod transcript;
 use std::path::PathBuf;
 
 use clap::{Subcommand, ValueEnum};
-use sqlx::SqlitePool;
 
+use crate::app::AppContext;
 use crate::error::CliResult;
 
 #[derive(Subcommand)]
@@ -97,32 +97,34 @@ pub enum TranscriptFormat {
     Vtt,
 }
 
-pub async fn run(pool: &SqlitePool, command: Commands) -> CliResult<()> {
+pub async fn run(ctx: &AppContext, command: Commands) -> CliResult<()> {
+    let pool = ctx.pool().await?;
+
     match command {
         Commands::Meeting { id, format, output } => {
-            meeting::meeting(pool, &id, format, output.as_deref()).await
+            meeting::meeting(&pool, &id, format, output.as_deref()).await
         }
         Commands::Meetings { format, output } => {
-            meetings::meetings(pool, format, output.as_deref()).await
+            meetings::meetings(&pool, format, output.as_deref()).await
         }
         Commands::Transcript {
             meeting,
             format,
             output,
-        } => transcript::transcript(pool, &meeting, format, output.as_deref()).await,
+        } => transcript::transcript(&pool, &meeting, format, output.as_deref()).await,
         Commands::Notes {
             meeting,
             format,
             output,
-        } => notes::notes(pool, &meeting, format, output.as_deref()).await,
+        } => notes::notes(&pool, &meeting, format, output.as_deref()).await,
         Commands::Chat {
             meeting,
             format,
             output,
-        } => chat::chat(pool, &meeting, format, output.as_deref()).await,
+        } => chat::chat(&pool, &meeting, format, output.as_deref()).await,
         Commands::Humans { format, output } => {
-            humans::humans(pool, format, output.as_deref()).await
+            humans::humans(&pool, format, output.as_deref()).await
         }
-        Commands::Orgs { format, output } => orgs::orgs(pool, format, output.as_deref()).await,
+        Commands::Orgs { format, output } => orgs::orgs(&pool, format, output.as_deref()).await,
     }
 }

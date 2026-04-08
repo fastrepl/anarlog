@@ -1,108 +1,87 @@
+import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+
+import type { TranscriptItem } from "@hypr/plugin-export";
+
 import * as main from "~/store/tinybase/store/main";
-import { buildSegments, SegmentKey } from "~/stt/segment";
 import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
-import { convertStorageHintsToRuntime } from "~/stt/speaker-hints";
-import { parseTranscriptHints, parseTranscriptWords } from "~/stt/utils";
+  buildRenderTranscriptRequestFromStore,
+  renderTranscriptSegments,
+} from "~/stt/render-transcript";
 
-export function buildTranscriptExportSegments(
-  store: NonNullable<ReturnType<typeof main.UI.useStore>>,
-  transcriptIds: string[],
-) {
-  if (transcriptIds.length === 0) {
-    return [];
-  }
+export type TranscriptExportSegment = TranscriptItem & {
+  start_ms: number;
+  end_ms: number;
+};
 
-  const wordIdToIndex = new Map<string, number>();
-  const collectedWords: Array<{
-    id: string;
-    text: string;
-    start_ms: number;
-    end_ms: number;
-    channel: number;
-  }> = [];
+export async function buildTranscriptExportSegments(
+  request: NonNullable<
+    ReturnType<typeof buildRenderTranscriptRequestFromStore>
+  >,
+): Promise<TranscriptExportSegment[]> {
+  const segments = await renderTranscriptSegments(request);
 
-  const firstStartedAt = store.getCell(
-    "transcripts",
-    transcriptIds[0],
-    "started_at",
+  return segments.map((segment) => ({
+    text: segment.text,
+    start_ms: segment.start_ms,
+    end_ms: segment.end_ms,
+    speaker: segment.speaker_label,
+  }));
+}
+
+export function useTranscriptExportSegments(sessionId: string): {
+  data: TranscriptExportSegment[];
+  isLoading: boolean;
+} {
+  const store = main.UI.useStore(main.STORE_ID);
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const participantMappingsTable = main.UI.useTable(
+    "mapping_session_participant",
+    main.STORE_ID,
   );
+  const humansTable = main.UI.useTable("humans", main.STORE_ID);
+  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
 
-  for (const transcriptId of transcriptIds) {
-    const startedAt = store.getCell("transcripts", transcriptId, "started_at");
-    const offset =
-      typeof startedAt === "number" && typeof firstStartedAt === "number"
-        ? startedAt - firstStartedAt
-        : 0;
+  const transcriptIds =
+    main.UI.useSliceRowIds(
+      main.INDEXES.transcriptBySession,
+      sessionId,
+      main.STORE_ID,
+    ) ?? [];
 
-    const words = parseTranscriptWords(store, transcriptId);
-    for (const word of words) {
-      if (
-        word.text === undefined ||
-        word.start_ms === undefined ||
-        word.end_ms === undefined
-      ) {
-        continue;
+  const request = useMemo(() => {
+    if (!store || transcriptIds.length === 0) {
+      return null;
+    }
+
+    return buildRenderTranscriptRequestFromStore(store, transcriptIds);
+  }, [
+    store,
+    transcriptIds,
+    transcriptsTable,
+    participantMappingsTable,
+    humansTable,
+    selfHumanId,
+  ]);
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["transcript-export-segments", sessionId, request],
+    queryFn: async () => {
+      if (!request) {
+        return [];
       }
-
-      collectedWords.push({
-        id: word.id,
-        text: word.text,
-        start_ms: word.start_ms + offset,
-        end_ms: word.end_ms + offset,
-        channel: word.channel ?? 0,
-      });
-    }
-  }
-
-  collectedWords.sort((a, b) => a.start_ms - b.start_ms);
-  collectedWords.forEach((word, index) => wordIdToIndex.set(word.id, index));
-
-  const storageHints = transcriptIds.flatMap((transcriptId) =>
-    parseTranscriptHints(store, transcriptId),
-  );
-  const speakerHints = convertStorageHintsToRuntime(
-    storageHints,
-    wordIdToIndex,
-  );
-
-  const segments = buildSegments(collectedWords, [], speakerHints);
-  const ctx = defaultRenderLabelContext(store);
-  const manager = SpeakerLabelManager.fromSegments(segments, ctx);
-
-  return segments.flatMap((segment) => {
-    if (segment.words.length === 0) {
-      return [];
-    }
-
-    const text = segment.words
-      .map((word) => word.text)
-      .join(" ")
-      .trim();
-    if (!text) {
-      return [];
-    }
-
-    const firstWord = segment.words[0];
-    const lastWord = segment.words[segment.words.length - 1];
-
-    return [
-      {
-        text,
-        start_ms: firstWord.start_ms,
-        end_ms: lastWord.end_ms,
-        speaker: SegmentKey.renderLabel(segment.key, ctx, manager),
-      },
-    ];
+      return buildTranscriptExportSegments(request);
+    },
+    enabled: !!request,
   });
+
+  return { data, isLoading };
 }
 
 export function formatTranscriptExportSegments(
-  segments: Array<{ speaker: string; text: string }>,
+  segments: Array<{ speaker: string | null; text: string }>,
 ) {
   return segments
-    .map((segment) => `${segment.speaker}: ${segment.text}`)
+    .map((segment) => `${segment.speaker ?? "Speaker"}: ${segment.text}`)
     .join("\n\n");
 }

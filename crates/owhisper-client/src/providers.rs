@@ -84,10 +84,12 @@ pub enum Provider {
     DashScope,
     #[strum(serialize = "mistral")]
     Mistral,
+    #[strum(serialize = "pyannote")]
+    Pyannote,
 }
 
 impl Provider {
-    const ALL: [Provider; 9] = [
+    const ALL: [Provider; 10] = [
         Self::Deepgram,
         Self::AssemblyAI,
         Self::Soniox,
@@ -97,6 +99,7 @@ impl Provider {
         Self::ElevenLabs,
         Self::DashScope,
         Self::Mistral,
+        Self::Pyannote,
     ];
 
     pub fn from_host(host: &str) -> Option<Self> {
@@ -139,6 +142,10 @@ impl Provider {
                 name: "Authorization",
                 prefix: Some("Bearer "),
             },
+            Self::Pyannote => Auth::Header {
+                name: "Authorization",
+                prefix: Some("Bearer "),
+            },
         }
     }
 
@@ -161,6 +168,7 @@ impl Provider {
             Self::ElevenLabs => "api.elevenlabs.io",
             Self::DashScope => "dashscope-intl.aliyuncs.com",
             Self::Mistral => "api.mistral.ai",
+            Self::Pyannote => "api.pyannote.ai",
         }
     }
 
@@ -175,6 +183,7 @@ impl Provider {
             Self::ElevenLabs => "api.elevenlabs.io",
             Self::DashScope => "dashscope-intl.aliyuncs.com",
             Self::Mistral => "api.mistral.ai",
+            Self::Pyannote => "api.pyannote.ai",
         }
     }
 
@@ -189,6 +198,7 @@ impl Provider {
             Self::ElevenLabs => "/v1/speech-to-text/realtime",
             Self::DashScope => "/api-ws/v1/realtime",
             Self::Mistral => "/v1/audio/transcriptions/realtime",
+            Self::Pyannote => "/v1/diarize",
         }
     }
 
@@ -203,6 +213,7 @@ impl Provider {
             Self::ElevenLabs => Some("https://api.elevenlabs.io/v1"),
             Self::DashScope => None,
             Self::Mistral => None,
+            Self::Pyannote => Some("https://api.pyannote.ai/v1"),
         }
     }
 
@@ -217,6 +228,7 @@ impl Provider {
             Self::ElevenLabs => "https://api.elevenlabs.io",
             Self::DashScope => "https://dashscope-intl.aliyuncs.com",
             Self::Mistral => "https://api.mistral.ai/v1",
+            Self::Pyannote => "https://api.pyannote.ai",
         }
     }
 
@@ -231,6 +243,7 @@ impl Provider {
             Self::ElevenLabs => "elevenlabs.io",
             Self::DashScope => "aliyuncs.com",
             Self::Mistral => "mistral.ai",
+            Self::Pyannote => "pyannote.ai",
         }
     }
 
@@ -263,6 +276,7 @@ impl Provider {
             Self::ElevenLabs => "ELEVENLABS_API_KEY",
             Self::DashScope => "DASHSCOPE_API_KEY",
             Self::Mistral => "MISTRAL_API_KEY",
+            Self::Pyannote => "PYANNOTE_API_KEY",
         }
     }
 
@@ -270,20 +284,21 @@ impl Provider {
         match self {
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-rt-v3",
-            Self::AssemblyAI => "universal",
+            Self::AssemblyAI => "u3-rt-pro",
             Self::Fireworks => "whisper-v3-turbo",
             Self::OpenAI => "gpt-4o-transcribe",
             Self::Gladia => "solaria-1",
             Self::ElevenLabs => "scribe_v2_realtime",
             Self::DashScope => "qwen3-asr-flash-realtime",
             Self::Mistral => "voxtral-mini-transcribe-realtime-2602",
+            Self::Pyannote => "parakeet-tdt-0.6b-v3",
         }
     }
 
     pub fn default_live_sample_rate(&self) -> u32 {
         match self {
             Self::OpenAI => 24000,
-            Self::ElevenLabs | Self::DashScope | Self::Mistral => 16000,
+            Self::ElevenLabs | Self::DashScope | Self::Mistral | Self::Pyannote => 16000,
             _ => 16000,
         }
     }
@@ -292,13 +307,14 @@ impl Provider {
         match self {
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-async-v3",
-            Self::AssemblyAI => "universal",
+            Self::AssemblyAI => "universal-3-pro",
             Self::Fireworks => "whisper-v3-turbo",
-            Self::OpenAI => "whisper-1",
+            Self::OpenAI => "gpt-4o-transcribe-diarize",
             Self::Gladia => "solaria-1",
             Self::ElevenLabs => "scribe_v2",
             Self::DashScope => "qwen3-asr-flash-filetrans",
             Self::Mistral => "voxtral-mini-2602",
+            Self::Pyannote => "parakeet-tdt-0.6b-v3",
         }
     }
 
@@ -306,7 +322,7 @@ impl Provider {
         match self {
             Self::Deepgram => &[("model", "nova-3-general"), ("mip_opt_out", "false")],
             Self::OpenAI => &[("intent", "transcription")],
-            Self::DashScope | Self::Mistral => &[],
+            Self::DashScope | Self::Mistral | Self::Pyannote => &[],
             _ => &[],
         }
     }
@@ -320,7 +336,8 @@ impl Provider {
             | Self::OpenAI
             | Self::ElevenLabs
             | Self::DashScope
-            | Self::Mistral => false,
+            | Self::Mistral
+            | Self::Pyannote => false,
         }
     }
 
@@ -333,7 +350,7 @@ impl Provider {
             Self::OpenAI => &[],
             Self::Gladia => &[],
             Self::ElevenLabs => &["commit"],
-            Self::DashScope | Self::Mistral => &[],
+            Self::DashScope | Self::Mistral | Self::Pyannote => &[],
         }
     }
 
@@ -352,7 +369,7 @@ impl Provider {
                     "words_accurate_timestamps": true
                 }
             })),
-            Self::Mistral => None,
+            Self::Mistral | Self::Pyannote => None,
             _ => None,
         }
     }
@@ -385,11 +402,12 @@ impl Provider {
             Self::AssemblyAI => from_adapter(&crate::adapter::AssemblyAIAdapter, msg),
             Self::Soniox => from_adapter(&crate::adapter::SonioxAdapter, msg),
             Self::Fireworks => from_adapter(&crate::adapter::FireworksAdapter, msg),
-            Self::OpenAI => from_adapter(&crate::adapter::OpenAIAdapter, msg),
             Self::Gladia => from_adapter(&crate::adapter::GladiaAdapter, msg),
             Self::ElevenLabs => from_adapter(&crate::adapter::ElevenLabsAdapter, msg),
             Self::DashScope => from_adapter(&crate::adapter::DashScopeAdapter, msg),
             Self::Mistral => from_adapter(&crate::adapter::MistralAdapter::default(), msg),
+            Self::OpenAI => None,
+            Self::Pyannote => None,
         }
     }
 
@@ -399,7 +417,12 @@ impl Provider {
             Self::Soniox => soniox::error::detect_error(data),
             Self::ElevenLabs => elevenlabs::error::detect_error(data),
             Self::AssemblyAI => assemblyai::error::detect_error(data),
-            Self::Fireworks | Self::OpenAI | Self::Gladia | Self::DashScope | Self::Mistral => None,
+            Self::Fireworks
+            | Self::OpenAI
+            | Self::Gladia
+            | Self::DashScope
+            | Self::Mistral
+            | Self::Pyannote => None,
         }
     }
 

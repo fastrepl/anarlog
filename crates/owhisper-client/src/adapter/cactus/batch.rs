@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use futures_util::StreamExt;
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch_sse::{BatchSseMessage, EVENT_NAME as BATCH_EVENT};
+use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::progress::InferenceProgress;
 use owhisper_interface::stream::StreamResponse;
 
@@ -32,24 +33,8 @@ impl CactusAdapter {
         let url = build_cactus_batch_url(api_base, params);
 
         let client = reqwest::Client::new();
-        let response = client
-            .post(url)
-            .header("Content-Type", &content_type)
-            .header("Accept", "text/event-stream")
-            .body(audio_data)
-            .send()
-            .await?;
-
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            tracing::error!(
-                http.response.status_code = status.as_u16(),
-                hyprnote.http.response.body = %body,
-                "unexpected_response_status"
-            );
-            return Err(Error::UnexpectedStatus { status, body });
-        }
+        let response =
+            super::retry::post_with_retry(&client, url, &content_type, audio_data).await?;
 
         let byte_stream = response.bytes_stream();
 
@@ -155,7 +140,6 @@ struct SseParserState<S> {
     pending_events: std::collections::VecDeque<Result<StreamingBatchEvent, Error>>,
     audio_duration_secs: f64,
     last_percentage: f64,
-    saw_segment_words: bool,
 }
 
 impl<S> SseParserState<S> {
@@ -166,7 +150,6 @@ impl<S> SseParserState<S> {
             pending_events: std::collections::VecDeque::new(),
             audio_duration_secs,
             last_percentage: 0.0,
-            saw_segment_words: false,
         }
     }
 
@@ -280,29 +263,11 @@ impl<S> SseParserState<S> {
         &mut self,
         progress: InferenceProgress,
     ) -> Option<Result<StreamingBatchEvent, Error>> {
-        self.last_percentage = progress.percentage;
+        self.last_percentage = self.last_percentage.max(progress.percentage);
 
-        let response = StreamResponse::TranscriptResponse {
-            start: 0.0,
-            duration: self.audio_duration_secs * progress.percentage,
-            is_final: false,
-            speech_final: false,
-            from_finalize: false,
-            channel: owhisper_interface::stream::Channel {
-                alternatives: vec![owhisper_interface::stream::Alternatives {
-                    transcript: progress.partial_text.clone().unwrap_or_default(),
-                    languages: vec![],
-                    words: vec![],
-                    confidence: 0.0,
-                }],
-            },
-            metadata: owhisper_interface::stream::Metadata::default(),
-            channel_index: vec![0, 1],
-        };
-
-        Some(Ok(StreamingBatchEvent {
-            response,
+        Some(Ok(BatchStreamEvent::Progress {
             percentage: progress.percentage,
+            partial_text: progress.partial_text,
         }))
     }
 
@@ -310,16 +275,6 @@ impl<S> SseParserState<S> {
         &mut self,
         response: StreamResponse,
     ) -> Option<Result<StreamingBatchEvent, Error>> {
-        if let StreamResponse::TranscriptResponse { channel, .. } = &response {
-            if channel
-                .alternatives
-                .first()
-                .is_some_and(|a| !a.words.is_empty())
-            {
-                self.saw_segment_words = true;
-            }
-        }
-
         let segment_end = match &response {
             StreamResponse::TranscriptResponse {
                 start, duration, ..
@@ -334,84 +289,46 @@ impl<S> SseParserState<S> {
         };
         self.last_percentage = self.last_percentage.max(percentage);
 
-        Some(Ok(StreamingBatchEvent {
-            response,
-            percentage: self.last_percentage,
-        }))
+        let event = match response {
+            StreamResponse::TranscriptResponse { .. } => BatchStreamEvent::Segment {
+                response,
+                percentage: self.last_percentage,
+            },
+            StreamResponse::TerminalResponse {
+                request_id,
+                created,
+                duration,
+                channels,
+            } => BatchStreamEvent::Terminal {
+                request_id,
+                created,
+                duration,
+                channels,
+            },
+            StreamResponse::ErrorResponse {
+                error_code,
+                error_message,
+                provider,
+            } => BatchStreamEvent::Error {
+                error_code,
+                error_message,
+                provider,
+            },
+            other => BatchStreamEvent::Segment {
+                response: other,
+                percentage: self.last_percentage,
+            },
+        };
+
+        Some(Ok(event))
     }
 
     fn handle_result(
         &mut self,
         batch_response: owhisper_interface::batch::Response,
     ) -> Option<Result<StreamingBatchEvent, Error>> {
-        let transcript = batch_response
-            .results
-            .channels
-            .first()
-            .and_then(|c| c.alternatives.first())
-            .map(|a| a.transcript.clone())
-            .unwrap_or_default();
-
-        let confidence = batch_response
-            .results
-            .channels
-            .first()
-            .and_then(|c| c.alternatives.first())
-            .map(|a| a.confidence)
-            .unwrap_or(0.0);
-
-        let duration = batch_response
-            .metadata
-            .get("duration")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(self.audio_duration_secs);
-
-        let words = if self.saw_segment_words {
-            vec![]
-        } else {
-            batch_response
-                .results
-                .channels
-                .first()
-                .and_then(|c| c.alternatives.first())
-                .map(|a| {
-                    a.words
-                        .iter()
-                        .map(|w| owhisper_interface::stream::Word {
-                            word: w.word.clone(),
-                            start: w.start,
-                            end: w.end,
-                            confidence: w.confidence,
-                            speaker: w.speaker.map(|s| s as i32),
-                            punctuated_word: w.punctuated_word.clone(),
-                            language: None,
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default()
-        };
-
-        let response = StreamResponse::TranscriptResponse {
-            start: 0.0,
-            duration,
-            is_final: true,
-            speech_final: true,
-            from_finalize: true,
-            channel: owhisper_interface::stream::Channel {
-                alternatives: vec![owhisper_interface::stream::Alternatives {
-                    transcript,
-                    languages: vec![],
-                    words,
-                    confidence,
-                }],
-            },
-            metadata: owhisper_interface::stream::Metadata::default(),
-            channel_index: vec![0, 1],
-        };
-
-        Some(Ok(StreamingBatchEvent {
-            response,
-            percentage: 1.0,
+        Some(Ok(BatchStreamEvent::Result {
+            response: batch_response,
         }))
     }
 }

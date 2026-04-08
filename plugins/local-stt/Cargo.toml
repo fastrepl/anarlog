@@ -43,7 +43,7 @@ hypr-file = { workspace = true }
 hypr-host = { workspace = true }
 hypr-language = { workspace = true, features = ["whisper"] }
 hypr-local-model = { workspace = true }
-hypr-model-downloader = { workspace = true }
+hypr-model-downloader = { workspace = true, features = ["specta"] }
 hypr-transcribe-whisper-local = { workspace = true, optional = true }
 hypr-whisper-local = { workspace = true, optional = true }
 hypr-whisper-local-model = { workspace = true }

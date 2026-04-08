@@ -132,6 +132,10 @@ pub async fn delete_human(pool: &SqlitePool, id: &str) -> Result<(), sqlx::Error
         .bind(id)
         .execute(&mut *tx)
         .await?;
+    sqlx::query("DELETE FROM task_participants WHERE human_id = ?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
     sqlx::query("DELETE FROM humans WHERE id = ?")
         .bind(id)
         .execute(&mut *tx)

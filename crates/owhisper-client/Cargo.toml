@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 default = []
-argmax = ["hypr-audio-utils"]
+local = ["hypr-audio-utils"]
 
 [dependencies]
 hypr-am = { workspace = true }
@@ -16,6 +16,7 @@ hypr-observability = { workspace = true }
 hypr-ws-client = { workspace = true }
 soniox = { workspace = true }
 
+openai-transcription = { workspace = true }
 owhisper-interface = { workspace = true }
 
 futures-util = { workspace = true }
@@ -25,6 +26,7 @@ reqwest-tracing = { workspace = true }
 tokio = { workspace = true, features = ["fs"] }
 tokio-stream = { workspace = true }
 
+backon = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
 serde = { workspace = true }

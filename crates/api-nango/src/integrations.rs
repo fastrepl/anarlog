@@ -20,10 +20,10 @@ impl NangoIntegrationId for GoogleMail {
     const ID: &'static str = "google-mail";
 }
 
-pub struct OutlookCalendar;
+pub struct Outlook;
 
-impl NangoIntegrationId for OutlookCalendar {
-    const ID: &'static str = "outlook-calendar";
+impl NangoIntegrationId for Outlook {
+    const ID: &'static str = "outlook";
 }
 
 pub struct GitHub;

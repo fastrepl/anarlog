@@ -16,54 +16,6 @@ pub struct Settings {
     pub stt_providers: HashMap<String, ProviderConfig>,
 }
 
-pub async fn load_settings(pool: &SqlitePool) -> Option<Settings> {
-    let all = hypr_db_app::load_all_settings(pool).await.ok()?;
-    let setting_map: HashMap<String, String> = all.into_iter().collect();
-
-    let current_stt_provider = setting_map
-        .get("current_stt_provider")
-        .filter(|v| !v.is_empty())
-        .cloned();
-    let current_stt_model = setting_map
-        .get("current_stt_model")
-        .filter(|v| !v.is_empty())
-        .cloned();
-
-    let stt_connections = hypr_db_app::list_connections(pool, "stt").await.ok()?;
-    let stt_providers = connections_to_provider_map(stt_connections);
-
-    if current_stt_provider.is_none() && stt_providers.is_empty() {
-        return None;
-    }
-
-    Some(Settings {
-        current_stt_provider,
-        current_stt_model,
-        stt_providers,
-    })
-}
-
-fn connections_to_provider_map(
-    connections: Vec<hypr_db_app::ConnectionRow>,
-) -> HashMap<String, ProviderConfig> {
-    connections
-        .into_iter()
-        .map(|c| {
-            let base_url = if c.base_url.is_empty() {
-                None
-            } else {
-                Some(c.base_url)
-            };
-            let api_key = if c.api_key.is_empty() {
-                None
-            } else {
-                Some(c.api_key)
-            };
-            (c.provider_id, ProviderConfig { base_url, api_key })
-        })
-        .collect()
-}
-
 pub async fn migrate_json_settings_to_db(pool: &SqlitePool, base_path: &Path) {
     let has_settings = hypr_db_app::load_all_settings(pool)
         .await

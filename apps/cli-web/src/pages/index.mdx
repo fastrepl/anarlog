@@ -9,40 +9,69 @@ import Byline from "../components/Byline.astro";
 import GithubMention from "../components/GithubMention.astro";
 import CharRepoDir from "../components/CharRepoDir.astro";
 import Install from "../components/Install.astro";
+import Command from "../components/Command.astro";
 import CommandReference from "../components/CommandReference.astro";
+import CommandDescription from "../components/CommandDescription.astro";
 import Faq from "../components/Faq.astro";
 
 <Logo stagger={1} />
 <Title stagger={2}>Composable CLI for your meeting workflow</Title>
 <CyclingTools stagger={3} />
+<Byline stagger={4}>Brought to you by <GithubMention name="@fastrepl/char" /></Byline>
 
-<div class="stagger-4">
+<div class="stagger-5">
 
 ## Installation
 
-<Install command="npx char --help" label="Run this to get started" />
+Available for macOS (`x86` and `arm`).
+
+Want other platforms? PRs welcome at <CharRepoDir name="apps/cli" />.
+
+<Install command="npm i -g char@latest" label="Or `npx char@latest --help`" />
+
+Or install `SKILL`, and let an agent install and set it up for you.
+
+<Command command="npx skills add fastrepl/char@char-cli" label="Or use skills.sh without installing char first" />
 
 ## char record
 
-TODO
+<CommandDescription command="record" />
 
-<Faq question="Why not just record my mic? Shouldn't be hard, no?">
+<Faq question="Why not just use default voice recorder app?">
+It can record microphone (`--audio input`), system audio (`--audio output`), or both with `Echo Cancellation` applied (`--audio dual`).
 </Faq>
 
 ## char transcribe
 
-TODO
+<CommandDescription command="transcribe" />
+
+<Command command="curl -LO https://github.com/fastrepl/char/raw/refs/heads/main/crates/data/src/english_10/audio.mp3 && mv audio.mp3 /tmp/v.mp3" label="Use it for example input" />
+
+<Command command="char transcribe -i /tmp/v.mp3 -p deepgram --api-key DEEPGRAM_API_KEY" label="Key needed. Deepgram/Soniox/AssemblyAI are considered stable. Others are in beta." />
+
+<Command command="char transcribe -i /tmp/v.mp3 -p whispercpp --model whisper-small-en" label="`char models download whisper-small-en` needed" />
 
 <Faq question="Looking for realtime transcription, calendar syncing, etc?">
+We have a desktop app with all of that. Run `char desktop`.
 </Faq>
 
 ## char models
 
-TODO
+<CommandDescription command="models" />
+
+<Command command="char models download whisper-small-en" />
+
+<Command command="char models list" label="try with `--format json` too" />
+
 
 <Faq question="Is it Whisper.cpp?">
+`Whisper.cpp` for all platforms, and additionally `Cactus` for `ARM` (e.g. Apple Silicon).
 </Faq>
 
+## For Agents
+
+- `char skill install` or `npx skills add fastrepl/char@char-cli` to install skill.
+- Use `--format json` instead, if it is not intended for human reading.
 
 ## Reference
 
@@ -50,4 +79,3 @@ TODO
 
 </div>
 
-<Byline stagger={5}>Brought to you by <GithubMention name="@fastrepl/char" />, under <CharRepoDir name="apps/cli" />.</Byline>

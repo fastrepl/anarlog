@@ -1,17 +1,18 @@
 import type { StoreApi } from "zustand";
 
-import type { BatchResponse, StreamResponse } from "@hypr/plugin-listener2";
+import type {
+  BatchErrorCode,
+  BatchResponse,
+  BatchStreamEvent,
+} from "@hypr/plugin-transcription";
 
-import type { HandlePersistCallback } from "./transcript";
+import type { BatchPersistCallback } from "./transcript";
 import { transformWordEntries } from "./utils";
 
-import {
-  ChannelProfile,
-  type RuntimeSpeakerHint,
-  type WordLike,
-} from "~/stt/segment";
+import { type RuntimeSpeakerHint, type WordLike } from "~/stt/segment";
 
 export type BatchPhase = "importing" | "transcribing";
+export type BatchTerminalReason = "failed" | "timed_out" | "stopped";
 
 export type BatchState = {
   batch: Record<
@@ -21,6 +22,8 @@ export type BatchState = {
       isComplete?: boolean;
       error?: string;
       phase?: BatchPhase;
+      terminalReason?: BatchTerminalReason;
+      errorCode?: BatchErrorCode;
     }
   >;
   batchPreview: Record<
@@ -30,7 +33,7 @@ export type BatchState = {
       hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
     }
   >;
-  batchPersist: Record<string, HandlePersistCallback>;
+  batchPersist: Record<string, BatchPersistCallback>;
 };
 
 export type BatchActions = {
@@ -39,13 +42,18 @@ export type BatchActions = {
   handleBatchResponse: (sessionId: string, response: BatchResponse) => void;
   handleBatchResponseStreamed: (
     sessionId: string,
-    response: StreamResponse,
-    percentage: number,
+    event: BatchStreamEvent,
   ) => void;
-  handleBatchFailed: (sessionId: string, error: string) => void;
+  handleBatchFailed: (
+    sessionId: string,
+    error: string,
+    terminalReason?: Exclude<BatchTerminalReason, "stopped">,
+    errorCode?: BatchErrorCode,
+  ) => void;
+  handleBatchStopped: (sessionId: string) => void;
   updateBatchProgress: (sessionId: string, percentage: number) => void;
   clearBatchSession: (sessionId: string) => void;
-  setBatchPersist: (sessionId: string, callback: HandlePersistCallback) => void;
+  setBatchPersist: (sessionId: string, callback: BatchPersistCallback) => void;
   clearBatchPersist: (sessionId: string) => void;
 };
 
@@ -66,6 +74,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage: 0,
           isComplete: false,
           phase: phase ?? "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
       batchPreview: {
@@ -88,6 +99,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage: 1,
           isComplete: true,
           phase: "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
     }));
@@ -118,8 +132,9 @@ export const createBatchSlice = <T extends BatchState>(
     });
   },
 
-  handleBatchResponseStreamed: (sessionId, response, percentage) => {
-    const isComplete = response.type === "Results" && response.from_finalize;
+  handleBatchResponseStreamed: (sessionId, event) => {
+    const percentage = getBatchStreamPercentage(event);
+    const isComplete = event.type === "result" || event.type === "terminal";
 
     set((state) => ({
       ...state,
@@ -129,6 +144,9 @@ export const createBatchSlice = <T extends BatchState>(
           percentage,
           isComplete: isComplete || false,
           phase: "transcribing",
+          terminalReason: undefined,
+          error: undefined,
+          errorCode: undefined,
         },
       },
       batchPreview: {
@@ -138,7 +156,7 @@ export const createBatchSlice = <T extends BatchState>(
             wordsByChannel: {},
             hintsByChannel: {},
           },
-          response,
+          event,
         ),
       },
     }));
@@ -160,7 +178,12 @@ export const createBatchSlice = <T extends BatchState>(
     });
   },
 
-  handleBatchFailed: (sessionId, error) => {
+  handleBatchFailed: (
+    sessionId,
+    error,
+    terminalReason = "failed",
+    errorCode,
+  ) => {
     set((state) => ({
       ...state,
       batch: {
@@ -169,6 +192,31 @@ export const createBatchSlice = <T extends BatchState>(
           ...(state.batch[sessionId] ?? { percentage: 0 }),
           error,
           isComplete: false,
+          terminalReason,
+          errorCode,
+        },
+      },
+      batchPreview: {
+        ...state.batchPreview,
+        [sessionId]: {
+          wordsByChannel: {},
+          hintsByChannel: {},
+        },
+      },
+    }));
+  },
+
+  handleBatchStopped: (sessionId) => {
+    set((state) => ({
+      ...state,
+      batch: {
+        ...state.batch,
+        [sessionId]: {
+          ...(state.batch[sessionId] ?? { percentage: 0 }),
+          error: "Transcription stopped.",
+          isComplete: false,
+          terminalReason: "stopped",
+          errorCode: undefined,
         },
       },
       batchPreview: {
@@ -229,7 +277,7 @@ function transformBatch(
   const allHints: RuntimeSpeakerHint[] = [];
   let wordOffset = 0;
 
-  response.results.channels.forEach((channel) => {
+  response.results.channels.forEach((channel, channelIndex) => {
     const alternative = channel.alternatives[0];
     if (!alternative || !alternative.words || !alternative.words.length) {
       return;
@@ -238,7 +286,7 @@ function transformBatch(
     const [words, hints] = transformWordEntries(
       alternative.words,
       alternative.transcript,
-      ChannelProfile.MixedCapture,
+      channelIndex,
     );
 
     hints.forEach((hint) => {
@@ -259,8 +307,13 @@ function mergeBatchPreview(
     wordsByChannel: Record<number, WordLike[]>;
     hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
   },
-  response: StreamResponse,
+  event: BatchStreamEvent,
 ) {
+  if (event.type !== "segment") {
+    return preview;
+  }
+
+  const response = event.response;
   if (response.type !== "Results") {
     return preview;
   }
@@ -340,4 +393,17 @@ function mergeBatchPreview(
       [channelIndex]: [...hintsBefore, ...adjustedIncomingHints, ...hintsAfter],
     },
   };
+}
+
+function getBatchStreamPercentage(event: BatchStreamEvent): number {
+  switch (event.type) {
+    case "progress":
+    case "segment":
+      return event.percentage;
+    case "result":
+    case "terminal":
+      return 1;
+    case "error":
+      return 0;
+  }
 }

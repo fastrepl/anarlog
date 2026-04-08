@@ -48,7 +48,7 @@ Use for announcements, important notices, or highlights.
 
 Attributes:
 - `title` (optional): Bold heading text at the top of the banner.
-- `variant` (optional): `"warning"` for amber/yellow style. Defaults to blue/info style.
+- `variant` (optional): `"warning"` for amber/yellow style, `"info"` for blue style. Defaults to amber/info style.
 
 ```mdx
 <banner title="Hyprnote is now Char!">

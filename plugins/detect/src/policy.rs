@@ -57,7 +57,11 @@ impl AppCategory {
                 "com.loom.desktop",
                 "com.obsproject.obs-studio",
             ],
-            Self::AIAssistant => &["com.openai.chat", "com.anthropic.claudefordesktop"],
+            Self::AIAssistant => &[
+                "com.openai.chat",
+                "com.openai.codex",
+                "com.anthropic.claudefordesktop",
+            ],
             Self::Other => &[
                 "com.raycast.macos",
                 "com.apple.garageband10",

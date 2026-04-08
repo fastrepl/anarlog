@@ -1,171 +1,189 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import type { RecordingMode, TranscriptionMode } from "@hypr/plugin-listener";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
+import {
+  canRunBatchTranscription,
+  isStoppedTranscriptionError,
+  useRunBatch,
+} from "./useRunBatch";
 import { useSTTConnection } from "./useSTTConnection";
 
+import { getEnhancerService } from "~/services/enhancer";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
-import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
-import {
-  parseTranscriptHints,
-  parseTranscriptWords,
-  updateTranscriptHints,
-  updateTranscriptWords,
-} from "~/stt/utils";
+import type {
+  LiveTranscriptPersistCallback,
+  OnStoppedCallback,
+} from "~/store/zustand/listener/transcript";
+import { applyLiveTranscriptDelta, parseTranscriptWords } from "~/stt/utils";
 
-export function useStartListening(
-  sessionId: string,
-  options?: {
-    transcriptionMode?: TranscriptionMode;
-    recordingMode?: RecordingMode;
+export function getPostCaptureAction(
+  details: {
+    audioPath: string | null;
+    liveTranscriptionActive: boolean;
   },
+  canRunBatch: boolean,
 ) {
+  if (details.liveTranscriptionActive) {
+    return "enhance_only" as const;
+  }
+
+  if (!!details.audioPath && canRunBatch) {
+    return "batch_then_enhance" as const;
+  }
+
+  return "none" as const;
+}
+
+export function useStartListening(sessionId: string) {
   const { user_id } = main.UI.useValues(main.STORE_ID);
   const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
 
-  const record_enabled = useConfigValue("save_recordings");
   const languages = useConfigValue("spoken_languages");
 
   const start = useListener((state) => state.start);
   const { conn } = useSTTConnection();
+  const runBatch = useRunBatch(sessionId);
 
   const keywords = useKeywords(sessionId);
-  const transcriptionMode = options?.transcriptionMode ?? "live";
-  const recordingMode =
-    options?.recordingMode ?? (record_enabled ? "disk" : "memory");
+  const runBatchRef = useRef(runBatch);
+  const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  runBatchRef.current = runBatch;
+  canRunBatchRef.current = canRunBatchTranscription(conn);
 
   const startListening = useCallback(async () => {
-    if (!conn || !store) {
-      console.error("no_stt_connection");
+    if (!store) {
       return;
     }
 
-    const transcriptId = id();
+    let transcriptId: string | null = null;
     const startedAt = Date.now();
     const memoMd = store.getCell("sessions", sessionId, "raw_md");
-    const transcriptRow = {
-      session_id: sessionId,
-      user_id: user_id ?? "",
-      created_at: new Date().toISOString(),
-      started_at: startedAt,
-      words: "[]",
-      speaker_hints: "[]",
-      memo_md: typeof memoMd === "string" ? memoMd : "",
-    } satisfies TranscriptStorage;
+    const createdAt = new Date().toISOString();
 
-    store.setRow("transcripts", transcriptId, transcriptRow);
+    const onStopped: OnStoppedCallback = async (_sessionId, details) => {
+      const words =
+        transcriptId == null ? [] : parseTranscriptWords(store, transcriptId);
 
-    const handlePersist: HandlePersistCallback = (words, hints) => {
-      if (words.length === 0) {
+      const postCaptureAction = getPostCaptureAction(
+        {
+          ...details,
+          audioPath: words.length > 0 ? details.audioPath : null,
+        },
+        canRunBatchRef.current,
+      );
+
+      if (postCaptureAction === "batch_then_enhance") {
+        try {
+          await runBatchRef.current(details.audioPath!);
+        } catch (error) {
+          if (isStoppedTranscriptionError(error)) {
+            return;
+          }
+          console.error(
+            "[listener] failed to run post-capture transcription",
+            error,
+          );
+          return;
+        }
+      }
+
+      if (postCaptureAction === "none") {
         return;
       }
 
+      getEnhancerService()?.queueAutoEnhance(sessionId);
+    };
+
+    const handlePersist: LiveTranscriptPersistCallback = (delta) => {
+      if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
+        return;
+      }
+
+      if (!transcriptId) {
+        transcriptId = id();
+        const transcriptRow = {
+          session_id: sessionId,
+          user_id: user_id ?? "",
+          created_at: createdAt,
+          started_at: startedAt,
+          words: "[]",
+          speaker_hints: "[]",
+          memo_md: typeof memoMd === "string" ? memoMd : "",
+        } satisfies TranscriptStorage;
+
+        store.setRow("transcripts", transcriptId, transcriptRow);
+      }
+
       store.transaction(() => {
-        const existingWords = parseTranscriptWords(store, transcriptId);
-        const existingHints = parseTranscriptHints(store, transcriptId);
-
-        const newWords: WordWithId[] = [];
-        const newWordIds: string[] = [];
-
-        words.forEach((word) => {
-          const wordId = id();
-
-          newWords.push({
-            id: wordId,
-            text: word.text,
-            start_ms: word.start_ms,
-            end_ms: word.end_ms,
-            channel: word.channel,
-          });
-
-          newWordIds.push(wordId);
-        });
-
-        const newHints: SpeakerHintWithId[] = [];
-
-        if (conn.provider === "deepgram") {
-          hints.forEach((hint) => {
-            if (hint.data.type !== "provider_speaker_index") {
-              return;
-            }
-
-            const wordId = newWordIds[hint.wordIndex];
-            const word = words[hint.wordIndex];
-            if (!wordId || !word) {
-              return;
-            }
-
-            newHints.push({
-              id: id(),
-              word_id: wordId,
-              type: "provider_speaker_index",
-              value: JSON.stringify({
-                provider: hint.data.provider ?? conn.provider,
-                channel: hint.data.channel ?? word.channel,
-                speaker_index: hint.data.speaker_index,
-              }),
-            });
-          });
-        }
-
-        updateTranscriptWords(store, transcriptId, [
-          ...existingWords,
-          ...newWords,
-        ]);
-        updateTranscriptHints(store, transcriptId, [
-          ...existingHints,
-          ...newHints,
-        ]);
+        applyLiveTranscriptDelta(store, transcriptId!, delta);
       });
     };
+
+    const participantHumanIds: string[] = [];
+    store.forEachRow(
+      "mapping_session_participant",
+      (mappingId, _forEachCell) => {
+        const sid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "session_id",
+        );
+        if (sid !== sessionId) return;
+        const hid = store.getCell(
+          "mapping_session_participant",
+          mappingId,
+          "human_id",
+        );
+        if (typeof hid === "string" && hid) {
+          participantHumanIds.push(hid);
+        }
+      },
+    );
 
     const started = await start(
       {
         session_id: sessionId,
         languages,
         onboarding: false,
-        transcription_mode: transcriptionMode,
-        recording_mode: recordingMode,
-        model: conn.model,
-        base_url: conn.baseUrl,
-        api_key: conn.apiKey,
+        model: conn?.model ?? "",
+        base_url: conn?.baseUrl ?? "",
+        api_key: conn?.apiKey ?? "",
         keywords,
+        participant_human_ids: participantHumanIds,
+        self_human_id: typeof user_id === "string" ? user_id : null,
       },
       {
         handlePersist,
+        onStopped,
       },
     );
 
     if (!started) {
-      store.delRow("transcripts", transcriptId);
+      if (transcriptId) {
+        store.delRow("transcripts", transcriptId);
+      }
       return;
     }
 
     void analyticsCommands.event({
       event: "session_started",
       has_calendar_event: !!getSessionEventById(store, sessionId),
-      stt_provider: conn.provider,
-      stt_model: conn.model,
+      ...(conn
+        ? {
+            stt_provider: conn.provider,
+            stt_model: conn.model,
+          }
+        : {}),
     });
-  }, [
-    conn,
-    store,
-    sessionId,
-    start,
-    keywords,
-    user_id,
-    languages,
-    recordingMode,
-    transcriptionMode,
-  ]);
+  }, [conn, store, indexes, sessionId, start, keywords, user_id, languages]);
 
   return startListening;
 }

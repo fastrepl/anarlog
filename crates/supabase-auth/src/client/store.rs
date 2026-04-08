@@ -11,10 +11,10 @@ pub struct AuthStore {
 
 impl AuthStore {
     pub fn load(path: PathBuf) -> Self {
-        let data = std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        Self::from_data(path.clone(), load_data(&path))
+    }
+
+    pub fn from_data(path: PathBuf, data: HashMap<String, String>) -> Self {
         Self {
             path,
             data: Mutex::new(data),
@@ -64,6 +64,13 @@ impl AuthStore {
     pub fn snapshot(&self) -> HashMap<String, String> {
         self.data.lock().unwrap().clone()
     }
+}
+
+fn load_data(path: &Path) -> HashMap<String, String> {
+    std::fs::read_to_string(path)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
 }
 
 fn atomic_save(path: &Path, data: &HashMap<String, String>) -> super::Result<()> {

@@ -98,10 +98,10 @@ pub async fn send_message(
         .into_inner();
 
     Ok(Json(MessageResponse {
-        id: msg.id.unwrap_or_default(),
+        id: msg.id.unwrap_or_default().to_string(),
         content: msg.content.clone(),
-        message_type: msg.message_type.clone(),
-        created_at: msg.created_at.clone(),
+        message_type: msg.message_type.map(chatwoot::MessageType::format),
+        created_at: msg.created_at.map(|v| v.to_string()),
     }))
 }
 
@@ -125,10 +125,9 @@ pub async fn get_messages(
 ) -> Result<Json<Vec<MessageResponse>>, SupportError> {
     let inbox_id = &state.config.chatwoot.chatwoot_inbox_identifier;
 
-    // Chatwoot's OpenAPI spec has a typo: "list_all_converation_messages"
     let messages = state
         .chatwoot
-        .list_all_converation_messages(inbox_id, &params.source_id, conversation_id)
+        .list_all_conversation_messages(inbox_id, &params.source_id, conversation_id)
         .await
         .map_err(|e| SupportError::Chatwoot(e.to_string()))?
         .into_inner();
@@ -136,10 +135,10 @@ pub async fn get_messages(
     let responses = messages
         .into_iter()
         .map(|m| MessageResponse {
-            id: m.id.unwrap_or_default(),
+            id: m.id.unwrap_or_default().to_string(),
             content: m.content.clone(),
-            message_type: m.message_type.clone(),
-            created_at: m.created_at.clone(),
+            message_type: m.message_type.map(chatwoot::MessageType::format),
+            created_at: m.created_at.map(|v| v.to_string()),
         })
         .collect();
 

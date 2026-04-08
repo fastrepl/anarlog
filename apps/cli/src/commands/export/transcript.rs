@@ -47,8 +47,8 @@ pub(super) async fn transcript(
                 buf.push_str(&format!("{}\n", i + 1));
                 buf.push_str(&format!(
                     "{} --> {}\n",
-                    srt_timestamp(seg.start_ms),
-                    srt_timestamp(seg.end_ms)
+                    subtitle_timestamp(seg.start_ms, ','),
+                    subtitle_timestamp(seg.end_ms, ',')
                 ));
                 if seg.speaker != "Speaker" {
                     buf.push_str(&format!("{}: {}\n\n", seg.speaker, seg.text));
@@ -63,8 +63,8 @@ pub(super) async fn transcript(
             for seg in &segments {
                 buf.push_str(&format!(
                     "{} --> {}\n",
-                    vtt_timestamp(seg.start_ms),
-                    vtt_timestamp(seg.end_ms)
+                    subtitle_timestamp(seg.start_ms, '.'),
+                    subtitle_timestamp(seg.end_ms, '.')
                 ));
                 if seg.speaker != "Speaker" {
                     buf.push_str(&format!("{}: {}\n\n", seg.speaker, seg.text));
@@ -77,20 +77,11 @@ pub(super) async fn transcript(
     }
 }
 
-fn srt_timestamp(ms: i64) -> String {
+fn subtitle_timestamp(ms: i64, sep: char) -> String {
     let ms = ms.max(0);
     let h = ms / 3_600_000;
     let m = (ms % 3_600_000) / 60_000;
     let s = (ms % 60_000) / 1_000;
     let f = ms % 1_000;
-    format!("{h:02}:{m:02}:{s:02},{f:03}")
-}
-
-fn vtt_timestamp(ms: i64) -> String {
-    let ms = ms.max(0);
-    let h = ms / 3_600_000;
-    let m = (ms % 3_600_000) / 60_000;
-    let s = (ms % 60_000) / 1_000;
-    let f = ms % 1_000;
-    format!("{h:02}:{m:02}:{s:02}.{f:03}")
+    format!("{h:02}:{m:02}:{s:02}{sep}{f:03}")
 }

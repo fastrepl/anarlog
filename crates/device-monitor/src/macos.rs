@@ -262,16 +262,16 @@ fn handle_volume_mute_event<S: EventSender>(sender: &S, addr: &ca::PropAddr) {
                         addr.element,
                     );
                 }
-            } else if addr.scope == ca::PropScope::INPUT {
-                if let Ok(device) = ca::System::default_input_device() {
-                    send_mute_update(
-                        sender,
-                        &device,
-                        ca::PropSelector::DEVICE_MUTE,
-                        ca::PropScope::INPUT,
-                        addr.element,
-                    );
-                }
+            } else if addr.scope == ca::PropScope::INPUT
+                && let Ok(device) = ca::System::default_input_device()
+            {
+                send_mute_update(
+                    sender,
+                    &device,
+                    ca::PropSelector::DEVICE_MUTE,
+                    ca::PropScope::INPUT,
+                    addr.element,
+                );
             }
         }
         _ => {}

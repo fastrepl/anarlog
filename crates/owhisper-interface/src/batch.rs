@@ -12,6 +12,8 @@ common_derives! {
         pub start: f64,
         pub end: f64,
         pub confidence: f64,
+        #[serde(default)]
+        pub channel: i32,
         pub speaker: Option<usize>,
         pub punctuated_word: Option<String>,
     }
@@ -61,6 +63,7 @@ impl From<stream::Word> for Word {
             start: word.start,
             end: word.end,
             confidence: word.confidence,
+            channel: 0,
             speaker: word
                 .speaker
                 .and_then(|speaker| (speaker >= 0).then_some(speaker as usize)),
@@ -101,5 +104,42 @@ impl From<stream::Channel> for Channel {
 impl From<stream::Metadata> for serde_json::Value {
     fn from(metadata: stream::Metadata) -> Self {
         serde_json::to_value(metadata).unwrap_or_else(|_| serde_json::json!({}))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deserialize_batch_word_defaults_missing_channel_to_zero() {
+        let response: Response = serde_json::from_value(serde_json::json!({
+            "metadata": {},
+            "results": {
+                "channels": [
+                    {
+                        "alternatives": [
+                            {
+                                "transcript": "hello",
+                                "confidence": 0.9,
+                                "words": [
+                                    {
+                                        "word": "hello",
+                                        "start": 0.0,
+                                        "end": 1.0,
+                                        "confidence": 0.9
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        }))
+        .unwrap();
+
+        let word = &response.results.channels[0].alternatives[0].words[0];
+        assert_eq!(word.channel, 0);
+        assert_eq!(word.word, "hello");
     }
 }

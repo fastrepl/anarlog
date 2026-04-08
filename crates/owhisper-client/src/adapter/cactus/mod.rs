@@ -1,6 +1,9 @@
-#[cfg(feature = "argmax")]
+#[cfg(feature = "local")]
 mod batch;
 mod live;
+
+#[cfg(feature = "local")]
+mod retry;
 
 #[derive(Clone, Default)]
 pub struct CactusAdapter;
@@ -10,6 +13,6 @@ impl CactusAdapter {
         _languages: &[hypr_language::Language],
         _model: Option<&str>,
     ) -> bool {
-        true
+        false
     }
 }

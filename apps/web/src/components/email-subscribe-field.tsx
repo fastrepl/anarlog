@@ -48,8 +48,8 @@ export function EmailSubscribeField({
         }}
         className={cn([
           isHeroVariant &&
-            "relative flex items-center overflow-hidden rounded-full border-2 border-neutral-200 bg-white transition-all duration-200 focus-within:border-stone-500",
-          !isHeroVariant && "border border-neutral-100 bg-white transition-all",
+            "border-color-subtle focus-within:border-color-active relative flex items-center rounded-full border-2 transition-all duration-200",
+          !isHeroVariant && "border-color-bright border transition-all",
           formClassName,
         ])}
       >
@@ -60,7 +60,7 @@ export function EmailSubscribeField({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Subscribe to updates"
-              className="flex-1 bg-white px-6 py-4 pr-36 text-base outline-hidden placeholder:text-neutral-400"
+              className="placeholder:text-color-muted flex-1 px-6 py-4 pr-36 text-base"
               disabled={mutation.isPending || mutation.isSuccess}
             />
             <button
@@ -77,7 +77,7 @@ export function EmailSubscribeField({
           </>
         ) : (
           <div className="relative flex items-center">
-            <MailIcon className="absolute left-2.5 size-3.5 text-neutral-400" />
+            <MailIcon className="text-color-muted absolute left-2.5 size-3.5" />
             <input
               type="email"
               value={email}
@@ -85,7 +85,7 @@ export function EmailSubscribeField({
               placeholder="Subscribe to updates"
               className={cn([
                 "min-w-0 flex-1 py-1.5 pr-2 pl-8 text-sm",
-                "bg-transparent placeholder:text-neutral-400",
+                "placeholder:text-color-muted bg-transparent",
                 "focus:outline-none",
               ])}
             />
@@ -94,7 +94,7 @@ export function EmailSubscribeField({
               disabled={!email || mutation.isPending}
               className={cn([
                 "shrink-0 px-2 transition-colors focus:outline-none",
-                email ? "text-stone-600" : "text-neutral-300",
+                email ? "text-color" : "text-color-muted",
                 mutation.isPending && "opacity-50",
               ])}
             >

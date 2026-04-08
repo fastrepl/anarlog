@@ -11,6 +11,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use hypr_api_auth::AuthContext;
+use owhisper_client::normalize_listen_params;
 use owhisper_interface::ListenParams;
 
 use hypr_audio_mime::content_type_to_extension;
@@ -71,9 +72,17 @@ pub async fn handler(
         "batch_transcription_request_received"
     );
 
-    match sync::transcribe_with_provider(&selected, listen_params, body, content_type).await {
-        Ok(response) => Json(response).into_response(),
-        Err(e) => {
+    let retry_config = state
+        .router
+        .as_ref()
+        .map(|r| r.retry_config().clone())
+        .unwrap_or_default();
+
+    match sync::transcribe_with_retry(&selected, listen_params, body, content_type, &retry_config)
+        .await
+    {
+        Ok((response, _retries)) => Json(response).into_response(),
+        Err((e, _retries)) => {
             tracing::error!(
                 error = %e,
                 hyprnote.stt.provider.name = ?selected.provider(),
@@ -92,12 +101,12 @@ pub async fn handler(
 }
 
 pub(super) fn build_listen_params(params: &QueryParams) -> ListenParams {
-    ListenParams {
+    normalize_listen_params(ListenParams {
         model: params.get_first("model").map(|s| s.to_string()),
         languages: params.get_languages(),
         keywords: params.parse_keywords(),
         ..Default::default()
-    }
+    })
 }
 
 fn write_to_temp_file(
@@ -114,4 +123,33 @@ fn write_to_temp_file(
     temp_file.flush()?;
 
     Ok(temp_file)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::query_params::QueryValue;
+    use hypr_language::ISO639;
+
+    #[test]
+    fn test_build_listen_params_normalizes_duplicate_base_languages() {
+        let mut params = QueryParams::default();
+        params.insert(
+            "language".to_string(),
+            QueryValue::Multi(vec![
+                "en-US".to_string(),
+                "en-GB".to_string(),
+                "en".to_string(),
+                "ko-KR".to_string(),
+            ]),
+        );
+
+        let listen_params = build_listen_params(&params);
+
+        assert_eq!(listen_params.languages.len(), 2);
+        assert_eq!(listen_params.languages[0].iso639(), ISO639::En);
+        assert_eq!(listen_params.languages[0].region(), None);
+        assert_eq!(listen_params.languages[1].iso639(), ISO639::Ko);
+        assert_eq!(listen_params.languages[1].region(), Some("KR"));
+    }
 }

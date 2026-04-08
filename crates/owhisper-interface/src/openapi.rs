@@ -39,6 +39,7 @@ pub struct StreamListenParams {
     crate::batch::Channel,
     crate::batch::Alternatives,
     crate::batch::Word,
+    crate::batch_stream::BatchStreamEvent,
     crate::stream::StreamResponse,
     crate::stream::Channel,
     crate::stream::Alternatives,

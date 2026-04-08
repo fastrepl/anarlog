@@ -24,6 +24,7 @@
     ],
     "macOS": {
       "files": {
+        "Resources/AppIcon.incs": "resources/nightly/AppIcon.icns",
         "Resources/Assets.car": "resources/nightly/Assets.car"
       },
       "dmg": {

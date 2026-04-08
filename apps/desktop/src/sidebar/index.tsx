@@ -12,8 +12,12 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
 
+import { CalendarNav } from "./calendar";
+import { ContactsNav } from "./contacts";
 import { ProfileSection } from "./profile";
 import { SidebarSearchInput } from "./search";
+import { SettingsNav } from "./settings";
+import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
 import { ToastArea } from "./toast";
 
@@ -21,6 +25,7 @@ import { useShell } from "~/contexts/shell";
 import { SearchResults } from "~/search/components/sidebar";
 import { useSearch } from "~/search/contexts/ui";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
+import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
 const DevtoolView = lazy(() =>
@@ -30,6 +35,7 @@ const DevtoolView = lazy(() =>
 export function LeftSidebar() {
   const { leftsidebar } = useShell();
   const { query } = useSearch();
+  const currentTab = useTabs((state) => state.currentTab);
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
   const isLinux = platform() === "linux";
 
@@ -38,7 +44,18 @@ export function LeftSidebar() {
     queryFn: () => commands.showDevtool(),
   });
 
-  const showSearchResults = query.trim() !== "";
+  const isSettingsMode = currentTab?.type === "settings";
+  const isCalendarMode = currentTab?.type === "calendar";
+  const isContactsMode = currentTab?.type === "contacts";
+  const isTemplatesMode = currentTab?.type === "templates";
+  const showCollapseButton =
+    !isSettingsMode && !isContactsMode && !isCalendarMode && !isTemplatesMode;
+  const showSearchResults =
+    !isSettingsMode &&
+    !isContactsMode &&
+    !isCalendarMode &&
+    !isTemplatesMode &&
+    query.trim() !== "";
 
   return (
     <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden">
@@ -62,25 +79,31 @@ export function LeftSidebar() {
               <AxeIcon size={16} />
             </Button>
           )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={leftsidebar.toggleExpanded}
-              >
-                <PanelLeftCloseIcon size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="flex items-center gap-2">
-              <span>Toggle sidebar</span>
-              <Kbd className="animate-kbd-press">⌘ \</Kbd>
-            </TooltipContent>
-          </Tooltip>
+          {showCollapseButton && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  disabled={leftsidebar.locked}
+                  onClick={leftsidebar.toggleExpanded}
+                >
+                  <PanelLeftCloseIcon size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="flex items-center gap-2">
+                <span>Toggle sidebar</span>
+                <Kbd className="animate-kbd-press">⌘ \</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </header>
 
-      <SidebarSearchInput />
+      {!isSettingsMode &&
+        !isCalendarMode &&
+        !isContactsMode &&
+        !isTemplatesMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -88,6 +111,14 @@ export function LeftSidebar() {
             <Suspense fallback={null}>
               <DevtoolView />
             </Suspense>
+          ) : isSettingsMode ? (
+            <SettingsNav />
+          ) : isCalendarMode ? (
+            <CalendarNav />
+          ) : isContactsMode ? (
+            <ContactsNav />
+          ) : isTemplatesMode ? (
+            <TemplatesNav />
           ) : (
             <>
               <div className={showSearchResults ? "h-full" : "hidden"}>
@@ -98,9 +129,13 @@ export function LeftSidebar() {
               </div>
             </>
           )}
-          {!leftsidebar.showDevtool && (
-            <ToastArea isProfileExpanded={isProfileExpanded} />
-          )}
+          {!leftsidebar.showDevtool &&
+            !isSettingsMode &&
+            !isCalendarMode &&
+            !isContactsMode &&
+            !isTemplatesMode && (
+              <ToastArea isProfileExpanded={isProfileExpanded} />
+            )}
         </div>
         <div className="relative z-30">
           <ProfileSection onExpandChange={setIsProfileExpanded} />

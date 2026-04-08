@@ -1,8 +1,10 @@
 pub mod actors;
 mod events;
+mod live_transcript;
 mod runtime;
 
 pub use events::*;
+pub use live_transcript::*;
 pub use runtime::*;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -20,29 +22,6 @@ pub enum State {
 pub enum TranscriptionMode {
     Live,
     Batch,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub enum RecordingMode {
-    Memory,
-    Disk,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[serde(rename_all = "snake_case")]
-pub enum InMemoryRecordingDisposition {
-    Discard,
-    Persist,
-}
-
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "specta", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct StopSessionParams {
-    pub in_memory_recording: Option<InMemoryRecordingDisposition>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

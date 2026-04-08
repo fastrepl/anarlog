@@ -4,6 +4,7 @@ pub(super) fn build_batch_words(
     transcript: &str,
     total_duration: f64,
     confidence: f64,
+    channel: i32,
 ) -> Vec<batch::Word> {
     let word_strs: Vec<&str> = transcript.split_whitespace().collect();
     if word_strs.is_empty() || total_duration <= 0.0 {
@@ -19,6 +20,7 @@ pub(super) fn build_batch_words(
             start: i as f64 * word_duration,
             end: (i + 1) as f64 * word_duration,
             confidence,
+            channel,
             speaker: None,
             punctuated_word: Some(w.to_string()),
         })
@@ -26,38 +28,36 @@ pub(super) fn build_batch_words(
 }
 
 pub(super) fn build_segment_stream_response(
-    transcript: &str,
-    start: f64,
-    duration: f64,
-    confidence: f64,
+    segment: &crate::service::Segment<'_>,
     metadata: &stream::Metadata,
     channel_index: &[i32],
 ) -> stream::StreamResponse {
-    let word_strs: Vec<&str> = transcript
+    let word_strs: Vec<&str> = segment
+        .text
         .split_whitespace()
         .filter(|w| !w.is_empty())
         .collect();
     let n = word_strs.len();
 
-    let words: Vec<stream::Word> = if n == 0 || duration <= 0.0 {
+    let words: Vec<stream::Word> = if n == 0 || segment.duration <= 0.0 {
         vec![]
     } else {
         word_strs
             .into_iter()
             .enumerate()
             .map(|(i, w)| {
-                let word_start = start + (i as f64 / n as f64) * duration;
+                let word_start = segment.start + (i as f64 / n as f64) * segment.duration;
                 let word_end = if i + 1 == n {
-                    (start + duration - 0.1_f64).max(word_start + 0.05_f64)
+                    (segment.start + segment.duration - 0.1_f64).max(word_start + 0.05_f64)
                 } else {
-                    start + ((i + 1) as f64 / n as f64) * duration
+                    segment.start + ((i + 1) as f64 / n as f64) * segment.duration
                 };
 
                 stream::Word {
                     word: w.to_string(),
                     start: word_start,
                     end: word_end,
-                    confidence,
+                    confidence: segment.confidence,
                     speaker: None,
                     punctuated_word: None,
                     language: None,
@@ -67,17 +67,17 @@ pub(super) fn build_segment_stream_response(
     };
 
     stream::StreamResponse::TranscriptResponse {
-        start,
-        duration,
+        start: segment.start,
+        duration: segment.duration,
         is_final: true,
         speech_final: true,
         from_finalize: false,
         channel: stream::Channel {
             alternatives: vec![stream::Alternatives {
-                transcript: transcript.to_string(),
+                transcript: segment.text.to_string(),
                 languages: vec![],
                 words,
-                confidence,
+                confidence: segment.confidence,
             }],
         },
         metadata: metadata.clone(),
@@ -95,7 +95,7 @@ mod tests {
 
     #[test]
     fn batch_words_evenly_distributed() {
-        let words = build_batch_words("hello beautiful world", 3.0, 0.9);
+        let words = build_batch_words("hello beautiful world", 3.0, 0.9, 0);
         assert_eq!(words.len(), 3);
 
         assert_eq!(words[0].word, "hello");
@@ -119,19 +119,19 @@ mod tests {
 
     #[test]
     fn batch_words_empty_transcript() {
-        let words = build_batch_words("", 5.0, 0.9);
+        let words = build_batch_words("", 5.0, 0.9, 0);
         assert!(words.is_empty());
     }
 
     #[test]
     fn batch_words_zero_duration() {
-        let words = build_batch_words("hello world", 0.0, 0.9);
+        let words = build_batch_words("hello world", 0.0, 0.9, 0);
         assert!(words.is_empty());
     }
 
     #[test]
     fn batch_response_deepgram_shape() {
-        let words = build_batch_words("hello world", 2.0, 0.95);
+        let words = build_batch_words("hello world", 2.0, 0.95, 0);
         let meta = Metadata {
             model_info: ModelInfo {
                 name: "test".to_string(),
@@ -207,14 +207,14 @@ mod tests {
                         alternatives: vec![batch::Alternatives {
                             transcript: "left".to_string(),
                             confidence: 0.9,
-                            words: build_batch_words("left", 1.0, 0.9),
+                            words: build_batch_words("left", 1.0, 0.9, 0),
                         }],
                     },
                     batch::Channel {
                         alternatives: vec![batch::Alternatives {
                             transcript: "right".to_string(),
                             confidence: 0.8,
-                            words: build_batch_words("right", 1.0, 0.8),
+                            words: build_batch_words("right", 1.0, 0.8, 1),
                         }],
                     },
                 ],
@@ -246,7 +246,13 @@ mod tests {
             ..Default::default()
         };
 
-        let resp = build_segment_stream_response("hello world", 10.0, 1.0, 0.9, &meta, &[0, 1]);
+        let seg = crate::service::Segment {
+            text: "hello world",
+            start: 10.0,
+            duration: 1.0,
+            confidence: 0.9,
+        };
+        let resp = build_segment_stream_response(&seg, &meta, &[0, 1]);
 
         let stream::StreamResponse::TranscriptResponse {
             channel,

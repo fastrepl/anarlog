@@ -1,73 +1,56 @@
+import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import type { SpeakerHintStorage, Word } from "@hypr/store";
-import type { RuntimeSpeakerHint } from "@hypr/transcript";
-
 import * as main from "~/store/tinybase/store/main";
-import { convertStorageHintsToRuntime } from "~/stt/speaker-hints";
+import type { Segment } from "~/stt/live-segment";
+import {
+  buildRenderTranscriptRequestFromStore,
+  renderTranscriptSegments,
+} from "~/stt/render-transcript";
 
-export function useTranscriptData(transcriptId: string): {
-  words: (Word & { id: string })[];
-  speakerHints: RuntimeSpeakerHint[];
-} {
-  const wordsJson = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "words",
+export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
+  const store = main.UI.useStore(main.STORE_ID);
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const participantMappingsTable = main.UI.useTable(
+    "mapping_session_participant",
     main.STORE_ID,
-  ) as string | undefined;
+  );
+  const humansTable = main.UI.useTable("humans", main.STORE_ID);
+  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
 
-  const speakerHintsJson = main.UI.useCell(
-    "transcripts",
+  const request = useMemo(() => {
+    if (!store) {
+      return null;
+    }
+
+    return buildRenderTranscriptRequestFromStore(store, [transcriptId]);
+  }, [
+    store,
     transcriptId,
-    "speaker_hints",
-    main.STORE_ID,
-  ) as string | undefined;
+    transcriptsTable,
+    participantMappingsTable,
+    humansTable,
+    selfHumanId,
+  ]);
 
-  return useMemo(() => {
-    if (!wordsJson) {
-      return { words: [], speakerHints: [] };
-    }
+  const { data = [] } = useQuery({
+    queryKey: ["rendered-transcript-segments", transcriptId, request],
+    queryFn: async () => {
+      if (!request) {
+        return [];
+      }
 
-    let words: (Word & { id: string })[];
-    try {
-      words = JSON.parse(wordsJson) as (Word & { id: string })[];
-    } catch {
-      return { words: [], speakerHints: [] };
-    }
+      return renderTranscriptSegments(request);
+    },
+    enabled: !!request,
+  });
 
-    if (!speakerHintsJson) {
-      return { words, speakerHints: [] };
-    }
-
-    let storageHints: Array<SpeakerHintStorage & { id: string }>;
-    try {
-      storageHints = JSON.parse(speakerHintsJson);
-    } catch {
-      return { words, speakerHints: [] };
-    }
-
-    const wordIdToIndex = new Map<string, number>();
-    words.forEach((word, index) => {
-      wordIdToIndex.set(word.id, index);
-    });
-
-    const speakerHints = convertStorageHintsToRuntime(
-      storageHints,
-      wordIdToIndex,
-    );
-    return { words, speakerHints };
-  }, [wordsJson, speakerHintsJson]);
+  return data;
 }
 
 export function useTranscriptOffset(transcriptId: string): number {
-  const transcriptStartedAt = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "started_at",
-    main.STORE_ID,
-  );
-
+  const store = main.UI.useStore(main.STORE_ID);
+  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
   const sessionId = main.UI.useCell(
     "transcripts",
     transcriptId,
@@ -81,30 +64,34 @@ export function useTranscriptOffset(transcriptId: string): number {
     main.STORE_ID,
   );
 
-  const firstTranscriptId = transcriptIds?.[0];
-  const firstTranscriptStartedAt = main.UI.useCell(
-    "transcripts",
-    firstTranscriptId ?? "",
-    "started_at",
-    main.STORE_ID,
-  );
+  return useMemo(() => {
+    if (!store) {
+      return 0;
+    }
 
-  return transcriptStartedAt && firstTranscriptStartedAt
-    ? new Date(transcriptStartedAt).getTime() -
-        new Date(firstTranscriptStartedAt).getTime()
-    : 0;
-}
+    const transcriptStartedAt = store.getCell(
+      "transcripts",
+      transcriptId,
+      "started_at",
+    );
+    if (typeof transcriptStartedAt !== "number") {
+      return 0;
+    }
 
-export function useSessionSpeakerCount(sessionId?: string) {
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId ?? "",
-    main.STORE_ID,
-  ) as string[];
+    let earliestStartedAt = Number.POSITIVE_INFINITY;
+    for (const currentTranscriptId of transcriptIds ?? []) {
+      const startedAt = store.getCell(
+        "transcripts",
+        currentTranscriptId,
+        "started_at",
+      );
+      if (typeof startedAt === "number" && startedAt < earliestStartedAt) {
+        earliestStartedAt = startedAt;
+      }
+    }
 
-  if (!sessionId) {
-    return undefined;
-  }
-
-  return mappingIds.length;
+    return Number.isFinite(earliestStartedAt)
+      ? transcriptStartedAt - earliestStartedAt
+      : 0;
+  }, [store, transcriptId, transcriptIds, transcriptsTable]);
 }

@@ -10,22 +10,28 @@ pub enum BatchFailure {
     AudioMetadataJoinFailed,
     #[error("{message}")]
     AudioMetadataReadFailed { message: String },
+    #[error("{provider} does not support batch transcription")]
+    BatchCapabilityUnsupported { provider: String },
+    #[error("{provider} requires progressive batch mode")]
+    DirectBatchUnsupported { provider: String },
+    #[error("{provider} does not support progressive batch mode")]
+    ProgressiveBatchUnsupported { provider: String },
     #[error("{message}")]
-    ProviderRequestFailed { message: String },
+    DirectRequestFailed { provider: String, message: String },
     #[error("{message}")]
-    ActorSpawnFailed { message: String },
-    #[error("Batch stream start cancelled unexpectedly.")]
-    StreamStartCancelled,
-    #[error("Batch stream stopped without reporting completion.")]
-    StreamStoppedWithoutCompletionSignal,
-    #[error("Batch stream finished without reporting status.")]
-    StreamFinishedWithoutStatus,
+    ProgressiveActorSpawnFailed { provider: String, message: String },
+    #[error("Progressive batch stream start cancelled unexpectedly.")]
+    ProgressiveStartCancelled,
+    #[error("Progressive batch stream stopped without reporting completion.")]
+    ProgressiveStoppedWithoutCompletionSignal,
+    #[error("Progressive batch stream finished without reporting status.")]
+    ProgressiveFinishedWithoutStatus,
     #[error("{message}")]
-    StreamStartFailed { message: String },
+    ProgressiveStartFailed { provider: String, message: String },
     #[error("{message}")]
-    StreamError { message: String },
-    #[error("Timed out waiting for batch stream response.")]
-    StreamTimeout,
+    ProgressiveStreamError { provider: String, message: String },
+    #[error("Timed out waiting for progressive batch stream response.")]
+    ProgressiveStreamTimeout,
 }
 
 impl BatchFailure {
@@ -33,16 +39,21 @@ impl BatchFailure {
         match self {
             Self::AudioMetadataJoinFailed => BatchErrorCode::AudioMetadataJoinFailed,
             Self::AudioMetadataReadFailed { .. } => BatchErrorCode::AudioMetadataReadFailed,
-            Self::ProviderRequestFailed { .. } => BatchErrorCode::ProviderRequestFailed,
-            Self::ActorSpawnFailed { .. } => BatchErrorCode::ActorSpawnFailed,
-            Self::StreamStartCancelled => BatchErrorCode::StreamStartCancelled,
-            Self::StreamStoppedWithoutCompletionSignal => {
-                BatchErrorCode::StreamStoppedWithoutCompletionSignal
+            Self::BatchCapabilityUnsupported { .. } => BatchErrorCode::BatchCapabilityUnsupported,
+            Self::DirectBatchUnsupported { .. } => BatchErrorCode::DirectBatchUnsupported,
+            Self::ProgressiveBatchUnsupported { .. } => BatchErrorCode::ProgressiveBatchUnsupported,
+            Self::DirectRequestFailed { .. } => BatchErrorCode::DirectRequestFailed,
+            Self::ProgressiveActorSpawnFailed { .. } => BatchErrorCode::ProgressiveActorSpawnFailed,
+            Self::ProgressiveStartCancelled => BatchErrorCode::ProgressiveStartCancelled,
+            Self::ProgressiveStoppedWithoutCompletionSignal => {
+                BatchErrorCode::ProgressiveStoppedWithoutCompletionSignal
             }
-            Self::StreamFinishedWithoutStatus => BatchErrorCode::StreamFinishedWithoutStatus,
-            Self::StreamStartFailed { .. } => BatchErrorCode::StreamStartFailed,
-            Self::StreamError { .. } => BatchErrorCode::StreamError,
-            Self::StreamTimeout => BatchErrorCode::StreamTimeout,
+            Self::ProgressiveFinishedWithoutStatus => {
+                BatchErrorCode::ProgressiveFinishedWithoutStatus
+            }
+            Self::ProgressiveStartFailed { .. } => BatchErrorCode::ProgressiveStartFailed,
+            Self::ProgressiveStreamError { .. } => BatchErrorCode::ProgressiveStreamError,
+            Self::ProgressiveStreamTimeout => BatchErrorCode::ProgressiveStreamTimeout,
         }
     }
 }

@@ -246,9 +246,27 @@ export function SearchTrigger({
   variant = "default",
 }: {
   className?: string;
-  variant?: "default" | "sidebar" | "mobile" | "header";
+  variant?: "default" | "sidebar" | "sidebar-nav" | "mobile" | "header";
 }) {
   const { setOpen } = useSearchPalette();
+
+  if (variant === "sidebar-nav") {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={cn(
+          [
+            "text-fg flex w-full cursor-pointer flex-wrap items-start gap-x-1.5 py-1 text-base transition-colors hover:underline",
+          ],
+          className,
+        )}
+      >
+        <span>Search</span>
+        <span className="text-md text-fg opacity-50">⌘K</span>
+      </button>
+    );
+  }
 
   if (variant === "sidebar") {
     return (

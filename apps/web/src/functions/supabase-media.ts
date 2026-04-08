@@ -4,11 +4,23 @@ import { createClient } from "@supabase/supabase-js";
 import { env, requireEnv } from "@/env";
 import { listCatalogMediaItems } from "@/functions/media-catalog";
 import {
+  getMediaProxyUrl,
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
   parseMediaFilename,
 } from "@/lib/media";
 import type { MediaItem } from "@/lib/media-library";
+
+const MEDIA_LIST_CACHE_TTL_MS = 30_000;
+
+type MediaListResult = { items: MediaItem[]; error?: string };
+
+const mediaListCache = new Map<
+  string,
+  { expiresAt: number; result: MediaListResult }
+>();
+const mediaListInFlight = new Map<string, Promise<MediaListResult>>();
+let mediaListCacheVersion = 0;
 
 function getSupabaseClient() {
   const key =
@@ -17,14 +29,43 @@ function getSupabaseClient() {
   return createClient(requireEnv(env.SUPABASE_URL, "SUPABASE_URL"), key);
 }
 
-function getPublicUrl(path: string): string {
-  const supabase = getSupabaseClient();
+function getPublicUrl(supabase: SupabaseClient, path: string): string {
   const { data } = supabase.storage.from(MEDIA_BUCKET_NAME).getPublicUrl(path);
   return data.publicUrl;
 }
 
 function normalizePath(path: string): string {
   return path.split("/").filter(Boolean).join("/");
+}
+
+function arePathsRelated(a: string, b: string): boolean {
+  if (a === "" || b === "") return true;
+  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+}
+
+export function invalidateMediaListCache(paths: string[]) {
+  if (paths.length === 0) return;
+
+  const targets = [...new Set(paths.map((path) => normalizePath(path)))];
+  mediaListCacheVersion += 1;
+
+  if (targets.includes("")) {
+    mediaListCache.clear();
+    mediaListInFlight.clear();
+    return;
+  }
+
+  for (const key of [...mediaListCache.keys()]) {
+    if (targets.some((target) => arePathsRelated(key, target))) {
+      mediaListCache.delete(key);
+    }
+  }
+
+  for (const key of [...mediaListInFlight.keys()]) {
+    if (targets.some((target) => arePathsRelated(key, target))) {
+      mediaListInFlight.delete(key);
+    }
+  }
 }
 
 async function resolveUploadPath(
@@ -115,9 +156,7 @@ async function resolveUploadPath(
   };
 }
 
-export async function listMediaFiles(
-  path: string = "",
-): Promise<{ items: MediaItem[]; error?: string }> {
+async function loadMediaFiles(path: string): Promise<MediaListResult> {
   const supabase = getSupabaseClient();
 
   try {
@@ -148,7 +187,8 @@ export async function listMediaFiles(
         return {
           name: item.name,
           path: fullPath,
-          publicUrl: isFolder ? "" : getPublicUrl(fullPath),
+          publicUrl: isFolder ? "" : getPublicUrl(supabase, fullPath),
+          proxyUrl: isFolder ? "" : getMediaProxyUrl(fullPath),
           id: item.id || "",
           size: item.metadata?.size || 0,
           type: isFolder ? "dir" : "file",
@@ -185,6 +225,46 @@ export async function listMediaFiles(
   }
 }
 
+export async function listMediaFiles(
+  path: string = "",
+): Promise<MediaListResult> {
+  const normalizedPath = normalizePath(path);
+  const now = Date.now();
+  const cached = mediaListCache.get(normalizedPath);
+
+  if (cached && cached.expiresAt > now) {
+    return cached.result;
+  }
+
+  if (cached) {
+    mediaListCache.delete(normalizedPath);
+  }
+
+  const existingPromise = mediaListInFlight.get(normalizedPath);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const cacheVersion = mediaListCacheVersion;
+  const promise = loadMediaFiles(normalizedPath)
+    .then((result) => {
+      if (!result.error && cacheVersion === mediaListCacheVersion) {
+        mediaListCache.set(normalizedPath, {
+          expiresAt: Date.now() + MEDIA_LIST_CACHE_TTL_MS,
+          result,
+        });
+      }
+
+      return result;
+    })
+    .finally(() => {
+      mediaListInFlight.delete(normalizedPath);
+    });
+
+  mediaListInFlight.set(normalizedPath, promise);
+  return promise;
+}
+
 export async function uploadMediaFile(
   supabase: SupabaseClient,
   filename: string,
@@ -194,6 +274,7 @@ export async function uploadMediaFile(
   success: boolean;
   path?: string;
   publicUrl?: string;
+  proxyUrl?: string;
   error?: string;
 }> {
   const resolvedPath = await resolveUploadPath(supabase, { filename, folder });
@@ -225,6 +306,7 @@ export async function uploadMediaFile(
       success: true,
       path: resolvedPath.path,
       publicUrl: data.publicUrl,
+      proxyUrl: getMediaProxyUrl(resolvedPath.path),
     };
   } catch (error) {
     return {
@@ -246,6 +328,7 @@ export async function createSignedMediaUpload(
   success: boolean;
   path?: string;
   publicUrl?: string;
+  proxyUrl?: string;
   token?: string;
   signedUrl?: string;
   error?: string;
@@ -274,7 +357,8 @@ export async function createSignedMediaUpload(
   return {
     success: true,
     path: resolvedPath.path,
-    publicUrl: getPublicUrl(resolvedPath.path),
+    publicUrl: getPublicUrl(supabase, resolvedPath.path),
+    proxyUrl: getMediaProxyUrl(resolvedPath.path),
     token: data.token,
     signedUrl: data.signedUrl,
   };

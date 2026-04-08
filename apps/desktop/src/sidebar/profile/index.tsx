@@ -5,9 +5,7 @@ import {
   ChevronUpIcon,
   CircleHelp,
   FolderOpenIcon,
-  SearchIcon,
   SettingsIcon,
-  SparklesIcon,
   UsersIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -22,6 +20,7 @@ import { NotificationsMenuContent } from "./notification";
 import { MenuItem } from "./shared";
 
 import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
@@ -40,6 +39,7 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   const openNew = useTabs((state) => state.openNew);
   const transitionChatMode = useTabs((state) => state.transitionChatMode);
   const auth = useAuth();
+  const { isPro } = useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
 
@@ -121,11 +121,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     setCurrentView("main");
   }, []);
 
-  const handleClickAI = useCallback(() => {
-    openNew({ type: "ai" });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
   const handleClickHelp = useCallback(() => {
     const state = {
       groupId: null,
@@ -141,11 +136,6 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
     closeMenu();
   }, [openNew, transitionChatMode, closeMenu]);
 
-  const handleClickAdvancedSearch = useCallback(() => {
-    openNew({ type: "search" });
-    closeMenu();
-  }, [openNew, closeMenu]);
-
   // const handleClickData = useCallback(() => {
   //   openNew({ type: "data" });
   //   closeMenu();
@@ -158,12 +148,16 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   ]);
 
   const menuItems = [
-    {
-      icon: FolderOpenIcon,
-      label: "Folders",
-      onClick: handleClickFolders,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ L</Kbd>,
-    },
+    ...(isPro
+      ? [
+          {
+            icon: FolderOpenIcon,
+            label: "Folders",
+            onClick: handleClickFolders,
+            badge: <Kbd className={kbdClass}>⌘ ⇧ L</Kbd>,
+          },
+        ]
+      : []),
     {
       icon: UsersIcon,
       label: "Contacts",
@@ -177,20 +171,8 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
       badge: <Kbd className={kbdClass}>⌘ ⇧ C</Kbd>,
     },
     {
-      icon: SearchIcon,
-      label: "Advanced Search",
-      onClick: handleClickAdvancedSearch,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ F</Kbd>,
-    },
-    {
-      icon: SparklesIcon,
-      label: "AI Settings",
-      onClick: handleClickAI,
-      badge: <Kbd className={kbdClass}>⌘ ⇧ ,</Kbd>,
-    },
-    {
       icon: SettingsIcon,
-      label: "App Settings",
+      label: "Settings",
       onClick: handleClickSettings,
       badge: <Kbd className={kbdClass}>⌘ ,</Kbd>,
     },
@@ -234,7 +216,7 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
                       {menuItems.map((item, index) => (
                         <div key={item.label}>
                           <MenuItem {...item} />
-                          {(index === 3 || index === 5) && (
+                          {(index === 2 || index === 4) && (
                             <div className="my-1 border-t border-neutral-100" />
                           )}
                         </div>

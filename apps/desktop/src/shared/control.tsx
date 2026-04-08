@@ -227,7 +227,7 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
               </div>
 
               <div className="pt-2">
-                <Button size="sm" onClick={() => navigate({ to: "/app/main" })}>
+                <Button size="sm" onClick={() => navigate({ to: "/app" })}>
                   <Home className="mr-1.5 h-3.5 w-3.5" />
                   Go to Home
                 </Button>

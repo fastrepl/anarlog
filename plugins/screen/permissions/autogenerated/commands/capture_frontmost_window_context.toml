@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-frontmost-window-context"
+description = "Enables the capture_frontmost_window_context command without any pre-configured scope."
+commands.allow = ["capture_frontmost_window_context"]
+
+[[permission]]
+identifier = "deny-capture-frontmost-window-context"
+description = "Denies the capture_frontmost_window_context command without any pre-configured scope."
+commands.deny = ["capture_frontmost_window_context"]

@@ -39,7 +39,7 @@ const deploymentFeatures = [
     text: "Air-gap compatible, works without internet connectivity in isolated networks",
   },
   {
-    text: "Desktop apps (macOS now, Windows/Linux coming), web interface, mobile, or bot integration",
+    text: "Desktop apps (macOS now, Windows/Linux in Q2 2026), web interface, mobile, or bot integration",
   },
   {
     text: "Bring your own models, swap STT and LLM providers anytime (local or cloud)",
@@ -51,10 +51,10 @@ const deploymentFeatures = [
 
 const securityFeatures = [
   {
-    text: "Encryption at rest (AES-256) with end-to-end encryption in development",
+    text: "Self-hosted deployments, private networking, and traffic paths your team can inspect",
   },
   {
-    text: "Zero-knowledge architecture. We can't access your unencrypted data",
+    text: "Encrypted transport for network requests and explicit control over which providers are involved",
   },
   {
     text: "SSO integration (SAML, OAuth) with multi-factor authentication",
@@ -125,7 +125,7 @@ const faqs = [
   {
     question: "How secure is the platform?",
     answer:
-      "We deeply prioritize security. We're working on end-to-end encryption, seamless SSO and MFA integration, and are actively pursuing SOC 2 Type II certification. All enterprise deployments meet industry-standard security requirements.",
+      "We focus on controls you can verify today: self-hosting options, auditable network paths, provider choice, and SSO or MFA support. Additional encryption work is on the roadmap, but we avoid presenting roadmap items as already shipped controls.",
   },
   {
     question: "How do you manage access control?",
@@ -141,11 +141,8 @@ const faqs = [
 
 function Component() {
   return (
-    <div
-      className="min-h-screen overflow-x-hidden bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen overflow-x-hidden">
+      <div className="mx-auto">
         <HeroSection />
         <FeaturesSection />
         <VerifiableSection />
@@ -160,12 +157,12 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-8 max-w-4xl text-center">
+        <header className="mx-auto mb-8 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-600">
             <Icon icon="mdi:office-building" className="text-lg" />
             <span>For Enterprise</span>
           </div>
-          <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="mb-6 font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
             Meeting AI Configured
             <br />
             For Your Organization
@@ -293,8 +290,8 @@ function FeatureBlock({
 function VerifiableSection() {
   return (
     <section className="border-t border-neutral-100 bg-stone-50/50 px-6 py-16">
-      <div className="mx-auto max-w-3xl text-center">
-        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+      <div className="mx-auto max-w-3xl text-left">
+        <h2 className="mb-4 font-mono text-3xl text-stone-700">
           Vendor Promises vs. Verifiable Architecture
         </h2>
         <p className="mb-8 text-xl text-neutral-600">What Do You Choose?</p>
@@ -318,7 +315,7 @@ function FAQSection() {
   return (
     <section className="border-t border-neutral-100 px-6 py-16">
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-8 text-center font-serif text-3xl text-stone-700">
+        <h2 className="mb-8 text-left font-mono text-3xl text-stone-700">
           Frequently Asked Questions
         </h2>
         <div className="flex flex-col gap-6">
@@ -345,8 +342,8 @@ function FAQSection() {
 function CTASection() {
   return (
     <section className="border-t border-neutral-100 bg-amber-50/50 px-6 py-16">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+      <div className="mx-auto max-w-2xl text-left">
+        <h2 className="mb-4 font-mono text-3xl text-stone-700">
           Deploy meeting AI on your terms
         </h2>
         <p className="mb-8 text-neutral-600">

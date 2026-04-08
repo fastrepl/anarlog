@@ -21,10 +21,19 @@ fn main() {
         });
 
         let notification = Notification::builder()
-            .key("test_options")
-            .title("Meeting in progress?")
-            .message("Noticed microphone usage. Start listening?")
+            .key("mic-started:us.zoom.xos")
+            .title("Are you in a meeting?")
+            .message("")
             .timeout(timeout)
+            .source(NotificationSource::MicDetected {
+                app_names: vec!["Zoom".to_string()],
+                app_ids: vec!["us.zoom.xos".to_string()],
+                event_ids: vec![
+                    "team-standup".to_string(),
+                    "alice-1-1".to_string(),
+                    "sprint-planning".to_string(),
+                ],
+            })
             .options(vec![
                 "Team Standup".to_string(),
                 "1:1 with Alice".to_string(),

@@ -41,15 +41,11 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
-import {
-  ScrollFadeOverlay,
-  useScrollFade,
-} from "@hypr/ui/components/ui/scroll-fade";
 import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import {
-  fetchMediaItems,
+  getMediaItemsQueryOptions,
   type MediaItem,
   useMediaApi,
 } from "@/hooks/use-media-api";
@@ -72,6 +68,16 @@ interface Tab {
   active: boolean;
   isHome?: boolean;
 }
+
+const HOME_TAB: Tab = {
+  id: "home",
+  type: "folder",
+  name: "Home",
+  path: "",
+  pinned: true,
+  active: true,
+  isHome: true,
+};
 
 export const Route = createFileRoute("/admin/media/")({
   component: MediaLibrary,
@@ -143,10 +149,16 @@ function getAdminMediaDownloadUrl(path: string): string {
   return `/api/admin/media/download?path=${encodeURIComponent(path)}`;
 }
 
+function getFolderPathForTab(tab: Tab | undefined): string {
+  if (!tab) return "";
+  if (tab.type === "folder") return tab.path;
+  return tab.path.split("/").slice(0, -1).join("/");
+}
+
 function MediaLibrary() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
-  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [tabs, setTabs] = useState<Tab[]>(() => [HOME_TAB]);
   const [treeNodes, setTreeNodes] = useState<TreeNode[]>([]);
   const [rootLoaded, setRootLoaded] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -171,15 +183,25 @@ function MediaLibrary() {
     setIsMounted(true);
   }, []);
 
+  const currentTab = tabs.find((t) => t.active);
+  const currentFolderPath = getFolderPathForTab(currentTab);
+
   const rootQuery = useQuery({
-    queryKey: ["mediaItems", ""],
-    queryFn: () => fetchMediaItems(""),
-    enabled: isMounted,
+    ...getMediaItemsQueryOptions(""),
+    enabled: isMounted && currentFolderPath !== "" && !rootLoaded,
   });
 
+  const currentPathQuery = useQuery({
+    ...getMediaItemsQueryOptions(currentFolderPath),
+    enabled: isMounted && currentTab !== undefined,
+  });
+
+  const rootItems =
+    currentFolderPath === "" ? currentPathQuery.data : rootQuery.data;
+
   useEffect(() => {
-    if (rootQuery.data && !rootLoaded) {
-      const children: TreeNode[] = rootQuery.data.map((item) => ({
+    if (rootItems && !rootLoaded) {
+      const children: TreeNode[] = rootItems.map((item) => ({
         path: getRelativePath(item.path),
         name: item.name,
         type: item.type,
@@ -189,44 +211,18 @@ function MediaLibrary() {
       }));
       setTreeNodes(children);
       setRootLoaded(true);
-
-      // Add permanent Home tab
-      setTabs([
-        {
-          id: "home",
-          type: "folder",
-          name: "Home",
-          path: "",
-          pinned: true,
-          active: true,
-          isHome: true,
-        },
-      ]);
     }
-  }, [rootQuery.data, rootLoaded]);
+  }, [rootItems, rootLoaded]);
 
-  const currentTab = tabs.find((t) => t.active);
-
-  const currentPathQuery = useQuery({
-    queryKey: ["mediaItems", currentTab?.path || "", currentTab?.type],
-    queryFn: async () => {
-      if (currentTab?.type === "file") {
-        const parentPath = currentTab.path.split("/").slice(0, -1).join("/");
-        const items = await fetchMediaItems(parentPath);
-        return items.filter((i) => i.path === currentTab.path);
-      }
-      return fetchMediaItems(currentTab?.path || "");
-    },
-    enabled: isMounted && currentTab !== undefined,
-  });
+  const currentItems = currentPathQuery.data || [];
+  const isCurrentPathLoading = !isMounted || currentPathQuery.isLoading;
 
   const loadFolderContents = async (path: string) => {
     setLoadingPaths((prev) => new Set(prev).add(path));
     try {
-      const items = await queryClient.fetchQuery({
-        queryKey: ["mediaItems", path],
-        queryFn: () => fetchMediaItems(path),
-      });
+      const items = await queryClient.fetchQuery(
+        getMediaItemsQueryOptions(path),
+      );
       const children: TreeNode[] = items.map((item) => ({
         path: getRelativePath(item.path),
         name: item.name,
@@ -451,7 +447,7 @@ function MediaLibrary() {
     moveMutation,
     renameMutation,
   } = useMediaApi({
-    currentFolderPath: currentTab?.type === "folder" ? currentTab.path : "",
+    currentFolderPath,
     onFolderCreated: (parentFolder) => {
       loadFolderContents(parentFolder);
       if (parentFolder === "") {
@@ -556,7 +552,6 @@ function MediaLibrary() {
   };
 
   const handleDownloadSelected = async () => {
-    const currentItems = currentPathQuery.data || [];
     for (const path of selectedItems) {
       const item = currentItems.find((i) => i.path === path);
       if (item && item.type === "file") {
@@ -619,7 +614,7 @@ function MediaLibrary() {
     <>
       <ResizablePanelGroup
         direction="horizontal"
-        className="h-[calc(100vh-64px)]"
+        className="h-full min-h-0 min-w-0"
       >
         <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
           <Sidebar
@@ -649,6 +644,7 @@ function MediaLibrary() {
                 size: 0,
                 mimeType: null,
                 publicUrl: "",
+                proxyUrl: "",
                 createdAt: null,
                 updatedAt: null,
               });
@@ -678,9 +674,9 @@ function MediaLibrary() {
               setDragOver(true);
             }}
             onDragLeave={() => setDragOver(false)}
-            isLoading={currentPathQuery.isLoading}
+            isLoading={isCurrentPathLoading}
             error={currentPathQuery.error}
-            items={currentPathQuery.data || []}
+            items={currentItems}
             onToggleSelection={toggleSelection}
             onCopyToClipboard={copyToClipboard}
             onDownload={handleDownload}
@@ -764,13 +760,8 @@ function Sidebar({
   onMove: (path: string, name: string, type: "file" | "dir") => void;
   onDelete: (path: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { atStart, atEnd } = useScrollFade(scrollRef, "vertical", [
-    filteredTreeNodes,
-  ]);
-
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
+    <div className="flex h-full min-h-0 min-w-0 flex-col border-r border-neutral-200 bg-white select-none">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
         <div className="relative flex w-full items-center gap-1.5">
           <SearchIcon className="size-4 shrink-0 text-neutral-400" />
@@ -780,7 +771,7 @@ function Sidebar({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search..."
             className={cn([
-              "w-full py-1 text-sm",
+              "w-full py-1 text-sm select-text",
               "bg-transparent",
               "focus:outline-hidden",
               "placeholder:text-neutral-400",
@@ -790,9 +781,7 @@ function Sidebar({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        {!atStart && <ScrollFadeOverlay position="top" />}
-        {!atEnd && <ScrollFadeOverlay position="bottom" />}
-        <div ref={scrollRef} className="h-full overflow-y-auto">
+        <div className="scroll-fade-y h-full overflow-y-auto select-none">
           {isCreatingFolder && (
             <NewFolderInlineInput
               existingNames={filteredTreeNodes.map((n) => n.name)}
@@ -912,7 +901,7 @@ function NewFolderInlineInput({
           disabled={isLoading}
           placeholder="folder-name"
           className={cn([
-            "flex-1 bg-transparent text-sm outline-hidden",
+            "flex-1 bg-transparent text-sm outline-hidden select-text",
             error ? "text-red-700" : "text-neutral-600",
             "placeholder:text-neutral-400",
           ])}
@@ -1163,7 +1152,7 @@ function TreeNodeItem({
               if (e.key === "Escape") cancelRename();
             }}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-blue-500 bg-white px-1 text-sm outline-none"
+            className="min-w-0 flex-1 rounded border border-blue-500 bg-white px-1 text-sm outline-none select-text"
           />
         ) : (
           <span
@@ -1328,7 +1317,7 @@ function ContentPanel({
   onSetDropTarget: (path: string | null) => void;
 }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {currentTab ? (
         <>
           <div className="flex items-end">
@@ -1373,7 +1362,7 @@ function ContentPanel({
             onSetDropTarget={onSetDropTarget}
           />
 
-          <div className="flex-1 overflow-hidden">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {currentTab.type === "folder" ? (
               <FolderView
                 dragOver={dragOver}
@@ -1402,6 +1391,7 @@ function ContentPanel({
               />
             ) : (
               <FilePreview
+                isLoading={isLoading}
                 item={items.find((i) => i.path === currentTab.path)}
               />
             )}
@@ -1978,7 +1968,7 @@ function FolderView({
   return (
     <div
       className={cn([
-        "relative h-full overflow-y-auto p-4",
+        "relative h-full min-h-0 min-w-0 overflow-y-auto p-4",
         dragOver && "bg-blue-50",
       ])}
       onDrop={onDrop}
@@ -2612,7 +2602,22 @@ function MediaItemCard({
   );
 }
 
-function FilePreview({ item }: { item: MediaItem | undefined }) {
+function FilePreview({
+  item,
+  isLoading,
+}: {
+  item: MediaItem | undefined;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center text-neutral-500">
+        <Spinner size={24} className="mr-2" />
+        Loading...
+      </div>
+    );
+  }
+
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center text-neutral-500">
@@ -2627,7 +2632,7 @@ function FilePreview({ item }: { item: MediaItem | undefined }) {
 
   return (
     <div
-      className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-white p-4"
+      className="relative flex h-full min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-white p-4"
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />

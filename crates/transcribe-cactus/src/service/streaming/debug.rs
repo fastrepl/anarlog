@@ -53,10 +53,7 @@ pub(super) fn log(
     ch: usize,
     audio_offset: f64,
     kind: Kind,
-    text: &str,
-    seg_start: f64,
-    seg_dur: f64,
-    confidence: f64,
+    segment: &crate::service::Segment<'_>,
     result: &hypr_cactus::StreamResult,
 ) {
     if !enabled() {
@@ -66,10 +63,10 @@ pub(super) fn log(
         ch,
         audio_offset,
         kind,
-        text,
-        seg_start,
-        seg_dur,
-        confidence,
+        text: segment.text,
+        seg_start: segment.start,
+        seg_dur: segment.duration,
+        confidence: segment.confidence,
         decode_tps: result.decode_tps,
         buffer_duration_ms: result.buffer_duration_ms,
     };

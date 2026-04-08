@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@astrojs/mdx": "^5.0.2",
-    "astro": "^6.0.8"
+    "astro": "^6.0.8",
+    "astro-seo": "^1.1.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",

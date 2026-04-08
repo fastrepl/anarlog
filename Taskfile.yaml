@@ -13,6 +13,18 @@ tasks:
       - stripe listen --print-secret | tr -d '\r\n' | (echo -n 'STRIPE_WEBHOOK_SECRET="'; cat; echo '"') > .env.stripe
       - stripe listen --skip-verify --forward-to http://localhost:8788/webhook/stripe
   bacon: bacon {{.CLI_ARGS}}
+
+  cli:ui:
+    platforms: [darwin]
+    cmds:
+      - cd apps/cli-ui && swift build -c release --arch arm64 --arch x86_64
+
+  cli:dev:
+    platforms: [darwin]
+    cmds:
+      - task: cli:ui
+      - cp apps/cli-ui/.build/apple/Products/Release/char-cli-ui target/debug/
+      - cargo run -p cli --features standalone -- {{.CLI_ARGS}}
   stat: btop -f hyprnote -u 500 --preset 1
 
   clean-plugins:

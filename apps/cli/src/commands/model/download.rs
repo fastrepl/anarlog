@@ -1,22 +1,18 @@
-use std::io::{IsTerminal, Stderr};
 use std::path::Path;
 use std::time::Duration;
 
 use hypr_local_model::LocalModel;
-use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout};
-use ratatui::style::{Color, Style};
-use ratatui::text::Line;
-use ratatui::widgets::{LineGauge, Paragraph};
-use ratatui::{Terminal, TerminalOptions, Viewport};
 use tokio::sync::mpsc;
 
 use super::runtime;
 use crate::error::{CliError, CliResult};
+use crate::tui::{InlineViewport, SPINNER};
 
-const SPINNER: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-
-pub(super) async fn download(model: LocalModel, models_base: &Path) -> CliResult<()> {
+pub(super) async fn download(
+    model: LocalModel,
+    models_base: &Path,
+    trace_buffer: crate::OptTraceBuffer,
+) -> CliResult<()> {
     let (progress_tx, mut progress_rx) = mpsc::unbounded_channel();
 
     let manager = super::make_manager(models_base, Some(progress_tx));
@@ -30,22 +26,14 @@ pub(super) async fn download(model: LocalModel, models_base: &Path) -> CliResult
         return Ok(());
     }
 
-    let mut terminal = if std::io::stderr().is_terminal() {
-        Some(
-            Terminal::with_options(
-                CrosstermBackend::new(std::io::stderr()),
-                TerminalOptions {
-                    viewport: Viewport::Inline(2),
-                },
-            )
-            .map_err(|e| CliError::operation_failed("init download viewport", e.to_string()))?,
-        )
+    let mut viewport = if trace_buffer.is_some() {
+        InlineViewport::stderr(5, trace_buffer).ok()
     } else {
         None
     };
 
     if let Err(e) = manager.download(&model).await {
-        drop(terminal);
+        drop(viewport);
         return Err(CliError::operation_failed(
             "start model download",
             format!("{}: {e}", model.cli_name()),
@@ -70,7 +58,7 @@ pub(super) async fn download(model: LocalModel, models_base: &Path) -> CliResult
             }
         };
 
-        draw_download(&mut terminal, &model, spinner_idx, pct);
+        draw_download(&mut viewport, &model, spinner_idx, pct);
 
         if done {
             break;
@@ -81,7 +69,11 @@ pub(super) async fn download(model: LocalModel, models_base: &Path) -> CliResult
         tokio::time::sleep(Duration::from_millis(120)).await;
     }
 
-    drop(terminal);
+    if let Some(ref mut vp) = viewport {
+        vp.clear()
+            .map_err(|e| CliError::operation_failed("clear viewport", e.to_string()))?;
+    }
+    drop(viewport);
 
     if manager.is_downloaded(&model).await.unwrap_or(false) {
         eprintln!(
@@ -99,29 +91,28 @@ pub(super) async fn download(model: LocalModel, models_base: &Path) -> CliResult
 }
 
 fn draw_download(
-    terminal: &mut Option<Terminal<CrosstermBackend<Stderr>>>,
+    viewport: &mut Option<InlineViewport>,
     model: &LocalModel,
     spinner_idx: usize,
     pct: u8,
 ) {
-    if let Some(term) = terminal {
+    if let Some(vp) = viewport {
+        vp.poll_input();
         let name = model.display_name();
-        let _ = term.draw(|frame| {
-            let chunks = Layout::vertical([Constraint::Length(1), Constraint::Length(1)])
-                .split(frame.area());
-
-            let status = Paragraph::new(Line::from(format!(
-                "{} Downloading {}...",
-                SPINNER[spinner_idx], name
-            )))
-            .style(Style::default().fg(Color::Cyan));
-            frame.render_widget(status, chunks[0]);
-
-            let gauge = LineGauge::default()
-                .ratio(pct as f64 / 100.0)
-                .label(format!("{}%", pct))
-                .filled_style(Style::default().fg(Color::Cyan));
-            frame.render_widget(gauge, chunks[1]);
-        });
+        let pct_str = format!("{}%", pct);
+        vp.draw_strings(&[
+            format!(
+                "{} Downloading {}... {}",
+                SPINNER[spinner_idx], name, pct_str
+            ),
+            format_gauge(pct),
+        ]);
     }
+}
+
+fn format_gauge(pct: u8) -> String {
+    let width = 40;
+    let filled = (pct as usize * width) / 100;
+    let empty = width - filled;
+    format!("  [{}{}]", "█".repeat(filled), "░".repeat(empty),)
 }

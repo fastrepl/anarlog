@@ -97,11 +97,11 @@ export const useLLMConnection = (): LLMConnectionResult => {
         modelId: current_llm_model,
         providerConfig,
         session: auth?.session,
-        isPro: billing.isPro,
+        isPaid: billing.isPaid,
       }),
     [
       auth,
-      billing.isPro,
+      billing.isPaid,
       current_llm_model,
       current_llm_provider,
       providerConfig,
@@ -119,14 +119,14 @@ const resolveLLMConnection = (params: {
   modelId: string | undefined;
   providerConfig: AIProviderStorage | undefined;
   session: { access_token: string } | null | undefined;
-  isPro: boolean;
+  isPaid: boolean;
 }): LLMConnectionResult => {
   const {
     providerId: rawProviderId,
     modelId,
     providerConfig,
     session,
-    isPro,
+    isPaid,
   } = params;
 
   if (!rawProviderId) {
@@ -166,7 +166,7 @@ const resolveLLMConnection = (params: {
 
   const context: ProviderEligibilityContext = {
     isAuthenticated: !!session,
-    isPro,
+    isPaid,
     config: { base_url: baseUrl, api_key: apiKey },
   };
 

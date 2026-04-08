@@ -2,6 +2,7 @@ import type { AccountInfo } from "@hypr/plugin-auth";
 import { commands as authCommands } from "@hypr/plugin-auth";
 import type { DeviceInfo } from "@hypr/plugin-misc";
 import { commands as miscCommands } from "@hypr/plugin-misc";
+import type { ModelInfo } from "@hypr/plugin-template";
 import { commands as templateCommands } from "@hypr/plugin-template";
 
 import type { ContextEntity } from "./entities";
@@ -30,7 +31,9 @@ async function getDeviceInfo(): Promise<DeviceInfo | null> {
   return null;
 }
 
-export async function collectSupportContextBlock(): Promise<{
+export async function collectSupportContextBlock(
+  modelInfo?: ModelInfo | null,
+): Promise<{
   entities: ContextEntity[];
   block: string | null;
 }> {
@@ -54,7 +57,11 @@ export async function collectSupportContextBlock(): Promise<{
   }
 
   const result = await templateCommands.renderSupport({
-    supportContext: { account: accountInfo, device: deviceInfo },
+    supportContext: {
+      account: accountInfo,
+      device: deviceInfo,
+      models: modelInfo ?? null,
+    },
   });
 
   return {

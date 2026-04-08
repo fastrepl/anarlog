@@ -77,11 +77,11 @@ function Component() {
   return (
     <main className="min-h-screen flex-1 bg-white">
       <div className="mx-auto max-w-7xl border-x border-neutral-100">
-        <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-12 text-center lg:py-16">
-          <h1 className="mb-4 font-serif text-3xl text-stone-700 sm:text-4xl lg:text-5xl">
+        <div className="px-4 py-16 text-center lg:py-24">
+          <h1 className="text-color mb-4 font-mono text-4xl tracking-tight sm:text-5xl">
             LLM Model Evaluation
           </h1>
-          <p className="mx-auto mb-6 max-w-2xl text-lg text-neutral-600">
+          <p className="text-fg-muted mx-auto mb-6 max-w-2xl text-lg sm:text-xl">
             Compare how leading AI models perform on meeting note tasks. We
             benchmark models on real-world transcription scenarios to help you
             choose the best AI for your needs.
@@ -131,16 +131,16 @@ function Component() {
 
         <div className="border-t border-neutral-100 bg-stone-50/50 px-6 py-12">
           <div className="mx-auto max-w-3xl">
-            <h2 className="mb-4 text-center font-serif text-2xl text-stone-700">
+            <h2 className="text-color mb-4 text-center font-mono text-2xl">
               About Our Evaluation
             </h2>
-            <p className="mb-4 leading-relaxed text-neutral-600">
+            <p className="text-fg-muted mb-4 leading-relaxed">
               Our benchmarks test AI models on tasks critical to meeting note
               quality. Each model is evaluated on the same dataset of real
               meeting transcripts, measuring accuracy, completeness, and
               relevance of outputs.
             </p>
-            <p className="leading-relaxed text-neutral-600">
+            <p className="text-fg-muted leading-relaxed">
               Char supports multiple AI providers, allowing you to choose the
               model that best fits your needs. Whether you prioritize accuracy,
               speed, or privacy with local models, our flexible architecture

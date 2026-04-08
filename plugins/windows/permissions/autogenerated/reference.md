@@ -9,6 +9,9 @@ Default permissions for the plugin
 - `allow-window-navigate`
 - `allow-window-emit-navigate`
 - `allow-window-is-exists`
+- `allow-window-set-frame-animated`
+- `allow-window-save-frame`
+- `allow-window-restore-frame-animated`
 
 ## Permission Table
 
@@ -171,6 +174,84 @@ Enables the window_navigate command without any pre-configured scope.
 <td>
 
 Denies the window_navigate command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-window-restore-frame-animated`
+
+</td>
+<td>
+
+Enables the window_restore_frame_animated command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-window-restore-frame-animated`
+
+</td>
+<td>
+
+Denies the window_restore_frame_animated command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-window-save-frame`
+
+</td>
+<td>
+
+Enables the window_save_frame command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-window-save-frame`
+
+</td>
+<td>
+
+Denies the window_save_frame command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-window-set-frame-animated`
+
+</td>
+<td>
+
+Enables the window_set_frame_animated command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-window-set-frame-animated`
+
+</td>
+<td>
+
+Denies the window_set_frame_animated command without any pre-configured scope.
 
 </td>
 </tr>

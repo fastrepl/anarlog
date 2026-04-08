@@ -9,29 +9,31 @@ description: "Command-line reference for the char CLI"
 Live transcription and audio tools
 
 ```
-char [--base-url] [--api-key] [-m] [-l] [--no-color] [--base] [-v] [-q] [-h] [-V] <command>
+char [--no-color] [-v] [-q] [-h] [-V] <command>
 ```
 
 **Global options:**
 
-- `--base-url <BASE_URL>`
-- `--api-key <API_KEY>`
-- `-m, --model <MODEL>`
-- `-l, --language <LANGUAGE>` (default: `en`)
-- `--no-color`
-- `--base <DIR>`
 - `-v, --verbose` — Increase logging verbosity
 - `-q, --quiet` — Decrease logging verbosity
 
 **Options:**
 
+- `--no-color`
 - `-h, --help` — Print help
 - `-V, --version` — Print version
 
 **Subcommands:**
 
 - `transcribe` — Transcribe an audio file
+- `models` — Manage local models
 - `completions` — Generate shell completions
+- `play` — Play an audio file
+- `record` — Record audio to an MP3 file
+- `skill` — Install char skill for AI coding agents
+- `desktop` — Open the desktop app or download page
+- `update` — Update char to the latest version
+- `shortcut` — Manage global shortcut (macOS only)
 - `meetings` — Browse past meetings
 - `humans` — Browse humans (contacts)
 - `orgs` — Browse organizations
@@ -44,18 +46,98 @@ char [--base-url] [--api-key] [-m] [-l] [--no-color] [--base] [-v] [-q] [-h] [-V
 Transcribe an audio file
 
 ```
-char transcribe <--input> <-p> [-k] [-o] [-f] [-h] [-V]
+char transcribe [INPUT] [-i] <-p> [-k] [-o] [-f] [--base] [--base-url] [--api-key] [-m] [-l] [-h] [-V]
 ```
 
 **Options:**
 
-- `--input <FILE>`
+- `-i, --input <FILE>` (alias: `--file`)
 - `-p, --provider <PROVIDER>`
 - `-k, --keyword <KEYWORD>`
 - `-o, --output <FILE>`
 - `-f, --format <FORMAT>` (default: `pretty`)
+- `--base <DIR>`
+- `--base-url <BASE_URL>`
+- `--api-key <API_KEY>`
+- `-m, --model <MODEL>`
+- `-l, --language <LANGUAGE>` (default: `en`)
 - `-h, --help` — Print help
 - `-V, --version` — Print version
+
+**Arguments:**
+
+- `[INPUT]` — Timestamp (e.g. 20260327_143022) or path to an audio file
+
+### char models
+
+Manage local models
+
+```
+char models [--base] [-h] [-V] <command>
+```
+
+**Options:**
+
+- `--base <DIR>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `list` — List local models and their status
+- `download` — Download a model by name
+- `delete` — Delete a downloaded model
+
+---
+
+### char models list
+
+List local models and their status
+
+```
+char models list [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char models download
+
+Download a model by name
+
+```
+char models download [-h] [-V] <name>
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
+
+### char models delete
+
+Delete a downloaded model
+
+```
+char models delete [--force] [-h] [-V] <name>
+```
+
+**Options:**
+
+- `--force`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<NAME>`
 
 ### char completions
 
@@ -73,6 +155,116 @@ char completions [-h] [-V] <shell>
 **Arguments:**
 
 - `<SHELL>`
+
+### char play
+
+Play an audio file
+
+```
+char play [--base] [-h] [-V] <target>
+```
+
+**Options:**
+
+- `--base <DIR>` — Base directory for session lookup
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Arguments:**
+
+- `<TARGET>` — Timestamp (e.g. 20260327_143022) or path to an audio file
+
+### char record
+
+Record audio to an MP3 file
+
+```
+char record [--audio] [-o] [-f] [--base] [-h] [-V]
+```
+
+**Options:**
+
+- `--audio <AUDIO>` (default: `dual`)
+- `-o, --output <FILE>`
+- `-f, --format <FORMAT>` (default: `pretty`)
+- `--base <DIR>`
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char skill
+
+Install char skill for AI coding agents
+
+```
+char skill <command>
+```
+
+**Subcommands:**
+
+- `install` — Install char skill for AI coding agents
+
+---
+
+### char skill install
+
+Install char skill for AI coding agents
+
+```
+char skill install [-f] [-h] [-V]
+```
+
+**Options:**
+
+- `-f, --format <FORMAT>` — Skip interactive selection: claude, codex, github-copilot
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char desktop
+
+Open the desktop app or download page
+
+```
+char desktop [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char update
+
+Update char to the latest version
+
+```
+char update [-h] [-V]
+```
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+### char shortcut
+
+Manage global shortcut (macOS only)
+
+```
+char shortcut [-h] [-V] [command]
+```
+
+When run without a subcommand, opens the shortcut configuration screen.
+
+**Options:**
+
+- `-h, --help` — Print help
+- `-V, --version` — Print version
+
+**Subcommands:**
+
+- `install` — Install the global shortcut daemon
+- `uninstall` — Uninstall the shortcut daemon
+- `status` — Check if the shortcut daemon is running
 
 ### char meetings
 

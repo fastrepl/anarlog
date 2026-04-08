@@ -13,11 +13,11 @@ import {
 } from "tinytick/ui-react";
 
 import { init as initWindowsPlugin } from "@hypr/plugin-windows";
+import { Toaster } from "@hypr/ui/components/ui/toast";
 import "@hypr/ui/globals.css";
 
 import { createToolRegistry } from "./contexts/tool-registry/core";
 import { env } from "./env";
-import { initPluginGlobals } from "./plugins/globals";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
@@ -65,7 +65,7 @@ function App() {
   }, [store, settingsStore]);
 
   if (!store || !settingsStore || !aiTaskStore) {
-    return null;
+    return <div className="h-screen w-screen bg-stone-50" />;
   }
 
   return (
@@ -110,6 +110,7 @@ function AppWithTiny() {
           <App />
           <TaskManager />
           <EventListeners />
+          <Toaster />
         </TinyBaseProvider>
       </TinyTickProvider>
     </QueryClientProvider>
@@ -117,7 +118,6 @@ function AppWithTiny() {
 }
 
 initWindowsPlugin();
-initPluginGlobals();
 
 const rootElement = document.getElementById("root")!;
 if (!rootElement.innerHTML) {

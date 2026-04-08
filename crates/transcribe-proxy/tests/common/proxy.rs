@@ -147,7 +147,7 @@ async fn serve(app: Router) -> SocketAddr {
         axum::serve(listener, app).await.unwrap();
     });
 
-    let deadline = tokio::time::Instant::now() + Duration::from_millis(250);
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
     loop {
         match client.get(format!("http://{addr}/")).send().await {
             Ok(_) => {

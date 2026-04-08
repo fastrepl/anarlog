@@ -8,7 +8,7 @@ default = []
 tauri-event = ["dep:tauri-specta"]
 
 [dependencies]
-audioadapter-buffers = "2.0"
+hypr-audio-norm = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-frontmatter = { workspace = true }
 hypr-fs-format = { workspace = true }
@@ -21,11 +21,7 @@ specta = { workspace = true, features = ["derive", "serde_json"] }
 tauri-specta = { workspace = true, optional = true, features = ["derive"] }
 
 glob = "0.3"
-hypr-afconvert = { workspace = true }
-hypr-mp3 = { workspace = true }
-hypr-resampler = { workspace = true }
 rayon = { workspace = true }
-rodio = { workspace = true, features = ["symphonia-all"] }
 
 chrono = { workspace = true }
 thiserror = { workspace = true }

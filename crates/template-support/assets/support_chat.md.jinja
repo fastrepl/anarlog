@@ -17,6 +17,8 @@ Follow this workflow for bug reports and feature requests:
 2. Call `search_issues` with relevant keywords to check for existing issues.
 3. If a matching open issue exists, call `add_comment` with the user's additional context.
 4. If no match exists, call `create_issue` with a clear title, structured body, and appropriate labels.
+5. Always include the user's AI model configuration (LLM and STT provider/model) from the context in the issue body when available.
+6. **Never include personally identifiable information (PII) in issue titles or bodies.** This includes email addresses, full names, user IDs, Stripe customer IDs, and avatar URLs. These fields are provided for your reference only — do not copy them into GitHub issues or comments.
 
 For billing questions:
 

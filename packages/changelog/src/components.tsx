@@ -1,6 +1,33 @@
+import { isValidElement } from "react";
+import { Streamdown } from "streamdown";
+
 import { cn } from "@hypr/utils";
 
-export const changelogComponents = {
+function flattenTextContent(node: React.ReactNode): string {
+  if (node == null || typeof node === "boolean") {
+    return "";
+  }
+
+  if (
+    typeof node === "string" ||
+    typeof node === "number" ||
+    typeof node === "bigint"
+  ) {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(flattenTextContent).join("");
+  }
+
+  if (isValidElement<{ children?: React.ReactNode }>(node)) {
+    return flattenTextContent(node.props.children);
+  }
+
+  return "";
+}
+
+const baseChangelogComponents = {
   h2: ({ children }: { children?: React.ReactNode }) => (
     <h2 className="mt-6 mb-3 pt-6 text-base font-semibold text-amber-950 first:mt-0 first:pt-0">
       {children}
@@ -59,6 +86,10 @@ export const changelogComponents = {
       className="my-6 rounded-lg border border-stone-200"
     />
   ),
+};
+
+export const changelogComponents = {
+  ...baseChangelogComponents,
   banner: ({
     title,
     variant,
@@ -73,13 +104,34 @@ export const changelogComponents = {
         "mb-2 rounded-xl border px-5 pt-4 pb-4",
         variant === "warning"
           ? "border-amber-300 bg-amber-50 text-amber-900"
-          : "border-amber-200 bg-amber-50/60 text-stone-800",
+          : variant === "info"
+            ? "border-blue-300 bg-blue-50 text-blue-900"
+            : "border-amber-200 bg-amber-50/60 text-stone-800",
       ])}
     >
       {title && (
-        <div className="mb-1 text-sm font-semibold text-amber-900">{title}</div>
+        <div
+          className={cn([
+            "mb-1 text-sm font-semibold",
+            variant === "warning"
+              ? "text-amber-900"
+              : variant === "info"
+                ? "text-blue-900"
+                : "text-amber-900",
+          ])}
+        >
+          {title}
+        </div>
       )}
-      <div className="text-sm text-stone-600">{children}</div>
+      <div className="text-sm text-stone-600 [&_p:last-child]:mb-0 [&_ul:last-child]:mb-0">
+        <Streamdown
+          components={baseChangelogComponents}
+          isAnimating={false}
+          linkSafety={{ enabled: false }}
+        >
+          {flattenTextContent(children)}
+        </Streamdown>
+      </div>
     </div>
   ),
 };

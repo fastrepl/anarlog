@@ -1,6 +1,7 @@
 use clap::Subcommand;
 use sqlx::SqlitePool;
 
+use crate::app::AppContext;
 use crate::error::{CliError, CliResult};
 
 #[derive(Subcommand)]
@@ -33,20 +34,18 @@ pub enum Commands {
     },
 }
 
-pub async fn run(
-    pool: &SqlitePool,
-    command: Commands,
-    _global: &crate::cli::GlobalArgs,
-) -> CliResult<()> {
+pub async fn run(ctx: &AppContext, command: Commands) -> CliResult<()> {
+    let pool = ctx.pool().await?;
+
     match command {
-        Commands::List => list(pool).await,
-        Commands::View { id } => view(pool, &id).await,
-        Commands::Participants { id } => participants(pool, &id).await,
+        Commands::List => list(&pool).await,
+        Commands::View { id } => view(&pool, &id).await,
+        Commands::Participants { id } => participants(&pool, &id).await,
         Commands::AddParticipant { meeting, human } => {
-            add_participant(pool, &meeting, &human).await
+            add_participant(&pool, &meeting, &human).await
         }
         Commands::RmParticipant { meeting, human } => {
-            remove_participant(pool, &meeting, &human).await
+            remove_participant(&pool, &meeting, &human).await
         }
     }
 }
@@ -78,15 +77,15 @@ async fn view(pool: &SqlitePool, meeting_id: &str) -> CliResult<()> {
 
     let words = hypr_db_app::load_words(pool, meeting_id)
         .await
-        .unwrap_or_default();
+        .map_err(|e| CliError::operation_failed("load words", e.to_string()))?;
 
     let notes = hypr_db_app::list_notes_by_meeting(pool, meeting_id)
         .await
-        .unwrap_or_default();
+        .map_err(|e| CliError::operation_failed("list notes", e.to_string()))?;
 
     let participants = hypr_db_app::list_meeting_participants(pool, meeting_id)
         .await
-        .unwrap_or_default();
+        .map_err(|e| CliError::operation_failed("list participants", e.to_string()))?;
 
     let result = serde_json::json!({
         "id": meeting.id,

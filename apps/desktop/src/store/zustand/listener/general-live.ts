@@ -5,43 +5,41 @@ import type { StoreApi } from "zustand";
 import { commands as detectCommands } from "@hypr/plugin-detect";
 import { commands as hooksCommands } from "@hypr/plugin-hooks";
 import { commands as iconCommands } from "@hypr/plugin-icon";
+import { commands as settingsCommands } from "@hypr/plugin-settings";
 import {
   commands as listenerCommands,
   events as listenerEvents,
-  type SessionDataEvent,
-  type SessionErrorEvent,
-  type SessionLifecycleEvent,
-  type SessionParams,
-  type SessionProgressEvent,
-  type StopSessionParams,
-  type StreamResponse,
-} from "@hypr/plugin-listener";
-import { commands as settingsCommands } from "@hypr/plugin-settings";
+  type CaptureDataEvent,
+  type CaptureLifecycleEvent,
+  type CaptureParams,
+  type CaptureStatusEvent,
+  type LiveTranscriptDelta,
+  type LiveTranscriptSegmentDelta,
+} from "@hypr/plugin-transcription";
 
 import {
   type GeneralState,
+  type LiveIntervalId,
   markLiveActive,
   markLiveFinalizing,
   markLiveInactive,
   markLiveStartFailed,
   setLiveState,
   updateLiveAmplitude,
-  updateLiveError,
   updateLiveProgress,
 } from "./general-shared";
-import type { TranscriptActions } from "./transcript";
+import type { TranscriptActions, TranscriptState } from "./transcript";
 
 import { buildSessionPath } from "~/store/tinybase/persister/shared/paths";
 import { fromResult } from "~/stt/fromResult";
 
 type EventListeners = {
-  lifecycle: (payload: SessionLifecycleEvent) => void;
-  progress: (payload: SessionProgressEvent) => void;
-  error: (payload: SessionErrorEvent) => void;
-  data: (payload: SessionDataEvent) => void;
+  lifecycle: (payload: CaptureLifecycleEvent) => void;
+  progress: (payload: CaptureStatusEvent) => void;
+  data: (payload: CaptureDataEvent) => void;
 };
 
-type LiveStore = GeneralState & TranscriptActions;
+type LiveStore = GeneralState & TranscriptState & TranscriptActions;
 
 const listenToAllSessionEvents = (
   handlers: EventListeners,
@@ -49,16 +47,13 @@ const listenToAllSessionEvents = (
   Effect.tryPromise({
     try: async () => {
       const unlisteners = await Promise.all([
-        listenerEvents.sessionLifecycleEvent.listen(({ payload }) =>
+        listenerEvents.captureLifecycleEvent.listen(({ payload }) =>
           handlers.lifecycle(payload),
         ),
-        listenerEvents.sessionProgressEvent.listen(({ payload }) =>
+        listenerEvents.captureStatusEvent.listen(({ payload }) =>
           handlers.progress(payload),
         ),
-        listenerEvents.sessionErrorEvent.listen(({ payload }) =>
-          handlers.error(payload),
-        ),
-        listenerEvents.sessionDataEvent.listen(({ payload }) =>
+        listenerEvents.captureDataEvent.listen(({ payload }) =>
           handlers.data(payload),
         ),
       ]);
@@ -67,13 +62,12 @@ const listenToAllSessionEvents = (
     catch: (error) => error,
   });
 
-const startSessionEffect = (params: SessionParams) =>
-  fromResult(listenerCommands.startSession(params));
+const startSessionEffect = (params: CaptureParams) =>
+  fromResult(listenerCommands.startCapture(params));
 
-const stopSessionEffect = (params?: StopSessionParams) =>
-  fromResult(listenerCommands.stopSession(params ?? null));
+const stopSessionEffect = () => fromResult(listenerCommands.stopCapture());
 
-const clearLiveInterval = (intervalId?: NodeJS.Timeout) => {
+const clearLiveInterval = (intervalId?: LiveIntervalId) => {
   if (intervalId) {
     clearInterval(intervalId);
   }
@@ -93,14 +87,15 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
-    if (payload.type === "active") {
+    if (payload.type === "started") {
       const currentLive = get().live;
 
       if (currentLive.status === "active" && currentLive.intervalId) {
         setLiveState(set, (live) => {
-          live.degraded = payload.error ?? null;
-          live.requestedTranscriptionMode = payload.requestedTranscriptionMode;
-          live.currentTranscriptionMode = payload.currentTranscriptionMode;
+          live.degraded = payload.degraded ?? null;
+          live.requestedLiveTranscription =
+            payload.requested_live_transcription;
+          live.liveTranscriptionActive = payload.live_transcription_active;
         });
         return;
       }
@@ -120,32 +115,55 @@ const createSessionEventHandlers = <T extends LiveStore>(
           live,
           targetSessionId,
           intervalId,
-          payload.requestedTranscriptionMode,
-          payload.currentTranscriptionMode,
-          payload.error ?? null,
+          payload.requested_live_transcription,
+          payload.live_transcription_active,
+          payload.degraded ?? null,
         );
       });
       return;
     }
 
     if (payload.type === "finalizing") {
-      clearLiveInterval(get().live.intervalId);
       setLiveState(set, (live) => {
-        markLiveFinalizing(live);
+        if (live.sessionId === targetSessionId) {
+          clearLiveInterval(live.intervalId);
+        }
+        markLiveFinalizing(live, targetSessionId);
       });
       return;
     }
 
-    clearLiveEventUnlisteners(get().live.eventUnlisteners);
-    clearLiveInterval(get().live.intervalId);
+    const currentLive = get().live;
+    const stoppedSeconds =
+      currentLive.sessionId === targetSessionId ? currentLive.seconds : 0;
+    const onStopped = get().takeOnStopped(targetSessionId);
+    const unlisteners = currentLive.eventUnlistenersBySession[targetSessionId];
 
-    void iconCommands.setRecordingIndicator(false);
+    clearLiveEventUnlisteners(unlisteners);
 
     setLiveState(set, (live) => {
-      markLiveInactive(live, payload.error ?? null);
+      delete live.eventUnlistenersBySession[targetSessionId];
+      delete live.finalizingBySession[targetSessionId];
+
+      if (live.sessionId === targetSessionId) {
+        clearLiveInterval(live.intervalId);
+        markLiveInactive(live, payload.error ?? null);
+      }
     });
 
-    get().resetTranscript();
+    if (currentLive.sessionId === targetSessionId) {
+      void iconCommands.setRecordingIndicator(false);
+      get().resetTranscript();
+    }
+
+    if (onStopped) {
+      onStopped(targetSessionId, {
+        durationSeconds: stoppedSeconds,
+        audioPath: payload.audio_path ?? null,
+        requestedLiveTranscription: payload.requested_live_transcription,
+        liveTranscriptionActive: payload.live_transcription_active,
+      });
+    }
   },
   progress: (payload) => {
     if (payload.session_id !== targetSessionId) {
@@ -154,15 +172,6 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
     setLiveState(set, (live) => {
       updateLiveProgress(live, payload);
-    });
-  },
-  error: (payload) => {
-    if (payload.session_id !== targetSessionId) {
-      return;
-    }
-
-    setLiveState(set, (live) => {
-      updateLiveError(live, payload);
     });
   },
   data: (payload) => {
@@ -177,9 +186,17 @@ const createSessionEventHandlers = <T extends LiveStore>(
       return;
     }
 
-    if (payload.type === "stream_response") {
-      get().handleTranscriptResponse(
-        payload.response as unknown as StreamResponse,
+    if (payload.type === "transcript_delta") {
+      get().handleTranscriptDelta(
+        targetSessionId,
+        payload.delta as unknown as LiveTranscriptDelta,
+      );
+      return;
+    }
+
+    if (payload.type === "transcript_segment_delta") {
+      get().handleTranscriptSegmentDelta(
+        payload.delta as unknown as LiveTranscriptSegmentDelta,
       );
       return;
     }
@@ -196,7 +213,7 @@ export const startLiveSession = <T extends LiveStore>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
   targetSessionId: string,
-  params: SessionParams,
+  params: CaptureParams,
 ): Promise<boolean> => {
   const handlers = createSessionEventHandlers(set, get, targetSessionId);
 
@@ -204,7 +221,7 @@ export const startLiveSession = <T extends LiveStore>(
     const unlisteners = yield* listenToAllSessionEvents(handlers);
 
     setLiveState(set, (live) => {
-      live.eventUnlisteners = unlisteners;
+      live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
 
     const [dataDirPath, micUsingApps, bundleId] = yield* Effect.tryPromise({
@@ -250,8 +267,6 @@ export const startLiveSession = <T extends LiveStore>(
       live.status = "active";
       live.loading = false;
       live.sessionId = targetSessionId;
-      live.requestedTranscriptionMode = params.transcription_mode;
-      live.currentTranscriptionMode = params.transcription_mode;
     });
   });
 
@@ -261,8 +276,11 @@ export const startLiveSession = <T extends LiveStore>(
         console.error(JSON.stringify(cause));
         const currentLive = get().live;
         clearLiveInterval(currentLive.intervalId);
-        clearLiveEventUnlisteners(currentLive.eventUnlisteners);
+        clearLiveEventUnlisteners(
+          currentLive.eventUnlistenersBySession[targetSessionId],
+        );
         setLiveState(set, (live) => {
+          delete live.eventUnlistenersBySession[targetSessionId];
           markLiveStartFailed(live);
         });
         return false;

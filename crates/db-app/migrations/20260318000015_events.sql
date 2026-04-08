@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS events (
   is_all_day INTEGER NOT NULL DEFAULT 0,
   participants_json TEXT NOT NULL DEFAULT '[]',
   raw_json TEXT NOT NULL DEFAULT '{}',
+  sync_status TEXT NOT NULL DEFAULT 'active',
+  deleted_at TEXT DEFAULT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_events_calendar ON events(calendar_id);
 CREATE INDEX IF NOT EXISTS idx_events_started_at ON events(started_at);
 CREATE INDEX IF NOT EXISTS idx_events_tracking ON events(tracking_id);
+CREATE INDEX IF NOT EXISTS idx_events_tracking_active ON events(tracking_id, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_events_started_active ON events(started_at, deleted_at);

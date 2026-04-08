@@ -70,7 +70,7 @@ export function useSmartCurrentTime(
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const scheduleNext = () => {
       const currentTime = Date.now();

@@ -1,14 +1,30 @@
 import { useForm } from "@tanstack/react-form";
+import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
 
 import type { Template, TemplateSection, TemplateStorage } from "@hypr/store";
+import { Badge } from "@hypr/ui/components/ui/badge";
+import { Button } from "@hypr/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@hypr/ui/components/ui/dropdown-menu";
 import { Input } from "@hypr/ui/components/ui/input";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
-import { RelatedSessions } from "./related-sessions";
+import {
+  getTemplateCreatorByline,
+  useTemplateCreatorName,
+  useToggleTemplateFavorite,
+} from "../shared";
+import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 
-import { DangerZone } from "~/shared/ui/resource-list";
+import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
 import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -50,20 +66,143 @@ function normalizeTemplatePayload(template: unknown): Template {
     title: typeof record.title === "string" ? record.title : "",
     description:
       typeof record.description === "string" ? record.description : "",
+    pinned: Boolean(record.pinned),
+    pin_order:
+      typeof record.pin_order === "number" ? record.pin_order : undefined,
+    category: typeof record.category === "string" ? record.category : undefined,
     sections,
     targets,
   };
 }
 
+function parseTargets(value: string) {
+  return value
+    .split(",")
+    .map((target) => target.trim())
+    .filter(Boolean);
+}
+
+function TemplateTargetsInput({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (value: string[]) => void;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const submitTargets = () => {
+    const nextTargets = parseTargets(inputValue);
+    if (nextTargets.length === 0) {
+      setInputValue("");
+      setIsAddingTag(false);
+      return;
+    }
+
+    onChange([...value, ...nextTargets]);
+    setInputValue("");
+    setIsAddingTag(false);
+  };
+
+  return (
+    <div
+      className="mt-2 flex min-h-6 w-full cursor-text flex-wrap items-center gap-1.5"
+      onClick={() => {
+        if (!isAddingTag) {
+          setIsAddingTag(true);
+          return;
+        }
+
+        inputRef.current?.focus();
+      }}
+    >
+      {value.map((target, index) => (
+        <Badge
+          key={`${target}-${index}`}
+          variant="secondary"
+          className="bg-muted flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs font-normal"
+        >
+          {target}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange(
+                value.filter((_, currentIndex) => currentIndex !== index),
+              );
+            }}
+          >
+            <X className="h-2.5 w-2.5" />
+          </Button>
+        </Badge>
+      ))}
+
+      {!isAddingTag ? (
+        <button
+          type="button"
+          className="bg-muted text-muted-foreground hover:bg-muted/80 inline-flex h-6 items-center gap-1 rounded-md px-2 py-0.5 text-xs transition-colors"
+          onClick={() => setIsAddingTag(true)}
+        >
+          <Plus className="h-3 w-3" />
+          Add tag
+        </button>
+      ) : (
+        <input
+          ref={inputRef}
+          type="text"
+          autoFocus
+          value={inputValue}
+          className="min-w-[84px] flex-1 bg-transparent py-0 text-xs leading-none text-neutral-500 outline-hidden"
+          onChange={(e) => setInputValue(e.target.value)}
+          onBlur={submitTargets}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "Tab" || e.key === ",") {
+              if (!inputValue.trim()) {
+                return;
+              }
+
+              e.preventDefault();
+              submitTargets();
+              return;
+            }
+
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setInputValue("");
+              setIsAddingTag(false);
+              return;
+            }
+
+            if (e.key === "Backspace" && !inputValue && value.length > 0) {
+              e.preventDefault();
+              onChange(value.slice(0, -1));
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 export function TemplateForm({
   id,
   handleDeleteTemplate,
+  handleDuplicateTemplate,
 }: {
   id: string;
   handleDeleteTemplate: (id: string) => void;
+  handleDuplicateTemplate: (id: string) => void;
 }) {
   const row = main.UI.useRow("templates", id, main.STORE_ID);
   const value = row ? normalizeTemplatePayload(row) : undefined;
+  const toggleTemplateFavorite = useToggleTemplateFavorite();
+  const creatorName = useTemplateCreatorName();
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
@@ -95,6 +234,7 @@ export function TemplateForm({
     defaultValues: {
       title: value?.title ?? "",
       description: value?.description ?? "",
+      targets: value?.targets ?? [],
       sections: value?.sections ?? [],
     },
     listeners: {
@@ -124,91 +264,141 @@ export function TemplateForm({
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      <div className="border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center gap-2">
+      <div className="pt-1 pr-1 pb-4 pl-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <TemplateCategoryLabel category={value.category} />
+          </div>
+          <div className="flex items-center gap-0">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={setSelectedTemplateId}
+              title={isDefault ? "Remove as default" : "Set as default"}
+              className={cn([
+                "shrink-0 text-neutral-600 hover:text-black",
+                isDefault
+                  ? "bg-neutral-100 text-black hover:bg-neutral-100"
+                  : null,
+              ])}
+            >
+              {isDefault ? "Current default" : "Set as default"}
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => toggleTemplateFavorite(id)}
+              className={cn([
+                "text-neutral-500 hover:text-neutral-800",
+                value.pinned && "text-rose-500 hover:text-rose-600",
+              ])}
+              title={value.pinned ? "Unfavorite template" : "Favorite template"}
+              aria-label={
+                value.pinned ? "Unfavorite template" : "Favorite template"
+              }
+            >
+              <HeartIcon
+                className="size-4"
+                fill={value.pinned ? "currentColor" : "none"}
+              />
+            </Button>
+            <DropdownMenu open={actionsOpen} onOpenChange={setActionsOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={cn([
+                    "text-neutral-500 hover:text-neutral-800",
+                    actionsOpen &&
+                      "bg-neutral-100 text-neutral-800 hover:bg-neutral-100",
+                  ])}
+                  aria-label="Template actions"
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent variant="app" align="end">
+                <AppFloatingPanel className="overflow-hidden p-1">
+                  <DropdownMenuItem
+                    onClick={() => handleDuplicateTemplate(id)}
+                    className="cursor-pointer"
+                  >
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDeleteTemplate(id)}
+                    className="cursor-pointer text-red-600 focus:text-red-600"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </AppFloatingPanel>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="mt-3 min-w-0 pr-5 pl-3">
           <form.Field name="title">
             {(field) => (
-              <Input
+              <div className="flex min-w-0 items-baseline gap-2">
+                <div className="relative max-w-full min-w-0">
+                  <span
+                    aria-hidden="true"
+                    className="invisible block px-0 py-0 text-lg font-semibold whitespace-pre md:text-lg"
+                  >
+                    {(field.state.value || " ") + " "}
+                  </span>
+                  <Input
+                    value={field.state.value}
+                    onChange={(e) => field.handleChange(e.target.value)}
+                    placeholder="Enter template title"
+                    className="absolute inset-0 h-auto w-full max-w-full min-w-0 border-0 px-0 py-0 text-lg font-semibold shadow-none focus-visible:ring-0 md:text-lg"
+                  />
+                </div>
+                <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
+                  {getTemplateCreatorByline({
+                    isUserTemplate: true,
+                    creatorName,
+                  })}
+                </span>
+              </div>
+            )}
+          </form.Field>
+          <form.Field name="description">
+            {(field) => (
+              <Textarea
                 value={field.state.value}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="Enter template title"
-                className="h-8 flex-1 border-0 px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
+                placeholder="Describe the template purpose..."
+                className="mt-1 min-h-[24px] resize-none border-0 px-0 py-0 text-sm text-neutral-500 shadow-none focus-visible:ring-0"
+                rows={1}
               />
             )}
           </form.Field>
-          <button
-            type="button"
-            onClick={setSelectedTemplateId}
-            title={isDefault ? "Remove as default" : "Set as default"}
-            className={cn([
-              "shrink-0 rounded border px-2 py-0.5 text-xs transition-colors",
-              isDefault
-                ? "border-neutral-800 bg-neutral-800 text-white"
-                : "border-neutral-300 text-neutral-500 hover:border-neutral-500 hover:text-neutral-700",
-            ])}
-          >
-            {isDefault ? "Default" : "Set default"}
-          </button>
+          <form.Field name="targets">
+            {(field) => (
+              <TemplateTargetsInput
+                value={field.state.value}
+                onChange={field.handleChange}
+              />
+            )}
+          </form.Field>
         </div>
-        <form.Field name="description">
+      </div>
+
+      <TemplateDetailScrollArea>
+        <form.Field name="sections">
           {(field) => (
-            <Textarea
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-              placeholder="Describe the template purpose..."
-              className="min-h-[40px] resize-none border-0 px-0 text-sm text-neutral-600 shadow-none focus-visible:ring-0"
-              rows={2}
+            <SectionsList
+              disabled={false}
+              items={field.state.value}
+              onChange={(items) => field.handleChange(items)}
             />
           )}
         </form.Field>
-        {value.targets && value.targets.length > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {value.targets.map((target, index) => (
-              <span
-                key={index}
-                className="rounded-xs bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600"
-              >
-                {target}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        <div className="border-b border-neutral-200 p-6">
-          <h3 className="mb-3 text-sm font-medium text-neutral-600">
-            Sections
-          </h3>
-          <form.Field name="sections">
-            {(field) => (
-              <SectionsList
-                disabled={false}
-                items={field.state.value}
-                onChange={(items) => field.handleChange(items)}
-              />
-            )}
-          </form.Field>
-        </div>
-
-        <div className="border-b border-neutral-200 p-6">
-          <h3 className="mb-4 text-sm font-medium text-neutral-600">
-            Related Notes
-          </h3>
-          <RelatedSessions templateId={id} />
-        </div>
-
-        <div className="p-6">
-          <DangerZone
-            title="Delete this template"
-            description="This action cannot be undone"
-            buttonLabel="Delete Template"
-            onAction={() => handleDeleteTemplate(id)}
-          />
-        </div>
-
-        <div className="pb-96" />
-      </div>
+      </TemplateDetailScrollArea>
     </div>
   );
 }

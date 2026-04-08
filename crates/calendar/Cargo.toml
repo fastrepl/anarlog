@@ -13,10 +13,8 @@ hypr-calendar-interface = { workspace = true }
 hypr-google-calendar = { workspace = true, features = ["specta"] }
 hypr-outlook-calendar = { workspace = true, features = ["specta"] }
 
-async-trait = "0.1"
 chrono = { workspace = true, features = ["serde"] }
 chrono-tz = { workspace = true }
-futures-util = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true, features = ["derive"] }
@@ -24,4 +22,3 @@ serde_json = { workspace = true }
 specta = { workspace = true, features = ["chrono"], optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true, features = ["v4"] }

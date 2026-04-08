@@ -7,6 +7,7 @@ edition = "2024"
 hypr-aec = { workspace = true }
 hypr-audio = { workspace = true }
 hypr-audio-interface = { workspace = true }
+hypr-audio-sync = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-resampler = { workspace = true }
 
@@ -36,7 +37,7 @@ ringbuf = { workspace = true }
 cidre = { workspace = true, features = ["av"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-wasapi = "0.19.0"
+wasapi = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libpulse-binding = "2.30.1"

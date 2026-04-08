@@ -22,6 +22,19 @@ impl NangoConfig {
             supabase_service_role_key,
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(nango_base: &str, supabase_base: &str) -> Self {
+        Self {
+            nango: NangoEnv {
+                nango_api_base: Some(nango_base.to_string()),
+                nango_secret_key: "test-secret".to_string(),
+            },
+            supabase_url: supabase_base.to_string(),
+            supabase_anon_key: "test-anon-key".to_string(),
+            supabase_service_role_key: Some("test-service-role-key".to_string()),
+        }
+    }
 }
 
 pub(crate) fn build_nango_client(config: &NangoConfig) -> Result<NangoClient, hypr_nango::Error> {

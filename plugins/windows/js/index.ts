@@ -1,6 +1,7 @@
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export * from "./bindings.gen";
+import { commands } from "./bindings.gen";
 
 type UUID = `${string}-${string}-${string}-${string}-${string}`;
 
@@ -10,6 +11,44 @@ export const getCurrentWebviewWindowLabel = () => {
   const window = getCurrentWebviewWindow();
   return window.label as WindowLabel;
 };
+
+export async function openUrlWithInstruction(
+  url: string,
+  instructionType: string,
+  openUrl: (
+    url: string,
+  ) => Promise<{ status: "ok" | "error"; error?: unknown }>,
+) {
+  await commands.windowSaveFrame({ type: "main" });
+  await commands.windowEmitNavigate(
+    { type: "main" },
+    { path: "/app/instruction", search: { type: instructionType, url } },
+  );
+  await commands.windowSetFrameAnimated({ type: "main" }, "TopRight", 340, 500);
+
+  try {
+    const result = await openUrl(url);
+    if (result.status === "error") {
+      throw new Error(String(result.error));
+    }
+  } catch (error) {
+    await commands.windowEmitNavigate(
+      { type: "main" },
+      { path: "/app", search: null },
+    );
+    await commands.windowRestoreFrameAnimated({ type: "main" });
+    throw error;
+  }
+}
+
+export async function dismissInstruction() {
+  await commands.windowEmitNavigate(
+    { type: "main" },
+    { path: "/app", search: null },
+  );
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  await commands.windowRestoreFrameAnimated({ type: "main" });
+}
 
 export const init = () => {
   const allowDropAttribute = "[data-allow-file-drop='true']";

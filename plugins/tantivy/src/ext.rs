@@ -107,7 +107,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             Index::open_in_dir(&index_path)?
         } else {
             if needs_reindex {
-                tracing::info!(
+                tracing::debug!(
                     "Schema version changed for collection '{}', re-creating index",
                     config.name
                 );
@@ -139,7 +139,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             .collections
             .insert(config.name.clone(), collection_index);
 
-        tracing::info!(
+        tracing::debug!(
             "Tantivy collection '{}' registered at {:?} (version: {})",
             config.name,
             index_path,
@@ -398,7 +398,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
 
         writer.commit()?;
 
-        tracing::info!(
+        tracing::debug!(
             "Reindex completed for collection '{}'. Index cleared and ready for new documents. Fields: {:?}",
             collection_name,
             fields.id

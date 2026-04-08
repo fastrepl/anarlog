@@ -1,6 +1,6 @@
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
-import type { BatchParams } from "@hypr/plugin-listener2";
+import type { TranscriptionParams } from "@hypr/plugin-transcription";
 import type { TranscriptStorage } from "@hypr/store";
 
 import { useListener } from "./contexts";
@@ -10,8 +10,7 @@ import { useSTTConnection } from "./useSTTConnection";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
-import type { HandlePersistCallback } from "~/store/zustand/listener/transcript";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
+import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   parseTranscriptHints,
@@ -21,15 +20,18 @@ import {
 } from "~/stt/utils";
 
 type RunOptions = {
-  handlePersist?: HandlePersistCallback;
+  handlePersist?: BatchPersistCallback;
   model?: string;
   baseUrl?: string;
   apiKey?: string;
   keywords?: string[];
   languages?: string[];
+  numSpeakers?: number;
+  minSpeakers?: number;
+  maxSpeakers?: number;
 };
 
-const BATCH_PROVIDER_MAP: Record<string, BatchParams["provider"]> = {
+const BATCH_PROVIDER_MAP: Record<string, TranscriptionParams["provider"]> = {
   deepgram: "deepgram",
   soniox: "soniox",
   assemblyai: "assemblyai",
@@ -38,12 +40,15 @@ const BATCH_PROVIDER_MAP: Record<string, BatchParams["provider"]> = {
   elevenlabs: "elevenlabs",
   mistral: "mistral",
   fireworks: "fireworks",
+  pyannote: "pyannote",
 };
 
-function getBatchProvider(
+export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
+
+export function getBatchProvider(
   provider: string,
   model: string,
-): BatchParams["provider"] | null {
+): TranscriptionParams["provider"] | null {
   if (provider === "hyprnote") {
     if (model.startsWith("am-")) return "am";
     if (model.startsWith("cactus-")) return "cactus";
@@ -52,36 +57,46 @@ function getBatchProvider(
   return BATCH_PROVIDER_MAP[provider] ?? null;
 }
 
+export function canRunBatchTranscription(
+  conn: { provider: string; model: string } | null,
+  modelOverride?: string,
+) {
+  if (!conn) {
+    return false;
+  }
+
+  return getBatchProvider(conn.provider, modelOverride ?? conn.model) != null;
+}
+
+export function isStoppedTranscriptionError(error: unknown) {
+  return (
+    (error instanceof Error ? error.message : String(error)) ===
+    STOPPED_TRANSCRIPTION_ERROR_MESSAGE
+  );
+}
+
 export const useRunBatch = (sessionId: string) => {
   const store = main.UI.useStore(main.STORE_ID);
+  const indexes = main.UI.useIndexes(main.STORE_ID);
   const { user_id } = main.UI.useValues(main.STORE_ID);
 
-  const runBatch = useListener((state) => state.runBatch);
-  const sessionTab = useTabs((state) => {
-    const found = state.tabs.find(
-      (tab): tab is Extract<Tab, { type: "sessions" }> =>
-        tab.type === "sessions" && tab.id === sessionId,
-    );
-    return found ?? null;
-  });
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
-
-  const sessionTabRef = useRef(sessionTab);
-  sessionTabRef.current = sessionTab;
-
+  const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
   const keywords = useKeywords(sessionId);
   const languages = useConfigValue("spoken_languages");
 
   return useCallback(
     async (filePath: string, options?: RunOptions) => {
-      if (!store || !conn || !runBatch) {
+      if (!store || !conn || !startTranscription) {
         throw new Error(
           "STT connection is not available. Please configure your speech-to-text provider.",
         );
       }
 
-      const provider = getBatchProvider(conn.provider, conn.model);
+      const provider = getBatchProvider(
+        conn.provider,
+        options?.model ?? conn.model,
+      );
 
       if (!provider) {
         throw new Error(
@@ -89,18 +104,11 @@ export const useRunBatch = (sessionId: string) => {
         );
       }
 
-      if (sessionTabRef.current) {
-        updateSessionTabState(sessionTabRef.current, {
-          ...sessionTabRef.current.state,
-          view: { type: "transcript" },
-        });
-      }
-
       const createdAt = new Date().toISOString();
       const memoMd = store.getCell("sessions", sessionId, "raw_md");
       let transcriptId: string | null = null;
 
-      const handlePersist: HandlePersistCallback | undefined =
+      const handlePersist: BatchPersistCallback | undefined =
         options?.handlePersist;
 
       const persist =
@@ -112,6 +120,7 @@ export const useRunBatch = (sessionId: string) => {
 
           if (!transcriptId) {
             transcriptId = id();
+            const currentTranscriptId = transcriptId;
 
             const transcriptRow = {
               session_id: sessionId,
@@ -123,11 +132,34 @@ export const useRunBatch = (sessionId: string) => {
               memo_md: typeof memoMd === "string" ? memoMd : "",
             } satisfies TranscriptStorage;
 
-            store.setRow("transcripts", transcriptId, transcriptRow);
+            store.transaction(() => {
+              const transcriptIds =
+                indexes?.getSliceRowIds(
+                  main.INDEXES.transcriptBySession,
+                  sessionId,
+                ) ?? [];
+
+              for (const existingTranscriptId of transcriptIds) {
+                store.delRow("transcripts", existingTranscriptId);
+              }
+
+              store.setRow("transcripts", currentTranscriptId, transcriptRow);
+            });
           }
 
-          const existingWords = parseTranscriptWords(store, transcriptId);
-          const existingHints = parseTranscriptHints(store, transcriptId);
+          const currentTranscriptId = transcriptId;
+          if (!currentTranscriptId) {
+            return;
+          }
+
+          const existingWords = parseTranscriptWords(
+            store,
+            currentTranscriptId,
+          );
+          const existingHints = parseTranscriptHints(
+            store,
+            currentTranscriptId,
+          );
 
           const newWords: WordWithId[] = [];
           const newWordIds: string[] = [];
@@ -172,17 +204,17 @@ export const useRunBatch = (sessionId: string) => {
             });
           });
 
-          updateTranscriptWords(store, transcriptId, [
+          updateTranscriptWords(store, currentTranscriptId, [
             ...existingWords,
             ...newWords,
           ]);
-          updateTranscriptHints(store, transcriptId, [
+          updateTranscriptHints(store, currentTranscriptId, [
             ...existingHints,
             ...newHints,
           ]);
         });
 
-      const params: BatchParams = {
+      const params: TranscriptionParams = {
         session_id: sessionId,
         provider,
         file_path: filePath,
@@ -191,18 +223,21 @@ export const useRunBatch = (sessionId: string) => {
         api_key: options?.apiKey ?? conn.apiKey,
         keywords: options?.keywords ?? keywords ?? [],
         languages: options?.languages ?? languages ?? [],
+        num_speakers: options?.numSpeakers,
+        min_speakers: options?.minSpeakers,
+        max_speakers: options?.maxSpeakers,
       };
 
-      await runBatch(params, { handlePersist: persist });
+      await startTranscription(params, { handlePersist: persist });
     },
     [
       conn,
+      indexes,
       keywords,
       languages,
-      runBatch,
+      startTranscription,
       sessionId,
       store,
-      updateSessionTabState,
       user_id,
     ],
   );

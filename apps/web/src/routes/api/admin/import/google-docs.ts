@@ -363,8 +363,8 @@ export const Route = createFileRoute("/api/admin/import/google-docs")({
                 image.base64Data,
                 folder,
               );
-              if (uploadResult.success && uploadResult.publicUrl) {
-                image.node.attrs!.src = uploadResult.publicUrl;
+              if (uploadResult.success && uploadResult.proxyUrl) {
+                image.node.attrs!.src = uploadResult.proxyUrl;
               }
             }
           }

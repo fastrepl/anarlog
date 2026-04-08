@@ -103,7 +103,7 @@ pub fn create_event<R: tauri::Runtime>(
 #[tauri::command]
 #[specta::specta]
 pub fn parse_meeting_link(text: String) -> Option<String> {
-    hypr_calendar::sync::events::parse_meeting_link(&text)
+    hypr_calendar::parse_meeting_link(&text)
 }
 
 fn access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Option<String> {

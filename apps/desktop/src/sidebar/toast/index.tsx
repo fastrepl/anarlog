@@ -31,6 +31,7 @@ export function ToastArea({
   } = useNotifications();
 
   const isAuthenticated = !!auth?.session;
+  const isAuthLoading = auth.session === undefined;
   const {
     current_llm_provider,
     current_llm_model,
@@ -50,12 +51,15 @@ export function ToastArea({
 
   const currentTab = useTabs((state) => state.currentTab);
   const isAiTranscriptionTabActive =
-    currentTab?.type === "ai" && currentTab.state?.tab === "transcription";
+    currentTab?.type === "settings" &&
+    currentTab.state?.tab === "transcription";
   const isAiIntelligenceTabActive =
-    currentTab?.type === "ai" && currentTab.state?.tab === "intelligence";
+    currentTab?.type === "settings" && currentTab.state?.tab === "intelligence";
 
   const openNew = useTabs((state) => state.openNew);
-  const updateAiTabState = useTabs((state) => state.updateAiTabState);
+  const updateSettingsTabState = useTabs(
+    (state) => state.updateSettingsTabState,
+  );
   const setToastActionTarget = useToastAction((state) => state.setTarget);
 
   const handleSignIn = useCallback(async () => {
@@ -64,13 +68,13 @@ export function ToastArea({
 
   const openAiTab = useCallback(
     (tab: "intelligence" | "transcription") => {
-      if (currentTab?.type === "ai") {
-        updateAiTabState(currentTab, { tab });
+      if (currentTab?.type === "settings") {
+        updateSettingsTabState(currentTab, { tab });
       } else {
-        openNew({ type: "ai", state: { tab } });
+        openNew({ type: "settings", state: { tab } });
       }
     },
-    [currentTab, openNew, updateAiTabState],
+    [currentTab, openNew, updateSettingsTabState],
   );
 
   const handleOpenLLMSettings = useCallback(() => {
@@ -87,6 +91,7 @@ export function ToastArea({
     () =>
       createToastRegistry({
         isAuthenticated,
+        isAuthLoading,
         hasLLMConfigured,
         hasSttConfigured,
         hasProSttConfigured,
@@ -105,6 +110,7 @@ export function ToastArea({
       }),
     [
       isAuthenticated,
+      isAuthLoading,
       hasLLMConfigured,
       hasSttConfigured,
       hasProSttConfigured,
@@ -134,11 +140,15 @@ export function ToastArea({
     }
   }, [currentToast, dismissToast]);
 
+  const displayToast = currentToast;
+
+  const dismissAction = displayToast?.dismissible ? handleDismiss : undefined;
+
   return (
     <AnimatePresence mode="wait">
-      {shouldShowToast && currentToast ? (
+      {shouldShowToast && displayToast ? (
         <motion.div
-          key={currentToast.id}
+          key={displayToast.id}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
@@ -149,10 +159,7 @@ export function ToastArea({
           ])}
         >
           <div className="pointer-events-auto">
-            <Toast
-              toast={currentToast}
-              onDismiss={currentToast.dismissible ? handleDismiss : undefined}
-            />
+            <Toast toast={displayToast} onDismiss={dismissAction} />
           </div>
         </motion.div>
       ) : null}

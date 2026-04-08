@@ -1,12 +1,20 @@
 ---
 
 The following is automatically collected context about the current user and their environment. Use it when filing issues or diagnosing problems.
+
+**IMPORTANT: The account fields below (Email, Full Name, User ID, Stripe Customer ID, Avatar URL) are PII and must NEVER be included in GitHub issues or comments. They are for your reference only.**
 {%- if let Some(account) = account %}
 {%- if let Some(email) = account.email %}
 
-- Email: {{ email }}
+- Email (PII — do not include in issues): {{ email }}
   {%- endif %}
-- User ID: {{ account.user_id }}
+  {%- if let Some(full_name) = account.full_name %}
+- Full Name (PII — do not include in issues): {{ full_name }}
+  {%- endif %}
+- User ID (PII — do not include in issues): {{ account.user_id }}
+  {%- if let Some(stripe_customer_id) = account.stripe_customer_id %}
+- Stripe Customer ID (PII — do not include in issues): {{ stripe_customer_id }}
+  {%- endif %}
   {%- endif %}
 - Platform: {{ device.platform }}
 - Architecture: {{ device.arch }}
@@ -18,3 +26,22 @@ The following is automatically collected context about the current user and thei
   {%- if let Some(locale) = device.locale %}
 - Locale: {{ locale }}
   {%- endif %}
+  {%- if let Some(models) = models %}
+  {%- if models.llm_provider.is_some() || models.stt_provider.is_some() %}
+- AI Models:
+  {%- if let Some(llm_provider) = models.llm_provider %}
+  {%- if let Some(llm_model) = models.llm_model %}
+  - LLM: {{ llm_provider }}/{{ llm_model }}
+    {%- else %}
+  - LLM: {{ llm_provider }}
+    {%- endif %}
+    {%- endif %}
+    {%- if let Some(stt_provider) = models.stt_provider %}
+    {%- if let Some(stt_model) = models.stt_model %}
+  - STT: {{ stt_provider }}/{{ stt_model }}
+    {%- else %}
+  - STT: {{ stt_provider }}
+    {%- endif %}
+    {%- endif %}
+    {%- endif %}
+    {%- endif %}

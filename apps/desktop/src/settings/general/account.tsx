@@ -1,35 +1,40 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { ExternalLinkIcon, Puzzle, Sparkle, Sparkles } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Puzzle, RefreshCw, Sparkle } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
-
 import {
-  canStartTrial as canStartTrialApi,
-  startTrial,
-} from "@hypr/api-client";
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import { startTrial } from "@hypr/api-client";
 import { createClient } from "@hypr/api-client/client";
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { type SubscriptionStatus } from "@hypr/supabase";
+import { openUrlWithInstruction } from "@hypr/plugin-windows";
+import {
+  getActionForTier,
+  PlanFeatureList,
+  PLAN_TIERS,
+  type PlanTier,
+  type TierAction,
+} from "@hypr/pricing";
 import { Button } from "@hypr/ui/components/ui/button";
-import { Input } from "@hypr/ui/components/ui/input";
-import { Marquee } from "@hypr/ui/components/ui/marquee";
-import { Spinner } from "@hypr/ui/components/ui/spinner";
 import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { env } from "~/env";
-import { configureProSettings } from "~/shared/config/configure-pro-settings";
-import * as settings from "~/store/tinybase/store/settings";
-
-const WEB_APP_BASE_URL = env.VITE_APP_URL ?? "http://localhost:3000";
+import { waitForBillingUpdate } from "~/shared/billing";
+import { buildWebAppUrl } from "~/shared/utils";
 const ACCOUNT_FEATURES = [
   {
-    label: "Pro AI models",
+    label: "Cloud Services",
     icon: Sparkle,
-    comingSoon: false,
-    benefit: "Use premium hosted models without managing API keys.",
+    benefit:
+      "Get hosted transcription and language models without managing API keys.",
     accent: {
       icon: "text-blue-900",
       label: "text-blue-950",
@@ -38,7 +43,6 @@ const ACCOUNT_FEATURES = [
   {
     label: "Integrations",
     icon: Puzzle,
-    comingSoon: true,
     benefit: "Connect tools and pull context into Char with less busywork.",
     accent: {
       icon: "text-purple-700",
@@ -47,103 +51,18 @@ const ACCOUNT_FEATURES = [
   },
 ] as const;
 
-function PlanStatus({
-  subscriptionStatus,
-  trialDaysRemaining,
-}: {
-  subscriptionStatus: SubscriptionStatus | null;
-  trialDaysRemaining: number | null;
-}) {
-  if (!subscriptionStatus) {
-    return <span className="text-neutral-500">FREE</span>;
-  }
-
-  switch (subscriptionStatus) {
-    case "active":
-      return (
-        <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-          <Sparkles size={13} className="text-neutral-500" />
-          PRO
-        </span>
-      );
-
-    case "trialing": {
-      const isUrgent = trialDaysRemaining !== null && trialDaysRemaining <= 3;
-      let trialText = null;
-      if (trialDaysRemaining !== null) {
-        if (trialDaysRemaining === 0) {
-          trialText = "Trial ends today";
-        } else if (trialDaysRemaining === 1) {
-          trialText = "Trial ends tomorrow";
-        } else {
-          trialText = `${trialDaysRemaining} days left`;
-        }
-      }
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-            <Sparkles size={13} className="text-neutral-500" />
-            PRO
-          </span>
-          {trialText && (
-            <span
-              className={cn(["text-neutral-500", isUrgent && "text-amber-600"])}
-            >
-              ({trialText})
-            </span>
-          )}
-        </span>
-      );
-    }
-
-    case "past_due":
-      return (
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-flex items-center gap-1 font-medium text-neutral-800">
-            <Sparkles size={13} className="text-neutral-500" />
-            PRO
-          </span>
-          <span className="text-amber-600">(Payment issue)</span>
-        </span>
-      );
-
-    case "unpaid":
-      return <span className="text-amber-600">Payment failed</span>;
-
-    case "canceled":
-      return <span className="text-neutral-500">Canceled</span>;
-
-    case "incomplete":
-      return <span className="text-neutral-500">Setup incomplete</span>;
-
-    case "incomplete_expired":
-      return <span className="text-neutral-500">Expired</span>;
-
-    case "paused":
-      return <span className="text-neutral-500">Paused</span>;
-
-    default:
-      return <span className="text-neutral-500">FREE</span>;
-  }
-}
-
-export function AccountSettings() {
+export function SettingsAccount() {
   const auth = useAuth();
-  const { subscriptionStatus, trialDaysRemaining } = useBillingAccess();
+  const { plan, isPaid, isTrialing, trialDaysRemaining } = useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
   const [isPending, setIsPending] = useState(false);
-  const [callbackUrl, setCallbackUrl] = useState("");
 
   useEffect(() => {
     if (isAuthenticated) {
       setIsPending(false);
     }
   }, [isAuthenticated]);
-
-  const handleOpenAccount = useCallback(() => {
-    void openerCommands.openUrl(`${WEB_APP_BASE_URL}/app/account`, null);
-  }, []);
 
   const handleSignIn = useCallback(async () => {
     setIsPending(true);
@@ -154,73 +73,57 @@ export function AccountSettings() {
     }
   }, [auth]);
 
-  const handleSignOut = useCallback(async () => {
-    void analyticsCommands.event({
-      event: "user_signed_out",
-    });
-    void analyticsCommands.setProperties({
-      set: {
-        is_signed_up: false,
-      },
-    });
+  const signOutMutation = useMutation({
+    mutationFn: async () => {
+      void analyticsCommands.event({
+        event: "user_signed_out",
+      });
+      void analyticsCommands.setProperties({
+        set: {
+          is_signed_up: false,
+        },
+      });
 
-    await auth?.signOut();
-  }, [auth]);
-
-  const handleRefreshPlan = useCallback(async () => {
-    await auth?.refreshSession();
-  }, [auth]);
+      await auth?.signOut();
+    },
+  });
 
   if (!isAuthenticated) {
     if (isPending) {
       return (
-        <div>
-          <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
-          <Container
-            title="Finish sign-in"
-            description="Complete the sign-in flow in your browser, then come back here if Char does not reconnect automatically."
-            action={
-              <Button onClick={handleSignIn} variant="outline">
-                Reopen sign-in page
-              </Button>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-neutral-500">
-                Having trouble? Paste the callback URL manually.
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  type="text"
-                  className="flex-1 font-mono text-xs"
-                  placeholder="hyprnote://deeplink/auth?access_token=..."
-                  value={callbackUrl}
-                  onChange={(e) => setCallbackUrl(e.target.value)}
-                />
-                <Button
-                  onClick={() => auth?.handleAuthCallback(callbackUrl)}
-                  disabled={!callbackUrl}
-                >
-                  Submit
+        <div className="flex flex-col gap-8">
+          <div>
+            <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
+            <Container
+              title="Finish sign-in"
+              description="Complete the sign-in flow in your browser, then come back here if Char does not reconnect automatically."
+              action={
+                <Button onClick={handleSignIn} variant="outline">
+                  Reopen sign-in page
                 </Button>
-              </div>
-            </div>
-          </Container>
+              }
+            >
+              <p className="text-xs text-neutral-500">
+                If the browser does not reopen Char, use the paste-link fallback
+                in the sign-in instruction window.
+              </p>
+            </Container>
+          </div>
         </div>
       );
     }
 
     return (
-      <div>
-        <section className="border-b border-neutral-200 pb-4">
+      <div className="flex flex-col gap-8">
+        <section className="pb-4">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <h2 className="font-serif text-lg font-semibold">Account</h2>
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-medium">Sign in to Char</h3>
                 <div className="text-sm text-neutral-600">
-                  Sign in to unlock powerful AI models, sync across devices,
-                  personalization, and workflow integrations.
+                  Sign in to unlock cloud transcription and AI models, plus Pro
+                  features like integrations and sharing.
                 </div>
               </div>
               <button
@@ -236,143 +139,460 @@ export function AccountSettings() {
             </div>
           </div>
         </section>
+
+        <GuestPlanSection onSignIn={handleSignIn} />
       </div>
     );
   }
 
+  const currentTier = plan === "trial" ? "pro" : plan;
+
   return (
-    <div>
-      <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
+      <div>
+        <h2 className="mb-4 font-serif text-lg font-semibold">Account</h2>
         <Container
           title="Your Account"
-          description="Redirect to the web app to manage your account."
+          description={auth.session?.user.email ?? "Signed in"}
           action={
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={handleOpenAccount}
-                className="flex flex-row gap-1.5"
-              >
-                <span className="text-sm">Open</span>
-                <ExternalLinkIcon className="text-neutral-600" size={12} />
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                Sign out
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={() => signOutMutation.mutate()}
+              disabled={signOutMutation.isPending}
+              className={cn([
+                "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 hover:text-red-800",
+              ])}
+            >
+              {signOutMutation.isPending ? "Signing out..." : "Sign out"}
+            </Button>
           }
         />
-
-        <Container
-          title="Plan & Billing"
-          description={
-            <span>
-              Your current plan is{" "}
-              <PlanStatus
-                subscriptionStatus={subscriptionStatus}
-                trialDaysRemaining={trialDaysRemaining}
-              />
-            </span>
-          }
-          action={<BillingButton />}
-        >
-          <div className="flex items-center gap-1 text-sm text-neutral-600">
-            {auth?.isRefreshingSession ? (
-              <>
-                <Spinner size={14} />
-                <span>Refreshing plan status...</span>
-              </>
-            ) : (
-              <>
-                Click{" "}
-                <span
-                  onClick={handleRefreshPlan}
-                  className="text-primary cursor-pointer underline"
-                >
-                  here
-                </span>
-                <span className="text-neutral-600">
-                  {" "}
-                  to refresh plan status.
-                </span>
-              </>
-            )}
-          </div>
-        </Container>
-        <Container
-          title="Account features"
-          description="More account-linked features are rolling out soon."
-        >
-          <FeatureGrid />
-        </Container>
       </div>
+
+      <PlanBillingSection
+        currentTier={currentTier}
+        isTrialing={isTrialing}
+        trialDaysRemaining={trialDaysRemaining}
+        isPaid={isPaid}
+      />
     </div>
   );
 }
 
-function FeatureGrid() {
-  const [shouldMarquee, setShouldMarquee] = useState(false);
-  const [container, setContainer] = useState<HTMLDivElement | null>(null);
-  const [measure, setMeasure] = useState<HTMLDivElement | null>(null);
+function PlanBillingSection({
+  currentTier,
+  isTrialing,
+  trialDaysRemaining,
+  isPaid,
+}: {
+  currentTier: PlanTier;
+  isTrialing: boolean;
+  trialDaysRemaining: number | null;
+  isPaid: boolean;
+}) {
+  const auth = useAuth();
+  const { canStartTrial: canStartTrialQuery } = useBillingAccess();
 
-  useEffect(() => {
-    if (!container || !measure) {
-      return;
+  const startTrialMutation = useMutation({
+    mutationFn: async () => {
+      const headers = auth?.getHeaders();
+      if (!headers) {
+        throw new Error("Not authenticated");
+      }
+      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+      const { error } = await startTrial({
+        client,
+        query: { interval: "monthly" },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: async () => {
+      await waitForBillingUpdate(
+        () => auth?.refreshSession() ?? Promise.resolve(),
+      );
+    },
+  });
+
+  const [actionPending, setActionPending] = useState(false);
+
+  const openBillingUrl = useCallback(async (url: string) => {
+    setActionPending(true);
+    try {
+      await openUrlWithInstruction(url, "billing", (u) =>
+        openerCommands.openUrl(u, null),
+      );
+    } finally {
+      setActionPending(false);
+    }
+  }, []);
+
+  const planLabel =
+    currentTier === "free" ? "Free" : currentTier === "lite" ? "Lite" : "Pro";
+  const statusText = isTrialing ? (
+    <>
+      Pro trial
+      {trialDaysRemaining != null &&
+        ` \u2014 ${trialDaysRemaining} day${trialDaysRemaining === 1 ? "" : "s"} left`}
+    </>
+  ) : (
+    <>
+      You&rsquo;re on the <span className="font-semibold">{planLabel}</span>{" "}
+      plan
+    </>
+  );
+  const handleOpenBillingPortal = useCallback(async () => {
+    const url = await buildWebAppUrl("/app/portal");
+    void openBillingUrl(url);
+  }, [openBillingUrl]);
+
+  const renderAction = (action: TierAction, compact: boolean) => {
+    if (action == null) return null;
+
+    if (action.style === "current") {
+      if (compact) {
+        if (!isPaid) {
+          return (
+            <span className="text-xs text-neutral-400">{action.label}</span>
+          );
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={handleOpenBillingPortal}
+            disabled={actionPending}
+            className={cn([
+              "group relative min-w-[88px] text-xs font-medium text-neutral-500 transition-colors hover:text-neutral-700 disabled:opacity-50",
+            ])}
+          >
+            <span className="block transition-opacity duration-150 group-hover:opacity-0">
+              {action.label}
+            </span>
+            <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+              Cancel
+            </span>
+          </button>
+        );
+      }
+
+      if (!isPaid) {
+        return (
+          <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+            {action.label}
+          </div>
+        );
+      }
+
+      return (
+        <button
+          type="button"
+          onClick={handleOpenBillingPortal}
+          disabled={actionPending}
+          className={cn([
+            "group relative flex h-8 w-full items-center justify-center overflow-hidden rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-xs font-medium text-neutral-600 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+          ])}
+        >
+          <span className="transition-opacity duration-150 group-hover:opacity-0">
+            {action.label}
+          </span>
+          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            Cancel
+          </span>
+        </button>
+      );
     }
 
-    const update = () => {
-      setShouldMarquee(measure.scrollWidth > container.clientWidth);
+    const isUpgrade = action.style === "upgrade";
+
+    const handleClick = async () => {
+      if (action.label === "Start free trial") {
+        startTrialMutation.mutate();
+        return;
+      }
+      if (!action.targetPlan) return;
+
+      void analyticsCommands.event({
+        event: "upgrade_clicked",
+        plan: action.targetPlan,
+      });
+
+      if (isPaid && action.targetPlan) {
+        const url = await buildWebAppUrl("/app/switch-plan", {
+          targetPlan: action.targetPlan,
+          targetPeriod: "monthly",
+        });
+        await openBillingUrl(url);
+      } else {
+        const url = await buildWebAppUrl("/app/checkout", {
+          plan: action.targetPlan,
+          period: "monthly",
+        });
+        await openBillingUrl(url);
+      }
     };
 
-    update();
+    const isBusy = actionPending || startTrialMutation.isPending;
 
-    const observer = new ResizeObserver(update);
-    observer.observe(container);
-    observer.observe(measure);
+    const label =
+      action.label === "Start free trial" && startTrialMutation.isPending
+        ? "Loading..."
+        : action.label;
 
-    return () => observer.disconnect();
-  }, [container, measure]);
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={isBusy}
+          className={cn([
+            "text-xs font-medium transition-colors",
+            isUpgrade
+              ? "text-stone-600 hover:text-stone-800"
+              : "text-neutral-500 hover:text-neutral-700",
+          ])}
+        >
+          {label}
+        </button>
+      );
+    }
+
+    const buttonClass = cn([
+      "flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium transition-all hover:scale-[102%] active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
+      isUpgrade
+        ? "bg-linear-to-t from-stone-600 to-stone-500 text-white shadow-md hover:shadow-lg"
+        : "border border-neutral-300 bg-linear-to-b from-white to-stone-50 text-neutral-700 shadow-xs hover:shadow-md",
+    ]);
+
+    return (
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isBusy}
+        className={buttonClass}
+      >
+        {label}
+      </button>
+    );
+  };
 
   return (
-    <div className="relative">
-      <div ref={setContainer} className="overflow-hidden">
-        {shouldMarquee ? (
-          <Marquee className="p-0 [--duration:24s] [--gap:0.75rem]">
-            <FeatureItems />
-          </Marquee>
-        ) : (
-          <div className="flex gap-3">
-            <FeatureItems />
-          </div>
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="font-serif text-lg font-semibold">Plan & Billing</h2>
+        {isPaid && (
+          <button
+            type="button"
+            onClick={handleOpenBillingPortal}
+            className="text-xs text-neutral-500 transition-colors hover:text-neutral-700"
+          >
+            Manage billing
+          </button>
         )}
       </div>
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden opacity-0">
-        <div ref={setMeasure} className="flex w-max gap-3">
-          <FeatureItems />
-        </div>
+
+      <div className="mb-4 flex items-center gap-2">
+        <p className="text-sm text-neutral-600">{statusText}</p>
+        <RefreshBillingButton />
       </div>
+
+      <PlanTierList
+        currentTier={currentTier}
+        isTrialing={isTrialing}
+        canStartTrial={canStartTrialQuery.data}
+        renderAction={renderAction}
+      />
     </div>
   );
 }
 
-function FeatureItems() {
-  return ACCOUNT_FEATURES.map(({ label, icon: Icon, comingSoon }) => (
-    <div
-      key={label}
-      className="flex min-w-[150px] items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5"
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <Icon className="h-4 w-4 shrink-0 text-neutral-500" />
-        <p className="truncate text-sm text-neutral-700">{label}</p>
+function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
+  const renderAction = (action: TierAction, compact: boolean) => {
+    if (action == null) return null;
+
+    if (action.style === "current") {
+      if (compact) {
+        return <span className="text-xs text-neutral-400">{action.label}</span>;
+      }
+
+      return (
+        <div className="flex h-8 w-full items-center justify-center rounded-full border border-neutral-200 bg-neutral-50 text-xs text-neutral-500">
+          {action.label}
+        </div>
+      );
+    }
+
+    const label =
+      action.targetPlan === "lite"
+        ? "Sign in for Lite"
+        : action.targetPlan === "pro"
+          ? "Sign in for Pro"
+          : "Sign in";
+
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={onSignIn}
+          className="text-xs font-medium text-stone-600 transition-colors hover:text-stone-800"
+        >
+          Sign in
+        </button>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={onSignIn}
+        className="flex h-8 w-full cursor-pointer items-center justify-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 text-xs font-medium text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]"
+      >
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <section className="border-t border-neutral-100 pt-6">
+      <div className="mb-4 flex flex-col gap-1">
+        <h2 className="font-serif text-lg font-semibold">Plans</h2>
+        <p className="text-sm text-neutral-600">
+          Compare Free, Lite, and Pro before you sign in.
+        </p>
       </div>
-      {comingSoon && (
-        <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">
-          Soon
-        </span>
+
+      <PlanTierList
+        currentTier="free"
+        isTrialing={false}
+        canStartTrial={false}
+        renderAction={renderAction}
+      />
+    </section>
+  );
+}
+
+function PlanTierList({
+  currentTier,
+  isTrialing,
+  canStartTrial,
+  renderAction,
+}: {
+  currentTier: PlanTier;
+  isTrialing: boolean;
+  canStartTrial: boolean;
+  renderAction: (action: TierAction, compact: boolean) => ReactNode;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isWide, setIsWide] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      setIsWide(entry.contentRect.width >= 480);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef}>
+      {isWide ? (
+        <div className="grid grid-cols-3 gap-px border-t border-neutral-100">
+          {PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentTier;
+            const action = getActionForTier(
+              tier.id,
+              currentTier,
+              canStartTrial,
+            );
+
+            return (
+              <div
+                key={tier.id}
+                className={cn([
+                  "flex flex-col p-3",
+                  isCurrent && "bg-stone-50/60",
+                ])}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="font-serif text-base font-medium text-stone-800">
+                    {tier.name}
+                  </span>
+                  {isCurrent && (
+                    <span className="rounded-full bg-stone-600 px-2 py-0.5 text-[10px] font-medium tracking-wide text-white uppercase">
+                      {isTrialing ? "Trial" : "Current"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mb-2">
+                  <span className="font-serif text-xl text-stone-700">
+                    {tier.price}
+                  </span>
+                  {tier.period && (
+                    <span className="ml-1 text-sm text-neutral-500">
+                      {tier.period}
+                    </span>
+                  )}
+                  {tier.subtitle && (
+                    <div className="mt-0.5 text-xs text-neutral-400">
+                      {tier.subtitle}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <PlanFeatureList features={tier.features} dense />
+                </div>
+
+                <div className="mt-auto">{renderAction(action, false)}</div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          {PLAN_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentTier;
+            const action = getActionForTier(
+              tier.id,
+              currentTier,
+              canStartTrial,
+            );
+
+            return (
+              <div
+                key={tier.id}
+                className={cn([
+                  "flex items-center justify-between border-b border-neutral-100 py-2.5 last:border-b-0",
+                  isCurrent && "-mx-2 rounded-md bg-stone-50/60 px-2",
+                ])}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-stone-800">
+                    {tier.name}
+                  </span>
+                  <span className="text-sm text-neutral-500">
+                    {tier.price}
+                    {tier.period}
+                  </span>
+                  {isCurrent && (
+                    <span className="rounded-full bg-stone-600 px-1.5 py-px text-[10px] font-medium tracking-wide text-white uppercase">
+                      {isTrialing ? "Trial" : "Current"}
+                    </span>
+                  )}
+                </div>
+                <div className="shrink-0">{renderAction(action, true)}</div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
-  ));
+  );
 }
 
 function FeatureSpotlight() {
@@ -391,13 +611,7 @@ function FeatureSpotlight() {
     return () => window.clearInterval(interval);
   }, [isPaused]);
 
-  const {
-    label,
-    icon: Icon,
-    comingSoon,
-    benefit,
-    accent,
-  } = ACCOUNT_FEATURES[activeIndex];
+  const { label, icon: Icon, benefit, accent } = ACCOUNT_FEATURES[activeIndex];
 
   return (
     <div className="group relative flex w-full max-w-[220px] min-w-[180px] items-center justify-center p-2">
@@ -468,9 +682,6 @@ function FeatureSpotlight() {
               <p className={cn(["text-sm font-medium", accent.label])}>
                 {label}
               </p>
-              {comingSoon ? (
-                <span className="text-xs text-neutral-400">Soon</span>
-              ) : null}
             </div>
             <p className="mt-1 text-xs leading-[1.45] text-neutral-600">
               {benefit}
@@ -482,95 +693,21 @@ function FeatureSpotlight() {
   );
 }
 
-function BillingButton() {
+function RefreshBillingButton() {
   const auth = useAuth();
-  const { isPro } = useBillingAccess();
-  const store = settings.UI.useStore(settings.STORE_ID);
-
-  const canTrialQuery = useQuery({
-    enabled: !!auth?.session && !isPro,
-    queryKey: [auth?.session?.user.id ?? "", "canStartTrial"],
-    queryFn: async () => {
-      const headers = auth?.getHeaders();
-      if (!headers) {
-        return false;
-      }
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { data, error } = await canStartTrialApi({ client });
-      if (error) {
-        throw error;
-      }
-
-      return data?.canStartTrial ?? false;
-    },
-  });
-
-  const startTrialMutation = useMutation({
-    mutationFn: async () => {
-      const headers = auth?.getHeaders();
-      if (!headers) {
-        throw new Error("Not authenticated");
-      }
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { error } = await startTrial({
-        client,
-        query: { interval: "monthly" },
-      });
-      if (error) {
-        throw error;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    },
-    onSuccess: async () => {
-      if (store) {
-        configureProSettings(store);
-      }
-      await auth?.refreshSession();
-    },
-  });
-
-  const handleProUpgrade = useCallback(() => {
-    void analyticsCommands.event({
-      event: "upgrade_clicked",
-      plan: "pro",
-    });
-    void openerCommands.openUrl(
-      `${WEB_APP_BASE_URL}/app/checkout?period=monthly`,
-      null,
-    );
-  }, []);
-
-  const handleOpenAccount = useCallback(() => {
-    void openerCommands.openUrl(`${WEB_APP_BASE_URL}/app/account`, null);
-  }, []);
-
-  if (isPro) {
-    return (
-      <Button variant="outline" onClick={handleOpenAccount} className="gap-1.5">
-        <span className="text-sm">Manage</span>
-        <ExternalLinkIcon className="text-neutral-600" size={12} />
-      </Button>
-    );
-  }
-
-  if (canTrialQuery.data) {
-    return (
-      <Button
-        variant="outline"
-        onClick={() => startTrialMutation.mutate()}
-        disabled={startTrialMutation.isPending}
-      >
-        <span>Start Pro Trial</span>
-      </Button>
-    );
-  }
+  const handleClick = useCallback(() => {
+    auth.refreshSession();
+  }, [auth]);
 
   return (
-    <Button variant="outline" onClick={handleProUpgrade} className="gap-1.5">
-      <span>Upgrade to Pro</span>
-      <ExternalLinkIcon className="text-neutral-600" size={12} />
-    </Button>
+    <button
+      type="button"
+      onClick={handleClick}
+      className="text-neutral-400 transition-colors hover:text-neutral-600"
+      aria-label="Refresh billing status"
+    >
+      <RefreshCw className="size-3" />
+    </button>
   );
 }
 

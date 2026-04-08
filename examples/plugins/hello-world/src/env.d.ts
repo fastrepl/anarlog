@@ -10,7 +10,7 @@ type SessionLifecyclePayload = {
 type PluginEvents = {
   tauri: {
     listener: {
-      sessionLifecycleEvent: {
+      captureLifecycleEvent: {
         listen: (
           handler: (event: { payload: SessionLifecyclePayload }) => void,
         ) => PluginEventRef;

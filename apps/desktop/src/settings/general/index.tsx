@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { disable, enable } from "@tauri-apps/plugin-autostart";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { commands as listenerCommands } from "@hypr/plugin-listener";
+import { commands as listenerCommands } from "@hypr/plugin-transcription";
 import type { General, GeneralStorage } from "@hypr/store";
 
-import { AccountSettings } from "./account";
+export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
 import { Audio } from "./audio";
 import { MainLanguageView } from "./main-language";
@@ -18,6 +18,7 @@ import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
 import { Data } from "~/settings/data";
+import { SettingsPageTitle } from "~/settings/page-title";
 import { useConfigValues } from "~/shared/config";
 import * as settings from "~/store/tinybase/store/settings";
 
@@ -25,7 +26,6 @@ function useSettingsForm() {
   const value = useConfigValues([
     "autostart",
     "notification_detect",
-    "save_recordings",
     "telemetry_consent",
     "ai_language",
     "spoken_languages",
@@ -60,7 +60,6 @@ function useSettingsForm() {
     defaultValues: {
       autostart: value.autostart,
       notification_detect: value.notification_detect,
-      save_recordings: value.save_recordings,
       telemetry_consent: value.telemetry_consent,
       ai_language: value.ai_language,
       spoken_languages: value.spoken_languages,
@@ -89,7 +88,6 @@ function useSettingsForm() {
         event: "settings_changed",
         autostart: value.autostart,
         notification_detect: value.notification_detect,
-        save_recordings: value.save_recordings,
         telemetry_consent: value.telemetry_consent,
       });
       void analyticsCommands.setProperties({
@@ -120,39 +118,26 @@ export function SettingsApp() {
   const supportedLanguages = supportedLanguagesQuery.data ?? ["en"];
 
   return (
-    <div className="flex flex-col gap-8 pt-3">
-      <AccountSettings />
-
+    <div className="flex flex-col gap-8">
       <form.Field name="autostart">
         {(autostartField) => (
-          <form.Field name="save_recordings">
-            {(saveRecordingsField) => (
-              <form.Field name="telemetry_consent">
-                {(telemetryConsentField) => (
-                  <AppSettingsView
-                    autostart={{
-                      title: "Start Char at login",
-                      description: "Always ready without manually launching.",
-                      value: autostartField.state.value,
-                      onChange: (val) => autostartField.handleChange(val),
-                    }}
-                    saveRecordings={{
-                      title: "Save recordings",
-                      description: "Keep audio files locally on your device.",
-                      value: saveRecordingsField.state.value,
-                      onChange: (val) => saveRecordingsField.handleChange(val),
-                    }}
-                    telemetryConsent={{
-                      title: "Share usage data",
-                      description:
-                        "Send anonymous usage analytics to help improve Char.",
-                      value: telemetryConsentField.state.value,
-                      onChange: (val) =>
-                        telemetryConsentField.handleChange(val),
-                    }}
-                  />
-                )}
-              </form.Field>
+          <form.Field name="telemetry_consent">
+            {(telemetryConsentField) => (
+              <AppSettingsView
+                autostart={{
+                  title: "Start Char at login",
+                  description: "Always ready without manually launching.",
+                  value: autostartField.state.value,
+                  onChange: (val) => autostartField.handleChange(val),
+                }}
+                telemetryConsent={{
+                  title: "Share usage data",
+                  description:
+                    "Send anonymous usage analytics to help improve Char.",
+                  value: telemetryConsentField.state.value,
+                  onChange: (val) => telemetryConsentField.handleChange(val),
+                }}
+              />
             )}
           </form.Field>
         )}
@@ -174,12 +159,6 @@ export function SettingsApp() {
           </form.Field>
           <TimezoneSelector />
           <WeekStartSelector />
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-4 font-serif text-lg font-semibold">Transcription</h2>
-        <div className="flex flex-col gap-6">
           <form.Field name="spoken_languages">
             {(field) => (
               <SpokenLanguagesView
@@ -204,7 +183,8 @@ export function SettingsApp() {
 
 export function SettingsNotifications() {
   return (
-    <div className="pt-3">
+    <div className="flex flex-col gap-6">
+      <SettingsPageTitle title="Notifications" />
       <NotificationSettingsView />
     </div>
   );
@@ -212,7 +192,7 @@ export function SettingsNotifications() {
 
 export function SettingsSystem() {
   return (
-    <div className="flex flex-col gap-8 pt-3">
+    <div className="flex flex-col gap-8">
       <Permissions />
       <Audio />
     </div>

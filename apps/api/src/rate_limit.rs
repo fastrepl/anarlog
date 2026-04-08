@@ -66,7 +66,7 @@ pub async fn rate_limit(
     }
 
     if let Some(auth) = request.extensions().get::<AuthContext>() {
-        let limiter = if auth.claims.is_pro() {
+        let limiter = if auth.claims.is_paid() {
             &state.limiter_pro
         } else {
             &state.limiter_free

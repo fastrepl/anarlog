@@ -4,9 +4,8 @@ import { useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { GithubStars } from "@/components/github-stars";
-import { SlashSeparator } from "@/components/slash-separator";
-import { CTASection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/product/self-hosting")({
   component: Component,
@@ -38,25 +37,15 @@ function Component() {
   const heroInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <main className="min-h-screen flex-1">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <WhySelfHostSection />
-        <SlashSeparator />
         <ComparisonSection />
-        <SlashSeparator />
         <DeploymentOptionsSection />
-        <SlashSeparator />
         <WhatYouCanHostSection />
-        <SlashSeparator />
         <EnterpriseSection />
-        <SlashSeparator />
         <OpenSourceSection />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </main>
@@ -66,9 +55,9 @@ function Component() {
 function HeroSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center gap-6 px-4 py-24 text-center">
+      <div className="flex flex-col items-center gap-6 px-4 py-24 text-left">
         <div className="flex max-w-4xl flex-col gap-6">
-          <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
             Run Char on
             <br />
             your infrastructure
@@ -100,8 +89,8 @@ function HeroSection() {
 function WhySelfHostSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Why self-host
         </p>
       </div>
@@ -111,7 +100,7 @@ function WhySelfHostSection() {
             icon="mdi:server-security"
             className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="mb-2 font-serif text-xl text-stone-700">
+          <h3 className="mb-2 font-mono text-xl text-stone-700">
             Complete data sovereignty
           </h3>
           <p className="text-neutral-600">
@@ -125,7 +114,7 @@ function WhySelfHostSection() {
             icon="mdi:shield-check"
             className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="mb-2 font-serif text-xl text-stone-700">
+          <h3 className="mb-2 font-mono text-xl text-stone-700">
             Compliance ready
           </h3>
           <p className="text-neutral-600">
@@ -136,7 +125,7 @@ function WhySelfHostSection() {
         </div>
         <div className="border-r border-neutral-100 p-8">
           <Icon icon="mdi:lan" className="mb-4 text-3xl text-stone-700" />
-          <h3 className="mb-2 font-serif text-xl text-stone-700">
+          <h3 className="mb-2 font-mono text-xl text-stone-700">
             Air-gapped deployment
           </h3>
           <p className="text-neutral-600">
@@ -150,7 +139,7 @@ function WhySelfHostSection() {
             icon="mdi:tune-vertical"
             className="mb-4 text-3xl text-stone-700"
           />
-          <h3 className="mb-2 font-serif text-xl text-stone-700">
+          <h3 className="mb-2 font-mono text-xl text-stone-700">
             Full customization
           </h3>
           <p className="text-neutral-600">
@@ -166,8 +155,8 @@ function WhySelfHostSection() {
 function ComparisonSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Self-hosted vs. Cloud
         </p>
       </div>
@@ -175,7 +164,7 @@ function ComparisonSection() {
         <div className="border-r border-neutral-100 p-8">
           <div className="mb-6 flex items-center gap-2">
             <Icon icon="mdi:cloud" className="text-2xl text-neutral-400" />
-            <h3 className="font-serif text-lg text-neutral-700">
+            <h3 className="font-mono text-lg text-neutral-700">
               Cloud-hosted Solutions
             </h3>
           </div>
@@ -227,7 +216,7 @@ function ComparisonSection() {
         <div className="bg-green-50/50 p-8">
           <div className="mb-6 flex items-center gap-2">
             <Icon icon="mdi:server" className="text-2xl text-green-600" />
-            <h3 className="font-serif text-lg text-green-900">
+            <h3 className="font-mono text-lg text-green-900">
               Char Self-hosted
             </h3>
           </div>
@@ -284,8 +273,8 @@ function ComparisonSection() {
 function DeploymentOptionsSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Deployment options
         </p>
       </div>
@@ -358,8 +347,8 @@ function DeploymentOptionsSection() {
 function WhatYouCanHostSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           What you can self-host
         </p>
       </div>
@@ -370,7 +359,7 @@ function WhatYouCanHostSection() {
             className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Transcription server
             </h3>
             <p className="text-neutral-600">
@@ -383,7 +372,7 @@ function WhatYouCanHostSection() {
         <div className="flex items-start gap-4 p-8">
           <Icon icon="mdi:brain" className="shrink-0 text-3xl text-stone-700" />
           <div>
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               LLM inference
             </h3>
             <p className="text-neutral-600">
@@ -399,7 +388,7 @@ function WhatYouCanHostSection() {
             className="shrink-0 text-3xl text-stone-700"
           />
           <div>
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Data storage
             </h3>
             <p className="text-neutral-600">
@@ -417,8 +406,8 @@ function WhatYouCanHostSection() {
 function EnterpriseSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Built for enterprise
         </p>
       </div>
@@ -429,7 +418,7 @@ function EnterpriseSection() {
             className="shrink-0 text-3xl text-green-600"
           />
           <div>
-            <h3 className="mb-2 font-serif text-lg text-stone-700">
+            <h3 className="mb-2 font-mono text-lg text-stone-700">
               HIPAA & SOC 2 ready
             </h3>
             <p className="text-neutral-600">
@@ -444,7 +433,7 @@ function EnterpriseSection() {
             className="shrink-0 text-3xl text-blue-600"
           />
           <div>
-            <h3 className="mb-2 font-serif text-lg text-stone-700">
+            <h3 className="mb-2 font-mono text-lg text-stone-700">
               SSO & LDAP integration
             </h3>
             <p className="text-neutral-600">
@@ -459,7 +448,7 @@ function EnterpriseSection() {
             className="shrink-0 text-3xl text-purple-600"
           />
           <div>
-            <h3 className="mb-2 font-serif text-lg text-stone-700">
+            <h3 className="mb-2 font-mono text-lg text-stone-700">
               Usage analytics
             </h3>
             <p className="text-neutral-600">
@@ -474,7 +463,7 @@ function EnterpriseSection() {
             className="shrink-0 text-3xl text-orange-600"
           />
           <div>
-            <h3 className="mb-2 font-serif text-lg text-stone-700">
+            <h3 className="mb-2 font-mono text-lg text-stone-700">
               Dedicated support
             </h3>
             <p className="text-neutral-600">
@@ -491,15 +480,15 @@ function EnterpriseSection() {
 function OpenSourceSection() {
   return (
     <section>
-      <div className="border-b border-neutral-100 text-center">
-        <p className="py-6 font-serif font-medium tracking-wide text-neutral-600 uppercase">
+      <div className="border-b border-neutral-100 text-left">
+        <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
           Open source foundation
         </p>
       </div>
       <div className="flex items-start gap-4 p-8">
         <Icon icon="mdi:github" className="shrink-0 text-4xl text-stone-700" />
         <div>
-          <h3 className="mb-3 font-serif text-xl text-stone-700">
+          <h3 className="mb-3 font-mono text-xl text-stone-700">
             Fully auditable codebase
           </h3>
           <p className="mb-4 text-neutral-600">

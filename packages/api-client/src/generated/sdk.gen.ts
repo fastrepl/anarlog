@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, SendMessageData, SendMessageErrors, SendMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, CreateContactData, CreateContactErrors, CreateContactResponses, CreateConversationData, CreateConversationErrors, CreateConversationResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DiarizeData, DiarizeErrors, DiarizeResponses, GetMessagesData, GetMessagesErrors, GetMessagesResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListConversationsData, ListConversationsErrors, ListConversationsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, SendMessageData, SendMessageErrors, SendMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, SubmitData, SubmitErrors, SubmitResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -181,6 +181,45 @@ export const whoami = <ThrowOnError extends boolean = false>(options?: Options<W
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/nango/whoami',
     ...options
+});
+
+/**
+ * Diarize audio
+ */
+export const diarize = <ThrowOnError extends boolean = false>(options: Options<DiarizeData, ThrowOnError>) => (options.client ?? client).post<DiarizeResponses, DiarizeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/diarize',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Identify speaker with diarization
+ */
+export const identify = <ThrowOnError extends boolean = false>(options: Options<IdentifyData, ThrowOnError>) => (options.client ?? client).post<IdentifyResponses, IdentifyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/identify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Extract voiceprint
+ */
+export const voiceprint = <ThrowOnError extends boolean = false>(options: Options<VoiceprintData, ThrowOnError>) => (options.client ?? client).post<VoiceprintResponses, VoiceprintErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/pyannote/v1/voiceprint',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 export const sttListenStream = <ThrowOnError extends boolean = false>(options?: Options<SttListenStreamData, ThrowOnError>) => (options?.client ?? client).get<unknown, SttListenStreamErrors, ThrowOnError>({ url: '/stt/listen', ...options });

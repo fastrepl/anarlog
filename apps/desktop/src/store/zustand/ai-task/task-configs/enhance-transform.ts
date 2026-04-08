@@ -13,39 +13,15 @@ import { getSessionEventById } from "~/session/utils";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
 import type { Store as SettingsStore } from "~/store/tinybase/store/settings";
 import {
-  buildSegments,
-  type RuntimeSpeakerHint,
-  SegmentKey,
-  type WordLike,
-} from "~/stt/segment";
-import {
-  defaultRenderLabelContext,
-  SpeakerLabelManager,
-} from "~/stt/segment/shared";
-import { convertStorageHintsToRuntime } from "~/stt/speaker-hints";
+  buildRenderTranscriptRequestFromStore,
+  renderTranscriptSegments,
+} from "~/stt/render-transcript";
 
 type TranscriptMeta = {
   id: string;
   startedAt: number;
   endedAt: number | null;
   memoMd: string;
-};
-
-type WordRow = Record<string, unknown> & {
-  text: string;
-  start_ms: number;
-  end_ms: number;
-  channel: WordLike["channel"];
-  transcript_id: string;
-  is_final?: boolean;
-  id?: string;
-};
-
-type WordWithTranscript = WordRow & { transcriptStartedAt: number };
-
-type SegmentForPayload = {
-  key: SegmentKey;
-  words: WordWithTranscript[];
 };
 
 type SegmentPayload = {
@@ -70,6 +46,10 @@ async function transformArgs(
   const sessionContext = getSessionContext(sessionId, store);
   const template = templateId ? getTemplateData(templateId, store) : null;
   const language = getLanguage(settingsStore);
+  const segments = await getTranscriptSegmentsFromMeta(
+    sessionContext.transcriptsMeta,
+    store,
+  );
 
   return {
     language,
@@ -78,10 +58,7 @@ async function transformArgs(
     template,
     preMeetingMemo: sessionContext.preMeetingMemo,
     postMeetingMemo: sessionContext.postMeetingMemo,
-    transcripts: formatTranscripts(
-      sessionContext.segments,
-      sessionContext.transcriptsMeta,
-    ),
+    transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
   };
 }
 
@@ -136,7 +113,6 @@ function getSessionContext(sessionId: string, store: MainStore) {
     postMeetingMemo: rawMd,
     session: getSessionData(sessionId, store),
     participants: getParticipants(sessionId, store),
-    segments: getTranscriptSegmentsFromMeta(transcriptsMeta, store),
     transcriptsMeta,
   };
 }
@@ -258,45 +234,31 @@ function parseTemplateSections(raw: unknown): TemplateSection[] {
     .filter((section): section is TemplateSection => section !== null);
 }
 
-function getTranscriptSegmentsFromMeta(
+async function getTranscriptSegmentsFromMeta(
   transcripts: TranscriptMeta[],
   store: MainStore,
-) {
+): Promise<SegmentPayload[]> {
   if (transcripts.length === 0) {
     return [];
   }
 
-  const wordIdToIndex = new Map<string, number>();
-  const words = collectWordsForTranscripts(store, transcripts, wordIdToIndex);
-  if (words.length === 0) {
+  const request = buildRenderTranscriptRequestFromStore(
+    store,
+    transcripts.map((transcript) => transcript.id),
+  );
+  if (!request) {
     return [];
   }
 
-  const speakerHints = collectSpeakerHints(store, transcripts, wordIdToIndex);
-  const segments = buildSegments(words, [], speakerHints);
+  const segments = await renderTranscriptSegments(request);
 
-  const ctx = defaultRenderLabelContext(store);
-  const speakerLabelManager = SpeakerLabelManager.fromSegments(segments, ctx);
-
-  const sessionStartCandidate = transcripts.reduce(
-    (min, transcript) => Math.min(min, transcript.startedAt),
-    Number.POSITIVE_INFINITY,
-  );
-  const sessionStartMs = Number.isFinite(sessionStartCandidate)
-    ? sessionStartCandidate
-    : 0;
-
-  const segmentsForPayload = segments as unknown as SegmentForPayload[];
-
-  const normalizedSegments = segmentsForPayload.reduce<SegmentPayload[]>(
+  const normalizedSegments = segments.reduce<SegmentPayload[]>(
     (acc, segment) => {
       if (segment.words.length === 0) {
         return acc;
       }
 
-      acc.push(
-        toSegmentPayload(segment, sessionStartMs, store, speakerLabelManager),
-      );
+      acc.push(toSegmentPayload(segment));
       return acc;
     },
     [],
@@ -333,98 +295,18 @@ function collectTranscripts(
   return transcripts;
 }
 
-function collectWordsForTranscripts(
-  store: MainStore,
-  transcripts: readonly TranscriptMeta[],
-  wordIdToIndex: Map<string, number>,
-): WordWithTranscript[] {
-  const words: Array<{ id: string; word: WordWithTranscript }> = [];
-
-  for (const transcript of transcripts) {
-    const wordsJson = store.getCell("transcripts", transcript.id, "words");
-    if (typeof wordsJson !== "string") continue;
-
-    let parsedWords: Array<WordRow & { id: string }>;
-    try {
-      parsedWords = JSON.parse(wordsJson);
-    } catch {
-      continue;
-    }
-
-    for (const word of parsedWords) {
-      words.push({
-        id: word.id,
-        word: {
-          ...word,
-          transcript_id: transcript.id,
-          transcriptStartedAt: transcript.startedAt,
-        },
-      });
-    }
-  }
-
-  words.sort((a, b) => {
-    const startA = a.word.transcriptStartedAt + a.word.start_ms;
-    const startB = b.word.transcriptStartedAt + b.word.start_ms;
-    return startA - startB;
-  });
-
-  return words.map(({ id, word }, index) => {
-    wordIdToIndex.set(id, index);
-    return word;
-  });
-}
-
-function collectSpeakerHints(
-  store: MainStore,
-  transcripts: readonly TranscriptMeta[],
-  wordIdToIndex: Map<string, number>,
-): RuntimeSpeakerHint[] {
-  const storageHints: any[] = [];
-
-  for (const transcript of transcripts) {
-    const hintsJson = store.getCell(
-      "transcripts",
-      transcript.id,
-      "speaker_hints",
-    );
-    if (typeof hintsJson !== "string") continue;
-
-    try {
-      const parsedHints = JSON.parse(hintsJson);
-      storageHints.push(...parsedHints);
-    } catch {
-      continue;
-    }
-  }
-
-  return convertStorageHintsToRuntime(storageHints, wordIdToIndex);
-}
-
 function toSegmentPayload(
-  segment: SegmentForPayload,
-  sessionStartMs: number,
-  store: MainStore,
-  speakerLabelManager: SpeakerLabelManager,
+  segment: Awaited<ReturnType<typeof renderTranscriptSegments>>[number],
 ): SegmentPayload {
-  const firstWord = segment.words[0];
-  const lastWord = segment.words[segment.words.length - 1];
-
-  const absoluteStartMs = firstWord.transcriptStartedAt + firstWord.start_ms;
-  const absoluteEndMs = lastWord.transcriptStartedAt + lastWord.end_ms;
-
-  const ctx = defaultRenderLabelContext(store);
-  const label = SegmentKey.renderLabel(segment.key, ctx, speakerLabelManager);
-
   return {
-    speaker_label: label,
-    start_ms: absoluteStartMs - sessionStartMs,
-    end_ms: absoluteEndMs - sessionStartMs,
-    text: segment.words.map((word) => word.text).join(" "),
+    speaker_label: segment.speaker_label,
+    start_ms: segment.start_ms,
+    end_ms: segment.end_ms,
+    text: segment.text,
     words: segment.words.map((word) => ({
       text: word.text,
-      start_ms: word.transcriptStartedAt + word.start_ms - sessionStartMs,
-      end_ms: word.transcriptStartedAt + word.end_ms - sessionStartMs,
+      start_ms: word.start_ms,
+      end_ms: word.end_ms,
     })),
   };
 }

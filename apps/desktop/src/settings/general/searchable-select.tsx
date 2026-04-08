@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "@hypr/ui/components/ui/command";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -93,51 +94,56 @@ export function SearchableSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="p-0"
+        variant="app"
         align="start"
         style={{ width: "var(--radix-popover-trigger-width)" }}
       >
-        <Command filter={filterFunction}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={query}
-            onValueChange={setQuery}
-          />
-          <CommandEmpty>
-            <div className="text-muted-foreground px-2 py-1.5 text-sm">
-              {emptyMessage}
-            </div>
-          </CommandEmpty>
-          <CommandList>
-            <CommandGroup className="max-h-[250px] overflow-y-auto">
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={
-                    option.detail
-                      ? `${option.label} ${option.detail}`
-                      : option.label
-                  }
-                  onSelect={() => handleSelect(option.value)}
-                  className={cn([
-                    "cursor-pointer",
-                    "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
-                  ])}
-                >
-                  <span className="flex-1 truncate">{option.label}</span>
-                  {option.detail && (
-                    <span className="shrink-0 font-mono text-[10px] text-neutral-400">
-                      {option.detail}
-                    </span>
-                  )}
-                  {value === option.value && (
-                    <Check className="h-4 w-4 shrink-0" />
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        <AppFloatingPanel className="overflow-hidden">
+          <Command
+            filter={filterFunction}
+            className="rounded-[inherit] border-0 bg-transparent"
+          >
+            <CommandInput
+              placeholder={searchPlaceholder}
+              value={query}
+              onValueChange={setQuery}
+            />
+            <CommandEmpty>
+              <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                {emptyMessage}
+              </div>
+            </CommandEmpty>
+            <CommandList>
+              <CommandGroup className="max-h-[250px] overflow-y-auto">
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={
+                      option.detail
+                        ? `${option.label} ${option.detail}`
+                        : option.label
+                    }
+                    onSelect={() => handleSelect(option.value)}
+                    className={cn([
+                      "cursor-pointer",
+                      "hover:bg-neutral-200! focus:bg-neutral-200! aria-selected:bg-transparent",
+                    ])}
+                  >
+                    <span className="flex-1 truncate">{option.label}</span>
+                    {option.detail && (
+                      <span className="shrink-0 font-mono text-[10px] text-neutral-400">
+                        {option.detail}
+                      </span>
+                    )}
+                    {value === option.value && (
+                      <Check className="h-4 w-4 shrink-0" />
+                    )}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </AppFloatingPanel>
       </PopoverContent>
     </Popover>
   );

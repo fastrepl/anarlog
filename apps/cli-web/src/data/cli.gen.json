@@ -1,0 +1,424 @@
+{
+  "name": "char",
+  "about": "Live transcription and audio tools",
+  "synopsis": "char [--no-color] [-v] [-q] [-h] [-V] <command>",
+  "global_options": [
+    {
+      "flags": "-v, --verbose",
+      "help": "Increase logging verbosity",
+      "required": false,
+      "is_flag": true
+    },
+    {
+      "flags": "-q, --quiet",
+      "help": "Decrease logging verbosity",
+      "required": false,
+      "is_flag": true
+    }
+  ],
+  "options": [
+    {
+      "flags": "--no-color",
+      "required": false,
+      "is_flag": true
+    },
+    {
+      "flags": "-h, --help",
+      "help": "Print help",
+      "required": false,
+      "is_flag": false
+    },
+    {
+      "flags": "-V, --version",
+      "help": "Print version",
+      "required": false,
+      "is_flag": false
+    }
+  ],
+  "subcommands": [
+    {
+      "name": "char transcribe",
+      "about": "Transcribe an audio file",
+      "synopsis": "char transcribe [-i] <-p> [-k] [-o] [-f] [--base] [--base-url] [--api-key] [-m] [-l] [-h] [-V] [target]",
+      "options": [
+        {
+          "flags": "-i, --input",
+          "value_name": "FILE",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-p, --provider",
+          "value_name": "PROVIDER",
+          "required": true,
+          "is_flag": false
+        },
+        {
+          "flags": "-k, --keyword",
+          "value_name": "KEYWORD",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-o, --output",
+          "value_name": "FILE",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-f, --format",
+          "value_name": "FORMAT",
+          "default": "pretty",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--base",
+          "value_name": "DIR",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--base-url",
+          "value_name": "BASE_URL",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--api-key",
+          "value_name": "API_KEY",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-m, --model",
+          "value_name": "MODEL",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-l, --language",
+          "value_name": "LANGUAGE",
+          "default": "en",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "arguments": [
+        {
+          "name": "INPUT",
+          "help": "Timestamp (e.g. 20260327_143022) or path to an audio file",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "char models",
+      "about": "Manage local models",
+      "synopsis": "char models [--base] [-h] [-V] <command>",
+      "options": [
+        {
+          "flags": "--base",
+          "value_name": "DIR",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "subcommands": [
+        {
+          "name": "char models list",
+          "about": "List local models and their status",
+          "synopsis": "char models list [-f] [-h] [-V]",
+          "options": [
+            {
+              "flags": "-f, --format",
+              "value_name": "FORMAT",
+              "default": "pretty",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ]
+        },
+        {
+          "name": "char models download",
+          "about": "Download a model by name",
+          "synopsis": "char models download [-h] [-V] <name>",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ],
+          "arguments": [
+            {
+              "name": "NAME",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "char models delete",
+          "about": "Delete a downloaded model",
+          "synopsis": "char models delete [--force] [-h] [-V] <name>",
+          "options": [
+            {
+              "flags": "--force",
+              "required": false,
+              "is_flag": true
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ],
+          "arguments": [
+            {
+              "name": "NAME",
+              "required": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "char completions",
+      "about": "Generate shell completions",
+      "synopsis": "char completions [-h] [-V] <shell>",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "arguments": [
+        {
+          "name": "SHELL",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "char play",
+      "about": "Play an audio file",
+      "synopsis": "char play [--base] [-h] [-V] <target>",
+      "options": [
+        {
+          "flags": "--base",
+          "value_name": "DIR",
+          "help": "Base directory for session lookup",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "arguments": [
+        {
+          "name": "TARGET",
+          "help": "Timestamp (e.g. 20260327_143022) or path to an audio file",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "char record",
+      "about": "Record audio to an MP3 file",
+      "synopsis": "char record [--audio] [-o] [-f] [--base] [-h] [-V]",
+      "options": [
+        {
+          "flags": "--audio",
+          "value_name": "AUDIO",
+          "default": "dual",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-o, --output",
+          "value_name": "FILE",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-f, --format",
+          "value_name": "FORMAT",
+          "default": "pretty",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "--base",
+          "value_name": "DIR",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    },
+    {
+      "name": "char skill",
+      "about": "Install char skill for AI coding agents",
+      "synopsis": "char skill [-h] [-V] <command>",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ],
+      "subcommands": [
+        {
+          "name": "char skill install",
+          "about": "Install char skill for AI coding agents",
+          "synopsis": "char skill install [-f] [-h] [-V]",
+          "options": [
+            {
+              "flags": "-f, --format",
+              "value_name": "FORMAT",
+              "help": "Skip interactive selection: claude, codex, github-copilot",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "required": false,
+              "is_flag": false
+            },
+            {
+              "flags": "-V, --version",
+              "help": "Print version",
+              "required": false,
+              "is_flag": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "char desktop",
+      "about": "Open the desktop app or download page",
+      "synopsis": "char desktop [-h] [-V]",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    },
+    {
+      "name": "char update",
+      "about": "Update char to the latest version",
+      "synopsis": "char update [-h] [-V]",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "required": false,
+          "is_flag": false
+        },
+        {
+          "flags": "-V, --version",
+          "help": "Print version",
+          "required": false,
+          "is_flag": false
+        }
+      ]
+    }
+  ]
+}

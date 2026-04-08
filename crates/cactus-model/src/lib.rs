@@ -1,3 +1,32 @@
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum CactusHealthStatus {
+    Loading,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct CactusHealthResponse {
+    pub service: String,
+    pub live: bool,
+    pub ready: bool,
+    pub status: CactusHealthStatus,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
+pub enum CactusModelSource {
+    Downloadable {
+        url: &'static str,
+        checksum: Option<u32>,
+    },
+    BundledResource {
+        relative_path: &'static str,
+    },
+    Unavailable,
+}
+
 #[derive(
     Debug,
     Clone,
@@ -14,6 +43,9 @@ pub enum CactusSttModel {
     #[serde(rename = "cactus-whisper-small-int4")]
     #[strum(serialize = "cactus-whisper-small-int4")]
     WhisperSmallInt4,
+    #[serde(rename = "cactus-whisper-small-int4-apple")]
+    #[strum(serialize = "cactus-whisper-small-int4-apple")]
+    WhisperSmallInt4Apple,
     #[serde(rename = "cactus-whisper-small-int8")]
     #[strum(serialize = "cactus-whisper-small-int8")]
     WhisperSmallInt8,
@@ -47,15 +79,22 @@ pub enum CactusSttModel {
     #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int4")]
     #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int4")]
     ParakeetTdt0_6bV3Int4,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int4-apple")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int4-apple")]
+    ParakeetTdt0_6bV3Int4Apple,
     #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int8")]
     #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int8")]
     ParakeetTdt0_6bV3Int8,
+    #[serde(rename = "cactus-parakeet-tdt-0.6b-v3-int8-apple")]
+    #[strum(serialize = "cactus-parakeet-tdt-0.6b-v3-int8-apple")]
+    ParakeetTdt0_6bV3Int8Apple,
 }
 
 impl CactusSttModel {
     pub fn all() -> &'static [CactusSttModel] {
         &[
             CactusSttModel::WhisperSmallInt4,
+            CactusSttModel::WhisperSmallInt4Apple,
             CactusSttModel::WhisperSmallInt8,
             CactusSttModel::WhisperSmallInt8Apple,
             CactusSttModel::WhisperMediumInt4,
@@ -67,31 +106,40 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8,
             CactusSttModel::ParakeetCtc0_6bInt8Apple,
             CactusSttModel::ParakeetTdt0_6bV3Int4,
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple,
             CactusSttModel::ParakeetTdt0_6bV3Int8,
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple,
         ]
     }
 
     pub fn is_apple(&self) -> bool {
         matches!(
             self,
-            CactusSttModel::WhisperSmallInt8Apple
+            CactusSttModel::WhisperSmallInt4Apple
+                | CactusSttModel::WhisperSmallInt8Apple
                 | CactusSttModel::WhisperMediumInt4Apple
                 | CactusSttModel::WhisperMediumInt8Apple
                 | CactusSttModel::ParakeetCtc0_6bInt4Apple
                 | CactusSttModel::ParakeetCtc0_6bInt8Apple
+                | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+                | CactusSttModel::ParakeetTdt0_6bV3Int8Apple
         )
     }
 
     pub fn is_cross_platform(&self) -> bool {
         matches!(
             self,
-            CactusSttModel::ParakeetTdt0_6bV3Int4 | CactusSttModel::ParakeetTdt0_6bV3Int8
+            CactusSttModel::WhisperSmallInt4
+                | CactusSttModel::WhisperSmallInt8
+                | CactusSttModel::ParakeetTdt0_6bV3Int4
+                | CactusSttModel::ParakeetTdt0_6bV3Int8
         )
     }
 
     pub fn asset_id(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "cactus-whisper-small-int4",
+            CactusSttModel::WhisperSmallInt4Apple => "cactus-whisper-small-int4-apple",
             CactusSttModel::WhisperSmallInt8 => "cactus-whisper-small-int8",
             CactusSttModel::WhisperSmallInt8Apple => "cactus-whisper-small-int8-apple",
             CactusSttModel::WhisperMediumInt4 => "cactus-whisper-medium-int4",
@@ -103,13 +151,16 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "cactus-parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "cactus-parakeet-ctc-0.6b-int8-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "cactus-parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "cactus-parakeet-tdt-0.6b-v3-int4-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "cactus-parakeet-tdt-0.6b-v3-int8",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "cactus-parakeet-tdt-0.6b-v3-int8-apple",
         }
     }
 
     pub fn dir_name(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "whisper-small-int4",
+            CactusSttModel::WhisperSmallInt4Apple => "whisper-small-int4-apple",
             CactusSttModel::WhisperSmallInt8 => "whisper-small-int8",
             CactusSttModel::WhisperSmallInt8Apple => "whisper-small-int8-apple",
             CactusSttModel::WhisperMediumInt4 => "whisper-medium-int4",
@@ -121,7 +172,9 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "parakeet-ctc-0.6b-int8",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "parakeet-ctc-0.6b-int8-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "parakeet-tdt-0.6b-v3-int4",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "parakeet-tdt-0.6b-v3-int4-apple",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "parakeet-tdt-0.6b-v3-int8",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "parakeet-tdt-0.6b-v3-int8-apple",
         }
     }
 
@@ -129,65 +182,94 @@ impl CactusSttModel {
         format!("{}.zip", self.dir_name())
     }
 
-    pub fn model_url(&self) -> Option<&str> {
+    pub fn source(&self) -> CactusModelSource {
         match self {
-            CactusSttModel::WhisperSmallInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8.zip",
-            ),
-            CactusSttModel::WhisperSmallInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8-apple.zip",
-            ),
-            CactusSttModel::WhisperMediumInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8.zip",
-            ),
-            CactusSttModel::WhisperMediumInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8-apple.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt4 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4-apple.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8.zip",
-            ),
-            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8-apple.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
-            ),
-            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
-            ),
-            _ => None,
+            CactusSttModel::WhisperSmallInt4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+                checksum: Some(3458434299),
+            },
+            CactusSttModel::WhisperSmallInt4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4-apple.zip",
+                checksum: Some(978654274),
+            },
+            CactusSttModel::WhisperSmallInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8.zip",
+                checksum: Some(4195045602),
+            },
+            CactusSttModel::WhisperSmallInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int8-apple.zip",
+                checksum: Some(3401367684),
+            },
+            CactusSttModel::WhisperMediumInt4 | CactusSttModel::WhisperMediumInt4Apple => {
+                CactusModelSource::Unavailable
+            }
+            CactusSttModel::WhisperMediumInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8.zip",
+                checksum: Some(472491622),
+            },
+            CactusSttModel::WhisperMediumInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-medium-int8-apple.zip",
+                checksum: Some(3175773054),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4.zip",
+                checksum: Some(110471502),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int4-apple.zip",
+                checksum: Some(3331532191),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8.zip",
+                checksum: Some(1392408083),
+            },
+            CactusSttModel::ParakeetCtc0_6bInt8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-ctc-0.6b-int8-apple.zip",
+                checksum: Some(3465716349),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int4 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4.zip",
+                checksum: Some(4186460235),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int4-apple.zip",
+                checksum: Some(215115681),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int8 => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8.zip",
+                checksum: Some(1102737485),
+            },
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/parakeet-tdt-0.6b-v3-int8-apple.zip",
+                checksum: Some(1011398120),
+            },
+        }
+    }
+
+    pub fn model_url(&self) -> Option<&str> {
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
     pub fn checksum(&self) -> Option<u32> {
-        match self {
-            CactusSttModel::WhisperSmallInt8 => Some(4195045602),
-            CactusSttModel::WhisperSmallInt8Apple => Some(3401367684),
-            CactusSttModel::WhisperMediumInt8 => Some(472491622),
-            CactusSttModel::WhisperMediumInt8Apple => Some(3175773054),
-            CactusSttModel::ParakeetCtc0_6bInt4 => Some(110856526),
-            CactusSttModel::ParakeetCtc0_6bInt4Apple => Some(3331802527),
-            CactusSttModel::ParakeetCtc0_6bInt8 => Some(1392473619),
-            CactusSttModel::ParakeetCtc0_6bInt8Apple => Some(3465847421),
-            CactusSttModel::ParakeetTdt0_6bV3Int4 => Some(4186460235),
-            CactusSttModel::ParakeetTdt0_6bV3Int8 => Some(1102737485),
-            _ => None,
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
     pub fn description(&self) -> &str {
         match self {
-            CactusSttModel::WhisperSmallInt8Apple
+            CactusSttModel::WhisperSmallInt4Apple
+            | CactusSttModel::WhisperSmallInt8Apple
             | CactusSttModel::WhisperMediumInt4Apple
             | CactusSttModel::WhisperMediumInt8Apple
             | CactusSttModel::ParakeetCtc0_6bInt4Apple
-            | CactusSttModel::ParakeetCtc0_6bInt8Apple => "Apple Neural Engine",
+            | CactusSttModel::ParakeetCtc0_6bInt8Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "Apple Neural Engine",
             _ => "",
         }
     }
@@ -195,6 +277,7 @@ impl CactusSttModel {
     pub fn display_name(&self) -> &str {
         match self {
             CactusSttModel::WhisperSmallInt4 => "Whisper Small (INT4)",
+            CactusSttModel::WhisperSmallInt4Apple => "Whisper Small (INT4, Apple NPU)",
             CactusSttModel::WhisperSmallInt8 => "Whisper Small (INT8)",
             CactusSttModel::WhisperSmallInt8Apple => "Whisper Small (INT8, Apple NPU)",
             CactusSttModel::WhisperMediumInt4 => "Whisper Medium (INT4)",
@@ -206,7 +289,9 @@ impl CactusSttModel {
             CactusSttModel::ParakeetCtc0_6bInt8 => "Parakeet CTC 0.6B (INT8)",
             CactusSttModel::ParakeetCtc0_6bInt8Apple => "Parakeet CTC 0.6B (INT8, Apple NPU)",
             CactusSttModel::ParakeetTdt0_6bV3Int4 => "Parakeet TDT 0.6B v3 (INT4)",
+            CactusSttModel::ParakeetTdt0_6bV3Int4Apple => "Parakeet TDT 0.6B v3 (INT4, Apple NPU)",
             CactusSttModel::ParakeetTdt0_6bV3Int8 => "Parakeet TDT 0.6B v3 (INT8)",
+            CactusSttModel::ParakeetTdt0_6bV3Int8Apple => "Parakeet TDT 0.6B v3 (INT8, Apple NPU)",
         }
     }
 
@@ -217,7 +302,9 @@ impl CactusSttModel {
             | CactusSttModel::ParakeetCtc0_6bInt8
             | CactusSttModel::ParakeetCtc0_6bInt8Apple
             | CactusSttModel::ParakeetTdt0_6bV3Int4
-            | CactusSttModel::ParakeetTdt0_6bV3Int8 => {
+            | CactusSttModel::ParakeetTdt0_6bV3Int4Apple
+            | CactusSttModel::ParakeetTdt0_6bV3Int8
+            | CactusSttModel::ParakeetTdt0_6bV3Int8Apple => {
                 vec!["en".parse().unwrap()]
             }
             _ => hypr_language::whisper_multilingual(),
@@ -321,12 +408,36 @@ impl CactusLlmModel {
         format!("{}.zip", self.dir_name())
     }
 
+    pub fn source(&self) -> CactusModelSource {
+        match self {
+            CactusLlmModel::Lfm2Vl450mApple => CactusModelSource::BundledResource {
+                relative_path: "models/cactus/char-vlm/weight",
+            },
+            _ => CactusModelSource::Unavailable,
+        }
+    }
+
     pub fn model_url(&self) -> Option<&str> {
-        None
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
+        }
+    }
+
+    pub fn checksum(&self) -> Option<u32> {
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
+        }
     }
 
     pub fn description(&self) -> &str {
-        ""
+        match self {
+            CactusLlmModel::Lfm2Vl450mApple | CactusLlmModel::Lfm2_5Vl1_6bApple => {
+                "Apple Neural Engine"
+            }
+            _ => "",
+        }
     }
 
     pub fn display_name(&self) -> &str {
@@ -398,17 +509,24 @@ impl CactusModel {
         }
     }
 
-    pub fn model_url(&self) -> Option<&str> {
+    pub fn source(&self) -> CactusModelSource {
         match self {
-            CactusModel::Stt(m) => m.model_url(),
-            CactusModel::Llm(m) => m.model_url(),
+            CactusModel::Stt(m) => m.source(),
+            CactusModel::Llm(m) => m.source(),
+        }
+    }
+
+    pub fn model_url(&self) -> Option<&str> {
+        match self.source() {
+            CactusModelSource::Downloadable { url, .. } => Some(url),
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
     pub fn checksum(&self) -> Option<u32> {
-        match self {
-            CactusModel::Stt(m) => m.checksum(),
-            CactusModel::Llm(_) => None,
+        match self.source() {
+            CactusModelSource::Downloadable { checksum, .. } => checksum,
+            CactusModelSource::BundledResource { .. } | CactusModelSource::Unavailable => None,
         }
     }
 
@@ -424,5 +542,51 @@ impl CactusModel {
             CactusModel::Stt(m) => m.display_name(),
             CactusModel::Llm(m) => m.display_name(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_llm_uses_resource_source() {
+        assert_eq!(
+            CactusLlmModel::Lfm2Vl450mApple.source(),
+            CactusModelSource::BundledResource {
+                relative_path: "models/cactus/char-vlm/weight",
+            }
+        );
+    }
+
+    #[test]
+    fn downloadable_stt_reports_source_metadata() {
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.source(),
+            CactusModelSource::Downloadable {
+                url: "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+                checksum: Some(3458434299),
+            }
+        );
+    }
+
+    #[test]
+    fn bundled_models_do_not_expose_download_metadata() {
+        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.model_url(), None);
+        assert_eq!(CactusLlmModel::Lfm2Vl450mApple.checksum(), None);
+    }
+
+    #[test]
+    fn downloadable_models_keep_existing_metadata() {
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.model_url(),
+            Some(
+                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/Cactus-Compute/weights/whisper-small-int4.zip",
+            )
+        );
+        assert_eq!(
+            CactusSttModel::WhisperSmallInt4.checksum(),
+            Some(3458434299)
+        );
     }
 }

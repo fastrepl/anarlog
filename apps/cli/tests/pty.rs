@@ -144,11 +144,11 @@ impl Drop for PtyApp {
 
 #[cfg_attr(not(feature = "e2e"), ignore)]
 #[test]
-fn entry_screen_renders() {
+fn root_help_renders() {
     let app = PtyApp::spawn(&[]);
     assert!(
-        app.wait_for_screen("Tip:", Duration::from_secs(5)),
-        "entry screen should render with 'Tip:' text.\nScreen:\n{}\nRaw:\n{}",
+        app.wait_for_screen("Docs:", Duration::from_secs(5)),
+        "root help should render.\nScreen:\n{}\nRaw:\n{}",
         app.screen_text(),
         app.raw_output()
     );
@@ -156,11 +156,11 @@ fn entry_screen_renders() {
 
 #[cfg_attr(not(feature = "e2e"), ignore)]
 #[test]
-fn connect_screen_renders() {
-    let app = PtyApp::spawn(&["connect"]);
+fn transcribe_help_renders() {
+    let app = PtyApp::spawn(&["transcribe", "--help"]);
     assert!(
-        app.wait_for_screen("Connect a provider", Duration::from_secs(5)),
-        "connect screen should render.\nScreen:\n{}\nRaw:\n{}",
+        app.wait_for_screen("Usage: char transcribe", Duration::from_secs(5)),
+        "transcribe help should render.\nScreen:\n{}\nRaw:\n{}",
         app.screen_text(),
         app.raw_output()
     );

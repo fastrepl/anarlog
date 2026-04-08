@@ -1,0 +1,10 @@
+[package]
+name = "hid-host"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hidapi = { workspace = true }
+hypr-hid-interface = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

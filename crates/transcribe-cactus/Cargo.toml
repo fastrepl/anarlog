@@ -3,14 +3,14 @@ name = "transcribe-cactus"
 version = "0.1.0"
 edition = "2024"
 
-[features]
-live-example = []
-
 [dependencies]
+hypr-audio-chunking = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-cactus = { workspace = true }
+hypr-cactus-model = { workspace = true }
 hypr-language = { workspace = true }
-hypr-vad-chunking = { workspace = true }
+hypr-model-manager = { workspace = true, features = ["cactus"] }
+hypr-transcribe-core = { workspace = true }
 hypr-ws-utils = { workspace = true }
 owhisper-interface = { workspace = true }
 rodio = { workspace = true }
@@ -31,26 +31,35 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 hypr-audio = { workspace = true }
+hypr-audio-actual = { workspace = true }
+hypr-audio-mock = { workspace = true }
 hypr-audio-utils = { workspace = true }
 hypr-cactus = { workspace = true }
 hypr-data = { workspace = true }
+hypr-language = { workspace = true }
 
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 
 axum = { workspace = true, features = ["ws"] }
+bytes = { workspace = true }
+crossterm = { workspace = true }
 futures-util = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+reqwest = { workspace = true, features = ["json", "stream"] }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 
-clap = { workspace = true, features = ["derive"] }
 colored = "3"
 dirs = { workspace = true }
+pico-args = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 
+insta = { workspace = true, features = ["json", "redactions"] }
 sequential-test = "0.2"
 serde_json = { workspace = true }
 
 [[example]]
 name = "live"
-required-features = ["live-example"]
+
+[[example]]
+name = "batch"

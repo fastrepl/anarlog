@@ -1,6 +1,7 @@
 mod commands;
 mod error;
 mod events;
+mod runtime;
 
 pub use error::Error;
 pub use events::*;
@@ -38,15 +39,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
 
-            #[cfg(target_os = "macos")]
-            {
-                use tauri_specta::Event;
-
-                let app_handle = app.app_handle().clone();
-                hypr_calendar::setup_change_notification(move || {
-                    let _ = CalendarChangedEvent.emit(&app_handle);
-                });
-            }
+            hypr_calendar::start(runtime::TauriCalendarRuntime(app.app_handle().clone()));
 
             use tauri::Manager;
             app.manage(PluginConfig { api_base_url });

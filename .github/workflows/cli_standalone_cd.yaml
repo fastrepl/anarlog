@@ -56,16 +56,31 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: macos
+      - id: apple-cert
+        uses: ./.github/actions/apple_cert
+        with:
+          apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
+          apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
       - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - run: cargo build --release -p cli --features standalone --target ${{ matrix.target }}
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
       - run: |
+          cd apps/cli-ui
+          swift build -c release --arch arm64 --arch x86_64
+          cp .build/apple/Products/Release/char-cli-ui ../../target/${{ matrix.target }}/release/
+      - run: |
           BIN="target/${{ matrix.target }}/release/char"
+          UI_BIN="target/${{ matrix.target }}/release/char-cli-ui"
           strip -x "$BIN"
+          codesign -s "${{ steps.apple-cert.outputs.cert-id }}" -f --identifier com.char.cli --options runtime "$BIN"
+          codesign -s "${{ steps.apple-cert.outputs.cert-id }}" -f --identifier com.char.cli-ui --options runtime "$UI_BIN"
+          codesign --verify --verbose=4 "$BIN"
+          codesign --verify --verbose=4 "$UI_BIN"
           ARCHIVE="char-${{ needs.compute-version.outputs.version }}-${{ matrix.target }}.tar.xz"
-          tar -cJf "$ARCHIVE" -C "target/${{ matrix.target }}/release" char
+          tar -cJf "$ARCHIVE" -C "target/${{ matrix.target }}/release" char char-cli-ui
           echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
@@ -153,7 +168,8 @@ jobs:
       - uses: ncipollo/release-action@v1
         with:
           tag: cli_v${{ needs.compute-version.outputs.version }}
-          name: char_v${{ needs.compute-version.outputs.version }}
+          name: cli_v${{ needs.compute-version.outputs.version }}
           body: ${{ steps.release-body.outputs.value }}
           prerelease: ${{ inputs.channel == 'nightly' }}
+          makeLatest: false
           artifacts: ${{ steps.artifacts.outputs.list }}

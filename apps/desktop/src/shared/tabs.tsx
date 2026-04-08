@@ -1,9 +1,10 @@
-import { Pin, X } from "lucide-react";
+import { AlertCircleIcon, Pin, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import {
+  AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -26,7 +27,7 @@ type TabItemProps<T extends Tab = Tab> = { tab: T; tabIndex?: number } & {
   setPendingCloseConfirmationTab?: (tab: Tab | null) => void;
 };
 
-type TabAccent = "neutral" | "red" | "blue";
+type TabAccent = "neutral" | "red" | "amber" | "blue";
 
 const accentColors: Record<
   TabAccent,
@@ -62,6 +63,14 @@ const accentColors: Record<
       unselected: "text-red-600 hover:text-red-700",
     },
   },
+  amber: {
+    selected: ["bg-amber-50", "text-amber-600", "border-amber-400"],
+    unselected: ["bg-amber-50", "text-amber-500", "border-transparent"],
+    hover: {
+      selected: "text-amber-600 hover:text-amber-700",
+      unselected: "text-amber-600 hover:text-amber-700",
+    },
+  },
   blue: {
     selected: ["bg-sky-50", "text-sky-700", "border-sky-400"],
     unselected: ["bg-sky-50", "text-sky-500", "border-transparent"],
@@ -72,18 +81,42 @@ const accentColors: Record<
   },
 };
 
+import type { TabStatus } from "~/session/tab-visual-state";
+
+function statusToAccent(status: TabStatus | undefined): TabAccent {
+  switch (status) {
+    case "listening":
+      return "red";
+    case "listening-degraded":
+      return "amber";
+    default:
+      return "neutral";
+  }
+}
+
+function statusRequiresConfirmation(status: TabStatus | undefined): boolean {
+  return (
+    status === "listening" ||
+    status === "listening-degraded" ||
+    status === "finalizing"
+  );
+}
+
+function statusShowsSpinner(status: TabStatus | undefined): boolean {
+  return status === "finalizing" || status === "processing";
+}
+
 type TabItemBaseProps = {
   icon: React.ReactNode;
   title: React.ReactNode;
   selected: boolean;
-  active?: boolean;
-  finalizing?: boolean;
+  status?: TabStatus;
+  accent?: TabAccent;
   pinned?: boolean;
   allowPin?: boolean;
   allowClose?: boolean;
   isEmptyTab?: boolean;
   tabIndex?: number;
-  accent?: TabAccent;
   showCloseConfirmation?: boolean;
   onCloseConfirmationChange?: (show: boolean) => void;
 } & {
@@ -103,14 +136,13 @@ export function TabItemBase({
   icon,
   title,
   selected,
-  active = false,
-  finalizing = false,
+  status,
+  accent: accentOverride,
   pinned = false,
   allowPin = true,
   allowClose = true,
   isEmptyTab = false,
   tabIndex,
-  accent = "neutral",
   showCloseConfirmation = false,
   onCloseConfirmationChange,
   handleCloseThis,
@@ -120,6 +152,10 @@ export function TabItemBase({
   handlePinThis,
   handleUnpinThis,
 }: TabItemBaseProps) {
+  const accent = accentOverride ?? statusToAccent(status);
+  const active = statusRequiresConfirmation(status);
+  const showSpinner = statusShowsSpinner(status);
+
   const colors = accentColors[accent];
   const isCmdPressed = useCmdKeyPressed();
   const [isHovered, setIsHovered] = useState(false);
@@ -181,6 +217,12 @@ export function TabItemBase({
     ? active || (selected && !isEmptyTab)
       ? [
           { id: "close-tab", text: "Close", action: handleAttemptClose },
+          {
+            id: "close-others",
+            text: "Close others",
+            action: handleCloseOthers,
+          },
+          { id: "close-all", text: "Close all", action: handleCloseAll },
           ...(allowPin
             ? [
                 { separator: true as const },
@@ -219,6 +261,16 @@ export function TabItemBase({
 
   const showShortcut = isCmdPressed && tabIndex !== undefined;
 
+  const indicatorDot =
+    status === "listening" ? (
+      <div className="relative size-2">
+        <div className="absolute inset-0 rounded-full bg-red-600"></div>
+        <div className="absolute inset-0 animate-ping rounded-full bg-red-300"></div>
+      </div>
+    ) : status === "listening-degraded" ? (
+      <AlertCircleIcon className="size-4 text-amber-500" />
+    ) : null;
+
   return (
     <div
       onMouseEnter={() => setIsHovered(true)}
@@ -240,63 +292,71 @@ export function TabItemBase({
         ])}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2 text-sm">
-          <div className="relative h-4 w-4 shrink-0">
+          <div className="flex h-4 w-4 shrink-0 items-center justify-center">
+            {showSpinner ? <Spinner size={16} /> : (indicatorDot ?? icon)}
+          </div>
+          <span className="pointer-events-none truncate">{title}</span>
+        </div>
+        <div
+          className={cn([
+            "relative shrink-0 overflow-visible",
+            showShortcut
+              ? "flex h-5 min-w-fit items-center justify-end"
+              : "h-4 w-4",
+          ])}
+        >
+          <div
+            className={cn([
+              "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
+              showShortcut || ((isHovered || isConfirmationOpen) && allowClose)
+                ? "opacity-0"
+                : "opacity-100",
+            ])}
+          >
+            {pinned && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUnpinThis();
+                }}
+                className={cn([
+                  "flex items-center justify-center transition-colors",
+                  colors.hover[selected ? "selected" : "unselected"],
+                ])}
+              >
+                <Pin size={14} />
+              </button>
+            )}
+          </div>
+          {allowClose && (
             <div
               className={cn([
                 "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-                (isHovered && allowClose) || isConfirmationOpen
+                showShortcut || !(isHovered || isConfirmationOpen)
                   ? "opacity-0"
                   : "opacity-100",
               ])}
             >
-              {finalizing ? (
-                <Spinner size={16} />
-              ) : pinned ? (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleUnpinThis();
-                  }}
-                  className={cn([
-                    "flex items-center justify-center transition-colors",
-                    colors.hover[selected ? "selected" : "unselected"],
-                  ])}
-                >
-                  <Pin size={14} />
-                </button>
-              ) : (
-                icon
-              )}
-            </div>
-            {allowClose && (
-              <div
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAttemptClose();
+                }}
                 className={cn([
-                  "absolute inset-0 flex items-center justify-center transition-opacity duration-200",
-                  isHovered || isConfirmationOpen ? "opacity-100" : "opacity-0",
+                  "flex items-center justify-center transition-colors",
+                  colors.hover[selected ? "selected" : "unselected"],
                 ])}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAttemptClose();
-                  }}
-                  className={cn([
-                    "flex items-center justify-center transition-colors",
-                    colors.hover[selected ? "selected" : "unselected"],
-                  ])}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-          </div>
-          <span className="pointer-events-none truncate">{title}</span>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {showShortcut && (
+            <div className="pointer-events-none flex h-full items-center justify-end">
+              <Kbd>⌘ {tabIndex}</Kbd>
+            </div>
+          )}
         </div>
-        {showShortcut && (
-          <div className="pointer-events-none absolute top-0.75 right-2">
-            <Kbd>⌘ {tabIndex}</Kbd>
-          </div>
-        )}
       </InteractiveButton>
       <Popover
         open={active && isConfirmationOpen}
@@ -306,13 +366,14 @@ export function TabItemBase({
           <div className="pointer-events-none absolute inset-0" />
         </PopoverTrigger>
         <PopoverContent
+          variant="app"
           side="bottom"
           align="start"
-          className="z-[60] w-[240px] rounded-xl p-3"
+          className="z-[60] w-[240px]"
           sideOffset={2}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col gap-2">
+          <AppFloatingPanel className="flex flex-col gap-2 p-3">
             <p className="text-sm text-neutral-700">
               Are you sure you want to close this tab? This will stop Char from
               listening.
@@ -338,7 +399,7 @@ export function TabItemBase({
                 ⌘ W
               </Kbd>
             </Button>
-          </div>
+          </AppFloatingPanel>
         </PopoverContent>
       </Popover>
     </div>

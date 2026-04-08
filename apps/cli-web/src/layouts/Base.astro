@@ -1,5 +1,12 @@
 ---
 import "../styles.css";
+import { SEO } from "astro-seo";
+
+const title = "Char CLI";
+const description =
+  "Composable CLI for your meeting workflow. Record, transcribe, and manage audio with pluggable providers.";
+const url = "https://cli.char.com";
+const ogImage = `${url}/og.png`;
 ---
 
 <html lang="en">
@@ -7,7 +14,27 @@ import "../styles.css";
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>Char CLI</title>
+    <SEO
+      title={title}
+      description={description}
+      openGraph={{
+        basic: {
+          title,
+          type: "website",
+          image: ogImage,
+          url,
+        },
+        optional: {
+          description,
+        },
+      }}
+      twitter={{
+        card: "summary_large_image",
+        title,
+        description,
+        image: ogImage,
+      }}
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,7 +45,15 @@ import "../styles.css";
   </head>
   <body>
     <div class="min-h-screen bg-neutral-950 font-mono text-neutral-100">
-      <main class="mx-auto max-w-2xl px-6 py-20 sm:py-28">
+      <a
+        href="https://github.com/fastrepl/char/discussions/4788"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="block underline w-full bg-neutral-900 border-b border-neutral-800 py-2 text-center text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
+      >
+        Join the discussion to make it better &rarr;
+      </a>
+      <main class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
         <slot />
       </main>
     </div>

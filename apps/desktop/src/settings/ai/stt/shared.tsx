@@ -8,9 +8,10 @@ import {
 } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
-import type { AmModel, LocalModel } from "@hypr/plugin-local-stt";
+import type { LocalModel } from "@hypr/plugin-local-stt";
 
 import { env } from "~/env";
+import { CharProviderIcon } from "~/settings/ai/shared";
 import {
   type ProviderRequirement,
   requiresEntitlement,
@@ -36,16 +37,24 @@ export const displayModelId = (model: string) => {
     return "Pro (Cloud)";
   }
 
+  if (
+    model === "universal-3-pro" ||
+    model === "u3-rt-pro" ||
+    model === "universal"
+  ) {
+    return "Universal-3 Pro";
+  }
+
+  if (model === "whisper-rt") {
+    return "Whisper RT";
+  }
+
   if (model === "stt-v4" || model === "stt-rt-v4" || model === "stt-async-v4") {
     return "Soniox v4";
   }
 
   if (model === "stt-v3" || model === "stt-rt-v3" || model === "stt-async-v3") {
     return "Soniox v3";
-  }
-
-  if (model === "universal") {
-    return "Universal";
   }
 
   if (model === "solaria-1") {
@@ -72,17 +81,12 @@ export const displayModelId = (model: string) => {
     return "Voxtral Mini Transcribe 2";
   }
 
-  if (model.startsWith("am-")) {
-    const am = model as AmModel;
-    if (am == "am-parakeet-v2") {
-      return "Parakeet V2";
-    }
-    if (am == "am-parakeet-v3") {
-      return "Parakeet V3";
-    }
-    if (am == "am-whisper-large-v3") {
-      return "Whisper Large V3";
-    }
+  if (model === "parakeet-tdt-0.6b-v3") {
+    return "Parakeet TDT 0.6B V3";
+  }
+
+  if (model === "faster-whisper-large-v3-turbo") {
+    return "Faster Whisper Large V3 Turbo";
   }
 
   return model;
@@ -94,14 +98,9 @@ const _PROVIDERS = [
     id: "hyprnote",
     displayName: "Char",
     badge: "Recommended",
-    icon: <img src="/assets/icon.png" alt="Char" className="size-5" />,
+    icon: <CharProviderIcon />,
     baseUrl: new URL("/stt", env.VITE_API_URL).toString(),
-    models: [
-      "cloud",
-      "am-parakeet-v2",
-      "am-parakeet-v3",
-      "am-whisper-large-v3",
-    ],
+    models: ["cloud"],
     requirements: [],
   },
   {
@@ -135,14 +134,14 @@ const _PROVIDERS = [
     badge: "Beta",
     icon: <AssemblyAI size={12} />,
     baseUrl: "https://api.assemblyai.com",
-    models: ["universal"],
+    models: ["universal-3-pro"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {
     disabled: false,
     id: "openai",
     displayName: "OpenAI",
-    badge: "Beta",
+    badge: "Batch only",
     icon: <OpenAI size={16} />,
     baseUrl: "https://api.openai.com/v1",
     models: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"],
@@ -171,7 +170,7 @@ const _PROVIDERS = [
     badge: null,
     icon: (
       <img
-        src="/assets/soniox.jpeg"
+        src="/assets/soniox-black.png"
         alt="Soniox"
         className="size-5 rounded-xs"
       />
@@ -198,6 +197,22 @@ const _PROVIDERS = [
     icon: <Mistral size={16} />,
     baseUrl: "https://api.mistral.ai/v1",
     models: ["voxtral-mini-2602"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "pyannote",
+    displayName: "pyannoteAI",
+    badge: "Batch only",
+    icon: (
+      <img
+        src="/assets/pyannote-logo-black.png"
+        alt="pyannoteAI"
+        className="size-4"
+      />
+    ),
+    baseUrl: "https://api.pyannote.ai",
+    models: ["parakeet-tdt-0.6b-v3", "faster-whisper-large-v3-turbo"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

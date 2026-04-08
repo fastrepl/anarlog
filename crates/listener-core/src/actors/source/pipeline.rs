@@ -10,7 +10,6 @@ use crate::{
     ListenerRuntime, SessionDataEvent,
     actors::{ChannelMode, ListenerMsg, RecMsg},
 };
-use hypr_audio::CaptureFrame;
 use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
 
@@ -165,22 +164,14 @@ impl Pipeline {
     }
 
     fn select_tracks(frame: SourceFrame, mode: ChannelMode) -> (Vec<f32>, Arc<[f32]>) {
-        let SourceFrame {
-            capture:
-                CaptureFrame {
-                    raw_mic,
-                    raw_speaker,
-                    aec_mic,
-                },
-            mic_muted,
-        } = frame;
+        let raw_speaker = Arc::clone(&frame.capture.raw_speaker);
 
         let mic_source = match mode {
             ChannelMode::SpeakerOnly => Arc::<[f32]>::from(vec![0.0; raw_speaker.len()]),
-            ChannelMode::MicOnly | ChannelMode::MicAndSpeaker => aec_mic.unwrap_or(raw_mic),
+            ChannelMode::MicOnly | ChannelMode::MicAndSpeaker => frame.capture.preferred_mic(),
         };
 
-        let mic = if mic_muted {
+        let mic = if frame.mic_muted {
             vec![0.0; mic_source.len()]
         } else {
             mic_source.to_vec()
@@ -327,6 +318,8 @@ mod tests {
 
     use ractor::{Actor, ActorProcessingErr, ActorRef};
 
+    use hypr_audio::CaptureFrame;
+
     use super::*;
     use crate::{
         ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
@@ -430,7 +423,6 @@ mod tests {
                     let _ = (mic.len(), spk.len());
                     let _ = self.0.send(ProbeEvent::RecorderDual);
                 }
-                RecMsg::SetStopDispositionAndAck(_, _) => {}
             }
             Ok(())
         }

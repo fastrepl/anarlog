@@ -3,8 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
 
-import { SlashSeparator } from "@/components/slash-separator";
-
 export const Route = createFileRoute("/_view/security")({
   component: Component,
   head: () => ({
@@ -13,13 +11,13 @@ export const Route = createFileRoute("/_view/security")({
       {
         name: "description",
         content:
-          "Char is built with security at its core. Local-first architecture, end-to-end encryption, and open source transparency ensure your meeting data stays protected.",
+          "Char keeps core meeting data local by default, supports self-hosted and local AI workflows, and documents what leaves your device when you enable cloud features.",
       },
       { property: "og:title", content: "Security - Char" },
       {
         property: "og:description",
         content:
-          "Your meeting data deserves the highest level of protection. Learn how Char's security-first architecture keeps your conversations safe.",
+          "See how Char handles local files, cloud providers, open source auditing, and security controls.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://char.com/security" },
@@ -28,7 +26,7 @@ export const Route = createFileRoute("/_view/security")({
       {
         name: "twitter:description",
         content:
-          "Your meeting data deserves the highest level of protection. Learn how Char's security-first architecture keeps your conversations safe.",
+          "See how Char handles local files, cloud providers, open source auditing, and security controls.",
       },
     ],
   }),
@@ -36,23 +34,14 @@ export const Route = createFileRoute("/_view/security")({
 
 function Component() {
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection />
-        <SlashSeparator />
         <SecurityPrinciplesSection />
-        <SlashSeparator />
         <LocalFirstSection />
-        <SlashSeparator />
         <EncryptionSection />
-        <SlashSeparator />
         <OpenSourceSecuritySection />
-        <SlashSeparator />
         <EnterpriseSecuritySection />
-        <SlashSeparator />
         <CTASection />
       </div>
     </div>
@@ -63,12 +52,12 @@ function HeroSection() {
   return (
     <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="px-6 py-12 lg:py-20">
-        <header className="mx-auto mb-12 max-w-4xl text-center">
+        <header className="mx-auto mb-12 max-w-4xl text-left">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-stone-100 px-4 py-2 text-sm text-stone-700">
             <Icon icon="mdi:shield-check" className="text-lg" />
             <span>Security-first architecture</span>
           </div>
-          <h1 className="mb-6 font-serif text-4xl text-stone-700 sm:text-5xl lg:text-6xl">
+          <h1 className="mb-6 font-mono text-4xl text-stone-700 sm:text-5xl lg:text-6xl">
             Your data security
             <br />
             is our priority
@@ -89,21 +78,21 @@ function SecurityPrinciplesSection() {
   const principles = [
     {
       icon: "mdi:laptop",
-      title: "Local-first processing",
+      title: "Local-first workflows",
       description:
-        "Your audio is processed entirely on your device. Transcription and AI analysis happen locally, so your conversations never leave your computer unless you explicitly choose to sync.",
+        "Core notes, recordings, and local-model workflows stay on your device. Cloud transcription, sync, and managed AI are opt-in.",
     },
     {
       icon: "mdi:lock",
-      title: "Encryption everywhere",
+      title: "OS-level protection",
       description:
-        "All data is encrypted at rest using industry-standard AES-256 encryption. When you choose to sync, data is encrypted in transit with TLS 1.3.",
+        "Char stores core data as local files on disk. Protection comes from your operating system, file permissions, and full-disk encryption such as FileVault or LUKS.",
     },
     {
       icon: "mdi:eye-off",
-      title: "Zero-knowledge design",
+      title: "Clear data flow",
       description:
-        "We can't read your notes even if we wanted to. Your encryption keys are derived from your credentials and never leave your device.",
+        "You choose local models, BYOK providers, or managed services. The docs spell out what is sent for each path.",
     },
     {
       icon: "mdi:source-branch",
@@ -115,12 +104,12 @@ function SecurityPrinciplesSection() {
 
   return (
     <section className="px-6 py-12 lg:py-16">
-      <h2 className="mb-4 text-center font-serif text-3xl text-stone-700">
+      <h2 className="mb-4 text-left font-mono text-3xl text-stone-700">
         Security principles we live by
       </h2>
-      <p className="mx-auto mb-12 max-w-2xl text-center text-neutral-600">
-        These aren't just marketing claims. They're architectural decisions
-        baked into every aspect of Char.
+      <p className="mx-auto mb-12 max-w-2xl text-left text-neutral-600">
+        These are product decisions and documented tradeoffs, not vague
+        promises.
       </p>
       <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-2">
         {principles.map((principle, index) => (
@@ -132,7 +121,7 @@ function SecurityPrinciplesSection() {
               icon={principle.icon}
               className="mb-4 text-3xl text-stone-700"
             />
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               {principle.title}
             </h3>
             <p className="text-neutral-600">{principle.description}</p>
@@ -147,54 +136,59 @@ function LocalFirstSection() {
   return (
     <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon
             icon="mdi:desktop-classic"
             className="mb-4 text-5xl text-stone-700"
           />
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">
             Local-first means secure by default
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            Unlike cloud-based alternatives that upload your audio to remote
-            servers, Char processes everything on your machine.
+            Unlike cloud-only tools, Char can keep notes, recordings, and
+            local-model workflows on your machine. If you enable cloud features,
+            that data flow is explicit.
           </p>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:microphone"
               className="mx-auto mb-4 text-4xl text-stone-700"
             />
             <h3 className="mb-2 font-medium text-stone-700">
-              Audio stays local
+              Audio stays local by default
             </h3>
             <p className="text-sm text-neutral-600">
-              Your meeting recordings never leave your device. No cloud uploads,
-              no third-party access, no data mining.
+              Recorded audio files stay on your device unless you explicitly
+              choose a cloud transcription or sync feature.
             </p>
           </div>
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:brain"
               className="mx-auto mb-4 text-4xl text-stone-700"
             />
-            <h3 className="mb-2 font-medium text-stone-700">On-device AI</h3>
+            <h3 className="mb-2 font-medium text-stone-700">
+              Local AI is available
+            </h3>
             <p className="text-sm text-neutral-600">
-              Transcription and summarization run locally using optimized AI
-              models. Your words are processed without ever touching the cloud.
+              You can transcribe and run AI locally with supported models, or
+              switch to a cloud provider when you want managed services.
             </p>
           </div>
-          <div className="p-6 text-center">
+          <div className="p-6 text-left">
             <Icon
               icon="mdi:database"
               className="mx-auto mb-4 text-4xl text-stone-700"
             />
-            <h3 className="mb-2 font-medium text-stone-700">Local storage</h3>
+            <h3 className="mb-2 font-medium text-stone-700">
+              File-based storage
+            </h3>
             <p className="text-sm text-neutral-600">
-              All notes, transcripts, and metadata are stored in an encrypted
-              local database that only you can access.
+              Core data is stored as local Markdown and JSON files on disk, not
+              locked in a hosted database.
             </p>
           </div>
         </div>
@@ -206,15 +200,13 @@ function LocalFirstSection() {
               className="shrink-0 text-3xl text-stone-700"
             />
             <div>
-              <h3 className="mb-3 font-serif text-xl text-stone-700">
-                Works completely offline
+              <h3 className="mb-3 font-mono text-xl text-stone-700">
+                Works offline with local models
               </h3>
               <p className="text-neutral-600">
-                Because everything runs locally, Char works without an internet
-                connection. Record meetings, transcribe audio, and generate
-                summaries even when you're offline. Your productivity isn't
-                dependent on network availability, and your data isn't exposed
-                to network-based attacks.
+                If you use local STT and local LLMs, Char works without an
+                internet connection. Cloud transcription, sync, and managed AI
+                still require network access.
               </p>
             </div>
           </div>
@@ -228,14 +220,14 @@ function EncryptionSection() {
   return (
     <section className="px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon icon="mdi:lock" className="mb-4 text-5xl text-stone-700" />
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
-            Enterprise-grade encryption
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">
+            Protection and transport
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
-            Your data is protected with the same encryption standards used by
-            banks and government agencies.
+            Today Char relies on operating-system protections for local files
+            and encrypted transport for network requests.
           </p>
         </div>
 
@@ -248,12 +240,13 @@ function EncryptionSection() {
               />
               <div>
                 <h3 className="mb-2 font-medium text-stone-700">
-                  Encryption at rest
+                  Local data protection
                 </h3>
                 <p className="text-neutral-600">
-                  All local data is encrypted using AES-256, the gold standard
-                  for data encryption. Your recordings, transcripts, and notes
-                  are unreadable without your encryption key.
+                  Char does not currently add its own encryption layer to local
+                  files. Protection comes from your OS account permissions and
+                  any full-disk encryption you enable, such as FileVault or
+                  LUKS.
                 </p>
               </div>
             </div>
@@ -270,10 +263,8 @@ function EncryptionSection() {
                   Encryption in transit
                 </h3>
                 <p className="text-neutral-600">
-                  When you choose to sync data across devices, all
-                  communications use TLS 1.3 with perfect forward secrecy. Even
-                  if a session key is compromised, past communications remain
-                  secure.
+                  When you use cloud features, requests are sent over encrypted
+                  connections to the configured Char service or provider.
                 </p>
               </div>
             </div>
@@ -287,12 +278,12 @@ function EncryptionSection() {
               />
               <div>
                 <h3 className="mb-2 font-medium text-stone-700">
-                  Key management
+                  Encryption roadmap
                 </h3>
                 <p className="text-neutral-600">
-                  Your encryption keys are derived from your credentials using
-                  industry-standard key derivation functions. Keys never leave
-                  your device and are never stored on our servers.
+                  We are investigating an additional encryption layer for sync
+                  and other cloud workflows, but we do not present that as
+                  shipped today.
                 </p>
               </div>
             </div>
@@ -307,12 +298,12 @@ function OpenSourceSecuritySection() {
   return (
     <section className="bg-stone-50/30 px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
+        <div className="mb-12 text-left">
           <Icon
             icon="mdi:code-braces"
             className="mb-4 text-5xl text-stone-700"
           />
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">
             Security through transparency
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -325,7 +316,7 @@ function OpenSourceSecuritySection() {
         <div className="grid gap-8 md:grid-cols-2">
           <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <Icon icon="mdi:magnify" className="mb-4 text-3xl text-stone-700" />
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Fully auditable
             </h3>
             <p className="text-neutral-600">
@@ -340,7 +331,7 @@ function OpenSourceSecuritySection() {
               icon="mdi:account-group"
               className="mb-4 text-3xl text-stone-700"
             />
-            <h3 className="mb-2 font-serif text-xl text-stone-700">
+            <h3 className="mb-2 font-mono text-xl text-stone-700">
               Community reviewed
             </h3>
             <p className="text-neutral-600">
@@ -352,7 +343,7 @@ function OpenSourceSecuritySection() {
           </div>
         </div>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-left">
           <a
             href="https://github.com/fastrepl/char"
             target="_blank"
@@ -400,8 +391,8 @@ function EnterpriseSecuritySection() {
   return (
     <section className="px-6 py-12 lg:py-16">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-center">
-          <h2 className="mb-4 font-serif text-3xl text-stone-700">
+        <div className="mb-12 text-left">
+          <h2 className="mb-4 font-mono text-3xl text-stone-700">
             Enterprise-ready security
           </h2>
           <p className="mx-auto max-w-2xl text-neutral-600">
@@ -428,7 +419,7 @@ function EnterpriseSecuritySection() {
           ))}
         </div>
 
-        <div className="mt-8 text-center">
+        <div className="mt-8 text-left">
           <Link
             to="/enterprise/"
             className="inline-flex items-center gap-2 font-medium text-stone-700 hover:text-stone-800"
@@ -445,12 +436,12 @@ function EnterpriseSecuritySection() {
 function CTASection() {
   return (
     <section className="bg-stone-50/30 px-6 py-16 lg:py-20">
-      <div className="mx-auto max-w-3xl text-center">
+      <div className="mx-auto max-w-3xl text-left">
         <Icon
           icon="mdi:shield-check"
           className="mx-auto mb-6 text-5xl text-stone-700"
         />
-        <h2 className="mb-4 font-serif text-3xl text-stone-700">
+        <h2 className="mb-4 font-mono text-3xl text-stone-700">
           Ready to take control of your meeting data?
         </h2>
         <p className="mb-8 text-neutral-600">

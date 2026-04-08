@@ -42,15 +42,15 @@ impl<C: HttpClient> GitHubIssuesClient<C> {
         if let Some(ref state) = req.state {
             query_parts.push(format!("state={}", state.as_str()));
         }
-        if let Some(ref labels) = req.labels {
-            if !labels.is_empty() {
-                let joined = labels
-                    .iter()
-                    .map(|l| urlencoding::encode(l).into_owned())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                query_parts.push(format!("labels={joined}"));
-            }
+        if let Some(ref labels) = req.labels
+            && !labels.is_empty()
+        {
+            let joined = labels
+                .iter()
+                .map(|l| urlencoding::encode(l).into_owned())
+                .collect::<Vec<_>>()
+                .join(",");
+            query_parts.push(format!("labels={joined}"));
         }
         if let Some(ref assignee) = req.assignee {
             query_parts.push(format!("assignee={}", urlencoding::encode(assignee)));

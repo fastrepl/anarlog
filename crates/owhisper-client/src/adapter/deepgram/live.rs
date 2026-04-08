@@ -196,6 +196,37 @@ mod tests {
     }
 
     #[test]
+    fn test_invalid_regional_variant_falls_back_to_iso_language() {
+        let adapter = DeepgramAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            model: Some("nova-3-general".to_string()),
+            languages: vec!["en-KR".parse().unwrap()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url_str = url.as_str();
+
+        assert!(url_str.contains("language=en"));
+        assert!(!url_str.contains("language=en-KR"));
+    }
+
+    #[test]
+    fn test_supported_regional_variant_is_preserved() {
+        let adapter = DeepgramAdapter::default();
+        let params = owhisper_interface::ListenParams {
+            model: Some("nova-3-medical".to_string()),
+            languages: vec!["en-CA".parse().unwrap()],
+            ..Default::default()
+        };
+
+        let url = adapter.build_ws_url(API_BASE, &params, 1);
+        let url_str = url.as_str();
+
+        assert!(url_str.contains("language=en-CA"));
+    }
+
+    #[test]
     fn test_custom_query_params() {
         let adapter = DeepgramAdapter::default();
         let params = owhisper_interface::ListenParams {

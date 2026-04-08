@@ -3,9 +3,32 @@ use std::path::Path;
 use sqlx::SqlitePool;
 
 use super::TableFormat;
-use super::helpers::csv_escape;
+use super::helpers::{TableCell, TableColumn, write_table};
+use crate::db;
 use crate::error::CliResult;
-use crate::{db, output};
+
+const COLUMNS: &[TableColumn] = &[
+    TableColumn {
+        key: "id",
+        header: "id",
+    },
+    TableColumn {
+        key: "name",
+        header: "name",
+    },
+    TableColumn {
+        key: "email",
+        header: "email",
+    },
+    TableColumn {
+        key: "job_title",
+        header: "job_title",
+    },
+    TableColumn {
+        key: "org_id",
+        header: "org_id",
+    },
+];
 
 pub(super) async fn humans(
     pool: &SqlitePool,
@@ -13,43 +36,18 @@ pub(super) async fn humans(
     out: Option<&Path>,
 ) -> CliResult<()> {
     let rows = db!(hypr_db_app::list_humans(pool), "list humans");
+    let rows: Vec<Vec<TableCell>> = rows
+        .iter()
+        .map(|human| {
+            vec![
+                TableCell::new(serde_json::json!(human.id), human.id.clone()),
+                TableCell::new(serde_json::json!(human.name), human.name.clone()),
+                TableCell::new(serde_json::json!(human.email), human.email.clone()),
+                TableCell::new(serde_json::json!(human.job_title), human.job_title.clone()),
+                TableCell::new(serde_json::json!(human.org_id), human.org_id.clone()),
+            ]
+        })
+        .collect();
 
-    match format {
-        TableFormat::Json => {
-            let value: Vec<_> = rows
-                .iter()
-                .map(|h| {
-                    serde_json::json!({
-                        "id": h.id,
-                        "name": h.name,
-                        "email": h.email,
-                        "job_title": h.job_title,
-                        "org_id": h.org_id,
-                    })
-                })
-                .collect();
-            output::write_json(out, &value).await
-        }
-        TableFormat::Csv => {
-            let mut buf = String::from("id,name,email,job_title,org_id\n");
-            for h in &rows {
-                buf.push_str(&format!(
-                    "{},{},{},{},{}\n",
-                    h.id,
-                    csv_escape(&h.name),
-                    csv_escape(&h.email),
-                    csv_escape(&h.job_title),
-                    h.org_id,
-                ));
-            }
-            output::write_text(out, buf).await
-        }
-        TableFormat::Text => {
-            let mut buf = String::new();
-            for h in &rows {
-                buf.push_str(&format!("{}\t{}\t{}\n", h.id, h.name, h.email));
-            }
-            output::write_text(out, buf).await
-        }
-    }
+    write_table(format, out, COLUMNS, &rows).await
 }

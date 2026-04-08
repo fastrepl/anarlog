@@ -5,27 +5,44 @@ import { useState } from "react";
 import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
-import { SlashSeparator } from "@/components/slash-separator";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
+  head: () => ({
+    meta: [
+      { title: "Download Char - Private Meeting Notes for macOS" },
+      {
+        name: "description",
+        content:
+          "Download Char for macOS to take private, bot-free meeting notes with local transcription, BYOK AI, and optional cloud features. Apple Silicon and Intel builds available.",
+      },
+      {
+        property: "og:title",
+        content: "Download Char - Private Meeting Notes for macOS",
+      },
+      {
+        property: "og:description",
+        content:
+          "Get Char on macOS and start with local meeting notes, on-device transcription, and optional cloud upgrades when you need them.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://char.com/download" },
+    ],
+  }),
 });
 
 function Component() {
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-blue-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <div
           className={cn([
-            "flex items-center justify-center gap-2 text-center",
-            "border-b border-stone-100 bg-stone-50/70",
+            "flex items-center justify-center gap-2 text-left",
+            "border-border-subtle bg-surface-subtle border-b",
             "px-4 py-3",
-            "font-serif text-sm text-stone-700",
-            "transition-all hover:bg-stone-50",
+            "text-color font-mono text-sm",
+            "hover:bg-surface-subtle/80 transition-all",
           ])}
         >
           <span>
@@ -35,18 +52,18 @@ function Component() {
         </div>
 
         <div className="py-12">
-          <section className="px-4 py-16 sm:px-6">
-            <div className="mx-auto mb-16 flex max-w-2xl flex-col gap-6 text-center">
-              <h1 className="font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <section className="px-4 py-16">
+            <div className="mx-auto mb-16 flex max-w-2xl flex-col gap-6 text-left">
+              <h1 className="text-color font-mono text-4xl tracking-tight sm:text-5xl">
                 Download Char
               </h1>
-              <p className="text-lg text-neutral-600 sm:text-xl">
+              <p className="text-fg-muted text-lg sm:text-xl">
                 Choose your platform to get started with Char
               </p>
             </div>
 
             <div className="mb-16">
-              <h2 className="mb-6 text-center font-serif text-2xl tracking-tight">
+              <h2 className="text-color mb-6 text-left font-mono text-2xl tracking-tight">
                 macOS
               </h2>
               <div className="mx-auto grid max-w-2xl grid-cols-1 gap-6 md:grid-cols-2">
@@ -67,9 +84,7 @@ function Component() {
               </div>
             </div>
           </section>
-          <SlashSeparator />
           <FAQSection />
-          <SlashSeparator />
           <CTASection />
         </div>
       </div>
@@ -110,8 +125,8 @@ function DownloadCard({
           : ["border-neutral-100 bg-white hover:bg-stone-50"],
       ])}
     >
-      <Icon icon={iconName} className="mb-4 text-5xl text-neutral-700" />
-      <p className="mb-6 text-center text-sm text-neutral-600">{spec}</p>
+      <Icon icon={iconName} className="text-color mb-4 text-5xl" />
+      <p className="text-fg-muted mb-6 text-left text-sm">{spec}</p>
 
       <div className="group/tooltip relative w-full">
         <a
@@ -150,17 +165,17 @@ function FAQSection() {
     {
       question: "Which platforms are currently supported?",
       answer:
-        "macOS 14.2+ with both Apple Silicon and Intel is currently available. Windows is planned for March 2026, and iOS/Android for April 2026.",
+        "macOS 14.2+ with both Apple Silicon and Intel is currently available. Windows and Linux are planned for Q2 2026.",
     },
     {
       question: "What's special about the Mac version?",
       answer:
-        "The Mac (Apple Silicon) version features on-device speech-to-text, ensuring your audio never leaves your device for complete privacy.",
+        "The Apple Silicon build includes on-device speech-to-text for local transcription. The Intel build is available with cloud-based transcription.",
     },
     {
       question: "Do I need an internet connection?",
       answer:
-        "For the free version with local transcription on Mac, no internet is required. Cloud features in the Pro plan require an internet connection.",
+        "For local workflows on Apple Silicon, no internet is required. Cloud transcription and other hosted features require an internet connection.",
     },
     {
       question: "How do I get started after downloading?",
@@ -172,19 +187,19 @@ function FAQSection() {
   return (
     <section className="laptop:px-0 px-4 py-16">
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-16 text-center font-serif text-3xl text-stone-700">
+        <h2 className="text-color mb-16 text-left font-mono text-3xl">
           Frequently Asked Questions
         </h2>
         <div className="flex flex-col gap-6">
           {faqs.map((faq, idx) => (
             <div
               key={idx}
-              className="border-b border-neutral-100 pb-6 last:border-b-0"
+              className="border-border-subtle border-b pb-6 last:border-b-0"
             >
-              <h3 className="mb-2 text-lg font-medium text-neutral-900">
+              <h3 className="text-color mb-2 text-lg font-medium">
                 {faq.question}
               </h3>
-              <p className="text-neutral-600">{faq.answer}</p>
+              <p className="text-fg-muted">{faq.answer}</p>
             </div>
           ))}
         </div>
@@ -196,20 +211,20 @@ function FAQSection() {
 function CTASection() {
   return (
     <section className="laptop:px-0 bg-linear-to-t from-stone-50/30 to-stone-100/30 px-4 py-16">
-      <div className="flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col items-center gap-6 text-left">
         <div className="mb-4 flex size-40 items-center justify-center rounded-[48px] border border-neutral-100 bg-transparent shadow-2xl">
           <Image
-            src="/api/images/hyprnote/icon.png"
+            src="/api/assets/hyprnote/icon.png"
             alt="Char"
             width={144}
             height={144}
             className="mx-auto size-36 rounded-[40px] border border-neutral-100"
           />
         </div>
-        <h2 className="font-serif text-2xl sm:text-3xl">
+        <h2 className="text-color font-mono text-2xl sm:text-3xl">
           Need something else?
         </h2>
-        <p className="mx-auto max-w-2xl text-lg text-neutral-600">
+        <p className="text-fg-muted mx-auto max-w-2xl text-lg">
           Book a call to discuss custom solutions for your specific needs
         </p>
         <div className="pt-6">

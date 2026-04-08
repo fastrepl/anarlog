@@ -40,6 +40,22 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.8,
         changeFrequency: "monthly",
       },
+      "/solutions/": {
+        priority: 0.7,
+        changeFrequency: "monthly",
+      },
+      "/integrations/": {
+        priority: 0.7,
+        changeFrequency: "monthly",
+      },
+      "/solution/meeting": {
+        priority: 0.8,
+        changeFrequency: "monthly",
+      },
+      "/solution/engineering": {
+        priority: 0.8,
+        changeFrequency: "monthly",
+      },
 
       "/about": {
         priority: 0.6,
@@ -52,10 +68,6 @@ export function getSitemap(): Sitemap<TRoutes> {
       "/company-handbook": {
         priority: 0.6,
         changeFrequency: "weekly",
-      },
-      "/file-transcription": {
-        priority: 0.7,
-        changeFrequency: "monthly",
       },
       "/free": {
         priority: 0.7,
@@ -72,10 +84,6 @@ export function getSitemap(): Sitemap<TRoutes> {
       "/oss-friends": {
         priority: 0.6,
         changeFrequency: "monthly",
-      },
-      "/roadmap/": {
-        priority: 0.7,
-        changeFrequency: "weekly",
       },
       "/security": {
         priority: 0.6,
@@ -123,6 +131,88 @@ export function getSitemap(): Sitemap<TRoutes> {
           }));
         } catch (error) {
           console.warn("Failed to load blog articles for sitemap:", error);
+          return [];
+        }
+      },
+
+      "/solution/$slug": async () => {
+        try {
+          const path = await import("path");
+          const url = await import("url");
+          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+          const modulePath = path.resolve(
+            __dirname,
+            "../../.content-collections/generated/allSolutions.js",
+          );
+          const imported = await import(modulePath);
+          const allSolutions = imported.default ?? imported.allSolutions ?? [];
+          if (!Array.isArray(allSolutions)) {
+            console.warn("allSolutions is not an array:", typeof allSolutions);
+            return [];
+          }
+          return allSolutions.map((solution: any) => ({
+            path: `/solution/${solution.slug}`,
+            priority: 0.8,
+            changeFrequency: "monthly" as const,
+          }));
+        } catch (error) {
+          console.warn("Failed to load solutions for sitemap:", error);
+          return [];
+        }
+      },
+
+      "/integrations/$category/$slug": async () => {
+        try {
+          const path = await import("path");
+          const url = await import("url");
+          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+          const modulePath = path.resolve(
+            __dirname,
+            "../../.content-collections/generated/allIntegrations.js",
+          );
+          const imported = await import(modulePath);
+          const allIntegrations =
+            imported.default ?? imported.allIntegrations ?? [];
+          if (!Array.isArray(allIntegrations)) {
+            console.warn(
+              "allIntegrations is not an array:",
+              typeof allIntegrations,
+            );
+            return [];
+          }
+          return allIntegrations.map((integration: any) => ({
+            path: `/integrations/${integration.category}/${integration.slug}`,
+            priority: 0.7,
+            changeFrequency: "monthly" as const,
+          }));
+        } catch (error) {
+          console.warn("Failed to load integrations for sitemap:", error);
+          return [];
+        }
+      },
+
+      "/vs/$slug": async () => {
+        try {
+          const path = await import("path");
+          const url = await import("url");
+          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+          const modulePath = path.resolve(
+            __dirname,
+            "../../.content-collections/generated/allVs.js",
+          );
+          const imported = await import(modulePath);
+          const allVs = imported.default ?? imported.allVs ?? [];
+          if (!Array.isArray(allVs)) {
+            console.warn("allVs is not an array:", typeof allVs);
+            return [];
+          }
+          return allVs.map((vs: any) => ({
+            path: `/vs/${vs.slug}`,
+            priority: 0.7,
+            changeFrequency: "monthly" as const,
+          }));
+        } catch (error) {
+          console.warn("Failed to load comparison pages for sitemap:", error);
           return [];
         }
       },
@@ -196,30 +286,6 @@ export function getSitemap(): Sitemap<TRoutes> {
           }));
         } catch (error) {
           console.warn("Failed to load docs for sitemap:", error);
-          return [];
-        }
-      },
-
-      "/roadmap/$slug": async () => {
-        try {
-          const path = await import("path");
-          const url = await import("url");
-          const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-          const modulePath = path.resolve(
-            __dirname,
-            "../../.content-collections/generated/allRoadmaps.js",
-          );
-          const imported = await import(modulePath);
-          const allRoadmaps = imported.default ?? imported.allRoadmaps ?? [];
-          if (!Array.isArray(allRoadmaps)) return [];
-          return allRoadmaps.map((roadmap: any) => ({
-            path: `/roadmap/${roadmap.slug}`,
-            priority: 0.6,
-            changeFrequency: "weekly" as const,
-            lastModified: roadmap.date,
-          }));
-        } catch (error) {
-          console.warn("Failed to load roadmap items for sitemap:", error);
           return [];
         }
       },

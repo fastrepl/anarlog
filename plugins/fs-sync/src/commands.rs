@@ -232,6 +232,16 @@ pub(crate) async fn audio_import<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn audio_source_metadata(
+    source_path: String,
+) -> Result<crate::audio::AudioSourceMetadata, String> {
+    spawn_blocking!({
+        crate::audio::source_metadata(&PathBuf::from(source_path)).map_err(|e| e.to_string())
+    })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn audio_path<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

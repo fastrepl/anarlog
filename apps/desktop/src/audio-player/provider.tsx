@@ -14,6 +14,8 @@ import WaveSurfer from "wavesurfer.js";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 
+import { useBillingAccess } from "~/auth/billing";
+
 type AudioPlayerState = "playing" | "paused" | "stopped";
 
 interface TimeSnapshot {
@@ -102,6 +104,7 @@ export function AudioPlayerProvider({
   children: ReactNode;
 }) {
   const queryClient = useQueryClient();
+  const { isPro } = useBillingAccess();
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [wavesurfer, setWavesurfer] = useState<WaveSurfer | null>(null);
   const [state, setState] = useState<AudioPlayerState>("stopped");
@@ -257,13 +260,26 @@ export function AudioPlayerProvider({
 
   const setPlaybackRate = useCallback(
     (rate: number) => {
+      if (!isPro && rate !== 1) {
+        return;
+      }
       if (wavesurfer) {
         wavesurfer.setPlaybackRate(rate);
       }
       setPlaybackRateState(rate);
     },
-    [wavesurfer],
+    [isPro, wavesurfer],
   );
+
+  useEffect(() => {
+    if (isPro || playbackRate === 1) {
+      return;
+    }
+    if (wavesurfer) {
+      wavesurfer.setPlaybackRate(1);
+    }
+    setPlaybackRateState(1);
+  }, [isPro, playbackRate, wavesurfer]);
 
   const deleteRecordingMutation = useMutation({
     mutationFn: async () => {

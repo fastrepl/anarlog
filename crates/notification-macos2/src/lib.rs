@@ -104,7 +104,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
     let identifier = uuid::Uuid::new_v4().to_string();
     let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
         &NSString::from_str(&identifier),
-        &*content,
+        &content,
         None,
     );
 
@@ -112,7 +112,7 @@ pub fn show(notification: &hypr_notification_interface::Notification) {
     let key_for_timeout = notification.key.clone().unwrap_or_default();
 
     CENTER.addNotificationRequest_withCompletionHandler(
-        &*request,
+        &request,
         Some(&RcBlock::new(move |err: *mut NSError| {
             if err.is_null() {
                 if let Some(duration) = timeout {

@@ -6,6 +6,7 @@ import { ChangelogContent, fixImageUrls } from "@hypr/changelog";
 import { cn } from "@hypr/utils";
 
 import { type ChangelogWithMeta, getChangelogList } from "@/changelog";
+import { CTASection } from "@/components/cta-section";
 import { getDownloadLinks, groupDownloadLinks } from "@/utils/download";
 
 export const Route = createFileRoute("/_view/changelog/")({
@@ -36,18 +37,15 @@ function Component() {
   const { changelogs } = Route.useLoaderData();
 
   return (
-    <main
-      className="min-h-screen flex-1 bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
-        <div className="px-6 py-16 lg:py-24">
+    <main className="min-h-screen flex-1">
+      <div className="mx-auto">
+        <div className="px-4 py-16 lg:py-24">
           <HeroSection />
         </div>
         <div className="mt-16">
           {changelogs.map((changelog, index) => (
             <div key={changelog.slug}>
-              <div className="mx-auto max-w-4xl px-6">
+              <div className="mx-auto max-w-4xl px-4">
                 <ChangelogSection changelog={changelog} />
               </div>
               {index < changelogs.length - 1 && (
@@ -56,7 +54,7 @@ function Component() {
             </div>
           ))}
         </div>
-        <div className="px-6 pb-16 lg:pb-24"></div>
+        <CTASection />
       </div>
     </main>
   );
@@ -64,11 +62,11 @@ function Component() {
 
 function HeroSection() {
   return (
-    <div className="text-center">
-      <h1 className="mb-6 font-serif text-4xl tracking-tight text-stone-700 sm:text-5xl">
+    <div className="text-left">
+      <h1 className="text-color mb-6 font-mono text-4xl tracking-tight sm:text-5xl">
         Changelog
       </h1>
-      <p className="text-lg text-neutral-600 sm:text-xl">
+      <p className="text-fg-muted text-lg sm:text-xl">
         Track every update, improvement, and fix to Char
       </p>
     </div>
@@ -101,7 +99,7 @@ function ChangelogSection({ changelog }: { changelog: ChangelogWithMeta }) {
       </div>
 
       <div>
-        <article className="max-w-none text-sm [&_h2]:font-serif [&_h3]:font-serif">
+        <article className="max-w-none text-sm [&_h2]:font-mono [&_h3]:font-mono">
           <ChangelogContent content={fixImageUrls(changelog.content)} />
         </article>
 

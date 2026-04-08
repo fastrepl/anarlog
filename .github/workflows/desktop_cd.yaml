@@ -106,6 +106,14 @@ jobs:
       - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
+      - if: ${{ matrix.target == 'aarch64-apple-darwin' }}
+        uses: ./.github/actions/hf_unzip_resource
+        with:
+          repo: Cactus-Compute/LFM2-VL-450M
+          path: weights/lfm2-vl-450m-int8-apple.zip
+          local-dir: apps/desktop/src-tauri/resources/models/cactus/_downloads
+          output-dir: apps/desktop/src-tauri/resources/models/cactus/char-vlm/weight
+          token: ${{ secrets.HF_TOKEN }}
       - if: ${{ matrix.include_am }}
         run: |
           aws s3 cp s3://argmax/stt apps/desktop/src-tauri/binaries/char-sidecar-stt-${{ matrix.target }} \
@@ -129,10 +137,6 @@ jobs:
           apple-certificate: ${{ secrets.APPLE_CERTIFICATE }}
           apple-certificate-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           keychain-password: ${{ secrets.KEYCHAIN_PASSWORD }}
-      - if: ${{ matrix.include_am }}
-        uses: ./.github/actions/argmax_sdk_setup
-        env:
-          AM_SECRET_TOKEN: ${{ secrets.AM_SECRET_TOKEN }}
       - run: |
           FEATURES_FLAG=""
           if [[ "${{ inputs.channel }}" == "staging" ]]; then
@@ -144,10 +148,9 @@ jobs:
           CI: false
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AM_API_KEY: ${{ matrix.include_am && secrets.AM_API_KEY || '' }}
-          CACTUS_API_KEY: ${{ secrets.CACTUS_API_KEY }}
+          CACTUS_CLOUD_API_BASE: "https://api.char.com/cactus"
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
-          OUTLIT_PUBLIC_KEY: ${{ secrets.OUTLIT_PUBLIC_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -164,6 +167,22 @@ jobs:
           VITE_API_URL: "https://api.char.com"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - id: find-dmg
+        shell: bash
+        run: |
+          DMG_FILE=$(find "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/dmg/" -name "*.dmg" -type f | head -1)
+          if [[ -z "$DMG_FILE" ]]; then
+            echo "::error::No DMG found in bundle output"
+            exit 1
+          fi
+          echo "path=$DMG_FILE" >> $GITHUB_OUTPUT
+      - uses: ./.github/actions/macos_notarize_dmg
+        with:
+          dmg-path: ${{ steps.find-dmg.outputs.path }}
+          signing-identity: ${{ steps.apple-cert.outputs.cert-id }}
+          apple-id: ${{ secrets.APPLE_ID }}
+          apple-password: ${{ secrets.APPLE_PASSWORD }}
+          apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
       - run: |
           mkdir -p target/release/
           find target/${{ matrix.target }}/release -type f -not -path "*/\.*" -exec cp {} target/release/ \;

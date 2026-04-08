@@ -1,43 +1,7 @@
 ---
-interface Props { command: string; label: string }
+import Command from "./Command.astro";
+interface Props { command: string; label?: string; }
 const { command, label } = Astro.props;
 ---
 
-<section class="mb-8">
-  <p class="mb-3 text-xs text-neutral-600">{label}</p>
-  <div class="group overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/80 transition-colors hover:border-neutral-700">
-    <div class="flex items-center gap-1.5 border-b border-neutral-800/50 px-4 py-2.5">
-      <span class="h-[9px] w-[9px] rounded-full bg-neutral-800 transition-colors group-hover:bg-[#ff5f57]"></span>
-      <span class="h-[9px] w-[9px] rounded-full bg-neutral-800 transition-colors group-hover:bg-[#febc2e]"></span>
-      <span class="h-[9px] w-[9px] rounded-full bg-neutral-800 transition-colors group-hover:bg-[#28c840]"></span>
-    </div>
-    <button
-      id="install-btn"
-      type="button"
-      data-command={command}
-      class="flex w-full cursor-pointer items-center justify-between px-5 py-4"
-    >
-      <span class="text-sm">
-        <span class="text-neutral-600">$</span>
-        <span class="ml-2 text-neutral-300">{command}</span>
-        <span class="cursor-blink"></span>
-      </span>
-      <span id="install-hint" class="text-[11px] text-neutral-700 opacity-0 transition-opacity group-hover:opacity-100">
-        copy
-      </span>
-    </button>
-  </div>
-</section>
-
-<script>
-  const btn = document.getElementById("install-btn")!;
-  const hint = document.getElementById("install-hint")!;
-
-  btn.addEventListener("click", () => {
-    navigator.clipboard.writeText(btn.dataset.command!);
-    hint.textContent = "copied!";
-    setTimeout(() => {
-      hint.textContent = "copy";
-    }, 1500);
-  });
-</script>
+<Command command={command} label={label} />

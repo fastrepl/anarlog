@@ -1,0 +1,3 @@
+[default]
+description = "Default permissions for the plugin"
+permissions = ["allow-health-check", "allow-install-cli", "allow-uninstall-cli"]

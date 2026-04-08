@@ -1,18 +1,15 @@
 mod accumulator;
-mod actor;
-mod bootstrap;
+mod progressive;
+mod simple;
 
 use std::sync::Arc;
 
-use owhisper_client::{
-    ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter, DeepgramAdapter, ElevenLabsAdapter,
-    FireworksAdapter, GladiaAdapter, HyprnoteAdapter, MistralAdapter, OpenAIAdapter, SonioxAdapter,
-};
-use tracing::Instrument;
+use owhisper_client::{AdapterKind, OpenAIAdapter};
 
 use crate::{BatchEvent, BatchRuntime};
 
-use actor::run_batch_streaming;
+use progressive::run_progressive_batch_session;
+use simple::run_direct_batch_for_adapter_kind;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, strum::Display, strum::EnumString)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
@@ -20,6 +17,9 @@ use actor::run_batch_streaming;
 #[strum(serialize_all = "lowercase")]
 pub enum BatchProvider {
     Argmax,
+    #[serde(rename = "whispercpp")]
+    #[strum(serialize = "whispercpp")]
+    WhisperLocal,
     Deepgram,
     Soniox,
     AssemblyAI,
@@ -27,6 +27,7 @@ pub enum BatchProvider {
     OpenAI,
     Gladia,
     ElevenLabs,
+    Pyannote,
     DashScope,
     Mistral,
     Hyprnote,
@@ -48,6 +49,12 @@ pub struct BatchParams {
     pub languages: Vec<hypr_language::Language>,
     #[serde(default)]
     pub keywords: Vec<String>,
+    #[serde(default)]
+    pub num_speakers: Option<u32>,
+    #[serde(default)]
+    pub min_speakers: Option<u32>,
+    #[serde(default)]
+    pub max_speakers: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -137,79 +144,121 @@ async fn run_batch_inner(
         }
     };
 
-    let listen_params = owhisper_interface::ListenParams {
-        model: params.model.clone(),
-        channels: metadata.channels,
-        sample_rate: metadata.sample_rate,
-        languages: params.languages.clone(),
-        keywords: params.keywords.clone(),
-        custom_query: None,
-    };
+    let listen_params = build_listen_params(&params, metadata.channels, metadata.sample_rate);
 
     match params.provider {
-        BatchProvider::Am | BatchProvider::Cactus => {
-            run_batch_streaming(runtime, params, listen_params).await
+        BatchProvider::Am => {
+            let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params);
+            if supports_progressive_batch(adapter_kind, listen_params.model.as_deref()) {
+                run_progressive_batch_session(runtime, params, listen_params).await
+            } else {
+                run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
+            }
         }
-        BatchProvider::Argmax => run_batch_simple::<ArgmaxAdapter>(params, listen_params).await,
-        BatchProvider::Deepgram => run_batch_simple::<DeepgramAdapter>(params, listen_params).await,
-        BatchProvider::Soniox => run_batch_simple::<SonioxAdapter>(params, listen_params).await,
+        BatchProvider::WhisperLocal | BatchProvider::Cactus => {
+            run_progressive_batch_session(runtime, params, listen_params).await
+        }
+        BatchProvider::Argmax => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Argmax, params, listen_params).await
+        }
+        BatchProvider::Deepgram => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Deepgram, params, listen_params).await
+        }
+        BatchProvider::Soniox => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Soniox, params, listen_params).await
+        }
         BatchProvider::AssemblyAI => {
-            run_batch_simple::<AssemblyAIAdapter>(params, listen_params).await
+            run_direct_batch_for_adapter_kind(AdapterKind::AssemblyAI, params, listen_params).await
         }
         BatchProvider::Fireworks => {
-            run_batch_simple::<FireworksAdapter>(params, listen_params).await
+            run_direct_batch_for_adapter_kind(AdapterKind::Fireworks, params, listen_params).await
         }
-        BatchProvider::OpenAI => run_batch_simple::<OpenAIAdapter>(params, listen_params).await,
-        BatchProvider::Gladia => run_batch_simple::<GladiaAdapter>(params, listen_params).await,
+        BatchProvider::OpenAI => {
+            if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
+                run_progressive_batch_session(runtime, params, listen_params).await
+            } else {
+                run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params).await
+            }
+        }
+        BatchProvider::Gladia => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Gladia, params, listen_params).await
+        }
         BatchProvider::ElevenLabs => {
-            run_batch_simple::<ElevenLabsAdapter>(params, listen_params).await
+            run_direct_batch_for_adapter_kind(AdapterKind::ElevenLabs, params, listen_params).await
         }
-        BatchProvider::DashScope => Err(crate::BatchFailure::ProviderRequestFailed {
-            message: "DashScope does not support batch transcription".to_string(),
+        BatchProvider::Pyannote => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Pyannote, params, listen_params).await
+        }
+        BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
+            provider: batch_provider_label(BatchProvider::DashScope),
         }
         .into()),
-        BatchProvider::Mistral => run_batch_simple::<MistralAdapter>(params, listen_params).await,
-        BatchProvider::Hyprnote => run_batch_simple::<HyprnoteAdapter>(params, listen_params).await,
+        BatchProvider::Mistral => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Mistral, params, listen_params).await
+        }
+        BatchProvider::Hyprnote => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Hyprnote, params, listen_params).await
+        }
     }
 }
 
-async fn run_batch_simple<A: BatchSttAdapter>(
-    params: BatchParams,
-    listen_params: owhisper_interface::ListenParams,
-) -> crate::Result<BatchRunOutput> {
-    let span = session_span(&params.session_id);
+fn resolve_batch_adapter_kind(
+    params: &BatchParams,
+    listen_params: &owhisper_interface::ListenParams,
+) -> AdapterKind {
+    AdapterKind::from_url_and_languages(
+        &params.base_url,
+        &listen_params.languages,
+        listen_params.model.as_deref(),
+    )
+}
 
-    async {
-        let client = owhisper_client::BatchClient::<A>::builder()
-            .api_base(params.base_url.clone())
-            .api_key(params.api_key.clone())
-            .params(listen_params)
-            .build();
-
-        tracing::debug!("transcribing file: {}", params.file_path);
-        let response = match client.transcribe_file(&params.file_path).await {
-            Ok(response) => response,
-            Err(err) => {
-                let raw_error = format!("{err:?}");
-                let message = format_user_friendly_error(&raw_error);
-                tracing::error!(
-                    error = %raw_error,
-                    hyprnote.error.user_message = %message,
-                    "batch transcription failed"
-                );
-                return Err(crate::BatchFailure::ProviderRequestFailed { message }.into());
-            }
-        };
-        tracing::info!("batch transcription completed");
-
-        Ok(BatchRunOutput {
-            session_id: params.session_id,
-            mode: BatchRunMode::Direct,
-            response,
-        })
+fn supports_progressive_batch(adapter_kind: AdapterKind, model: Option<&str>) -> bool {
+    match adapter_kind {
+        AdapterKind::Argmax | AdapterKind::Cactus => true,
+        AdapterKind::OpenAI => OpenAIAdapter::supports_progressive_batch_model(model),
+        _ => false,
     }
-    .instrument(span)
-    .await
+}
+
+fn build_listen_params(
+    params: &BatchParams,
+    channels: u8,
+    sample_rate: u32,
+) -> owhisper_interface::ListenParams {
+    owhisper_interface::ListenParams {
+        model: params.model.clone(),
+        channels,
+        sample_rate,
+        languages: params.languages.clone(),
+        keywords: params.keywords.clone(),
+        num_speakers: params.num_speakers,
+        min_speakers: params.min_speakers,
+        max_speakers: params.max_speakers,
+        custom_query: None,
+    }
+}
+
+pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
+    provider.to_string()
+}
+
+pub(super) fn adapter_kind_label(adapter_kind: AdapterKind) -> &'static str {
+    match adapter_kind {
+        AdapterKind::Argmax => "argmax",
+        AdapterKind::Deepgram => "deepgram",
+        AdapterKind::Soniox => "soniox",
+        AdapterKind::AssemblyAI => "assemblyai",
+        AdapterKind::Fireworks => "fireworks",
+        AdapterKind::OpenAI => "openai",
+        AdapterKind::Gladia => "gladia",
+        AdapterKind::ElevenLabs => "elevenlabs",
+        AdapterKind::Pyannote => "pyannote",
+        AdapterKind::DashScope => "dashscope",
+        AdapterKind::Mistral => "mistral",
+        AdapterKind::Hyprnote => "hyprnote",
+        AdapterKind::Cactus => "cactus",
+    }
 }
 
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
@@ -250,4 +299,123 @@ pub(super) fn format_user_friendly_error(error: &str) -> String {
     }
 
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn listen_params(model: Option<&str>) -> owhisper_interface::ListenParams {
+        owhisper_interface::ListenParams {
+            model: model.map(ToOwned::to_owned),
+            languages: vec![hypr_language::ISO639::En.into()],
+            ..Default::default()
+        }
+    }
+
+    fn batch_params(provider: BatchProvider, base_url: &str) -> BatchParams {
+        BatchParams {
+            session_id: "session".to_string(),
+            provider,
+            file_path: "/tmp/audio.wav".to_string(),
+            model: None,
+            base_url: base_url.to_string(),
+            api_key: "key".to_string(),
+            languages: vec![hypr_language::ISO639::En.into()],
+            keywords: vec![],
+            num_speakers: None,
+            min_speakers: None,
+            max_speakers: None,
+        }
+    }
+
+    #[test]
+    fn build_listen_params_preserves_num_speakers() {
+        let mut params = batch_params(BatchProvider::Pyannote, "https://api.pyannote.ai");
+        params.num_speakers = Some(3);
+
+        let listen_params = build_listen_params(&params, 2, 48_000);
+
+        assert_eq!(listen_params.num_speakers, Some(3));
+        assert_eq!(listen_params.channels, 2);
+        assert_eq!(listen_params.sample_rate, 48_000);
+    }
+
+    #[test]
+    fn build_listen_params_preserves_speaker_range_options() {
+        let mut params = batch_params(BatchProvider::Pyannote, "https://api.pyannote.ai");
+        params.min_speakers = Some(2);
+        params.max_speakers = Some(4);
+
+        let listen_params = build_listen_params(&params, 1, 16_000);
+        assert_eq!(listen_params.min_speakers, Some(2));
+        assert_eq!(listen_params.max_speakers, Some(4));
+        assert!(listen_params.custom_query.is_none());
+    }
+
+    #[test]
+    fn am_routes_pyannote_to_direct_batch() {
+        let params = batch_params(BatchProvider::Am, "https://api.pyannote.ai");
+        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
+
+        assert_eq!(adapter_kind, AdapterKind::Pyannote);
+        assert!(!supports_progressive_batch(adapter_kind, None));
+    }
+
+    #[test]
+    fn am_routes_deepgram_to_direct_batch() {
+        let params = batch_params(BatchProvider::Am, "https://api.deepgram.com/v1");
+        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
+
+        assert_eq!(adapter_kind, AdapterKind::Deepgram);
+        assert!(!supports_progressive_batch(adapter_kind, None));
+    }
+
+    #[test]
+    fn am_routes_local_argmax_to_progressive_batch() {
+        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
+        let adapter_kind = resolve_batch_adapter_kind(&params, &listen_params(None));
+
+        assert_eq!(adapter_kind, AdapterKind::Argmax);
+        assert!(supports_progressive_batch(adapter_kind, None));
+    }
+
+    #[test]
+    fn am_routes_cactus_model_to_progressive_batch() {
+        let params = batch_params(BatchProvider::Am, "http://localhost:50060/v1");
+        let adapter_kind =
+            resolve_batch_adapter_kind(&params, &listen_params(Some("cactus-whisper-small-int4")));
+
+        assert_eq!(adapter_kind, AdapterKind::Cactus);
+        assert!(supports_progressive_batch(
+            adapter_kind,
+            Some("cactus-whisper-small-int4"),
+        ));
+    }
+
+    #[test]
+    fn am_routes_openai_gpt_batch_to_progressive_batch() {
+        let params = batch_params(BatchProvider::Am, "https://api.openai.com/v1");
+        let adapter_kind =
+            resolve_batch_adapter_kind(&params, &listen_params(Some("gpt-4o-transcribe")));
+
+        assert_eq!(adapter_kind, AdapterKind::OpenAI);
+        assert!(supports_progressive_batch(
+            adapter_kind,
+            Some("gpt-4o-transcribe"),
+        ));
+    }
+
+    #[test]
+    fn am_routes_openai_diarized_batch_to_direct_batch() {
+        let params = batch_params(BatchProvider::Am, "https://api.openai.com/v1");
+        let adapter_kind =
+            resolve_batch_adapter_kind(&params, &listen_params(Some("gpt-4o-transcribe-diarize")));
+
+        assert_eq!(adapter_kind, AdapterKind::OpenAI);
+        assert!(!supports_progressive_batch(
+            adapter_kind,
+            Some("gpt-4o-transcribe-diarize"),
+        ));
+    }
 }

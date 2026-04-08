@@ -3,9 +3,24 @@ use std::path::Path;
 use sqlx::SqlitePool;
 
 use super::TableFormat;
-use super::helpers::csv_escape;
+use super::helpers::{TableCell, TableColumn, write_table};
+use crate::db;
 use crate::error::CliResult;
-use crate::{db, output};
+
+const COLUMNS: &[TableColumn] = &[
+    TableColumn {
+        key: "id",
+        header: "id",
+    },
+    TableColumn {
+        key: "title",
+        header: "title",
+    },
+    TableColumn {
+        key: "created_at",
+        header: "created_at",
+    },
+];
 
 pub(super) async fn meetings(
     pool: &SqlitePool,
@@ -13,36 +28,22 @@ pub(super) async fn meetings(
     out: Option<&Path>,
 ) -> CliResult<()> {
     let rows = db!(hypr_db_app::list_meetings(pool), "list meetings");
+    let rows: Vec<Vec<TableCell>> = rows
+        .iter()
+        .map(|meeting| {
+            vec![
+                TableCell::new(serde_json::json!(meeting.id), meeting.id.clone()),
+                TableCell::new(
+                    serde_json::json!(meeting.title),
+                    meeting.title.as_deref().unwrap_or(""),
+                ),
+                TableCell::new(
+                    serde_json::json!(meeting.created_at),
+                    meeting.created_at.to_string(),
+                ),
+            ]
+        })
+        .collect();
 
-    match format {
-        TableFormat::Json => {
-            let value: Vec<_> = rows
-                .iter()
-                .map(|m| {
-                    serde_json::json!({
-                        "id": m.id,
-                        "title": m.title,
-                        "created_at": m.created_at,
-                    })
-                })
-                .collect();
-            output::write_json(out, &value).await
-        }
-        TableFormat::Csv => {
-            let mut buf = String::from("id,title,created_at\n");
-            for m in &rows {
-                let title = csv_escape(m.title.as_deref().unwrap_or(""));
-                buf.push_str(&format!("{},{},{}\n", m.id, title, m.created_at));
-            }
-            output::write_text(out, buf).await
-        }
-        TableFormat::Text => {
-            let mut buf = String::new();
-            for m in &rows {
-                let title = m.title.as_deref().unwrap_or("");
-                buf.push_str(&format!("{}\t{}\t{}\n", m.id, title, m.created_at));
-            }
-            output::write_text(out, buf).await
-        }
-    }
+    write_table(format, out, COLUMNS, &rows).await
 }

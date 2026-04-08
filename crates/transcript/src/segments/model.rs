@@ -11,6 +11,7 @@ pub(super) struct NormalizedWord {
     pub(super) is_final: bool,
     pub(super) id: Option<String>,
     pub(super) order: usize,
+    pub(super) speaker_index: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -39,7 +40,7 @@ pub(super) struct ProtoSegment {
 
 pub(super) struct SpeakerState {
     pub(super) assignment_by_word_index: HashMap<usize, SpeakerIdentity>,
-    pub(super) human_id_by_speaker_index: HashMap<i32, String>,
+    pub(super) human_id_by_scoped_speaker: HashMap<(ChannelProfile, i32), String>,
     pub(super) human_id_by_channel: HashMap<ChannelProfile, String>,
     pub(super) last_speaker_by_channel: HashMap<ChannelProfile, SpeakerIdentity>,
     pub(super) complete_channels: HashSet<ChannelProfile>,

@@ -8,7 +8,9 @@ CREATE TABLE IF NOT EXISTS speaker_hints (
   channel INTEGER,
   human_id TEXT,
   user_id TEXT NOT NULL DEFAULT '',
-  visibility TEXT NOT NULL DEFAULT 'public'
+  visibility TEXT NOT NULL DEFAULT 'public',
+  task_id TEXT DEFAULT NULL REFERENCES tasks(id)
 );
 CREATE INDEX IF NOT EXISTS idx_hints_meeting ON speaker_hints(meeting_id);
 CREATE INDEX IF NOT EXISTS idx_hints_word ON speaker_hints(word_id);
+CREATE INDEX IF NOT EXISTS idx_hints_task ON speaker_hints(task_id);

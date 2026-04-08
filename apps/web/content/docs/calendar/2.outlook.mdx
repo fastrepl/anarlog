@@ -4,6 +4,22 @@ section: "Calendar"
 description: "Connect your Outlook Calendar to see upcoming meetings in Char."
 ---
 
-Outlook Calendar integration is coming soon. Join our [Discord](/discord) to stay updated on the release.
+Outlook Calendar sync is available on Char Pro. You can connect one or more Microsoft accounts and choose which calendars to sync into Char.
 
-In the meantime, you can use [Apple Calendar](/docs/calendar/apple) which syncs with Outlook if you add your Microsoft account to macOS Calendar.
+## How do I connect Outlook Calendar?
+
+- In the web app, open **Account** > **Integrations**.
+- In the desktop app, use the calendar connection flow and choose **Connect Outlook**.
+- Complete the Microsoft OAuth flow, then choose the calendars you want Char to sync.
+
+## How often does Char sync with Outlook Calendar?
+
+Char syncs Outlook Calendar automatically **every 60 seconds**. You can also refresh calendars manually from the calendar UI after connecting.
+
+## What date range of events does Char sync?
+
+Char syncs events from **7 days ago** to **30 days in the future**. This keeps recent meetings available for context while pulling in upcoming meetings for planning and reminders.
+
+## Can I connect multiple Microsoft accounts?
+
+Yes. Char supports connecting multiple Outlook Calendar accounts at the same time. Each connected account can sync its own calendars into your timeline.

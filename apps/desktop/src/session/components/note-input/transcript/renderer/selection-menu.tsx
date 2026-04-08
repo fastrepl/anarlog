@@ -5,14 +5,7 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/react";
-import {
-  type ChangeEvent,
-  type KeyboardEvent,
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type MouseEvent, useCallback, useEffect, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -29,34 +22,19 @@ const MENU_BUTTON_CLASSES = [
   "hover:bg-neutral-100 transition-colors",
 ];
 
-const INPUT_CLASSES = [
-  "px-2 py-1 text-xs rounded-xs",
-  "border border-neutral-300 focus:outline-hidden focus:border-neutral-400",
-  "min-w-[120px]",
-];
-
 export function SelectionMenu({
   containerRef,
-  editable,
   onAction,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
-  editable?: boolean;
-  onAction?: (
-    action: string,
-    selectedText: string,
-    replaceWith?: string,
-  ) => void;
+  onAction?: (action: string, selectedText: string) => void;
 }) {
   const { isVisible, selectedText, hide, refs, floatingStyles, storedRange } =
     useSelectionMenuState({ containerRef });
 
-  const [mode, setMode] = useState<"menu" | "replace">("menu");
-
   const handleClose = useCallback(() => {
     hide();
     window.getSelection()?.removeAllRanges();
-    setMode("menu");
   }, [hide]);
 
   const autoCloserRef = useAutoCloser(handleClose, {
@@ -73,8 +51,8 @@ export function SelectionMenu({
   );
 
   const handleAction = useCallback(
-    (action: string, replaceWith?: string) => {
-      onAction?.(action, selectedText, replaceWith);
+    (action: string) => {
+      onAction?.(action, selectedText);
       handleClose();
     },
     [handleClose, onAction, selectedText],
@@ -83,12 +61,6 @@ export function SelectionMenu({
   const handleMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
   }, []);
-
-  useEffect(() => {
-    if (!isVisible) {
-      setMode("menu");
-    }
-  }, [isVisible]);
 
   if (!isVisible) {
     return null;
@@ -104,100 +76,14 @@ export function SelectionMenu({
           className={cn(MENU_CONTAINER_CLASSES)}
           onMouseDown={handleMouseDown}
         >
-          {mode === "menu" ? (
-            <MainMenu
-              editable={editable}
-              onCopy={() => handleAction("copy")}
-              onRemove={() => handleAction("remove")}
-              onReplace={() => setMode("replace")}
-            />
-          ) : (
-            <ReplaceMenu
-              onSubmit={(text) => handleAction("replace", text)}
-              onCancel={() => setMode("menu")}
-            />
-          )}
+          <button
+            onClick={() => handleAction("copy")}
+            className={cn(MENU_BUTTON_CLASSES)}
+          >
+            Copy
+          </button>
         </div>
       </FloatingPortal>
-    </>
-  );
-}
-
-function MainMenu({
-  editable,
-  onCopy,
-  onRemove,
-  onReplace,
-}: {
-  editable?: boolean;
-  onCopy: () => void;
-  onRemove: () => void;
-  onReplace: () => void;
-}) {
-  return (
-    <>
-      <button onClick={onCopy} className={cn(MENU_BUTTON_CLASSES)}>
-        Copy
-      </button>
-      {editable && (
-        <>
-          <button onClick={onRemove} className={cn(MENU_BUTTON_CLASSES)}>
-            Remove
-          </button>
-          <button onClick={onReplace} className={cn(MENU_BUTTON_CLASSES)}>
-            Replace
-          </button>
-        </>
-      )}
-    </>
-  );
-}
-
-function ReplaceMenu({
-  onSubmit,
-  onCancel,
-}: {
-  onSubmit: (text: string) => void;
-  onCancel: () => void;
-}) {
-  const [replaceText, setReplaceText] = useState("");
-
-  const handleSubmit = useCallback(() => {
-    onSubmit(replaceText);
-  }, [onSubmit, replaceText]);
-
-  const handleChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
-    setReplaceText(event.target.value);
-  }, []);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key === "Enter") {
-        handleSubmit();
-      } else if (event.key === "Escape") {
-        onCancel();
-      }
-    },
-    [handleSubmit, onCancel],
-  );
-
-  return (
-    <>
-      <input
-        type="text"
-        value={replaceText}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        placeholder="Replace with..."
-        autoFocus
-        className={cn(INPUT_CLASSES)}
-      />
-      <button onClick={handleSubmit} className={cn(MENU_BUTTON_CLASSES)}>
-        ✓
-      </button>
-      <button onClick={onCancel} className={cn(MENU_BUTTON_CLASSES)}>
-        ✕
-      </button>
     </>
   );
 }

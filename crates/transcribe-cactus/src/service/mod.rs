@@ -6,6 +6,13 @@ use std::path::Path;
 
 use owhisper_interface::stream::{Extra, Metadata, ModelInfo};
 
+pub(crate) struct Segment<'a> {
+    pub text: &'a str,
+    pub start: f64,
+    pub duration: f64,
+    pub confidence: f64,
+}
+
 pub(crate) fn build_metadata(model_path: &Path) -> Metadata {
     let model_name = model_path
         .file_stem()
@@ -24,24 +31,25 @@ pub(crate) fn build_metadata(model_path: &Path) -> Metadata {
     }
 }
 
-pub(crate) fn build_model(
-    model_path: &Path,
-    keywords: &[String],
-) -> Result<hypr_cactus::Model, hypr_cactus::Error> {
+pub(crate) fn ensure_log_init() {
     static LOG_INIT: std::sync::Once = std::sync::Once::new();
     LOG_INIT.call_once(hypr_cactus::log::init);
+}
 
-    let (custom_vocabulary, vocabulary_boost) = deepgram_keywords_to_cactus_vocabulary(keywords);
+pub(crate) fn build_transcribe_options(
+    params: &owhisper_interface::ListenParams,
+    min_chunk_sec: Option<f32>,
+) -> hypr_cactus::TranscribeOptions {
+    let (custom_vocabulary, vocabulary_boost) =
+        deepgram_keywords_to_cactus_vocabulary(&params.keywords);
 
-    let mut model_builder = hypr_cactus::Model::builder(model_path);
-    if !custom_vocabulary.is_empty() {
-        model_builder = model_builder.custom_vocabulary(custom_vocabulary);
+    hypr_cactus::TranscribeOptions {
+        language: hypr_cactus::constrain_to(&params.languages),
+        min_chunk_size: min_chunk_sec.map(|seconds| (seconds * 16_000.0) as u32),
+        custom_vocabulary: (!custom_vocabulary.is_empty()).then_some(custom_vocabulary),
+        vocabulary_boost,
+        ..Default::default()
     }
-    if let Some(vocabulary_boost) = vocabulary_boost {
-        model_builder = model_builder.vocabulary_boost(vocabulary_boost);
-    }
-
-    model_builder.build()
 }
 
 pub(crate) fn deepgram_keywords_to_cactus_vocabulary(

@@ -56,7 +56,10 @@ final class QuitInterceptor {
       showOverlay()
 
     case .firstPress:
-      break
+      // The first Cmd+Q keydown is swallowed, so macOS may never send us the Q keyup.
+      // Treat a second non-repeat press while Command is still held as confirmation too.
+      state = .idle
+      performQuit()
 
     case .awaiting:
       state = .idle

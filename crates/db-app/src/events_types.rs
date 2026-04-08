@@ -16,6 +16,8 @@ pub struct EventRow {
     pub is_all_day: bool,
     pub participants_json: String,
     pub raw_json: String,
+    pub sync_status: String,
+    pub deleted_at: Option<String>,
     pub created_at: String,
 }
 

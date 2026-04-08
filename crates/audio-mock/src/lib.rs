@@ -1,6 +1,7 @@
 use std::num::NonZero;
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 
@@ -163,6 +164,7 @@ struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
     cancel_token: CancellationToken,
     task: JoinHandle<()>,
+    playback_stop: Arc<AtomicBool>,
 }
 
 impl Stream for CaptureStreamInner {
@@ -175,6 +177,7 @@ impl Stream for CaptureStreamInner {
 
 impl Drop for CaptureStreamInner {
     fn drop(&mut self) {
+        self.playback_stop.store(true, Ordering::Relaxed);
         self.cancel_token.cancel();
         self.task.abort();
     }
@@ -185,12 +188,16 @@ struct MonoPlaybackSource {
     spk: Arc<[f32]>,
     position: usize,
     sample_rate: u32,
+    stop: Arc<AtomicBool>,
 }
 
 impl Iterator for MonoPlaybackSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<f32> {
+        if self.stop.load(Ordering::Relaxed) {
+            return None;
+        }
         let max_len = self.mic.len().max(self.spk.len());
         if self.position >= max_len {
             return None;
@@ -217,7 +224,7 @@ impl Source for MonoPlaybackSource {
     }
 }
 
-fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData) {
+fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData, stop: Arc<AtomicBool>) {
     let sample_rate = mic.sample_rate.max(spk.sample_rate).max(16000);
     let mic_samples = Arc::clone(&mic.samples);
     let spk_samples = Arc::clone(&spk.samples);
@@ -234,6 +241,7 @@ fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData) {
                     spk: spk_samples,
                     position: 0,
                     sample_rate,
+                    stop,
                 });
                 tracing::info!(sample_rate, "mock playback started (mono mix)");
                 player.sleep_until_end();
@@ -250,8 +258,10 @@ fn open_capture_stream(
     speaker: MockAudioData,
     config: CaptureConfig,
 ) -> CaptureStream {
+    let playback_stop = Arc::new(AtomicBool::new(false));
+
     if std::env::var(MOCK_PLAYBACK_ENV).ok().as_deref() != Some("0") {
-        start_stereo_playback(&mic, &speaker);
+        start_stereo_playback(&mic, &speaker, Arc::clone(&playback_stop));
     }
 
     let cancel_token = CancellationToken::new();
@@ -268,6 +278,7 @@ fn open_capture_stream(
         inner: ReceiverStream::new(rx),
         cancel_token,
         task,
+        playback_stop,
     })
 }
 

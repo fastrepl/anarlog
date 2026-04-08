@@ -4,11 +4,9 @@ import { useRef, useState } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { CTASection } from "@/components/cta-section";
 import { GitHubOpenSource } from "@/components/github-open-source";
-import { SlashSeparator } from "@/components/slash-separator";
 import {
-  CoolStuffSection,
-  CTASection,
   HowItWorksSection,
   MainFeaturesSection,
   TemplatesSection,
@@ -31,19 +29,17 @@ export const Route = createFileRoute("/_view/vs/$slug")({
 
     const { doc } = loaderData;
     const metaTitle = `Char vs ${doc.name} - Privacy-First AI Notetaking`;
+    const url = `https://char.com/vs/${doc.slug}`;
 
     return {
       meta: [
         { title: metaTitle },
         { name: "description", content: doc.metaDescription },
-        { name: "robots", content: "noindex, nofollow" },
+        { tag: "link", attrs: { rel: "canonical", href: url } },
         { property: "og:title", content: metaTitle },
         { property: "og:description", content: doc.metaDescription },
         { property: "og:type", content: "website" },
-        {
-          property: "og:url",
-          content: `https://char.com/vs/${doc.slug}`,
-        },
+        { property: "og:url", content: url },
         { name: "twitter:card", content: "summary" },
         { name: "twitter:title", content: metaTitle },
         { name: "twitter:description", content: doc.metaDescription },
@@ -68,33 +64,23 @@ function Component() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-linear-to-b from-white via-stone-50/20 to-white"
-      style={{ backgroundImage: "url(/patterns/dots.svg)" }}
-    >
-      <div className="mx-auto max-w-6xl border-x border-neutral-100 bg-white">
+    <div className="min-h-screen">
+      <div className="mx-auto">
         <HeroSection
           competitorIcon={doc.icon}
           competitorName={doc.name}
           headline={doc.headline}
           description={doc.description}
         />
-        <SlashSeparator />
         <HowItWorksSection />
-        <SlashSeparator />
-        <CoolStuffSection />
-        <SlashSeparator />
         <MainFeaturesSection
           featuresScrollRef={featuresScrollRef}
           selectedFeature={selectedFeature}
           setSelectedFeature={setSelectedFeature}
           scrollToFeature={scrollToFeature}
         />
-        <SlashSeparator />
         <TemplatesSection />
-        <SlashSeparator />
         <GitHubOpenSource />
-        <SlashSeparator />
         <CTASection heroInputRef={heroInputRef} />
       </div>
     </div>
@@ -113,8 +99,8 @@ function HeroSection({
   description: string;
 }) {
   return (
-    <div className="bg-linear-to-b from-stone-50/30 to-stone-100/30 px-6 py-12 lg:py-20">
-      <header className="mx-auto max-w-4xl text-center">
+    <div className="px-6 py-12 lg:py-20">
+      <header className="border-brand-bright rounded-xl border p-8 text-left">
         <div className="mb-12 flex flex-row items-center justify-center sm:gap-0">
           <div className="relative h-40 w-40 sm:hidden">
             <div className="absolute top-0 left-0 z-0 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-white opacity-50 shadow-2xl">
@@ -126,7 +112,7 @@ function HeroSection({
             </div>
             <div className="absolute right-0 bottom-0 z-10 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-white shadow-2xl">
               <img
-                src="/api/images/hyprnote/icon.png"
+                src="/api/assets/hyprnote/icon.png"
                 alt="Char"
                 className="size-24 rounded-[28px] border border-neutral-100"
               />
@@ -145,7 +131,7 @@ function HeroSection({
             </div>
             <div className="flex size-32 scale-110 items-center justify-center rounded-[40px] border border-neutral-100 bg-transparent shadow-2xl">
               <img
-                src="/api/images/hyprnote/icon.png"
+                src="/api/assets/hyprnote/icon.png"
                 alt="Char"
                 className="size-28 rounded-4xl border border-neutral-100"
               />
@@ -153,7 +139,7 @@ function HeroSection({
           </div>
         </div>
 
-        <h1 className="mb-6 font-serif text-3xl tracking-tight text-stone-700 sm:text-4xl lg:text-5xl">
+        <h1 className="mb-6 font-mono text-3xl tracking-tight text-stone-700 sm:text-4xl lg:text-5xl">
           {headline}
         </h1>
         <p className="mb-8 text-lg text-neutral-600 sm:text-xl">

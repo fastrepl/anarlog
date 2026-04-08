@@ -2,7 +2,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@hypr/utils";
 
@@ -170,33 +169,6 @@ function useGroupCountdown(group: ToastGroup) {
   }, [earliest, isPaused, frozenRemaining]);
 
   return Math.ceil(remaining / 1000);
-}
-
-export function UndoDeleteKeyboardHandler() {
-  const groups = useToastGroups();
-  const restoreGroup = useRestoreGroup();
-
-  const latestGroup = useMemo(() => {
-    if (groups.length === 0) return null;
-    return groups[groups.length - 1];
-  }, [groups]);
-
-  useHotkeys(
-    "mod+z",
-    () => {
-      if (latestGroup) {
-        restoreGroup(latestGroup);
-      }
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      enableOnContentEditable: true,
-    },
-    [latestGroup, restoreGroup],
-  );
-
-  return null;
 }
 
 export function UndoDeleteToast() {

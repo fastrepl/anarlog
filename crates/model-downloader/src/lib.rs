@@ -13,4 +13,4 @@ pub use archive::extract_zip;
 pub use error::Error;
 pub use manager::ModelDownloadManager;
 pub use model::DownloadableModel;
-pub use runtime::ModelDownloaderRuntime;
+pub use runtime::{DownloadStatus, ModelDownloaderRuntime};

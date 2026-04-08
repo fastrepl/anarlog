@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS words (
   channel INTEGER NOT NULL DEFAULT 0,
   state TEXT NOT NULL DEFAULT 'final',
   user_id TEXT NOT NULL DEFAULT '',
-  visibility TEXT NOT NULL DEFAULT 'public'
+  visibility TEXT NOT NULL DEFAULT 'public',
+  task_id TEXT DEFAULT NULL REFERENCES tasks(id)
 );
 CREATE INDEX IF NOT EXISTS idx_words_meeting ON words(meeting_id, start_ms);
+CREATE INDEX IF NOT EXISTS idx_words_task ON words(task_id, start_ms);

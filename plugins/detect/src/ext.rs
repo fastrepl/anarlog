@@ -8,8 +8,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Detect<'a, R, M> {
         hypr_detect::list_installed_apps()
     }
 
-    pub fn list_mic_using_applications(&self) -> Vec<hypr_detect::InstalledApp> {
-        hypr_detect::list_mic_using_apps()
+    pub fn list_mic_using_applications(
+        &self,
+    ) -> Result<Vec<hypr_detect::InstalledApp>, crate::Error> {
+        Ok(hypr_detect::list_mic_using_apps()?)
     }
 
     pub fn list_default_ignored_bundle_ids(&self) -> Vec<String> {

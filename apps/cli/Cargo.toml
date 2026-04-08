@@ -15,7 +15,10 @@ path = "src/main.rs"
 hypr-analytics = { workspace = true }
 hypr-audio = { workspace = true, optional = true }
 hypr-audio-actual = { workspace = true, optional = true }
+hypr-audio-norm = { workspace = true }
 hypr-audio-utils = { workspace = true, optional = true }
+hypr-claude = { workspace = true, optional = true }
+hypr-codex = { workspace = true, optional = true }
 hypr-db-app = { workspace = true, features = ["cli"], optional = true }
 hypr-db-core2 = { workspace = true, optional = true }
 hypr-host = { workspace = true }
@@ -24,6 +27,8 @@ hypr-listener2-core = { workspace = true }
 hypr-local-model = { workspace = true }
 hypr-local-stt-core = { workspace = true, optional = true }
 hypr-model-downloader = { workspace = true, optional = true }
+hypr-opencode = { workspace = true, optional = true }
+hypr-shortcut-macos = { workspace = true, optional = true }
 hypr-transcript = { workspace = true, optional = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
@@ -34,28 +39,35 @@ clap-verbosity-flag = { version = "3", features = ["tracing"] }
 clap_complete = { workspace = true }
 clio = { version = "0.3", features = ["clap-parse"] }
 colored = "3"
+comfy-table = "7"
 crossterm = { workspace = true, optional = true }
 dirs = { workspace = true }
-hound = { workspace = true, optional = true }
+hypr-mp3 = { workspace = true, optional = true }
+libc = { version = "0.2", optional = true }
 open = { workspace = true }
 ratatui = { workspace = true, optional = true }
 reqwest = { workspace = true, features = ["json"] }
+rodio = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "runtime-tokio"], optional = true }
 strsim = "0.11"
 strum = { workspace = true, features = ["derive"] }
+tempfile = { workspace = true }
 textwrap = { version = "0.16", features = ["terminal_size"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
 tokio-stream = { workspace = true, optional = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json", "registry"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
 
-[target.'cfg(any(target_arch = "arm", target_arch = "aarch64"))'.dependencies]
-hypr-local-stt-server = { workspace = true }
+[target.'cfg(target_os = "macos")'.dependencies]
+hypr-local-stt-server = { workspace = true, features = ["whisper-cpp"] }
+
+[target.'cfg(all(target_os = "macos", any(target_arch = "arm", target_arch = "aarch64")))'.dependencies]
+hypr-local-stt-server = { workspace = true, features = ["cactus", "whisper-cpp"] }
 
 [dev-dependencies]
 clap_complete = { workspace = true }
@@ -63,12 +75,18 @@ cli-docs = { path = "../../crates/cli-docs" }
 clio = { version = "0.3", features = ["clap-parse"] }
 portable-pty = "0.9"
 strum = { workspace = true, features = ["derive"] }
-tempfile = { workspace = true }
 url = { workspace = true }
 vt100 = "0.15"
 
 [features]
 e2e = []
+todo = [
+  "desktop",
+  "dep:hypr-claude",
+  "dep:hypr-codex",
+  "dep:hypr-opencode",
+  "dep:hypr-shortcut-macos",
+]
 desktop = [
   "dep:hypr-db-app",
   "dep:hypr-db-core2",
@@ -81,10 +99,13 @@ standalone = [
   "dep:hypr-audio",
   "dep:hypr-audio-actual",
   "dep:hypr-audio-utils",
-  "dep:hound",
+  "dep:hypr-mp3",
   "dep:hypr-local-stt-core",
   "dep:hypr-model-downloader",
+  "dep:hypr-shortcut-macos",
   "dep:ratatui",
   "dep:crossterm",
+  "dep:libc",
+  "dep:rodio",
   "dep:tokio-stream",
 ]

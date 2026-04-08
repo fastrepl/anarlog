@@ -1,37 +1,66 @@
 import { create as mutate } from "mutative";
 import type { StoreApi } from "zustand";
 
-import type { StreamResponse } from "@hypr/plugin-listener";
-
-import { transformWordEntries } from "./utils";
+import type {
+  LiveTranscriptDelta,
+  LiveTranscriptSegment,
+  LiveTranscriptSegmentDelta,
+} from "@hypr/plugin-transcription";
 
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 type WordsByChannel = Record<number, WordLike[]>;
 
-export type HandlePersistCallback = (
+export type BatchPersistCallback = (
   words: WordLike[],
   hints: RuntimeSpeakerHint[],
 ) => void;
 
+export type LiveTranscriptPersistCallback = (
+  delta: LiveTranscriptDelta,
+) => void;
+
+export type OnStoppedCallback = (
+  sessionId: string,
+  details: {
+    durationSeconds: number;
+    audioPath: string | null;
+    requestedLiveTranscription: boolean;
+    liveTranscriptionActive: boolean;
+  },
+) => void;
+
 export type TranscriptState = {
-  finalWordsMaxEndMsByChannel: Record<number, number>;
+  liveSegments: LiveTranscriptSegment[];
+  liveSegmentsById: Record<string, LiveTranscriptSegment>;
   partialWordsByChannel: WordsByChannel;
   partialHintsByChannel: Record<number, RuntimeSpeakerHint[]>;
-  handlePersist?: HandlePersistCallback;
+  handlePersistBySession: Record<string, LiveTranscriptPersistCallback>;
+  onStoppedBySession: Record<string, OnStoppedCallback>;
 };
 
 export type TranscriptActions = {
-  setTranscriptPersist: (callback?: HandlePersistCallback) => void;
-  handleTranscriptResponse: (response: StreamResponse) => void;
+  setTranscriptPersist: (
+    sessionId: string,
+    callback?: LiveTranscriptPersistCallback,
+  ) => void;
+  setOnStopped: (sessionId: string, callback?: OnStoppedCallback) => void;
+  handleTranscriptDelta: (
+    sessionId: string,
+    delta: LiveTranscriptDelta,
+  ) => void;
+  handleTranscriptSegmentDelta: (delta: LiveTranscriptSegmentDelta) => void;
+  takeOnStopped: (sessionId: string) => OnStoppedCallback | undefined;
   resetTranscript: () => void;
 };
 
 const initialState: TranscriptState = {
-  finalWordsMaxEndMsByChannel: {},
+  liveSegments: [],
+  liveSegmentsById: {},
   partialWordsByChannel: {},
   partialHintsByChannel: {},
-  handlePersist: undefined,
+  handlePersistBySession: {},
+  onStoppedBySession: {},
 };
 
 export const createTranscriptSlice = <
@@ -39,192 +68,115 @@ export const createTranscriptSlice = <
 >(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
-): TranscriptState & TranscriptActions => {
-  const handleFinalWords = (
-    channelIndex: number,
-    words: WordLike[],
-    hints: RuntimeSpeakerHint[],
-  ): void => {
-    const {
-      partialWordsByChannel,
-      partialHintsByChannel,
-      handlePersist,
-      finalWordsMaxEndMsByChannel,
-    } = get();
-
-    const lastPersistedEndMs = finalWordsMaxEndMsByChannel[channelIndex] ?? 0;
-    const lastEndMs = getLastEndMs(words);
-
-    const firstNewWordIndex = words.findIndex(
-      (word) => word.end_ms > lastPersistedEndMs,
+): TranscriptState & TranscriptActions => ({
+  ...initialState,
+  setTranscriptPersist: (sessionId, callback) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        if (callback) {
+          draft.handlePersistBySession[sessionId] = callback;
+        } else {
+          delete draft.handlePersistBySession[sessionId];
+        }
+      }),
     );
-    if (firstNewWordIndex === -1) {
+  },
+  setOnStopped: (sessionId, callback) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        if (callback) {
+          draft.onStoppedBySession[sessionId] = callback;
+        } else {
+          delete draft.onStoppedBySession[sessionId];
+        }
+      }),
+    );
+  },
+  handleTranscriptDelta: (sessionId, delta) => {
+    const handlePersist = get().handlePersistBySession[sessionId];
+    const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
+      delta.partials,
+    );
+
+    set((state) =>
+      mutate(state, (draft) => {
+        draft.partialWordsByChannel = wordsByChannel;
+        draft.partialHintsByChannel = hintsByChannel;
+      }),
+    );
+
+    if (delta.new_words.length === 0 && delta.replaced_ids.length === 0) {
       return;
     }
 
-    const newWords = words.slice(firstNewWordIndex);
-    const newHints = hints
-      .filter((hint) => hint.wordIndex >= firstNewWordIndex)
-      .map((hint) => ({
-        ...hint,
-        wordIndex: hint.wordIndex - firstNewWordIndex,
-      }));
-
-    const existingPartialWords = partialWordsByChannel[channelIndex] ?? [];
-    const remainingPartialWords = existingPartialWords.filter(
-      (word) => word.start_ms > lastEndMs,
+    handlePersist?.(delta);
+  },
+  handleTranscriptSegmentDelta: (delta) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        for (const removedId of delta.removed_ids) {
+          delete draft.liveSegmentsById[removedId];
+        }
+        for (const segment of delta.upserts) {
+          draft.liveSegmentsById[segment.id] = segment;
+        }
+        draft.liveSegments = Object.values(draft.liveSegmentsById).sort(
+          (a, b) => a.start_ms - b.start_ms,
+        );
+      }),
     );
+  },
+  takeOnStopped: (sessionId) => {
+    const callback = get().onStoppedBySession[sessionId];
+    set((state) =>
+      mutate(state, (draft) => {
+        delete draft.onStoppedBySession[sessionId];
+        delete draft.handlePersistBySession[sessionId];
+      }),
+    );
+    return callback;
+  },
+  resetTranscript: () => {
+    set((state) =>
+      mutate(state, (draft) => {
+        draft.liveSegments = [];
+        draft.liveSegmentsById = {};
+        draft.partialWordsByChannel = {};
+        draft.partialHintsByChannel = {};
+      }),
+    );
+  },
+});
 
-    const oldToNewIndex = new Map<number, number>();
-    let newIdx = 0;
-    for (let oldIdx = 0; oldIdx < existingPartialWords.length; oldIdx++) {
-      if (existingPartialWords[oldIdx].start_ms > lastEndMs) {
-        oldToNewIndex.set(oldIdx, newIdx);
-        newIdx++;
-      }
+function groupPartialsByChannel(partials: LiveTranscriptDelta["partials"]): {
+  wordsByChannel: WordsByChannel;
+  hintsByChannel: Record<number, RuntimeSpeakerHint[]>;
+} {
+  const wordsByChannel: WordsByChannel = {};
+  const hintsByChannel: Record<number, RuntimeSpeakerHint[]> = {};
+
+  partials.forEach((word) => {
+    const channel = word.channel;
+    const channelWords = wordsByChannel[channel] ?? [];
+    if (!(channel in wordsByChannel)) {
+      wordsByChannel[channel] = channelWords;
+      hintsByChannel[channel] = [];
     }
 
-    const existingPartialHints = partialHintsByChannel[channelIndex] ?? [];
-    const remainingPartialHints = existingPartialHints
-      .filter((hint) => oldToNewIndex.has(hint.wordIndex))
-      .map((hint) => ({
-        ...hint,
-        wordIndex: oldToNewIndex.get(hint.wordIndex)!,
-      }));
+    const channelIndex = channelWords.length;
+    channelWords.push(word);
 
-    set((state) =>
-      mutate(state, (draft) => {
-        draft.partialWordsByChannel[channelIndex] = remainingPartialWords;
-        draft.partialHintsByChannel[channelIndex] = remainingPartialHints;
-        draft.finalWordsMaxEndMsByChannel[channelIndex] = lastEndMs;
-      }),
-    );
+    if (word.speaker_index != null) {
+      hintsByChannel[channel]!.push({
+        wordIndex: channelIndex,
+        data: {
+          type: "provider_speaker_index",
+          speaker_index: word.speaker_index,
+          channel,
+        },
+      });
+    }
+  });
 
-    handlePersist?.(newWords, newHints);
-  };
-
-  const handlePartialWords = (
-    channelIndex: number,
-    words: WordLike[],
-    hints: RuntimeSpeakerHint[],
-  ): void => {
-    const { partialWordsByChannel, partialHintsByChannel } = get();
-    const existing = partialWordsByChannel[channelIndex] ?? [];
-
-    const firstStartMs = getFirstStartMs(words);
-    const lastEndMs = getLastEndMs(words);
-
-    const [before, after] = [
-      existing.filter((word) => word.end_ms <= firstStartMs),
-      existing.filter((word) => word.start_ms >= lastEndMs),
-    ];
-
-    const newWords = [...before, ...words, ...after];
-
-    const hintsWithAdjustedIndices = hints.map((hint) => ({
-      ...hint,
-      wordIndex: before.length + hint.wordIndex,
-    }));
-
-    const existingHints = partialHintsByChannel[channelIndex] ?? [];
-    const filteredOldHints = existingHints.filter((hint) => {
-      const word = existing[hint.wordIndex];
-      return (
-        word && (word.end_ms <= firstStartMs || word.start_ms >= lastEndMs)
-      );
-    });
-
-    set((state) =>
-      mutate(state, (draft) => {
-        draft.partialWordsByChannel[channelIndex] = newWords;
-        draft.partialHintsByChannel[channelIndex] = [
-          ...filteredOldHints,
-          ...hintsWithAdjustedIndices,
-        ];
-      }),
-    );
-  };
-
-  return {
-    ...initialState,
-    setTranscriptPersist: (callback) => {
-      set((state) =>
-        mutate(state, (draft) => {
-          draft.handlePersist = callback;
-        }),
-      );
-    },
-    handleTranscriptResponse: (response) => {
-      if (response.type !== "Results") {
-        return;
-      }
-
-      const channelIndex = response.channel_index[0];
-      const alternative = response.channel.alternatives[0];
-      if (channelIndex === undefined || !alternative) {
-        return;
-      }
-
-      const [words, hints] = transformWordEntries(
-        alternative.words,
-        alternative.transcript,
-        channelIndex,
-      );
-      if (!words.length) {
-        return;
-      }
-
-      if (response.is_final) {
-        handleFinalWords(channelIndex, words, hints);
-      } else {
-        handlePartialWords(channelIndex, words, hints);
-      }
-    },
-    resetTranscript: () => {
-      const { partialWordsByChannel, partialHintsByChannel, handlePersist } =
-        get();
-
-      const remainingWords = Object.values(partialWordsByChannel).flat();
-
-      const channelIndices = Object.keys(partialWordsByChannel)
-        .map(Number)
-        .sort((a, b) => a - b);
-
-      const offsetByChannel = new Map<number, number>();
-      let currentOffset = 0;
-      for (const channelIndex of channelIndices) {
-        offsetByChannel.set(channelIndex, currentOffset);
-        currentOffset += partialWordsByChannel[channelIndex]?.length ?? 0;
-      }
-
-      const remainingHints: RuntimeSpeakerHint[] = [];
-      for (const channelIndex of channelIndices) {
-        const hints = partialHintsByChannel[channelIndex] ?? [];
-        const offset = offsetByChannel.get(channelIndex) ?? 0;
-        for (const hint of hints) {
-          remainingHints.push({
-            ...hint,
-            wordIndex: hint.wordIndex + offset,
-          });
-        }
-      }
-
-      if (remainingWords.length > 0) {
-        handlePersist?.(remainingWords, remainingHints);
-      }
-
-      set((state) =>
-        mutate(state, (draft) => {
-          draft.partialWordsByChannel = {};
-          draft.partialHintsByChannel = {};
-          draft.finalWordsMaxEndMsByChannel = {};
-          draft.handlePersist = undefined;
-        }),
-      );
-    },
-  };
-};
-
-const getLastEndMs = (words: WordLike[]): number =>
-  words[words.length - 1]?.end_ms ?? 0;
-const getFirstStartMs = (words: WordLike[]): number => words[0]?.start_ms ?? 0;
+  return { wordsByChannel, hintsByChannel };
+}

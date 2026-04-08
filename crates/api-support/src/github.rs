@@ -1,9 +1,29 @@
 use crate::error::{Result, SupportError};
 use crate::logs;
 use crate::state::AppState;
+use serde::Deserialize;
+use std::collections::HashMap;
 
 const GITHUB_OWNER: &str = "fastrepl";
 const GITHUB_REPO: &str = "char";
+const DEFAULT_ISSUE_LABELS: &[&str] = &[
+    "area/backend",
+    "area/ui",
+    "Engineering",
+    "os/linux",
+    "os/macos",
+    "os/windows",
+    "product/cli",
+    "product/desktop",
+    "product/owhisper",
+    "product/slack-bot",
+    "product/web",
+];
+
+#[derive(Debug, Deserialize)]
+struct GitHubLabel {
+    name: String,
+}
 
 pub(crate) struct BugReportInput<'a> {
     pub description: &'a str,
@@ -42,7 +62,16 @@ pub(crate) async fn submit_bug_report(
     ))
     .map_err(|e| SupportError::Internal(e.to_string()))?;
 
-    let labels = vec!["product/desktop".to_string(), "Engineering".to_string()];
+    let labels = resolve_issue_labels(
+        state,
+        &title,
+        &body,
+        &[
+            "product/desktop".to_string(),
+            platform_to_label(input.platform).to_string(),
+        ],
+    )
+    .await?;
     let (url, number) = create_issue(state, &title, &body, &labels, Some("Bug")).await?;
 
     if let Some(logs) = input.logs {
@@ -96,6 +125,166 @@ fn make_title(description: &str, fallback: &str) -> (String, String) {
         first_line
     };
     (description, title)
+}
+
+pub(crate) async fn get_repo_labels(state: &AppState) -> Result<Vec<String>> {
+    let client = state.installation_client().await?;
+    let labels: Vec<GitHubLabel> = client
+        .get(
+            format!("/repos/{GITHUB_OWNER}/{GITHUB_REPO}/labels?per_page=100"),
+            None::<&()>,
+        )
+        .await?;
+    Ok(labels.into_iter().map(|label| label.name).collect())
+}
+
+pub(crate) async fn resolve_issue_labels(
+    state: &AppState,
+    title: &str,
+    body: &str,
+    requested_labels: &[String],
+) -> Result<Vec<String>> {
+    let repo_labels = match get_repo_labels(state).await {
+        Ok(labels) => labels,
+        Err(error) => {
+            tracing::warn!(error = %error, "failed_to_fetch_repo_labels");
+            fallback_repo_labels()
+        }
+    };
+
+    Ok(select_issue_labels(
+        &repo_labels,
+        title,
+        body,
+        requested_labels,
+    ))
+}
+
+fn fallback_repo_labels() -> Vec<String> {
+    DEFAULT_ISSUE_LABELS
+        .iter()
+        .map(|label| (*label).to_string())
+        .collect()
+}
+
+fn platform_to_label(platform: &str) -> &'static str {
+    let platform = platform.trim().to_ascii_lowercase();
+    if platform.contains("mac") {
+        "os/macos"
+    } else if platform.contains("win") {
+        "os/windows"
+    } else if platform.contains("linux") {
+        "os/linux"
+    } else {
+        ""
+    }
+}
+
+fn select_issue_labels(
+    repo_labels: &[String],
+    title: &str,
+    body: &str,
+    requested_labels: &[String],
+) -> Vec<String> {
+    let repo_labels_by_key: HashMap<String, &str> = repo_labels
+        .iter()
+        .map(|label| (normalize_label(label), label.as_str()))
+        .collect();
+    let mut selected = Vec::new();
+
+    let mut push_label = |label: &str| {
+        let normalized = normalize_label(label);
+        if let Some(existing) = repo_labels_by_key.get(&normalized) {
+            let existing = existing.to_string();
+            if !selected.contains(&existing) {
+                selected.push(existing);
+            }
+        }
+    };
+
+    for label in requested_labels {
+        push_label(label);
+    }
+
+    let text = normalize_search_text(&format!("{title}\n{body}"));
+
+    for (needle, label) in [
+        ("desktop", "product/desktop"),
+        ("cli", "product/cli"),
+        ("command line", "product/cli"),
+        ("terminal", "product/cli"),
+        ("web", "product/web"),
+        ("browser", "product/web"),
+        ("slack", "product/slack-bot"),
+        ("owhisper", "product/owhisper"),
+        ("macos", "os/macos"),
+        ("mac os", "os/macos"),
+        ("darwin", "os/macos"),
+        ("windows", "os/windows"),
+        ("linux", "os/linux"),
+    ] {
+        if contains_term(&text, needle) {
+            push_label(label);
+        }
+    }
+
+    if contains_any(
+        &text,
+        &[
+            "ui", "ux", "button", "dialog", "modal", "screen", "layout", "render", "sidebar",
+            "editor",
+        ],
+    ) {
+        push_label("area/ui");
+    }
+
+    if contains_any(
+        &text,
+        &[
+            "api", "backend", "server", "database", "db", "auth", "sync", "webhook", "mcp",
+        ],
+    ) {
+        push_label("area/backend");
+    }
+
+    push_label("Engineering");
+
+    selected
+}
+
+fn normalize_label(label: &str) -> String {
+    label.trim().to_ascii_lowercase()
+}
+
+fn normalize_search_text(text: &str) -> String {
+    let mut normalized = String::with_capacity(text.len() + 2);
+    normalized.push(' ');
+
+    let mut last_was_space = true;
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() {
+            normalized.push(ch.to_ascii_lowercase());
+            last_was_space = false;
+        } else if !last_was_space {
+            normalized.push(' ');
+            last_was_space = true;
+        }
+    }
+
+    if !last_was_space {
+        normalized.push(' ');
+    }
+
+    normalized
+}
+
+fn contains_term(text: &str, needle: &str) -> bool {
+    let needle = normalize_search_text(needle);
+    text.contains(&needle)
+}
+
+fn contains_any(text: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| contains_term(text, needle))
 }
 
 async fn attach_log_analysis(state: &AppState, issue_number: u64, log_text: &str) {
@@ -250,4 +439,84 @@ async fn create_discussion(
                 serde_json::to_string(&data).unwrap_or_default()
             ))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{fallback_repo_labels, select_issue_labels};
+
+    fn repo_labels() -> Vec<String> {
+        vec![
+            "area/backend".to_string(),
+            "area/ui".to_string(),
+            "Engineering".to_string(),
+            "os/linux".to_string(),
+            "os/macos".to_string(),
+            "os/windows".to_string(),
+            "product/cli".to_string(),
+            "product/desktop".to_string(),
+            "product/owhisper".to_string(),
+            "product/slack-bot".to_string(),
+            "product/web".to_string(),
+        ]
+    }
+
+    #[test]
+    fn selects_requested_and_inferred_labels() {
+        let labels = select_issue_labels(
+            &repo_labels(),
+            "Desktop UI crash on macOS",
+            "The desktop app crashes when opening the sidebar on macOS.",
+            &["product/desktop".to_string()],
+        );
+
+        assert_eq!(
+            labels,
+            vec![
+                "product/desktop".to_string(),
+                "os/macos".to_string(),
+                "area/ui".to_string(),
+                "Engineering".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn ignores_unknown_labels_and_keeps_known_matches() {
+        let labels = select_issue_labels(
+            &repo_labels(),
+            "API sync fails on Linux",
+            "The backend webhook handler returns 500 on Linux.",
+            &["unknown".to_string(), "OS/Linux".to_string()],
+        );
+
+        assert_eq!(
+            labels,
+            vec![
+                "os/linux".to_string(),
+                "area/backend".to_string(),
+                "Engineering".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn fallback_labels_preserve_safe_defaults() {
+        let labels = select_issue_labels(
+            &fallback_repo_labels(),
+            "Desktop UI crash on macOS",
+            "The desktop app crashes when opening the sidebar on macOS.",
+            &["product/desktop".to_string()],
+        );
+
+        assert_eq!(
+            labels,
+            vec![
+                "product/desktop".to_string(),
+                "os/macos".to_string(),
+                "area/ui".to_string(),
+                "Engineering".to_string(),
+            ]
+        );
+    }
 }

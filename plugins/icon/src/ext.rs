@@ -1,37 +1,34 @@
 #[cfg(target_os = "macos")]
-mod recording_indicator_state {
+mod overlay_state {
     use std::sync::Mutex;
 
-    static ORIGINAL_ICON_DATA: Mutex<Option<Vec<u8>>> = Mutex::new(None);
-    static IS_ACTIVE: Mutex<bool> = Mutex::new(false);
-
-    pub fn get() -> Option<Vec<u8>> {
-        ORIGINAL_ICON_DATA.lock().unwrap().clone()
+    #[derive(Clone, Default)]
+    pub struct State {
+        pub original_icon_data: Option<Vec<u8>>,
+        pub recording_active: bool,
+        pub notification_count: Option<u8>,
     }
 
-    pub fn set(data: Option<Vec<u8>>) {
-        *ORIGINAL_ICON_DATA.lock().unwrap() = data;
+    static STATE: Mutex<State> = Mutex::new(State {
+        original_icon_data: None,
+        recording_active: false,
+        notification_count: None,
+    });
+
+    pub fn get() -> State {
+        STATE.lock().unwrap().clone()
     }
 
-    pub fn clear() {
-        *ORIGINAL_ICON_DATA.lock().unwrap() = None;
-    }
-
-    pub fn is_active() -> bool {
-        *IS_ACTIVE.lock().unwrap()
-    }
-
-    pub fn set_active(active: bool) {
-        *IS_ACTIVE.lock().unwrap() = active;
+    pub fn update(update: impl FnOnce(&mut State)) -> State {
+        let mut state = STATE.lock().unwrap();
+        update(&mut state);
+        state.clone()
     }
 }
 
 #[cfg(target_os = "macos")]
 mod icon_helpers {
-    use objc2::AnyThread;
-    use objc2::rc::Retained;
-    use objc2_app_kit::{NSBezierPath, NSColor, NSImage};
-    use objc2_foundation::{NSPoint, NSRect, NSSize};
+    use objc2_app_kit::NSImage;
 
     pub fn image_to_bytes(image: &NSImage) -> Option<Vec<u8>> {
         let tiff_data = image.TIFFRepresentation()?;
@@ -47,59 +44,6 @@ mod icon_helpers {
             );
         }
         Some(bytes)
-    }
-
-    #[allow(deprecated)]
-    pub fn draw_overlay(base_image: &NSImage) -> Retained<NSImage> {
-        let size = base_image.size();
-        let composite_image = NSImage::initWithSize(NSImage::alloc(), size);
-
-        composite_image.lockFocus();
-
-        base_image.drawAtPoint_fromRect_operation_fraction(
-            NSPoint::new(0.0, 0.0),
-            NSRect::new(NSPoint::new(0.0, 0.0), size),
-            objc2_app_kit::NSCompositingOperation::Copy,
-            1.0,
-        );
-
-        let dot_size = size.width * 0.33;
-        let border_width = dot_size * 0.08;
-        let dot_x = size.width - dot_size - (size.width * 0.02);
-        let dot_y = size.height * 0.02;
-
-        let white_color = NSColor::whiteColor();
-        white_color.setFill();
-
-        let outer_rect = NSRect::new(NSPoint::new(dot_x, dot_y), NSSize::new(dot_size, dot_size));
-        let outer_path = NSBezierPath::bezierPathWithOvalInRect(outer_rect);
-        outer_path.fill();
-
-        let red_color = NSColor::systemRedColor();
-        red_color.setFill();
-
-        let red_size = dot_size - (border_width * 2.0);
-        let red_x = dot_x + border_width;
-        let red_y = dot_y + border_width;
-        let red_rect = NSRect::new(NSPoint::new(red_x, red_y), NSSize::new(red_size, red_size));
-        let red_path = NSBezierPath::bezierPathWithOvalInRect(red_rect);
-        red_path.fill();
-
-        let center_size = red_size * 0.45;
-        let center_x = red_x + (red_size - center_size) / 2.0;
-        let center_y = red_y + (red_size - center_size) / 2.0;
-
-        white_color.setFill();
-        let center_rect = NSRect::new(
-            NSPoint::new(center_x, center_y),
-            NSSize::new(center_size, center_size),
-        );
-        let center_path = NSBezierPath::bezierPathWithOvalInRect(center_rect);
-        center_path.fill();
-
-        composite_image.unlockFocus();
-
-        composite_image
     }
 }
 
@@ -161,16 +105,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                         return;
                     };
 
-                    if recording_indicator_state::is_active() {
-                        let Some(bytes) = icon_helpers::image_to_bytes(&image) else {
-                            return;
-                        };
-                        recording_indicator_state::set(Some(bytes));
+                    let Some(bytes) = icon_helpers::image_to_bytes(&image) else {
+                        return;
+                    };
 
-                        let composite_image = icon_helpers::draw_overlay(&image);
+                    let state = overlay_state::update(|state| {
+                        state.original_icon_data = Some(bytes);
+                    });
+
+                    if let Some(composite_image) = compose_icon(&image, &state) {
                         unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
                     } else {
-                        recording_indicator_state::clear();
                         unsafe { ns_app.setApplicationIconImage(Some(&image)) };
                     }
                 })
@@ -199,16 +144,19 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                         MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
                     let ns_app = NSApplication::sharedApplication(mtm);
 
-                    recording_indicator_state::clear();
+                    let state = overlay_state::update(|state| {
+                        state.original_icon_data = None;
+                    });
                     unsafe { ns_app.setApplicationIconImage(None) };
 
-                    if recording_indicator_state::is_active() {
+                    if state.recording_active || state.notification_count.is_some() {
                         let Some(current) = ns_app.applicationIconImage() else {
                             return;
                         };
 
-                        let composite_image = icon_helpers::draw_overlay(&current);
-                        unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
+                        if let Some(composite_image) = compose_icon(&current, &state) {
+                            unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
+                        }
                     }
                 })
                 .map_err(crate::Error::Tauri)?;
@@ -236,49 +184,49 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
                         MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
                     let ns_app = NSApplication::sharedApplication(mtm);
 
-                    if !show {
-                        recording_indicator_state::set_active(false);
-                        if let Some(original_data) = recording_indicator_state::get() {
-                            let ns_data = NSData::with_bytes(&original_data);
-                            let original_image = NSImage::initWithData(NSImage::alloc(), &ns_data);
-                            if let Some(original_image) = original_image {
-                                unsafe { ns_app.setApplicationIconImage(Some(&original_image)) };
-                            }
-                        } else {
-                            unsafe { ns_app.setApplicationIconImage(None) };
-                        }
-                        recording_indicator_state::clear();
-                        return;
-                    }
-
-                    let base_image = if let Some(original_data) = recording_indicator_state::get() {
+                    let state = overlay_state::get();
+                    let base_image = if let Some(original_data) = state.original_icon_data.clone() {
                         let ns_data = NSData::with_bytes(&original_data);
-                        let original_image = NSImage::initWithData(NSImage::alloc(), &ns_data);
-                        match original_image {
-                            Some(img) => img,
+                        match NSImage::initWithData(NSImage::alloc(), &ns_data) {
+                            Some(image) => image,
                             None => return,
                         }
                     } else {
-                        if recording_indicator_state::is_active() {
-                            return;
-                        }
-
                         let Some(current) = ns_app.applicationIconImage() else {
+                            if !show {
+                                overlay_state::update(|state| {
+                                    state.recording_active = false;
+                                });
+                            }
                             return;
                         };
+
+                        if state.recording_active && show {
+                            return;
+                        }
 
                         let Some(bytes) = icon_helpers::image_to_bytes(&current) else {
                             return;
                         };
-                        recording_indicator_state::set(Some(bytes));
+
+                        overlay_state::update(|state| {
+                            state.original_icon_data = Some(bytes);
+                        });
 
                         current
                     };
 
-                    recording_indicator_state::set_active(true);
+                    let state = overlay_state::update(|state| {
+                        state.recording_active = show;
+                    });
 
-                    let composite_image = icon_helpers::draw_overlay(&base_image);
-                    unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
+                    if let Some(composite_image) = compose_icon(&base_image, &state) {
+                        unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
+                    } else if state.original_icon_data.is_some() {
+                        unsafe { ns_app.setApplicationIconImage(Some(&base_image)) };
+                    } else {
+                        unsafe { ns_app.setApplicationIconImage(None) };
+                    }
                 })
                 .map_err(crate::Error::Tauri)?;
 
@@ -288,6 +236,72 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
         #[cfg(not(target_os = "macos"))]
         {
             let _ = show;
+            Ok(())
+        }
+    }
+
+    pub fn set_notification_badge(&self, count: Option<u8>) -> Result<(), crate::Error> {
+        #[cfg(target_os = "macos")]
+        {
+            let app_handle = self.manager.app_handle();
+            app_handle
+                .run_on_main_thread(move || {
+                    use objc2::AnyThread;
+                    use objc2_app_kit::{NSApplication, NSImage};
+                    use objc2_foundation::{MainThreadMarker, NSData};
+
+                    let mtm =
+                        MainThreadMarker::new().expect("run_on_main_thread guarantees main thread");
+                    let ns_app = NSApplication::sharedApplication(mtm);
+
+                    let next_count = count.filter(|count| *count > 0);
+                    let state = overlay_state::get();
+
+                    let base_image = if let Some(original_data) = state.original_icon_data.clone() {
+                        let ns_data = NSData::with_bytes(&original_data);
+                        match NSImage::initWithData(NSImage::alloc(), &ns_data) {
+                            Some(image) => image,
+                            None => return,
+                        }
+                    } else {
+                        let Some(current) = ns_app.applicationIconImage() else {
+                            overlay_state::update(|state| {
+                                state.notification_count = next_count;
+                            });
+                            return;
+                        };
+
+                        let Some(bytes) = icon_helpers::image_to_bytes(&current) else {
+                            return;
+                        };
+
+                        overlay_state::update(|state| {
+                            state.original_icon_data = Some(bytes);
+                        });
+
+                        current
+                    };
+
+                    let state = overlay_state::update(|state| {
+                        state.notification_count = next_count;
+                    });
+
+                    if let Some(composite_image) = compose_icon(&base_image, &state) {
+                        unsafe { ns_app.setApplicationIconImage(Some(&composite_image)) };
+                    } else if state.original_icon_data.is_some() {
+                        unsafe { ns_app.setApplicationIconImage(Some(&base_image)) };
+                    } else {
+                        unsafe { ns_app.setApplicationIconImage(None) };
+                    }
+                })
+                .map_err(crate::Error::Tauri)?;
+
+            Ok(())
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = count;
             Ok(())
         }
     }
@@ -359,6 +373,21 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Icon<'a, R, M> {
             Ok(None)
         }
     }
+}
+
+#[cfg(target_os = "macos")]
+fn compose_icon(
+    base_image: &objc2_app_kit::NSImage,
+    state: &overlay_state::State,
+) -> Option<objc2::rc::Retained<objc2_app_kit::NSImage>> {
+    if state.recording_active {
+        return Some(crate::overlay::Overlay::Recording.draw(base_image));
+    }
+
+    state
+        .notification_count
+        .filter(|count| *count > 0)
+        .map(|count| crate::overlay::Overlay::Notification(count).draw(base_image))
 }
 
 pub trait IconPluginExt<R: tauri::Runtime> {

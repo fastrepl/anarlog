@@ -12,6 +12,7 @@ pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error
     let speaker_stream = setup_speaker_stream(config.sample_rate, config.chunk_size)?;
 
     Ok(stream::open_dual(
+        config.sample_rate,
         mic_stream,
         speaker_stream,
         config.enable_aec,

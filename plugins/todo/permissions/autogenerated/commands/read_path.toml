@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-read-path"
+description = "Enables the read_path command without any pre-configured scope."
+commands.allow = ["read_path"]
+
+[[permission]]
+identifier = "deny-read-path"
+description = "Denies the read_path command without any pre-configured scope."
+commands.deny = ["read_path"]

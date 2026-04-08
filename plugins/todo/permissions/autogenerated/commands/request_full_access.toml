@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-request-full-access"
+description = "Enables the request_full_access command without any pre-configured scope."
+commands.allow = ["request_full_access"]
+
+[[permission]]
+identifier = "deny-request-full-access"
+description = "Denies the request_full_access command without any pre-configured scope."
+commands.deny = ["request_full_access"]

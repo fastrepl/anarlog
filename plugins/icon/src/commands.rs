@@ -35,3 +35,14 @@ pub(crate) async fn set_recording_indicator<R: tauri::Runtime>(
         .set_recording_indicator(show)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_notification_badge<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    count: Option<u8>,
+) -> Result<(), String> {
+    app.icon()
+        .set_notification_badge(count)
+        .map_err(|e| e.to_string())
+}

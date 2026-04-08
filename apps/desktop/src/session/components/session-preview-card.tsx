@@ -2,12 +2,7 @@ import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { defaultRehypePlugins, Streamdown } from "streamdown";
 
-import {
-  isValidTiptapContent,
-  json2md,
-  parseImageTitleMetadata,
-  streamdownComponents,
-} from "@hypr/tiptap/shared";
+import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 import {
   HoverCard,
   HoverCardContent,
@@ -15,7 +10,9 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
+import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
+import { streamdownComponents } from "~/session/components/streamdown";
 import {
   useEnhancedNote,
   useEnhancedNotes,
@@ -45,12 +42,12 @@ const previewCardComponents: typeof streamdownComponents = {
     </h4>
   ),
   img: (props) => {
-    const { editorWidth, title } = parseImageTitleMetadata(props.title);
+    const { editorWidth, title } = parseImageMetadata(props.title);
 
     return (
       <img
         {...props}
-        title={title ?? undefined}
+        title={title}
         className={cn([
           "block max-h-32 w-full rounded-md bg-white object-contain",
           props.className,

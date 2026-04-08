@@ -8,6 +8,16 @@ pub fn ms_to_secs_opt(ms: Option<u64>) -> f64 {
     ms.map(ms_to_secs).unwrap_or(0.0)
 }
 
+pub fn parse_speaker_id(value: &str) -> Option<usize> {
+    let digits = value
+        .trim_start_matches(|c: char| !c.is_ascii_digit())
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+
+    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
+}
+
 pub trait HasTimeSpan {
     fn start_time(&self) -> f64;
     fn end_time(&self) -> f64;
@@ -100,17 +110,6 @@ impl WordBuilder {
 mod tests {
     use super::*;
 
-    fn parse_speaker_id(value: &str) -> Option<usize> {
-        if let Ok(n) = value.parse::<usize>() {
-            return Some(n);
-        }
-
-        value
-            .trim_start_matches(|c: char| !c.is_ascii_digit())
-            .parse()
-            .ok()
-    }
-
     #[test]
     fn test_parse_speaker_id_numeric() {
         assert_eq!(parse_speaker_id("0"), Some(0));
@@ -123,6 +122,13 @@ mod tests {
         assert_eq!(parse_speaker_id("SPEAKER_0"), Some(0));
         assert_eq!(parse_speaker_id("SPEAKER_1"), Some(1));
         assert_eq!(parse_speaker_id("speaker_2"), Some(2));
+    }
+
+    #[test]
+    fn test_parse_speaker_id_numeric_prefix_with_suffix() {
+        assert_eq!(parse_speaker_id("1A"), Some(1));
+        assert_eq!(parse_speaker_id("2B"), Some(2));
+        assert_eq!(parse_speaker_id("12_right"), Some(12));
     }
 
     #[test]

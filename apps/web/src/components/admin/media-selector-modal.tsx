@@ -7,18 +7,7 @@ import { createPortal } from "react-dom";
 import { cn } from "@hypr/utils";
 
 import { uploadMediaLibraryFile } from "@/functions/media-upload";
-import { fetchAdminJson } from "@/lib/admin-auth";
-import type { MediaItem } from "@/lib/media-library";
-
-async function fetchMediaItems(path: string): Promise<MediaItem[]> {
-  const data = await fetchAdminJson<{ items: MediaItem[] }>(
-    `/api/admin/media/list?path=${encodeURIComponent(path)}`,
-    undefined,
-    "Failed to fetch media",
-  );
-
-  return data.items;
-}
+import { getMediaItemsQueryOptions } from "@/hooks/use-media-api";
 
 function getRelativePath(fullPath: string): string {
   return fullPath.replace(/^apps\/web\/public\/images\/?/, "");
@@ -81,8 +70,7 @@ export function MediaSelectorModal({
   };
 
   const mediaQuery = useQuery({
-    queryKey: ["mediaItems", selectedPath],
-    queryFn: () => fetchMediaItems(selectedPath),
+    ...getMediaItemsQueryOptions(selectedPath),
     enabled: open,
   });
 
@@ -119,15 +107,15 @@ export function MediaSelectorModal({
     }
   };
 
-  const handleFileSelect = (publicUrl: string) => {
+  const handleFileSelect = (proxyUrl: string) => {
     if (selectionMode === "single") {
-      setSelectedFile(selectedFile === publicUrl ? null : publicUrl);
+      setSelectedFile(selectedFile === proxyUrl ? null : proxyUrl);
     } else {
       const newSelection = new Set(selectedFiles);
-      if (newSelection.has(publicUrl)) {
-        newSelection.delete(publicUrl);
+      if (newSelection.has(proxyUrl)) {
+        newSelection.delete(proxyUrl);
       } else {
-        newSelection.add(publicUrl);
+        newSelection.add(proxyUrl);
       }
       setSelectedFiles(newSelection);
     }
@@ -322,10 +310,11 @@ export function MediaSelectorModal({
                   </p>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                     {filteredFiles.map((item) => {
+                      const contentUrl = item.proxyUrl || item.publicUrl;
                       const isSelected =
                         selectionMode === "single"
-                          ? selectedFile === item.publicUrl
-                          : selectedFiles.has(item.publicUrl);
+                          ? selectedFile === contentUrl
+                          : selectedFiles.has(contentUrl);
                       return (
                         <div
                           key={item.path}
@@ -335,20 +324,26 @@ export function MediaSelectorModal({
                               ? "border-blue-500 ring-1 ring-blue-500"
                               : "border-neutral-200 hover:border-neutral-300",
                           ])}
-                          onClick={() => handleFileSelect(item.publicUrl)}
+                          onClick={() => handleFileSelect(contentUrl)}
                         >
-                          <div className="flex aspect-square items-center justify-center overflow-hidden bg-neutral-100">
-                            {item.publicUrl ? (
+                          <div
+                            className="relative flex aspect-square items-center justify-center overflow-hidden bg-white"
+                            style={{
+                              backgroundImage: "url(/patterns/dots.svg)",
+                            }}
+                          >
+                            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_220px_140px_at_50%_50%,white_0%,rgba(255,255,255,0.86)_42%,transparent_72%)]" />
+                            {contentUrl ? (
                               <img
-                                src={item.publicUrl}
+                                src={contentUrl}
                                 alt={item.name}
-                                className="h-full w-full object-cover"
+                                className="relative z-10 h-full w-full object-contain p-4"
                                 loading="lazy"
                               />
                             ) : (
                               <Icon
                                 icon="mdi:file-outline"
-                                className="text-3xl text-neutral-400"
+                                className="relative z-10 text-3xl text-neutral-400"
                               />
                             )}
                           </div>

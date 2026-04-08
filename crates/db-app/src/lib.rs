@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
 
 #[cfg(feature = "cli")]
 pub mod human_cli;
@@ -13,12 +14,16 @@ mod chat_messages_ops;
 mod chat_messages_types;
 mod connections_ops;
 mod connections_types;
+mod daily_ops;
+mod daily_types;
 mod events_ops;
 mod events_types;
 mod folders_ops;
 mod folders_types;
 mod humans_ops;
 mod humans_types;
+mod meeting_artifacts_ops;
+mod meeting_artifacts_types;
 mod meeting_participants_ops;
 mod meeting_participants_types;
 mod meetings_ops;
@@ -28,8 +33,14 @@ mod notes_types;
 mod organizations_ops;
 mod organizations_types;
 mod settings_ops;
-mod slack_ops;
-mod slack_types;
+mod task_events_ops;
+mod task_events_types;
+mod task_notes_ops;
+mod task_notes_types;
+mod task_participants_ops;
+mod task_participants_types;
+mod tasks_ops;
+mod tasks_types;
 mod threads_messages_ops;
 mod threads_messages_types;
 mod timeline_ops;
@@ -48,12 +59,16 @@ pub use chat_messages_ops::*;
 pub use chat_messages_types::*;
 pub use connections_ops::*;
 pub use connections_types::*;
+pub use daily_ops::*;
+pub use daily_types::*;
 pub use events_ops::*;
 pub use events_types::*;
 pub use folders_ops::*;
 pub use folders_types::*;
 pub use humans_ops::*;
 pub use humans_types::*;
+pub use meeting_artifacts_ops::*;
+pub use meeting_artifacts_types::*;
 pub use meeting_participants_ops::*;
 pub use meeting_participants_types::*;
 pub use meetings_ops::*;
@@ -64,8 +79,14 @@ pub use notes_types::*;
 pub use organizations_ops::*;
 pub use organizations_types::*;
 pub use settings_ops::*;
-pub use slack_ops::*;
-pub use slack_types::*;
+pub use task_events_ops::*;
+pub use task_events_types::*;
+pub use task_notes_ops::*;
+pub use task_notes_types::*;
+pub use task_participants_ops::*;
+pub use task_participants_types::*;
+pub use tasks_ops::*;
+pub use tasks_types::*;
 pub use threads_messages_ops::*;
 pub use threads_messages_types::*;
 pub use timeline_ops::*;
@@ -120,7 +141,7 @@ impl std::error::Error for CrudCliError {}
 mod tests {
     use super::*;
     use hypr_db_core2::Db3;
-    use hypr_transcript::{FinalizedWord, SpeakerHintData, WordState};
+    use hypr_transcript::{FinalizedWord, WordState};
 
     // https://docs.sqlitecloud.io/docs/sqlite-sync-best-practices
     mod sync_compat {
@@ -197,6 +218,81 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn migrations_apply_cleanly() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        let tables: Vec<String> = sqlx::query_as::<_, (String,)>(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx%' ORDER BY name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| r.0)
+        .collect();
+
+        let expected = vec![
+            "aliases",
+            "calendars",
+            "chat_messages",
+            "connections",
+            "daily",
+            "event_participants",
+            "events",
+            "folders",
+            "humans",
+            "meeting_artifacts",
+            "meeting_participants",
+            "meeting_summaries",
+            "meetings",
+            "meetings_fts",
+            "meetings_fts_config",
+            "meetings_fts_data",
+            "meetings_fts_docsize",
+            "meetings_fts_idx",
+            "messages",
+            "notes",
+            "organizations",
+            "settings",
+            "speaker_hints",
+            "task_events",
+            "task_notes",
+            "task_participants",
+            "task_speaker_hints",
+            "task_words",
+            "tasks",
+            "threads",
+            "users",
+            "words",
+        ];
+
+        assert_eq!(tables, expected, "table list mismatch after migrations");
+
+        let views: Vec<String> = sqlx::query_as::<_, (String,)>(
+            "SELECT name FROM sqlite_master WHERE type='view' ORDER BY name",
+        )
+        .fetch_all(db.pool())
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| r.0)
+        .collect();
+
+        assert_eq!(
+            views,
+            vec!["timeline"],
+            "view list mismatch after migrations"
+        );
+    }
+
+    #[tokio::test]
+    async fn migration_count_matches_files() {
+        let migrator = sqlx::migrate!("./migrations");
+        assert_eq!(migrator.migrations.len(), 26, "expected 26 migration files");
+    }
+
+    #[tokio::test]
     async fn roundtrip_words_and_hints() {
         let db = Db3::connect_memory_plain().await.unwrap();
         migrate(db.pool()).await.unwrap();
@@ -226,6 +322,7 @@ mod tests {
                     end_ms: 500,
                     channel: 0,
                     state: WordState::Final,
+                    speaker_index: None,
                 },
                 FinalizedWord {
                     id: "w2".into(),
@@ -234,11 +331,12 @@ mod tests {
                     end_ms: 1000,
                     channel: 0,
                     state: WordState::Pending,
+                    speaker_index: None,
                 },
             ],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::ProviderSpeakerIndex {
+                data: StorageSpeakerHintData::ProviderSpeakerIndex {
                     speaker_index: 0,
                     provider: Some("deepgram".into()),
                     channel: Some(0),
@@ -258,7 +356,7 @@ mod tests {
         assert_eq!(hints.len(), 1);
         assert_eq!(hints[0].word_id, "w1");
         match &hints[0].data {
-            SpeakerHintData::ProviderSpeakerIndex {
+            StorageSpeakerHintData::ProviderSpeakerIndex {
                 speaker_index,
                 provider,
                 ..
@@ -286,10 +384,11 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Pending,
+                speaker_index: None,
             }],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::UserSpeakerAssignment {
+                data: StorageSpeakerHintData::UserSpeakerAssignment {
                     human_id: "user-a".into(),
                 },
             }],
@@ -305,8 +404,9 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![],
+            speaker_hints: vec![],
             replaced_ids: vec!["w1".into()],
         };
         apply_delta(db.pool(), sid, &delta2).await.unwrap();
@@ -634,6 +734,8 @@ mod tests {
         assert_eq!(event.location, "Room A");
         assert!(!event.has_recurrence_rules);
         assert!(!event.is_all_day);
+        assert_eq!(event.sync_status, "active");
+        assert!(event.deleted_at.is_none());
 
         let by_cal = list_events_by_calendar(db.pool(), "cal1").await.unwrap();
         assert_eq!(by_cal.len(), 1);
@@ -677,6 +779,95 @@ mod tests {
 
         delete_event(db.pool(), "e1").await.unwrap();
         assert!(get_event(db.pool(), "e1").await.unwrap().is_none());
+        let deleted = get_event_including_deleted(db.pool(), "e1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(deleted.sync_status, "deleted");
+        assert!(deleted.deleted_at.is_some());
+    }
+
+    #[tokio::test]
+    async fn event_tasks_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        upsert_event(
+            db.pool(),
+            "e1",
+            "u1",
+            "cal1",
+            "track1",
+            "Design Review",
+            "2026-03-23T17:00:00Z",
+            "2026-03-23T18:00:00Z",
+            "Room B",
+            "https://meet.example.com/design",
+            "Discuss direction",
+            "",
+            "",
+            false,
+            false,
+            "[]",
+            "{}",
+        )
+        .await
+        .unwrap();
+
+        let created_task_id = ensure_task_for_event(db.pool(), "t1", "e1", "d1", "a0", "u1")
+            .await
+            .unwrap();
+        assert_eq!(created_task_id, "t1");
+
+        let task = get_task_by_event(db.pool(), "e1").await.unwrap().unwrap();
+        assert_eq!(task.id, "t1");
+        assert_eq!(task.event_id.as_deref(), Some("e1"));
+        assert_eq!(task.task_type, "event");
+
+        let joined = list_tasks_with_events_by_daily(db.pool(), "d1")
+            .await
+            .unwrap();
+        assert_eq!(joined.len(), 1);
+        assert_eq!(joined[0].event_tracking_id.as_deref(), Some("track1"));
+        assert_eq!(
+            joined[0].event_meeting_link.as_deref(),
+            Some("https://meet.example.com/design")
+        );
+
+        promote_task_to_meeting(db.pool(), "t1").await.unwrap();
+        upsert_event(
+            db.pool(),
+            "e1",
+            "u1",
+            "cal1",
+            "track1",
+            "Design Review Updated",
+            "2026-03-23T17:00:00Z",
+            "2026-03-23T18:00:00Z",
+            "Room B",
+            "https://meet.example.com/design",
+            "Discuss direction",
+            "",
+            "",
+            false,
+            false,
+            "[]",
+            "{}",
+        )
+        .await
+        .unwrap();
+
+        let same_task_id = ensure_task_for_event(db.pool(), "t2", "e1", "d1", "a1", "u1")
+            .await
+            .unwrap();
+        assert_eq!(same_task_id, "t1");
+
+        let task = get_task(db.pool(), "t1").await.unwrap().unwrap();
+        assert_eq!(task.task_type, "meeting");
+        assert_eq!(task.title, "Design Review Updated");
     }
 
     #[tokio::test]
@@ -734,10 +925,11 @@ mod tests {
                 end_ms: 500,
                 channel: 0,
                 state: WordState::Final,
+                speaker_index: None,
             }],
-            hints: vec![PersistableSpeakerHint {
+            speaker_hints: vec![StorageSpeakerHint {
                 word_id: "w1".into(),
-                data: SpeakerHintData::ProviderSpeakerIndex {
+                data: StorageSpeakerHintData::ProviderSpeakerIndex {
                     speaker_index: 0,
                     provider: None,
                     channel: None,
@@ -862,80 +1054,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn slack_entity_roundtrip() {
-        let db = Db3::connect_memory_plain().await.unwrap();
-        migrate(db.pool()).await.unwrap();
-
-        upsert_slack_team(db.pool(), "st1", "conn1", "T123", "Acme Workspace")
-            .await
-            .unwrap();
-        let team = get_slack_team(db.pool(), "st1").await.unwrap().unwrap();
-        assert_eq!(team.team_name, "Acme Workspace");
-        assert_eq!(team.team_id, "T123");
-
-        upsert_slack_channel(db.pool(), "sc1", "st1", "C456", "general", "channel", false)
-            .await
-            .unwrap();
-        let channel = get_slack_channel(db.pool(), "sc1").await.unwrap().unwrap();
-        assert_eq!(channel.name, "general");
-        assert!(!channel.is_external);
-
-        upsert_slack_thread(
-            db.pool(),
-            "sth1",
-            "sc1",
-            "1234567890.123456",
-            "2026-03-19T10:00:00Z",
-            "2026-03-19T10:05:00Z",
-            3,
-        )
-        .await
-        .unwrap();
-        let thread = get_slack_thread(db.pool(), "sth1").await.unwrap().unwrap();
-        assert_eq!(thread.message_count, 3);
-        assert_eq!(thread.thread_ts, "1234567890.123456");
-
-        insert_human(db.pool(), "h1", "Alice", "", "", "")
-            .await
-            .unwrap();
-        upsert_alias(
-            db.pool(),
-            "a1",
-            "h1",
-            "slack",
-            "U111",
-            "T123",
-            "alice",
-            "confirmed",
-        )
-        .await
-        .unwrap();
-
-        insert_slack_message(
-            db.pool(),
-            "sm1",
-            "sth1",
-            "sc1",
-            "a1",
-            "Hello world",
-            "1234567890.123456",
-            "{}",
-        )
-        .await
-        .unwrap();
-        let messages = list_slack_messages_by_thread(db.pool(), "sth1")
-            .await
-            .unwrap();
-        assert_eq!(messages.len(), 1);
-        assert_eq!(messages[0].text, "Hello world");
-        assert_eq!(messages[0].alias_id, "a1");
-
-        upsert_slack_thread_participant(db.pool(), "stp1", "sth1", "a1")
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
     async fn note_on_human_roundtrip() {
         let db = Db3::connect_memory_plain().await.unwrap();
         migrate(db.pool()).await.unwrap();
@@ -986,40 +1104,6 @@ mod tests {
             .await
             .unwrap();
 
-        // Slack thread
-        upsert_slack_team(db.pool(), "st1", "conn1", "T1", "Workspace")
-            .await
-            .unwrap();
-        upsert_slack_channel(db.pool(), "sc1", "st1", "C1", "#general", "channel", false)
-            .await
-            .unwrap();
-        upsert_slack_thread(
-            db.pool(),
-            "sth1",
-            "sc1",
-            "123.456",
-            "2026-03-19T11:00:00Z",
-            "2026-03-19T11:05:00Z",
-            2,
-        )
-        .await
-        .unwrap();
-        upsert_alias(
-            db.pool(),
-            "a1",
-            "h1",
-            "slack",
-            "U1",
-            "T1",
-            "alice",
-            "confirmed",
-        )
-        .await
-        .unwrap();
-        upsert_slack_thread_participant(db.pool(), "stp1", "sth1", "a1")
-            .await
-            .unwrap();
-
         // Note on human
         insert_note_on_entity(
             db.pool(),
@@ -1035,11 +1119,10 @@ mod tests {
 
         // Query timeline
         let timeline = list_timeline_by_human(db.pool(), "h1").await.unwrap();
-        assert_eq!(timeline.len(), 3);
+        assert_eq!(timeline.len(), 2);
 
         let types: Vec<&str> = timeline.iter().map(|t| t.source_type.as_str()).collect();
         assert!(types.contains(&"meeting"));
-        assert!(types.contains(&"slack"));
         assert!(types.contains(&"note"));
 
         let meeting = timeline
@@ -1048,10 +1131,6 @@ mod tests {
             .unwrap();
         assert_eq!(meeting.source_id, "s1");
         assert_eq!(meeting.title, "Weekly Standup");
-
-        let slack = timeline.iter().find(|t| t.source_type == "slack").unwrap();
-        assert_eq!(slack.source_id, "sth1");
-        assert_eq!(slack.title, "#general");
 
         let note = timeline.iter().find(|t| t.source_type == "note").unwrap();
         assert_eq!(note.source_id, "n1");
@@ -1156,6 +1235,538 @@ mod tests {
         let human_ids: Vec<&str> = participants.iter().map(|p| p.human_id.as_str()).collect();
         assert!(human_ids.contains(&"h1"));
         assert!(human_ids.contains(&"h2"));
+    }
+
+    #[tokio::test]
+    async fn daily_and_task_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        // Create daily
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        let daily = get_daily_by_date(db.pool(), "2026-03-23", "u1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(daily.id, "d1");
+        assert_eq!(daily.body, "{}");
+
+        // Update body
+        update_daily_body(db.pool(), "d1", r#"{"type":"doc"}"#)
+            .await
+            .unwrap();
+        let daily = get_daily(db.pool(), "d1").await.unwrap().unwrap();
+        assert_eq!(daily.body, r#"{"type":"doc"}"#);
+
+        // Range query
+        upsert_daily(db.pool(), "d2", "2026-03-24", "{}", "u1")
+            .await
+            .unwrap();
+        let range = list_daily_in_range(db.pool(), "2026-03-23", "2026-03-24", "u1")
+            .await
+            .unwrap();
+        assert_eq!(range.len(), 2);
+
+        // Create tasks
+        insert_task(db.pool(), "t1", "d1", "todo", "Buy groceries", "a0", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t2", "d1", "gmail", "Reply to Alice", "a1", "u1")
+            .await
+            .unwrap();
+
+        let task = get_task(db.pool(), "t1").await.unwrap().unwrap();
+        assert_eq!(task.title, "Buy groceries");
+        assert_eq!(task.task_type, "todo");
+        assert_eq!(task.status, "open");
+        assert!(task.parent_task_id.is_none());
+        assert!(task.event_id.is_none());
+
+        // List by daily
+        let tasks = list_tasks_by_daily(db.pool(), "d1").await.unwrap();
+        assert_eq!(tasks.len(), 2);
+        assert_eq!(tasks[0].sort_key, "a0");
+        assert_eq!(tasks[1].sort_key, "a1");
+
+        // Update status
+        update_task_status(db.pool(), "t1", "done", "user")
+            .await
+            .unwrap();
+        let task = get_task(db.pool(), "t1").await.unwrap().unwrap();
+        assert_eq!(task.status, "done");
+        assert_eq!(task.updated_by, "user");
+
+        // Subtasks
+        insert_task(db.pool(), "t3", "d1", "todo", "Get milk", "a0", "u1")
+            .await
+            .unwrap();
+        update_task_parent(db.pool(), "t3", Some("t1"))
+            .await
+            .unwrap();
+        let subtasks = list_subtasks(db.pool(), "t1").await.unwrap();
+        assert_eq!(subtasks.len(), 1);
+        assert_eq!(subtasks[0].id, "t3");
+
+        // Reschedule
+        reschedule_task(db.pool(), "t2", "d2").await.unwrap();
+        let tasks_d1 = list_tasks_by_daily(db.pool(), "d1").await.unwrap();
+        let tasks_d2 = list_tasks_by_daily(db.pool(), "d2").await.unwrap();
+        assert_eq!(tasks_d1.len(), 2); // t1 and t3
+        assert_eq!(tasks_d2.len(), 1);
+        assert_eq!(tasks_d2[0].id, "t2");
+
+        // Delete
+        delete_task(db.pool(), "t3").await.unwrap();
+        assert!(get_task(db.pool(), "t3").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn task_notes_and_events_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t1", "d1", "todo", "Test task", "a0", "u1")
+            .await
+            .unwrap();
+
+        // Task notes
+        insert_task_note(
+            db.pool(),
+            "tn1",
+            "t1",
+            "user",
+            "u1",
+            "First note",
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+        insert_task_note(
+            db.pool(),
+            "tn2",
+            "t1",
+            "agent",
+            "agent-1",
+            "Agent note",
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+
+        let notes = list_task_notes(db.pool(), "t1").await.unwrap();
+        assert_eq!(notes.len(), 2);
+        assert_eq!(notes[0].body, "First note");
+        assert_eq!(notes[1].author_type, "agent");
+
+        soft_delete_task_note(db.pool(), "tn1").await.unwrap();
+        let notes = list_task_notes(db.pool(), "t1").await.unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, "tn2");
+
+        // Task events
+        insert_task_event(
+            db.pool(),
+            "te1",
+            "t1",
+            "user",
+            "u1",
+            "status_changed",
+            r#"{"from":"open","to":"done"}"#,
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+
+        let events = list_task_events(db.pool(), "t1").await.unwrap();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].event_type, "status_changed");
+
+        let filtered = list_task_events_by_type(db.pool(), "t1", "status_changed")
+            .await
+            .unwrap();
+        assert_eq!(filtered.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn meeting_artifact_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t1", "d1", "meeting", "Standup", "a0", "u1")
+            .await
+            .unwrap();
+
+        // Artifact
+        upsert_meeting_artifact(db.pool(), "ma1", "t1", "hello world", "u1", "public")
+            .await
+            .unwrap();
+        let artifact = get_meeting_artifact_by_task(db.pool(), "t1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(artifact.transcript_md, "hello world");
+        assert_eq!(artifact.note_body, "{}");
+
+        update_meeting_artifact_transcript(db.pool(), "ma1", "updated transcript")
+            .await
+            .unwrap();
+        update_meeting_artifact_note_body(db.pool(), "ma1", r#"{"type":"doc"}"#)
+            .await
+            .unwrap();
+        let artifact = get_meeting_artifact_by_task(db.pool(), "t1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(artifact.transcript_md, "updated transcript");
+        assert_eq!(artifact.note_body, r#"{"type":"doc"}"#);
+
+        // Summaries
+        insert_meeting_summary(
+            db.pool(),
+            "ms1",
+            "t1",
+            "tmpl1",
+            "Summary",
+            "{}",
+            0,
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+        insert_meeting_summary(
+            db.pool(),
+            "ms2",
+            "t1",
+            "tmpl2",
+            "Action Items",
+            "{}",
+            1,
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+
+        let summaries = list_meeting_summaries(db.pool(), "t1").await.unwrap();
+        assert_eq!(summaries.len(), 2);
+        assert_eq!(summaries[0].title, "Summary");
+        assert_eq!(summaries[1].title, "Action Items");
+
+        update_meeting_summary(db.pool(), "ms1", r#"{"content":"updated"}"#)
+            .await
+            .unwrap();
+        let summaries = list_meeting_summaries(db.pool(), "t1").await.unwrap();
+        assert!(summaries[0].content.contains("updated"));
+
+        delete_meeting_summaries_by_task(db.pool(), "t1")
+            .await
+            .unwrap();
+        let summaries = list_meeting_summaries(db.pool(), "t1").await.unwrap();
+        assert!(summaries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn task_participant_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t1", "d1", "meeting", "Standup", "a0", "u1")
+            .await
+            .unwrap();
+        insert_human(db.pool(), "h1", "Alice", "", "", "")
+            .await
+            .unwrap();
+        insert_human(db.pool(), "h2", "Bob", "", "", "")
+            .await
+            .unwrap();
+
+        add_task_participant(db.pool(), "t1", "h1", "manual")
+            .await
+            .unwrap();
+        add_task_participant(db.pool(), "t1", "h2", "auto")
+            .await
+            .unwrap();
+
+        let participants = list_task_participants(db.pool(), "t1").await.unwrap();
+        assert_eq!(participants.len(), 2);
+
+        let by_human = list_tasks_by_human(db.pool(), "h1").await.unwrap();
+        assert_eq!(by_human.len(), 1);
+        assert_eq!(by_human[0].task_id, "t1");
+
+        remove_task_participant(db.pool(), "t1", "h1")
+            .await
+            .unwrap();
+        let participants = list_task_participants(db.pool(), "t1").await.unwrap();
+        assert_eq!(participants.len(), 1);
+        assert_eq!(participants[0].human_id, "h2");
+    }
+
+    #[tokio::test]
+    async fn event_participants_sync_to_task_respects_exclusions() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        upsert_event(
+            db.pool(),
+            "e1",
+            "u1",
+            "cal1",
+            "track1",
+            "Planning",
+            "2026-03-23T17:00:00Z",
+            "2026-03-23T18:00:00Z",
+            "",
+            "",
+            "",
+            "",
+            "",
+            false,
+            false,
+            "[]",
+            "{}",
+        )
+        .await
+        .unwrap();
+        ensure_task_for_event(db.pool(), "t1", "e1", "d1", "a0", "u1")
+            .await
+            .unwrap();
+
+        insert_human(db.pool(), "h1", "Alice", "", "", "")
+            .await
+            .unwrap();
+        insert_human(db.pool(), "h2", "Bob", "", "", "")
+            .await
+            .unwrap();
+
+        upsert_event_participant(
+            db.pool(),
+            "ep1",
+            "e1",
+            Some("h1"),
+            "alice@example.com",
+            "Alice",
+            false,
+            false,
+            "u1",
+        )
+        .await
+        .unwrap();
+        upsert_event_participant(
+            db.pool(),
+            "ep2",
+            "e1",
+            Some("h2"),
+            "bob@example.com",
+            "Bob",
+            false,
+            false,
+            "u1",
+        )
+        .await
+        .unwrap();
+
+        let synced = sync_task_participants_from_event(db.pool(), "t1", "e1")
+            .await
+            .unwrap();
+        assert_eq!(synced, 2);
+
+        exclude_task_participant(db.pool(), "t1", "h2", "u1")
+            .await
+            .unwrap();
+        let synced = sync_task_participants_from_event(db.pool(), "t1", "e1")
+            .await
+            .unwrap();
+        assert_eq!(synced, 1);
+
+        let participants = list_task_participants(db.pool(), "t1").await.unwrap();
+        assert_eq!(participants.len(), 2);
+        assert!(
+            participants
+                .iter()
+                .any(|p| p.human_id == "h1" && p.source == "event")
+        );
+        assert!(
+            participants
+                .iter()
+                .any(|p| p.human_id == "h2" && p.source == "excluded")
+        );
+    }
+
+    #[tokio::test]
+    async fn task_transcript_roundtrip() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        insert_task(
+            db.pool(),
+            "t1",
+            "d1",
+            "meeting",
+            "Transcript Task",
+            "a0",
+            "u1",
+        )
+        .await
+        .unwrap();
+
+        let delta = TranscriptDeltaPersist {
+            new_words: vec![FinalizedWord {
+                id: "tw1".into(),
+                text: "hello".into(),
+                start_ms: 0,
+                end_ms: 500,
+                channel: 0,
+                state: WordState::Final,
+                speaker_index: None,
+            }],
+            speaker_hints: vec![StorageSpeakerHint {
+                word_id: "tw1".into(),
+                data: StorageSpeakerHintData::UserSpeakerAssignment {
+                    human_id: "h1".into(),
+                },
+            }],
+            replaced_ids: vec![],
+        };
+
+        apply_task_delta(db.pool(), "t1", &delta, "u1", "public")
+            .await
+            .unwrap();
+
+        let words = load_task_words(db.pool(), "t1").await.unwrap();
+        assert_eq!(words.len(), 1);
+        assert_eq!(words[0].id, "tw1");
+
+        let hints = load_task_hints(db.pool(), "t1").await.unwrap();
+        assert_eq!(hints.len(), 1);
+        match &hints[0].data {
+            StorageSpeakerHintData::UserSpeakerAssignment { human_id } => {
+                assert_eq!(human_id, "h1");
+            }
+            _ => panic!("expected UserSpeakerAssignment"),
+        }
+    }
+
+    #[tokio::test]
+    async fn delete_task_cascade_removes_task_owned_rows() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        migrate(db.pool()).await.unwrap();
+
+        upsert_daily(db.pool(), "d1", "2026-03-23", "{}", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t1", "d1", "meeting", "Parent", "a0", "u1")
+            .await
+            .unwrap();
+        insert_task(db.pool(), "t2", "d1", "todo", "Child", "a1", "u1")
+            .await
+            .unwrap();
+        update_task_parent(db.pool(), "t2", Some("t1"))
+            .await
+            .unwrap();
+        insert_human(db.pool(), "h1", "Alice", "", "", "")
+            .await
+            .unwrap();
+        add_task_participant(db.pool(), "t1", "h1", "manual")
+            .await
+            .unwrap();
+        insert_task_note(db.pool(), "tn1", "t1", "user", "u1", "note", "u1", "public")
+            .await
+            .unwrap();
+        insert_task_event(
+            db.pool(),
+            "te1",
+            "t1",
+            "user",
+            "u1",
+            "updated",
+            "{}",
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+        upsert_meeting_artifact(db.pool(), "ma1", "t1", "transcript", "u1", "public")
+            .await
+            .unwrap();
+        insert_meeting_summary(
+            db.pool(),
+            "ms1",
+            "t1",
+            "tmpl1",
+            "Summary",
+            "{}",
+            0,
+            "u1",
+            "public",
+        )
+        .await
+        .unwrap();
+
+        let delta = TranscriptDeltaPersist {
+            new_words: vec![FinalizedWord {
+                id: "tw1".into(),
+                text: "hello".into(),
+                start_ms: 0,
+                end_ms: 500,
+                channel: 0,
+                state: WordState::Final,
+                speaker_index: None,
+            }],
+            speaker_hints: vec![],
+            replaced_ids: vec![],
+        };
+        apply_task_delta(db.pool(), "t1", &delta, "u1", "public")
+            .await
+            .unwrap();
+
+        delete_task_cascade(db.pool(), "t1").await.unwrap();
+
+        assert!(get_task(db.pool(), "t1").await.unwrap().is_none());
+        assert!(get_task(db.pool(), "t2").await.unwrap().is_none());
+        assert!(
+            get_meeting_artifact_by_task(db.pool(), "t1")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(list_task_notes(db.pool(), "t1").await.unwrap().is_empty());
+        assert!(list_task_events(db.pool(), "t1").await.unwrap().is_empty());
+        assert!(
+            list_task_participants(db.pool(), "t1")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            list_meeting_summaries(db.pool(), "t1")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert!(load_task_words(db.pool(), "t1").await.unwrap().is_empty());
+        assert!(load_task_hints(db.pool(), "t1").await.unwrap().is_empty());
     }
 
     mod crud_macro {

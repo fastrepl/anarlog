@@ -765,6 +765,153 @@
         ]
       }
     },
+    "/pyannote/v1/diarize": {
+      "post": {
+        "tags": [
+          "pyannote"
+        ],
+        "summary": "Diarize audio",
+        "operationId": "diarize",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiarizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    },
+    "/pyannote/v1/identify": {
+      "post": {
+        "tags": [
+          "pyannote"
+        ],
+        "summary": "Identify speaker with diarization",
+        "operationId": "identify",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    },
+    "/pyannote/v1/voiceprint": {
+      "post": {
+        "tags": [
+          "pyannote"
+        ],
+        "summary": "Extract voiceprint",
+        "operationId": "voiceprint",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Subscription is required"
+          },
+          "429": {
+            "description": "Too many requests"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "x-api-key-permissions": [
+          "jobs:write"
+        ]
+      }
+    },
     "/stt/listen": {
       "get": {
         "tags": [
@@ -1595,6 +1742,138 @@
           }
         }
       },
+      "BatchStreamEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "percentage",
+              "type"
+            ],
+            "properties": {
+              "partial_text": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "percentage": {
+                "type": "number",
+                "format": "double"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "progress"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "response",
+              "percentage",
+              "type"
+            ],
+            "properties": {
+              "percentage": {
+                "type": "number",
+                "format": "double"
+              },
+              "response": {
+                "$ref": "#/components/schemas/StreamResponse"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "segment"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "request_id",
+              "created",
+              "duration",
+              "channels",
+              "type"
+            ],
+            "properties": {
+              "channels": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "created": {
+                "type": "string"
+              },
+              "duration": {
+                "type": "number",
+                "format": "double"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "terminal"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "response",
+              "type"
+            ],
+            "properties": {
+              "response": {
+                "$ref": "#/components/schemas/BatchResponse"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "result"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "error_message",
+              "provider",
+              "type"
+            ],
+            "properties": {
+              "error_code": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "int32"
+              },
+              "error_message": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "error"
+                ]
+              }
+            }
+          }
+        ]
+      },
       "BatchWord": {
         "type": "object",
         "required": [
@@ -1604,6 +1883,10 @@
           "confidence"
         ],
         "properties": {
+          "channel": {
+            "type": "integer",
+            "format": "int32"
+          },
           "confidence": {
             "type": "number",
             "format": "double"
@@ -2222,6 +2505,39 @@
           "unknown"
         ]
       },
+      "Confidence": {
+        "type": "object",
+        "required": [
+          "score",
+          "resolution"
+        ],
+        "properties": {
+          "resolution": {
+            "type": "number",
+            "description": "Resolution of the confidence scores. Value is number of seconds per sample",
+            "example": 0.02
+          },
+          "score": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "List of confidence scores for each sample. Values are between 0 and 100",
+            "example": [
+              95,
+              89,
+              78,
+              67,
+              56,
+              45,
+              34,
+              23,
+              12,
+              1
+            ]
+          }
+        }
+      },
       "ConnectionItem": {
         "type": "object",
         "required": [
@@ -2501,6 +2817,205 @@
             "type": "string"
           }
         }
+      },
+      "DiarizationJob": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b"
+          },
+          "output": {
+            "$ref": "#/components/schemas/DiarizationJobOutput"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z"
+          }
+        }
+      },
+      "DiarizationJobOutput": {
+        "type": "object",
+        "required": [
+          "diarization"
+        ],
+        "properties": {
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "diarization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "description": "List of diarization segments"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if any"
+          },
+          "exclusiveDiarization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "description": "Exclusive diarization segments where only one speaker is active at a time. Only returned if `exclusive` is set to true when job is created."
+          },
+          "turnLevelTranscription": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptionSegment"
+            },
+            "description": "Turn-level (speaker turn) transcription segments with text. Only returned if `transcription` is set to true when job is created.",
+            "example": [
+              {
+                "end": 2.3,
+                "speaker": "SPEAKER_00",
+                "start": 0.5,
+                "text": "Hello, how are you?"
+              }
+            ]
+          },
+          "warning": {
+            "type": "string",
+            "description": "Warning message if any"
+          },
+          "wordLevelTranscription": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptionSegment"
+            },
+            "description": "Word-level transcription segments with text. Only returned if `transcription` is set to true when job is created.",
+            "example": [
+              {
+                "end": 0.8,
+                "speaker": "SPEAKER_00",
+                "start": 0.5,
+                "text": "Hello"
+              }
+            ]
+          }
+        }
+      },
+      "DiarizationSegment": {
+        "type": "object",
+        "required": [
+          "speaker",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "object",
+            "description": "Confidence scores that this speech turn matches each diarization speaker. Only available if `turnLevelConfidence` is set to true when job is created.",
+            "example": {
+              "SPEAKER_00": 16,
+              "SPEAKER_01": 93
+            }
+          },
+          "end": {
+            "type": "number",
+            "description": "End time of the segment in seconds",
+            "example": 30.5
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker label",
+            "example": "SPEAKER_00"
+          },
+          "start": {
+            "type": "number",
+            "description": "Start time of the segment in seconds",
+            "example": 15
+          }
+        }
+      },
+      "DiarizeRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "boolean"
+          },
+          "exclusive": {
+            "type": "boolean"
+          },
+          "maxSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "minSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DiarizeRequestModel"
+              }
+            ]
+          },
+          "numSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "transcription": {
+            "type": "boolean"
+          },
+          "transcriptionConfig": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TranscriptionConfiguration"
+              }
+            ]
+          },
+          "turnLevelConfidence": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiarizeRequestModel": {
+        "type": "string",
+        "enum": [
+          "precision-2",
+          "community-1"
+        ]
       },
       "EmailAddress": {
         "type": "object",
@@ -2898,6 +3413,41 @@
           "icon",
           "unknown"
         ]
+      },
+      "GetJobsResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobListItem"
+            },
+            "description": "List of jobs. Sorted by creation date, descending. Does not include output data."
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of jobs",
+            "example": 100
+          }
+        }
+      },
+      "GetMediaUploadUrl": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The url should be in the form media://object-key where the object-key can be any alpha-numeric string. The object-key is unique to your account API token so there is no risk of collision with other users.",
+            "maxLength": 255,
+            "pattern": "^media:\\/\\/[a-zA-Z0-9\\-_\\.\\/]+$"
+          }
+        }
       },
       "GetMessageRequest": {
         "type": "object",
@@ -3439,6 +3989,225 @@
           "labelRemoved"
         ]
       },
+      "IdentificationJobOutput": {
+        "type": "object",
+        "properties": {
+          "confidence": {
+            "$ref": "#/components/schemas/Confidence"
+          },
+          "diarization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "description": "List of diarization segments"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if any"
+          },
+          "exclusiveDiarization": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiarizationSegment"
+            },
+            "description": "Exclusive diarization segments where only one speaker is active at a time. Only returned if `exclusive` is set to true when job is created."
+          },
+          "identification": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentificationSegment"
+            },
+            "description": "List of identification segments"
+          },
+          "voiceprints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IdentificationVoiceprint"
+            }
+          },
+          "warning": {
+            "type": "string",
+            "description": "Warning message if any"
+          }
+        }
+      },
+      "IdentificationSegment": {
+        "type": "object",
+        "required": [
+          "diarizationSpeaker",
+          "match"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "object",
+            "description": "Confidence scores that this speech turn matches each diarization speaker. Only available if `turnLevelConfidence` is set to true when job is created.",
+            "example": {
+              "SPEAKER_00": 16,
+              "SPEAKER_01": 93
+            }
+          },
+          "diarizationSpeaker": {
+            "type": "string",
+            "description": "Speaker label",
+            "example": "SPEAKER_00"
+          },
+          "end": {
+            "type": "number",
+            "description": "End time of the segment in seconds",
+            "example": 30.5
+          },
+          "match": {
+            "type": "string",
+            "description": "Label of the voiceprint that was identified following the matching settings",
+            "example": "Sam"
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker label",
+            "example": "SPEAKER_00"
+          },
+          "start": {
+            "type": "number",
+            "description": "Start time of the segment in seconds",
+            "example": 15
+          }
+        }
+      },
+      "IdentificationVoiceprint": {
+        "type": "object",
+        "required": [
+          "speaker",
+          "match",
+          "confidence"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "object",
+            "description": "Confidence for each speaker label, as a dictionary of speaker label to confidence score",
+            "example": {
+              "Rick": 24,
+              "Sam": 16
+            }
+          },
+          "match": {
+            "type": "string",
+            "description": "Label of the voiceprint that was identified following the matching settings",
+            "example": "Sam"
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Diarization speaker",
+            "example": "SPEAKER_00"
+          }
+        }
+      },
+      "IdentifyJob": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b"
+          },
+          "output": {
+            "$ref": "#/components/schemas/IdentificationJobOutput"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z"
+          }
+        }
+      },
+      "IdentifyRequest": {
+        "type": "object",
+        "required": [
+          "url",
+          "voiceprints"
+        ],
+        "properties": {
+          "confidence": {
+            "type": "boolean"
+          },
+          "exclusive": {
+            "type": "boolean"
+          },
+          "matching": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MatchingOptions"
+              }
+            ]
+          },
+          "maxSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "minSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "model": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/IdentifyRequestModel"
+              }
+            ]
+          },
+          "numSpeakers": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "turnLevelConfidence": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "voiceprints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Voiceprint"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "IdentifyRequestModel": {
+        "type": "string",
+        "enum": [
+          "precision-2"
+        ]
+      },
       "Importance": {
         "type": "string",
         "enum": [
@@ -3475,6 +4244,69 @@
             ]
           }
         }
+      },
+      "JobCreated": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "status"
+        ],
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "ID of the job",
+            "example": "3c8a89a5-dcc6-4edb-a75d-ffd64739674d"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the job",
+            "enum": [
+              "pending",
+              "created",
+              "succeeded",
+              "canceled",
+              "failed",
+              "running"
+            ],
+            "example": "created"
+          },
+          "warning": {
+            "type": "string",
+            "description": "Warning message if any"
+          }
+        }
+      },
+      "JobListItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "createdAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "JobStatus": {
+        "type": "string",
+        "description": "Status of the job",
+        "enum": [
+          "pending",
+          "created",
+          "succeeded",
+          "canceled",
+          "failed",
+          "running"
+        ]
       },
       "Label": {
         "type": "object",
@@ -4104,6 +4936,35 @@
           "postalAddress",
           "unknown"
         ]
+      },
+      "MatchingOptions": {
+        "type": "object",
+        "properties": {
+          "exclusive": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "threshold": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "float"
+          }
+        }
+      },
+      "MediaResponse": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
       },
       "Message": {
         "type": "object",
@@ -5361,6 +6222,25 @@
           }
         }
       },
+      "TestResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Message of the test",
+            "example": "Test connection successful"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the test",
+            "example": "OK"
+          }
+        }
+      },
       "Thread": {
         "type": "object",
         "required": [
@@ -5586,6 +6466,51 @@
           }
         }
       },
+      "TranscriptionConfiguration": {
+        "type": "object",
+        "required": [
+          "model"
+        ],
+        "properties": {
+          "model": {
+            "$ref": "#/components/schemas/TranscriptionConfigurationModel"
+          }
+        }
+      },
+      "TranscriptionConfigurationModel": {
+        "type": "string",
+        "enum": [
+          "parakeet-tdt-0.6b-v3",
+          "faster-whisper-large-v3-turbo"
+        ]
+      },
+      "TranscriptionSegment": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "text",
+          "speaker"
+        ],
+        "properties": {
+          "end": {
+            "type": "number",
+            "description": "End time of the segment in seconds"
+          },
+          "speaker": {
+            "type": "string",
+            "description": "Speaker label"
+          },
+          "start": {
+            "type": "number",
+            "description": "Start time of the segment in seconds"
+          },
+          "text": {
+            "type": "string",
+            "description": "The transcribed speech content for this segment"
+          }
+        }
+      },
       "Transparency": {
         "type": "string",
         "enum": [
@@ -5602,6 +6527,98 @@
           "private",
           "confidential",
           "unknown"
+        ]
+      },
+      "Voiceprint": {
+        "type": "object",
+        "required": [
+          "label",
+          "voiceprint"
+        ],
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "voiceprint": {
+            "type": "string"
+          }
+        }
+      },
+      "VoiceprintJob": {
+        "type": "object",
+        "properties": {
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was created",
+            "example": "2024-02-20T12:00:00Z"
+          },
+          "jobId": {
+            "type": "string",
+            "description": "Job ID to track the progress or get the results",
+            "example": "fb16c565-f3f0-4402-a08c-9d44df0ccc7b"
+          },
+          "output": {
+            "$ref": "#/components/schemas/VoiceprintJobResults"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date and time the job was last updated",
+            "example": "2024-02-20T12:00:00Z"
+          }
+        }
+      },
+      "VoiceprintJobResults": {
+        "type": "object",
+        "required": [
+          "voiceprint"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message if any"
+          },
+          "voiceprint": {
+            "type": "string",
+            "description": "Voiceprint of the audio. To be used for identification",
+            "example": "aGVsbG8gd29ybGQ"
+          },
+          "warning": {
+            "type": "string",
+            "description": "Warning message if any"
+          }
+        }
+      },
+      "VoiceprintRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "model": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/VoiceprintRequestModel"
+              }
+            ]
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "VoiceprintRequestModel": {
+        "type": "string",
+        "enum": [
+          "precision-2"
         ]
       },
       "WebhookResponse": {
@@ -6962,6 +7979,10 @@
     {
       "name": "llm",
       "description": "LLM chat completions endpoints"
+    },
+    {
+      "name": "pyannote",
+      "description": "Pyannote speaker diarization and voice processing"
     },
     {
       "name": "calendar",

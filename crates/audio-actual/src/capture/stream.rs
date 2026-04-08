@@ -1,9 +1,11 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::{panic::AssertUnwindSafe, panic::catch_unwind};
 
 use futures_util::{Stream, StreamExt};
 use hypr_aec::AEC;
+use hypr_audio_sync::{SyncProbe, SyncProbeConfig, SyncProbeEvent, SyncProbeState};
 use hypr_resampler::ResampleExtDynamicNew;
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
@@ -18,6 +20,8 @@ use super::joiner::Joiner;
 
 pub(crate) type ChunkStream =
     Pin<Box<dyn Stream<Item = Result<Vec<f32>, hypr_resampler::Error>> + Send>>;
+
+const AUDIO_SYNC_PROBE_ENV: &str = "AUDIO_SYNC_PROBE";
 
 struct CaptureStreamInner {
     inner: ReceiverStream<Result<CaptureFrame, Error>>,
@@ -66,6 +70,7 @@ pub(crate) fn setup_speaker_stream(
 }
 
 pub(crate) fn open_dual(
+    sample_rate: u32,
     mic_stream: ChunkStream,
     speaker_stream: ChunkStream,
     enable_aec: bool,
@@ -75,6 +80,7 @@ pub(crate) fn open_dual(
     let task = tokio::spawn(run_dual_loop(
         tx,
         cancel_token.clone(),
+        sample_rate,
         enable_aec,
         mic_stream,
         speaker_stream,
@@ -119,12 +125,14 @@ enum StreamResult {
 async fn run_dual_loop(
     tx: tokio::sync::mpsc::Sender<Result<CaptureFrame, Error>>,
     cancel_token: CancellationToken,
+    sample_rate: u32,
     enable_aec: bool,
     mut mic_stream: ChunkStream,
     mut speaker_stream: ChunkStream,
 ) {
     let mut joiner = Joiner::new();
     let mut aec = if enable_aec { build_aec() } else { None };
+    let mut sync_probe = ObserveOnlySyncProbe::from_env(sample_rate);
 
     loop {
         let result = tokio::select! {
@@ -142,6 +150,9 @@ async fn run_dual_loop(
                 while let Some((raw_mic, raw_speaker)) = joiner.pop_pair() {
                     let raw_mic = Arc::<[f32]>::from(raw_mic);
                     let raw_speaker = Arc::<[f32]>::from(raw_speaker);
+                    if let Some(probe) = &mut sync_probe {
+                        probe.observe(&raw_mic, &raw_speaker);
+                    }
                     let aec_mic = process_aec(&mut aec, &raw_mic, &raw_speaker);
                     if tx
                         .send(Ok(CaptureFrame {
@@ -162,6 +173,94 @@ async fn run_dual_loop(
                 return;
             }
         }
+    }
+}
+
+struct ObserveOnlySyncProbe {
+    probe: SyncProbe,
+    last_logged_state: Option<SyncProbeState>,
+    last_logged_stable_lag_samples: Option<isize>,
+}
+
+impl ObserveOnlySyncProbe {
+    fn from_env(sample_rate: u32) -> Option<Self> {
+        if std::env::var(AUDIO_SYNC_PROBE_ENV).ok().as_deref() != Some("1") {
+            return None;
+        }
+
+        Some(Self {
+            probe: SyncProbe::new(SyncProbeConfig::new(sample_rate)),
+            last_logged_state: None,
+            last_logged_stable_lag_samples: None,
+        })
+    }
+
+    fn observe(&mut self, raw_mic: &[f32], raw_speaker: &[f32]) {
+        let observed = catch_unwind(AssertUnwindSafe(|| {
+            self.probe.observe(raw_speaker, raw_mic)
+        }));
+        let Some(event) = (match observed {
+            Ok(event) => event,
+            Err(_) => {
+                tracing::error!("audio_sync_probe_panicked");
+                return;
+            }
+        }) else {
+            return;
+        };
+
+        let snapshot = event.snapshot();
+        let should_log = self.last_logged_state != Some(snapshot.state)
+            || self.last_logged_stable_lag_samples != snapshot.stable_lag_samples;
+
+        if !should_log {
+            return;
+        }
+
+        match event {
+            SyncProbeEvent::Measured(measurement) => {
+                tracing::info!(
+                    capture_time_sec = measurement.capture_time_sec,
+                    state = ?measurement.snapshot.state,
+                    stable_lag_samples = measurement.snapshot.stable_lag_samples,
+                    candidate_lag_samples = measurement.snapshot.candidate_lag_samples,
+                    accepted_window_count = measurement.snapshot.accepted_window_count,
+                    confidence = measurement.snapshot.confidence,
+                    peak_ratio = measurement.estimate.peak_ratio,
+                    distinctiveness = measurement.estimate.distinctiveness,
+                    drift_ppm = measurement.trend.drift_ppm,
+                    "audio_sync_probe"
+                );
+            }
+            SyncProbeEvent::SkippedLowConfidence(skip) => {
+                tracing::info!(
+                    capture_time_sec = skip.capture_time_sec,
+                    state = ?skip.snapshot.state,
+                    stable_lag_samples = skip.snapshot.stable_lag_samples,
+                    candidate_lag_samples = skip.snapshot.candidate_lag_samples,
+                    accepted_window_count = skip.snapshot.accepted_window_count,
+                    confidence = skip.snapshot.confidence,
+                    reason = ?skip.reason,
+                    peak_ratio = skip.estimate.peak_ratio,
+                    distinctiveness = skip.estimate.distinctiveness,
+                    "audio_sync_probe"
+                );
+            }
+            SyncProbeEvent::SkippedLowEnergy(skip) => {
+                tracing::info!(
+                    capture_time_sec = skip.capture_time_sec,
+                    state = ?skip.snapshot.state,
+                    stable_lag_samples = skip.snapshot.stable_lag_samples,
+                    accepted_window_count = skip.snapshot.accepted_window_count,
+                    reference_rms = skip.reference_rms,
+                    observed_rms = skip.observed_rms,
+                    "audio_sync_probe"
+                );
+            }
+        }
+
+        self.last_logged_state = Some(snapshot.state);
+        self.last_logged_stable_lag_samples = snapshot.stable_lag_samples;
     }
 }
 
