@@ -323,6 +323,7 @@ mod tests {
         ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
         SessionProgressEvent,
     };
+    use hypr_audio::CaptureFrame;
 
     struct TestRuntime;
 
