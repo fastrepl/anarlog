@@ -9,4 +9,5 @@
 
 .blog-editor.tiptap-root .tiptap p {
   margin-bottom: 1rem;
+  line-height: 1.45;
 }
