@@ -39,24 +39,31 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   };
 
   return (
-    <div className="rounded-xs border border-neutral-100">
-      <div className="p-4">
-        <h3 className="mb-2 font-serif text-lg font-semibold">Profile</h3>
-        <p className="text-sm text-neutral-600">Your personal information</p>
+    <div className="border-color-brand surface rounded-lg border">
+      <div className="px-8 pt-8">
+        <h3 className="text-color mb-2 font-sans text-lg font-semibold">
+          Profile
+        </h3>
+        <p className="text-color-secondary text-sm">
+          Your personal information
+        </p>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-neutral-100 p-4">
-        <div>
-          <div className="mb-1 text-sm text-neutral-500">Email</div>
+      <div className="flex w-full flex-col p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:justify-between">
+          <div className="text-color-secondary text-base">Email</div>
           {isEditing ? (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div className="flex gap-2">
+            <form
+              onSubmit={handleSubmit}
+              className="flex w-full flex-1 flex-col justify-start gap-3 md:justify-end"
+            >
+              <div className="flex w-full justify-start gap-2 md:justify-end">
                 <input
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder={email || "Enter new email"}
-                  className="flex-1 rounded-md border border-neutral-200 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-stone-500 focus:outline-none"
+                  className="border-color-brand flex-1 rounded-md border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-stone-900 focus:outline-none"
                   autoFocus
                 />
               </div>
@@ -66,7 +73,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                     "Failed to update email"}
                 </p>
               )}
-              <div className="flex gap-2">
+              <div className="flex w-full justify-start gap-2 md:justify-end">
                 <button
                   type="submit"
                   disabled={
@@ -82,7 +89,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   type="button"
                   onClick={handleCancel}
                   disabled={updateEmailMutation.isPending}
-                  className="flex h-8 items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50"
+                  className="border-color-brand text-color-secondary flex h-8 items-center rounded-full border bg-linear-to-b from-white to-stone-50 px-4 text-sm shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50"
                 >
                   Cancel
                 </button>

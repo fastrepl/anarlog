@@ -254,7 +254,7 @@ export function GitHubOpenSource() {
           ])}
         >
           <div className="flex flex-col items-center gap-4 md:items-start">
-            <p className="text-fg-muted max-w-md text-center text-base leading-relaxed md:text-left">
+            <p className="text-color-secondary max-w-md text-center text-base leading-relaxed md:text-left">
               Char values privacy and community, so it's been transparent from
               day one.
             </p>
