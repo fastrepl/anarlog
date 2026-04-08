@@ -121,8 +121,8 @@ export function CookiePreferencesButton() {
       type="button"
       onClick={openPreferences}
       className={cn([
-        "text-fg-muted cursor-pointer p-0 font-sans text-sm transition-colors",
-        "hover:text-fg hover:underline hover:decoration-dotted",
+        "text-color-secondary cursor-pointer p-0 font-sans text-sm transition-colors",
+        "hover:text-color hover:underline hover:decoration-dotted",
         "hover:cursor-pointer",
       ])}
       style={{ cursor: COOKIE_CURSOR }}
