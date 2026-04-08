@@ -78,7 +78,7 @@ export function RightPanel({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={link.label}
-                className="text-fg-muted hover:text-color transition-colors"
+                className="text-color-secondary hover:text-color transition-colors"
               >
                 <Icon icon={link.icon} width={18} height={18} />
               </a>
