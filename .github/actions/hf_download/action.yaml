@@ -35,7 +35,10 @@ runs:
   steps:
     - name: Install Hugging Face CLI
       shell: bash
-      run: pipx install huggingface_hub
+      run: |
+        pipx install huggingface_hub
+        pipx ensurepath
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
     - id: download
       name: Download from Hugging Face Hub
