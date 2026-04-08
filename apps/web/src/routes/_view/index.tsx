@@ -2716,7 +2716,7 @@ function BlogSection() {
               params={{ slug: article.slug }}
               className="group block h-full"
             >
-              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-2 transition-all duration-300 hover:shadow-lg">
+              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-4 transition-all duration-300 hover:shadow-lg">
                 <div className="flex flex-1 flex-col px-2 pt-4">
                   <h3 className="text-color mb-4 line-clamp-2 font-mono text-2xl font-medium">
                     {article.display_title || article.meta_title}
