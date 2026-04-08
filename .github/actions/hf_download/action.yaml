@@ -35,7 +35,7 @@ runs:
   steps:
     - name: Install Hugging Face CLI
       shell: bash
-      run: python3 -m pip install --upgrade "huggingface_hub"
+      run: pipx install huggingface_hub
 
     - id: download
       name: Download from Hugging Face Hub
