@@ -1,5 +1,6 @@
 export const MEDIA_BUCKET_NAME = "blog";
 export const MEDIA_PROXY_BASE_PATH = "/api/assets";
+const MEDIA_PUBLIC_BUCKET_PATH = "/storage/v1/object/public/blog/";
 
 const MEDIA_MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
@@ -138,4 +139,60 @@ export function getMediaProxyUrl(path: string): string {
   return `${MEDIA_PROXY_BASE_PATH}/blog/${normalizedPath
     .map((segment) => encodeURIComponent(segment))
     .join("/")}`;
+}
+
+function decodeMediaPath(rawPath: string): string | null {
+  const trimmedPath = rawPath.split("?")[0]?.split("#")[0] || "";
+  if (!trimmedPath) return null;
+
+  try {
+    return trimmedPath
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+      .join("/");
+  } catch {
+    return null;
+  }
+}
+
+function extractMediaPathFromPublicUrl(url: string): string | null {
+  try {
+    const parsedUrl = new URL(url);
+    const bucketIndex = parsedUrl.pathname.indexOf(MEDIA_PUBLIC_BUCKET_PATH);
+    if (bucketIndex === -1) {
+      return null;
+    }
+
+    return decodeMediaPath(
+      parsedUrl.pathname.slice(bucketIndex + MEDIA_PUBLIC_BUCKET_PATH.length),
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function extractManagedMediaPaths(text: string): string[] {
+  const mediaPaths = new Set<string>();
+  const proxyRegex = /\/api\/assets\/blog\/[^\s)"']+/g;
+  const publicRegex =
+    /https?:\/\/[^\s)"']+\/storage\/v1\/object\/public\/blog\/[^\s)"']+/g;
+
+  for (const match of text.match(proxyRegex) || []) {
+    const path = decodeMediaPath(
+      match.slice(`${MEDIA_PROXY_BASE_PATH}/blog/`.length),
+    );
+    if (path) {
+      mediaPaths.add(path);
+    }
+  }
+
+  for (const match of text.match(publicRegex) || []) {
+    const path = extractMediaPathFromPublicUrl(match);
+    if (path) {
+      mediaPaths.add(path);
+    }
+  }
+
+  return [...mediaPaths];
 }

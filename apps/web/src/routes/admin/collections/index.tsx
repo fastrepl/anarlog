@@ -141,6 +141,8 @@ interface DeleteResponse {
   branch?: string;
   prNumber?: number;
   prUrl?: string;
+  mediaDeleted?: string[];
+  mediaCleanupErrors?: string[];
 }
 
 interface FileContent {
@@ -787,6 +789,12 @@ function CollectionsPage() {
       void queryClient.invalidateQueries({
         queryKey: DRAFT_ARTICLES_QUERY_KEY,
       });
+
+      if (data.mediaCleanupErrors && data.mediaCleanupErrors.length > 0) {
+        sonnerToast.error("Deleted with media cleanup issues", {
+          description: data.mediaCleanupErrors.join("\n"),
+        });
+      }
     },
     onError: (error: unknown) => {
       if (isAdminSignInRedirectError(error)) {
