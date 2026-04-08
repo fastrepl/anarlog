@@ -318,6 +318,8 @@ mod tests {
 
     use ractor::{Actor, ActorProcessingErr, ActorRef};
 
+    use hypr_audio::CaptureFrame;
+
     use super::*;
     use crate::{
         ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
