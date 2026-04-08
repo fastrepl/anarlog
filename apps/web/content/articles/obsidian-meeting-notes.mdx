@@ -8,6 +8,8 @@ category: "Product"
 date: "2026-04-08"
 ---
 
+# How to Use Obsidian to Take Meeting Notes?
+
 You're already in Obsidian. You have a vault with projects, people notes, maybe a daily notes practice. What you don't have is meeting notes that connect to any of it. That's the specific problem this guide solves: building a meeting notes system inside an existing Obsidian PKB, where notes actually link to projects and people.
 
 ## What we're building
@@ -33,13 +35,14 @@ This guide draws from Obsidian's official documentation and real workflows share
 
 ### Step 1: Create the folder structure
 
-![Obsidian vault with Meetings and People folders](/api/assets/blog/articles/obsidian-meeting-notes/image-1.png "char-editor-width=80")
+![Obsidian vault with Meetings and People folders](/api/assets/blog/articles/obsidian-meeting-notes/image-1-1.png "char-editor-width=80")
 
 Open your vault. Create two folders:
 
-`Meetings/`
-
-`People/`
+```
+Meetings/
+People/
+```
 
 That's it. You don't need subfolders by month or year yet. If you end up with hundreds of meeting notes and want to organize by date later, Obsidian's search doesn't care about folder depth, it searches everything. Start flat.
 
@@ -47,7 +50,7 @@ If you already have an established vault, just add these two folders alongside w
 
 ### Step 2: Create a person note
 
-![Person note in Obsidian with role, company, and tags properties](/api/assets/blog/articles/obsidian-meeting-notes/image-2.png "char-editor-width=80")
+![Person note in Obsidian with role, company, and tags properties](/api/assets/blog/articles/obsidian-meeting-notes/image-2-1.png "char-editor-width=80")
 
 Before you touch templates or meetings, create your first person note. In the People/ folder, make a new note. Name it after someone you meet with regularly. Something like Sarah Chen.md.
 
@@ -60,25 +63,22 @@ company: Acme
 tags:
   - person
 ---
+## About
+Engineering lead on the payments team. Reports to VP Eng.
+## Meeting history
 ```
 
-## About
-
-Engineering lead on the payments team. Reports to VP Eng.
-
-## Meeting history
-
-That's a person note. The `role` and `company` properties are there so you can search for them later — `[company:Acme]` finds everyone at Acme. The `## Meeting history` section is going to fill itself. We'll get to that.
+That's a person note. The role and company properties are there so you can search for them later — [company:Acme] finds everyone at Acme. The ## Meeting history section is going to fill itself. We'll get to that.
 
 Make a few of these for people you meet with often. They don't need to be detailed. A name and a role is enough to start.
 
 ### Step 3: Build the meeting note template
 
-In your vault, create a `Templates/` folder if you don't have one. Inside it, create a file called `Meeting.md`:
+In your vault, create a Templates/ folder if you don't have one. Inside it, create a file called Meeting.md:
 
 ```
+---
 date: "{{date:YYYY-MM-DD}}"
-
 type: meeting
 attendees:
 tags:
@@ -92,7 +92,7 @@ tags:
 - [ ]
 ```
 
-Now go to Settings > Core Plugins > Templates and set your template folder to `Templates/`.
+Now go to Settings > Core Plugins > Templates and set your template folder to Templates/.
 
 When you want to start a meeting note: create a new note in Meetings/, name it something like 2026-04-06 Product Sync, then hit Cmd+P and type "Insert template" and select your Meeting template. The date fills itself. Your cursor is ready.
 
@@ -122,22 +122,22 @@ tags:
 - We're keeping the Q2 target but building a fallback plan for parallel environments
 - [[Sarah Chen]] owns the fallback proposal, due by Friday
 ## Action items
-- [[Sarah Chen]] — Write up the parallel environment fallback plan by April 11
-- [[James Park]] — Get staging timeline confirmed with infra team by April 9
-- Follow up with [[Legal]] on PCI audit status
+- [ ] [[Sarah Chen]] — Write up the parallel environment fallback plan by April 11
+- [ ] [[James Park]] — Get staging timeline confirmed with infra team by April 9
+- [ ] Follow up with [[Legal]] on PCI audit status
 ```
 
 Look at what just happened:
 
-- `[[Sarah Chen]]` appears in multiple places. Her person note now shows this meeting in backlinks — with the surrounding context of what she said, what she decided, and what she owes.
-- `[[PCI audit]]` links to a topic note. If that note doesn't exist yet, that's fine. When the PCI audit becomes important enough to have its own page, every meeting that mentioned it is already connected.
-- The action items use `- [ ]` task syntax. Obsidian's search can find these directly, and you can narrow it to a specific person.
+- [[Sarah Chen]] appears in multiple places. Her person note now shows this meeting in backlinks — with the surrounding context of what she said, what she decided, and what she owes.
+- [[PCI audit]] links to a topic note. If that note doesn't exist yet, that's fine. When the PCI audit becomes important enough to have its own page, every meeting that mentioned it is already connected.
+- The action items use - [ ] task syntax. Obsidian's search can find these directly, and you can narrow it to a specific person.
 
 ### Step 5: Person notes fill themselves
 
-![Person note with backlinks panel showing linked meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-3.png "char-editor-width=80")
+![Person note with backlinks panel showing linked meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-3-1.png "char-editor-width=80")
 
-Open `Sarah Chen.md` in `People/`. Click the backlinks icon in the right sidebar. Every meeting where you wrote `[[Sarah Chen]]` shows up with surrounding context. You can see what was discussed, what she decided, what she owes — all without maintaining anything.
+Open Sarah Chen.md in People/. Click the backlinks icon in the right sidebar. Every meeting where you wrote [[Sarah Chen]] shows up with surrounding context. You can see what was discussed, what she decided, what she owes — all without maintaining anything.
 
 This is the approach from the [Managing notes for meetings thread](https://forum.obsidian.md/t/managing-notes-for-meetings-and-one-on-ones-effectively/32049) that resonated with the most people. No plugins. No queries. Just links and backlinks doing the work.
 
@@ -146,15 +146,15 @@ If you want a structured table view instead of backlinks, use a Base. The [Autom
 ```
 filters:
   and:
-    file.hasLink(this.file.name)
-    'type = "meeting"'
+    - file.hasLink(this.file.name)
+    - 'type = "meeting"'
 ```
 
 Embed this Base in Sarah's person note and it renders a table of every meeting note that links to her, filterable and sortable. This uses Obsidian's built-in Bases feature — no community plugins needed.
 
 ### Step 6: Create meeting notes fast from your daily note
 
-![Daily note with wikilinks to today's meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-4.png "char-editor-width=80")
+![Daily note with wikilinks to today's meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-4-1.png "char-editor-width=80")
 
 If you use Obsidian's Daily Notes plugin, you probably want to create meeting notes from there. The [Daily Note to Meeting Note thread](https://forum.obsidian.md/t/from-daily-note-create-a-new-note-with-a-template/87160) shows how to set up a one-click button using Meta Bind and Templater that:
 
@@ -173,41 +173,51 @@ This is where the system pays off. Every query below has been tested in a live O
 
 Sarah's open action items:
 
-![search results for open tasks in obsidian](/api/assets/blog/articles/obsidian-meeting-notes/image-5.png "char-editor-width=80")
+![search results for open tasks in obsidian](/api/assets/blog/articles/obsidian-meeting-notes/image-5-1.png "char-editor-width=80")
 
+```
 task-todo:"Sarah Chen"
+```
 
 Finds every incomplete task across your vault that mentions Sarah by name. Returns the exact task text with context.
 
 All meetings tagged payments:
 
-![search filtering in obsidian](/api/assets/blog/articles/obsidian-meeting-notes/image-6.png "char-editor-width=80")
+![search filtering in obsidian](/api/assets/blog/articles/obsidian-meeting-notes/image-6-1.png "char-editor-width=80")
 
+```
 path:Meetings [tags:payments]
+```
 
 Finds meeting notes where the tags property includes "payments." Returns only files inside the Meetings folder.
 
 Every meeting where PCI audit came up:
 
-![Obsidian search for a topic across all meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-7.png "char-editor-width=80")
+![Obsidian search for a topic across all meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-7-1.png "char-editor-width=80")
 
+```
 path:Meetings "PCI audit"
+```
 
 Finds every mention of "PCI audit" across all meeting notes, with surrounding context so you can see what was said about it.
 
 All March meetings:
 
-![Obsidian search filtering notes by date property](/api/assets/blog/articles/obsidian-meeting-notes/image-8.png "char-editor-width=80")
+![Obsidian search filtering notes by date property](/api/assets/blog/articles/obsidian-meeting-notes/image-8-1.png "char-editor-width=80")
 
+```
 [date:/2026-03/]
+```
 
 Uses regex on the date property to find all notes with a March 2026 date. Works for any month — change the pattern to match what you need.
 
 Everyone at a specific company:
 
-![Obsidian property search across person notes](/api/assets/blog/articles/obsidian-meeting-notes/image-9.png "char-editor-width=80")
+![Obsidian property search across person notes](/api/assets/blog/articles/obsidian-meeting-notes/image-9-1.png "char-editor-width=80")
 
+```
 [company:Acme]
+```
 
 Searches the company property across person notes. Useful when you're preparing for a client meeting and want to see all your contacts there.
 
@@ -223,7 +233,7 @@ This is exactly the problem Char solves.
 
 Char is an open-source AI notepad for meetings. Here's what it does and why it fits this system:
 
-![Char obsidian integration](/api/assets/blog/articles/obsidian-meeting-notes/image-10.png "char-editor-width=80")
+![Char obsidian integration](/api/assets/blog/articles/obsidian-meeting-notes/image-10-1.png "char-editor-width=80")
 
 You point the output folder at your vault. This is the key. Set Char's output folder to your Meetings/ folder (or a subfolder like Meetings/Transcripts/). When Char finishes processing a meeting, the transcript and summary appear in your vault. Obsidian indexes them instantly. They're searchable, linkable, part of your system. No export. No copy-paste.
 
