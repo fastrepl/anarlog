@@ -77,8 +77,8 @@ Make a few of these for people you meet with often. They don't need to be detail
 In your vault, create a `Templates/` folder if you don't have one. Inside it, create a file called `Meeting.md`:
 
 ```
----
 date: "{{date:YYYY-MM-DD}}"
+
 type: meeting
 attendees:
 tags:
@@ -92,7 +92,7 @@ tags:
 - [ ]
 ```
 
-Now go to Settings > Core Plugins > Templates and set your template folder to Templates/.
+Now go to Settings > Core Plugins > Templates and set your template folder to `Templates/`.
 
 When you want to start a meeting note: create a new note in Meetings/, name it something like 2026-04-06 Product Sync, then hit Cmd+P and type "Insert template" and select your Meeting template. The date fills itself. Your cursor is ready.
 
@@ -100,47 +100,48 @@ When you want to start a meeting note: create a new note in Meetings/, name it s
 
 Here's what a meeting note looks like after a meeting. The key habit: write names and topics as `[[wikilinks]]`.
 
+```
 ---
-
 date: "2026-04-06"
-
 type: meeting
-
 attendees:
-
-- "[[Sarah Chen]]"
-- "[[James Park]]"
-
+  - "[[Sarah Chen]]"
+  - "[[James Park]]"
 tags:
+  - meeting
+  - payments
+2026-04-06 Sprint Planning
 
-- meeting
-- payments
+Attendees: [[Sarah Chen]], [[James Park]]
 
----
+Notes
 
-# 2026-04-06 Sprint Planning
 
-**Attendees:** [[Sarah Chen]], [[James Park]]
 
-## Notes
 
-- [[Sarah Chen]] walked through the payments migration timeline
-- Target is end of Q2, but dependent on the [[PCI audit]] completing first
-- [[James Park]] flagged that the staging environment won't be ready until May 15
-- Need to decide if we push the launch or run a parallel environment
+
+[[Sarah Chen]] walked through the payments migration timeline
+
+
+
+Target is end of Q2, but dependent on the [[PCI audit]] completing first
+
+
+
+[[James Park]] flagged that the staging environment won't be ready until May 15
+
+
+
+Need to decide if we push the launch or run a parallel environment
 
 ## Decisions
-
-- We're keeping the Q2 target but building a fallback plan for parallel environments
-- [[Sarah Chen]] owns the fallback proposal, due by Friday
-
+We're keeping the Q2 target but building a fallback plan for parallel environments
+[[Sarah Chen]] owns the fallback proposal, due by Friday
 ## Action items
-
-- [ ] [[Sarah Chen]] — Write up the parallel environment fallback plan by April 11
-
-- [ ] [[James Park]] — Get staging timeline confirmed with infra team by April 9
-
-- [ ] Follow up with [[Legal]] on PCI audit status
+[[Sarah Chen]] — Write up the parallel environment fallback plan by April 11
+[[James Park]] — Get staging timeline confirmed with infra team by April 9
+Follow up with [[Legal]] on PCI audit status
+```
 
 Look at what just happened:
 
