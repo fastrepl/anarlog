@@ -63,6 +63,10 @@ import BlogEditor, {
   type TiptapEditor,
   useBlogEditor,
 } from "@/components/admin/blog-editor";
+import {
+  ContentAuditReviewDialog,
+  type ContentAuditPreview,
+} from "@/components/admin/content-audit-review-dialog";
 import { MediaSelectorModal } from "@/components/admin/media-selector-modal";
 import { defaultMDXComponents } from "@/components/mdx";
 import { fetchGitHubCredentials } from "@/functions/admin";
@@ -201,7 +205,16 @@ interface EditorData {
 
 type FileEditorHandle = {
   getData: () => EditorData | null;
+  applyContent: (content: string) => void;
 };
+
+interface AuditContentResponse {
+  success: boolean;
+  revisedContent: string;
+  summary: string[];
+  changed: boolean;
+  model: string;
+}
 
 function getEditorMarkdown(editor: TiptapEditor | null, fallback = "") {
   if (!editor?.isInitialized) {
@@ -2034,6 +2047,9 @@ function ContentPanel({
 }) {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [editorData, setEditorData] = useState<EditorData | null>(null);
+  const [auditPreview, setAuditPreview] = useState<ContentAuditPreview | null>(
+    null,
+  );
   const fileEditorRef = useRef<FileEditorHandle | null>(null);
   const queryClient = useQueryClient();
 
@@ -2046,6 +2062,10 @@ function ContentPanel({
     currentTab?.type === "file"
       ? (currentTab.path.split("/")[0] as AdminCollectionName)
       : undefined;
+
+  useEffect(() => {
+    setAuditPreview(null);
+  }, [currentTab?.id]);
 
   const saveFile = useCallback(
     async (params: {
@@ -2203,6 +2223,29 @@ function ContentPanel({
     },
   });
 
+  const { mutateAsync: auditContent, isPending: isAuditing } = useMutation({
+    mutationFn: async (params: {
+      path: string;
+      content: string;
+      metadata: Record<string, unknown>;
+    }) =>
+      postAdminJson<AuditContentResponse>(
+        "/api/admin/content/audit",
+        params,
+        "Failed to run audit",
+      ),
+    onError: (error: unknown) => {
+      if (isAdminSignInRedirectError(error)) {
+        return;
+      }
+
+      sonnerToast.error("Audit failed", {
+        description:
+          error instanceof Error ? error.message : "Failed to run audit",
+      });
+    },
+  });
+
   const handlePublish = useCallback(async () => {
     const currentEditorData = getCurrentEditorData();
 
@@ -2240,6 +2283,52 @@ function ContentPanel({
     }
   }, [currentTab, getCurrentEditorData, publish]);
 
+  const handleAudit = useCallback(async () => {
+    const currentEditorData = getCurrentEditorData();
+
+    if (
+      !currentTab ||
+      !currentEditorData ||
+      currentCollection !== "articles" ||
+      !currentEditorData.content.trim()
+    ) {
+      return;
+    }
+
+    const result = await auditContent({
+      path: currentTab.path,
+      content: currentEditorData.content,
+      metadata: currentEditorData.metadata,
+    });
+
+    if (
+      !result.changed ||
+      result.revisedContent === currentEditorData.content
+    ) {
+      sonnerToast.success("No audit changes suggested");
+      return;
+    }
+
+    setAuditPreview({
+      model: result.model,
+      originalContent: currentEditorData.content,
+      revisedContent: result.revisedContent,
+      summary: result.summary,
+    });
+  }, [auditContent, currentCollection, currentTab, getCurrentEditorData]);
+
+  const handleApplyAudit = useCallback(() => {
+    if (!auditPreview) {
+      return;
+    }
+
+    fileEditorRef.current?.applyContent(auditPreview.revisedContent);
+    setAuditPreview(null);
+    sonnerToast.success("Audit applied", {
+      description: "Review the updated draft and save when you're ready.",
+    });
+  }, [auditPreview]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       {currentTab ? (
@@ -2257,6 +2346,8 @@ function ContentPanel({
             onTogglePreview={() => setIsPreviewMode(!isPreviewMode)}
             onSave={handleSave}
             isSaving={isSaving}
+            onAudit={currentCollection === "articles" ? handleAudit : undefined}
+            isAuditing={isAuditing}
             onPublish={handlePublish}
             isPublishing={isPublishing}
             hasPendingPR={pendingPRData?.hasPendingPR}
@@ -2295,6 +2386,16 @@ function ContentPanel({
           />
         </div>
       )}
+      <ContentAuditReviewDialog
+        open={auditPreview !== null}
+        preview={auditPreview}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAuditPreview(null);
+          }
+        }}
+        onApply={handleApplyAudit}
+      />
     </div>
   );
 }
@@ -2312,6 +2413,8 @@ function EditorHeader({
   onTogglePreview,
   onSave,
   isSaving,
+  onAudit,
+  isAuditing,
   onPublish,
   isPublishing,
   hasPendingPR,
@@ -2334,6 +2437,8 @@ function EditorHeader({
   onTogglePreview: () => void;
   onSave: () => void;
   isSaving: boolean;
+  onAudit?: () => void;
+  isAuditing?: boolean;
   onPublish?: () => void;
   isPublishing?: boolean;
   hasPendingPR?: boolean;
@@ -2512,6 +2617,25 @@ function EditorHeader({
                   </span>
                 )}
             </button>
+            {onAudit && (
+              <button
+                onClick={onAudit}
+                disabled={isAuditing}
+                className={cn([
+                  "flex cursor-pointer items-center gap-1.5 rounded-xs px-2 py-1.5 font-mono text-xs font-medium transition-colors",
+                  "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                ])}
+                title="Run article audit"
+              >
+                {isAuditing ? (
+                  <Spinner size={16} color="currentColor" />
+                ) : (
+                  <RefreshCwIcon className="size-4" />
+                )}
+                Audit
+              </button>
+            )}
             {onPublish && (
               <button
                 onClick={onPublish}
@@ -3831,12 +3955,25 @@ const FileEditor = React.forwardRef<
     };
   }, [autoSaveCountdown, content, editor, getMetadata, hasUnsavedChanges]);
 
+  const applyContent = useCallback(
+    (nextContent: string) => {
+      setContent(nextContent);
+      setHasUnsavedChanges(true);
+      editor?.commands.setContent(nextContent, {
+        contentType: "markdown",
+        emitUpdate: false,
+      });
+    },
+    [editor],
+  );
+
   React.useImperativeHandle(
     _ref,
     () => ({
       getData: getCurrentData,
+      applyContent,
     }),
-    [getCurrentData],
+    [applyContent, getCurrentData],
   );
 
   useEffect(() => {

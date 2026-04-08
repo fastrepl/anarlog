@@ -136,6 +136,7 @@ import { Route as ApiAdminContentGetBranchFileRouteImport } from './routes/api/a
 import { Route as ApiAdminContentDuplicateRouteImport } from './routes/api/admin/content/duplicate'
 import { Route as ApiAdminContentDeleteRouteImport } from './routes/api/admin/content/delete'
 import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/content/create'
+import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiAdminBlogUploadImageRouteImport } from './routes/api/admin/blog/upload-image'
 import { Route as ViewIntegrationsCategorySlugRouteImport } from './routes/_view/integrations/$category.$slug'
 import { Route as ViewGalleryTypeSlugRouteImport } from './routes/_view/gallery/$type.$slug'
@@ -793,6 +794,11 @@ const ApiAdminContentCreateRoute = ApiAdminContentCreateRouteImport.update({
   path: '/api/admin/content/create',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminContentAuditRoute = ApiAdminContentAuditRouteImport.update({
+  id: '/api/admin/content/audit',
+  path: '/api/admin/content/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminBlogUploadImageRoute = ApiAdminBlogUploadImageRouteImport.update({
   id: '/api/admin/blog/upload-image',
   path: '/api/admin/blog/upload-image',
@@ -960,6 +966,7 @@ export interface FileRoutesByFullPath {
   '/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1093,6 +1100,7 @@ export interface FileRoutesByTo {
   '/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1233,6 +1241,7 @@ export interface FileRoutesById {
   '/_view/gallery/$type/$slug': typeof ViewGalleryTypeSlugRoute
   '/_view/integrations/$category/$slug': typeof ViewIntegrationsCategorySlugRoute
   '/api/admin/blog/upload-image': typeof ApiAdminBlogUploadImageRoute
+  '/api/admin/content/audit': typeof ApiAdminContentAuditRoute
   '/api/admin/content/create': typeof ApiAdminContentCreateRoute
   '/api/admin/content/delete': typeof ApiAdminContentDeleteRoute
   '/api/admin/content/duplicate': typeof ApiAdminContentDuplicateRoute
@@ -1373,6 +1382,7 @@ export interface FileRouteTypes {
     | '/gallery/$type/$slug'
     | '/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1506,6 +1516,7 @@ export interface FileRouteTypes {
     | '/gallery/$type/$slug'
     | '/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1645,6 +1656,7 @@ export interface FileRouteTypes {
     | '/_view/gallery/$type/$slug'
     | '/_view/integrations/$category/$slug'
     | '/api/admin/blog/upload-image'
+    | '/api/admin/content/audit'
     | '/api/admin/content/create'
     | '/api/admin/content/delete'
     | '/api/admin/content/duplicate'
@@ -1698,6 +1710,7 @@ export interface RootRouteChildren {
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
   ApiAdminBlogUploadImageRoute: typeof ApiAdminBlogUploadImageRoute
+  ApiAdminContentAuditRoute: typeof ApiAdminContentAuditRoute
   ApiAdminContentCreateRoute: typeof ApiAdminContentCreateRoute
   ApiAdminContentDeleteRoute: typeof ApiAdminContentDeleteRoute
   ApiAdminContentDuplicateRoute: typeof ApiAdminContentDuplicateRoute
@@ -2620,6 +2633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminContentCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/content/audit': {
+      id: '/api/admin/content/audit'
+      path: '/api/admin/content/audit'
+      fullPath: '/api/admin/content/audit'
+      preLoaderRoute: typeof ApiAdminContentAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/blog/upload-image': {
       id: '/api/admin/blog/upload-image'
       path: '/api/admin/blog/upload-image'
@@ -2953,6 +2973,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
   ApiAdminBlogUploadImageRoute: ApiAdminBlogUploadImageRoute,
+  ApiAdminContentAuditRoute: ApiAdminContentAuditRoute,
   ApiAdminContentCreateRoute: ApiAdminContentCreateRoute,
   ApiAdminContentDeleteRoute: ApiAdminContentDeleteRoute,
   ApiAdminContentDuplicateRoute: ApiAdminContentDuplicateRoute,
