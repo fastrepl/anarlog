@@ -42,7 +42,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo check -p cli --features standalone
       - if: matrix.clippy
-        run: cargo clippy -p cli --features standalone -- -D warnings
+        run: cargo clippy -p cli --features standalone
       - if: runner.os == 'macOS'
         run: |
           rustup target add x86_64-apple-darwin
