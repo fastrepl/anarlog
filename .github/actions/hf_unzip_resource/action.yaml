@@ -1,0 +1,65 @@
+inputs:
+  repo:
+    required: true
+    type: string
+  path:
+    required: true
+    type: string
+  local-dir:
+    required: true
+    type: string
+  output-dir:
+    required: true
+    type: string
+  token:
+    required: false
+    default: ""
+    type: string
+  revision:
+    required: false
+    default: ""
+    type: string
+  repo-type:
+    required: false
+    default: ""
+    type: string
+  hf-hub-download-timeout:
+    required: false
+    default: "60"
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - id: download
+      uses: ./.github/actions/hf_download
+      with:
+        repo: ${{ inputs.repo }}
+        path: ${{ inputs.path }}
+        local-dir: ${{ inputs.local-dir }}
+        token: ${{ inputs.token }}
+        revision: ${{ inputs.revision }}
+        repo-type: ${{ inputs.repo-type }}
+        hf-hub-download-timeout: ${{ inputs.hf-hub-download-timeout }}
+
+    - name: Expand archive into bundled resource directory
+      shell: bash
+      run: |
+        ZIP_PATH="${{ steps.download.outputs.downloaded-path }}"
+        DEST_DIR="${{ inputs.output-dir }}"
+        TMP_DIR=$(mktemp -d)
+
+        rm -rf "$DEST_DIR"
+        mkdir -p "$DEST_DIR"
+
+        unzip -q "$ZIP_PATH" -d "$TMP_DIR"
+
+        shopt -s dotglob nullglob
+        entries=("$TMP_DIR"/*)
+        if [[ ${#entries[@]} -eq 1 && -d "${entries[0]}" ]]; then
+          SRC_DIR="${entries[0]}"
+        else
+          SRC_DIR="$TMP_DIR"
+        fi
+
+        cp -R "$SRC_DIR"/. "$DEST_DIR"/

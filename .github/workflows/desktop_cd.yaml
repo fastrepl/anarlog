@@ -106,6 +106,14 @@ jobs:
       - run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - uses: ./.github/actions/pnpm_install
       - run: pnpm -F ui build
+      - if: ${{ matrix.target == 'aarch64-apple-darwin' }}
+        uses: ./.github/actions/hf_unzip_resource
+        with:
+          repo: Cactus-Compute/LFM2-VL-450M
+          path: weights/lfm2-vl-450m-int8-apple.zip
+          local-dir: apps/desktop/src-tauri/resources/models/cactus/_downloads
+          output-dir: apps/desktop/src-tauri/resources/models/cactus/char-vlm/weight
+          token: ${{ secrets.HF_TOKEN }}
       - if: ${{ matrix.include_am }}
         run: |
           aws s3 cp s3://argmax/stt apps/desktop/src-tauri/binaries/char-sidecar-stt-${{ matrix.target }} \

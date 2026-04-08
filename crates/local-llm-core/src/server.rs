@@ -18,9 +18,29 @@ mod inner {
 
     impl LlmServer {
         pub async fn start(selection: &ModelSelection, models_dir: &Path) -> Result<Self, Error> {
-            let file_path = selection.file_path(models_dir);
+            let models_base = models_dir.parent().unwrap_or(models_dir);
+            let file_path = selection.install_path(models_base);
             let name = selection.display_name();
 
+            Self::start_with_model_path(name, file_path).await
+        }
+
+        pub async fn start_with_resolver(
+            selection: &ModelSelection,
+            models_base: &Path,
+            resolve_resource: impl FnMut(&str) -> Result<Option<std::path::PathBuf>, Error>,
+        ) -> Result<Self, Error> {
+            let file_path = selection.resolve_path(models_base, resolve_resource)?;
+            let name = selection.display_name();
+
+            Self::start_with_model_path(name, file_path).await
+        }
+
+        pub async fn start_with_model_path(
+            name: String,
+            file_path: impl AsRef<Path>,
+        ) -> Result<Self, Error> {
+            let file_path = file_path.as_ref().to_path_buf();
             if !file_path.exists() {
                 return Err(Error::ModelNotDownloaded);
             }
@@ -86,6 +106,25 @@ mod inner {
 
     impl LlmServer {
         pub async fn start(_selection: &ModelSelection, _models_dir: &Path) -> Result<Self, Error> {
+            Err(Error::Other(
+                "Local LLM is not supported on this platform".to_string(),
+            ))
+        }
+
+        pub async fn start_with_resolver(
+            _selection: &ModelSelection,
+            _models_base: &Path,
+            _resolve_resource: impl FnMut(&str) -> Result<Option<std::path::PathBuf>, Error>,
+        ) -> Result<Self, Error> {
+            Err(Error::Other(
+                "Local LLM is not supported on this platform".to_string(),
+            ))
+        }
+
+        pub async fn start_with_model_path(
+            _name: String,
+            _file_path: impl AsRef<Path>,
+        ) -> Result<Self, Error> {
             Err(Error::Other(
                 "Local LLM is not supported on this platform".to_string(),
             ))

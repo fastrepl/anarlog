@@ -1,4 +1,4 @@
-use crate::{CustomModelInfo, LocalLlmPluginExt, ModelInfo, ModelSelection, SupportedModel};
+use crate::{CustomModelInfo, LocalLlmPluginExt, ModelInfo, ModelSelection};
 
 use tauri::ipc::Channel;
 
@@ -11,26 +11,7 @@ pub async fn models_dir<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<S
 #[tauri::command]
 #[specta::specta]
 pub async fn list_supported_model() -> Result<Vec<ModelInfo>, String> {
-    Ok(vec![
-        ModelInfo {
-            key: SupportedModel::HyprLLM,
-            name: "HyprLLM".to_string(),
-            description: "Experimental model trained by the Char team.".to_string(),
-            size_bytes: SupportedModel::HyprLLM.model_size(),
-        },
-        ModelInfo {
-            key: SupportedModel::Gemma3_4bQ4,
-            name: "Gemma 3 4B Q4".to_string(),
-            description: "Deprecated. Exists only for backward compatibility.".to_string(),
-            size_bytes: SupportedModel::Gemma3_4bQ4.model_size(),
-        },
-        ModelInfo {
-            key: SupportedModel::Llama3p2_3bQ4,
-            name: "Llama 3.2 3B Q4".to_string(),
-            description: "Deprecated. Exists only for backward compatibility.".to_string(),
-            size_bytes: SupportedModel::Llama3p2_3bQ4.model_size(),
-        },
-    ])
+    Ok(hypr_local_llm_core::list_supported_models())
 }
 
 #[tauri::command]

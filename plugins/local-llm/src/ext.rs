@@ -65,6 +65,43 @@ pub fn create_model_downloader<R: Runtime>(
     ModelDownloadManager::new(runtime)
 }
 
+fn models_base<R: Runtime, T: Manager<R>>(manager: &T) -> PathBuf {
+    use tauri_plugin_settings::SettingsPluginExt;
+
+    manager
+        .settings()
+        .global_base()
+        .map(|base| base.join("models").into_std_path_buf())
+        .unwrap_or_else(|_| dirs::data_dir().unwrap_or_default().join("models"))
+}
+
+fn bundled_resource_candidates(relative_path: &str) -> Vec<String> {
+    let mut candidates = vec![relative_path.to_string()];
+    if cfg!(debug_assertions) {
+        candidates.push(format!("resources/{relative_path}"));
+    }
+    candidates
+}
+
+fn resolve_resource_path<R: Runtime, T: Manager<R>>(
+    manager: &T,
+    relative_path: &str,
+) -> Result<Option<PathBuf>, hypr_local_llm_core::Error> {
+    use tauri::path::BaseDirectory;
+
+    for candidate in bundled_resource_candidates(relative_path) {
+        let path = manager
+            .path()
+            .resolve(&candidate, BaseDirectory::Resource)
+            .map_err(|error| hypr_local_llm_core::Error::Other(error.to_string()))?;
+        if path.exists() {
+            return Ok(Some(path));
+        }
+    }
+
+    Ok(None)
+}
+
 pub trait LocalLlmPluginExt<R: Runtime> {
     fn local_llm_store(&self) -> tauri_plugin_store2::ScopedStore<R, crate::StoreKey>;
 
@@ -113,11 +150,7 @@ impl<R: Runtime, T: Manager<R>> LocalLlmPluginExt<R> for T {
     }
 
     fn models_dir(&self) -> PathBuf {
-        use tauri_plugin_settings::SettingsPluginExt;
-        self.settings()
-            .global_base()
-            .map(|base| base.join("models").join("llm").into_std_path_buf())
-            .unwrap_or_else(|_| dirs::data_dir().unwrap().join("models").join("llm"))
+        hypr_local_llm_core::llm_models_dir(&models_base(self))
     }
 
     #[tracing::instrument(skip_all)]
@@ -271,9 +304,13 @@ impl<R: Runtime, T: Manager<R>> LocalLlmPluginExt<R> for T {
         }
 
         let selection = self.get_current_model_selection()?;
-        let models_dir = self.models_dir();
-
-        let server = hypr_local_llm_core::LlmServer::start(&selection, &models_dir).await?;
+        let models_base = models_base(self);
+        let server = hypr_local_llm_core::LlmServer::start_with_resolver(
+            &selection,
+            &models_base,
+            |relative_path| resolve_resource_path(self, relative_path),
+        )
+        .await?;
         let url = server.url().to_string();
 
         {
@@ -306,5 +343,20 @@ impl<R: Runtime, T: Manager<R>> LocalLlmPluginExt<R> for T {
         let guard = state.lock().await;
 
         Ok(guard.server.as_ref().map(|s| s.url().to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_resource_candidates_include_dev_fallback() {
+        let candidates = bundled_resource_candidates("models/cactus/char-vlm/weight");
+
+        assert_eq!(candidates[0], "models/cactus/char-vlm/weight");
+        if cfg!(debug_assertions) {
+            assert_eq!(candidates[1], "resources/models/cactus/char-vlm/weight");
+        }
     }
 }

@@ -146,10 +146,11 @@ async serverUrl() : Promise<Result<string | null, string>> {
 
 /** user-defined types **/
 
+export type CactusLlmModel = "cactus-gemma3-270m" | "cactus-lfm2-350m" | "cactus-qwen3-0.6b" | "cactus-lfm2-700m" | "cactus-gemma3-1b" | "cactus-lfm2.5-1.2b-instruct" | "cactus-qwen3-1.7b" | "cactus-lfm2-vl-450m-apple" | "cactus-lfm2.5-vl-1.6b-apple"
 export type CustomModelInfo = { path: string; name: string }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "HyprLLM"
 export type ModelInfo = { key: GgufLlmModel; name: string; description: string; size_bytes: number }
-export type ModelSelection = { type: "Predefined"; content: { key: GgufLlmModel } } | { type: "Custom"; content: { path: string } }
+export type ModelSelection = { type: "Predefined"; content: { key: GgufLlmModel } } | { type: "Cactus"; content: { key: CactusLlmModel } } | { type: "Custom"; content: { path: string } }
 export type TAURI_CHANNEL<TSend> = null
 
 /** tauri-specta globals **/
