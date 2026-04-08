@@ -137,7 +137,7 @@ Look at what just happened:
 
 ![Person note with backlinks panel showing linked meeting notes](/api/assets/blog/articles/obsidian-meeting-notes/image-3-1.png "char-editor-width=80")
 
-Open Sarah Chen.md in People/. Click the backlinks icon in the right sidebar. Every meeting where you wrote [[Sarah Chen]] shows up with surrounding context. You can see what was discussed, what she decided, what she owes — all without maintaining anything.
+Open `Sarah Chen.md` in `People/`. Click the backlinks icon in the right sidebar. Every meeting where you wrote `[[Sarah Chen]]` shows up with surrounding context. You can see what was discussed, what she decided, what she owes — all without maintaining anything.
 
 This is the approach from the [Managing notes for meetings thread](https://forum.obsidian.md/t/managing-notes-for-meetings-and-one-on-ones-effectively/32049) that resonated with the most people. No plugins. No queries. Just links and backlinks doing the work.
 
@@ -158,7 +158,7 @@ Embed this Base in Sarah's person note and it renders a table of every meeting n
 
 If you use Obsidian's Daily Notes plugin, you probably want to create meeting notes from there. The [Daily Note to Meeting Note thread](https://forum.obsidian.md/t/from-daily-note-create-a-new-note-with-a-template/87160) shows how to set up a one-click button using Meta Bind and Templater that:
 
-1. Creates a new note in your Meetings/ folder
+1. Creates a new note in your `Meetings/` folder
 2. Applies your meeting template
 3. Renames it with today's date
 4. Opens it in a new tab
@@ -219,7 +219,7 @@ Everyone at a specific company:
 [company:Acme]
 ```
 
-Searches the company property across person notes. Useful when you're preparing for a client meeting and want to see all your contacts there.
+Searches the `company` property across person notes. Useful when you're preparing for a client meeting and want to see all your contacts there.
 
 ### Step 8: Add Char for real-time transcription and AI notes
 
@@ -235,7 +235,7 @@ Char is an open-source AI notepad for meetings. Here's what it does and why it f
 
 ![Char obsidian integration](/api/assets/blog/articles/obsidian-meeting-notes/image-10-1.png "char-editor-width=80")
 
-You point the output folder at your vault. This is the key. Set Char's output folder to your Meetings/ folder (or a subfolder like Meetings/Transcripts/). When Char finishes processing a meeting, the transcript and summary appear in your vault. Obsidian indexes them instantly. They're searchable, linkable, part of your system. No export. No copy-paste.
+You point the output folder at your vault. This is the key. Set Char's output folder to your `Meetings/` folder (or a subfolder like `Meetings/Transcripts/`). When Char finishes processing a meeting, the transcript and summary appear in your vault. Obsidian indexes them instantly. They're searchable, linkable, part of your system. No export. No copy-paste.
 
 It records via system audio. No bot joins your Zoom. No calendar permissions. Char captures what your computer hears, which means it works with Zoom, Teams, Google Meet, phone calls, and in-person conversations with a mic. Nobody in the meeting knows it's running.
 
@@ -251,7 +251,7 @@ If you use Obsidian, you already made this choice once: files on your machine, o
 
 Monday morning. You open Obsidian.
 
-1. You check your calendar and see three meetings today. From your daily note, you create a meeting note for the first one: 2026-04-07 Sprint Planning.
+1. You check your calendar and see three meetings today. From your daily note, you create a meeting note for the first one: `2026-04-07 Sprint Planning`.
 2. The meeting starts. You open Char. It starts recording system audio. You take notes in Obsidian: quick bullets, [[wikilinks]] for people and topics as they come up.
 3. The meeting ends. You stop Char. It processes the recording and drops a transcript and structured summary into your vault. You pull the key decisions and action items to the top of your meeting note.
 4. Before your 1:1 with Sarah that afternoon, you open [[Sarah Chen]] and glance at backlinks. You can see every meeting she's been in this month, what she committed to, what's still open. You search task-todo:"Sarah Chen" and it shows rwo open items from last week.
