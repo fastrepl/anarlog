@@ -1,0 +1,14 @@
+.content-admin-chrome,
+.content-admin-chrome * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.content-admin-chrome input,
+.content-admin-chrome textarea,
+.content-admin-chrome select,
+.content-admin-chrome [contenteditable="true"],
+.content-admin-chrome [role="textbox"] {
+  -webkit-user-select: text;
+  user-select: text;
+}

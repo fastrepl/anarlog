@@ -194,7 +194,7 @@ export function Toolbar({
   const currentIndex = (editorState?.searchResultIndex ?? 0) + 1;
 
   return (
-    <div className="border-b border-neutral-200 bg-white">
+    <div className="content-admin-chrome border-b border-neutral-200 bg-white">
       <div className="flex flex-wrap items-center gap-0.5 p-2">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}

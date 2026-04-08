@@ -167,7 +167,7 @@ export function MediaSelectorModal({
         className="animate-in fade-in-0 fixed inset-0 z-50 bg-black/80"
         onClick={() => onOpenChange(false)}
       />
-      <div className="animate-in fade-in-0 zoom-in-95 fixed top-[50%] left-[50%] z-50 flex h-[80vh] w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-sm border bg-white shadow-lg">
+      <div className="content-admin-chrome animate-in fade-in-0 zoom-in-95 fixed top-[50%] left-[50%] z-50 flex h-[80vh] w-full max-w-4xl translate-x-[-50%] translate-y-[-50%] flex-col overflow-hidden rounded-sm border bg-white shadow-lg">
         {/* Header with search and breadcrumbs */}
         <div className="shrink-0">
           <div className="flex items-center gap-1.5 border-b border-neutral-200 px-4 py-3">

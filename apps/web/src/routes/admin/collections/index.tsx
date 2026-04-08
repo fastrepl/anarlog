@@ -1,3 +1,5 @@
+import "./collections.css";
+
 import { MDXContent } from "@content-collections/mdx/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
@@ -1045,7 +1047,7 @@ function CollectionsPage() {
         open={deleteConfirmation !== null}
         onOpenChange={(open) => !open && setDeleteConfirmation(null)}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="content-admin-chrome max-w-md">
           <DialogHeader>
             <DialogTitle>
               {isDiscardDelete ? "Discard Draft" : "Delete File"}
@@ -1229,7 +1231,7 @@ function Sidebar({
   }, [activeCollection]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
+    <div className="content-admin-chrome flex h-full min-h-0 flex-col border-r border-neutral-200 bg-white">
       <div className="flex h-10 items-center border-b border-neutral-200 pr-2 pl-4">
         <div className="relative flex w-full items-center gap-1.5">
           <SearchIcon className="size-4 shrink-0 text-neutral-400" />
@@ -1648,7 +1650,7 @@ function NewPostInlineInput({
   };
 
   return (
-    <div>
+    <div className="content-admin-chrome">
       <div
         className={cn([
           "flex items-center gap-1.5 py-1.5 pr-2 pl-4 text-sm",
@@ -1761,7 +1763,7 @@ function StructuredPageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="content-admin-chrome max-w-md">
         <DialogHeader>
           <DialogTitle>
             {mode === "create" ? "Create page" : "Move or rename page"}
@@ -3019,7 +3021,7 @@ function MetadataPanel({
     <div
       key={filePath}
       className={cn([
-        "relative shrink-0",
+        "content-admin-chrome relative shrink-0",
         isExpanded && "border-b border-neutral-200",
       ])}
     >
@@ -3264,7 +3266,7 @@ function MetadataSidePanel({
   const [isTitleExpanded, setIsTitleExpanded] = useState(false);
 
   return (
-    <div className="text-sm" key={filePath}>
+    <div className="content-admin-chrome text-sm" key={filePath}>
       <div className="flex border-b border-neutral-200">
         <button
           onClick={() => setIsTitleExpanded(!isTitleExpanded)}
@@ -3414,7 +3416,7 @@ function StructuredContentMetadataPanel({
     collection === "docs" ? onDescriptionChange : onSummaryChange;
 
   return (
-    <div className="text-sm" key={filePath}>
+    <div className="content-admin-chrome text-sm" key={filePath}>
       <MetadataRow label="Title" required>
         <input
           type="text"
@@ -4238,7 +4240,7 @@ function FileItem({
   return (
     <div
       className={cn([
-        "flex cursor-pointer items-center justify-between rounded px-3 py-2",
+        "content-admin-chrome flex cursor-pointer items-center justify-between rounded px-3 py-2",
         "transition-colors hover:bg-neutral-50",
         "border border-transparent hover:border-neutral-200",
       ])}
