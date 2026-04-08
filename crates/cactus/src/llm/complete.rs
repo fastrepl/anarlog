@@ -152,7 +152,7 @@ impl Model {
         };
 
         let (rc, buf) = self.call_complete(
-            &guard,
+            guard,
             &request.messages_c,
             &request.options_c,
             Some(token_trampoline::<F>),
