@@ -11,6 +11,7 @@ hypr-audio-mime = { workspace = true }
 hypr-language = { workspace = true }
 hypr-observability = { workspace = true }
 hypr-supabase-storage = { workspace = true }
+hypr-transcribe-core = { workspace = true }
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true, features = ["openapi"] }
 

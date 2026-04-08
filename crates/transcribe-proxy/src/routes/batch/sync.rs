@@ -7,12 +7,15 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use backon::{ExponentialBuilder, Retryable};
+use futures_util::StreamExt;
+use hypr_transcribe_core::batch_sse_response;
 use owhisper_client::{
     AssemblyAIAdapter, BatchClient, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter,
     GladiaAdapter, MistralAdapter, OpenAIAdapter, Provider, PyannoteAdapter, SonioxAdapter,
 };
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
+use owhisper_interface::batch_sse::BatchSseMessage;
 
 use crate::hyprnote_routing::{RetryConfig, RoutingMode};
 use crate::provider_selector::SelectedProvider;
@@ -97,24 +100,41 @@ fn resolve_listen_params_for_provider(
     resolved_params
 }
 
-pub(super) async fn handle_hyprnote_batch(
+struct PreparedBatchRoute {
+    provider_chain: Vec<SelectedProvider>,
+    retry_config: RetryConfig,
+    trace: BatchRoutingTrace,
+}
+
+struct BatchChainFailure {
+    last_error: Option<String>,
+    providers_tried: Vec<Provider>,
+    trace: BatchRoutingTrace,
+}
+
+enum AttemptOutcome<T> {
+    Success {
+        value: T,
+        retries: usize,
+    },
+    Failure {
+        error: BatchAttemptError,
+        retries: usize,
+        can_fallback: bool,
+    },
+}
+
+fn prepare_routed_batch(
     state: &AppState,
     params: &QueryParams,
-    listen_params: ListenParams,
-    body: Bytes,
+    listen_params: &ListenParams,
+    body: &Bytes,
     content_type: &str,
-) -> Response {
+) -> Result<PreparedBatchRoute, String> {
     let provider_chain = state.resolve_hyprnote_provider_chain_for_mode(RoutingMode::Batch, params);
 
     if provider_chain.is_empty() {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({
-                "error": "no_providers_available",
-                "detail": "No providers available for the requested language(s)"
-            })),
-        )
-            .into_response();
+        return Err("No providers available for the requested language(s)".to_string());
     }
 
     let retry_config = state
@@ -130,39 +150,57 @@ pub(super) async fn handle_hyprnote_batch(
         "hyprnote_batch_transcription_request"
     );
 
+    Ok(PreparedBatchRoute {
+        trace: BatchRoutingTrace {
+            request_model: listen_params.model.clone(),
+            request_languages: listen_params
+                .languages
+                .iter()
+                .map(|lang| lang.iso639().code().to_string())
+                .collect(),
+            provider_chain: provider_chain
+                .iter()
+                .map(|selected| selected.provider().to_string())
+                .collect(),
+            attempts: Vec::new(),
+            outcome: "in_progress".to_string(),
+        },
+        provider_chain,
+        retry_config,
+    })
+}
+
+async fn run_routed_batch_chain<T, F, Fut>(
+    prepared: PreparedBatchRoute,
+    listen_params: &ListenParams,
+    body: &Bytes,
+    content_type: &str,
+    mut attempt_provider: F,
+) -> Result<T, BatchChainFailure>
+where
+    F: FnMut(SelectedProvider, ListenParams, Bytes, String, RetryConfig) -> Fut,
+    Fut: std::future::Future<Output = AttemptOutcome<T>>,
+{
     let mut last_error: Option<String> = None;
     let mut providers_tried = Vec::new();
-    let mut trace = BatchRoutingTrace {
-        request_model: listen_params.model.clone(),
-        request_languages: listen_params
-            .languages
-            .iter()
-            .map(|lang| lang.iso639().code().to_string())
-            .collect(),
-        provider_chain: provider_chain
-            .iter()
-            .map(|selected| selected.provider().to_string())
-            .collect(),
-        attempts: Vec::new(),
-        outcome: "in_progress".to_string(),
-    };
+    let mut trace = prepared.trace;
 
-    for (attempt, selected) in provider_chain.iter().enumerate() {
+    for (attempt, selected) in prepared.provider_chain.iter().enumerate() {
         let provider = selected.provider();
-        let provider_listen_params = resolve_listen_params_for_provider(provider, &listen_params);
+        let provider_listen_params = resolve_listen_params_for_provider(provider, listen_params);
         let resolved_model = provider_listen_params.model.clone();
         providers_tried.push(provider);
 
-        match transcribe_with_retry(
-            selected,
+        match attempt_provider(
+            selected.clone(),
             provider_listen_params,
             body.clone(),
-            content_type,
-            &retry_config,
+            content_type.to_string(),
+            prepared.retry_config.clone(),
         )
         .await
         {
-            Ok((response, retries)) => {
+            AttemptOutcome::Success { value, retries } => {
                 tracing::info!(
                     hyprnote.stt.provider.name = ?provider,
                     hyprnote.attempt.number = attempt + 1,
@@ -177,14 +215,18 @@ pub(super) async fn handle_hyprnote_batch(
                 trace.outcome = "success".to_string();
                 log_batch_routing_trace(&trace, true);
 
-                return Json(response).into_response();
+                return Ok(value);
             }
-            Err((e, retries)) => {
+            AttemptOutcome::Failure {
+                error: e,
+                retries,
+                can_fallback,
+            } => {
                 tracing::warn!(
                     hyprnote.stt.provider.name = ?provider,
                     error = %e,
                     hyprnote.attempt.number = attempt + 1,
-                    hyprnote.remaining_provider_count = provider_chain.len() - attempt - 1,
+                    hyprnote.remaining_provider_count = prepared.provider_chain.len() - attempt - 1,
                     "provider_failed_trying_next"
                 );
                 trace.attempts.push(BatchRoutingAttempt {
@@ -194,6 +236,17 @@ pub(super) async fn handle_hyprnote_batch(
                     result: format!("{}: {}", e.kind(), e.message()),
                 });
                 last_error = Some(e.message().to_string());
+
+                if !can_fallback {
+                    trace.outcome = "terminal_failure".to_string();
+                    log_batch_routing_trace(&trace, false);
+
+                    return Err(BatchChainFailure {
+                        last_error,
+                        providers_tried,
+                        trace,
+                    });
+                }
             }
         }
     }
@@ -201,12 +254,345 @@ pub(super) async fn handle_hyprnote_batch(
     trace.outcome = "all_providers_failed".to_string();
     log_batch_routing_trace(&trace, false);
 
+    Err(BatchChainFailure {
+        last_error,
+        providers_tried,
+        trace,
+    })
+}
+
+pub(super) fn handle_routed_batch_sse(
+    state: &AppState,
+    params: &QueryParams,
+    listen_params: ListenParams,
+    body: Bytes,
+    content_type: &str,
+) -> Response {
+    let prepared = prepare_routed_batch(state, params, &listen_params, &body, content_type);
+    let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<BatchSseMessage>();
+
+    match prepared {
+        Ok(prepared) => {
+            let content_type = content_type.to_string();
+            tokio::spawn(async move {
+                let result = run_routed_batch_chain(
+                    prepared,
+                    &listen_params,
+                    &body,
+                    &content_type,
+                    |selected, params, body, content_type, retry_config| {
+                        let event_tx = event_tx.clone();
+                        async move {
+                            stream_batch_attempt_as_sse(
+                                &selected,
+                                params,
+                                &body,
+                                &content_type,
+                                &retry_config,
+                                &event_tx,
+                            )
+                            .await
+                        }
+                    },
+                )
+                .await;
+
+                if let Err(failure) = result {
+                    let detail = failure
+                        .last_error
+                        .unwrap_or_else(|| "Unknown error".to_string());
+                    let error = if failure.trace.provider_chain.is_empty() {
+                        "no_providers_available".to_string()
+                    } else {
+                        "all_providers_failed".to_string()
+                    };
+                    let _ = event_tx.send(BatchSseMessage::Error { error, detail });
+                }
+            });
+        }
+        Err(detail) => {
+            let _ = event_tx.send(BatchSseMessage::Error {
+                error: "no_providers_available".to_string(),
+                detail,
+            });
+        }
+    }
+
+    batch_sse_response(event_rx)
+}
+
+pub(super) fn handle_direct_batch_sse(
+    selected: SelectedProvider,
+    listen_params: ListenParams,
+    body: Bytes,
+    content_type: &str,
+    retry_config: RetryConfig,
+) -> Response {
+    let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel::<BatchSseMessage>();
+    let content_type = content_type.to_string();
+
+    tokio::spawn(async move {
+        let outcome = stream_batch_attempt_as_sse(
+            &selected,
+            listen_params,
+            &body,
+            &content_type,
+            &retry_config,
+            &event_tx,
+        )
+        .await;
+
+        if let AttemptOutcome::Failure { error, .. } = outcome {
+            let _ = event_tx.send(BatchSseMessage::Error {
+                error: selected.provider().to_string(),
+                detail: error.to_string(),
+            });
+        }
+    });
+
+    batch_sse_response(event_rx)
+}
+
+pub(super) async fn handle_routed_batch_json(
+    state: &AppState,
+    params: &QueryParams,
+    listen_params: ListenParams,
+    body: Bytes,
+    content_type: &str,
+) -> Response {
+    let prepared = match prepare_routed_batch(state, params, &listen_params, &body, content_type) {
+        Ok(prepared) => prepared,
+        Err(detail) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "no_providers_available",
+                    "detail": detail
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    match run_routed_batch_chain(
+        prepared,
+        &listen_params,
+        &body,
+        content_type,
+        |selected, params, body, content_type, retry_config| async move {
+            match transcribe_with_retry(&selected, params, body, &content_type, &retry_config).await
+            {
+                Ok((response, retries)) => AttemptOutcome::Success {
+                    value: response,
+                    retries,
+                },
+                Err((error, retries)) => AttemptOutcome::Failure {
+                    error,
+                    retries,
+                    can_fallback: true,
+                },
+            }
+        },
+    )
+    .await
+    {
+        Ok(response) => Json(response).into_response(),
+        Err(failure) => all_providers_failed_response(failure),
+    }
+}
+
+async fn stream_batch_attempt_as_sse(
+    selected: &SelectedProvider,
+    params: ListenParams,
+    audio_bytes: &Bytes,
+    content_type: &str,
+    retry_config: &RetryConfig,
+    event_tx: &tokio::sync::mpsc::UnboundedSender<BatchSseMessage>,
+) -> AttemptOutcome<()> {
+    if selected.provider() == Provider::OpenAI
+        && OpenAIAdapter::supports_progressive_batch_model(params.model.as_deref())
+    {
+        return stream_openai_batch_sse_with_retry(
+            selected,
+            params,
+            audio_bytes,
+            content_type,
+            retry_config,
+            event_tx,
+        )
+        .await;
+    }
+
+    match transcribe_with_retry(
+        selected,
+        params,
+        audio_bytes.clone(),
+        content_type,
+        retry_config,
+    )
+    .await
+    {
+        Ok((response, retries)) => {
+            let _ = event_tx.send(BatchSseMessage::Result { response });
+            AttemptOutcome::Success { value: (), retries }
+        }
+        Err((error, retries)) => AttemptOutcome::Failure {
+            error,
+            retries,
+            can_fallback: true,
+        },
+    }
+}
+
+struct StreamingAttemptFailure {
+    error: BatchAttemptError,
+    emitted_output: bool,
+}
+
+async fn stream_openai_batch_sse_with_retry(
+    selected: &SelectedProvider,
+    params: ListenParams,
+    audio_bytes: &Bytes,
+    content_type: &str,
+    retry_config: &RetryConfig,
+    event_tx: &tokio::sync::mpsc::UnboundedSender<BatchSseMessage>,
+) -> AttemptOutcome<()> {
+    let mut retries = 0usize;
+
+    loop {
+        match stream_openai_batch_sse_once(selected, &params, audio_bytes, content_type, event_tx)
+            .await
+        {
+            Ok(()) => {
+                return AttemptOutcome::Success { value: (), retries };
+            }
+            Err(failure)
+                if !failure.emitted_output
+                    && failure.error.is_retryable()
+                    && retries < retry_config.num_retries =>
+            {
+                retries += 1;
+                let delay_secs = (1u64 << retries).min(retry_config.max_delay_secs);
+                let delay = Duration::from_secs(delay_secs);
+                tracing::warn!(
+                    hyprnote.stt.provider.name = ?selected.provider(),
+                    error = %failure.error,
+                    hyprnote.retry.delay_ms = delay.as_millis(),
+                    "retrying_transcription"
+                );
+                tokio::time::sleep(delay).await;
+            }
+            Err(failure) => {
+                if failure.emitted_output {
+                    let _ = event_tx.send(BatchSseMessage::Error {
+                        error: selected.provider().to_string(),
+                        detail: failure.error.to_string(),
+                    });
+                }
+
+                return AttemptOutcome::Failure {
+                    error: failure.error,
+                    retries,
+                    can_fallback: !failure.emitted_output,
+                };
+            }
+        }
+    }
+}
+
+async fn stream_openai_batch_sse_once(
+    selected: &SelectedProvider,
+    params: &ListenParams,
+    audio_bytes: &Bytes,
+    content_type: &str,
+    event_tx: &tokio::sync::mpsc::UnboundedSender<BatchSseMessage>,
+) -> Result<(), StreamingAttemptFailure> {
+    let temp_file =
+        write_to_temp_file(audio_bytes, content_type).map_err(|e| StreamingAttemptFailure {
+            error: BatchAttemptError::Client(format!("failed to create temp file: {e}")),
+            emitted_output: false,
+        })?;
+
+    let file_path = temp_file.path().to_path_buf();
+    let provider_name = selected.provider().to_string();
+    let api_base = selected
+        .upstream_url()
+        .unwrap_or(selected.provider().default_api_base());
+    let api_key = selected.api_key();
+
+    let mut stream =
+        OpenAIAdapter::transcribe_file_streaming(api_base, api_key, params, &file_path)
+            .await
+            .map_err(|error| StreamingAttemptFailure {
+                error: map_provider_error(error),
+                emitted_output: false,
+            })?;
+
+    let mut emitted_output = false;
+
+    while let Some(event) = stream.next().await {
+        match event {
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Progress {
+                percentage,
+                partial_text,
+            }) => {
+                emitted_output = true;
+                let _ = event_tx.send(BatchSseMessage::Progress {
+                    progress: owhisper_interface::InferenceProgress {
+                        percentage,
+                        partial_text,
+                        phase: owhisper_interface::progress::InferencePhase::Transcribing,
+                    },
+                });
+            }
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Result { response }) => {
+                emitted_output = true;
+                let _ = event_tx.send(BatchSseMessage::Result { response });
+            }
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Error {
+                error_message,
+                provider,
+                ..
+            }) => {
+                return Err(StreamingAttemptFailure {
+                    error: classify_audio_processing_message(if provider.is_empty() {
+                        error_message
+                    } else {
+                        format!("{provider}: {error_message}")
+                    }),
+                    emitted_output,
+                });
+            }
+            Ok(owhisper_interface::batch_stream::BatchStreamEvent::Segment { .. })
+            | Ok(owhisper_interface::batch_stream::BatchStreamEvent::Terminal { .. }) => {}
+            Err(error) => {
+                return Err(StreamingAttemptFailure {
+                    error: map_provider_error(error),
+                    emitted_output,
+                });
+            }
+        }
+    }
+
+    if !emitted_output {
+        return Err(StreamingAttemptFailure {
+            error: BatchAttemptError::Retryable(format!(
+                "{provider_name} stream ended before emitting any events"
+            )),
+            emitted_output: false,
+        });
+    }
+
+    Ok(())
+}
+
+fn all_providers_failed_response(failure: BatchChainFailure) -> Response {
     (
         StatusCode::BAD_GATEWAY,
         Json(serde_json::json!({
             "error": "all_providers_failed",
-            "detail": last_error.unwrap_or_else(|| "Unknown error".to_string()),
-            "providers_tried": providers_tried.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>()
+            "detail": failure.last_error.unwrap_or_else(|| "Unknown error".to_string()),
+            "providers_tried": failure.providers_tried.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>()
         })),
     )
         .into_response()

@@ -5,6 +5,7 @@ use owhisper_client::Provider;
 
 use crate::error::SelectionError;
 
+#[derive(Clone)]
 pub struct SelectedProvider {
     provider: Provider,
     api_key: String,

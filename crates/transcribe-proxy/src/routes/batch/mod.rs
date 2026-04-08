@@ -6,8 +6,8 @@ use std::io::Write;
 use axum::{
     Json,
     body::Bytes,
-    extract::State,
-    http::{HeaderMap, StatusCode},
+    extract::{FromRequestParts, State},
+    http::{HeaderMap, StatusCode, request::Parts},
     response::{IntoResponse, Response},
 };
 use hypr_api_auth::AuthContext;
@@ -21,9 +21,29 @@ use crate::query_params::QueryParams;
 
 use super::AppState;
 
+pub(crate) struct WantsBatchSse(pub bool);
+
+impl<S> FromRequestParts<S> for WantsBatchSse
+where
+    S: Send + Sync,
+{
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        Ok(Self(
+            parts
+                .headers
+                .get("accept")
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.contains("text/event-stream")),
+        ))
+    }
+}
+
 pub async fn handler(
     State(state): State<AppState>,
     auth: Option<axum::Extension<AuthContext>>,
+    WantsBatchSse(wants_batch_sse): WantsBatchSse,
     headers: HeaderMap,
     mut params: QueryParams,
     body: Bytes,
@@ -56,7 +76,17 @@ pub async fn handler(
     let use_hyprnote_routing = should_use_hyprnote_routing(provider_param.as_deref());
 
     if use_hyprnote_routing {
-        return sync::handle_hyprnote_batch(&state, &params, listen_params, body, content_type)
+        if wants_batch_sse {
+            return sync::handle_routed_batch_sse(
+                &state,
+                &params,
+                listen_params,
+                body,
+                content_type,
+            );
+        }
+
+        return sync::handle_routed_batch_json(&state, &params, listen_params, body, content_type)
             .await;
     }
 
@@ -77,6 +107,16 @@ pub async fn handler(
         .as_ref()
         .map(|r| r.retry_config().clone())
         .unwrap_or_default();
+
+    if wants_batch_sse {
+        return sync::handle_direct_batch_sse(
+            selected,
+            listen_params,
+            body,
+            content_type,
+            retry_config,
+        );
+    }
 
     match sync::transcribe_with_retry(&selected, listen_params, body, content_type, &retry_config)
         .await
@@ -129,6 +169,7 @@ fn write_to_temp_file(
 mod tests {
     use super::*;
     use crate::query_params::QueryValue;
+    use axum::http::Request;
     use hypr_language::ISO639;
 
     #[test]
@@ -151,5 +192,32 @@ mod tests {
         assert_eq!(listen_params.languages[0].region(), None);
         assert_eq!(listen_params.languages[1].iso639(), ISO639::Ko);
         assert_eq!(listen_params.languages[1].region(), Some("KR"));
+    }
+
+    #[tokio::test]
+    async fn wants_batch_sse_detects_event_stream_accept_header() {
+        let request = Request::builder()
+            .header("accept", "application/json, text/event-stream")
+            .body(())
+            .expect("request");
+        let (mut parts, _) = request.into_parts();
+
+        let wants_sse = WantsBatchSse::from_request_parts(&mut parts, &())
+            .await
+            .expect("extractor");
+
+        assert!(wants_sse.0);
+    }
+
+    #[tokio::test]
+    async fn wants_batch_sse_defaults_to_false() {
+        let request = Request::builder().body(()).expect("request");
+        let (mut parts, _) = request.into_parts();
+
+        let wants_sse = WantsBatchSse::from_request_parts(&mut parts, &())
+            .await
+            .expect("extractor");
+
+        assert!(!wants_sse.0);
     }
 }

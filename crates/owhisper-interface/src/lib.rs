@@ -88,6 +88,13 @@ common_derives! {
 }
 
 common_derives! {
+    pub struct KnownSpeakerReference {
+        pub name: String,
+        pub audio_data_url: String,
+    }
+}
+
+common_derives! {
     #[serde(tag = "type", content = "value")]
     pub enum ListenInputChunk {
         #[serde(rename = "audio")]
@@ -153,6 +160,8 @@ common_derives! {
         #[serde(default)]
         pub max_speakers: Option<u32>,
         #[serde(default)]
+        pub known_speaker_references: Vec<KnownSpeakerReference>,
+        #[serde(default)]
         #[cfg_attr(feature = "openapi", schema(value_type = Option<Object>))]
         pub custom_query: Option<std::collections::HashMap<String, String>>,
     }
@@ -169,6 +178,7 @@ impl Default for ListenParams {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            known_speaker_references: Vec::new(),
             custom_query: None,
         }
     }
@@ -181,5 +191,44 @@ impl ListenParams {
 
     fn default_sample_rate() -> u32 {
         16000
+    }
+
+    pub fn add_known_speaker_reference(
+        &mut self,
+        name: impl Into<String>,
+        audio_data_url: impl Into<String>,
+    ) -> &mut Self {
+        self.known_speaker_references.push(KnownSpeakerReference {
+            name: name.into(),
+            audio_data_url: audio_data_url.into(),
+        });
+        self
+    }
+
+    pub fn with_known_speaker_reference(
+        mut self,
+        name: impl Into<String>,
+        audio_data_url: impl Into<String>,
+    ) -> Self {
+        self.add_known_speaker_reference(name, audio_data_url);
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn listen_params_builder_adds_known_speaker_reference() {
+        let params = ListenParams::default()
+            .with_known_speaker_reference("agent", "data:audio/wav;base64,AAA=");
+
+        assert_eq!(params.known_speaker_references.len(), 1);
+        assert_eq!(params.known_speaker_references[0].name, "agent");
+        assert_eq!(
+            params.known_speaker_references[0].audio_data_url,
+            "data:audio/wav;base64,AAA="
+        );
     }
 }

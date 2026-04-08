@@ -78,6 +78,7 @@ impl ResolvedSttConfig {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            known_speaker_references: vec![],
         }
     }
 }

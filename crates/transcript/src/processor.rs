@@ -296,7 +296,37 @@ impl PartialSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse, Word};
+
     use crate::types::RawWord;
+
+    fn transcript_response(transcript: &str, word: &str, start: f64, end: f64) -> StreamResponse {
+        StreamResponse::TranscriptResponse {
+            is_final: true,
+            speech_final: false,
+            from_finalize: false,
+            start,
+            duration: end - start,
+            channel: Channel {
+                alternatives: vec![Alternatives {
+                    transcript: transcript.to_string(),
+                    words: vec![Word {
+                        word: word.to_string(),
+                        start,
+                        end,
+                        confidence: 1.0,
+                        speaker: None,
+                        punctuated_word: Some(word.to_string()),
+                        language: None,
+                    }],
+                    confidence: 1.0,
+                    languages: vec![],
+                }],
+            },
+            metadata: Metadata::default(),
+            channel_index: vec![0, 1],
+        }
+    }
 
     #[test]
     fn partial_snapshot_carries_speaker_index_on_words() {
@@ -341,5 +371,23 @@ mod tests {
         assert_eq!(snapshot.partials[0].speaker_index, Some(4));
         assert_eq!(snapshot.partials[1].speaker_index, None);
         assert_eq!(snapshot.partials[2].speaker_index, Some(7));
+    }
+
+    #[test]
+    fn final_chunks_with_leading_space_do_not_stitch_into_previous_word() {
+        let mut processor = TranscriptProcessor::new();
+
+        let first = transcript_response(" Maybe", "Maybe", 0.0, 1.0);
+        let second = transcript_response(" this", "this", 1.0, 2.0);
+
+        assert!(processor.process(&first).is_none());
+
+        let second_delta = processor.process(&second).expect("second delta");
+        assert_eq!(second_delta.new_words.len(), 1);
+        assert_eq!(second_delta.new_words[0].text, " Maybe");
+
+        let flushed = processor.flush();
+        assert_eq!(flushed.new_words.len(), 1);
+        assert_eq!(flushed.new_words[0].text, " this");
     }
 }

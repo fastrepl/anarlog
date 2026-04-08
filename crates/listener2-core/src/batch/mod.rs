@@ -55,6 +55,8 @@ pub struct BatchParams {
     pub min_speakers: Option<u32>,
     #[serde(default)]
     pub max_speakers: Option<u32>,
+    #[serde(default)]
+    pub known_speaker_references: Vec<owhisper_interface::KnownSpeakerReference>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -235,6 +237,7 @@ fn build_listen_params(
         num_speakers: params.num_speakers,
         min_speakers: params.min_speakers,
         max_speakers: params.max_speakers,
+        known_speaker_references: params.known_speaker_references.clone(),
         custom_query: None,
     }
 }
@@ -326,6 +329,7 @@ mod tests {
             num_speakers: None,
             min_speakers: None,
             max_speakers: None,
+            known_speaker_references: vec![],
         }
     }
 
@@ -351,6 +355,20 @@ mod tests {
         assert_eq!(listen_params.min_speakers, Some(2));
         assert_eq!(listen_params.max_speakers, Some(4));
         assert!(listen_params.custom_query.is_none());
+    }
+
+    #[test]
+    fn build_listen_params_preserves_known_speaker_references() {
+        let mut params = batch_params(BatchProvider::OpenAI, "https://api.openai.com/v1");
+        params.known_speaker_references = vec![owhisper_interface::KnownSpeakerReference {
+            name: "agent".to_string(),
+            audio_data_url: "data:audio/wav;base64,AAA=".to_string(),
+        }];
+
+        let listen_params = build_listen_params(&params, 1, 16_000);
+
+        assert_eq!(listen_params.known_speaker_references.len(), 1);
+        assert_eq!(listen_params.known_speaker_references[0].name, "agent");
     }
 
     #[test]

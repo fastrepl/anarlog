@@ -135,6 +135,8 @@ pub struct TranscriptionParams {
     pub min_speakers: Option<u32>,
     #[serde(default)]
     pub max_speakers: Option<u32>,
+    #[serde(default)]
+    pub known_speaker_references: Vec<owhisper_interface::KnownSpeakerReference>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -282,6 +284,7 @@ impl From<TranscriptionParams> for listener2::BatchParams {
             num_speakers: value.num_speakers,
             min_speakers: value.min_speakers,
             max_speakers: value.max_speakers,
+            known_speaker_references: value.known_speaker_references,
         }
     }
 }
@@ -314,7 +317,7 @@ mod tests {
 
     #[test]
     fn defaults_openai_capture_to_batch_mode() {
-        let params = capture_params("https://api.openai.com/v1", "gpt-4o-transcribe");
+        let params = capture_params("https://api.openai.com/v1", "gpt-4o-transcribe-diarize");
 
         assert_eq!(
             params.default_transcription_mode(),

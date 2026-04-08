@@ -184,6 +184,16 @@ fn build_transcription_options(
         options.push_language(lang.iso639().code().to_string());
     }
 
+    if matches!(options, CreateTranscriptionOptions::Diarize(_)) {
+        let common = options.common_mut();
+        for speaker in &params.known_speaker_references {
+            common.known_speaker_names.push(speaker.name.clone());
+            common
+                .known_speaker_references
+                .push(speaker.audio_data_url.clone());
+        }
+    }
+
     options
 }
 
@@ -512,6 +522,63 @@ mod tests {
             .expect("serialize multipart");
         assert!(matches!(options, CreateTranscriptionOptions::Whisper(_)));
         assert!(!fields.iter().any(|field| field.name == "stream"));
+    }
+
+    #[test]
+    fn build_transcription_options_includes_known_speaker_references_for_diarize_model() {
+        let options = build_transcription_options(
+            &ListenParams::default()
+                .with_known_speaker_reference("agent", "data:audio/wav;base64,AAA="),
+            true,
+            false,
+        );
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+
+        assert!(matches!(options, CreateTranscriptionOptions::Diarize(_)));
+        assert!(
+            fields
+                .iter()
+                .any(|field| { field.name == "known_speaker_names[]" && field.value == "agent" })
+        );
+        assert!(fields.iter().any(|field| {
+            field.name == "known_speaker_references[]"
+                && field.value == "data:audio/wav;base64,AAA="
+        }));
+    }
+
+    #[test]
+    fn build_transcription_options_omits_known_speaker_references_for_non_diarize_model() {
+        let options = build_transcription_options(
+            &ListenParams {
+                model: Some("gpt-4o-transcribe".to_string()),
+                known_speaker_references: vec![owhisper_interface::KnownSpeakerReference {
+                    name: "agent".to_string(),
+                    audio_data_url: "data:audio/wav;base64,AAA=".to_string(),
+                }],
+                ..Default::default()
+            },
+            false,
+            false,
+        );
+
+        let fields = options
+            .multipart_text_fields()
+            .expect("serialize multipart");
+
+        assert!(matches!(options, CreateTranscriptionOptions::Gpt(_)));
+        assert!(
+            !fields
+                .iter()
+                .any(|field| field.name == "known_speaker_names[]")
+        );
+        assert!(
+            !fields
+                .iter()
+                .any(|field| field.name == "known_speaker_references[]")
+        );
     }
 
     #[test]
