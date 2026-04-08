@@ -14,6 +14,7 @@ use hypr_audio_utils::f32_to_i16_bytes;
 use hypr_vad_masking::VadMask;
 
 use super::{ListenerRouting, SourceFrame};
+use hypr_audio::CaptureFrame;
 
 const AUDIO_AMPLITUDE_THROTTLE: Duration = Duration::from_millis(100);
 const MAX_BUFFER_CHUNKS: usize = 150;
@@ -323,7 +324,6 @@ mod tests {
         ListenerRuntime, SessionDataEvent, SessionErrorEvent, SessionLifecycleEvent,
         SessionProgressEvent,
     };
-    use hypr_audio::CaptureFrame;
 
     struct TestRuntime;
 
