@@ -516,19 +516,16 @@ const enterCommand: Command = chainCommands(
   splitBlock,
 );
 
-const hardBreakCommand: Command = chainCommands(
-  exitCode,
-  (state, dispatch) => {
-    if (dispatch) {
-      dispatch(
-        state.tr
-          .replaceSelectionWith(schema.nodes.hardBreak.create())
-          .scrollIntoView(),
-      );
-    }
-    return true;
-  },
-);
+const hardBreakCommand: Command = chainCommands(exitCode, (state, dispatch) => {
+  if (dispatch) {
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.hardBreak.create())
+        .scrollIntoView(),
+    );
+  }
+  return true;
+});
 
 const exitCodeBlockCommand: Command = (state, dispatch) => {
   const { $from } = state.selection;
@@ -578,8 +575,9 @@ export function enterKeyHandler(view: EditorView, event: KeyboardEvent) {
 
   if (event.altKey) return false;
 
-  return chainCommands(
-    exitCodeBlockCommand,
-    enterCommand,
-  )(view.state, view.dispatch, view);
+  return chainCommands(exitCodeBlockCommand, enterCommand)(
+    view.state,
+    view.dispatch,
+    view,
+  );
 }
