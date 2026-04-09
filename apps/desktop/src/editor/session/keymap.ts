@@ -36,6 +36,7 @@ import {
   type Command,
   type EditorState,
 } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 
 import { createTaskItemAttrs } from "../tasks";
 import { schema } from "./schema";
@@ -481,4 +482,104 @@ export function buildKeymap(onNavigateToTitle?: (pixelWidth?: number) => void) {
   }
 
   return keymap(keys);
+}
+
+// ---------------------------------------------------------------------------
+// View-level Enter key handler
+// ---------------------------------------------------------------------------
+// Provides a direct handleKeyDown prop for the ProseMirror view to ensure
+// Enter creates new lines reliably. In @handlewithcare/react-prosemirror the
+// keydown event passes through handleDOMEvents (component event listeners)
+// before reaching the keymap plugin's handleKeyDown. On macOS WKWebView this
+// can cause plain Enter to be silently dropped for non-list blocks. Placing
+// the handler as a direct view prop guarantees it runs for every keydown.
+const enterCommand: Command = chainCommands(
+  newlineInCode,
+  (state, dispatch) => {
+    const itemName = isInListItem(state);
+    if (!itemName) return false;
+    const { $from } = state.selection;
+    if ($from.parent.content.size !== 0) return false;
+    const nodeType = state.schema.nodes[itemName];
+    if (!nodeType) return false;
+    return liftListItem(nodeType)(state, dispatch);
+  },
+  (state, dispatch) => {
+    const itemName = isInListItem(state);
+    if (!itemName) return false;
+    const nodeType = state.schema.nodes[itemName];
+    if (!nodeType) return false;
+    return splitListItem(nodeType)(state, dispatch);
+  },
+  createParagraphNear,
+  liftEmptyBlock,
+  splitBlock,
+);
+
+const hardBreakCommand: Command = chainCommands(
+  exitCode,
+  (state, dispatch) => {
+    if (dispatch) {
+      dispatch(
+        state.tr
+          .replaceSelectionWith(schema.nodes.hardBreak.create())
+          .scrollIntoView(),
+      );
+    }
+    return true;
+  },
+);
+
+const exitCodeBlockCommand: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  if (!$from.parent.type.spec.code) return false;
+
+  const lastLine = $from.parent.textContent.split("\n").pop() ?? "";
+  const atEnd = $from.parentOffset === $from.parent.content.size;
+  if (!atEnd || lastLine !== "") return false;
+
+  if (dispatch) {
+    const codeBlockPos = $from.before($from.depth);
+    const codeBlock = $from.parent;
+    const textContent = codeBlock.textContent.replace(/\n$/, "");
+    const tr = state.tr;
+
+    tr.replaceWith(
+      codeBlockPos,
+      codeBlockPos + codeBlock.nodeSize,
+      textContent
+        ? [
+            schema.nodes.codeBlock.create(null, schema.text(textContent)),
+            schema.nodes.paragraph.create(),
+          ]
+        : [schema.nodes.paragraph.create()],
+    );
+
+    const newParaPos = textContent
+      ? codeBlockPos + textContent.length + 2 + 1
+      : codeBlockPos + 1;
+    tr.setSelection(TextSelection.create(tr.doc, newParaPos));
+    dispatch(tr.scrollIntoView());
+  }
+  return true;
+};
+
+export function enterKeyHandler(view: EditorView, event: KeyboardEvent) {
+  if (event.key !== "Enter") return false;
+
+  if (event.shiftKey) {
+    return hardBreakCommand(view.state, view.dispatch, view);
+  }
+
+  if (event.metaKey || event.ctrlKey) {
+    if (mac) return hardBreakCommand(view.state, view.dispatch, view);
+    return false;
+  }
+
+  if (event.altKey) return false;
+
+  return chainCommands(
+    exitCodeBlockCommand,
+    enterCommand,
+  )(view.state, view.dispatch, view);
 }

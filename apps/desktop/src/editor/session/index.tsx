@@ -70,7 +70,7 @@ import {
   SlashCommandMenu,
   mentionSkipPlugin,
 } from "../widgets";
-import { buildInputRules, buildKeymap } from "./keymap";
+import { buildInputRules, buildKeymap, enterKeyHandler } from "./keymap";
 import {
   LinkedItemOpenBehaviorContext,
   type LinkedItemOpenBehavior,
@@ -462,6 +462,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
           <ProseMirror
             defaultState={defaultState}
             nodeViews={nodeViews}
+            handleKeyDown={enterKeyHandler}
             dispatchTransaction={function (this: EditorView, tr: Transaction) {
               const { state: newState, transactions } =
                 this.state.applyTransaction(tr);
