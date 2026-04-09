@@ -42,32 +42,33 @@ export function AccountAccessSection() {
   });
 
   return (
-    <div className="rounded-xs border border-neutral-100">
-      <div className="p-4">
-        <h3 className="mb-2 font-serif text-lg font-semibold">Access</h3>
-        <p className="text-sm text-neutral-600">
+    <div className="border-color-brand surface rounded-lg border">
+      <div className="px-8 pt-8">
+        <h3 className="text-color mb-2 font-sans text-lg font-semibold">
+          Access
+        </h3>
+        <p className="text-color-secondary text-sm">
           Session controls and destructive account actions
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-neutral-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="text-sm font-medium text-neutral-900">Sign out</div>
-          <p className="text-sm text-neutral-600">
-            End your current session on this device
-          </p>
+      <div className="border-color-brand flex w-full flex-col border-b p-8">
+        <div className="flex flex-col gap-4 md:flex-row md:justify-between">
+          <div className="text-color-secondary text-base">Sign out</div>
+          <div className="flex items-center gap-3">
+            <p className="text-base">End your current session on this device</p>
+            <button
+              onClick={() => signOut.mutate()}
+              disabled={signOut.isPending}
+              className="border-color-brand text-color-secondary flex h-7 items-center rounded-full border bg-linear-to-b from-white to-stone-50 px-3 text-xs shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
+            >
+              {signOut.isPending ? "Signing out..." : "Sign out"}
+            </button>
+          </div>
         </div>
-
-        <button
-          onClick={() => signOut.mutate()}
-          disabled={signOut.isPending}
-          className="flex h-8 cursor-pointer items-center justify-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-4 text-sm text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
-        >
-          {signOut.isPending ? "Signing out..." : "Sign out"}
-        </button>
       </div>
 
-      <div className="border-t border-neutral-100 px-4">
+      <div className="px-8 py-8">
         <Accordion
           type="single"
           collapsible
@@ -79,7 +80,7 @@ export function AccountAccessSection() {
           }}
         >
           <AccordionItem value="delete-account" className="border-none">
-            <AccordionTrigger className="py-4 text-sm font-medium text-red-700 hover:text-red-800 hover:no-underline">
+            <AccordionTrigger className="py-4 font-sans text-base text-red-700 hover:text-red-800 hover:no-underline">
               Delete account
             </AccordionTrigger>
             <AccordionContent className="pb-4">
@@ -107,7 +108,7 @@ export function AccountAccessSection() {
                       <button
                         onClick={() => deleteAccountMutation.mutate()}
                         disabled={deleteAccountMutation.isPending}
-                        className="flex h-8 items-center rounded-full bg-red-600 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
+                        className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
                       >
                         {deleteAccountMutation.isPending
                           ? "Deleting..."

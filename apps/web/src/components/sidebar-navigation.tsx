@@ -55,8 +55,8 @@ export function SidebarNavigation<T extends { slug: string; title: string }>({
                   ref={isActive ? activeLinkRef : undefined}
                   className={`block rounded-xs py-1.5 pr-3 pl-5 text-sm transition-colors ${
                     isActive
-                      ? "text-fg font-medium underline decoration-dotted underline-offset-4"
-                      : "text-fg opacity-50 hover:underline hover:decoration-dotted hover:underline-offset-4 hover:opacity-100"
+                      ? "text-color font-medium underline decoration-dotted underline-offset-4"
+                      : "text-color opacity-50 hover:underline hover:decoration-dotted hover:underline-offset-4 hover:opacity-100"
                   }`}
                 >
                   {doc.title}

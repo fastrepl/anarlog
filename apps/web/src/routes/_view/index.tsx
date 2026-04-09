@@ -253,7 +253,7 @@ function HeroSection({
                 >
                   Meeting Notes <br /> You Own
                 </h1>
-                <p className="font-regular text-fg-muted text-base leading-relaxed break-words sm:text-xl">
+                <p className="font-regular text-color text-base leading-relaxed break-words sm:text-xl">
                   Char captures every meeting without a bot and keeps data on
                   your device.
                 </p>
@@ -284,7 +284,7 @@ function HeroSection({
                           <div
                             className={cn([
                               "items-left relative flex overflow-hidden rounded-full border-2 transition-all duration-200",
-                              shake && "animate-shake border-stone-600",
+                              shake && "animate-shake border-color-brand",
                               !shake && mutation.isError && "border-red-500",
                               !shake &&
                                 mutation.isSuccess &&
@@ -342,12 +342,12 @@ function HeroSection({
                                 to={heroCTA.subtextLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-fg-muted hover:text-color mt-4 block text-sm decoration-dotted transition-colors hover:underline"
+                                className="text-color-secondary hover:text-color mt-4 block text-sm decoration-dotted transition-colors hover:underline"
                               >
                                 {heroCTA.subtext}
                               </Link>
                             ) : (
-                              <p className="text-fg-muted mt-4 text-sm">
+                              <p className="text-color-secondary mt-4 text-sm">
                                 {heroCTA.subtext}
                               </p>
                             ))}
@@ -414,7 +414,7 @@ function SocialTestimonialsSection() {
     <section className="px-4 pt-16 pb-16">
       <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
         <span className="mb-2 block">What people are saying</span>
-        <span className="text-fg-muted block font-sans text-sm font-normal tracking-normal md:text-base">
+        <span className="text-color-secondary block font-sans text-sm font-normal tracking-normal md:text-base">
           Char was formerly Hyprnote.{" "}
           <Link
             to="/blog/$slug/"
@@ -633,7 +633,7 @@ export function HowItWorksSection() {
         {/* Block 1: Listen & Write */}
         <div className="flex flex-col md:flex-row">
           <div className="flex flex-col justify-end gap-4 py-8 md:w-1/2 md:pr-8 md:pb-16">
-            <p className="text-fg font-mono text-xs tracking-widest uppercase opacity-50">
+            <p className="text-color-secondary font-mono text-xs tracking-widest uppercase opacity-50">
               During meeting
             </p>
             <p className="font-regular text-color text-lg leading-relaxed md:text-2xl lg:text-3xl">
@@ -1004,7 +1004,7 @@ export function HowItWorksSection() {
                 <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
                   Own your <br /> data
                 </h4>
-                <p className="text-color text-base">
+                <p className="text-color-secondary text-base">
                   Data stays on your device and not locked in a cloud.
                 </p>
               </div>
@@ -1031,7 +1031,7 @@ export function HowItWorksSection() {
                   Local or cloud,
                   <br /> your choice
                 </h4>
-                <p className="text-color text-base">
+                <p className="text-color-secondary text-base">
                   Run fully local, bring your own API key, or use Char cloud.
                   Switch anytime.
                 </p>
@@ -1072,7 +1072,7 @@ export function HowItWorksSection() {
                 <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
                   Works <br /> everywhere
                 </h4>
-                <p className="text-color text-base">
+                <p className="text-color-secondary text-base">
                   Captures system audio. Works on Zoom, Teams, Meet, in-person,
                   or offline.
                 </p>
@@ -1140,7 +1140,7 @@ export function HowItWorksSection() {
                 <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
                   Upload existing recordings
                 </h4>
-                <p className="text-color text-base">
+                <p className="text-color-secondary text-base">
                   Drop in audio files or transcripts to turn them into
                   searchable notes.
                 </p>
@@ -1154,9 +1154,9 @@ export function HowItWorksSection() {
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
                 <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  40+ <br /> languages
+                  40+ languages
                 </h4>
-                <p className="text-color text-base">
+                <p className="text-color-secondary text-base">
                   Char uses best-in-class transcription models and updates them
                   continuously. Speak in the language you think in.
                 </p>
@@ -1529,7 +1529,7 @@ export function AISection() {
         <h2 className="text-fg font-mono text-2xl tracking-wide md:text-4xl">
           Get more from every note with AI
         </h2>
-        <p className="text-fg-muted">
+        <p className="text-color-secondary">
           Ask questions, execute tasks, and grow your knowledge base—all from
           your meeting notes.
         </p>
@@ -1547,13 +1547,13 @@ export function AISection() {
             ])}
             onMouseEnter={() => setActiveBlock(0)}
           >
-            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+            <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
               Before meeting
             </p>
             <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
               Get a quick brief before the call
             </p>
-            <p className="text-color-muted text-base leading-relaxed">
+            <p className="text-color-secondary text-base leading-relaxed">
               Get the relevant info about people, goals and previous meetings.
               Char links contacts and conversations, search through them and get
               a whole picture.
@@ -1577,13 +1577,13 @@ export function AISection() {
             ])}
             onMouseEnter={() => setActiveBlock(1)}
           >
-            <p className="text-fg-muted font-mono text-xs tracking-widest uppercase">
+            <p className="text-color-muted font-mono text-xs tracking-widest uppercase">
               During meeting
             </p>
             <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
               Chat during live meetings
             </p>
-            <p className="text-color-muted text-base leading-relaxed">
+            <p className="text-color-secondary text-base leading-relaxed">
               Get instant answers from the current transcript and past meeting
               context without breaking your flow.
             </p>
@@ -1613,7 +1613,7 @@ export function AISection() {
             <p className="text-color font-regular text-lg leading-relaxed md:text-2xl">
               Chat with your notes
             </p>
-            <p className="text-color-muted text-base leading-relaxed">
+            <p className="text-color-secondary text-base leading-relaxed">
               Query your entire conversation history. Find decisions, action
               items, or topics discussed in previous meetings in natural
               language.
@@ -1697,13 +1697,13 @@ export function GrowsWithYouSection() {
           <h2 className="text-color font-mono text-2xl tracking-wide md:text-4xl">
             Char grows with you
           </h2>
-          <p className="text-md text-color-muted max-w-2xl pb-4">
+          <p className="text-md text-color-secondary max-w-2xl pb-4">
             Add people from meetings in contacts, grow knowledge about your
             chats and context of previous meetings
           </p>
           <Link
             to="/product/mini-apps/"
-            className="text-md text-color-muted hover:text-color flex items-center gap-1 underline"
+            className="text-md text-color-secondary hover:text-color flex items-center gap-1 underline"
           >
             Explore all features
             <Icon icon="mdi:arrow-top-right" className="text-sm" />
@@ -1720,19 +1720,19 @@ export function GrowsWithYouSection() {
                   </div>
                   <div>
                     <p className="text-color text-sm font-medium">Sarah Chen</p>
-                    <p className="text-color-muted text-xs">
+                    <p className="text-color-secondary text-xs">
                       Product Lead · Acme Inc
                     </p>
                   </div>
                 </div>
-                <div className="text-color-muted mb-2 text-xs">
+                <div className="text-color-secondary mb-2 text-xs">
                   sarah@acme.com · +1 (415) 555-0123
                 </div>
                 <div className="border-color-brand bg-surface-subtle rounded border p-3">
-                  <p className="text-color-muted mb-1 text-xs font-medium">
+                  <p className="text-color mb-1 text-xs font-medium">
                     Last conversation
                   </p>
-                  <p className="text-color-muted text-xs">
+                  <p className="text-color text-xs">
                     Discussed Q2 roadmap priorities and timeline for the mobile
                     redesign. Agreed to share updated specs by Friday.
                   </p>
@@ -1743,18 +1743,18 @@ export function GrowsWithYouSection() {
               <h3 className="text-color mb-3 font-mono text-2xl leading-[1.3]">
                 Have your contacts in one place
               </h3>
-              <p className="text-color-muted mb-4 text-base leading-relaxed md:max-w-2/3">
+              <p className="text-color-secondary mb-4 text-base leading-relaxed md:max-w-2/3">
                 Import contacts and watch them come alive with context once you
                 actually meet.
               </p>
               <ul className="flex flex-col gap-3">
                 <li className="flex items-start gap-3">
-                  <span className="text-md text-color-muted">
+                  <span className="text-md text-color">
                     All your chats linked
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-md text-color-muted">
+                  <span className="text-md text-color">
                     Generate summaries from meetings
                   </span>
                 </li>
@@ -1767,13 +1767,13 @@ export function GrowsWithYouSection() {
                 <div className="flex items-center gap-3">
                   <Icon
                     icon="mdi:calendar"
-                    className="text-color-muted text-xl"
+                    className="text-color-secondary text-xl"
                   />
                   <div>
                     <p className="text-color text-sm font-medium">
                       Weekly Team Sync
                     </p>
-                    <p className="text-color-muted text-xs">
+                    <p className="text-color-secondary text-xs">
                       Starting in 2 min
                     </p>
                   </div>
@@ -1787,23 +1787,23 @@ export function GrowsWithYouSection() {
               <h3 className="text-color mb-3 font-mono text-2xl">
                 Work with your calendar
               </h3>
-              <p className="text-color-muted mb-4 text-base leading-relaxed">
+              <p className="text-color-secondary mb-4 text-base leading-relaxed">
                 Connect your calendar for intelligent meeting preparation and
                 automatic note organization.
               </p>
               <ul className="flex flex-col gap-3">
                 <li className="flex items-start gap-3">
-                  <span className="text-md text-color-muted">
+                  <span className="text-md text-color">
                     Automatic meeting linking
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-md text-color-muted">
+                  <span className="text-md text-color">
                     Pre-meeting context and preparation
                   </span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="text-md text-color-muted">
+                  <span className="text-md text-color">
                     Timeline view with notes
                   </span>
                 </li>
@@ -2276,7 +2276,7 @@ export function TemplatesSection() {
           search={{ type: "template" }}
           className={cn([
             "inline-flex items-center gap-2",
-            "text-fg-muted hover:text-color",
+            "text-color hover:text-color",
             "font-medium transition-colors",
           ])}
         >
@@ -2680,13 +2680,13 @@ function BlogSection() {
         <h2 className="text-color mb-2 font-mono text-2xl tracking-wide md:text-4xl">
           Latest from our blog
         </h2>
-        <p className="text-fg-muted font-base">
+        <p className="text-color-secondary font-base">
           Insights, updates, and stories from the Char team
         </p>
         <div className="mt-4 text-left">
           <Link
             to="/blog/"
-            className="text-fg-muted hover:text-color inline-flex items-center gap-2 font-medium transition-colors"
+            className="text-color hover:text-color inline-flex items-center gap-2 font-medium transition-colors"
           >
             View all articles
             <svg
@@ -2716,20 +2716,20 @@ function BlogSection() {
               params={{ slug: article.slug }}
               className="group block h-full"
             >
-              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-2 transition-all duration-300 hover:shadow-lg">
+              <article className="bg-surface border-color-brand flex h-full flex-col overflow-hidden rounded-md border p-4 transition-all duration-300 hover:shadow-lg">
                 <div className="flex flex-1 flex-col px-2 pt-4">
-                  <h3 className="text-color text-fg mb-2 line-clamp-2 font-mono text-xl font-medium">
+                  <h3 className="text-color mb-4 line-clamp-2 font-mono text-2xl font-medium">
                     {article.display_title || article.meta_title}
                   </h3>
 
-                  <p className="text-fg-muted text-fg mb-4 line-clamp-3 flex-1 text-base leading-relaxed">
+                  <p className="text-color-secondary mb-4 line-clamp-3 flex-1 text-base leading-relaxed">
                     {article.meta_description}
                   </p>
 
                   <div className="flex items-center justify-between gap-4 py-4">
                     <time
                       dateTime={article.date}
-                      className="text-fg-muted text-xs"
+                      className="text-color-secondary text-xs"
                     >
                       {new Date(article.date).toLocaleDateString("en-US", {
                         month: "short",
@@ -2738,7 +2738,7 @@ function BlogSection() {
                       })}
                     </time>
 
-                    <span className="text-fg-muted group-hover:text-fg-muted text-xs font-medium transition-colors">
+                    <span className="text-color-secondary group-hover:text-color text-xs font-medium transition-colors">
                       Read →
                     </span>
                   </div>

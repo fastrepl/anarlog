@@ -67,24 +67,21 @@ function Component() {
 
   return (
     <div>
-      <div className="mx-auto min-h-[calc(100vh-200px)] max-w-6xl border-x border-neutral-100">
-        <div className="flex items-center justify-center border-b border-neutral-100 bg-linear-to-b from-stone-50/30 to-stone-100/30 py-20">
-          <h1 className="text-center font-serif text-3xl font-medium">
+      <div className="mx-auto min-h-[calc(100vh-200px)] max-w-6xl">
+        <div className="border-color-brand flex items-center justify-start border-b py-20">
+          <h1 className="text-color text-left font-mono text-3xl font-medium">
             Welcome back {user?.email?.split("@")[0] || "Guest"}
           </h1>
         </div>
 
-        <div className="mx-auto mt-8 flex max-w-4xl flex-col gap-10 px-4 pb-20">
+        <div className="mx-auto mt-8 flex flex-col gap-10 pb-20">
           <section className="space-y-4">
             <div className="space-y-2 px-1">
-              <p className="text-xs font-medium tracking-[0.18em] text-neutral-400 uppercase">
-                Account
-              </p>
               <div>
-                <h2 className="font-serif text-2xl font-medium text-stone-950">
+                <h2 className="text-fg font-mono text-2xl font-medium">
                   Profile and account access
                 </h2>
-                <p className="text-sm text-neutral-600">
+                <p className="text-fg-muted text-sm">
                   Update your email here. Billing and integrations are managed
                   in the desktop app.
                 </p>
@@ -98,14 +95,11 @@ function Component() {
 
           <section className="space-y-4">
             <div className="space-y-2 px-1">
-              <p className="text-xs font-medium tracking-[0.18em] text-neutral-400 uppercase">
-                Access
-              </p>
               <div>
-                <h2 className="font-serif text-2xl font-medium text-stone-950">
+                <h2 className="text-color font-mono text-2xl font-medium">
                   Session controls
                 </h2>
-                <p className="text-sm text-neutral-600">
+                <p className="text-color-muted text-sm">
                   Sign out quickly, while keeping account deletion tucked behind
                   an extra deliberate step.
                 </p>

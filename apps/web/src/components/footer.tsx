@@ -7,6 +7,7 @@ import { cn } from "@hypr/utils";
 
 import { EmailSubscribeField } from "@/components/email-subscribe-field";
 import { CookiePreferencesButton } from "@/components/privacy-consent";
+import { CharLogo } from "@/components/sidebar";
 import { brandPageNoiseBackgroundImage } from "@/lib/brand-noise";
 import { sortedSolutions } from "@/lib/solutions";
 
@@ -107,7 +108,7 @@ export function Footer() {
 function BrandSection({ currentYear }: { currentYear: number }) {
   return (
     <div className="lg:flex-1">
-      <Link to="/" className="text-fg mb-4 inline-block">
+      <Link to="/" className="text-color mb-4 inline-block">
         <svg
           width="auto"
           height="24"
@@ -142,7 +143,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
           href="/x"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-fg-subtle hover:text-fg transition-colors"
+          className="text-color-secondary hover:text-color transition-colors"
           aria-label="Twitter"
         >
           <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
@@ -153,7 +154,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
           href="/discord"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-fg-subtle hover:text-fg transition-colors"
+          className="text-color-secondary hover:text-color transition-colors"
           aria-label="Discord"
         >
           <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
@@ -164,7 +165,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
           href="/youtube"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-fg-subtle hover:text-fg transition-colors"
+          className="text-color-secondary hover:text-color transition-colors"
           aria-label="YouTube"
         >
           <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
@@ -175,7 +176,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
           href="/linkedin"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-fg-subtle hover:text-fg transition-colors"
+          className="text-color-secondary hover:text-color transition-colors"
           aria-label="LinkedIn"
         >
           <svg className="size-4" viewBox="0 0 24 24" fill="currentColor">
@@ -184,7 +185,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         </a>
       </div>
 
-      <p className="text-fg-muted text-sm">
+      <p className="text-color-secondary text-sm">
         <Link
           to="/legal/$slug/"
           params={{ slug: "terms" }}
@@ -203,7 +204,7 @@ function BrandSection({ currentYear }: { currentYear: number }) {
         {" · "}
         <CookiePreferencesButton />
       </p>
-      <p className="text-fg mt-2 text-sm opacity-30">
+      <p className="text-color-secondary mt-2 text-sm">
         Fastrepl © {currentYear}
       </p>
     </div>
@@ -224,12 +225,14 @@ function LinksGrid() {
 function ProductLinks() {
   return (
     <div>
-      <h3 className="text-fg mb-4 font-mono text-sm font-semibold">Product</h3>
+      <h3 className="text-color-secondary mb-4 font-mono text-sm font-semibold">
+        Product
+      </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/download/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Download
           </Link>
@@ -237,7 +240,7 @@ function ProductLinks() {
         <li>
           <Link
             to="/changelog/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Changelog
           </Link>
@@ -245,7 +248,7 @@ function ProductLinks() {
         <li>
           <Link
             to="/docs/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Docs
           </Link>
@@ -255,7 +258,7 @@ function ProductLinks() {
             href="https://github.com/fastrepl/char"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-fg-muted hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             GitHub
             <ExternalLinkIcon className="size-3" />
@@ -266,7 +269,7 @@ function ProductLinks() {
             href="https://status.hyprnote.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-fg-muted hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Status
             <ExternalLinkIcon className="size-3" />
@@ -335,14 +338,14 @@ function ResourcesLinks() {
 
   return (
     <div ref={ref}>
-      <h3 className="text-fg mb-4 font-mono text-sm font-semibold">
+      <h3 className="text-color-secondary mb-4 font-mono text-sm font-semibold">
         Resources
       </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/pricing/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Pricing
           </Link>
@@ -350,7 +353,7 @@ function ResourcesLinks() {
         <li>
           <a
             href="/docs/faq"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             FAQ
           </a>
@@ -358,7 +361,7 @@ function ResourcesLinks() {
         <li>
           <Link
             to="/company-handbook/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Company Handbook
           </Link>
@@ -366,7 +369,7 @@ function ResourcesLinks() {
         <li>
           <Link
             to="/gallery/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Prompt Gallery
           </Link>
@@ -376,7 +379,7 @@ function ResourcesLinks() {
             href="https://github.com/fastrepl/char/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-fg-muted hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Discussions
             <ExternalLinkIcon className="size-3" />
@@ -385,7 +388,7 @@ function ResourcesLinks() {
         <li>
           <a
             href="mailto:support@hyprnote.com"
-            className="text-fg-muted hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Support
             <MailIcon className="size-3" />
@@ -396,7 +399,7 @@ function ResourcesLinks() {
             to="/solution/$slug/"
             params={{ slug: currentUseCase.slug }}
             className={cn(
-              "text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted",
+              "text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted",
               "inline-flex items-center gap-1",
             )}
             aria-label={`Char for ${currentUseCase.label}`}
@@ -424,19 +427,12 @@ function ResourcesLinks() {
             to="/vs/$slug/"
             params={{ slug: currentVs.slug }}
             className={cn(
-              "text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted",
+              "text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted",
               "inline-flex items-center gap-1",
             )}
             aria-label={`Versus ${currentVs.name}`}
           >
-            <img
-              src="/api/assets/hyprnote/icon.png"
-              alt="Char"
-              width={12}
-              height={12}
-              className="inline size-4 rounded border border-neutral-100"
-            />{" "}
-            vs{" "}
+            <CharLogo compact className="inline size-4" /> vs{" "}
             <span className="inline-grid">
               {vsList.map((v, i) => (
                 <span
@@ -460,12 +456,14 @@ function ResourcesLinks() {
 function CompanyLinks() {
   return (
     <div>
-      <h3 className="text-fg mb-4 font-mono text-sm font-semibold">Company</h3>
+      <h3 className="text-color-secondary mb-4 font-mono text-sm font-semibold">
+        Company
+      </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/blog/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Blog
           </Link>
@@ -473,7 +471,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/updates/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Updates
           </Link>
@@ -481,7 +479,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/about/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             About us
           </Link>
@@ -489,7 +487,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/brand/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Brand
           </Link>
@@ -497,7 +495,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/press-kit/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Press Kit
           </Link>
@@ -505,7 +503,7 @@ function CompanyLinks() {
         <li>
           <Link
             to="/opensource/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Open Source
           </Link>
@@ -518,12 +516,14 @@ function CompanyLinks() {
 function ToolsLinks() {
   return (
     <div>
-      <h3 className="text-fg mb-4 font-mono text-sm font-semibold">Tools</h3>
+      <h3 className="text-color-secondary mb-4 font-mono text-sm font-semibold">
+        Tools
+      </h3>
       <ul className="flex flex-col gap-3">
         <li>
           <Link
             to="/eval/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             AI Eval
           </Link>
@@ -531,7 +531,7 @@ function ToolsLinks() {
         <li>
           <Link
             to="/product/notepad/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Notepad
           </Link>
@@ -539,7 +539,7 @@ function ToolsLinks() {
         <li>
           <Link
             to="/oss-friends/"
-            className="text-fg-muted hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
+            className="text-color hover:text-color text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             OSS Navigator
           </Link>

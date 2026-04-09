@@ -36,6 +36,7 @@ function Component() {
   const isHomePage = pathname === "/";
   const hasHeroCTA =
     isHomePage || pathname.startsWith("/product/ai-notetaking");
+  const isAppPage = pathname.startsWith("/app");
   const isResourcePage = [
     "/docs",
     "/blog",
@@ -90,7 +91,7 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
-                {!isResourcePage && (
+                {!isResourcePage && !isAppPage && (
                   <>
                     <div
                       aria-hidden="true"

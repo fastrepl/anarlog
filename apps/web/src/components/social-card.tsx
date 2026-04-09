@@ -133,13 +133,13 @@ export function SocialCard(props: SocialCardProps) {
           filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.06))",
         }}
       >
-        <div className="bg-surface rounded-2xl rounded-bl-none px-5 py-4">
-          <p className="text-fg-muted text-base leading-relaxed md:line-clamp-[20]">
+        <div className="surface border-color-brand rounded-2xl rounded-bl-none border px-5 py-4">
+          <p className="text-color-secondary text-base leading-relaxed md:line-clamp-[20]">
             <HighlightedBody text={body} />
           </p>
         </div>
         <div
-          className="bg-surface absolute left-0"
+          className="surface absolute left-0"
           style={{
             width: TAIL_R,
             height: TAIL_R,
@@ -160,7 +160,7 @@ export function SocialCard(props: SocialCardProps) {
           <AuthorAvatar author={author} avatar={avatar} />
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
-              <p className="text-fg text-base leading-relaxed font-medium">
+              <p className="text-color text-base leading-relaxed font-medium">
                 {author}
               </p>
               <svg
@@ -172,7 +172,7 @@ export function SocialCard(props: SocialCardProps) {
               </svg>
             </div>
             {subtitle && (
-              <span className="text-fg-subtle text-xs">{subtitle}</span>
+              <span className="text-color-secondary text-xs">{subtitle}</span>
             )}
           </div>
         </a>

@@ -75,6 +75,7 @@
   /* ── Colors: greys ────────────────────────────── */
   --grey-900: oklch(0.3 0.0197 81.53);
   --grey-700: oklch(0.4922 0.0127 67.79);
+  --grey-600: oklch(0.6182 0.0018 67.8);
   --grey-500: oklch(0.7782 0.0018 67.8);
   --grey-300: oklch(0.9213 0.0027 106.45);
   --grey-100: oklch(0.9558 0.0045 78.3);
@@ -86,8 +87,8 @@
 
   /* ── Colors: foreground / text ───────────────── */
   --color-fg: var(--grey-900);
-  --color-fg-muted: #57534e;
-  --color-fg-subtle: var(--color-border);
+  --color-fg-muted: var(--grey-500);
+  --color-fg-secondary: var(--grey-600);
 
   /* ── Colors: borders ─────────────────────────── */
   --color-border: var(--grey-500);
@@ -471,6 +472,10 @@
   );
 }
 
+.bg-page {
+  background-color: var(--color-page);
+}
+
 .prose
   :where(code):not(:where([class~="not-prose"], [class~="not-prose"]
     *))::before,
@@ -522,6 +527,10 @@
 
 .text-color-muted {
   color: var(--color-fg-muted);
+}
+
+.text-color-secondary {
+  color: var(--color-fg-secondary);
 }
 
 .brackets-footer {

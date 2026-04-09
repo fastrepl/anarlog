@@ -234,10 +234,10 @@ function Component() {
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="flex w-full max-w-md flex-col gap-8 text-center">
           <div className="flex flex-col gap-3">
-            <h1 className="font-serif text-3xl tracking-tight text-stone-700">
+            <h1 className="text-color font-mono text-3xl">
               {hasTokens ? "Sign-in successful" : "Signing in..."}
             </h1>
-            <p className="text-neutral-600">
+            <p className="text-color-secondary">
               {hasTokens
                 ? "Click the button below to return to the app"
                 : "Please wait while we complete the sign-in"}
@@ -260,7 +260,6 @@ function Component() {
                 onClick={handleCopy}
                 className={cn([
                   "flex w-full cursor-pointer flex-col items-center gap-3 p-4 text-left transition-all",
-                  "rounded-lg border border-stone-100 bg-stone-50 hover:bg-stone-100 active:scale-[99%]",
                 ])}
               >
                 <p className="text-sm text-stone-500">

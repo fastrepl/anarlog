@@ -50,7 +50,9 @@ export function CTASection({
         <h2 className="text-color font-mono text-2xl tracking-wide md:text-6xl">
           {title}
         </h2>
-        <p className="text-fg-muted mx-auto max-w-2xl text-lg">{description}</p>
+        <p className="text-color-secondary mx-auto max-w-2xl text-lg">
+          {description}
+        </p>
         <div className="flex flex-col items-center justify-center gap-4 pt-6 sm:flex-row">
           {platformCTA.action === "download" ? (
             <DownloadButton />

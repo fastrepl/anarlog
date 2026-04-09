@@ -2,12 +2,13 @@ import { Icon } from "@iconify-icon/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowLeftIcon, MailIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@hypr/utils";
 
-import { Image } from "@/components/image";
+import { CharLogo } from "@/components/sidebar";
 import {
   createDesktopSession,
   doAuth,
@@ -89,8 +90,8 @@ function Component() {
     return (
       <Container>
         <Header />
-        <div className="flex flex-col gap-4">
-          <p className="text-center text-sm text-neutral-600">
+        <div className="flex flex-col gap-4 p-8">
+          <p className="text-fg-muted text-center text-sm">
             Refreshing your {provider} access for admin actions.
           </p>
           <OAuthButton
@@ -115,7 +116,7 @@ function Component() {
       <Header />
       {view === "main" && (
         <>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 px-8">
             {showGoogle && (
               <OAuthButton
                 flow={flow}
@@ -138,12 +139,12 @@ function Component() {
                 onClick={() => setView("email")}
                 className={cn([
                   "w-full cursor-pointer px-4 py-2",
-                  "border border-neutral-300",
-                  "rounded-lg font-medium text-neutral-700",
-                  "hover:bg-neutral-50",
+                  "border-color-brand border",
+                  "text-fg rounded-full font-sans",
+                  "hover:bg-brand-dark/10",
                   "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
                   "transition-colors",
-                  "flex items-center justify-center gap-2",
+                  "flex items-center justify-center gap-3",
                 ])}
               >
                 <MailIcon className="size-4" />
@@ -167,15 +168,34 @@ function Component() {
 }
 
 function Container({ children }: { children: React.ReactNode }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
       className={cn([
-        "flex min-h-screen items-center justify-center p-4",
-        "bg-linear-to-b from-stone-50 via-stone-100/50 to-stone-50",
+        "flex min-h-screen items-center justify-center",
+        "bg-page",
+        "bg-dotted-dark",
       ])}
     >
-      <div className="mx-auto max-w-md rounded-xs border border-neutral-200 bg-white p-8">
-        {children}
+      <div className="border-color-brand surface mx-auto w-md min-w-[320px] overflow-hidden rounded-xl border shadow-md">
+        <motion.div
+          animate={{ height }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        >
+          <div ref={contentRef}>{children}</div>
+        </motion.div>
       </div>
     </div>
   );
@@ -186,23 +206,14 @@ function Header() {
     <div className="mb-8 text-center">
       <div
         className={cn([
-          "mx-auto mb-6 size-28",
-          "border border-neutral-200 shadow-xl",
-          "flex items-center justify-center",
-          "rounded-4xl bg-transparent",
+          "mx-auto mb-8 p-8",
+          "flex items-center justify-between",
+          "border-color-brand border-b",
         ])}
       >
-        <Image
-          src="/api/assets/hyprnote/icon.png"
-          alt="Char"
-          width={96}
-          height={96}
-          className={cn(["size-24", "rounded-3xl border border-neutral-200"])}
-        />
+        <CharLogo compact className="text-fg h-10 w-auto" />
+        <h1 className="text-fg py-4 font-mono text-xl">Welcome to Char</h1>
       </div>
-      <h1 className="mb-2 font-serif text-3xl text-stone-800">
-        Welcome to Char
-      </h1>
     </div>
   );
 }
@@ -236,7 +247,7 @@ function DesktopReauthView({
     retryMutation.isError || (retryMutation.isSuccess && !retryMutation.data);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 p-8">
       {!hasRetryFailed && (
         <div className="text-center">
           <p className="text-neutral-600">Signing in as {email}...</p>
@@ -262,7 +273,7 @@ function DesktopReauthView({
 
 function LegalText() {
   return (
-    <p className="mt-4 text-center text-xs text-neutral-500">
+    <p className="mt-4 px-8 pb-8 text-center text-xs text-neutral-500">
       By signing up, you agree to our{" "}
       <a
         href="https://char.com/legal/terms"
@@ -298,7 +309,7 @@ function EmailAuthView({
   const [mode, setMode] = useState<EmailMode>("password");
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 px-8">
       <button
         onClick={onBack}
         className="-mt-2 mb-1 flex items-center gap-1 self-start text-sm text-neutral-500 transition-colors hover:text-neutral-700"
@@ -307,11 +318,11 @@ function EmailAuthView({
         Back
       </button>
 
-      <div className="flex gap-1 rounded-lg bg-neutral-100 p-1">
+      <div className="flex gap-1 rounded-full bg-neutral-100 p-1">
         <button
           onClick={() => setMode("password")}
           className={cn([
-            "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+            "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
             mode === "password"
               ? "bg-white text-neutral-900 shadow-sm"
               : "text-neutral-500 hover:text-neutral-700",
@@ -322,7 +333,7 @@ function EmailAuthView({
         <button
           onClick={() => setMode("magic-link")}
           className={cn([
-            "flex-1 rounded-md py-1.5 text-sm font-medium transition-colors",
+            "flex-1 rounded-full py-1.5 font-sans text-sm font-medium transition-colors",
             mode === "magic-link"
               ? "bg-white text-neutral-900 shadow-sm"
               : "text-neutral-500 hover:text-neutral-700",
@@ -462,7 +473,7 @@ function PasswordForm({
         className={cn([
           "w-full px-4 py-2",
           "rounded-lg border border-neutral-300",
-          "text-neutral-700 placeholder:text-neutral-400",
+          "text-fg placeholder:text-fg-muted",
           "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
         ])}
       />
@@ -475,7 +486,7 @@ function PasswordForm({
         className={cn([
           "w-full px-4 py-2",
           "rounded-lg border border-neutral-300",
-          "text-neutral-700 placeholder:text-neutral-400",
+          "text-fg placeholder:text-fg-muted",
           "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
         ])}
       />
@@ -489,8 +500,8 @@ function PasswordForm({
           className={cn([
             "w-full px-4 py-2",
             "rounded-lg border border-neutral-300",
-            "text-neutral-700 placeholder:text-neutral-400",
-            "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
+            "text-fg placeholder:text-fg-muted",
+            "focus:ring-2 focus:ring-stone-800 focus:ring-offset-2 focus:outline-hidden",
           ])}
         />
       )}
@@ -504,13 +515,14 @@ function PasswordForm({
         }
         className={cn([
           "w-full cursor-pointer px-4 py-2",
-          "border border-neutral-300",
-          "rounded-lg font-medium text-neutral-700",
-          "hover:bg-neutral-50",
+          "font rounded-full font-sans",
           "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "transition-colors",
-          "flex items-center justify-center gap-2",
+          "flex items-center justify-center gap-3",
+          isSignUp
+            ? "border-color-border text-fg hover:bg-brand-dark/10 rounded-full border"
+            : "bg-fg hover:bg-fg/80 text-white",
         ])}
       >
         {isPending ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
@@ -523,7 +535,7 @@ function PasswordForm({
             setErrorMessage("");
             setConfirmPassword("");
           }}
-          className="text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+          className="text-fg-muted hover:text-fg font-sans text-sm transition-colors hover:underline"
         >
           {isSignUp
             ? "Already have an account? Sign in"
@@ -532,7 +544,7 @@ function PasswordForm({
         {!isSignUp && (
           <Link
             to="/reset-password/"
-            className="text-sm text-neutral-500 transition-colors hover:text-neutral-700"
+            className="text-fg-muted hover:text-fg text-sm transition-colors hover:underline"
           >
             Forgot password?
           </Link>
@@ -697,13 +709,13 @@ function OAuthButton({
       disabled={isPending}
       className={cn([
         "w-full cursor-pointer px-4 py-2",
-        "border border-neutral-300",
-        "rounded-lg font-medium text-neutral-700",
-        "hover:bg-neutral-50",
+        "border-color-brand border",
+        "text-fg rounded-full font-sans",
+        "hover:bg-brand-dark/10",
         "focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:outline-hidden",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "transition-colors",
-        "flex items-center justify-center gap-2",
+        "flex items-center justify-center gap-3",
       ])}
     >
       {provider === "google" && <Icon icon="logos:google-icon" />}
