@@ -1,4 +1,5 @@
 import "prosemirror-gapcursor/style/gapcursor.css";
+import "prosemirror-view/style/prosemirror.css";
 
 import {
   ProseMirror,
@@ -463,10 +464,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, EditorProps>(
             defaultState={defaultState}
             nodeViews={nodeViews}
             dispatchTransaction={function (this: EditorView, tr: Transaction) {
-              const { state: newState, transactions } =
-                this.state.applyTransaction(tr);
-              this.updateState(newState);
-              if (transactions.some((transaction) => transaction.docChanged)) {
+              if (tr.docChanged) {
                 onUpdate(this);
               }
             }}
