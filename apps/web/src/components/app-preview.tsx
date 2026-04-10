@@ -287,7 +287,7 @@ const editorTabs = ["Summary", "Memos", "Transcript"];
 
 export function AppPreviewSection() {
   return (
-    <section className="mb-16 hidden px-4 md:block">
+    <section className="mb-8 hidden px-4 md:block">
       <div className="mock-background border-color-brand relative mx-auto w-full overflow-hidden rounded-xl border px-8 py-16">
         <MockDesktopApp />
       </div>
