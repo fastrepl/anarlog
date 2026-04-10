@@ -17,26 +17,28 @@ I tested six tools that take different positions on this spectrum. For each one,
 ## How These Local AI Meeting Notetakers Compare
 
 
-|                |                                                                               |                                |
-| -------------- | ----------------------------------------------------------------------------- | ------------------------------ |
-| **Tool**       | **Best For**                                                                  | **Pricing**                    |
-| **Char**       | Engineers and Obsidian users who want complete control over data and AI stack | Free (local/BYOK), Pro $25/mo  |
-| **Meetily**    | Teams on Windows or Mac who want a polished open-source option                | Community free, Pro $10/mo     |
-| **Shadow**     | Client-facing roles who need screen capture alongside audio                   | Free transcription, Plus $8/mo |
-| **Talat**      | People who want Granola's UX without the cloud, for a one-time fee            | $49 pre-release, $99 at 1.0    |
-| **Screenpipe** | Developers who want meeting notes as part of full desktop memory              | $400 lifetime                  |
-| **Granola**    | People already in its ecosystem who accept cloud processing                   | Free tier, Business $14/mo     |
+|                |                                                                    |                                |
+| -------------- | ------------------------------------------------------------------ | ------------------------------ |
+| **Tool**       | **Best For**                                                       | **Pricing**                    |
+| **Char**       | Users who want complete control over data and AI stack             | Free (local/BYOK), Pro $25/mo  |
+| **Meetily**    | Teams on Windows or Mac who want a polished open-source option     | Community free, Pro $10/mo     |
+| **Shadow**     | Client-facing roles who need screen capture alongside audio        | Free transcription, Plus $8/mo |
+| **Talat**      | People who want Granola's UX without the cloud, for a one-time fee | $49 pre-release, $99 at 1.0    |
+| **Screenpipe** | Developers who want meeting notes as part of full desktop memory   | $400 lifetime                  |
+| **Granola**    | People already in its ecosystem who accept cloud processing        | Free tier, Business $14/mo     |
 
 
-**6 Tools for Local AI Meeting Notes: A Closer Look**
+## 6 Tools for Local AI Meeting Notes: A Closer Look
 
-**Char**
+### 1. Char
 
-[Char](https://char.com) is an open-source AI notepad for meetings, built for people who want complete control over their data and AI stack. It captures system audio from any meeting platform without joining your call and without requiring calendar permissions. You can take notes during the meeting in Char's built-in editor while it transcribes in the background, and the AI combines both into a structured summary after the call. Or skip the manual notes entirely and let it generate output from the transcript alone.
+[Char](https://char.com) is an open-source AI notepad for meetings, built for people who want complete control over their data and AI stack. It captures system audio from any meeting platform without joining your call and without requiring calendar permissions. 
+
+You can take notes during the meeting in Char's built-in editor while it transcribes in the background, and the AI combines both into a structured summary after the call. 
 
 The AI stack is yours to choose: Char's managed cloud service, your own API keys from OpenAI, Anthropic, or Deepgram, or fully local models through Ollama or LM Studio for offline operation. Every audio file, transcript, and note lives on your computer. You decide if data ever leaves your device.
 
-***How local is it actually***
+#### How local is it actually
 
 - Transcription: local or BYOK. Supports Ollama and LM Studio for fully on-device processing.
 - Summarization: your choice. Managed cloud, BYOK API keys, or local models. You control the boundary.
@@ -45,7 +47,7 @@ The AI stack is yours to choose: Char's managed cloud service, your own API keys
 
 If you run Char with local models, nothing leaves your machine. If you plug in an API key, only the transcript goes to that provider for summarization. For companies that have banned cloud-based meeting tools, Char is one of the few options where "local-first" means exactly what it says.
 
-***Where it falls short***
+#### *Where it falls short*
 
 - macOS and Linux only. No Windows client yet.
 - No mobile app, no video recording.
