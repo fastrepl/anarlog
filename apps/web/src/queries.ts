@@ -7,17 +7,15 @@ const LAST_SEEN_STARS = 7032;
 const LAST_SEEN_FORKS = 432;
 
 export function useGitHubStats() {
-  return useQuery({
-    queryKey: ["github-stats"],
-    queryFn: async () => {
-      const stats = await getGitHubStats();
-      return {
-        stars: stats.stars || LAST_SEEN_STARS,
-        forks: stats.forks || LAST_SEEN_FORKS,
-      };
-    },
+  return useQuery(getGitHubStatsQueryOptions());
+}
+
+export function getGitHubStatsQueryOptions() {
+  return {
+    queryKey: ["github-stats"] as const,
+    queryFn: () => getGitHubStats(),
     staleTime: 1000 * 60 * 60,
-  });
+  };
 }
 
 export interface Stargazer {
