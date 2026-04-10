@@ -47,10 +47,10 @@ describe("syncCalendars", () => {
       user_id: "user-1",
       created_at: "2026-03-25T00:00:00.000Z",
       tracking_id_calendar: "primary",
-      name: "John (Hyprnote)",
+      name: "John (Char)",
       enabled: true,
       provider: "google",
-      source: "john@hyprnote.com",
+      source: "john@char.com",
       color: "#4285f4",
       connection_id: "conn-john",
     });
@@ -63,8 +63,8 @@ describe("syncCalendars", () => {
             data: [
               {
                 id: "primary",
-                title: "John (Hyprnote)",
-                source: "john@hyprnote.com",
+                title: "John (Char)",
+                source: "john@char.com",
                 color: "#4285f4",
               },
             ],
@@ -103,9 +103,9 @@ describe("syncCalendars", () => {
       calendars.find((calendar) => calendar.connection_id === "conn-john"),
     ).toMatchObject({
       tracking_id_calendar: "primary",
-      name: "John (Hyprnote)",
+      name: "John (Char)",
       enabled: true,
-      source: "john@hyprnote.com",
+      source: "john@char.com",
     });
     expect(
       calendars.find((calendar) => calendar.connection_id === "conn-gmail"),
@@ -124,10 +124,10 @@ describe("syncCalendars", () => {
       user_id: "user-1",
       created_at: "2026-03-25T00:00:00.000Z",
       tracking_id_calendar: "primary",
-      name: "John (Hyprnote)",
+      name: "John (Char)",
       enabled: true,
       provider: "google",
-      source: "john@hyprnote.com",
+      source: "john@char.com",
       color: "#4285f4",
       connection_id: "conn-john",
     });
