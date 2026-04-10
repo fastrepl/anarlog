@@ -948,7 +948,12 @@ export function HowItWorksSection() {
         </div>
 
         {/* features block */}
-        <div className="border-color-brand relative border-t">
+        <div className="border-color-brand relative rounded-lg md:border">
+          <div className="border-color-brand flex flex-col px-8 pt-8 pb-8 md:border-b">
+            <h2 className="text-color font-mono text-2xl tracking-wide md:text-2xl">
+              Private by design
+            </h2>
+          </div>
           <div
             className={cn([
               "from-page pointer-events-none absolute top-0 bottom-0 left-0 z-10 w-8 bg-gradient-to-r to-transparent transition-opacity md:hidden",
@@ -964,10 +969,10 @@ export function HowItWorksSection() {
           <div
             ref={featureScrollRef}
             onScroll={handleFeatureScroll}
-            className="flex snap-x snap-mandatory gap-4 overflow-x-auto pt-6 pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:pt-16 md:pb-0 md:*:min-h-[320px] md:*:py-4"
+            className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4"
           >
             {/* own your data */}
-            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+            <div className="border-color-brand flex shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center justify-start gap-2 select-none md:h-24 lg:h-32">
                 <img
                   src="/icons/file.webp"
@@ -1001,17 +1006,18 @@ export function HowItWorksSection() {
                 />
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  Own your <br /> data
+                <h4 className="text-color mb-4 text-base md:text-xl">
+                  Data always stays on your device
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Data stays on your device and not locked in a cloud.
+                  Your privacy is our priority. We don't use it for training or
+                  collecting any of your meeting content.
                 </p>
               </div>
             </div>
 
             {/* local or cloud */}
-            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+            <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center gap-4 select-none md:h-24 md:gap-3 lg:h-32 lg:gap-4">
                 <Icon
                   icon="mdi:wifi-off"
@@ -1026,20 +1032,18 @@ export function HowItWorksSection() {
                   />
                 </div>
               </div>
-              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  Local or cloud,
-                  <br /> your choice
+              <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
+                <h4 className="text-color mb-4 text-base md:text-xl">
+                  Bring Your Own Key, run local models, or use Char Cloud
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Run fully local, bring your own API key, or use Char cloud.
-                  Switch anytime.
+                  Char supports all major speech-to-text providers.
                 </p>
               </div>
             </div>
 
             {/* works everywhere */}
-            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
               <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
                 <div className="flex flex-wrap items-center gap-6 md:gap-4 lg:gap-6">
                   <img
@@ -1069,18 +1073,28 @@ export function HowItWorksSection() {
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  Works <br /> everywhere
+                <h4 className="text-color mb-4 text-base md:text-xl">
+                  No bots on calls. Hidden during screen share.
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Captures system audio. Works on Zoom, Teams, Meet, in-person,
-                  or offline.
+                  Char captures system audio, not bothers people on the call.
+                  Works everywhere.
                 </p>
               </div>
             </div>
+          </div>
+        </div>
 
+        {/* and much more */}
+        <div className="border-color-brand relative mt-8 rounded-lg md:border">
+          <div className="border-color-brand flex flex-col px-8 py-8 md:border-b">
+            <h2 className="text-color font-mono text-2xl tracking-wide md:text-2xl">
+              Built for empower workflows
+            </h2>
+          </div>
+          <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4">
             {/* upload existing recordings */}
-            <div className="border-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+            <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
                 <div className="relative flex h-16 w-4/5 items-center justify-center rounded-lg border-2 border-dashed border-green-300 bg-green-100 px-2 py-2 md:h-12 md:w-full lg:h-16 lg:w-4/5">
                   <div className="flex size-10 items-center justify-center rounded-full bg-white md:size-7 lg:size-10">
@@ -1136,9 +1150,9 @@ export function HowItWorksSection() {
                   </div>
                 </div>
               </div>
-              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  Upload existing recordings
+              <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
+                <h4 className="text-color mb-4 text-base md:text-xl">
+                  Transcribe existing recordings
                 </h4>
                 <p className="text-color-secondary text-base">
                   Drop in audio files or transcripts to turn them into
@@ -1148,17 +1162,38 @@ export function HowItWorksSection() {
             </div>
 
             {/* languages */}
-            <div className="border-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 md:w-auto md:shrink">
+            <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center justify-start select-none md:h-24 lg:h-32">
                 <HelloBubble />
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 font-mono text-base font-medium md:text-xl">
-                  40+ languages
+                <h4 className="text-color mb-4 text-base md:text-xl">
+                  Works with 40+ languages
                 </h4>
                 <p className="text-color-secondary text-base">
                   Char uses best-in-class transcription models and updates them
                   continuously. Speak in the language you think in.
+                </p>
+              </div>
+            </div>
+
+            {/* CLI */}
+            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
+              <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
+                <div className="flex h-16 w-4/5 items-center rounded-lg border border-stone-300 bg-stone-900 px-4 font-mono text-sm text-green-400 md:h-12 md:w-full lg:h-16 lg:w-4/5">
+                  <span className="text-stone-500">$</span>
+                  <span className="ml-2">char</span>
+                  <span className="ml-2">transcribe</span>
+                  <span className="ml-2 inline-block h-4 w-1.5 animate-pulse bg-green-400" />
+                </div>
+              </div>
+              <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
+                <h4 className="text-color mb-4 text-base font-medium md:text-xl">
+                  Char CLI
+                </h4>
+                <p className="text-color-secondary text-base">
+                  Work with agents, transcribe multiple recordings, and automate
+                  workflows from your terminal.
                 </p>
               </div>
             </div>
