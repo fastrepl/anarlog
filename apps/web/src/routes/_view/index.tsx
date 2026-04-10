@@ -4,10 +4,10 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { allArticles } from "content-collections";
+import { VideoIcon } from "lucide-react";
 import { AnimatePresence, motion, useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { DancingSticks } from "@hypr/ui/components/ui/dancing-sticks";
 import { cn } from "@hypr/utils";
 
 import { AcquisitionLinkGrid } from "@/components/acquisition-link-grid";
@@ -1019,57 +1019,54 @@ export function HowItWorksSection() {
             {/* local or cloud */}
             <div className="border-color-brand flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink md:border-r">
               <div className="flex h-32 items-center gap-4 select-none md:h-24 md:gap-3 lg:h-32 lg:gap-4">
-                <Icon
-                  icon="mdi:wifi-off"
-                  className="text-fg-muted text-2xl md:text-xl lg:text-2xl"
-                />
-                <div className="flex rounded-md border border-red-300 bg-red-100 px-2 py-2 md:px-1.5 md:py-1.5 lg:px-2 lg:py-2">
-                  <DancingSticks
-                    amplitude={1}
-                    height={24}
-                    width={100}
-                    color="#ef4444"
-                  />
+                <div
+                  className={cn([
+                    "relative flex w-full items-center overflow-hidden rounded-lg",
+                    "border border-stone-200 bg-white px-3 py-4",
+                  ])}
+                >
+                  <span className="font-mono text-base tracking-wider text-stone-300">
+                    sk-
+                  </span>
+                  <span className="text-base tracking-[0.2em] text-stone-400">
+                    ✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱
+                  </span>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-linear-to-l from-white to-transparent" />
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
                 <h4 className="text-color mb-4 text-base md:text-xl">
-                  Bring Your Own Key, run local models, or use Char Cloud
+                  Bring Your Own Key or use local models
                 </h4>
                 <p className="text-color-secondary text-base">
-                  Char supports all major speech-to-text providers.
+                  Char supports all major speech-to-text providers and have the
+                  best local models build in
                 </p>
               </div>
             </div>
 
             {/* works everywhere */}
-            <div className="flex w-[85%] shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
+            <div className="flex shrink-0 snap-start flex-col gap-2 p-8 md:w-auto md:shrink">
               <div className="flex h-32 items-center select-none md:h-24 lg:h-32">
-                <div className="flex flex-wrap items-center gap-6 md:gap-4 lg:gap-6">
-                  <img
-                    src="/icons/zoom.svg"
-                    alt="Zoom"
-                    className="size-10 md:size-7 lg:size-10"
-                    draggable={false}
-                  />
-                  <img
-                    src="/icons/teams logo.svg"
-                    alt="Teams"
-                    className="size-12 md:size-8 lg:size-12"
-                    draggable={false}
-                  />
-                  <img
-                    src="/icons/google-meet logo.svg"
-                    alt="Google Meet"
-                    className="size-12 md:size-8 lg:size-12"
-                    draggable={false}
-                  />
-                  <img
-                    src="/icons/inperson logo.svg"
-                    alt="In-person"
-                    className="size-14 md:size-10 lg:size-14"
-                    draggable={false}
-                  />
+                <div
+                  className={cn([
+                    "flex items-center gap-3 rounded-2xl py-2 pr-8 pl-2",
+                    "surface",
+                    "shadow-lg",
+                    "border-color-brand border",
+                  ])}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 md:size-9">
+                    <VideoIcon className="size-4 text-emerald-600 md:size-4 lg:size-5" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-stone-800 md:text-xs lg:text-sm">
+                      1-1 w/ Janice
+                    </span>
+                    <span className="md:text-md text-sm text-stone-400">
+                      3 participants
+                    </span>
+                  </div>
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
@@ -1089,7 +1086,7 @@ export function HowItWorksSection() {
         <div className="border-color-brand relative mt-8 rounded-lg md:border">
           <div className="border-color-brand flex flex-col px-8 py-8 md:border-b">
             <h2 className="text-color font-mono text-2xl tracking-wide md:text-2xl">
-              Built for empower workflows
+              Built for flexible workflows
             </h2>
           </div>
           <div className="flex snap-x snap-mandatory gap-8 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-3 md:gap-0 md:overflow-visible md:pb-0 md:*:min-h-[320px] md:*:py-4">
@@ -1103,7 +1100,7 @@ export function HowItWorksSection() {
                       className="text-fg-muted text-xl"
                     />
                   </div>
-                  <div className="border-color-brand surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md border py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
+                  <div className="surface absolute flex rotate-8 flex-row items-center gap-2 rounded-md py-3 pr-4 pl-2 text-nowrap shadow-lg lg:right-1/4 lg:bottom-1/4 lg:translate-x-[5%] lg:-translate-y-[5%]">
                     <svg
                       width="24"
                       height="24"
@@ -1195,6 +1192,15 @@ export function HowItWorksSection() {
                   Work with agents, transcribe multiple recordings, and automate
                   workflows from your terminal.
                 </p>
+                <a
+                  href="https://cli.char.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-md text-color-secondary hover:text-color flex items-center gap-1 underline"
+                >
+                  Explore
+                  <Icon icon="mdi:arrow-top-right" className="text-sm" />
+                </a>
               </div>
             </div>
           </div>
