@@ -118,7 +118,7 @@ Free for unlimited transcription and 25 lifetime meetings for AI features. Plus,
 
 The focus is configurability. You choose your LLM provider: the built-in local model, OpenAI, Anthropic, OpenRouter, or Ollama. You can write custom summarization prompts, auto-export notes to Obsidian, fire webhooks when a meeting ends, and run an MCP server so AI coding tools can query your meeting history. No analytics, no telemetry, no data collection.
 
-***How local is it actually***
+#### How local is it actually
 
 - Transcription: 100% on-device via FluidAudio on Apple's Neural Engine. Audio never leaves your Mac.
 - Summarization: local by default (Qwen3-4B-4bit). Optional BYOK with OpenAI, Anthropic, OpenRouter, or Ollama.
@@ -127,26 +127,28 @@ The focus is configurability. You choose your LLM provider: the built-in local m
 
 If you never configure a cloud LLM, nothing leaves your machine. Talat was [featured in TechCrunch](https://techcrunch.com/2026/03/24/talats-ai-meeting-notes-stay-on-your-machine-not-in-the-cloud/) in March 2026 and is a one-time purchase from a bootstrapped two-person team.
 
-***Where it falls short***
+#### Where it falls short
 
 - macOS only, M-series chips only (M1 or later).
 - Pre-release software. Speaker diarization is rough.
 - Local LLM summarization can be hit or miss on longer meetings.
 - No calendar integration yet (planned).
 
-***Pricing***
+#### Pricing
 
-- $49 one-time purchase (pre-release price). $99 at version 1.0.
-- 10 hours of free recordings to try before buying.
-- No subscription. Every future update included.
+$49 one-time purchase (pre-release price). $99 at version 1.0. 10 hours of free recordings to try before buying.
 
-**Screenpipe**
+### 5. Screenpipe
 
-[Screenpipe](https://screenpi.pe) records your screen and audio 24/7, transcribes everything locally with Whisper, and indexes it in a searchable local database. It is not a meeting tool. It is an open-source AI memory layer for your entire desktop that happens to be very good at meeting notes, because meeting notes are a side effect of it always running.
+[Screenpipe](https://screenpi.pe) records your screen and audio 24/7, transcribes everything locally with Whisper, and indexes it in a searchable local database. 
 
-After a call, you ask the AI: "Summarize my meeting from 2 to 3pm and list action items." Screenpipe searches your audio transcripts and screen content from that time window. It captures what audio-only tools miss: the URL someone dropped in the Zoom chat, the spreadsheet someone shared, the code someone walked through in a terminal. It also runs as an MCP server, so Cursor, Claude Code, and Cline can query your meeting history directly.
+It is not a meeting tool. It is an open-source AI memory layer for your entire desktop that happens to be very good at meeting notes, because meeting notes are a side effect of it always running.
 
-***How local is it actually***
+After a call, you ask the AI: "Summarize my meeting from 2 to 3pm and list action items." Screenpipe searches your audio transcripts and screen content from that time window. 
+
+It captures what audio-only tools miss: the URL someone dropped in the Zoom chat, the spreadsheet someone shared, the code someone walked through in a terminal. It also runs as an MCP server, so Cursor, Claude Code, and Cline can query your meeting history directly.
+
+#### How local is it actually
 
 - Transcription: local Whisper by default. Optional Deepgram (cloud) for faster processing.
 - Summarization: any model. Ollama for local, or connect cloud models.
@@ -154,7 +156,7 @@ After a call, you ask the AI: "Summarize my meeting from 2 to 3pm and list actio
 - Screen capture: local. Accessibility APIs + OCR fallback.
 - Runs on macOS, Windows, and Linux. MIT-licensed open source.
 
-***Where it falls short***
+#### Where it falls short
 
 - Not purpose-built for meetings. Always running, always capturing.
 - Higher resource usage (~5-10% CPU, ~20 GB storage/month).
