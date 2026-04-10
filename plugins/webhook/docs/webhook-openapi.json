@@ -107,7 +107,12 @@
       },
       "TranscriptionEventData": {
         "type": "object",
-        "required": ["recording_id", "transcription_id", "text", "processing_time_ms"],
+        "required": [
+          "recording_id",
+          "transcription_id",
+          "text",
+          "processing_time_ms"
+        ],
         "properties": {
           "recording_id": {
             "type": "string",
