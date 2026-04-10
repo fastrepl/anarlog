@@ -1006,7 +1006,7 @@ export function HowItWorksSection() {
                 />
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base md:text-xl">
+                <h4 className="text-color mb-2 text-base md:text-xl">
                   Data always stays on your device
                 </h4>
                 <p className="text-color-secondary text-base">
@@ -1022,7 +1022,7 @@ export function HowItWorksSection() {
                 <div
                   className={cn([
                     "relative flex w-full items-center overflow-hidden rounded-lg",
-                    "border border-stone-200 bg-white px-3 py-4",
+                    "border-color-brand border px-3 py-4",
                   ])}
                 >
                   <span className="font-mono text-base tracking-wider text-stone-300">
@@ -1031,11 +1031,11 @@ export function HowItWorksSection() {
                   <span className="text-base tracking-[0.2em] text-stone-400">
                     ✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱✱
                   </span>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-linear-to-l from-white to-transparent" />
+                  <div className="pointer-events-none absolute inset-y-0 right-0 w-24 bg-linear-to-l from-[var(--color-page)] to-transparent" />
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base md:text-xl">
+                <h4 className="text-color mb-2 text-base md:text-xl">
                   Bring Your Own Key or use local models
                 </h4>
                 <p className="text-color-secondary text-base">
@@ -1070,7 +1070,7 @@ export function HowItWorksSection() {
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base md:text-xl">
+                <h4 className="text-color mb-2 text-base md:text-xl">
                   No bots on calls. Hidden during screen share.
                 </h4>
                 <p className="text-color-secondary text-base">
@@ -1148,7 +1148,7 @@ export function HowItWorksSection() {
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 pb-8 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base md:text-xl">
+                <h4 className="text-color mb-2 text-base md:text-xl">
                   Transcribe existing recordings
                 </h4>
                 <p className="text-color-secondary text-base">
@@ -1164,7 +1164,7 @@ export function HowItWorksSection() {
                 <HelloBubble />
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base md:text-xl">
+                <h4 className="text-color mb-2 text-base md:text-xl">
                   Works with 40+ languages
                 </h4>
                 <p className="text-color-secondary text-base">
@@ -1185,7 +1185,7 @@ export function HowItWorksSection() {
                 </div>
               </div>
               <div className="flex min-h-0 flex-col justify-start gap-2 md:max-h-[200px]">
-                <h4 className="text-color mb-4 text-base font-medium md:text-xl">
+                <h4 className="text-color mb-2 text-base font-medium md:text-xl">
                   Char CLI
                 </h4>
                 <p className="text-color-secondary text-base">
