@@ -27,8 +27,8 @@ pub fn build_session_config(
     name = "stt.session.init",
     skip(state, selected, params),
     fields(
-        hyprnote.subsystem = "stt",
-        hyprnote.stt.provider.name = ?selected.provider()
+        char.subsystem = "stt",
+        char.stt.provider.name = ?selected.provider()
     )
 )]
 pub async fn init_session(
@@ -68,8 +68,8 @@ pub async fn init_session(
         .map_err(|e| format!("session init parse failed: {}", e))?;
 
     tracing::debug!(
-        hyprnote.stt.session.id = %init.id,
-        hyprnote.stt.provider.name = ?provider,
+        char.stt.session.id = %init.id,
+        char.stt.provider.name = ?provider,
         "session_initialized"
     );
 

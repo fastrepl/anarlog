@@ -137,7 +137,7 @@ impl ChannelSplitProxy {
         }
 
         tracing::info!(
-            hyprnote.duration_ms = %(duration.as_millis() as u64),
+            char.duration_ms = %(duration.as_millis() as u64),
             "channel_split_proxy_closed"
         );
 
@@ -234,7 +234,7 @@ impl ChannelSplitProxy {
                                     passthrough_text.as_deref().unwrap_or("<none>");
 
                                 tracing::info!(
-                                    hyprnote.stream.channel = channel,
+                                    char.stream.channel = channel,
                                     raw = %raw_log.as_deref().unwrap_or("<none>"),
                                     transformed = %transformed_log.as_deref().unwrap_or("<none>"),
                                     rewritten = %rewritten_log,

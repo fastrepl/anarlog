@@ -2,12 +2,12 @@
 Name=Char
 GenericName=AI Meeting Notes
 Comment=The AI notepad for private meetings
-Exec=hyprnote %U
-Icon=com.hyprnote.Hyprnote
+Exec=char %U
+Icon=com.char.Char
 Terminal=false
 Type=Application
 Categories=Office;AudioVideo;Recorder;
 Keywords=notes;meeting;transcription;ai;audio;recording;
 StartupNotify=true
-StartupWMClass=hyprnote
+StartupWMClass=char
 MimeType=x-scheme-handler/hypr;

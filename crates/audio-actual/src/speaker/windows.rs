@@ -208,7 +208,7 @@ fn capture_audio_loop(
 
     current_sample_rate.store(capture_format.sample_rate, Ordering::Release);
     tracing::info!(
-        hyprnote.audio.sample_rate_hz = capture_format.sample_rate,
+        char.audio.sample_rate_hz = capture_format.sample_rate,
         "wasapi_loopback_initialized"
     );
     let _ = init_tx.send(Ok(()));

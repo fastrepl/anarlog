@@ -109,7 +109,7 @@ pub(super) async fn relay_client_to_upstreams(
                     Message::Binary(bytes) => {
                         if bytes.len() % FRAME_BYTES != 0 {
                             tracing::error!(
-                                hyprnote.payload.size_bytes = bytes.len(),
+                                char.payload.size_bytes = bytes.len(),
                                 "invalid_stereo_frame_alignment"
                             );
                             let _ = event_tx
@@ -215,8 +215,8 @@ pub(super) async fn relay_upstream_to_events(
                     TungsteniteMessage::Text(text) => {
                         if proxy_debug_enabled() {
                             tracing::info!(
-                                hyprnote.stream.channel = channel,
-                                hyprnote.payload.size_bytes = text.len(),
+                                char.stream.channel = channel,
+                                char.payload.size_bytes = text.len(),
                                 raw = %text,
                                 "channel_split_upstream_text"
                             );

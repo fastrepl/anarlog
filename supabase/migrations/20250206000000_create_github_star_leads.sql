@@ -6,7 +6,7 @@ create table if not exists public.github_star_leads (
   profile_url text,
   bio text,
   event_type text not null default 'star',
-  repo_name text not null default 'fastrepl/hyprnote',
+  repo_name text not null default 'fastrepl/char',
   name text,
   company text,
   is_match boolean,

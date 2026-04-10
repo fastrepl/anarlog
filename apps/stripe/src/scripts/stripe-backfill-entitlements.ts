@@ -31,7 +31,7 @@ if (!DATABASE_URL) {
 const pool = new pg.Pool({ connectionString: DATABASE_URL });
 
 const PRODUCT_ID = "prod_SHWUtH1i2DPvSD";
-const ENTITLEMENT_LOOKUP_KEY = "hyprnote_pro";
+const ENTITLEMENT_LOOKUP_KEY = "char_pro";
 
 class DbError {
   readonly _tag = "DbError";

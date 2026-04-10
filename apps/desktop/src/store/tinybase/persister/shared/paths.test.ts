@@ -15,79 +15,79 @@ vi.mock("@tauri-apps/api/path", () => ({
 }));
 
 describe("buildSessionPath", () => {
-  const dataDir = "/data/hyprnote";
+  const dataDir = "/data/char";
 
   test("builds path without folder", () => {
     expect(buildSessionPath(dataDir, "session-123")).toBe(
-      "/data/hyprnote/sessions/session-123",
+      "/data/char/sessions/session-123",
     );
   });
 
   test("builds path with empty folder", () => {
     expect(buildSessionPath(dataDir, "session-123", "")).toBe(
-      "/data/hyprnote/sessions/session-123",
+      "/data/char/sessions/session-123",
     );
   });
 
   test("builds path with single-level folder", () => {
     expect(buildSessionPath(dataDir, "session-123", "work")).toBe(
-      "/data/hyprnote/sessions/work/session-123",
+      "/data/char/sessions/work/session-123",
     );
   });
 
   test("builds path with nested folder", () => {
     expect(buildSessionPath(dataDir, "session-123", "work/project-a")).toBe(
-      "/data/hyprnote/sessions/work/project-a/session-123",
+      "/data/char/sessions/work/project-a/session-123",
     );
   });
 
   test("builds path with deeply nested folder", () => {
     expect(
       buildSessionPath(dataDir, "session-123", "work/project-a/meetings"),
-    ).toBe("/data/hyprnote/sessions/work/project-a/meetings/session-123");
+    ).toBe("/data/char/sessions/work/project-a/meetings/session-123");
   });
 });
 
 describe("buildChatPath", () => {
-  const dataDir = "/data/hyprnote";
+  const dataDir = "/data/char";
 
   test("builds chat path", () => {
     expect(buildChatPath(dataDir, "chat-456")).toBe(
-      "/data/hyprnote/chats/chat-456",
+      "/data/char/chats/chat-456",
     );
   });
 
   test("builds chat path with uuid", () => {
     expect(buildChatPath(dataDir, "550e8400-e29b-41d4-a716-446655440000")).toBe(
-      "/data/hyprnote/chats/550e8400-e29b-41d4-a716-446655440000",
+      "/data/char/chats/550e8400-e29b-41d4-a716-446655440000",
     );
   });
 });
 
 describe("buildEntityPath", () => {
-  const dataDir = "/data/hyprnote";
+  const dataDir = "/data/char";
 
   test("builds entity path for humans", () => {
-    expect(buildEntityPath(dataDir, "humans")).toBe("/data/hyprnote/humans");
+    expect(buildEntityPath(dataDir, "humans")).toBe("/data/char/humans");
   });
 
   test("builds entity path for organizations", () => {
     expect(buildEntityPath(dataDir, "organizations")).toBe(
-      "/data/hyprnote/organizations",
+      "/data/char/organizations",
     );
   });
 
   test("builds entity path for prompts", () => {
-    expect(buildEntityPath(dataDir, "prompts")).toBe("/data/hyprnote/prompts");
+    expect(buildEntityPath(dataDir, "prompts")).toBe("/data/char/prompts");
   });
 });
 
 describe("buildEntityFilePath", () => {
-  const dataDir = "/data/hyprnote";
+  const dataDir = "/data/char";
 
   test("builds entity file path with .md extension", () => {
     expect(buildEntityFilePath(dataDir, "humans", "person-123")).toBe(
-      "/data/hyprnote/humans/person-123.md",
+      "/data/char/humans/person-123.md",
     );
   });
 
@@ -98,12 +98,12 @@ describe("buildEntityFilePath", () => {
         "humans",
         "550e8400-e29b-41d4-a716-446655440000",
       ),
-    ).toBe("/data/hyprnote/humans/550e8400-e29b-41d4-a716-446655440000.md");
+    ).toBe("/data/char/humans/550e8400-e29b-41d4-a716-446655440000.md");
   });
 
   test("builds entity file path for organizations", () => {
     expect(buildEntityFilePath(dataDir, "organizations", "acme-corp")).toBe(
-      "/data/hyprnote/organizations/acme-corp.md",
+      "/data/char/organizations/acme-corp.md",
     );
   });
 });
@@ -237,7 +237,7 @@ describe("createMarkdownEntityParser", () => {
 
   describe("absolute paths (defensive handling)", () => {
     test("parses id from path with leading segments", () => {
-      expect(parseHumanId("/data/hyprnote/humans/person-123.md")).toBe(
+      expect(parseHumanId("/data/char/humans/person-123.md")).toBe(
         "person-123",
       );
     });

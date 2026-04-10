@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for hyprnote-bot on 2025-11-30T18:55:28+09:00
+# fly.toml app configuration file generated for char-bot on 2025-11-30T18:55:28+09:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'hyprnote-bot'
+app = 'char-bot'
 primary_region = 'sjc'
 
 [build]

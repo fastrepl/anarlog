@@ -40,7 +40,7 @@
     - bom
   request:
     method: GET
-    url: https://api.hyprnote.com/health
+    url: https://api.char.com/health
   retry: 3
 "8354":
   active: true
@@ -82,5 +82,5 @@
     - bom
   request:
     method: GET
-    url: https://api.hyprnote.com/health
+    url: https://api.char.com/health
   retry: 3

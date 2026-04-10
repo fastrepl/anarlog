@@ -36,7 +36,7 @@ function Component() {
                 <div className="rounded-b-xl bg-black p-4 text-left font-mono text-sm text-green-400">
                   <div className="mb-2">
                     <span className="text-white">$</span> curl -X POST
-                    https://api.hyprnote.com/v1/notes \
+                    https://api.char.com/v1/notes \
                   </div>
                   <div className="mb-2 ml-4">
                     -H{" "}

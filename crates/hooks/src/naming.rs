@@ -16,7 +16,7 @@ mod tests {
     #[test]
     fn transforms_snake_case_into_cli_flag() {
         assert_eq!(cli_flag("resource_dir"), "--resource-dir");
-        assert_eq!(cli_flag("app_hyprnote"), "--app-hyprnote");
+        assert_eq!(cli_flag("app_char"), "--app-char");
         assert_eq!(cli_flag("app_meeting"), "--app-meeting");
     }
 

@@ -2,15 +2,15 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Char Nightly",
   "mainBinaryName": "char-nightly",
-  "identifier": "com.hyprnote.nightly",
+  "identifier": "com.char.nightly",
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["hyprnote-nightly"] }
+      "desktop": { "schemes": ["char-nightly"] }
     },
     "updater": {
       "active": true,
       "endpoints": [
-        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}/{{current_version}}?channel=nightly"
+        "https://desktop2.char.com/update/{{target}}-{{arch}}/{{current_version}}?channel=nightly"
       ]
     }
   },

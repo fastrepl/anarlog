@@ -63,7 +63,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const sttModel = current_stt_model as string | undefined;
   const isLocalSttModel =
-    current_stt_provider === "hyprnote" && !!sttModel && sttModel !== "cloud";
+    current_stt_provider === "char" && !!sttModel && sttModel !== "cloud";
 
   const localSttQuery = useQuery({
     enabled: isLocalSttModel,

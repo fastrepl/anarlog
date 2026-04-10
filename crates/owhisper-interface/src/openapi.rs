@@ -3,7 +3,7 @@ use utoipa::OpenApi;
 #[derive(utoipa::IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct CommonListenParams {
-    /// STT provider. Use 'hyprnote' for automatic routing (default), or specify:
+    /// STT provider. Use 'char' for automatic routing (default), or specify:
     /// deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral
     #[allow(dead_code)]
     provider: Option<String>,

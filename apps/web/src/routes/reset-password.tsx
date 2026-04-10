@@ -57,7 +57,7 @@ function Component() {
             ])}
           >
             <Image
-              src="/api/assets/hyprnote/icon.png"
+              src="/api/assets/char/icon.png"
               alt="Char"
               width={96}
               height={96}

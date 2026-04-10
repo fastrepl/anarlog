@@ -36,7 +36,7 @@ type Provider = {
 
 const _PROVIDERS = [
   {
-    id: "hyprnote",
+    id: "char",
     displayName: "Char",
     badge: "Recommended",
     icon: <CharProviderIcon />,

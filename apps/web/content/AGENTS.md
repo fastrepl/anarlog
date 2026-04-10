@@ -102,7 +102,7 @@ A notepad that gives complete control without getting in your way. Clean, simple
 
 ## Critical Reminders
 
-- **Name:** Always use "Char" (not "Hyprnote" - that's the old name)
+- **Name:** Always use "Char" (not "Char" - that's the old name)
 - **Tone:** Direct, engineering-minded, respects user intelligence
 - **Focus:** Zero lock-in, true ownership, complete control
 - **Avoid:** Generic productivity language, corporate marketing speak, fear-based messaging

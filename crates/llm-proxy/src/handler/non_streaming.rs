@@ -28,8 +28,8 @@ pub(super) async fn handle_non_stream_response(
 
     tracing::info!(
         http.response.status_code = %http_status,
-        hyprnote.gen_ai.request.streaming = false,
-        hyprnote.duration_ms = %latency_ms,
+        char.gen_ai.request.streaming = false,
+        char.duration_ms = %latency_ms,
         "llm_completion_response_received"
     );
 
@@ -66,7 +66,7 @@ pub(super) async fn handle_non_stream_response(
                 "gen_ai.usage.output_tokens".into(),
                 metadata.output_tokens.into(),
             );
-            ctx.insert("hyprnote.duration_ms".into(), (latency_ms as u64).into());
+            ctx.insert("char.duration_ms".into(), (latency_ms as u64).into());
             ctx.insert("http.response.status_code".into(), http_status.into());
             scope.set_context("gen_ai.response", sentry::protocol::Context::Other(ctx));
         });

@@ -26,15 +26,15 @@ When you use Pro's curated transcription, you don't pick a specific provider —
 | 6 | Fireworks | `whisper-v3-turbo` | Whisper-based |
 | 7 | OpenAI | `gpt-4o-transcribe` | Final fallback |
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/hyprnote_routing.rs#L33-L41" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/char_routing.rs#L33-L41" />
 
 For example, when transcribing Korean + English, Soniox is selected over Deepgram because it has better multilingual support — even though Deepgram has higher base priority. The router sorts by language quality first, then falls back to priority order:
 
-<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/hyprnote_routing.rs#L70-L111" />
+<GithubCode url="https://github.com/fastrepl/char/blob/main/crates/transcribe-proxy/src/char_routing.rs#L70-L111" />
 
 ### How audio flows
 
-![Audio Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CWebSocket%7C%20B%5BChar%20API%20Server%3Cbr%2F%3Epro.hyprnote.com%5D%0A%20%20%20%20B%20--%3E%7CWebSocket%7C%20C%5BSTT%20Provider%3Cbr%2F%3Ee.g.%2C%20Deepgram%2C%20Soniox%5D)
+![Audio Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CWebSocket%7C%20B%5BChar%20API%20Server%3Cbr%2F%3Epro.char.com%5D%0A%20%20%20%20B%20--%3E%7CWebSocket%7C%20C%5BSTT%20Provider%3Cbr%2F%3Ee.g.%2C%20Deepgram%2C%20Soniox%5D)
 
 1. **Your device** opens a WebSocket to the Char API server, authenticated with your Supabase JWT token.
 2. **Char API server** validates your Pro subscription, selects a provider based on your language, and opens a WebSocket to that provider.
@@ -73,7 +73,7 @@ Char checks if your selected provider supports your configured languages. If the
 
 When using cloud transcription, your recorded audio is sent to the selected provider for processing:
 
-- **Pro curated models:** Your audio is proxied through `pro.hyprnote.com` and forwarded to a curated STT provider. The proxy does not store your audio.
+- **Pro curated models:** Your audio is proxied through `pro.char.com` and forwarded to a curated STT provider. The proxy does not store your audio.
 - **BYOK:** Your audio is sent directly from your device to the provider you selected. Char acts only as the client.
 
 Here is how Char selects the correct adapter for your configured provider — each provider has its own adapter that handles the audio stream:

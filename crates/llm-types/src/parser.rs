@@ -247,9 +247,9 @@ something blabla2
         .trim();
 
         let summary = r###"
-# Hyprnote Overview
+# Char Overview
 
-Hyprnote is an AI-powered notepad designed for private meetings with complete on-device processing. No data leaves your computer, with optional telemetry.
+Char is an AI-powered notepad designed for private meetings with complete on-device processing. No data leaves your computer, with optional telemetry.
 
 # How It Works
 

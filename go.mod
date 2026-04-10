@@ -1,4 +1,4 @@
-module hyprnote
+module char
 
 go 1.25.5
 

@@ -56,25 +56,25 @@ impl WhisperModel {
     pub fn model_url(&self) -> &str {
         match self {
             WhisperModel::QuantizedTiny => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-tiny-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-tiny-q8_0.bin"
             }
             WhisperModel::QuantizedTinyEn => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-tiny.en-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-tiny.en-q8_0.bin"
             }
             WhisperModel::QuantizedBase => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-base-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-base-q8_0.bin"
             }
             WhisperModel::QuantizedBaseEn => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-base.en-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-base.en-q8_0.bin"
             }
             WhisperModel::QuantizedSmall => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-small-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-small-q8_0.bin"
             }
             WhisperModel::QuantizedSmallEn => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-small.en-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-small.en-q8_0.bin"
             }
             WhisperModel::QuantizedLargeTurbo => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-large-v3-turbo-q8_0.bin"
+                "https://char.s3.us-east-1.amazonaws.com/v0/ggerganov/whisper.cpp/main/ggml-large-v3-turbo-q8_0.bin"
             }
         }
     }

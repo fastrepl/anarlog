@@ -11,7 +11,7 @@ pub(crate) mod elevenlabs;
 mod fireworks;
 mod gladia;
 pub mod http;
-mod hyprnote;
+mod char_stt;
 mod language;
 mod mistral;
 mod openai;
@@ -28,7 +28,7 @@ pub use deepgram::*;
 pub use elevenlabs::*;
 pub use fireworks::*;
 pub use gladia::*;
-pub use hyprnote::*;
+pub use char_stt::*;
 pub use language::{LanguageQuality, LanguageSupport};
 pub use mistral::*;
 pub use openai::*;
@@ -247,21 +247,21 @@ pub(crate) fn host_matches(base_url: &str, predicate: impl Fn(&str) -> bool) -> 
         .unwrap_or(false)
 }
 
-fn is_hyprnote_cloud(base_url: &str) -> bool {
+fn is_char_cloud(base_url: &str) -> bool {
     host_matches(base_url, |h| {
-        h.contains("hyprnote.com") || h.contains("char.com")
+        h.contains("char.com") || h.contains("char.com")
     })
 }
 
-fn is_hyprnote_local_proxy(base_url: &str) -> bool {
+fn is_char_local_proxy(base_url: &str) -> bool {
     url::Url::parse(base_url)
         .ok()
         .map(|u| is_local_host(u.host_str().unwrap_or("")) && u.path().contains("/stt"))
         .unwrap_or(false)
 }
 
-pub fn is_hyprnote_proxy(base_url: &str) -> bool {
-    is_hyprnote_cloud(base_url) || is_hyprnote_local_proxy(base_url)
+pub fn is_char_proxy(base_url: &str) -> bool {
+    is_char_cloud(base_url) || is_char_local_proxy(base_url)
 }
 
 pub fn normalize_languages(languages: &[hypr_language::Language]) -> Vec<hypr_language::Language> {
@@ -283,7 +283,7 @@ pub fn normalize_languages(languages: &[hypr_language::Language]) -> Vec<hypr_la
 }
 
 fn is_local_argmax(base_url: &str) -> bool {
-    host_matches(base_url, is_local_host) && !is_hyprnote_local_proxy(base_url)
+    host_matches(base_url, is_local_host) && !is_char_local_proxy(base_url)
 }
 
 fn is_cactus_model(model: &str) -> bool {
@@ -329,7 +329,7 @@ pub fn build_proxy_ws_url(api_base: &str) -> Option<(url::Url, Vec<(String, Stri
     let parsed: url::Url = api_base.parse().ok()?;
     let host = parsed.host_str()?;
 
-    if !host.contains("hyprnote.com") && !is_local_host(host) {
+    if !host.contains("char.com") && !is_local_host(host) {
         return None;
     }
 
@@ -383,8 +383,8 @@ pub enum AdapterKind {
     Mistral,
     #[strum(serialize = "pyannote")]
     Pyannote,
-    #[strum(serialize = "hyprnote")]
-    Hyprnote,
+    #[strum(serialize = "char")]
+    Char,
     #[strum(serialize = "cactus")]
     Cactus,
 }
@@ -397,8 +397,8 @@ impl AdapterKind {
     ) -> Self {
         use crate::providers::Provider;
 
-        if is_hyprnote_proxy(base_url) {
-            return Self::Hyprnote;
+        if is_char_proxy(base_url) {
+            return Self::Char;
         }
 
         if is_local_argmax(base_url) {
@@ -435,7 +435,7 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_live(languages, model),
             Self::Mistral => MistralAdapter::language_support_live(languages),
             Self::Pyannote => LanguageSupport::NotSupported,
-            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+            Self::Char | Self::Cactus => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
         }
@@ -461,7 +461,7 @@ impl AdapterKind {
             Self::Argmax => ArgmaxAdapter::language_support_batch(languages, model),
             Self::Mistral => MistralAdapter::language_support_batch(languages),
             Self::Pyannote => PyannoteAdapter::language_support_batch(languages, model),
-            Self::Hyprnote | Self::Cactus => LanguageSupport::Supported {
+            Self::Char | Self::Cactus => LanguageSupport::Supported {
                 quality: LanguageQuality::NoData,
             },
         }
@@ -583,16 +583,16 @@ mod tests {
     }
 
     #[test]
-    fn test_is_hyprnote_proxy() {
-        assert!(is_hyprnote_proxy("https://api.hyprnote.com/stt"));
-        assert!(is_hyprnote_proxy("https://api.hyprnote.com"));
-        assert!(is_hyprnote_proxy("https://api.char.com/stt"));
-        assert!(is_hyprnote_proxy("https://api.char.com"));
-        assert!(is_hyprnote_proxy("http://localhost:3001/stt"));
-        assert!(is_hyprnote_proxy("http://127.0.0.1:3001/stt"));
+    fn test_is_char_proxy() {
+        assert!(is_char_proxy("https://api.char.com/stt"));
+        assert!(is_char_proxy("https://api.char.com"));
+        assert!(is_char_proxy("https://api.char.com/stt"));
+        assert!(is_char_proxy("https://api.char.com"));
+        assert!(is_char_proxy("http://localhost:3001/stt"));
+        assert!(is_char_proxy("http://127.0.0.1:3001/stt"));
 
-        assert!(!is_hyprnote_proxy("https://api.deepgram.com"));
-        assert!(!is_hyprnote_proxy("http://localhost:50060/v1"));
+        assert!(!is_char_proxy("https://api.deepgram.com"));
+        assert!(!is_char_proxy("http://localhost:50060/v1"));
     }
 
     #[test]
@@ -600,7 +600,7 @@ mod tests {
         assert!(is_local_argmax("http://localhost:50060/v1"));
         assert!(is_local_argmax("http://127.0.0.1:50060/v1"));
 
-        assert!(!is_local_argmax("https://api.hyprnote.com/stt"));
+        assert!(!is_local_argmax("https://api.char.com/stt"));
         assert!(!is_local_argmax("http://localhost:3001/stt"));
         assert!(!is_local_argmax("https://api.deepgram.com"));
     }
@@ -610,80 +610,80 @@ mod tests {
         use hypr_language::ISO639::*;
 
         let cases: &[(&str, &[hypr_language::ISO639], Option<&str>, AdapterKind)] = &[
-            // HyprnoteCloud - always routes to Hyprnote adapter (proxy owns provider selection)
+            // CharCloud - always routes to Char adapter (proxy owns provider selection)
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[En],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[En],
                 Some("cloud"),
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[Zh],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[Ja],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[Ar],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[De],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
-            // HyprnoteCloud - multi-language
+            // CharCloud - multi-language
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[En, Es],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[En, Ko],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[Ko, En],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
-                "https://api.hyprnote.com/stt",
+                "https://api.char.com/stt",
                 &[En, De],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             // localhost proxy
             (
                 "http://localhost:3001/stt",
                 &[En],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             (
                 "http://localhost:3001/stt",
                 &[Ar],
                 None,
-                AdapterKind::Hyprnote,
+                AdapterKind::Char,
             ),
             // localhost argmax
             (
@@ -720,23 +720,23 @@ mod tests {
             ("https://api.fireworks.ai", None),
             ("https://api.assemblyai.com", None),
             (
-                "https://api.hyprnote.com/stt?provider=soniox",
+                "https://api.char.com/stt?provider=soniox",
                 Some((
-                    "wss://api.hyprnote.com/stt/listen",
+                    "wss://api.char.com/stt/listen",
                     vec![("provider", "soniox")],
                 )),
             ),
             (
-                "https://api.hyprnote.com/stt/listen?provider=deepgram",
+                "https://api.char.com/stt/listen?provider=deepgram",
                 Some((
-                    "wss://api.hyprnote.com/stt/listen",
+                    "wss://api.char.com/stt/listen",
                     vec![("provider", "deepgram")],
                 )),
             ),
             (
-                "https://api.hyprnote.com/stt/some/path?provider=fireworks",
+                "https://api.char.com/stt/some/path?provider=fireworks",
                 Some((
-                    "wss://api.hyprnote.com/stt/some/path/listen",
+                    "wss://api.char.com/stt/some/path/listen",
                     vec![("provider", "fireworks")],
                 )),
             ),
@@ -790,11 +790,11 @@ mod tests {
     }
 
     #[test]
-    fn test_hyprnote_proxy_always_selects_hyprnote_adapter() {
+    fn test_char_proxy_always_selects_char_adapter() {
         use hypr_language::ISO639::*;
 
         let proxy_urls = &[
-            "https://api.hyprnote.com/stt",
+            "https://api.char.com/stt",
             "https://api.char.com/stt",
             "http://localhost:3001/stt",
             "http://127.0.0.1:3001/stt",
@@ -809,15 +809,15 @@ mod tests {
                     langs.iter().map(|l| (*l).into()).collect();
                 assert_eq!(
                     AdapterKind::from_url_and_languages(url, &langs, Some("cloud")),
-                    AdapterKind::Hyprnote,
-                    "proxy URL should always select Hyprnote adapter regardless of languages: url={url}, langs={langs:?}"
+                    AdapterKind::Char,
+                    "proxy URL should always select Char adapter regardless of languages: url={url}, langs={langs:?}"
                 );
             }
         }
     }
 
     #[test]
-    fn test_hyprnote_adapter_supports_all_languages() {
+    fn test_char_adapter_supports_all_languages() {
         use hypr_language::ISO639::*;
 
         let combos: &[&[hypr_language::ISO639]] =
@@ -826,8 +826,8 @@ mod tests {
         for langs in combos {
             let langs: Vec<hypr_language::Language> = langs.iter().map(|l| (*l).into()).collect();
             assert!(
-                AdapterKind::Hyprnote.is_supported_languages_live(&langs, Some("cloud")),
-                "Hyprnote adapter should support all languages: {langs:?}"
+                AdapterKind::Char.is_supported_languages_live(&langs, Some("cloud")),
+                "Char adapter should support all languages: {langs:?}"
             );
         }
     }
@@ -866,9 +866,9 @@ mod tests {
     #[test]
     fn test_append_provider_param_replaces_existing() {
         let url =
-            append_provider_param("https://api.hyprnote.com/stt?provider=deepgram", "hyprnote");
+            append_provider_param("https://api.char.com/stt?provider=deepgram", "char");
         assert!(
-            url.contains("provider=hyprnote"),
+            url.contains("provider=char"),
             "new provider value should be present: {url}"
         );
         assert!(
@@ -885,8 +885,8 @@ mod tests {
     #[test]
     fn test_append_provider_param_preserves_other_params() {
         let url = append_provider_param(
-            "https://api.hyprnote.com/stt?model=cloud&provider=soniox&language=en",
-            "hyprnote",
+            "https://api.char.com/stt?model=cloud&provider=soniox&language=en",
+            "char",
         );
         assert!(
             url.contains("model=cloud"),
@@ -896,14 +896,14 @@ mod tests {
             url.contains("language=en"),
             "language should be preserved: {url}"
         );
-        assert!(url.contains("provider=hyprnote"));
+        assert!(url.contains("provider=char"));
         assert!(!url.contains("provider=soniox"));
     }
 
     #[test]
     fn test_append_provider_param_no_existing_provider() {
-        let url = append_provider_param("https://api.hyprnote.com/stt", "hyprnote");
-        assert!(url.contains("provider=hyprnote"));
+        let url = append_provider_param("https://api.char.com/stt", "char");
+        assert!(url.contains("provider=char"));
         assert_eq!(url.matches("provider=").count(), 1);
     }
 }

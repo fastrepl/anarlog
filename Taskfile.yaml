@@ -25,7 +25,7 @@ tasks:
       - task: cli:ui
       - cp apps/cli-ui/.build/apple/Products/Release/char-cli-ui target/debug/
       - cargo run -p cli --features standalone -- {{.CLI_ARGS}}
-  stat: btop -f hyprnote -u 500 --preset 1
+  stat: btop -f char -u 500 --preset 1
 
   clean-plugins:
     cmds:
@@ -66,7 +66,7 @@ tasks:
 
   db:
     env:
-      DB: /Users/yujonglee/Library/Application Support/hyprnote/db.sqlite
+      DB: /Users/yujonglee/Library/Application Support/char/db.sqlite
     cmds:
       - |
           sqlite3 -json "$DB" 'SELECT store FROM main LIMIT 1;' |

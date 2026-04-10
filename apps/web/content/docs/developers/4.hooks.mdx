@@ -10,10 +10,10 @@ Hooks let you observe and react to Char's lifecycle using custom scripts. When c
 
 # Config
 
-The hooks configuration file is located at `$HOME/Library/Application Support/hyprnote/hooks.json` on macOS. Currently only schema version `0` is supported.
+The hooks configuration file is located at `$HOME/Library/Application Support/char/hooks.json` on macOS. Currently only schema version `0` is supported.
 
 ```bash
-vi "$HOME/Library/Application Support/hyprnote/hooks.json"
+vi "$HOME/Library/Application Support/char/hooks.json"
 ```
 
 ```json
@@ -28,8 +28,8 @@ vi "$HOME/Library/Application Support/hyprnote/hooks.json"
 Each hook event can have multiple commands configured. When the event fires, all commands are executed in parallel. The `command` field specifies the shell command to run, and Char automatically appends command-line flags with event-specific arguments.
 
 ```bash
-vi "$HOME/Library/Application Support/hyprnote/hooks/demo.sh"
-chmod +x "$HOME/Library/Application Support/hyprnote/hooks/demo.sh"
+vi "$HOME/Library/Application Support/char/hooks/demo.sh"
+chmod +x "$HOME/Library/Application Support/char/hooks/demo.sh"
 ```
 
 ```sh
@@ -43,7 +43,7 @@ exit 0
 Every hook command receives additional command-line flags based on the event type. For listening-related hooks, these include:
 
 - `--resource-dir`: Path to the session's resource directory
-- `--app-hyprnote`: Char application identifier (e.g., `com.hyprnote.stable`)
+- `--app-char`: Char application identifier (e.g., `com.char.stable`)
 - `--app-meeting`: Optional Meeting application identifier (if available)
 
 Your scripts can parse these arguments to access session metadata, or simply ignore them if not needed.
@@ -55,8 +55,8 @@ A practical use case for hooks is automatic window management. The repository in
 First, copy the script to your hooks directory and make it executable:
 
 ```bash
-cp scripts/yabai.sh "$HOME/Library/Application Support/hyprnote/hooks/yabai.sh"
-chmod +x "$HOME/Library/Application Support/hyprnote/hooks/yabai.sh"
+cp scripts/yabai.sh "$HOME/Library/Application Support/char/hooks/yabai.sh"
+chmod +x "$HOME/Library/Application Support/char/hooks/yabai.sh"
 ```
 
 Then configure your hooks to automatically tile Char when recording starts:
@@ -66,7 +66,7 @@ Then configure your hooks to automatically tile Char when recording starts:
   "version": 0,
   "hooks": {
     "beforeListeningStarted": [
-      { "command": "$HOME/dev/hyprnote/scripts/yabai.sh" }
+      { "command": "$HOME/dev/char/scripts/yabai.sh" }
     ]
   }
 }
@@ -74,7 +74,7 @@ Then configure your hooks to automatically tile Char when recording starts:
 
 With this configuration, when you start recording, Char automatically tiles to the left half of your screen (leaving room for your meeting app). When recording stops, it moves to the right half.
 
-The `yabai.sh` script accepts `--app` (the application name to find) and `--position` (`left` or `right`). It safely ignores the additional hook arguments (`--resource-dir`, `--app-hyprnote`, `--app-meeting`) that Char appends, so you can use it as-is without modification.
+The `yabai.sh` script accepts `--app` (the application name to find) and `--position` (`left` or `right`). It safely ignores the additional hook arguments (`--resource-dir`, `--app-char`, `--app-meeting`) that Char appends, so you can use it as-is without modification.
 
 # Available Hooks
 

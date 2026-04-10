@@ -26,8 +26,8 @@ async runEventHooks(event: HookEvent) : Promise<Result<HookResult[], string>> {
 
 /** user-defined types **/
 
-export type AfterListeningStoppedArgs = { resource_dir: string; app_hyprnote: string; app_meeting?: string | null }
-export type BeforeListeningStartedArgs = { resource_dir: string; app_hyprnote: string; app_meeting?: string | null }
+export type AfterListeningStoppedArgs = { resource_dir: string; app_char: string; app_meeting?: string | null }
+export type BeforeListeningStartedArgs = { resource_dir: string; app_char: string; app_meeting?: string | null }
 export type HookDefinition = { command: string }
 export type HookEvent = { afterListeningStopped: { args: AfterListeningStoppedArgs } } | { beforeListeningStarted: { args: BeforeListeningStartedArgs } }
 export type HookResult = { command: string; success: boolean; exit_code: number | null; stdout: string; stderr: string }

@@ -38,12 +38,12 @@ pub fn cleanup_files_in_dir(
         );
         if let Err(e) = std::fs::remove_file(&path) {
             tracing::warn!(
-                hyprnote.file.path = %relative_path,
+                char.file.path = %relative_path,
                 error = %e,
                 "failed_to_remove_orphan_file"
             );
         } else {
-            tracing::debug!(hyprnote.file.path = %relative_path, "orphan_file_removed");
+            tracing::debug!(char.file.path = %relative_path, "orphan_file_removed");
             removed += 1;
         }
     }
@@ -96,12 +96,12 @@ pub fn cleanup_dirs_recursive(
             let relative_path = to_relative_path(path, base_dir);
             if let Err(e) = std::fs::remove_dir_all(path) {
                 tracing::warn!(
-                    hyprnote.file.path = %relative_path,
+                    char.file.path = %relative_path,
                     error = %e,
                     "failed_to_remove_orphan_directory"
                 );
             } else {
-                tracing::info!(hyprnote.file.path = %relative_path, "orphan_directory_removed");
+                tracing::info!(char.file.path = %relative_path, "orphan_directory_removed");
                 removed += 1;
             }
         }
@@ -157,7 +157,7 @@ fn cleanup_files_in_entity_dir(
         }
 
         if !valid_ids.contains(stem) && std::fs::remove_file(&path).is_ok() {
-            tracing::debug!(hyprnote.file.path = %path.display(), "orphan_file_removed");
+            tracing::debug!(char.file.path = %path.display(), "orphan_file_removed");
             removed += 1;
         }
     }

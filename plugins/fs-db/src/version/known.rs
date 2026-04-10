@@ -4,15 +4,15 @@ use hypr_version::Version;
 
 use crate::Result;
 
-const HYPRNOTE_DIR: &str = ".hyprnote";
+const CHAR_DIR: &str = ".char";
 const VERSION_FILE: &str = "version";
 
 pub fn exists(base_dir: &Path) -> bool {
-    base_dir.join(HYPRNOTE_DIR).join(VERSION_FILE).exists()
+    base_dir.join(CHAR_DIR).join(VERSION_FILE).exists()
 }
 
 pub fn read(base_dir: &Path) -> Option<Version> {
-    let version_file = base_dir.join(HYPRNOTE_DIR).join(VERSION_FILE);
+    let version_file = base_dir.join(CHAR_DIR).join(VERSION_FILE);
     if version_file.exists() {
         let content = std::fs::read_to_string(&version_file).ok()?;
         return content.trim().parse().ok();
@@ -21,9 +21,9 @@ pub fn read(base_dir: &Path) -> Option<Version> {
 }
 
 pub fn write(base_dir: &Path, version: &Version) -> Result<()> {
-    let hyprnote_dir = base_dir.join(HYPRNOTE_DIR);
-    std::fs::create_dir_all(&hyprnote_dir)?;
-    std::fs::write(hyprnote_dir.join(VERSION_FILE), version.to_string())?;
+    let char_dir = base_dir.join(CHAR_DIR);
+    std::fs::create_dir_all(&char_dir)?;
+    std::fs::write(char_dir.join(VERSION_FILE), version.to_string())?;
     Ok(())
 }
 
@@ -41,9 +41,9 @@ mod tests {
     #[test]
     fn test_exists_returns_true_when_version_file_exists() {
         let temp = tempdir().unwrap();
-        let hyprnote_dir = temp.path().join(HYPRNOTE_DIR);
-        std::fs::create_dir_all(&hyprnote_dir).unwrap();
-        std::fs::write(hyprnote_dir.join(VERSION_FILE), "1.0.0").unwrap();
+        let char_dir = temp.path().join(CHAR_DIR);
+        std::fs::create_dir_all(&char_dir).unwrap();
+        std::fs::write(char_dir.join(VERSION_FILE), "1.0.0").unwrap();
         assert!(exists(temp.path()));
     }
 
@@ -56,9 +56,9 @@ mod tests {
     #[test]
     fn test_read_returns_version_when_file_exists() {
         let temp = tempdir().unwrap();
-        let hyprnote_dir = temp.path().join(HYPRNOTE_DIR);
-        std::fs::create_dir_all(&hyprnote_dir).unwrap();
-        std::fs::write(hyprnote_dir.join(VERSION_FILE), "1.0.2-nightly.14").unwrap();
+        let char_dir = temp.path().join(CHAR_DIR);
+        std::fs::create_dir_all(&char_dir).unwrap();
+        std::fs::write(char_dir.join(VERSION_FILE), "1.0.2-nightly.14").unwrap();
 
         let result = read(temp.path());
         assert_eq!(result, Some("1.0.2-nightly.14".parse().unwrap()));
@@ -67,9 +67,9 @@ mod tests {
     #[test]
     fn test_read_returns_none_for_malformed_version() {
         let temp = tempdir().unwrap();
-        let hyprnote_dir = temp.path().join(HYPRNOTE_DIR);
-        std::fs::create_dir_all(&hyprnote_dir).unwrap();
-        std::fs::write(hyprnote_dir.join(VERSION_FILE), "not-a-version").unwrap();
+        let char_dir = temp.path().join(CHAR_DIR);
+        std::fs::create_dir_all(&char_dir).unwrap();
+        std::fs::write(char_dir.join(VERSION_FILE), "not-a-version").unwrap();
 
         assert_eq!(read(temp.path()), None);
     }
@@ -77,24 +77,24 @@ mod tests {
     #[test]
     fn test_read_trims_whitespace() {
         let temp = tempdir().unwrap();
-        let hyprnote_dir = temp.path().join(HYPRNOTE_DIR);
-        std::fs::create_dir_all(&hyprnote_dir).unwrap();
-        std::fs::write(hyprnote_dir.join(VERSION_FILE), "  1.0.1  \n").unwrap();
+        let char_dir = temp.path().join(CHAR_DIR);
+        std::fs::create_dir_all(&char_dir).unwrap();
+        std::fs::write(char_dir.join(VERSION_FILE), "  1.0.1  \n").unwrap();
 
         let result = read(temp.path());
         assert_eq!(result, Some(Version::new(1, 0, 1)));
     }
 
     #[test]
-    fn test_write_creates_hyprnote_dir_and_version_file() {
+    fn test_write_creates_char_dir_and_version_file() {
         let temp = tempdir().unwrap();
         let version = Version::new(1, 0, 2);
 
         write(temp.path(), &version).unwrap();
 
-        assert!(temp.path().join(HYPRNOTE_DIR).exists());
+        assert!(temp.path().join(CHAR_DIR).exists());
         let content =
-            std::fs::read_to_string(temp.path().join(HYPRNOTE_DIR).join(VERSION_FILE)).unwrap();
+            std::fs::read_to_string(temp.path().join(CHAR_DIR).join(VERSION_FILE)).unwrap();
         assert_eq!(content, "1.0.2");
     }
 

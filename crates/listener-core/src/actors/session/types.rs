@@ -9,7 +9,7 @@ use crate::{ListenerRuntime, TranscriptionMode};
 pub const SESSION_SUPERVISOR_PREFIX: &str = "session_supervisor_";
 
 pub fn session_span(session_id: &str) -> tracing::Span {
-    tracing::info_span!("session", hyprnote.session.id = %session_id)
+    tracing::info_span!("session", char.session.id = %session_id)
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

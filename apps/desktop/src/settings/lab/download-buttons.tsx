@@ -19,8 +19,8 @@ export function DownloadButtons() {
     staleTime: Infinity,
   });
 
-  const isDev = identifierQuery.data === "com.hyprnote.dev";
-  const isNightly = identifierQuery.data === "com.hyprnote.nightly";
+  const isDev = identifierQuery.data === "com.char.dev";
+  const isNightly = identifierQuery.data === "com.char.nightly";
 
   const channels: Array<"stable" | "nightly"> = isDev
     ? ["stable", "nightly"]
@@ -32,15 +32,15 @@ export function DownloadButtons() {
     const targetArch = archQuery.data;
     if (platformName === "macos") {
       if (targetArch === "aarch64") {
-        return `https://desktop2.hyprnote.com/download/latest/dmg-aarch64?channel=${channel}`;
+        return `https://desktop2.char.com/download/latest/dmg-aarch64?channel=${channel}`;
       }
-      return `https://desktop2.hyprnote.com/download/latest/dmg-x86_64?channel=${channel}`;
+      return `https://desktop2.char.com/download/latest/dmg-x86_64?channel=${channel}`;
     }
     if (platformName === "linux") {
       if (targetArch === "aarch64") {
-        return `https://desktop2.hyprnote.com/download/latest/appimage-aarch64?channel=${channel}`;
+        return `https://desktop2.char.com/download/latest/appimage-aarch64?channel=${channel}`;
       }
-      return `https://desktop2.hyprnote.com/download/latest/appimage-x86_64?channel=${channel}`;
+      return `https://desktop2.char.com/download/latest/appimage-x86_64?channel=${channel}`;
     }
     return null;
   };

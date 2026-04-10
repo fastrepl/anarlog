@@ -13,7 +13,7 @@ use tauri_plugin_permissions::{Permission, PermissionsPluginExt};
 use tauri_plugin_windows::{AppWindow, WindowsPluginExt};
 
 #[cfg(any(feature = "dev", feature = "devtools"))]
-const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
+const STAGING_BUNDLE_ID: &str = "com.char.staging";
 
 fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn hypr_audio_actual::AudioProvider> {
     #[cfg(any(feature = "dev", feature = "devtools"))]
@@ -49,7 +49,7 @@ pub async fn main() {
 
         if let Some(dsn) = dsn {
             let release =
-                option_env!("APP_VERSION").map(|v| format!("hyprnote-desktop@{}", v).into());
+                option_env!("APP_VERSION").map(|v| format!("char-desktop@{}", v).into());
 
             let client = sentry::init((
                 dsn,
@@ -62,7 +62,7 @@ pub async fn main() {
             ));
 
             sentry::configure_scope(|scope| {
-                scope.set_tag("service.namespace", "hyprnote");
+                scope.set_tag("service.namespace", "char");
                 scope.set_tag("service.name", "desktop");
                 scope.set_tag("enduser.pseudo.id", hypr_host::fingerprint());
                 scope.set_user(Some(sentry::User {

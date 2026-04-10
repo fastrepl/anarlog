@@ -16,25 +16,25 @@ pub fn list_installed_apps() -> Vec<InstalledApp> {
 }
 
 const SELF_BUNDLE_IDS: &[&str] = &[
-    "com.hyprnote.dev",
-    "com.hyprnote.stable",
-    "com.hyprnote.staging",
-    "com.hyprnote.nightly",
+    "com.char.dev",
+    "com.char.stable",
+    "com.char.staging",
+    "com.char.nightly",
 ];
 
 const SELF_APP_NAMES: &[&str] = &[
-    "hyprnote",
-    "hyprnote staging",
-    "hyprnote nightly",
+    "char",
+    "char staging",
+    "char nightly",
     "char",
     "char staging",
     "char nightly",
 ];
 
 const SELF_APP_PATH_SEGMENTS: &[&str] = &[
-    "/hyprnote.app/",
-    "/hyprnote staging.app/",
-    "/hyprnote nightly.app/",
+    "/char.app/",
+    "/char staging.app/",
+    "/char nightly.app/",
     "/char.app/",
     "/char staging.app/",
     "/char nightly.app/",
@@ -90,15 +90,15 @@ mod tests {
 
     #[test]
     fn test_is_self_app_matches_known_bundle_ids() {
-        assert!(is_self_app(&app("com.hyprnote.stable", "Char")));
-        assert!(is_self_app(&app("com.hyprnote.Hyprnote", "Hyprnote")));
+        assert!(is_self_app(&app("com.char.stable", "Char")));
+        assert!(is_self_app(&app("com.char.Char", "Char")));
     }
 
     #[test]
     fn test_is_self_app_matches_renamed_app_names() {
         assert!(is_self_app(&app("pid:42", "Char")));
         assert!(is_self_app(&app("pid:43", "Char Nightly")));
-        assert!(is_self_app(&app("pid:44", "Hyprnote Staging")));
+        assert!(is_self_app(&app("pid:44", "Char Staging")));
     }
 
     #[test]
@@ -108,7 +108,7 @@ mod tests {
             "Unknown",
         )));
         assert!(is_self_app(&app(
-            "/Applications/Hyprnote Nightly.app/Contents/MacOS/Hyprnote Nightly",
+            "/Applications/Char Nightly.app/Contents/MacOS/Char Nightly",
             "Unknown",
         )));
     }

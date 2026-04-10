@@ -30,7 +30,7 @@ pub async fn sentry_and_analytics(mut request: Request, next: Next) -> Response 
 
             let mut ctx = BTreeMap::new();
             ctx.insert(
-                "hyprnote.enduser.entitlements".into(),
+                "char.enduser.entitlements".into(),
                 sentry::protocol::Value::Array(
                     auth.claims
                         .entitlements
@@ -40,7 +40,7 @@ pub async fn sentry_and_analytics(mut request: Request, next: Next) -> Response 
                 ),
             );
             scope.set_context(
-                "hyprnote.enduser.claims",
+                "char.enduser.claims",
                 sentry::protocol::Context::Other(ctx),
             );
         });

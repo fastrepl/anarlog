@@ -37,7 +37,7 @@ services:
         value: api.honeycomb.io:443
 
   - type: web
-    name: hyprnote-api
+    name: char-api
     runtime: docker
     plan: starter
     region: oregon

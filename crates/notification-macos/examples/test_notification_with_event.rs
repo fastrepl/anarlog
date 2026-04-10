@@ -29,23 +29,23 @@ fn main() {
             },
             Participant {
                 name: Some("John Jeong".to_string()),
-                email: "john@hyprnote.com".to_string(),
+                email: "john@char.com".to_string(),
                 status: ParticipantStatus::Accepted,
             },
             Participant {
                 name: Some("Yujong Lee".to_string()),
-                email: "yujonglee@hyprnote.com".to_string(),
+                email: "yujonglee@char.com".to_string(),
                 status: ParticipantStatus::Maybe,
             },
             Participant {
                 name: Some("Tony Stark".to_string()),
-                email: "tony@hyprnote.com".to_string(),
+                email: "tony@char.com".to_string(),
                 status: ParticipantStatus::Declined,
             },
         ];
 
         let event_details = EventDetails {
-            what: "Discovery call - Apple <> Hyprnote".to_string(),
+            what: "Discovery call - Apple <> Char".to_string(),
             timezone: Some("America/Cupertino".to_string()),
             location: Some("https://zoom.us/j/123456789".to_string()),
         };

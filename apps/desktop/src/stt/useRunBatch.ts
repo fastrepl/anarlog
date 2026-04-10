@@ -49,10 +49,10 @@ export function getBatchProvider(
   provider: string,
   model: string,
 ): TranscriptionParams["provider"] | null {
-  if (provider === "hyprnote") {
+  if (provider === "char") {
     if (model.startsWith("am-")) return "am";
     if (model.startsWith("cactus-")) return "cactus";
-    return "hyprnote";
+    return "char";
   }
   return BATCH_PROVIDER_MAP[provider] ?? null;
 }

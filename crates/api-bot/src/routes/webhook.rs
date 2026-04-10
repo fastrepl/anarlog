@@ -13,19 +13,19 @@ pub async fn status_change(
     let code = &event.data.status.code;
 
     tracing::info!(
-        hyprnote.bot.id = %bot_id,
-        hyprnote.bot.status_code = ?code,
+        char.bot.id = %bot_id,
+        char.bot.status_code = ?code,
         "bot_status_change"
     );
 
     match code {
         BotStatusCode::CallEnded => {
-            tracing::info!(hyprnote.bot.id = %bot_id, "bot_call_ended");
+            tracing::info!(char.bot.id = %bot_id, "bot_call_ended");
         }
         BotStatusCode::Fatal => {
             let message = event.data.status.message.as_deref().unwrap_or("unknown");
             tracing::error!(
-                hyprnote.bot.id = %bot_id,
+                char.bot.id = %bot_id,
                 error = %message,
                 "bot_fatal"
             );
@@ -53,10 +53,10 @@ pub async fn transcript(Json(payload): Json<TranscriptWebhook>) -> Result<()> {
         .join(" ");
 
     tracing::info!(
-        hyprnote.bot.id = %payload.bot_id,
-        hyprnote.transcript.speaker = %payload.transcript.speaker,
-        hyprnote.transcript.is_final = payload.transcript.is_final,
-        hyprnote.transcript.char_count = text.chars().count() as u64,
+        char.bot.id = %payload.bot_id,
+        char.transcript.speaker = %payload.transcript.speaker,
+        char.transcript.is_final = payload.transcript.is_final,
+        char.transcript.char_count = text.chars().count() as u64,
         "transcript_received"
     );
 

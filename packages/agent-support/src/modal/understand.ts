@@ -6,7 +6,7 @@ export interface UnderstandResult {
   executionTimeMs: number;
 }
 
-export async function understandHyprnoteRepo(
+export async function understandCharRepo(
   request: string,
 ): Promise<UnderstandResult> {
   try {

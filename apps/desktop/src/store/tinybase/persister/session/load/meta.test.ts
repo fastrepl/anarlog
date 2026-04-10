@@ -7,31 +7,31 @@ describe("extractSessionIdAndFolder", () => {
   describe("standard paths", () => {
     test("extracts session id and empty folder from root session path", () => {
       const result = extractSessionIdAndFolder(
-        "/data/hyprnote/sessions/session-123/_meta.json",
+        "/data/char/sessions/session-123/_meta.json",
       );
       expect(result).toEqual({
         sessionId: "session-123",
-        folderPath: "/data/hyprnote/sessions",
+        folderPath: "/data/char/sessions",
       });
     });
 
     test("extracts session id and folder from nested path", () => {
       const result = extractSessionIdAndFolder(
-        "/data/hyprnote/sessions/work/session-123/_meta.json",
+        "/data/char/sessions/work/session-123/_meta.json",
       );
       expect(result).toEqual({
         sessionId: "session-123",
-        folderPath: "/data/hyprnote/sessions/work",
+        folderPath: "/data/char/sessions/work",
       });
     });
 
     test("extracts session id and folder from deeply nested path", () => {
       const result = extractSessionIdAndFolder(
-        "/data/hyprnote/sessions/work/project-a/meetings/session-123/_meta.json",
+        "/data/char/sessions/work/project-a/meetings/session-123/_meta.json",
       );
       expect(result).toEqual({
         sessionId: "session-123",
-        folderPath: "/data/hyprnote/sessions/work/project-a/meetings",
+        folderPath: "/data/char/sessions/work/project-a/meetings",
       });
     });
   });

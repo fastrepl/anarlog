@@ -54,12 +54,12 @@ export function ConfigureProviders() {
       >
         <HyprProviderCard
           ref={hyprAccordionRef}
-          providerId="hyprnote"
+          providerId="char"
           providerName="Char"
           icon={<CharProviderIcon />}
-          badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
+          badge={PROVIDERS.find((p) => p.id === "char")?.badge}
         />
-        {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
+        {PROVIDERS.filter((provider) => provider.id !== "char").map(
           (provider) => (
             <NonHyprProviderCard
               key={provider.id}
@@ -355,7 +355,7 @@ function HyprProviderCloudRow() {
     if (!isPaid) {
       upgradeToPro();
     } else {
-      handleSelectProvider("hyprnote");
+      handleSelectProvider("char");
       handleSelectModel("cloud");
     }
   }, [isPaid, upgradeToPro, handleSelectProvider, handleSelectModel]);
@@ -566,7 +566,7 @@ function HyprProviderLocalRow({
 
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
-    providerId === "hyprnote"
+    providerId === "char"
       ? "**Char Cloud** routes request to the **best available model** for highest accuracy and performance."
       : providerId === "deepgram"
         ? `Use [Deepgram](https://deepgram.com) for transcriptions. \
@@ -618,7 +618,7 @@ function useSafeSelectModel() {
       if (active) {
         return;
       }
-      handleSelectProvider("hyprnote");
+      handleSelectProvider("char");
       handleSelectModel(model);
     },
     [active, handleSelectProvider, handleSelectModel],

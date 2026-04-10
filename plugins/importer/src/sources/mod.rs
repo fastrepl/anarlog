@@ -1,6 +1,6 @@
 mod as_is;
 mod granola;
-mod hyprnote;
+mod char_app;
 
 pub use as_is::AsIsData;
 
@@ -8,7 +8,7 @@ use crate::types::{Collection, ImportSource, ImportSourceInfo, TransformKind};
 
 pub async fn import_all(source: &ImportSource) -> Result<Collection, crate::Error> {
     match source.transform {
-        TransformKind::HyprnoteV0 => hyprnote::v0::import_all_from_path(&source.path).await,
+        TransformKind::CharV0 => char_app::v0::import_all_from_path(&source.path).await,
         TransformKind::Granola => granola::import_all_from_path(&source.path).await,
         TransformKind::AsIs => as_is::load_data(&source.path),
     }
@@ -16,8 +16,8 @@ pub async fn import_all(source: &ImportSource) -> Result<Collection, crate::Erro
 
 pub fn all_sources() -> Vec<ImportSource> {
     [
-        ImportSource::hyprnote_stable(),
-        ImportSource::hyprnote_nightly(),
+        ImportSource::char_stable(),
+        ImportSource::char_nightly(),
     ]
     .into_iter()
     .flatten()

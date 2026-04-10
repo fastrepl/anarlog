@@ -100,7 +100,7 @@ impl Drop for LocalServer {
     }
 }
 
-/// cargo run -p llm-cactus --example complete -- --model ~/Library/Application\ Support/hyprnote/models/cactus/qwen2.5-3b-instruct-q4km --prompt "Write a haiku about note taking"
+/// cargo run -p llm-cactus --example complete -- --model ~/Library/Application\ Support/char/models/cactus/qwen2.5-3b-instruct-q4km --prompt "Write a haiku about note taking"
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args = Args::parse();

@@ -191,7 +191,7 @@ function FinderAction({
       <div className="mb-3">
         {appIcon ? (
           <img
-            src="/api/assets/hyprnote/icon.png"
+            src="/api/assets/char/icon.png"
             alt="Char"
             className="mx-auto h-16 w-16 rounded-[20px] border border-neutral-100 shadow-md transition-transform group-hover:scale-110"
           />

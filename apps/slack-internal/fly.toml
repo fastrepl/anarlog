@@ -1,4 +1,4 @@
-app = 'hyprnote-slack-internal'
+app = 'char-slack-internal'
 primary_region = 'sjc'
 
 [build]

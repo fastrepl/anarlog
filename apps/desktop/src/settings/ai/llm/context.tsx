@@ -34,7 +34,7 @@ export function LlmSettingsProvider({
   const hasLlmConfigured = !!(current_llm_provider && current_llm_model);
 
   const [accordionValue, setAccordionValue] = useState<string>(
-    hasLlmConfigured ? "" : "hyprnote",
+    hasLlmConfigured ? "" : "char",
   );
   const [shouldHighlight, setShouldHighlight] = useState(false);
   const { upgradeToPro } = useBillingAccess();
@@ -45,7 +45,7 @@ export function LlmSettingsProvider({
 
   useEffect(() => {
     if (toastActionTarget === "llm") {
-      setAccordionValue("hyprnote");
+      setAccordionValue("char");
       setShouldHighlight(true);
 
       const timer = setTimeout(() => {
@@ -67,7 +67,7 @@ export function LlmSettingsProvider({
   }, [hasLlmConfigured, shouldHighlight]);
 
   const openHyprAccordion = useCallback(() => {
-    setAccordionValue("hyprnote");
+    setAccordionValue("char");
   }, []);
 
   const startTrial = useCallback(() => {

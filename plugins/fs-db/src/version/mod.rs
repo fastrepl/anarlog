@@ -112,7 +112,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_v1_0_1_real_data() {
-        let path = std::path::Path::new("/tmp/hyprnote-data/v1.0.1/simple");
+        let path = std::path::Path::new("/tmp/char-data/v1.0.1/simple");
         if !path.exists() {
             return;
         }
@@ -126,7 +126,7 @@ mod tests {
     #[tokio::test]
     async fn test_empty_sessions_dir_with_v1_sqlite() {
         let temp = tempdir().unwrap();
-        copy_db("/tmp/hyprnote-data/v1.0.1/simple/db.sqlite", temp.path());
+        copy_db("/tmp/char-data/v1.0.1/simple/db.sqlite", temp.path());
         std::fs::create_dir_all(temp.path().join("sessions")).unwrap();
 
         assert_eq!(

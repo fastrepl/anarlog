@@ -46,7 +46,7 @@ export function useSupportMCP(enabled: boolean, accessToken?: string | null) {
   return useMCP({
     enabled,
     endpoint: "/support/mcp",
-    clientName: "hyprnote-support-client",
+    clientName: "char-support-client",
     accessToken,
     promptName: "support_chat",
     collectContext,

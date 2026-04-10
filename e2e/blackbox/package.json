@@ -1,5 +1,5 @@
 {
-  "name": "@hyprnote/e2e-blackbox",
+  "name": "@char/e2e-blackbox",
   "version": "0.0.0",
   "private": true,
   "type": "module",

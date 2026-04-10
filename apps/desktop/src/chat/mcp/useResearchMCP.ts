@@ -4,7 +4,7 @@ export function useResearchMCP(enabled: boolean, accessToken?: string | null) {
   return useMCP({
     enabled,
     endpoint: "/research/mcp",
-    clientName: "hyprnote-research-client",
+    clientName: "char-research-client",
     accessToken,
     promptName: "research_chat",
   });

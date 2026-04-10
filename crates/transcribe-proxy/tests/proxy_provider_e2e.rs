@@ -36,7 +36,7 @@ async fn run_passthrough_live_test<A: RealtimeSttAdapter>(provider: Provider) {
     run_live_stream_test(client, provider_name, sample_rate).await;
 }
 
-async fn run_hyprnote_live_test(provider: Provider) {
+async fn run_char_live_test(provider: Provider) {
     let _ = tracing_subscriber::fmt::try_init();
 
     let api_key = std::env::var(provider.env_key_name())
@@ -49,17 +49,17 @@ async fn run_hyprnote_live_test(provider: Provider) {
         languages: vec![hypr_language::ISO639::En.into()],
         sample_rate,
         custom_query: Some(
-            [("provider".to_string(), "hyprnote".to_string())]
+            [("provider".to_string(), "char".to_string())]
                 .into_iter()
                 .collect(),
         ),
         ..Default::default()
     };
 
-    let provider_name = format!("hyprnote:{}", provider);
+    let provider_name = format!("char:{}", provider);
 
     let client = ListenClient::builder()
-        .adapter::<owhisper_client::HyprnoteAdapter>()
+        .adapter::<owhisper_client::CharAdapter>()
         .api_base(format!("http://{}", addr))
         .params(params)
         .build_single()
@@ -129,7 +129,7 @@ async fn run_passthrough_batch_test(provider: Provider) {
     run_batch_request(url, audio_bytes, format!("passthrough:{}", provider)).await;
 }
 
-async fn run_hyprnote_batch_test(provider: Provider) {
+async fn run_char_batch_test(provider: Provider) {
     let _ = tracing_subscriber::fmt::try_init();
 
     let api_key = std::env::var(provider.env_key_name())
@@ -141,11 +141,11 @@ async fn run_hyprnote_batch_test(provider: Provider) {
 
     let model = provider.default_batch_model();
     let url = format!(
-        "http://{}/listen?provider=hyprnote&model={}&language=en",
+        "http://{}/listen?provider=char&model={}&language=en",
         addr, model
     );
 
-    run_batch_request(url, audio_bytes, format!("hyprnote:{}", provider)).await;
+    run_batch_request(url, audio_bytes, format!("char:{}", provider)).await;
 }
 
 async fn run_batch_request(url: String, audio_bytes: Vec<u8>, provider_name: String) {
@@ -199,12 +199,12 @@ macro_rules! passthrough_live_test {
     };
 }
 
-macro_rules! hyprnote_live_test {
+macro_rules! char_live_test {
     ($name:ident, $provider:expr) => {
         #[ignore]
         #[tokio::test]
         async fn $name() {
-            run_hyprnote_live_test($provider).await;
+            run_char_live_test($provider).await;
         }
     };
 }
@@ -219,12 +219,12 @@ macro_rules! passthrough_batch_test {
     };
 }
 
-macro_rules! hyprnote_batch_test {
+macro_rules! char_batch_test {
     ($name:ident, $provider:expr) => {
         #[ignore]
         #[tokio::test]
         async fn $name() {
-            run_hyprnote_batch_test($provider).await;
+            run_char_batch_test($provider).await;
         }
     };
 }
@@ -272,29 +272,29 @@ mod passthrough {
     }
 }
 
-mod hyprnote {
+mod char {
     use super::*;
 
     pub mod live {
         use super::*;
 
-        hyprnote_live_test!(deepgram, Provider::Deepgram);
-        hyprnote_live_test!(assemblyai, Provider::AssemblyAI);
-        hyprnote_live_test!(soniox, Provider::Soniox);
-        hyprnote_live_test!(gladia, Provider::Gladia);
-        hyprnote_live_test!(fireworks, Provider::Fireworks);
-        hyprnote_live_test!(elevenlabs, Provider::ElevenLabs);
+        char_live_test!(deepgram, Provider::Deepgram);
+        char_live_test!(assemblyai, Provider::AssemblyAI);
+        char_live_test!(soniox, Provider::Soniox);
+        char_live_test!(gladia, Provider::Gladia);
+        char_live_test!(fireworks, Provider::Fireworks);
+        char_live_test!(elevenlabs, Provider::ElevenLabs);
     }
 
     pub mod batch {
         use super::*;
 
-        hyprnote_batch_test!(deepgram, Provider::Deepgram);
-        hyprnote_batch_test!(assemblyai, Provider::AssemblyAI);
-        hyprnote_batch_test!(soniox, Provider::Soniox);
-        hyprnote_batch_test!(gladia, Provider::Gladia);
-        hyprnote_batch_test!(fireworks, Provider::Fireworks);
-        hyprnote_batch_test!(openai, Provider::OpenAI);
-        hyprnote_batch_test!(elevenlabs, Provider::ElevenLabs);
+        char_batch_test!(deepgram, Provider::Deepgram);
+        char_batch_test!(assemblyai, Provider::AssemblyAI);
+        char_batch_test!(soniox, Provider::Soniox);
+        char_batch_test!(gladia, Provider::Gladia);
+        char_batch_test!(fireworks, Provider::Fireworks);
+        char_batch_test!(openai, Provider::OpenAI);
+        char_batch_test!(elevenlabs, Provider::ElevenLabs);
     }
 }

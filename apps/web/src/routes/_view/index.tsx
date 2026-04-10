@@ -46,7 +46,7 @@ const mainFeatures = [
     title: "Real-time transcription",
     description:
       "While you take notes, Char listens and generates a live transcript",
-    image: "/api/assets/hyprnote/transcript.jpg",
+    image: "/api/assets/char/transcript.jpg",
     muxPlaybackId: "rbkYuZpGJGLHx023foq9DCSt3pY1RegJU5PvMCkRE3rE",
     link: "/product/ai-notetaking/#transcription",
   },
@@ -55,7 +55,7 @@ const mainFeatures = [
     title: "AI summary",
     description:
       "Char combines your notes and the transcript to create a perfect summary",
-    image: "/api/assets/hyprnote/summary.jpg",
+    image: "/api/assets/char/summary.jpg",
     muxPlaybackId: "lKr5l1fWGNnRqOehiz15mV79VHtFOCiuO9urmgqs6V8",
     link: "/product/ai-notetaking/#summaries",
   },
@@ -64,21 +64,21 @@ const mainFeatures = [
     title: "AI Chat",
     description:
       "Use natural language to get answers pulled directly from your transcript",
-    image: "/api/assets/hyprnote/chat.jpg",
+    image: "/api/assets/char/chat.jpg",
     link: "/product/ai-assistant",
   },
   {
     icon: "mdi:window-restore",
     title: "Floating panel",
     description: "Overlay to quick access recording controls during calls",
-    image: "/api/assets/hyprnote/floating.jpg",
+    image: "/api/assets/char/floating.jpg",
     link: "/product/ai-notetaking/#floating-panel",
   },
   {
     icon: "mdi:keyboard-outline",
     title: "Keyboard shortcuts",
     description: "Navigate and format quickly without touching your mouse",
-    image: "/api/assets/hyprnote/editor.jpg",
+    image: "/api/assets/char/editor.jpg",
     muxPlaybackId: "sMWkuSxKWfH3RYnX51Xa2acih01ZP5yfQy01Q00XRd1yTQ",
     link: "/docs/faq/keyboard-shortcuts",
   },
@@ -415,7 +415,7 @@ function SocialTestimonialsSection() {
       <h2 className="text-color border-color-brand mb-10 border-b pb-8 font-mono text-2xl tracking-wide md:text-4xl">
         <span className="mb-2 block">What people are saying</span>
         <span className="text-color-secondary block font-sans text-sm font-normal tracking-normal md:text-base">
-          Char was formerly Hyprnote.{" "}
+          Char was formerly Char.{" "}
           <Link
             to="/blog/$slug/"
             params={{ slug: "hyprnote-is-now-char" }}
@@ -439,7 +439,7 @@ function SocialTestimonialsSection() {
           author="Tom Yang"
           username="tomyang11_"
           avatar="/avatars/tom.jpg"
-          body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
+          body="I love the flexibility that @trychar gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
           url="https://twitter.com/tomyang11_/status/1956395933538902092"
         />
       </div>
@@ -452,7 +452,7 @@ function SocialTestimonialsSection() {
           avatar="/avatars/tobi.jpg"
           body={`I'm actually very pro meeting recording and ai summarization. But I'm not ok with bots joining as fake humans accomplish this. It's a meeting between you and me. Not you and me and some startup's viral growth strategy.
 
-Granola is great. Gemini does this well in Google Meet. Hyprnote is great and fully local. But use them with consent.
+Granola is great. Gemini does this well in Google Meet. Char is great and fully local. But use them with consent.
 
 My tweet is about how ridiculous and self important it looks when you show up to a meeting with random bots as entourage.`}
           url="https://x.com/tobi/status/1983892259230699921"
@@ -462,15 +462,15 @@ My tweet is about how ridiculous and self important it looks when you show up to
           author="Anand Chowdhary"
           username="AnandChowdhary"
           avatar="/avatars/anand.jpg"
-          body={`Hyprnote has been on my radar since their time in YC S25 as “that local-first meeting notes thing,” and I finally took a closer look today. It immediately hit a nerve I’ve had with AI note tools for years. I love the idea of getting help with meetings. I really don’t love bots joining every Zoom call or my audio being streamed to some mystery server “for quality purposes”.
+          body={`Char has been on my radar since their time in YC S25 as “that local-first meeting notes thing,” and I finally took a closer look today. It immediately hit a nerve I’ve had with AI note tools for years. I love the idea of getting help with meetings. I really don’t love bots joining every Zoom call or my audio being streamed to some mystery server “for quality purposes”.
 
-@tryhyprnote leans into that tension in a pretty honest way. It calls itself a local-first AI notepad for private meetings, and the “private” bit is not just a tagline. There are no meeting bots and no calendar guests. It just listens directly to the audio going in and out of your computer, gives you a realtime transcript, and lets you stay in the conversation instead of turning into a court reporter.
+@trychar leans into that tension in a pretty honest way. It calls itself a local-first AI notepad for private meetings, and the “private” bit is not just a tagline. There are no meeting bots and no calendar guests. It just listens directly to the audio going in and out of your computer, gives you a realtime transcript, and lets you stay in the conversation instead of turning into a court reporter.
 
-You still have a simple notepad to jot quick memos during the call. Those act more like hints than homework. After the meeting, Hyprnote can use your memos to shape a personalized summary, but that part is optional. If you forget to take notes altogether, it can still generate a recap from the transcript.
+You still have a simple notepad to jot quick memos during the call. Those act more like hints than homework. After the meeting, Char can use your memos to shape a personalized summary, but that part is optional. If you forget to take notes altogether, it can still generate a recap from the transcript.
 
 The tech stack is pretty nice if you are into that sort of thing. TypeScript and React on the UI, Rust and Tauri for the desktop app. The cool part is what that enables. You can run the whole thing offline with LM Studio or Ollama. No Wi‑Fi, no outbound requests. That makes it genuinely interesting for teams that care a lot about compliance or even air‑gapped environments. And if you do want cloud models, it does the “bring your own LLM” thing with Gemini, Claude, Azure‑hosted GPT, etc., so it can fit into whatever your company’s approved stack is.
 
-If you have been waiting for an AI meeting assistant that behaves like a real desktop app and respects the fact that you might not want to ship your raw meeting audio to the cloud, Hyprnote is worth a look`}
+If you have been waiting for an AI meeting assistant that behaves like a real desktop app and respects the fact that you might not want to ship your raw meeting audio to the cloud, Char is worth a look`}
           url="https://x.com/AnandChowdhary/status/1997980479698723119"
         />
         <div className="flex flex-col gap-8">
@@ -489,7 +489,7 @@ No affiliation, just love their product & hope they succeed`}
             author="Tom Yang"
             username="tomyang11_"
             avatar="/avatars/tom.jpg"
-            body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
+            body="I love the flexibility that @trychar gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
             url="https://twitter.com/tomyang11_/status/1956395933538902092"
           />
         </div>
@@ -1895,7 +1895,7 @@ export function MainFeaturesSection({
       <div className="px-4 py-16 text-left">
         <div className="mx-auto mb-6 flex size-28 items-center justify-center rounded-4xl border border-neutral-100 bg-transparent shadow-xl">
           <Image
-            src="/api/assets/hyprnote/icon.png"
+            src="/api/assets/char/icon.png"
             alt="Char"
             width={96}
             height={96}
@@ -1986,7 +1986,7 @@ function FeaturesMobileCarousel({
                     />
                   ) : (
                     <img
-                      src="/api/assets/hyprnote/static.webp"
+                      src="/api/assets/char/static.webp"
                       alt={`${feature.title} feature`}
                       className="h-full w-full object-cover"
                     />
@@ -2206,7 +2206,7 @@ function FeaturesDesktopGrid() {
               />
             ) : (
               <img
-                src="/api/assets/hyprnote/static.webp"
+                src="/api/assets/char/static.webp"
                 alt={`${feature.title} feature`}
                 className="h-full w-full object-cover"
               />

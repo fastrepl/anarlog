@@ -118,7 +118,7 @@ export function SelectProviderAndModel() {
   };
 
   const handleProviderChange = (provider: string) => {
-    if (provider === "hyprnote" && !billing.isPaid) {
+    if (provider === "char" && !billing.isPaid) {
       billing.upgradeToPro();
       return;
     }
@@ -293,7 +293,7 @@ function useConfiguredMapping(): Record<string, ProviderStatus> {
           return [provider.id, { listModels: undefined }];
         }
 
-        if (provider.id === "hyprnote") {
+        if (provider.id === "char") {
           const result: ListModelsResult = {
             models: ["Auto"],
             ignored: [],

@@ -18,7 +18,7 @@ fn silero_cactus_model() -> Model {
     let path = std::env::var("SILERO_CACTUS_VAD_MODEL").unwrap_or_else(|_| {
         let home = std::env::var("HOME").unwrap();
         format!(
-            "{}/Library/Application Support/com.hyprnote.dev/models/cactus/whisper-medium-int8-apple/vad",
+            "{}/Library/Application Support/com.char.dev/models/cactus/whisper-medium-int8-apple/vad",
             home
         )
     });

@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_view/callback/billing")({
 });
 
 function Component() {
-  const { scheme = "hyprnote" } = Route.useSearch();
+  const { scheme = "char" } = Route.useSearch();
   const [copied, setCopied] = useState(false);
 
   const deeplink = `${scheme}://billing/refresh`;

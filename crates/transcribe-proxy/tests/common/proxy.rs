@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use axum::{Json, Router, extract::RawQuery, response::IntoResponse, routing::post};
 use owhisper_client::Provider;
-use transcribe_proxy::{HyprnoteRoutingConfig, SttProxyConfig};
+use transcribe_proxy::{CharRoutingConfig, SttProxyConfig};
 
 use super::MockServerHandle;
 
@@ -120,7 +120,7 @@ async fn start_proxy_with(
 
     let mut config = SttProxyConfig::new(&env, &supabase_env)
         .with_default_provider(default_provider)
-        .with_hyprnote_routing(HyprnoteRoutingConfig::default());
+        .with_char_routing(CharRoutingConfig::default());
 
     if let Some(url) = deepgram_upstream {
         config = config.with_upstream_url(Provider::Deepgram, url);

@@ -5,7 +5,7 @@ export const Route = createFileRoute(
 )({
   beforeLoad: async () => {
     throw redirect({
-      href: "https://desktop2.hyprnote.com/download/latest/debian-aarch64?channel=nightly",
+      href: "https://desktop2.char.com/download/latest/debian-aarch64?channel=nightly",
     } as any);
   },
 });

@@ -184,7 +184,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 } => {
                     tracing::error!(
                         error = %message,
-                        hyprnote.validation.errors = ?validation_errors,
+                        char.validation.errors = ?validation_errors,
                         "gladia_init_failed"
                     );
                     return None;
@@ -224,7 +224,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
             Err(e) => {
                 tracing::warn!(
                     error = ?e,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    char.payload.size_bytes = raw.len() as u64,
                     "gladia_json_parse_failed"
                 );
                 return vec![];
@@ -234,20 +234,20 @@ impl RealtimeSttAdapter for GladiaAdapter {
         match msg {
             GladiaMessage::Transcript(transcript) => Self::parse_transcript(transcript),
             GladiaMessage::StartSession { id } => {
-                tracing::debug!(hyprnote.stt.provider_session.id = %id, "gladia_session_started");
+                tracing::debug!(char.stt.provider_session.id = %id, "gladia_session_started");
                 vec![]
             }
             GladiaMessage::EndSession { id } => {
                 let channels = SessionChannels::remove(&id).unwrap_or_else(|| {
                     tracing::warn!(
-                        hyprnote.stt.provider_session.id = %id,
+                        char.stt.provider_session.id = %id,
                         "gladia_session_channels_not_found"
                     );
                     1
                 });
                 tracing::debug!(
-                    hyprnote.stt.provider_session.id = %id,
-                    hyprnote.audio.channel_count = channels,
+                    char.stt.provider_session.id = %id,
+                    char.audio.channel_count = channels,
                     "gladia_session_ended"
                 );
                 vec![StreamResponse::TerminalResponse {
@@ -271,7 +271,7 @@ impl RealtimeSttAdapter for GladiaAdapter {
             }
             GladiaMessage::Unknown => {
                 tracing::debug!(
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    char.payload.size_bytes = raw.len() as u64,
                     "gladia_unknown_message"
                 );
                 vec![]
@@ -656,7 +656,7 @@ mod tests {
         test_single_with_keywords,
         owhisper_interface::ListenParams {
             languages: vec![hypr_language::ISO639::En.into()],
-            keywords: vec!["Hyprnote".to_string(), "transcription".to_string()],
+            keywords: vec!["Char".to_string(), "transcription".to_string()],
             ..Default::default()
         }
     );

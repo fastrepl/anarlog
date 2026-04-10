@@ -13,7 +13,7 @@ values ('cus_pro')
 on conflict (id) do nothing;
 
 insert into stripe.active_entitlements (id, customer, lookup_key)
-values ('ent_pro', 'cus_pro', 'hyprnote_pro')
+values ('ent_pro', 'cus_pro', 'char_pro')
 on conflict (id) do nothing;
 
 select results_eq(
@@ -51,8 +51,8 @@ select results_eq(
     ) -> 'claims' -> 'entitlements'
   )::jsonb
   $$,
-  array['["hyprnote_pro"]'::jsonb],
-  'custom_access_token_hook sets entitlements=["hyprnote_pro"] when hyprnote_pro entitlement exists'
+  array['["char_pro"]'::jsonb],
+  'custom_access_token_hook sets entitlements=["char_pro"] when char_pro entitlement exists'
 );
 
 select results_eq(

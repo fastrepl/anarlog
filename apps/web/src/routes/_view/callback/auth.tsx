@@ -25,7 +25,7 @@ const validateSearch = z.object({
     ])
     .optional(),
   flow: z.enum(["desktop", "web"]).default("desktop"),
-  scheme: desktopSchemeSchema.catch("hyprnote"),
+  scheme: desktopSchemeSchema.catch("char"),
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),

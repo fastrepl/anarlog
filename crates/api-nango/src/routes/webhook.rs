@@ -146,8 +146,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             })?;
 
         tracing::warn!(
-            hyprnote.connection.id = %payload.connection_id,
-            hyprnote.integration.id = %payload.provider_config_key,
+            char.connection.id = %payload.connection_id,
+            char.integration.id = %payload.provider_config_key,
             error.type = error_type,
             error = error_description,
             "nango token refresh failed"
@@ -167,8 +167,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             })?;
 
         tracing::info!(
-            hyprnote.integration.id = %payload.provider_config_key,
-            hyprnote.connection.id = %payload.connection_id,
+            char.integration.id = %payload.provider_config_key,
+            char.connection.id = %payload.connection_id,
             "nango connection deleted locally from webhook"
         );
 
@@ -178,8 +178,8 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
     if payload.success && payload.operation != AuthOperation::Deletion {
         let Some(end_user_id) = payload.end_user_id() else {
             tracing::warn!(
-                hyprnote.connection.id = %payload.connection_id,
-                hyprnote.integration.id = %payload.provider_config_key,
+                char.connection.id = %payload.connection_id,
+                char.integration.id = %payload.provider_config_key,
                 "nango auth webhook missing end user id, skipping persistence"
             );
             return Ok(());
@@ -201,9 +201,9 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
 
         tracing::info!(
             enduser.id = end_user_id,
-            hyprnote.integration.id = %payload.provider_config_key,
-            hyprnote.connection.id = %payload.connection_id,
-            hyprnote.auth.operation = ?payload.operation,
+            char.integration.id = %payload.provider_config_key,
+            char.connection.id = %payload.connection_id,
+            char.auth.operation = ?payload.operation,
             "nango connection upserted"
         );
 
@@ -238,8 +238,8 @@ fn spawn_identity_task(
                     Ok(connection) => connection.tags.unwrap_or_default(),
                     Err(e) => {
                         tracing::warn!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            char.connection.id = %connection_id,
+                            char.integration.id = %integration_id,
                             error = %e,
                             "failed to fetch connection before patching account_identity tag"
                         );
@@ -259,16 +259,16 @@ fn spawn_identity_task(
                 {
                     Ok(()) => {
                         tracing::info!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            char.connection.id = %connection_id,
+                            char.integration.id = %integration_id,
                             account_identity = %identity,
                             "account_identity tag set"
                         );
                     }
                     Err(e) => {
                         tracing::warn!(
-                            hyprnote.connection.id = %connection_id,
-                            hyprnote.integration.id = %integration_id,
+                            char.connection.id = %connection_id,
+                            char.integration.id = %integration_id,
                             error = %e,
                             "failed to patch account_identity tag"
                         );
@@ -277,8 +277,8 @@ fn spawn_identity_task(
             }
             Err(e) => {
                 tracing::warn!(
-                    hyprnote.connection.id = %connection_id,
-                    hyprnote.integration.id = %integration_id,
+                    char.connection.id = %connection_id,
+                    char.integration.id = %integration_id,
                     error = %e,
                     "failed to fetch identity for account_identity tag"
                 );

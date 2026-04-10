@@ -8,7 +8,7 @@ pub fn model_path() -> PathBuf {
     let path = std::env::var("CACTUS_STT_MODEL").unwrap_or_else(|_| {
         dirs::data_dir()
             .expect("could not find data dir")
-            .join("com.hyprnote.dev/models/cactus/whisper-small-int8-apple")
+            .join("com.char.dev/models/cactus/whisper-small-int8-apple")
             .to_string_lossy()
             .into_owned()
     });

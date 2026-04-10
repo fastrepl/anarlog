@@ -2,7 +2,7 @@ export const TEAM_MEMBERS = {
   john: {
     id: "john",
     name: "John Jeong",
-    email: "john@hyprnote.com",
+    email: "john@char.com",
     avatar: "/api/assets/team/john.png",
     role: "Chief Wisdom Seeker",
     bio: "I love designing simple and intuitive user interfaces.",
@@ -15,7 +15,7 @@ export const TEAM_MEMBERS = {
   yujong: {
     id: "yujong",
     name: "Yujong Lee",
-    email: "yujonglee@hyprnote.com",
+    email: "yujonglee@char.com",
     avatar: "/api/assets/team/yujong.png",
     role: "Chief OSS Lover",
     bio: "I am super bullish about open-source software.",
@@ -48,14 +48,14 @@ export const AUTHORS = Object.values(TEAM_MEMBERS).map((m) => ({
 }));
 
 export const ADMIN_EMAILS = [
-  "yujonglee@hyprnote.com",
+  "yujonglee@char.com",
   "yujonglee.dev@gmail.com",
-  "john@hyprnote.com",
-  "marketing@hyprnote.com",
+  "john@char.com",
+  "marketing@char.com",
   "harshika.alagh@gmail.com",
   "yunhyungjo@yonsei.ac.kr",
   "goranmoomin@daum.net",
-  "artem@hyprnote.com",
+  "artem@char.com",
   "stua@fastmail.com",
   "thestua@gmail.com",
 ];

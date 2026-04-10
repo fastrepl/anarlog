@@ -91,9 +91,9 @@ mod tests {
     #[test]
     fn test_build_ws_url_from_base_proxy() {
         let (url, params) = FireworksAdapter::build_ws_url_from_base(
-            "https://api.hyprnote.com/listen?provider=fireworks",
+            "https://api.char.com/listen?provider=fireworks",
         );
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+        assert_eq!(url.as_str(), "wss://api.char.com/listen");
         assert_eq!(params, vec![("provider".into(), "fireworks".into())]);
     }
 

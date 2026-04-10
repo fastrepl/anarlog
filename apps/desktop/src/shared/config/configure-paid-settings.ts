@@ -7,12 +7,12 @@ export function configurePaidSettings(store: SettingsStore): void {
   const currentLlmProvider = store.getValue("current_llm_provider");
 
   if (!currentSttProvider) {
-    store.setValue("current_stt_provider", "hyprnote");
+    store.setValue("current_stt_provider", "char");
     store.setValue("current_stt_model", "cloud");
   }
 
   if (!currentLlmProvider) {
-    store.setValue("current_llm_provider", "hyprnote");
+    store.setValue("current_llm_provider", "char");
     store.setValue("current_llm_model", "Auto");
   }
 }

@@ -45,7 +45,7 @@ pub async fn send_bot(
     let bot = client
         .create_bot(CreateBotRequest {
             meeting_url: req.meeting_url,
-            bot_name: req.bot_name.unwrap_or_else(|| "Hyprnote".into()),
+            bot_name: req.bot_name.unwrap_or_else(|| "Char".into()),
             transcription_options: Some(TranscriptionOptions {
                 provider: TranscriptionProvider::MeetingCaptions,
             }),
@@ -100,7 +100,7 @@ pub async fn start_demo(
     let bot = client
         .create_bot(CreateBotRequest {
             meeting_url: req.meeting_url.clone(),
-            bot_name: "Hyprnote Demo".into(),
+            bot_name: "Char Demo".into(),
             transcription_options: None,
             real_time_transcription: None,
             output_media: Some(OutputMedia {

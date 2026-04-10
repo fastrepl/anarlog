@@ -49,7 +49,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     };
 
     let context =
-        match Context::new_with_proplist(&*mainloop.borrow(), "HyprnoteContext", &proplist) {
+        match Context::new_with_proplist(&*mainloop.borrow(), "CharContext", &proplist) {
             Some(c) => Rc::new(RefCell::new(c)),
             None => {
                 tracing::error!("Failed to create PulseAudio context");

@@ -7,5 +7,5 @@ cargo run --release -p transcribe-cactus --example live -- \
 ```
 
 Path example: 
-- `$HOME/Library/Application Support/com.hyprnote.dev/models/cactus/parakeet-tdt-0.6b-v3-int8-apple`
-- `$HOME/Library/Application Support/com.hyprnote.dev/models/cactus/whisper-small-int8-apple`
+- `$HOME/Library/Application Support/com.char.dev/models/cactus/parakeet-tdt-0.6b-v3-int8-apple`
+- `$HOME/Library/Application Support/com.char.dev/models/cactus/whisper-small-int8-apple`

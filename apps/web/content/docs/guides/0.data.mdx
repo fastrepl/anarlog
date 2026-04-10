@@ -25,13 +25,13 @@ There are two types of base directories: `global` and `vault`.
 ### Global
 
 - Shared between `stable` and `nightly` builds (`staging` and `dev` builds use different folders).
-- On macOS: `~/Library/Application Support/hyprnote/`
-- On Linux: `~/.local/share/hyprnote/`
+- On macOS: `~/Library/Application Support/char/`
+- On Linux: `~/.local/share/char/`
 
 Contents:
 - `models/stt/` — downloaded speech-to-text model files
 - `store.json` — app state (onboarding status, pinned tabs, recently opened sessions, dismissed toasts, analytics preference, auth tokens)
-- `hyprnote.json` — vault configuration (custom vault path if set)
+- `char.json` — vault configuration (custom vault path if set)
 - `search/` — full-text search index (Tantivy)
 
 ### Vault

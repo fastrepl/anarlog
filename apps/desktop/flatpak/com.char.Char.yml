@@ -6,12 +6,12 @@
 #   flatpak-cargo-generator.py -d Cargo.lock -o flatpak/cargo-sources.json
 #
 # To build locally:
-#   flatpak-builder --user --install --force-clean flatpak-build-dir flatpak/com.hyprnote.Hyprnote.yml
+#   flatpak-builder --user --install --force-clean flatpak-build-dir flatpak/com.char.Char.yml
 #
 # To run:
-#   flatpak run com.hyprnote.Hyprnote
+#   flatpak run com.char.Char
 
-id: com.hyprnote.Hyprnote
+id: com.char.Char
 
 runtime: org.gnome.Platform
 runtime-version: "47"
@@ -20,7 +20,7 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
   - org.freedesktop.Sdk.Extension.node22
 
-command: hyprnote
+command: char
 
 finish-args:
   # Display - Wayland and X11 fallback
@@ -42,7 +42,7 @@ finish-args:
   - --talk-name=org.kde.StatusNotifierWatcher
 
   # Single instance D-Bus
-  - --own-name=com.hyprnote.Hyprnote
+  - --own-name=com.char.Char
 
   # Filesystem access for user documents and notes
   - --filesystem=xdg-documents
@@ -54,11 +54,11 @@ finish-args:
 build-options:
   append-path: /usr/lib/sdk/node22/bin:/usr/lib/sdk/rust-stable/bin
   env:
-    CARGO_HOME: /run/build/hyprnote/cargo
+    CARGO_HOME: /run/build/char/cargo
     npm_config_nodedir: /usr/lib/sdk/node22
 
 modules:
-  - name: hyprnote
+  - name: char
     buildsystem: simple
 
     sources:
@@ -77,8 +77,8 @@ modules:
 
     build-options:
       env:
-        XDG_CACHE_HOME: /run/build/hyprnote/cache
-        npm_config_cache: /run/build/hyprnote/npm-cache
+        XDG_CACHE_HOME: /run/build/char/cache
+        npm_config_cache: /run/build/char/npm-cache
         npm_config_offline: "true"
 
     build-commands:
@@ -92,17 +92,17 @@ modules:
       - pnpm -F desktop tauri build --no-bundle --target x86_64-unknown-linux-gnu --config src-tauri/tauri.conf.flatpak.json
 
       # Install the binary
-      - install -Dm755 apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/hyprnote /app/bin/hyprnote
+      - install -Dm755 apps/desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/char /app/bin/char
 
       # Install desktop file
-      - install -Dm644 apps/desktop/flatpak/com.hyprnote.Hyprnote.desktop /app/share/applications/com.hyprnote.Hyprnote.desktop
+      - install -Dm644 apps/desktop/flatpak/com.char.Char.desktop /app/share/applications/com.char.Char.desktop
 
       # Install metainfo
-      - install -Dm644 apps/desktop/flatpak/com.hyprnote.Hyprnote.metainfo.xml /app/share/metainfo/com.hyprnote.Hyprnote.metainfo.xml
+      - install -Dm644 apps/desktop/flatpak/com.char.Char.metainfo.xml /app/share/metainfo/com.char.Char.metainfo.xml
 
       # Install icons
-      - install -Dm644 apps/desktop/src-tauri/icons/stable/32x32.png /app/share/icons/hicolor/32x32/apps/com.hyprnote.Hyprnote.png
-      - install -Dm644 apps/desktop/src-tauri/icons/stable/64x64.png /app/share/icons/hicolor/64x64/apps/com.hyprnote.Hyprnote.png
-      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128.png /app/share/icons/hicolor/128x128/apps/com.hyprnote.Hyprnote.png
-      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.hyprnote.Hyprnote.png
-      - install -Dm644 apps/desktop/src-tauri/icons/stable/icon.png /app/share/icons/hicolor/512x512/apps/com.hyprnote.Hyprnote.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/32x32.png /app/share/icons/hicolor/32x32/apps/com.char.Char.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/64x64.png /app/share/icons/hicolor/64x64/apps/com.char.Char.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128.png /app/share/icons/hicolor/128x128/apps/com.char.Char.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.char.Char.png
+      - install -Dm644 apps/desktop/src-tauri/icons/stable/icon.png /app/share/icons/hicolor/512x512/apps/com.char.Char.png

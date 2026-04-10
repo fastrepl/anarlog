@@ -14,7 +14,7 @@ let killedTestRunnerBackend = false;
 
 const defaultAppPath = path.resolve(
   import.meta.dirname,
-  "../../apps/desktop/src-tauri/target/release/hyprnote-dev",
+  "../../apps/desktop/src-tauri/target/release/char-dev",
 );
 const appPath = process.env.APP_BINARY_PATH
   ? path.resolve(process.env.APP_BINARY_PATH)

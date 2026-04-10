@@ -60,7 +60,7 @@
     "end_ms": 1120
   },
   {
-    "text": "Hyprnote",
+    "text": "Char",
     "speaker": {
       "type": "unassigned",
       "value": {
@@ -876,7 +876,7 @@
     "end_ms": 24855
   },
   {
-    "text": "Hyprnote",
+    "text": "Char",
     "speaker": {
       "type": "unassigned",
       "value": {
@@ -1128,7 +1128,7 @@
     "end_ms": 32200
   },
   {
-    "text": "Hyprnote",
+    "text": "Char",
     "speaker": {
       "type": "unassigned",
       "value": {
@@ -1908,7 +1908,7 @@
     "end_ms": 57228
   },
   {
-    "text": "Hyprnote",
+    "text": "Char",
     "speaker": {
       "type": "unassigned",
       "value": {

@@ -82,7 +82,7 @@ pub(super) async fn post_with_retry(
         let body = result.text().await.unwrap_or_default();
         tracing::error!(
             http.response.status_code = status.as_u16(),
-            hyprnote.http.response.body = %body,
+            char.http.response.body = %body,
             "unexpected_response_status"
         );
         return Err(Error::UnexpectedStatus { status, body });

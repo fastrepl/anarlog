@@ -152,7 +152,7 @@ impl PyannoteAdapter {
 
         let job = Self::submit_job(client, &base_url, api_key, params, &media_url).await?;
         tracing::info!(
-            hyprnote.stt.job.id = %job.job_id,
+            char.stt.job.id = %job.job_id,
             status = %job.status,
             warning = ?job.warning,
             "pyannote_job_created"

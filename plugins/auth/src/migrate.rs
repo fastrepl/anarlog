@@ -134,9 +134,9 @@ mod test {
     #[test]
     fn migration_moves_legacy_auth_file() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
         std::fs::write(&legacy_auth_path, auth_json("legacy-token")).unwrap();
@@ -153,9 +153,9 @@ mod test {
     #[test]
     fn migration_overwrites_new_auth_path_when_legacy_exists() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
         std::fs::create_dir_all(new_auth_path.parent().unwrap()).unwrap();
@@ -174,9 +174,9 @@ mod test {
     #[test]
     fn migration_is_noop_when_new_auth_path_exists_without_legacy_auth() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(new_auth_path.parent().unwrap()).unwrap();
         std::fs::create_dir_all(legacy_store_json_path.parent().unwrap()).unwrap();
@@ -194,9 +194,9 @@ mod test {
     #[test]
     fn migration_moves_auth_out_of_legacy_store_json() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(legacy_store_json_path.parent().unwrap()).unwrap();
         std::fs::write(
@@ -227,12 +227,12 @@ mod test {
     #[test]
     fn migration_creates_new_auth_parent_directory() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
         let new_auth_path = temp
             .path()
             .join("nested")
-            .join("com.hyprnote.stable")
+            .join("com.char.stable")
             .join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
@@ -246,10 +246,10 @@ mod test {
     #[test]
     fn migration_does_not_clone_shared_auth_into_second_bundle() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let stable_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
-        let nightly_auth_path = temp.path().join("com.hyprnote.nightly").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let stable_auth_path = temp.path().join("com.char.stable").join(FILENAME);
+        let nightly_auth_path = temp.path().join("com.char.nightly").join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
         std::fs::write(&legacy_auth_path, auth_json("legacy-token")).unwrap();
@@ -274,9 +274,9 @@ mod test {
     #[test]
     fn resolve_auth_path_ignores_invalid_legacy_store_json() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(legacy_store_json_path.parent().unwrap()).unwrap();
         std::fs::write(&legacy_store_json_path, "{ invalid json").unwrap();
@@ -295,9 +295,9 @@ mod test {
     #[test]
     fn resolve_auth_path_falls_back_to_legacy_auth_when_rename_fails() {
         let temp = tempdir().unwrap();
-        let legacy_auth_path = temp.path().join("hyprnote").join(FILENAME);
-        let legacy_store_json_path = temp.path().join("hyprnote").join("store.json");
-        let new_auth_path = temp.path().join("com.hyprnote.stable").join(FILENAME);
+        let legacy_auth_path = temp.path().join("char").join(FILENAME);
+        let legacy_store_json_path = temp.path().join("char").join("store.json");
+        let new_auth_path = temp.path().join("com.char.stable").join(FILENAME);
 
         std::fs::create_dir_all(legacy_auth_path.parent().unwrap()).unwrap();
         std::fs::create_dir_all(&new_auth_path).unwrap();

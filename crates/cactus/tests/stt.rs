@@ -5,7 +5,7 @@ use cactus::{CloudConfig, Model, TranscribeOptions, Transcriber};
 fn stt_model() -> Model {
     let home = std::env::var("HOME").unwrap_or_default();
     let default = format!(
-        "{}/Library/Application Support/com.hyprnote.dev/models/cactus/whisper-small-int8-apple",
+        "{}/Library/Application Support/com.char.dev/models/cactus/whisper-small-int8-apple",
         home
     );
     let path = std::env::var("CACTUS_STT_MODEL").unwrap_or(default);

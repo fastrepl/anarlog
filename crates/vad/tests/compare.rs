@@ -54,7 +54,7 @@ fn silero_onnx_mask(audio: &[u8]) -> (Vec<bool>, f32) {
 fn silero_cactus_mask(audio: &[u8], total_samples: usize) -> Vec<bool> {
     let home = std::env::var("HOME").unwrap();
     let path = format!(
-        "{}/Library/Application Support/com.hyprnote.dev/models/cactus/whisper-medium-int8-apple/vad",
+        "{}/Library/Application Support/com.char.dev/models/cactus/whisper-medium-int8-apple/vad",
         home
     );
     let model = Model::new(&path).unwrap();

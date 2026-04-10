@@ -4,13 +4,13 @@
     "minor_version": 1
   },
   "display_information": {
-    "name": "Hyprnote Internal",
-    "description": "Hyprnote Slack bot for internal usage",
+    "name": "Char Internal",
+    "description": "Char Slack bot for internal usage",
     "background_color": "#1a1a2e"
   },
   "features": {
     "bot_user": {
-      "display_name": "Hyprnote",
+      "display_name": "Char",
       "always_online": true
     }
   },

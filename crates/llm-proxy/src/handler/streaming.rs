@@ -31,8 +31,8 @@ pub(super) async fn handle_stream_response(
 
     tracing::info!(
         http.response.status_code = %http_status,
-        hyprnote.gen_ai.request.streaming = true,
-        hyprnote.duration_ms = %latency_ms,
+        char.gen_ai.request.streaming = true,
+        char.duration_ms = %latency_ms,
         "llm_completion_stream_started"
     );
 
@@ -41,7 +41,7 @@ pub(super) async fn handle_stream_response(
 
         let mut ctx = BTreeMap::new();
         ctx.insert("http.response.status_code".into(), http_status.into());
-        ctx.insert("hyprnote.duration_ms".into(), (latency_ms as u64).into());
+        ctx.insert("char.duration_ms".into(), (latency_ms as u64).into());
         scope.set_context("gen_ai.response", sentry::protocol::Context::Other(ctx));
     });
 

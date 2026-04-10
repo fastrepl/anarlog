@@ -80,7 +80,7 @@ impl WebSocketProxy {
         match upstream_result {
             Ok(Ok((stream, _))) => {
                 tracing::info!(
-                    hyprnote.duration_ms = connect_start.elapsed().as_millis() as u64,
+                    char.duration_ms = connect_start.elapsed().as_millis() as u64,
                     "upstream_connect_succeeded"
                 );
                 Ok(stream)
@@ -89,7 +89,7 @@ impl WebSocketProxy {
                 tracing::error!(
                     error.type = "upstream_connect_failed",
                     error = %e,
-                    hyprnote.duration_ms = connect_start.elapsed().as_millis() as u64,
+                    char.duration_ms = connect_start.elapsed().as_millis() as u64,
                     "upstream_connect_failed"
                 );
                 Err(crate::ProxyError::ConnectionFailed(e.to_string()))
@@ -97,7 +97,7 @@ impl WebSocketProxy {
             Err(_) => {
                 tracing::error!(
                     error.type = "upstream_connect_timeout",
-                    hyprnote.timeout_ms = self.connect_timeout.as_millis() as u64,
+                    char.timeout_ms = self.connect_timeout.as_millis() as u64,
                     "upstream_connect_timeout"
                 );
                 Err(crate::ProxyError::ConnectionTimeout)
@@ -187,7 +187,7 @@ impl WebSocketProxy {
         }
 
         tracing::info!(
-            hyprnote.duration_ms = duration.as_millis() as u64,
+            char.duration_ms = duration.as_millis() as u64,
             "websocket_proxy_connection_closed"
         );
     }
@@ -209,8 +209,8 @@ impl WebSocketProxy {
         if let Err(reason) = pending.enqueue(queued, is_control) {
             tracing::warn!(
                 error = %reason,
-                hyprnote.payload.size_bytes = %size,
-                hyprnote.ws.is_control_message = %is_control,
+                char.payload.size_bytes = %size,
+                char.ws.is_control_message = %is_control,
                 "pending_queue_enqueue_failed"
             );
             let _ = shutdown_tx.send(ShutdownSignal::Close {
@@ -365,8 +365,8 @@ impl WebSocketProxy {
                         Message::Close(frame) => {
                             let (code, reason) = convert::extract_axum_close(frame, "client_closed");
                             tracing::info!(
-                                hyprnote.ws.close.code = code,
-                                hyprnote.ws.close.reason = %reason,
+                                char.ws.close.code = code,
+                                char.ws.close.reason = %reason,
                                 "ws_client_close_received"
                             );
                             let _ = shutdown_tx.send(ShutdownSignal::Close { code, reason });
@@ -435,7 +435,7 @@ impl WebSocketProxy {
                             if let Some(upstream_err) = Provider::detect_any_error(text_bytes) {
                                 tracing::warn!(
                                     http.response.status_code = upstream_err.http_code,
-                                    hyprnote.stt.provider.error_code = ?upstream_err.provider_code,
+                                    char.stt.provider.error_code = ?upstream_err.provider_code,
                                     error = %upstream_err.message,
                                     "upstream_error_detected"
                                 );
@@ -497,8 +497,8 @@ impl WebSocketProxy {
                                     ShutdownSignal::Close { code, reason }
                                 } else {
                                     tracing::warn!(
-                                        hyprnote.ws.close.code = code,
-                                        hyprnote.ws.close.reason = %reason,
+                                        char.ws.close.code = code,
+                                        char.ws.close.reason = %reason,
                                         "ws_upstream_abnormal_close"
                                     );
                                     ShutdownSignal::Abort
@@ -507,8 +507,8 @@ impl WebSocketProxy {
 
                             if let ShutdownSignal::Close { code, reason } = &signal {
                                 tracing::info!(
-                                    hyprnote.ws.close.code = *code,
-                                    hyprnote.ws.close.reason = %reason,
+                                    char.ws.close.code = *code,
+                                    char.ws.close.reason = %reason,
                                     "ws_upstream_close_received"
                                 );
                             }

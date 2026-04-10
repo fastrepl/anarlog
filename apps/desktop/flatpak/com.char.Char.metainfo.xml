@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.hyprnote.Hyprnote</id>
+  <id>com.char.Char</id>
 
   <name>Char</name>
   <summary>The AI notepad for private meetings</summary>
@@ -25,14 +25,14 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">com.hyprnote.Hyprnote.desktop</launchable>
+  <launchable type="desktop-id">com.char.Char.desktop</launchable>
 
-  <url type="homepage">https://hyprnote.com</url>
+  <url type="homepage">https://char.com</url>
   <url type="bugtracker">https://github.com/fastrepl/char/issues</url>
   <url type="vcs-browser">https://github.com/fastrepl/char</url>
   <url type="contribute">https://github.com/fastrepl/char/blob/main/CONTRIBUTING.md</url>
 
-  <developer id="com.hyprnote">
+  <developer id="com.char">
     <name>Fastrepl</name>
   </developer>
 

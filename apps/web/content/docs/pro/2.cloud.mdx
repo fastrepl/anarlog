@@ -62,7 +62,7 @@ And here are the two model pools defined in the server config:
 
 ### How the request flows
 
-![Request Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CHTTPS%7C%20B%5BChar%20API%20Server%3Cbr%3Epro.hyprnote.com%5D%0A%20%20%20%20B%20--%3E%7CHTTPS%7C%20C%5BOpenRouter%3Cbr%3Eopenrouter.ai%5D%0A%20%20%20%20C%20--%3E%20D%5BModel%20Provider%3Cbr%3EOpenAI%2FAnthropic%2FMoonshot%5D)
+![Request Flow](https://agents.craft.do/mermaid?code=flowchart%20LR%0A%20%20%20%20A%5BYour%20Device%5D%20--%3E%7CHTTPS%7C%20B%5BChar%20API%20Server%3Cbr%3Epro.char.com%5D%0A%20%20%20%20B%20--%3E%7CHTTPS%7C%20C%5BOpenRouter%3Cbr%3Eopenrouter.ai%5D%0A%20%20%20%20C%20--%3E%20D%5BModel%20Provider%3Cbr%3EOpenAI%2FAnthropic%2FMoonshot%5D)
 
 1. **Your device** sends a chat completion request to the Char API server, authenticated with your Supabase JWT token.
 2. **Char API server** validates your Pro subscription, then forwards the request to [OpenRouter](https://openrouter.ai).
@@ -111,7 +111,7 @@ While Char aims to be fully transparent and controllable, cloud services help in
 
 ## Privacy & security
 
-The cloud server (`pro.hyprnote.com`) is [open-source](https://github.com/fastrepl/hyprnote/tree/main/apps/pro) and deployed in our Kubernetes cluster on AWS via GitHub Actions.
+The cloud server (`pro.char.com`) is [open-source](https://github.com/fastrepl/char/tree/main/apps/pro) and deployed in our Kubernetes cluster on AWS via GitHub Actions.
 
 **Data handling:**
 - Nothing is stored by us — the server proxies requests and discards them

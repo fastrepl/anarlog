@@ -103,7 +103,7 @@ fn init_otel_tracer_provider(service_name: &str, env: &Env) -> Option<SdkTracerP
 
     let resource = Resource::builder_empty()
         .with_attributes([
-            KeyValue::new("service.namespace", "hyprnote"),
+            KeyValue::new("service.namespace", "char"),
             KeyValue::new("service.name", configured_service_name),
             KeyValue::new("service.version", version.to_string()),
             KeyValue::new("deployment.environment", environment),

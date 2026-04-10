@@ -38,8 +38,8 @@ export type LLMConnectionStatus =
   | { status: "pending"; reason: "missing_provider" }
   | { status: "pending"; reason: "missing_model"; providerId: ProviderId }
   | { status: "error"; reason: "provider_not_found"; providerId: string }
-  | { status: "error"; reason: "unauthenticated"; providerId: "hyprnote" }
-  | { status: "error"; reason: "not_pro"; providerId: "hyprnote" }
+  | { status: "error"; reason: "unauthenticated"; providerId: "char" }
+  | { status: "error"; reason: "not_pro"; providerId: "char" }
   | {
       status: "error";
       reason: "missing_config";
@@ -66,7 +66,7 @@ export const useLanguageModel = (task?: CharTask): LanguageModelV3 | null => {
     if (!conn) return null;
 
     const hostedFetch =
-      conn.providerId === "hyprnote"
+      conn.providerId === "char"
         ? createAuthFetch(
             task ? createTracedFetch(task) : tracedFetch,
             () => accessTokenRef.current,
@@ -177,13 +177,13 @@ const resolveLLMConnection = (params: {
 
   if (blockers.length > 0) {
     const blocker = blockers[0];
-    if (blocker.code === "requires_auth" && providerId === "hyprnote") {
+    if (blocker.code === "requires_auth" && providerId === "char") {
       return {
         conn: null,
         status: { status: "error", reason: "unauthenticated", providerId },
       };
     }
-    if (blocker.code === "requires_entitlement" && providerId === "hyprnote") {
+    if (blocker.code === "requires_entitlement" && providerId === "char") {
       return {
         conn: null,
         status: { status: "error", reason: "not_pro", providerId },
@@ -202,7 +202,7 @@ const resolveLLMConnection = (params: {
     }
   }
 
-  if (providerId === "hyprnote" && session) {
+  if (providerId === "char" && session) {
     return {
       conn: {
         providerId,
@@ -255,7 +255,7 @@ const createLanguageModel = (
   hostedFetch?: typeof fetch,
 ): LanguageModelV3 => {
   switch (conn.providerId) {
-    case "hyprnote": {
+    case "char": {
       const provider = createOpenRouter({
         fetch: hostedFetch ?? (task ? createTracedFetch(task) : tracedFetch),
         baseURL: conn.baseUrl,

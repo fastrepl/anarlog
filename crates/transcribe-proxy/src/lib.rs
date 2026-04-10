@@ -2,7 +2,7 @@ mod analytics;
 mod config;
 mod env;
 mod error;
-mod hyprnote_routing;
+mod char_routing;
 mod openapi;
 mod provider_selector;
 mod query_params;
@@ -16,8 +16,8 @@ pub use config::*;
 pub use env::{ApiKeys, Env};
 pub use error::*;
 pub use hypr_analytics::{AuthenticatedUserId, DeviceFingerprint};
-pub use hyprnote_routing::{
-    HyprnoteRouter, HyprnoteRoutingConfig, RetryConfig, is_retryable_error,
+pub use char_routing::{
+    CharRouter, CharRoutingConfig, RetryConfig, is_retryable_error,
 };
 pub use openapi::openapi;
 pub use provider_selector::{ProviderSelector, SelectedProvider};

@@ -47,7 +47,7 @@ describe("parsePromptIdFromPath", () => {
 
   describe("absolute paths (defensive handling)", () => {
     test("parses id from absolute path", () => {
-      expect(parsePromptIdFromPath("/data/hyprnote/prompts/my-prompt.md")).toBe(
+      expect(parsePromptIdFromPath("/data/char/prompts/my-prompt.md")).toBe(
         "my-prompt",
       );
     });

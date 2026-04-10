@@ -236,7 +236,7 @@ export const startLiveSession = <T extends LiveStore>(
             .then((r) =>
               r.status === "ok" ? r.data.map((app) => app.id) : null,
             ),
-          getIdentifier().catch(() => "com.hyprnote.stable"),
+          getIdentifier().catch(() => "com.char.stable"),
         ]),
       catch: (error) => error,
     });
@@ -250,7 +250,7 @@ export const startLiveSession = <T extends LiveStore>(
           beforeListeningStarted: {
             args: {
               resource_dir: sessionPath,
-              app_hyprnote: bundleId,
+              app_char: bundleId,
               app_meeting,
             },
           },
@@ -318,7 +318,7 @@ export const stopLiveSession = <T extends GeneralState>(
             if (r.status === "error") throw new Error(r.error);
             return r.data;
           }),
-          getIdentifier().catch(() => "com.hyprnote.stable"),
+          getIdentifier().catch(() => "com.char.stable"),
         ])
           .then(([dataDirPath, bundleId]) => {
             const sessionPath = buildSessionPath(dataDirPath, sessionId);
@@ -326,7 +326,7 @@ export const stopLiveSession = <T extends GeneralState>(
               afterListeningStopped: {
                 args: {
                   resource_dir: sessionPath,
-                  app_hyprnote: bundleId,
+                  app_char: bundleId,
                   app_meeting: null,
                 },
               },

@@ -39,9 +39,9 @@ async fn spawn_argmax_progressive_batch_task(
 
     let span = tracing::info_span!(
         "argmax_progressive_batch",
-        hyprnote.session.id = %args.session_id,
+        char.session.id = %args.session_id,
         url.full = %args.base_url,
-        hyprnote.file.path = %args.file_path,
+        char.file.path = %args.file_path,
     );
 
     let rx_task = tokio::spawn(
@@ -103,9 +103,9 @@ async fn spawn_cactus_batch_task(
 
     let span = tracing::info_span!(
         "cactus_progressive_batch",
-        hyprnote.session.id = %args.session_id,
+        char.session.id = %args.session_id,
         url.full = %args.base_url,
-        hyprnote.file.path = %args.file_path,
+        char.file.path = %args.file_path,
     );
 
     let rx_task = tokio::spawn(
@@ -162,9 +162,9 @@ async fn spawn_whispercpp_batch_task(
 
     let span = tracing::info_span!(
         "whispercpp_progressive_batch",
-        hyprnote.session.id = %args.session_id,
+        char.session.id = %args.session_id,
         url.full = %args.base_url,
-        hyprnote.file.path = %args.file_path,
+        char.file.path = %args.file_path,
     );
 
     let rx_task = tokio::spawn(
@@ -221,9 +221,9 @@ async fn spawn_openai_batch_task(
 
     let span = tracing::info_span!(
         "openai_progressive_batch",
-        hyprnote.session.id = %args.session_id,
+        char.session.id = %args.session_id,
         url.full = %args.base_url,
-        hyprnote.file.path = %args.file_path,
+        char.file.path = %args.file_path,
     );
 
     let rx_task = tokio::spawn(

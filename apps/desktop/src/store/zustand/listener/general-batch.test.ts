@@ -93,7 +93,7 @@ describe("runBatchSession", () => {
       "session-1",
       {
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "char",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -195,7 +195,7 @@ describe("runBatchSession", () => {
       "session-1",
       {
         session_id: "session-1",
-        provider: "hyprnote",
+        provider: "char",
         file_path: "/tmp/session.wav",
         base_url: "",
         api_key: "",
@@ -271,7 +271,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "char",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",
@@ -349,7 +349,7 @@ describe("runBatchSession", () => {
         "session-1",
         {
           session_id: "session-1",
-          provider: "hyprnote",
+          provider: "char",
           file_path: "/tmp/session.wav",
           base_url: "",
           api_key: "",

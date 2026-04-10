@@ -78,7 +78,7 @@ function Component() {
       <UpgradePrompt
         integrationId={search.integration_id}
         flow={search.flow}
-        scheme={search.scheme ?? "hyprnote"}
+        scheme={search.scheme ?? "char"}
       />
     );
   }

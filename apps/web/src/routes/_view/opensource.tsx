@@ -642,7 +642,7 @@ function ProgressSection() {
     {
       label: "Downloads",
       value: "40k+",
-      imageUrl: "/api/assets/hyprnote/icon.png",
+      imageUrl: "/api/assets/char/icon.png",
       color: "text-purple-500",
     },
     {

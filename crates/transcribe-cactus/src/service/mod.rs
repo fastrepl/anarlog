@@ -95,22 +95,22 @@ mod tests {
     #[test]
     fn keeps_plain_keywords_as_vocabulary() {
         let (vocabulary, boost) = deepgram_keywords_to_cactus_vocabulary(&[
-            "Hyprnote".to_string(),
+            "Char".to_string(),
             "project atlas".to_string(),
         ]);
 
-        assert_eq!(vocabulary, vec!["Hyprnote", "project atlas"]);
+        assert_eq!(vocabulary, vec!["Char", "project atlas"]);
         assert_eq!(boost, Some(1.0));
     }
 
     #[test]
     fn uses_strongest_positive_intensifier() {
         let (vocabulary, boost) = deepgram_keywords_to_cactus_vocabulary(&[
-            "Hyprnote:1.5".to_string(),
+            "Char:1.5".to_string(),
             "cactus:3".to_string(),
         ]);
 
-        assert_eq!(vocabulary, vec!["Hyprnote", "cactus"]);
+        assert_eq!(vocabulary, vec!["Char", "cactus"]);
         assert_eq!(boost, Some(3.0));
     }
 

@@ -47,25 +47,25 @@ const VISUAL_ASSETS = [
   {
     id: "icon",
     name: "Icon",
-    url: "/api/assets/hyprnote/icon.png",
+    url: "/api/assets/char/icon.png",
     description: "Char app icon",
   },
   {
     id: "logo",
     name: "Logo",
-    url: "/api/assets/hyprnote/logo.png",
+    url: "/api/assets/char/logo.png",
     description: "Char wordmark logo",
   },
   {
     id: "symbol-logo",
     name: "Symbol + Logo",
-    url: "/api/assets/hyprnote/symbol+logo.png",
+    url: "/api/assets/char/symbol+logo.png",
     description: "Char icon with wordmark",
   },
   {
     id: "og-image",
     name: "OpenGraph Image",
-    url: "/api/assets/hyprnote/og-image.jpg",
+    url: "/api/assets/char/og-image.jpg",
     description: "Social media preview image",
   },
 ];

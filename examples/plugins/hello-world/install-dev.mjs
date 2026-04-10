@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const appId = process.env.CHAR_APP_ID || "com.hyprnote.dev";
+const appId = process.env.CHAR_APP_ID || "com.char.dev";
 const pluginRoot = resolve(__dirname);
 const targetRoot =
   process.env.CHAR_PLUGIN_DIR ||

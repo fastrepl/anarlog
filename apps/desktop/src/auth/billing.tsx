@@ -104,7 +104,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (current_llm_provider !== "hyprnote") {
+    if (current_llm_provider !== "char") {
       return;
     }
 

@@ -247,7 +247,7 @@ fn pipewire_capture_loop(
 
     let stream = pw::stream::StreamBox::new(
         &core,
-        "hyprnote-speaker-capture",
+        "char-speaker-capture",
         properties! {
             *pw::keys::MEDIA_TYPE => "Audio",
             *pw::keys::MEDIA_CATEGORY => "Capture",
@@ -305,7 +305,7 @@ fn pipewire_capture_loop(
                 if rate > 0 {
                     user_data.current_sample_rate.store(rate, Ordering::Release);
                     tracing::info!(
-                        hyprnote.audio.sample_rate_hz = rate,
+                        char.audio.sample_rate_hz = rate,
                         "pipewire_capture_initialized"
                     );
                 }
@@ -409,7 +409,7 @@ fn pulseaudio_capture_loop(
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
     let mut mainloop = Mainloop::new().context("Failed to create PulseAudio mainloop")?;
-    let mut context = PaContext::new(&mainloop, "hyprnote-speaker-capture")
+    let mut context = PaContext::new(&mainloop, "char-speaker-capture")
         .context("Failed to create PulseAudio context")?;
 
     context
@@ -434,11 +434,11 @@ fn pulseaudio_capture_loop(
 
         let monitor_device = get_default_monitor_device(&mut mainloop, &context)
             .context("Failed to resolve PulseAudio monitor source")?;
-        tracing::info!(hyprnote.audio.device = %monitor_device, "connecting_to_monitor_device");
+        tracing::info!(char.audio.device = %monitor_device, "connecting_to_monitor_device");
 
         mainloop.lock();
         let stream_result = (|| -> Result<_> {
-            let mut stream = PaStream::new(&mut context, "hyprnote-capture", &spec, None)
+            let mut stream = PaStream::new(&mut context, "char-capture", &spec, None)
                 .context("Failed to create PulseAudio stream")?;
             stream
                 .connect_record(
@@ -475,7 +475,7 @@ fn pulseaudio_capture_loop(
 
     current_sample_rate.store(actual_rate, Ordering::Release);
     tracing::info!(
-        hyprnote.audio.sample_rate_hz = actual_rate,
+        char.audio.sample_rate_hz = actual_rate,
         "pulseaudio_capture_initialized"
     );
     let _ = init_tx.send(Ok(()));

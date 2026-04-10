@@ -14,7 +14,7 @@ Plugins in `examples/plugins/*` run inside the desktop renderer process as plain
 
 ### Why a bad plugin can freeze the app
 
-- Desktop loads installed plugins from `~/Library/Application Support/com.hyprnote.dev/plugins`.
+- Desktop loads installed plugins from `~/Library/Application Support/com.char.dev/plugins`.
 - Plugin scripts are injected into the main renderer thread.
 - `onload` runs during app startup, and many examples call `ctx.openTab(...)` immediately.
 - Blocking logic (infinite loops, heavy sync work, runaway rerenders/listeners) can freeze the whole app.
@@ -25,4 +25,4 @@ Plugins in `examples/plugins/*` run inside the desktop renderer process as plain
   - `pnpm --dir examples/plugins/hello-world build`
   - `pnpm --dir examples/plugins/hello-world install:dev`
 - If startup is bricked, remove installed plugins directory and restart:
-  - `rm -rf ~/Library/Application\ Support/com.hyprnote.dev/plugins`
+  - `rm -rf ~/Library/Application\ Support/com.char.dev/plugins`

@@ -1,5 +1,5 @@
 [project]
-name = "hyprnote-scripts"
+name = "char-scripts"
 version = "0.1.0"
 description = ""
 authors = [{ name = "Yujong Lee", email = "yujonglee.dev@gmail.com" }]
@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [tool.poetry]
-name = "hyprnote-scripts"
+name = "char-scripts"
 version = "0.1.0"
 description = ""
 authors = ["Yujong Lee <yujonglee.dev@gmail.com>"]

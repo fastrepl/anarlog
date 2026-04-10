@@ -54,7 +54,7 @@ export const Route = createFileRoute("/auth")({
             to: "/callback/auth/",
             search: {
               flow: "desktop",
-              scheme: search.scheme ?? "hyprnote",
+              scheme: search.scheme ?? "char",
               access_token: result.access_token,
               refresh_token: result.refresh_token,
             },
@@ -80,7 +80,7 @@ function Component() {
         <Header />
         <DesktopReauthView
           email={existingUser.email}
-          scheme={scheme ?? "hyprnote"}
+          scheme={scheme ?? "char"}
         />
       </Container>
     );

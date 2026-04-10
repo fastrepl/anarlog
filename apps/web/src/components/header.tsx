@@ -72,7 +72,7 @@ const resourcesList: {
   { to: "/changelog/", label: "Changelog", icon: History },
   { to: "/company-handbook/", label: "Company Handbook", icon: Building2 },
   {
-    to: "https://discord.gg/hyprnote",
+    to: "https://discord.gg/char",
     label: "Community",
     icon: MessageCircle,
     external: true,

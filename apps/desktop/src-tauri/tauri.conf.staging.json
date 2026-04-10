@@ -2,10 +2,10 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Char Staging",
   "mainBinaryName": "char-staging",
-  "identifier": "com.hyprnote.staging",
+  "identifier": "com.char.staging",
   "plugins": {
     "deep-link": {
-      "desktop": { "schemes": ["hyprnote-staging"] }
+      "desktop": { "schemes": ["char-staging"] }
     },
     "updater": {
       "active": false

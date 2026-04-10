@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn test_streaming_ws_url_proxy() {
         let (url, params) =
-            AssemblyAIAdapter::streaming_ws_url("https://api.hyprnote.com?provider=assemblyai");
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+            AssemblyAIAdapter::streaming_ws_url("https://api.char.com?provider=assemblyai");
+        assert_eq!(url.as_str(), "wss://api.char.com/listen");
         assert_eq!(params, vec![("provider".into(), "assemblyai".into())]);
     }
 

@@ -5,7 +5,7 @@ use std::time::Duration;
 use common::{
     ClientStreamResult, MockUpstreamConfig, batch_upstream_url, close_only_recording,
     collect_streaming_via_client, collect_streaming_via_client_result, english, load_fixture,
-    sample_response, send_batch_via_deepgram_client, send_batch_via_hyprnote_client,
+    sample_response, send_batch_via_deepgram_client, send_batch_via_char_client,
     send_streaming_via_client, single_response_recording, start_mock_batch_upstream,
     start_mock_server_with_config, start_mock_ws, start_proxy, start_proxy_under_stt,
     wait_for_first_batch_query, wait_for_first_request,
@@ -80,7 +80,7 @@ async fn streaming_client_adapter_resolves_cloud_model() {
 }
 
 #[tokio::test]
-async fn streaming_hyprnote_client_accepts_single_proxy_response_object() {
+async fn streaming_char_client_accepts_single_proxy_response_object() {
     let upstream = start_mock_server_with_config(
         single_response_recording(&sample_response("hello from proxy")),
         MockUpstreamConfig::default(),
@@ -106,7 +106,7 @@ async fn streaming_hyprnote_client_accepts_single_proxy_response_object() {
 }
 
 #[tokio::test]
-async fn streaming_hyprnote_client_accepts_single_proxy_error_response_object() {
+async fn streaming_char_client_accepts_single_proxy_error_response_object() {
     let upstream = start_mock_server_with_config(
         single_response_recording(&sample_error_response(
             4401,
@@ -147,7 +147,7 @@ async fn streaming_hyprnote_client_accepts_single_proxy_error_response_object() 
 }
 
 #[tokio::test]
-async fn streaming_hyprnote_client_accepts_single_proxy_rate_limit_error_object() {
+async fn streaming_char_client_accepts_single_proxy_rate_limit_error_object() {
     let upstream = start_mock_server_with_config(
         single_response_recording(&sample_error_response(
             4429,
@@ -188,7 +188,7 @@ async fn streaming_hyprnote_client_accepts_single_proxy_rate_limit_error_object(
 }
 
 #[tokio::test]
-async fn streaming_hyprnote_client_surfaces_soniox_provider_failure() {
+async fn streaming_char_client_surfaces_soniox_provider_failure() {
     let upstream = start_mock_server_with_config(
         load_fixture("soniox_error.jsonl"),
         MockUpstreamConfig::default(),
@@ -235,7 +235,7 @@ async fn streaming_hyprnote_client_surfaces_soniox_provider_failure() {
 }
 
 #[tokio::test]
-async fn streaming_hyprnote_client_surfaces_abnormal_close_without_response() {
+async fn streaming_char_client_surfaces_abnormal_close_without_response() {
     let upstream = start_mock_server_with_config(
         close_only_recording(0, 1011, "upstream_failed"),
         MockUpstreamConfig::default(),
@@ -259,12 +259,12 @@ async fn streaming_hyprnote_client_surfaces_abnormal_close_without_response() {
 }
 
 #[tokio::test]
-async fn batch_client_hyprnote_adapter_uses_proxy_sync_path_under_stt() {
+async fn batch_client_char_adapter_uses_proxy_sync_path_under_stt() {
     let batch = start_mock_batch_upstream().await;
     let upstream_url = batch_upstream_url(batch.addr);
     let proxy = start_proxy_under_stt(Provider::Deepgram, Some(&upstream_url), None).await;
 
-    let response = send_batch_via_hyprnote_client(proxy, "cloud", english()).await;
+    let response = send_batch_via_char_client(proxy, "cloud", english()).await;
     let query = wait_for_first_batch_query(&batch, TIMEOUT).await;
 
     assert_eq!(
@@ -274,7 +274,7 @@ async fn batch_client_hyprnote_adapter_uses_proxy_sync_path_under_stt() {
     );
     assert!(
         query.contains("model=nova-3"),
-        "hyprnote sync batch should resolve cloud -> nova-3 before upstream: {query}"
+        "char sync batch should resolve cloud -> nova-3 before upstream: {query}"
     );
     assert!(
         !query.contains("model=cloud"),

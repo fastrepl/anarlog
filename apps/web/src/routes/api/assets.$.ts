@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 const STORAGE_BUCKETS = {
   public_images:
-    "https://auth.hyprnote.com/storage/v1/object/public/public_images",
-  blog: "https://auth.hyprnote.com/storage/v1/object/public/blog",
+    "https://auth.char.com/storage/v1/object/public/public_images",
+  blog: "https://auth.char.com/storage/v1/object/public/blog",
 } as const;
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._+\- ]+$/;

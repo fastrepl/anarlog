@@ -199,7 +199,7 @@ function SignInInstruction({ onBack }: { onBack: () => void }) {
             <Input
               type="text"
               className="h-10 font-mono text-xs"
-              placeholder="hyprnote://deeplink/auth?access_token=..."
+              placeholder="char://deeplink/auth?access_token=..."
               value={callbackUrl}
               onChange={(e) => setCallbackUrl(e.target.value)}
             />

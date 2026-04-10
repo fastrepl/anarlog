@@ -53,7 +53,7 @@ pub(super) async fn run_progressive_batch(
                 let message = format_user_friendly_error(&raw_error);
                 tracing::error!(
                     error = %raw_error,
-                    hyprnote.error.user_message = %message,
+                    char.error.user_message = %message,
                     "batch supervisor spawn failed"
                 );
                 return Err(crate::BatchFailure::ProgressiveActorSpawnFailed {
@@ -280,7 +280,7 @@ pub(super) fn report_stream_start_failure(
 
     tracing::error!(
         error = %raw_error,
-        hyprnote.error.user_message = %message,
+        char.error.user_message = %message,
         "{context}"
     );
     notify_start_result(notifier, Err(failure.clone().into()));
@@ -361,10 +361,10 @@ async fn process_stream_loop<S, Item, E, F>(
                             provider_error_from_event(&event)
                         {
                             tracing::error!(
-                                hyprnote.stt.provider.name = %provider,
+                                char.stt.provider.name = %provider,
                                 error.code = ?error_code,
                                 error = %error_message,
-                                hyprnote.response.count = response_count,
+                                char.response.count = response_count,
                                 "{context} received provider error response"
                             );
                             let message = format_user_friendly_error(error_message);
@@ -401,8 +401,8 @@ async fn process_stream_loop<S, Item, E, F>(
                         let message = format_user_friendly_error(&raw_error);
                         tracing::error!(
                             error = %raw_error,
-                            hyprnote.error.user_message = %message,
-                            hyprnote.response.count = response_count,
+                            char.error.user_message = %message,
+                            char.response.count = response_count,
                             "{context} stream error"
                         );
                         send_actor_message(
@@ -419,16 +419,16 @@ async fn process_stream_loop<S, Item, E, F>(
                     Ok(None) => {
                         if completions_seen >= expected_completions {
                             tracing::info!(
-                                hyprnote.response.count = response_count,
+                                char.response.count = response_count,
                                 "{context} completed"
                             );
                             break;
                         }
 
                         tracing::error!(
-                            hyprnote.response.count = response_count,
-                            hyprnote.completions.expected = expected_completions,
-                            hyprnote.completions.seen = completions_seen,
+                            char.response.count = response_count,
+                            char.completions.expected = expected_completions,
+                            char.completions.seen = completions_seen,
                             "{context} ended without completion signal"
                         );
                         send_actor_message(
@@ -443,8 +443,8 @@ async fn process_stream_loop<S, Item, E, F>(
                     }
                     Err(elapsed) => {
                         tracing::warn!(
-                            hyprnote.timeout.elapsed = ?elapsed,
-                            hyprnote.response.count = response_count,
+                            char.timeout.elapsed = ?elapsed,
+                            char.response.count = response_count,
                             "{context} timeout"
                         );
                         send_actor_message(

@@ -90,8 +90,8 @@ mod tests {
     #[test]
     fn test_build_ws_url_from_base_proxy() {
         let (url, params) =
-            MistralAdapter::build_ws_url_from_base("https://api.hyprnote.com?provider=mistral");
-        assert_eq!(url.as_str(), "wss://api.hyprnote.com/listen");
+            MistralAdapter::build_ws_url_from_base("https://api.char.com?provider=mistral");
+        assert_eq!(url.as_str(), "wss://api.char.com/listen");
         assert_eq!(
             params,
             vec![("provider".to_string(), "mistral".to_string())]

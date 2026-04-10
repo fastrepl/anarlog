@@ -78,7 +78,7 @@ Once the vendored dependency files are generated, you can build the Flatpak loca
 # Build and install to user Flatpak
 flatpak-builder --user --install --force-clean \
   flatpak-build-dir \
-  apps/desktop/flatpak/com.hyprnote.Char.yml
+  apps/desktop/flatpak/com.char.Char.yml
 ```
 
 ## Running the Flatpak
@@ -86,7 +86,7 @@ flatpak-builder --user --install --force-clean \
 After building and installing:
 
 ```bash
-flatpak run com.hyprnote.Char
+flatpak run com.char.Char
 ```
 
 ## Debugging
@@ -95,11 +95,11 @@ To debug inside the Flatpak sandbox:
 
 ```bash
 # Open a shell inside the sandbox
-flatpak run --devel --command=sh com.hyprnote.Char
+flatpak run --devel --command=sh com.char.Char
 
 # Inside the sandbox, you can inspect /app and run the binary directly
 ls /app/bin/
-/app/bin/hyprnote
+/app/bin/char
 ```
 
 ## Flathub submission
@@ -109,7 +109,7 @@ ls /app/bin/
 Before submitting to Flathub, ensure:
 
 - [ ] The manifest builds successfully with `flatpak-builder`
-- [ ] The app runs correctly via `flatpak run com.hyprnote.Char`
+- [ ] The app runs correctly via `flatpak run com.char.Char`
 - [ ] All vendored dependencies are up to date
 - [ ] The metainfo.xml file has valid screenshots and descriptions
 - [ ] The desktop file has correct categories and keywords
@@ -128,18 +128,18 @@ Before submitting to Flathub, ensure:
 3. Create a new branch for your app:
 
    ```bash
-   git checkout -b com.hyprnote.Char
+   git checkout -b com.char.Char
    ```
 
 4. Create the app directory and copy files:
 
    ```bash
-   mkdir com.hyprnote.Char
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.yml com.hyprnote.Char/
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.desktop com.hyprnote.Char/
-   cp /path/to/hyprnote/apps/desktop/flatpak/com.hyprnote.Char.metainfo.xml com.hyprnote.Char/
-   cp /path/to/hyprnote/apps/desktop/flatpak/pnpm-sources.json com.hyprnote.Char/
-   cp /path/to/hyprnote/apps/desktop/flatpak/cargo-sources.json com.hyprnote.Char/
+   mkdir com.char.Char
+   cp /path/to/char/apps/desktop/flatpak/com.char.Char.yml com.char.Char/
+   cp /path/to/char/apps/desktop/flatpak/com.char.Char.desktop com.char.Char/
+   cp /path/to/char/apps/desktop/flatpak/com.char.Char.metainfo.xml com.char.Char/
+   cp /path/to/char/apps/desktop/flatpak/pnpm-sources.json com.char.Char/
+   cp /path/to/char/apps/desktop/flatpak/cargo-sources.json com.char.Char/
    ```
 
 5. Update the manifest to use a git source instead of a local directory:
@@ -156,8 +156,8 @@ Before submitting to Flathub, ensure:
 
    ```bash
    git add .
-   git commit -m "Add com.hyprnote.Char"
-   git push origin com.hyprnote.Char
+   git commit -m "Add com.char.Char"
+   git push origin com.char.Char
    ```
 
 7. Open a pull request from your branch to the `new-pr` branch of `flathub/flathub`
@@ -168,7 +168,7 @@ Before submitting to Flathub, ensure:
 
 Once approved:
 
-- Flathub creates a dedicated repository: `flathub/com.hyprnote.Char`
+- Flathub creates a dedicated repository: `flathub/com.char.Char`
 - You are invited as a maintainer
 - Future updates are done by pushing to that repository
 
@@ -176,7 +176,7 @@ Once approved:
 
 When releasing a new version:
 
-1. Update the version in `com.hyprnote.Char.metainfo.xml`
+1. Update the version in `com.char.Char.metainfo.xml`
 2. Regenerate vendored dependencies if dependencies changed
 3. Update the git source tag/commit in the Flathub manifest
 4. Push changes to the Flathub app repository
@@ -186,9 +186,9 @@ When releasing a new version:
 ```
 apps/desktop/
   flatpak/
-    com.hyprnote.Char.yml        # Flatpak manifest
-    com.hyprnote.Char.desktop    # Desktop entry file
-    com.hyprnote.Char.metainfo.xml  # AppStream metadata
+    com.char.Char.yml        # Flatpak manifest
+    com.char.Char.desktop    # Desktop entry file
+    com.char.Char.metainfo.xml  # AppStream metadata
     pnpm-sources.json                # Vendored pnpm dependencies (generated)
     cargo-sources.json               # Vendored Cargo dependencies (generated)
   src-tauri/

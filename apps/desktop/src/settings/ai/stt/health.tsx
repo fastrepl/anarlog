@@ -53,8 +53,8 @@ export function useConnectionHealth(): HealthStatus {
   ] as const);
 
   const isCloud =
-    (current_stt_provider === "hyprnote" && current_stt_model === "cloud") ||
-    current_stt_provider !== "hyprnote";
+    (current_stt_provider === "char" && current_stt_model === "cloud") ||
+    current_stt_provider !== "char";
   const isDeepgram = current_stt_provider === "deepgram";
 
   const deepgramHealth = useDeepgramHealth(isDeepgram && !!conn, conn?.apiKey);

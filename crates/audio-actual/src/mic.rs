@@ -109,7 +109,7 @@ impl MicInput {
             crate::Error::MicOpenFailed
         })?;
         tracing::info!(
-            hyprnote.audio.sample_rate_hz = ?config.sample_rate(),
+            char.audio.sample_rate_hz = ?config.sample_rate(),
             device_name,
             "mic_input_initialized"
         );

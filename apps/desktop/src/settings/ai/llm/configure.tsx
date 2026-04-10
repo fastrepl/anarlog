@@ -36,12 +36,12 @@ export function ConfigureProviders() {
         onValueChange={setAccordionValue}
       >
         <HyprProviderCard
-          providerId="hyprnote"
+          providerId="char"
           providerName="Char"
           icon={<CharProviderIcon />}
-          badge={PROVIDERS.find((p) => p.id === "hyprnote")?.badge}
+          badge={PROVIDERS.find((p) => p.id === "char")?.badge}
         />
-        {PROVIDERS.filter((provider) => provider.id !== "hyprnote").map(
+        {PROVIDERS.filter((provider) => provider.id !== "char").map(
           (provider) => (
             <NonHyprProviderCard
               key={provider.id}
@@ -123,7 +123,7 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
     if (!isPaid) {
       upgradeToPro();
     } else {
-      handleSelectProvider("hyprnote");
+      handleSelectProvider("char");
       handleSelectModel("Auto");
     }
   }, [isPaid, upgradeToPro, handleSelectProvider, handleSelectModel]);
@@ -148,7 +148,7 @@ function HyprProviderAutoRow({ highlight }: { highlight?: boolean }) {
 
 function ProviderContext({ providerId }: { providerId: ProviderId }) {
   const content =
-    providerId === "hyprnote"
+    providerId === "char"
       ? "A curated set of models we continuously test to provide the **best performance & reliability**."
       : providerId === "lmstudio"
         ? "- Ensure LM Studio server is **running.** (Default port is 1234)\n- Enable **CORS** in LM Studio config."

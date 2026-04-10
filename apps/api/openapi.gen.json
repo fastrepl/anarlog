@@ -922,7 +922,7 @@
           {
             "name": "provider",
             "in": "query",
-            "description": "STT provider. Use 'hyprnote' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
+            "description": "STT provider. Use 'char' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
             "required": false,
             "schema": {
               "type": "string"
@@ -1008,7 +1008,7 @@
           {
             "name": "provider",
             "in": "query",
-            "description": "STT provider. Use 'hyprnote' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
+            "description": "STT provider. Use 'char' for automatic routing (default), or specify:\ndeepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, dashscope, mistral",
             "required": false,
             "schema": {
               "type": "string"

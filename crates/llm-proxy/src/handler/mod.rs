@@ -86,9 +86,9 @@ impl IntoResponse for ProxyError {
                 tracing::error!(
                     error.type = %error_type,
                     error = %e,
-                    hyprnote.upstream.status_code = ?status_code,
-                    hyprnote.error.is_timeout = %is_timeout,
-                    hyprnote.error.is_connect = %is_connect,
+                    char.upstream.status_code = ?status_code,
+                    char.error.is_timeout = %is_timeout,
+                    char.error.is_connect = %is_connect,
                     "upstream_request_failed"
                 );
                 sentry::configure_scope(|scope| {
@@ -113,8 +113,8 @@ impl IntoResponse for ProxyError {
                 tracing::error!(
                     error.type = "response_body_read_failed",
                     error = %e,
-                    hyprnote.error.is_timeout = %is_timeout,
-                    hyprnote.error.is_decode = %is_decode,
+                    char.error.is_timeout = %is_timeout,
+                    char.error.is_decode = %is_decode,
                     "response_body_read_failed"
                 );
                 sentry::configure_scope(|scope| {
@@ -192,7 +192,7 @@ where
     name = "llm.completions",
     skip(state, analytics_ctx, headers, request),
     fields(
-        hyprnote.subsystem = "llm",
+        char.subsystem = "llm",
         http.request.method = "POST",
         http.response.status_code = tracing::field::Empty,
         gen_ai.operation.name = "chat",
@@ -205,9 +205,9 @@ where
         server.address = tracing::field::Empty,
         server.port = tracing::field::Empty,
         url.full = tracing::field::Empty,
-        hyprnote.gen_ai.request.streaming = tracing::field::Empty,
-        hyprnote.gen_ai.request.message_count = tracing::field::Empty,
-        hyprnote.task.name = tracing::field::Empty,
+        char.gen_ai.request.streaming = tracing::field::Empty,
+        char.gen_ai.request.message_count = tracing::field::Empty,
+        char.task.name = tracing::field::Empty,
         enduser.id = tracing::field::Empty,
         enduser.pseudo.id = tracing::field::Empty,
         error.type = tracing::field::Empty,
@@ -224,7 +224,7 @@ async fn completions_handler(
 ) -> Response {
     let start_time = Instant::now();
     let span = tracing::Span::current();
-    span.record("hyprnote.subsystem", "llm");
+    span.record("char.subsystem", "llm");
 
     let task = headers
         .get(crate::CHAR_TASK_HEADER)
@@ -249,9 +249,9 @@ async fn completions_handler(
     let (server_address, server_port) = provider_endpoint(provider_base_url);
 
     span.record("gen_ai.provider.name", provider_name);
-    span.record("hyprnote.gen_ai.request.streaming", stream);
+    span.record("char.gen_ai.request.streaming", stream);
     span.record(
-        "hyprnote.gen_ai.request.message_count",
+        "char.gen_ai.request.message_count",
         request.messages.len() as i64,
     );
     if let Some(model) = models.first() {
@@ -261,7 +261,7 @@ async fn completions_handler(
         span.record("otel.name", "chat");
     }
     if let Some(task_name) = task_name.as_deref() {
-        span.record("hyprnote.task.name", task_name);
+        span.record("char.task.name", task_name);
     }
     if let Some(user_id) = analytics_ctx.user_id.as_deref() {
         span.record("enduser.id", user_id);
@@ -278,11 +278,11 @@ async fn completions_handler(
     span.record("url.full", provider_base_url);
 
     tracing::info!(
-        hyprnote.gen_ai.request.streaming = %stream,
-        hyprnote.gen_ai.request.tool_calling = %needs_tool_calling,
-        hyprnote.task.name = %task_name.as_deref().unwrap_or("none"),
-        hyprnote.gen_ai.request.message_count = %request.messages.len(),
-        hyprnote.gen_ai.request.model_candidate_count = %models.len(),
+        char.gen_ai.request.streaming = %stream,
+        char.gen_ai.request.tool_calling = %needs_tool_calling,
+        char.task.name = %task_name.as_deref().unwrap_or("none"),
+        char.gen_ai.request.message_count = %request.messages.len(),
+        char.gen_ai.request.model_candidate_count = %models.len(),
         gen_ai.provider.name = %provider_name,
         "llm_completion_request_received"
     );
@@ -294,31 +294,31 @@ async fn completions_handler(
         if let Some(model) = models.first() {
             scope.set_tag("gen_ai.request.model", model);
         }
-        scope.set_tag("hyprnote.gen_ai.request.streaming", stream.to_string());
+        scope.set_tag("char.gen_ai.request.streaming", stream.to_string());
         scope.set_tag(
-            "hyprnote.gen_ai.request.tool_calling",
+            "char.gen_ai.request.tool_calling",
             needs_tool_calling.to_string(),
         );
         if let Some(task_name) = task_name.as_deref() {
-            scope.set_tag("hyprnote.task.name", task_name);
+            scope.set_tag("char.task.name", task_name);
         }
 
         let mut ctx = BTreeMap::new();
         ctx.insert(
-            "hyprnote.gen_ai.request.model_candidate_count".into(),
+            "char.gen_ai.request.model_candidate_count".into(),
             models.len().into(),
         );
         ctx.insert(
-            "hyprnote.gen_ai.request.message_count".into(),
+            "char.gen_ai.request.message_count".into(),
             request.messages.len().into(),
         );
         ctx.insert(
-            "hyprnote.gen_ai.request.tool_calling".into(),
+            "char.gen_ai.request.tool_calling".into(),
             needs_tool_calling.into(),
         );
         if let Some(task_name) = task_name.as_deref() {
             ctx.insert(
-                "hyprnote.task.name".into(),
+                "char.task.name".into(),
                 serde_json::Value::String(task_name.to_string()),
             );
         }
@@ -374,7 +374,7 @@ async fn completions_handler(
         .notify(|err, dur: Duration| {
             tracing::warn!(
                 error = %err,
-                hyprnote.retry.delay_ms = dur.as_millis(),
+                char.retry.delay_ms = dur.as_millis(),
                 gen_ai.provider.name = %provider.name(),
                 "retrying_llm_request"
             );
@@ -385,7 +385,7 @@ async fn completions_handler(
             tracing::info!(
                 service.peer.name = %provider_name,
                 gen_ai.provider.name = %provider_name,
-                hyprnote.duration_ms = upstream_request_started_at.elapsed().as_millis() as u64,
+                char.duration_ms = upstream_request_started_at.elapsed().as_millis() as u64,
                 "llm_upstream_request_finished"
             );
         })
@@ -413,7 +413,7 @@ async fn completions_handler(
             tracing::error!(
                 error.type = "llm_upstream_timeout",
                 service.peer.name = %provider_name,
-                hyprnote.timeout_ms = state.config.timeout.as_millis() as u64,
+                char.timeout_ms = state.config.timeout.as_millis() as u64,
                 "llm_upstream_timeout"
             );
             return ProxyError::Timeout.into_response();
@@ -421,8 +421,8 @@ async fn completions_handler(
     };
 
     tracing::info!(
-        hyprnote.subsystem = "llm",
-        hyprnote.duration_ms = start_time.elapsed().as_millis() as u64,
+        char.subsystem = "llm",
+        char.duration_ms = start_time.elapsed().as_millis() as u64,
         "llm_completion_request_finished"
     );
 

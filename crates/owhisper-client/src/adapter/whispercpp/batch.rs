@@ -20,7 +20,7 @@ impl WhisperCppAdapter {
     ) -> Result<StreamingBatchStream, Error> {
         let path = file_path.as_ref().to_path_buf();
         tracing::info!(
-            hyprnote.file.path = %path.display(),
+            char.file.path = %path.display(),
             url.full = %api_base,
             "starting_whispercpp_batch_stream"
         );

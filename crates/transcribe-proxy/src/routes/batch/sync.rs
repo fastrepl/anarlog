@@ -14,7 +14,7 @@ use owhisper_client::{
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
-use crate::hyprnote_routing::{RetryConfig, RoutingMode};
+use crate::char_routing::{RetryConfig, RoutingMode};
 use crate::provider_selector::SelectedProvider;
 use crate::query_params::QueryParams;
 
@@ -82,9 +82,9 @@ fn log_batch_routing_trace(trace: &BatchRoutingTrace, success: bool) {
         .to_string()
     });
     if success {
-        tracing::info!(trace_json = %trace_json, "hyprnote_batch_routing_trace");
+        tracing::info!(trace_json = %trace_json, "char_batch_routing_trace");
     } else {
-        tracing::error!(trace_json = %trace_json, "hyprnote_batch_routing_trace");
+        tracing::error!(trace_json = %trace_json, "char_batch_routing_trace");
     }
 }
 
@@ -97,14 +97,14 @@ fn resolve_listen_params_for_provider(
     resolved_params
 }
 
-pub(super) async fn handle_hyprnote_batch(
+pub(super) async fn handle_char_batch(
     state: &AppState,
     params: &QueryParams,
     listen_params: ListenParams,
     body: Bytes,
     content_type: &str,
 ) -> Response {
-    let provider_chain = state.resolve_hyprnote_provider_chain_for_mode(RoutingMode::Batch, params);
+    let provider_chain = state.resolve_char_provider_chain_for_mode(RoutingMode::Batch, params);
 
     if provider_chain.is_empty() {
         return (
@@ -127,7 +127,7 @@ pub(super) async fn handle_hyprnote_batch(
         provider_chain = ?provider_chain.iter().map(|p| p.provider()).collect::<Vec<_>>(),
         content_type = %content_type,
         body_size_bytes = %body.len(),
-        "hyprnote_batch_transcription_request"
+        "char_batch_transcription_request"
     );
 
     let mut last_error: Option<String> = None;
@@ -164,8 +164,8 @@ pub(super) async fn handle_hyprnote_batch(
         {
             Ok((response, retries)) => {
                 tracing::info!(
-                    hyprnote.stt.provider.name = ?provider,
-                    hyprnote.attempt.number = attempt + 1,
+                    char.stt.provider.name = ?provider,
+                    char.attempt.number = attempt + 1,
                     "batch_transcription_succeeded"
                 );
                 trace.attempts.push(BatchRoutingAttempt {
@@ -181,10 +181,10 @@ pub(super) async fn handle_hyprnote_batch(
             }
             Err((e, retries)) => {
                 tracing::warn!(
-                    hyprnote.stt.provider.name = ?provider,
+                    char.stt.provider.name = ?provider,
                     error = %e,
-                    hyprnote.attempt.number = attempt + 1,
-                    hyprnote.remaining_provider_count = provider_chain.len() - attempt - 1,
+                    char.attempt.number = attempt + 1,
+                    char.remaining_provider_count = provider_chain.len() - attempt - 1,
                     "provider_failed_trying_next"
                 );
                 trace.attempts.push(BatchRoutingAttempt {
@@ -231,9 +231,9 @@ pub(super) async fn transcribe_with_retry(
     .retry(backoff)
     .notify(|err, dur| {
         tracing::warn!(
-            hyprnote.stt.provider.name = ?selected.provider(),
+            char.stt.provider.name = ?selected.provider(),
             error = %err,
-            hyprnote.retry.delay_ms = dur.as_millis(),
+            char.retry.delay_ms = dur.as_millis(),
             "retrying_transcription"
         );
         retries += 1;

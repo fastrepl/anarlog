@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for hyprnote-stripe on 2026-02-05T16:52:13+09:00
+# fly.toml app configuration file generated for char-stripe on 2026-02-05T16:52:13+09:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'hyprnote-stripe'
+app = 'char-stripe'
 primary_region = 'sjc'
 kill_signal = 'SIGTERM'
 kill_timeout = '30s'

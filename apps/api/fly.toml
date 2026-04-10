@@ -1,4 +1,4 @@
-app = 'hyprnote-ai'
+app = 'char-ai'
 primary_region = 'sjc'
 kill_signal = 'SIGTERM'
 kill_timeout = 30

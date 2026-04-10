@@ -16,7 +16,7 @@ use owhisper_interface::ListenParams;
 
 use hypr_audio_mime::content_type_to_extension;
 
-use crate::hyprnote_routing::should_use_hyprnote_routing;
+use crate::char_routing::should_use_char_routing;
 use crate::query_params::QueryParams;
 
 use super::AppState;
@@ -53,10 +53,10 @@ pub async fn handler(
     let listen_params = build_listen_params(&params);
 
     let provider_param = params.get_first("provider").map(|s| s.to_string());
-    let use_hyprnote_routing = should_use_hyprnote_routing(provider_param.as_deref());
+    let use_char_routing = should_use_char_routing(provider_param.as_deref());
 
-    if use_hyprnote_routing {
-        return sync::handle_hyprnote_batch(&state, &params, listen_params, body, content_type)
+    if use_char_routing {
+        return sync::handle_char_batch(&state, &params, listen_params, body, content_type)
             .await;
     }
 
@@ -66,9 +66,9 @@ pub async fn handler(
     };
 
     tracing::info!(
-        hyprnote.stt.provider.name = ?selected.provider(),
-        hyprnote.file.mime_type = %content_type,
-        hyprnote.payload.size_bytes = %body.len(),
+        char.stt.provider.name = ?selected.provider(),
+        char.file.mime_type = %content_type,
+        char.payload.size_bytes = %body.len(),
         "batch_transcription_request_received"
     );
 
@@ -85,7 +85,7 @@ pub async fn handler(
         Err((e, _retries)) => {
             tracing::error!(
                 error = %e,
-                hyprnote.stt.provider.name = ?selected.provider(),
+                char.stt.provider.name = ?selected.provider(),
                 "batch_transcription_failed"
             );
             (

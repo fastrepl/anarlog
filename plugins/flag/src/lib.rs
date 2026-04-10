@@ -52,7 +52,7 @@ mod test {
 
     fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
         let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
-        ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
+        ctx.config_mut().identifier = "com.char.dev".to_string();
         ctx.config_mut().version = Some("1.0.0".to_string());
 
         builder

@@ -5,13 +5,13 @@ if [[ "$OSTYPE" != "darwin"* ]]; then
     exit 1
 fi
 
-if pgrep -q "Hyprnote"; then
-    echo "ERROR: Hyprnote apps are still running. Please quit them first."
+if pgrep -q "Char"; then
+    echo "ERROR: Char apps are still running. Please quit them first."
     exit 1
 fi
 
-STABLE_DIR="$HOME/Library/Application Support/hyprnote"
-NIGHTLY_DIR="$HOME/Library/Application Support/hyprnote-nightly"
+STABLE_DIR="$HOME/Library/Application Support/char"
+NIGHTLY_DIR="$HOME/Library/Application Support/char-nightly"
 TEMP_DIR=$(mktemp -d)
 
 if [[ ! -d "$STABLE_DIR" ]]; then

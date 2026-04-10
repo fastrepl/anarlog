@@ -6,7 +6,7 @@ use owhisper_client::Provider;
 
 use crate::analytics::SttAnalyticsReporter;
 use crate::env::{ApiKeys, Env};
-use crate::hyprnote_routing::{HyprnoteRouter, HyprnoteRoutingConfig};
+use crate::char_routing::{CharRouter, CharRoutingConfig};
 use crate::provider_selector::ProviderSelector;
 
 pub const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 7 * 1000;
@@ -30,7 +30,7 @@ pub struct SttProxyConfig {
     pub connect_timeout: Duration,
     pub analytics: Option<Arc<dyn SttAnalyticsReporter>>,
     pub upstream_urls: HashMap<Provider, String>,
-    pub hyprnote_routing: Option<HyprnoteRoutingConfig>,
+    pub char_routing: Option<CharRoutingConfig>,
     pub supabase: SupabaseConfig,
     pub callback: CallbackConfig,
 }
@@ -43,7 +43,7 @@ impl SttProxyConfig {
             connect_timeout: Duration::from_millis(DEFAULT_CONNECT_TIMEOUT_MS),
             analytics: None,
             upstream_urls: HashMap::new(),
-            hyprnote_routing: None,
+            char_routing: None,
             supabase: SupabaseConfig {
                 url: Some(supabase.supabase_url.clone()),
                 service_role_key: Some(supabase.supabase_service_role_key.clone()),
@@ -75,8 +75,8 @@ impl SttProxyConfig {
         self
     }
 
-    pub fn with_hyprnote_routing(mut self, config: HyprnoteRoutingConfig) -> Self {
-        self.hyprnote_routing = Some(config);
+    pub fn with_char_routing(mut self, config: CharRoutingConfig) -> Self {
+        self.char_routing = Some(config);
         self
     }
 
@@ -88,7 +88,7 @@ impl SttProxyConfig {
         )
     }
 
-    pub fn hyprnote_router(&self) -> Option<HyprnoteRouter> {
-        self.hyprnote_routing.clone().map(HyprnoteRouter::new)
+    pub fn char_router(&self) -> Option<CharRouter> {
+        self.char_routing.clone().map(CharRouter::new)
     }
 }

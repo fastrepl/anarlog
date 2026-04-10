@@ -36,8 +36,8 @@ impl SttAnalyticsReporter for AnalyticsClient {
             let distinct_id = event.fingerprint.unwrap_or_else(|| {
                 let fallback_id = uuid::Uuid::new_v4().to_string();
                 tracing::warn!(
-                    hyprnote.analytics.fallback_distinct_id = %fallback_id,
-                    hyprnote.stt.provider.name = %event.provider,
+                    char.analytics.fallback_distinct_id = %fallback_id,
+                    char.stt.provider.name = %event.provider,
                     "device_fingerprint missing, falling back to random UUID for distinct_id"
                 );
                 fallback_id

@@ -84,9 +84,9 @@ impl SupabaseClient {
             .await?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "insert_job",
+            char.supabase.operation = "insert_job",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -95,7 +95,7 @@ impl SupabaseClient {
             let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
-                hyprnote.supabase.operation = "insert_job",
+                char.supabase.operation = "insert_job",
                 http.response.status_code = status.as_u16(),
                 error.type = "supabase_api_error",
                 "supabase_request_failed"
@@ -119,9 +119,9 @@ impl SupabaseClient {
             .await?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "update_job",
+            char.supabase.operation = "update_job",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -130,7 +130,7 @@ impl SupabaseClient {
             let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
-                hyprnote.supabase.operation = "update_job",
+                char.supabase.operation = "update_job",
                 http.response.status_code = status.as_u16(),
                 error.type = "supabase_api_error",
                 "supabase_request_failed"
@@ -153,9 +153,9 @@ impl SupabaseClient {
             .await?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "get_job",
+            char.supabase.operation = "get_job",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -164,7 +164,7 @@ impl SupabaseClient {
             let body = response.text().await.unwrap_or_default();
             tracing::error!(
                 service.peer.name = "supabase",
-                hyprnote.supabase.operation = "get_job",
+                char.supabase.operation = "get_job",
                 http.response.status_code = status.as_u16(),
                 error.type = "supabase_api_error",
                 "supabase_request_failed"

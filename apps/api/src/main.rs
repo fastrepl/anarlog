@@ -82,7 +82,7 @@ async fn app() -> Router {
     let llm_config =
         hypr_llm_proxy::LlmProxyConfig::new(&env.llm).with_analytics(analytics.clone());
     let stt_config = hypr_transcribe_proxy::SttProxyConfig::new(&env.stt, &env.supabase)
-        .with_hyprnote_routing(hypr_transcribe_proxy::HyprnoteRoutingConfig::default())
+        .with_char_routing(hypr_transcribe_proxy::CharRoutingConfig::default())
         .with_analytics(analytics.clone());
 
     let stt_rate_limit = rate_limit::RateLimitState::builder()
@@ -111,7 +111,7 @@ async fn app() -> Router {
         .build();
 
     let auth_state_pro = AuthState::new(&env.supabase.supabase_url)
-        .with_required_entitlements(vec!["hyprnote_pro".into(), "hyprnote_lite".into()]);
+        .with_required_entitlements(vec!["char_pro".into(), "char_lite".into()]);
     let auth_state_basic = AuthState::new(&env.supabase.supabase_url);
     let auth_state_support = AuthState::new(&env.supabase.supabase_url);
 
@@ -162,7 +162,7 @@ async fn app() -> Router {
         );
 
     let auth_state_integration =
-        AuthState::new(&env.supabase.supabase_url).with_required_entitlement("hyprnote_pro");
+        AuthState::new(&env.supabase.supabase_url).with_required_entitlement("char_pro");
 
     let pro_routes = Router::new()
         .merge(hypr_api_research::router(research_config))
@@ -286,19 +286,19 @@ async fn app() -> Router {
                                 server.address = tracing::field::Empty,
                                 server.port = tracing::field::Empty,
                                 client.address = tracing::field::Empty,
-                                hyprnote.subsystem = "edge",
+                                char.subsystem = "edge",
                                 enduser.id = tracing::field::Empty,
                                 enduser.pseudo.id = tracing::field::Empty,
-                                hyprnote.stt.provider.name = tracing::field::Empty,
-                                hyprnote.stt.routing_strategy = tracing::field::Empty,
-                                hyprnote.stt.model = tracing::field::Empty,
-                                hyprnote.stt.language_codes = tracing::field::Empty,
-                                hyprnote.audio.sample_rate_hz = tracing::field::Empty,
-                                hyprnote.audio.channel_count = tracing::field::Empty,
+                                char.stt.provider.name = tracing::field::Empty,
+                                char.stt.routing_strategy = tracing::field::Empty,
+                                char.stt.model = tracing::field::Empty,
+                                char.stt.language_codes = tracing::field::Empty,
+                                char.audio.sample_rate_hz = tracing::field::Empty,
+                                char.audio.channel_count = tracing::field::Empty,
                                 gen_ai.provider.name = tracing::field::Empty,
-                                hyprnote.gen_ai.request.streaming = tracing::field::Empty,
-                                hyprnote.gen_ai.request.message_count = tracing::field::Empty,
-                                hyprnote.request.id = tracing::field::Empty,
+                                char.gen_ai.request.streaming = tracing::field::Empty,
+                                char.gen_ai.request.message_count = tracing::field::Empty,
+                                char.request.id = tracing::field::Empty,
                                 error.type = tracing::field::Empty,
                                 otel.status_code = tracing::field::Empty,
                                 otel.kind = "server",
@@ -327,7 +327,7 @@ async fn app() -> Router {
                                 .get(REQUEST_ID_HEADER)
                                 .and_then(|v| v.to_str().ok())
                             {
-                                span.record("hyprnote.request.id", request_id);
+                                span.record("char.request.id", request_id);
                             }
                             configure_sentry_trace_scope(span, env, SystemTime::now());
                             tracing::info!(
@@ -357,7 +357,7 @@ async fn app() -> Router {
                                 tracing::info!(
                                     parent: span,
                                     http.response.status_code = %response.status().as_u16(),
-                                    hyprnote.duration_ms = %latency.as_millis(),
+                                    char.duration_ms = %latency.as_millis(),
                                     "http_request_finished"
                                 );
                             },
@@ -382,7 +382,7 @@ async fn app() -> Router {
                                     parent: span,
                                     error.type = %error_type,
                                     error = %failure_class,
-                                    hyprnote.duration_ms = %latency.as_millis(),
+                                    char.duration_ms = %latency.as_millis(),
                                     "http_request_failed"
                                 );
                             },
@@ -416,7 +416,7 @@ fn main() -> std::io::Result<()> {
 
     let _guard = sentry::init(sentry::ClientOptions {
         dsn: env.sentry_dsn.as_ref().and_then(|s| s.parse().ok()),
-        release: option_env!("APP_VERSION").map(|v| format!("hyprnote-api@{}", v).into()),
+        release: option_env!("APP_VERSION").map(|v| format!("char-api@{}", v).into()),
         environment: Some(
             if cfg!(debug_assertions) {
                 "development"
@@ -436,7 +436,7 @@ fn main() -> std::io::Result<()> {
     });
 
     sentry::configure_scope(|scope| {
-        scope.set_tag("service.namespace", "hyprnote");
+        scope.set_tag("service.namespace", "char");
         scope.set_tag("service.name", "api");
     });
 
@@ -489,15 +489,15 @@ fn configure_sentry_trace_scope(span: &tracing::Span, env: &Env, request_started
     let trace_url = build_honeycomb_trace_url(env, &trace_identifiers, request_started_at);
     sentry::configure_scope(|scope| {
         scope.set_tag(
-            "hyprnote.honeycomb.trace_id",
+            "char.honeycomb.trace_id",
             trace_identifiers.trace_id.as_str(),
         );
         scope.set_tag(
-            "hyprnote.honeycomb.span_id",
+            "char.honeycomb.span_id",
             trace_identifiers.span_id.as_str(),
         );
         if let Some(trace_url) = trace_url.as_deref() {
-            scope.set_tag("hyprnote.honeycomb.trace_url", trace_url);
+            scope.set_tag("char.honeycomb.trace_url", trace_url);
         }
 
         let mut context = std::collections::BTreeMap::new();
@@ -506,7 +506,7 @@ fn configure_sentry_trace_scope(span: &tracing::Span, env: &Env, request_started
         if let Some(trace_url) = trace_url {
             context.insert("trace_url".into(), Value::String(trace_url));
         }
-        scope.set_context("hyprnote.honeycomb", Context::Other(context));
+        scope.set_context("char.honeycomb", Context::Other(context));
     });
 }
 

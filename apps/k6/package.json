@@ -3,6 +3,6 @@
   "private": true,
   "scripts": {
     "test:local": "k6 run scripts/websocket/listen.js --env API_URL=ws://localhost:4000",
-    "test:loadtest": "k6 run scripts/websocket/listen.js --env API_URL=wss://hyprnote-api-loadtest.fly.dev"
+    "test:loadtest": "k6 run scripts/websocket/listen.js --env API_URL=wss://char-api-loadtest.fly.dev"
   }
 }

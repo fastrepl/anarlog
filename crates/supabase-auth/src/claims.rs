@@ -32,11 +32,11 @@ pub struct Claims {
 
 impl Claims {
     pub fn is_pro(&self) -> bool {
-        self.entitlements.contains(&"hyprnote_pro".to_string())
+        self.entitlements.contains(&"char_pro".to_string())
     }
 
     pub fn is_lite(&self) -> bool {
-        self.entitlements.contains(&"hyprnote_lite".to_string())
+        self.entitlements.contains(&"char_lite".to_string())
     }
 
     pub fn is_paid(&self) -> bool {
@@ -77,7 +77,7 @@ mod tests {
         let payload = r#"{
             "sub": "user-123",
             "email": "test@example.com",
-            "entitlements": ["hyprnote_pro"],
+            "entitlements": ["char_pro"],
             "subscription_status": "trialing",
             "trial_end": 1771406553
         }"#;
@@ -86,7 +86,7 @@ mod tests {
         let claims = Claims::decode_insecure(&token).unwrap();
         assert_eq!(claims.sub, "user-123");
         assert_eq!(claims.email, Some("test@example.com".to_string()));
-        assert_eq!(claims.entitlements, vec!["hyprnote_pro"]);
+        assert_eq!(claims.entitlements, vec!["char_pro"]);
         assert!(matches!(
             claims.subscription_status,
             Some(SubscriptionStatus::Trialing)
@@ -111,7 +111,7 @@ mod tests {
     fn test_decode_claims_lite() {
         let payload = r#"{
             "sub": "user-789",
-            "entitlements": ["hyprnote_lite"],
+            "entitlements": ["char_lite"],
             "subscription_status": "active"
         }"#;
         let token = make_test_token(payload);
@@ -126,7 +126,7 @@ mod tests {
     fn test_is_paid_with_pro() {
         let payload = r#"{
             "sub": "user-100",
-            "entitlements": ["hyprnote_pro"]
+            "entitlements": ["char_pro"]
         }"#;
         let token = make_test_token(payload);
 

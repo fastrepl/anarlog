@@ -5,7 +5,7 @@ use bytes::Bytes;
 use futures_util::StreamExt;
 use owhisper_client::hypr_ws_client;
 use owhisper_client::{
-    BatchClient, BatchSttAdapter, DeepgramAdapter, HyprnoteAdapter, ListenClient,
+    BatchClient, BatchSttAdapter, DeepgramAdapter, CharAdapter, ListenClient,
 };
 use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse};
 use owhisper_interface::{ControlMessage, ListenParams, MixedMessage};
@@ -114,7 +114,7 @@ pub fn sample_response(transcript: &str) -> StreamResponse {
 
 pub async fn send_streaming(addr: SocketAddr, query: &str) {
     let url = format!(
-        "ws://{addr}/listen?provider=hyprnote&encoding=linear16&sample_rate=16000&channels=1&{query}"
+        "ws://{addr}/listen?provider=char&encoding=linear16&sample_rate=16000&channels=1&{query}"
     );
     let mut ws = connect_to_url(&url).await;
     let _ = ws.close(None).await;
@@ -125,7 +125,7 @@ pub async fn send_streaming_via_client(
     model: &str,
     languages: Vec<hypr_language::Language>,
 ) {
-    let client = hyprnote_listen_client(addr, model, languages).await;
+    let client = char_listen_client(addr, model, languages).await;
 
     let _ = client.from_realtime_audio(test_client_outbound()).await;
 }
@@ -151,12 +151,12 @@ pub async fn collect_streaming_via_client_result(
     languages: Vec<hypr_language::Language>,
     timeout: Duration,
 ) -> ClientStreamResult {
-    let client = hyprnote_listen_client(addr, model, languages).await;
+    let client = char_listen_client(addr, model, languages).await;
 
     let (stream, _handle) = client
         .from_realtime_audio(test_client_outbound())
         .await
-        .expect("hyprnote streaming client should connect");
+        .expect("char streaming client should connect");
 
     futures_util::pin_mut!(stream);
 
@@ -189,7 +189,7 @@ pub async fn collect_streaming_via_client_result(
 
 pub async fn send_batch(addr: SocketAddr, query: &str) {
     let resp = reqwest::Client::new()
-        .post(format!("http://{addr}/listen?provider=hyprnote&{query}"))
+        .post(format!("http://{addr}/listen?provider=char&{query}"))
         .header("content-type", "audio/wav")
         .body(vec![1u8, 2, 3])
         .send()
@@ -202,15 +202,15 @@ pub async fn send_batch(addr: SocketAddr, query: &str) {
     );
 }
 
-pub async fn send_batch_via_hyprnote_client(
+pub async fn send_batch_via_char_client(
     addr: SocketAddr,
     model: &str,
     languages: Vec<hypr_language::Language>,
 ) -> owhisper_interface::batch::Response {
-    batch_client::<HyprnoteAdapter>(addr, model, languages)
+    batch_client::<CharAdapter>(addr, model, languages)
         .transcribe_file(hypr_data::english_1::AUDIO_PATH)
         .await
-        .expect("hyprnote batch request should succeed")
+        .expect("char batch request should succeed")
 }
 
 pub async fn send_batch_via_deepgram_client(
@@ -357,16 +357,16 @@ pub fn terminal_finalize_count(messages: &[serde_json::Value]) -> usize {
 }
 
 pub fn stereo_listen_url(addr: SocketAddr, query: &str) -> String {
-    format!("ws://{addr}/listen?provider=hyprnote&sample_rate=16000&channels=2&{query}")
+    format!("ws://{addr}/listen?provider=char&sample_rate=16000&channels=2&{query}")
 }
 
-async fn hyprnote_listen_client(
+async fn char_listen_client(
     addr: SocketAddr,
     model: &str,
     languages: Vec<hypr_language::Language>,
-) -> ListenClient<HyprnoteAdapter> {
+) -> ListenClient<CharAdapter> {
     ListenClient::builder()
-        .adapter::<HyprnoteAdapter>()
+        .adapter::<CharAdapter>()
         .api_base(format!("http://{addr}/listen"))
         .params(ListenParams {
             model: Some(model.to_string()),

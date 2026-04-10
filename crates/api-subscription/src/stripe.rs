@@ -61,8 +61,8 @@ pub(crate) async fn get_or_create_customer(
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
     tracing::info!(
         service.peer.name = "stripe",
-        hyprnote.stripe.operation = "create_customer",
-        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        char.stripe.operation = "create_customer",
+        char.duration_ms = start.elapsed().as_millis() as u64,
         "stripe_request_finished"
     );
 
@@ -132,8 +132,8 @@ pub(crate) async fn create_trial_subscription(
         .map_err(|e: stripe::StripeError| SubscriptionError::Stripe(e.to_string()))?;
     tracing::info!(
         service.peer.name = "stripe",
-        hyprnote.stripe.operation = "create_trial_subscription",
-        hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+        char.stripe.operation = "create_trial_subscription",
+        char.duration_ms = start.elapsed().as_millis() as u64,
         "stripe_request_finished"
     );
 

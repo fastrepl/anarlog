@@ -3,14 +3,14 @@ use std::path::{Path, PathBuf};
 use owhisper_interface::ListenParams;
 use owhisper_interface::batch::Response as BatchResponse;
 
-use super::HyprnoteAdapter;
+use super::CharAdapter;
 use crate::adapter::http::mime_type_from_extension;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
 use crate::error::Error;
 
-impl BatchSttAdapter for HyprnoteAdapter {
+impl BatchSttAdapter for CharAdapter {
     fn provider_name(&self) -> &'static str {
-        "hyprnote"
+        "char"
     }
 
     fn is_supported_languages(
@@ -18,7 +18,7 @@ impl BatchSttAdapter for HyprnoteAdapter {
         languages: &[hypr_language::Language],
         model: Option<&str>,
     ) -> bool {
-        HyprnoteAdapter::is_supported_languages_batch(languages, model)
+        CharAdapter::is_supported_languages_batch(languages, model)
     }
 
     fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(

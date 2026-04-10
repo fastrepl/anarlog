@@ -58,10 +58,10 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "rpc",
-            hyprnote.supabase.function = %function_name,
+            char.supabase.operation = "rpc",
+            char.supabase.function = %function_name,
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -113,10 +113,10 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "select",
-            hyprnote.supabase.table = %table,
+            char.supabase.operation = "select",
+            char.supabase.table = %table,
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -171,10 +171,10 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "update",
-            hyprnote.supabase.table = %table,
+            char.supabase.operation = "update",
+            char.supabase.table = %table,
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -213,9 +213,9 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_get_stripe_customer_id",
+            char.supabase.operation = "admin_get_stripe_customer_id",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -265,9 +265,9 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_delete_storage_objects.list",
+            char.supabase.operation = "admin_delete_storage_objects.list",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -312,9 +312,9 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_delete_storage_objects.delete",
+            char.supabase.operation = "admin_delete_storage_objects.delete",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 
@@ -341,9 +341,9 @@ impl SupabaseClient {
             .map_err(|e| SubscriptionError::SupabaseRequest(e.to_string()))?;
         tracing::info!(
             service.peer.name = "supabase",
-            hyprnote.supabase.operation = "admin_delete_user",
+            char.supabase.operation = "admin_delete_user",
             http.response.status_code = response.status().as_u16(),
-            hyprnote.duration_ms = start.elapsed().as_millis() as u64,
+            char.duration_ms = start.elapsed().as_millis() as u64,
             "supabase_request_finished"
         );
 

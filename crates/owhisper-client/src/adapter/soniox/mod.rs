@@ -129,13 +129,13 @@ mod tests {
                 vec![],
             ),
             (
-                "https://api.hyprnote.com?provider=soniox",
-                "wss://api.hyprnote.com/listen",
+                "https://api.char.com?provider=soniox",
+                "wss://api.char.com/listen",
                 vec![("provider", "soniox")],
             ),
             (
-                "https://api.hyprnote.com/listen?provider=soniox",
-                "wss://api.hyprnote.com/listen",
+                "https://api.char.com/listen?provider=soniox",
+                "wss://api.char.com/listen",
                 vec![("provider", "soniox")],
             ),
             (

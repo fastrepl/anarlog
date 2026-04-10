@@ -105,13 +105,13 @@ impl AmModel {
     pub fn tar_url(&self) -> &str {
         match self {
             AmModel::ParakeetV2 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v2_476MB.tar"
+                "https://char.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v2_476MB.tar"
             }
             AmModel::ParakeetV3 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v3_494MB.tar"
+                "https://char.s3.us-east-1.amazonaws.com/v0/nvidia_parakeet-v3_494MB.tar"
             }
             AmModel::WhisperLargeV3 => {
-                "https://hyprnote.s3.us-east-1.amazonaws.com/v0/openai_whisper-large-v3-v20240930_626MB.tar"
+                "https://char.s3.us-east-1.amazonaws.com/v0/openai_whisper-large-v3-v20240930_626MB.tar"
             }
         }
     }

@@ -31,15 +31,15 @@ export const useSTTConnection = () => {
   ) as AIProviderStorage | undefined;
 
   const isLocalModel =
-    current_stt_provider === "hyprnote" &&
+    current_stt_provider === "char" &&
     !!current_stt_model &&
     current_stt_model !== "cloud";
 
   const isCloudModel =
-    current_stt_provider === "hyprnote" && current_stt_model === "cloud";
+    current_stt_provider === "char" && current_stt_model === "cloud";
 
   const local = useQuery({
-    enabled: current_stt_provider === "hyprnote",
+    enabled: current_stt_provider === "char",
     queryKey: ["stt-connection", isLocalModel, current_stt_model],
     refetchInterval: 1000,
     queryFn: async () => {

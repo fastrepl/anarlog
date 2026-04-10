@@ -19,10 +19,10 @@ Char uses two base directories. See [Data](/docs/guides/data) for the full direc
 **Global base** (shared across stable and nightly builds):
 - `models/stt/` — downloaded speech-to-text model files (Cactus model archives)
 - `store.json` — app state (onboarding status, pinned tabs, recently opened sessions, dismissed toasts, analytics preference, auth tokens)
-- `hyprnote.json` — vault configuration (custom vault path if set)
+- `char.json` — vault configuration (custom vault path if set)
 - `search/` — Tantivy full-text search index
 
-On macOS, this is typically `~/Library/Application Support/hyprnote/`. On Linux, `~/.local/share/hyprnote/`.
+On macOS, this is typically `~/Library/Application Support/char/`. On Linux, `~/.local/share/char/`.
 
 The `store.json` keys are defined by this enum — nothing else is persisted through the Tauri store:
 
@@ -108,7 +108,7 @@ The `ListenerArgs` passed to the STT adapter contain the following — this is a
 
 **Where it goes depends on your setup:**
 
-- **Pro curated models:** Audio is proxied through `pro.hyprnote.com` (our server) and forwarded to a curated STT provider. The proxy does not store your audio.
+- **Pro curated models:** Audio is proxied through `pro.char.com` (our server) and forwarded to a curated STT provider. The proxy does not store your audio.
 - **BYOK (Bring Your Own Key):** Audio is sent directly from your device to the provider you selected.
 
 **Supported cloud STT providers:**
@@ -156,7 +156,7 @@ An analytics event is also fired when auto-enhance runs — it includes only the
 
 **Where it goes depends on your setup:**
 
-- **Pro curated models:** Requests are proxied through `pro.hyprnote.com` and forwarded to a curated LLM provider via [OpenRouter](https://openrouter.ai). Nothing is stored by our proxy. We have [Zero Data Retention (ZDR)](https://openrouter.ai/docs/guides/features/zdr) enabled on our OpenRouter account, so all requests are routed exclusively to endpoints where the provider does not store your data.
+- **Pro curated models:** Requests are proxied through `pro.char.com` and forwarded to a curated LLM provider via [OpenRouter](https://openrouter.ai). Nothing is stored by our proxy. We have [Zero Data Retention (ZDR)](https://openrouter.ai/docs/guides/features/zdr) enabled on our OpenRouter account, so all requests are routed exclusively to endpoints where the provider does not store your data.
 - **BYOK providers:** Requests are sent directly to the provider you selected (OpenAI, Anthropic, Google, or Mistral).
 - **Local LLMs:** Everything stays on your device. See [Local LLM Setup](/docs/faq/local-llm-setup).
 
@@ -169,7 +169,7 @@ Pro users have access to MCP tools for web search and URL reading during AI-assi
 - URLs (for content extraction)
 
 **Where it goes:**
-- Proxied through `pro.hyprnote.com`
+- Proxied through `pro.char.com`
 - [Exa](https://exa.ai) — web search
 - [Jina AI](https://jina.ai) — URL content reading
 
@@ -209,8 +209,8 @@ Char uses Sentry for crash reporting and error tracking in release builds. Here 
 **What is sent:**
 - Error messages, stack traces, and crash dumps
 - A device fingerprint (hashed machine ID via `hypr_host::fingerprint()`) — no name, email, or IP
-- App version and platform information (`hyprnote-desktop@{version}`)
-- The tag `service: "hyprnote-desktop"`
+- App version and platform information (`char-desktop@{version}`)
+- The tag `service: "char-desktop"`
 - `auto_session_tracking` is explicitly set to `false`
 
 **Where it goes:**
@@ -266,7 +266,7 @@ When you sign in for Pro or cloud features, Char authenticates via Supabase.
 
 **What is sent:**
 - Authentication requests to Supabase during sign-in
-- Auth tokens to `pro.hyprnote.com` when using Pro features
+- Auth tokens to `pro.char.com` when using Pro features
 
 ## Summary
 

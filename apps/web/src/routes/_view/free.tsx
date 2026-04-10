@@ -68,16 +68,16 @@ const freeFeatures = [
 ];
 
 const comparisonFeatures = [
-  { feature: "Meeting recording", hyprnote: true, others: "Limited" },
-  { feature: "AI transcription", hyprnote: true, others: "Paid" },
-  { feature: "Meeting summaries", hyprnote: true, others: "Paid" },
-  { feature: "Local AI processing", hyprnote: true, others: false },
-  { feature: "Offline support", hyprnote: true, others: false },
-  { feature: "Calendar integration", hyprnote: true, others: "Limited" },
-  { feature: "Custom templates", hyprnote: true, others: "Paid" },
-  { feature: "No usage limits", hyprnote: true, others: false },
-  { feature: "Open source", hyprnote: true, others: false },
-  { feature: "Self-hosting option", hyprnote: true, others: false },
+  { feature: "Meeting recording", char: true, others: "Limited" },
+  { feature: "AI transcription", char: true, others: "Paid" },
+  { feature: "Meeting summaries", char: true, others: "Paid" },
+  { feature: "Local AI processing", char: true, others: false },
+  { feature: "Offline support", char: true, others: false },
+  { feature: "Calendar integration", char: true, others: "Limited" },
+  { feature: "Custom templates", char: true, others: "Paid" },
+  { feature: "No usage limits", char: true, others: false },
+  { feature: "Open source", char: true, others: false },
+  { feature: "Self-hosting option", char: true, others: false },
 ];
 
 const useCases = [
@@ -254,14 +254,14 @@ function ComparisonSection() {
             >
               <div className="p-4 text-sm text-neutral-700">{row.feature}</div>
               <div className="border-x border-neutral-100 p-4 text-left">
-                {row.hyprnote === true ? (
+                {row.char === true ? (
                   <Icon
                     icon="mdi:check-circle"
                     className="text-xl text-green-600"
                   />
                 ) : (
                   <span className="text-sm text-neutral-500">
-                    {row.hyprnote}
+                    {row.char}
                   </span>
                 )}
               </div>

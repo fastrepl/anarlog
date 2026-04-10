@@ -95,7 +95,7 @@ export const displayModelId = (model: string) => {
 const _PROVIDERS = [
   {
     disabled: false,
-    id: "hyprnote",
+    id: "char",
     displayName: "Char",
     badge: "Recommended",
     icon: <CharProviderIcon />,

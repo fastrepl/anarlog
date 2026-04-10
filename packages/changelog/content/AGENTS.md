@@ -51,7 +51,7 @@ Attributes:
 - `variant` (optional): `"warning"` for amber/yellow style, `"info"` for blue style. Defaults to amber/info style.
 
 ```mdx
-<banner title="Hyprnote is now Char!">
+<banner title="Char is now Char!">
 We've renamed the app. All your data is safe and nothing changes on your end.
 </banner>
 

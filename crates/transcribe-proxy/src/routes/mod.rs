@@ -17,7 +17,7 @@ use axum::{
 use owhisper_client::Provider;
 
 use crate::config::SttProxyConfig;
-use crate::hyprnote_routing::{HyprnoteRouter, RoutingMode, should_use_hyprnote_routing};
+use crate::char_routing::{CharRouter, RoutingMode, should_use_char_routing};
 use crate::provider_selector::{ProviderSelector, SelectedProvider};
 use crate::query_params::QueryParams;
 use crate::supabase::SupabaseClient;
@@ -28,7 +28,7 @@ pub(crate) use error::{RouteError, parse_async_provider};
 pub(crate) struct AppState {
     pub config: SttProxyConfig,
     pub selector: ProviderSelector,
-    pub router: Option<Arc<HyprnoteRouter>>,
+    pub router: Option<Arc<CharRouter>>,
     pub client: reqwest::Client,
 }
 
@@ -63,8 +63,8 @@ impl AppState {
     pub fn resolve_provider(&self, params: &mut QueryParams) -> Result<SelectedProvider, Response> {
         let provider_param = params.remove_first("provider");
 
-        if should_use_hyprnote_routing(provider_param.as_deref()) {
-            return self.resolve_hyprnote_provider(params);
+        if should_use_char_routing(provider_param.as_deref()) {
+            return self.resolve_char_provider(params);
         }
 
         let requested = match provider_param {
@@ -73,7 +73,7 @@ impl AppState {
                 Err(_) => {
                     return Err((
                         StatusCode::BAD_REQUEST,
-                        format!("Invalid provider: {}. Supported providers: hyprnote, deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, mistral, dashscope", s)
+                        format!("Invalid provider: {}. Supported providers: char, deepgram, soniox, assemblyai, gladia, elevenlabs, fireworks, openai, mistral, dashscope", s)
                     ).into_response());
                 }
             },
@@ -83,7 +83,7 @@ impl AppState {
         self.selector.select(requested).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                hyprnote.stt.requested_provider = ?requested,
+                char.stt.requested_provider = ?requested,
                 "provider_selection_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
@@ -91,15 +91,15 @@ impl AppState {
     }
 
     #[allow(clippy::result_large_err)]
-    fn resolve_hyprnote_provider(
+    fn resolve_char_provider(
         &self,
         params: &QueryParams,
     ) -> Result<SelectedProvider, Response> {
         let router = self.router.as_ref().ok_or_else(|| {
-            tracing::warn!("hyprnote_routing_not_configured");
+            tracing::warn!("char_routing_not_configured");
             (
                 StatusCode::BAD_REQUEST,
-                "hyprnote routing is not configured",
+                "char routing is not configured",
             )
                 .into_response()
         })?;
@@ -109,23 +109,23 @@ impl AppState {
         let routed_provider = router.select_provider(&languages, &available_providers);
 
         tracing::debug!(
-            hyprnote.stt.language_codes = ?languages,
-            hyprnote.stt.available_providers = ?available_providers,
-            hyprnote.stt.provider.name = ?routed_provider,
-            "hyprnote_routing"
+            char.stt.language_codes = ?languages,
+            char.stt.available_providers = ?available_providers,
+            char.stt.provider.name = ?routed_provider,
+            "char_routing"
         );
 
         self.selector.select(routed_provider).map_err(|e| {
             tracing::warn!(
                 error = %e,
-                hyprnote.stt.language_codes = ?languages,
-                "hyprnote_routing_failed"
+                char.stt.language_codes = ?languages,
+                "char_routing_failed"
             );
             (StatusCode::BAD_REQUEST, e.to_string()).into_response()
         })
     }
 
-    pub fn resolve_hyprnote_provider_chain_for_mode(
+    pub fn resolve_char_provider_chain_for_mode(
         &self,
         mode: RoutingMode,
         params: &QueryParams,
@@ -147,7 +147,7 @@ impl AppState {
 
 fn make_state(config: SttProxyConfig) -> AppState {
     let selector = config.provider_selector();
-    let router = config.hyprnote_router().map(Arc::new);
+    let router = config.char_router().map(Arc::new);
 
     AppState {
         config,

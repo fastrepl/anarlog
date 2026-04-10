@@ -2,10 +2,10 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-const DEV_BUNDLE_ID: &str = "com.hyprnote.dev";
-const STABLE_BUNDLE_ID: &str = "com.hyprnote.stable";
-const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
-const NIGHTLY_BUNDLE_ID: &str = "com.hyprnote.nightly";
+const DEV_BUNDLE_ID: &str = "com.char.dev";
+const STABLE_BUNDLE_ID: &str = "com.char.stable";
+const STAGING_BUNDLE_ID: &str = "com.char.staging";
+const NIGHTLY_BUNDLE_ID: &str = "com.char.nightly";
 const INSTALL_DIR: &str = "/usr/local/bin";
 
 #[cfg_attr(target_os = "macos", allow(dead_code))]

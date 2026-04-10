@@ -175,24 +175,24 @@ mod tests {
     #[test]
     fn test_auth_state_with_required_entitlement() {
         let state =
-            AuthState::new("https://example.supabase.co").with_required_entitlement("hyprnote_pro");
+            AuthState::new("https://example.supabase.co").with_required_entitlement("char_pro");
         assert_eq!(
             state.required_entitlements,
-            Some(vec!["hyprnote_pro".to_string()])
+            Some(vec!["char_pro".to_string()])
         );
     }
 
     #[test]
     fn test_auth_state_with_required_entitlements() {
         let state = AuthState::new("https://example.supabase.co").with_required_entitlements(vec![
-            "hyprnote_pro".to_string(),
-            "hyprnote_lite".to_string(),
+            "char_pro".to_string(),
+            "char_lite".to_string(),
         ]);
         assert_eq!(
             state.required_entitlements,
             Some(vec![
-                "hyprnote_pro".to_string(),
-                "hyprnote_lite".to_string()
+                "char_pro".to_string(),
+                "char_lite".to_string()
             ])
         );
     }

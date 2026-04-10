@@ -70,9 +70,9 @@ fn should_skip_startup_migration(args: &[OsString]) -> bool {
 
 fn legacy_target_app_path(current_app_path: &Path) -> Option<PathBuf> {
     let target_name = match current_app_path.file_name().and_then(|name| name.to_str()) {
-        Some("Hyprnote.app") => "Char.app",
-        Some("Hyprnote Nightly.app") => "Char Nightly.app",
-        Some("Hyprnote Staging.app") => "Char Staging.app",
+        Some("Char.app") => "Char.app",
+        Some("Char Nightly.app") => "Char Nightly.app",
+        Some("Char Staging.app") => "Char Staging.app",
         _ => return None,
     };
 
@@ -200,13 +200,13 @@ mod tests {
     #[test]
     fn maps_legacy_bundle_names_to_char_names() {
         let cases = [
-            ("/Applications/Hyprnote.app", "/Applications/Char.app"),
+            ("/Applications/Char.app", "/Applications/Char.app"),
             (
-                "/Applications/Hyprnote Nightly.app",
+                "/Applications/Char Nightly.app",
                 "/Applications/Char Nightly.app",
             ),
             (
-                "/Applications/Hyprnote Staging.app",
+                "/Applications/Char Staging.app",
                 "/Applications/Char Staging.app",
             ),
         ];
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     fn relaunch_args_append_skip_flag_and_preserve_other_flags() {
         let args = relaunch_args([
-            OsString::from("/Applications/Hyprnote Nightly.app/Contents/MacOS/char"),
+            OsString::from("/Applications/Char Nightly.app/Contents/MacOS/char"),
             OsString::from("--onboarding=123"),
             OsString::from("--foo"),
         ]);
@@ -261,12 +261,12 @@ mod tests {
     #[test]
     fn rename_command_does_not_open_existing_target_bundle() {
         let relaunch_args = relaunch_args([
-            OsString::from("/Applications/Hyprnote Nightly.app/Contents/MacOS/char"),
+            OsString::from("/Applications/Char Nightly.app/Contents/MacOS/char"),
             OsString::from("--onboarding=123"),
         ]);
         let command = build_bundle_rename_command(
             4242,
-            Path::new("/Applications/Hyprnote Nightly.app"),
+            Path::new("/Applications/Char Nightly.app"),
             Path::new("/Applications/Char Nightly.app"),
             &relaunch_args,
         );
@@ -282,12 +282,12 @@ mod tests {
     #[test]
     fn rename_command_reopens_current_bundle_on_failure() {
         let relaunch_args = relaunch_args([
-            OsString::from("/Applications/Hyprnote Nightly.app/Contents/MacOS/char"),
+            OsString::from("/Applications/Char Nightly.app/Contents/MacOS/char"),
             OsString::from("--onboarding=123"),
         ]);
         let command = build_bundle_rename_command(
             4242,
-            Path::new("/Applications/Hyprnote Nightly.app"),
+            Path::new("/Applications/Char Nightly.app"),
             Path::new("/Applications/Char Nightly.app"),
             &relaunch_args,
         );
@@ -298,7 +298,7 @@ mod tests {
 
         assert!(args[1].contains("fallback_launch() {"));
         assert!(args[1].contains(
-            "open -n '/Applications/Hyprnote Nightly.app' --args '--onboarding=123' '--updater2-skip-startup-migration=1'"
+            "open -n '/Applications/Char Nightly.app' --args '--onboarding=123' '--updater2-skip-startup-migration=1'"
         ));
         assert!(args[1].contains("if ! osascript -e"));
     }
@@ -315,12 +315,12 @@ mod tests {
     #[test]
     fn rename_command_relaunches_from_target_bundle() {
         let relaunch_args = relaunch_args([
-            OsString::from("/Applications/Hyprnote Nightly.app/Contents/MacOS/char"),
+            OsString::from("/Applications/Char Nightly.app/Contents/MacOS/char"),
             OsString::from("--onboarding=123"),
         ]);
         let command = build_bundle_rename_command(
             4242,
-            Path::new("/Applications/Hyprnote Nightly.app"),
+            Path::new("/Applications/Char Nightly.app"),
             Path::new("/Applications/Char Nightly.app"),
             &relaunch_args,
         );
@@ -333,7 +333,7 @@ mod tests {
         assert_eq!(args[0], "-c");
         assert!(args[1].contains(r#"while kill -0 "$1" 2>/dev/null; do sleep 0.1; done;"#));
         assert!(args[1].contains(
-            "mv -f '/Applications/Hyprnote Nightly.app' '/Applications/Char Nightly.app'"
+            "mv -f '/Applications/Char Nightly.app' '/Applications/Char Nightly.app'"
         ));
         assert!(args[1].contains(
             "open -n '/Applications/Char Nightly.app' --args '--onboarding=123' '--updater2-skip-startup-migration=1'"
@@ -344,11 +344,11 @@ mod tests {
     #[test]
     fn rename_command_relaunches_stable_bundle_with_skip_flag() {
         let relaunch_args = relaunch_args([OsString::from(
-            "/Applications/Hyprnote.app/Contents/MacOS/char",
+            "/Applications/Char.app/Contents/MacOS/char",
         )]);
         let command = build_bundle_rename_command(
             4242,
-            Path::new("/Applications/Hyprnote.app"),
+            Path::new("/Applications/Char.app"),
             Path::new("/Applications/Char.app"),
             &relaunch_args,
         );
@@ -357,7 +357,7 @@ mod tests {
             .map(|arg| arg.to_string_lossy().to_string())
             .collect::<Vec<_>>();
 
-        assert!(args[1].contains("mv -f '/Applications/Hyprnote.app' '/Applications/Char.app'"));
+        assert!(args[1].contains("mv -f '/Applications/Char.app' '/Applications/Char.app'"));
         assert!(args[1].contains(
             "open -n '/Applications/Char.app' --args '--updater2-skip-startup-migration=1'"
         ));

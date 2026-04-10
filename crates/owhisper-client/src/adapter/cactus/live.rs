@@ -72,7 +72,7 @@ impl RealtimeSttAdapter for CactusAdapter {
                     }]
                 } else {
                     tracing::warn!(
-                        hyprnote.payload.size_bytes = raw.len() as u64,
+                        char.payload.size_bytes = raw.len() as u64,
                         "cactus_unknown_message"
                     );
                     vec![]

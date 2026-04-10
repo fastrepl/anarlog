@@ -361,7 +361,7 @@ function useConfiguredMapping(): Record<
         return [provider.id, { configured: false, models: [] }];
       }
 
-      if (provider.id === "hyprnote") {
+      if (provider.id === "char") {
         const models: ModelEntry[] = [
           { id: "cloud", isDownloaded: billing.isPaid, category: "latest" },
         ];

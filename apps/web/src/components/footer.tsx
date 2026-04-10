@@ -266,7 +266,7 @@ function ProductLinks() {
         </li>
         <li>
           <a
-            href="https://status.hyprnote.com"
+            href="https://status.char.com"
             target="_blank"
             rel="noopener noreferrer"
             className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
@@ -387,7 +387,7 @@ function ResourcesLinks() {
         </li>
         <li>
           <a
-            href="mailto:support@hyprnote.com"
+            href="mailto:support@char.com"
             className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
           >
             Support

@@ -97,7 +97,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
             Err(e) => {
                 tracing::warn!(
                     error = ?e,
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    char.payload.size_bytes = raw.len() as u64,
                     "elevenlabs_json_parse_failed"
                 );
                 return vec![];
@@ -107,7 +107,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
         match msg {
             ElevenLabsMessage::SessionStarted { session_id, .. } => {
                 tracing::debug!(
-                    hyprnote.stt.provider_session.id = %session_id,
+                    char.stt.provider_session.id = %session_id,
                     "elevenlabs_session_started"
                 );
                 vec![]
@@ -147,7 +147,7 @@ impl RealtimeSttAdapter for ElevenLabsAdapter {
             }
             ElevenLabsMessage::Unknown => {
                 tracing::debug!(
-                    hyprnote.payload.size_bytes = raw.len() as u64,
+                    char.payload.size_bytes = raw.len() as u64,
                     "elevenlabs_unknown_message"
                 );
                 vec![]

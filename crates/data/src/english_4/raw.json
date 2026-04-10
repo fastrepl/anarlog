@@ -22,7 +22,7 @@
       {
         "alternatives": [
           {
-            "transcript": "Hey. I'm John, one of the cofounders, we are live at Apple Park. Just kidding. But, yeah, in this video, I'm going to show what Hyprnote can do for you and how it's different from other products. So Hyprnote is a smart notepad designed to help people with back to back meetings. During meetings, it listens to the conversation so you can simply jot down key points without trying to capture everything. After the meeting, it combines your notes with the transcript to generate a clean context where summary. In fact, note taking is optional, but it does help Hyprnote understand what you think is important. We also take privacy and seamlessness seriously. That's why Hyprnote is built local first. It works offline, and your data stays on your device. Finally, we didn't want Hyprnote to be just another meeting notes app limited to a specific use case. For example, sales. We made it simple enough for anyone to use right out of the box. But for those of you who need more functionality, we offer a wide variety of extensions from real time transcripts to instantly uploading those to CRMs like Twenty. To see what we're working on next, you can follow us on x. And if you have any questions or just wanna say hi, hop into our Discord. I'll be there for you.",
+            "transcript": "Hey. I'm John, one of the cofounders, we are live at Apple Park. Just kidding. But, yeah, in this video, I'm going to show what Char can do for you and how it's different from other products. So Char is a smart notepad designed to help people with back to back meetings. During meetings, it listens to the conversation so you can simply jot down key points without trying to capture everything. After the meeting, it combines your notes with the transcript to generate a clean context where summary. In fact, note taking is optional, but it does help Char understand what you think is important. We also take privacy and seamlessness seriously. That's why Char is built local first. It works offline, and your data stays on your device. Finally, we didn't want Char to be just another meeting notes app limited to a specific use case. For example, sales. We made it simple enough for anyone to use right out of the box. But for those of you who need more functionality, we offer a wide variety of extensions from real time transcripts to instantly uploading those to CRMs like Twenty. To see what we're working on next, you can follow us on x. And if you have any questions or just wanna say hi, hop into our Discord. I'll be there for you.",
             "confidence": 0.9990822,
             "words": [
               {
@@ -251,13 +251,13 @@
                 "punctuated_word": "what"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 8.8,
                 "end": 9.28,
                 "confidence": 0.7162775,
                 "speaker": 0,
                 "speaker_confidence": 0.803574,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "can",
@@ -368,13 +368,13 @@
                 "punctuated_word": "So"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 13.765,
                 "end": 14.325001,
                 "confidence": 0.9230636,
                 "speaker": 0,
                 "speaker_confidence": 0.9223614,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "is",
@@ -917,13 +917,13 @@
                 "punctuated_word": "help"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 35.65,
                 "end": 36.05,
                 "confidence": 0.8422578,
                 "speaker": 0,
                 "speaker_confidence": 0.9179417,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "understand",
@@ -1061,13 +1061,13 @@
                 "punctuated_word": "why"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 42.425,
                 "end": 42.985,
                 "confidence": 0.9002755,
                 "speaker": 0,
                 "speaker_confidence": 0.9179417,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "is",
@@ -1232,13 +1232,13 @@
                 "punctuated_word": "want"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 49.625,
                 "end": 50.184998,
                 "confidence": 0.9721787,
                 "speaker": 0,
                 "speaker_confidence": 0.26506227,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "to",
@@ -2061,7 +2061,7 @@
               }
             ],
             "paragraphs": {
-              "transcript": "\nSpeaker 0: Hey. I'm John, one of the cofounders, we are live at Apple Park. Just kidding. But, yeah, in this video, I'm going to show what Hyprnote can do for you and how it's different from other products. So Hyprnote is a smart notepad designed to help people with back to back meetings.\n\nDuring meetings, it listens to the conversation so you can simply jot down key points without trying to capture everything. After the meeting, it combines your notes with the transcript to generate a clean context where summary. In fact, note taking is optional, but it does help Hyprnote understand what you think is important. We also take privacy and seamlessness seriously. That's why Hyprnote is built local first.\n\nIt works offline, and your data stays on your device. Finally, we didn't want Hyprnote to be just another meeting notes app limited to a specific use case. For example, sales. We made it simple enough for anyone to use right out of the box. But for those of you who need more functionality, we offer a wide variety of extensions from real time transcripts to instantly uploading those to CRMs like Twenty.\n\nTo see what we're working on next, you can follow us on x. And if you have any questions or just wanna say hi, hop into our Discord. I'll be there for you.",
+              "transcript": "\nSpeaker 0: Hey. I'm John, one of the cofounders, we are live at Apple Park. Just kidding. But, yeah, in this video, I'm going to show what Char can do for you and how it's different from other products. So Char is a smart notepad designed to help people with back to back meetings.\n\nDuring meetings, it listens to the conversation so you can simply jot down key points without trying to capture everything. After the meeting, it combines your notes with the transcript to generate a clean context where summary. In fact, note taking is optional, but it does help Char understand what you think is important. We also take privacy and seamlessness seriously. That's why Char is built local first.\n\nIt works offline, and your data stays on your device. Finally, we didn't want Char to be just another meeting notes app limited to a specific use case. For example, sales. We made it simple enough for anyone to use right out of the box. But for those of you who need more functionality, we offer a wide variety of extensions from real time transcripts to instantly uploading those to CRMs like Twenty.\n\nTo see what we're working on next, you can follow us on x. And if you have any questions or just wanna say hi, hop into our Discord. I'll be there for you.",
               "paragraphs": [
                 {
                   "sentences": [
@@ -2081,12 +2081,12 @@
                       "end": 5.92
                     },
                     {
-                      "text": "But, yeah, in this video, I'm going to show what Hyprnote can do for you and how it's different from other products.",
+                      "text": "But, yeah, in this video, I'm going to show what Char can do for you and how it's different from other products.",
                       "start": 5.92,
                       "end": 12.16
                     },
                     {
-                      "text": "So Hyprnote is a smart notepad designed to help people with back to back meetings.",
+                      "text": "So Char is a smart notepad designed to help people with back to back meetings.",
                       "start": 13.125,
                       "end": 18.165
                     }
@@ -2109,7 +2109,7 @@
                       "end": 32.45
                     },
                     {
-                      "text": "In fact, note taking is optional, but it does help Hyprnote understand what you think is important.",
+                      "text": "In fact, note taking is optional, but it does help Char understand what you think is important.",
                       "start": 33.01,
                       "end": 38.05
                     },
@@ -2119,7 +2119,7 @@
                       "end": 41.329998
                     },
                     {
-                      "text": "That's why Hyprnote is built local first.",
+                      "text": "That's why Char is built local first.",
                       "start": 41.945,
                       "end": 44.265
                     }
@@ -2137,7 +2137,7 @@
                       "end": 47.785
                     },
                     {
-                      "text": "Finally, we didn't want Hyprnote to be just another meeting notes app limited to a specific use case.",
+                      "text": "Finally, we didn't want Char to be just another meeting notes app limited to a specific use case.",
                       "start": 48.585,
                       "end": 54.025
                     },

@@ -82,7 +82,7 @@ impl ServerHandler for ResearchMcpServer {
                 .enable_prompts()
                 .build(),
             server_info: Implementation {
-                name: "hyprnote-research".to_string(),
+                name: "char-research".to_string(),
                 title: None,
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 icons: None,

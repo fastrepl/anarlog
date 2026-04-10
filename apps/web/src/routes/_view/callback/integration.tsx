@@ -48,7 +48,7 @@ function buildDeeplinkUrl(
 
 function Component() {
   const search = Route.useSearch();
-  const scheme = search.scheme ?? "hyprnote";
+  const scheme = search.scheme ?? "char";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);

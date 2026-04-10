@@ -62,7 +62,7 @@ fn content_type_for_path(path: &Path) -> &'static str {
     }
 }
 
-/// cargo run -p transcribe-cactus --example batch -- --sse --language en --language ko --model ~/Library/Application\ Support/hyprnote/models/cactus/parakeet-tdt-0.6b-v3-int4 --file /Users/yujonglee/dev/char/crates/data/src/english_10/audio.mp3
+/// cargo run -p transcribe-cactus --example batch -- --sse --language en --language ko --model ~/Library/Application\ Support/char/models/cactus/parakeet-tdt-0.6b-v3-int4 --file /Users/yujonglee/dev/char/crates/data/src/english_10/audio.mp3
 #[tokio::main]
 async fn main() {
     let args = Args::parse();

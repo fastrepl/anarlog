@@ -73,7 +73,7 @@ async function embedGithubCode(content: string): Promise<string> {
     const [fullMatch, url] = match;
 
     const repoMatch = url.match(
-      /github\.com\/fastrepl\/(hyprnote|char)\/blob\/[^/]+\/(.+?)(?:#L\d+(?:-L\d+)?)?$/,
+      /github\.com\/fastrepl\/(char|char)\/blob\/[^/]+\/(.+?)(?:#L\d+(?:-L\d+)?)?$/,
     );
     if (repoMatch) {
       const filePath = repoMatch[2];

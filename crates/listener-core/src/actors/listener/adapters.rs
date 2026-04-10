@@ -5,7 +5,7 @@ use ractor::{ActorProcessingErr, ActorRef};
 
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, CactusAdapter, DashScopeAdapter,
-    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter,
+    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, CharAdapter,
     MistralAdapter, RealtimeSttAdapter, SonioxAdapter, hypr_ws_client,
 };
 use owhisper_interface::stream::Extra;
@@ -91,11 +91,11 @@ pub(super) async fn spawn_rx_task(
         (AdapterKind::Mistral, true) => {
             spawn_rx_task_dual_with_adapter::<MistralAdapter>(args, myself).await
         }
-        (AdapterKind::Hyprnote, false) => {
-            spawn_rx_task_single_with_adapter::<HyprnoteAdapter>(args, myself).await
+        (AdapterKind::Char, false) => {
+            spawn_rx_task_single_with_adapter::<CharAdapter>(args, myself).await
         }
-        (AdapterKind::Hyprnote, true) => {
-            spawn_rx_task_dual_with_adapter::<HyprnoteAdapter>(args, myself).await
+        (AdapterKind::Char, true) => {
+            spawn_rx_task_dual_with_adapter::<CharAdapter>(args, myself).await
         }
         (AdapterKind::Cactus, false) => {
             spawn_rx_task_single_with_adapter::<CactusAdapter>(args, myself).await
@@ -209,7 +209,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
     let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
         Err(e) => {
             tracing::error!(
-                hyprnote.session.id = %args.session_id,
+                char.session.id = %args.session_id,
                 error.message = ?e,
                 "listen_ws_connect_failed(single)"
             );
@@ -269,7 +269,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
     let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
         Err(e) => {
             tracing::error!(
-                hyprnote.session.id = %args.session_id,
+                char.session.id = %args.session_id,
                 error.message = ?e,
                 "listen_ws_connect_failed(dual)"
             );

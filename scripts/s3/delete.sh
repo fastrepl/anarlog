@@ -1,6 +1,6 @@
-CREDENTIALS_FILE="$HOME/hyprnote-r2.toml"
+CREDENTIALS_FILE="$HOME/char-r2.toml"
 ENDPOINT_URL="https://3db5267cdeb5f79263ede3ec58090fe0.r2.cloudflarestorage.com"
-BUCKET="hyprnote-cache"
+BUCKET="char-cache"
 
 TARGET="quantized-whisper-large-v3-turbo/*"
 

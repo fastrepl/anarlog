@@ -141,7 +141,7 @@ export function createToastRegistry({
         id: "pro-requires-login",
         icon: (
           <img
-            src="/assets/hyprnote-pro.png"
+            src="/assets/char-pro.png"
             alt="Char Pro"
             className="size-5"
           />
@@ -166,7 +166,7 @@ export function createToastRegistry({
         id: "upgrade-to-pro",
         icon: (
           <img
-            src="/assets/hyprnote-pro.png"
+            src="/assets/char-pro.png"
             alt="Char Pro"
             className="size-5"
           />

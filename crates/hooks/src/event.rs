@@ -40,7 +40,7 @@ fn push_cli_arg(args: &mut Vec<OsString>, field_name: &str, value: &str) {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct AfterListeningStoppedArgs {
     pub resource_dir: String,
-    pub app_hyprnote: String,
+    pub app_char: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_meeting: Option<String>,
 }
@@ -49,7 +49,7 @@ impl HookArgs for AfterListeningStoppedArgs {
     fn to_cli_args(&self) -> Vec<OsString> {
         let mut args = Vec::with_capacity(6);
         push_cli_arg(&mut args, stringify!(resource_dir), &self.resource_dir);
-        push_cli_arg(&mut args, stringify!(app_hyprnote), &self.app_hyprnote);
+        push_cli_arg(&mut args, stringify!(app_char), &self.app_char);
 
         if let Some(meeting) = &self.app_meeting {
             push_cli_arg(&mut args, stringify!(app_meeting), meeting);
@@ -62,7 +62,7 @@ impl HookArgs for AfterListeningStoppedArgs {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct BeforeListeningStartedArgs {
     pub resource_dir: String,
-    pub app_hyprnote: String,
+    pub app_char: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_meeting: Option<String>,
 }
@@ -71,7 +71,7 @@ impl HookArgs for BeforeListeningStartedArgs {
     fn to_cli_args(&self) -> Vec<OsString> {
         let mut args = Vec::with_capacity(6);
         push_cli_arg(&mut args, stringify!(resource_dir), &self.resource_dir);
-        push_cli_arg(&mut args, stringify!(app_hyprnote), &self.app_hyprnote);
+        push_cli_arg(&mut args, stringify!(app_char), &self.app_char);
 
         if let Some(meeting) = &self.app_meeting {
             push_cli_arg(&mut args, stringify!(app_meeting), meeting);

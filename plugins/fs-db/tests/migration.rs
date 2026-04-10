@@ -41,7 +41,7 @@ async fn test_migration_extraction() {
         .await
         .unwrap();
 
-    assert!(base_dir.join(".hyprnote/version").exists());
+    assert!(base_dir.join(".char/version").exists());
 
     println!("done. check {} manually", base_dir.display());
 

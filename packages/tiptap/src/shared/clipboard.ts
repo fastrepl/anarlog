@@ -6,12 +6,12 @@ import {
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 
 export const ClipboardTextSerializer = Extension.create({
-  name: "hyprnoteClipboardTextSerializer",
+  name: "charClipboardTextSerializer",
 
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: new PluginKey("hyprnoteClipboardTextSerializer"),
+        key: new PluginKey("charClipboardTextSerializer"),
         props: {
           clipboardTextSerializer: () => {
             const { editor } = this;

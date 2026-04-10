@@ -21,7 +21,7 @@ pub fn is_supported_languages_batch(
     model: Option<&str>,
     languages: &[hypr_language::Language],
 ) -> std::result::Result<bool, String> {
-    if provider == "custom" || provider == "hyprnote" {
+    if provider == "custom" || provider == "char" {
         return Ok(true);
     }
 

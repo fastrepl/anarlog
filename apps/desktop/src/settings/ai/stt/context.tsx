@@ -40,7 +40,7 @@ export function SttSettingsProvider({
   const hasSttConfigured = !!(current_stt_provider && current_stt_model);
 
   const [accordionValue, setAccordionValue] = useState<string>(
-    hasSttConfigured ? "" : "hyprnote",
+    hasSttConfigured ? "" : "char",
   );
   const [shouldHighlight, setShouldHighlight] = useState(false);
   const { upgradeToPro } = useBillingAccess();
@@ -51,7 +51,7 @@ export function SttSettingsProvider({
 
   useEffect(() => {
     if (toastActionTarget === "stt") {
-      setAccordionValue("hyprnote");
+      setAccordionValue("char");
       setShouldHighlight(true);
 
       const timer = setTimeout(() => {
@@ -73,7 +73,7 @@ export function SttSettingsProvider({
   }, [hasSttConfigured, shouldHighlight]);
 
   const openHyprAccordion = useCallback(() => {
-    setAccordionValue("hyprnote");
+    setAccordionValue("char");
   }, []);
 
   const startDownload = useCallback(

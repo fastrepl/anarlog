@@ -22,7 +22,7 @@ impl PulseConnection {
             Error::AudioSystemError("Failed to create PulseAudio mainloop".into())
         })?;
 
-        let context = Context::new(&mainloop, "hyprnote-audio-device")
+        let context = Context::new(&mainloop, "char-audio-device")
             .ok_or_else(|| Error::AudioSystemError("Failed to create PulseAudio context".into()))?;
 
         Ok(Self { mainloop, context })
@@ -561,7 +561,7 @@ impl AudioDeviceBackend for LinuxBackend {
 pub fn is_headphone_from_default_output_device() -> Option<bool> {
     let mut mainloop = Mainloop::new()?;
 
-    let mut context = Context::new(&mainloop, "hyprnote-headphone-check")?;
+    let mut context = Context::new(&mainloop, "char-headphone-check")?;
 
     if context
         .connect(None, ContextFlagSet::NOFLAGS, None)

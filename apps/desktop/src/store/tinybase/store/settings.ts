@@ -310,7 +310,7 @@ const SETTINGS_LISTENERS: SettingsListeners = {
       | undefined;
     const model = store.getValue("current_stt_model") as string | undefined;
 
-    if (provider === "hyprnote" && model && model !== "cloud") {
+    if (provider === "char" && model && model !== "cloud") {
       localSttCommands.startServer(model as LocalModel).catch(console.error);
     }
   },
@@ -320,7 +320,7 @@ const SETTINGS_LISTENERS: SettingsListeners = {
       | undefined;
     const model = store.getValue("current_stt_model") as string | undefined;
 
-    if (provider === "hyprnote" && model && model !== "cloud") {
+    if (provider === "char" && model && model !== "cloud") {
       localSttCommands.startServer(model as LocalModel).catch(console.error);
     } else {
       localSttCommands.stopServer(null).catch(console.error);

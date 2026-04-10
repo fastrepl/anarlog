@@ -52,7 +52,7 @@ describe("parseChatGroupIdFromPath", () => {
     test("extracts chat group ID from absolute path", () => {
       expect(
         parseChatGroupIdFromPath(
-          "/Users/test/data/hyprnote/chats/abc-123/file",
+          "/Users/test/data/char/chats/abc-123/file",
         ),
       ).toBe("abc-123");
     });

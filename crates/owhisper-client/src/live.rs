@@ -12,7 +12,7 @@ use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, MixedMessage};
 
 use crate::{
-    DeepgramAdapter, RealtimeSttAdapter, append_provider_param, is_hyprnote_proxy,
+    DeepgramAdapter, RealtimeSttAdapter, append_provider_param, is_char_proxy,
     normalize_listen_params,
 };
 
@@ -102,7 +102,7 @@ impl<A: RealtimeSttAdapter> ListenClientBuilder<A> {
 
         let mut request = hypr_ws_client::client::ClientRequestBuilder::new(uri);
 
-        if is_hyprnote_proxy(original_api_base) {
+        if is_char_proxy(original_api_base) {
             if let Some(api_key) = self.api_key.as_deref() {
                 request = request.with_header("Authorization", format!("Bearer {}", api_key));
             }

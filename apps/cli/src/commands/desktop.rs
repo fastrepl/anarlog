@@ -2,17 +2,17 @@ use crate::error::{CliError, CliResult};
 
 const DOWNLOAD_URL: &str = "https://char.com/download";
 const DESKTOP_DEEPLINKS: &[&str] = &[
-    "hyprnote://focus",
-    "hyprnote-nightly://focus",
-    "hyprnote-staging://focus",
+    "char://focus",
+    "char-nightly://focus",
+    "char-staging://focus",
     "hypr://focus",
 ];
 const DESKTOP_DATA_FOLDERS: &[&str] = &[
-    "hyprnote",
-    "com.hyprnote.dev",
-    "com.hyprnote.staging",
-    "com.hyprnote.nightly",
-    "com.hyprnote.stable",
+    "char",
+    "com.char.dev",
+    "com.char.staging",
+    "com.char.nightly",
+    "com.char.stable",
 ];
 
 pub enum DesktopAction {

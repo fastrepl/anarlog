@@ -56,7 +56,7 @@ mod test {
 
     fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
         let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
-        ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
+        ctx.config_mut().identifier = "com.char.dev".to_string();
         ctx.config_mut().version = Some("0.0.1".to_string());
 
         builder.plugin(init()).build(ctx).unwrap()
@@ -71,7 +71,7 @@ mod test {
         println!(
             "{:?}",
             importer
-                .run_import_dry(ImportSourceKind::HyprnoteV0Stable)
+                .run_import_dry(ImportSourceKind::CharV0Stable)
                 .await
                 .unwrap()
         );
@@ -79,7 +79,7 @@ mod test {
         println!(
             "{:?}",
             importer
-                .run_import_dry(ImportSourceKind::HyprnoteV0Nightly)
+                .run_import_dry(ImportSourceKind::CharV0Nightly)
                 .await
                 .unwrap()
         );

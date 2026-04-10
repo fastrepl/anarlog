@@ -71,7 +71,7 @@ impl RealtimeSttAdapter for ArgmaxAdapter {
                     }]
                 } else {
                     tracing::warn!(
-                        hyprnote.payload.size_bytes = raw.len() as u64,
+                        char.payload.size_bytes = raw.len() as u64,
                         "argmax_unknown_message"
                     );
                     vec![]
@@ -214,7 +214,7 @@ mod tests {
         owhisper_interface::ListenParams {
             model: Some("large-v3-v20240930_626MB".to_string()),
             languages: vec![hypr_language::ISO639::En.into()],
-            keywords: vec!["Hyprnote".to_string(), "transcription".to_string()],
+            keywords: vec!["Char".to_string(), "transcription".to_string()],
             ..Default::default()
         }
     );

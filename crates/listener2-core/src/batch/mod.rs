@@ -30,7 +30,7 @@ pub enum BatchProvider {
     Pyannote,
     DashScope,
     Mistral,
-    Hyprnote,
+    Char,
     Am,
     Cactus,
 }
@@ -137,7 +137,7 @@ async fn run_batch_inner(
             let message = format_user_friendly_error(&raw_error);
             tracing::error!(
                 error = %raw_error,
-                hyprnote.error.user_message = %message,
+                char.error.user_message = %message,
                 "failed_to_read_audio_metadata"
             );
             return Err(crate::BatchFailure::AudioMetadataReadFailed { message }.into());
@@ -196,8 +196,8 @@ async fn run_batch_inner(
         BatchProvider::Mistral => {
             run_direct_batch_for_adapter_kind(AdapterKind::Mistral, params, listen_params).await
         }
-        BatchProvider::Hyprnote => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Hyprnote, params, listen_params).await
+        BatchProvider::Char => {
+            run_direct_batch_for_adapter_kind(AdapterKind::Char, params, listen_params).await
         }
     }
 }
@@ -256,13 +256,13 @@ pub(super) fn adapter_kind_label(adapter_kind: AdapterKind) -> &'static str {
         AdapterKind::Pyannote => "pyannote",
         AdapterKind::DashScope => "dashscope",
         AdapterKind::Mistral => "mistral",
-        AdapterKind::Hyprnote => "hyprnote",
+        AdapterKind::Char => "char",
         AdapterKind::Cactus => "cactus",
     }
 }
 
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
-    tracing::info_span!("session", hyprnote.session.id = %session_id)
+    tracing::info_span!("session", char.session.id = %session_id)
 }
 
 pub(super) fn format_user_friendly_error(error: &str) -> String {

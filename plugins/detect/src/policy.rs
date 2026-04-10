@@ -18,7 +18,7 @@ pub enum SkipReason {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppCategory {
-    Hyprnote,
+    Char,
     Dictation,
     IDE,
     ScreenRecording,
@@ -29,11 +29,11 @@ pub enum AppCategory {
 impl AppCategory {
     pub fn bundle_ids(&self) -> &'static [&'static str] {
         match self {
-            Self::Hyprnote => &[
-                "com.hyprnote.dev",
-                "com.hyprnote.stable",
-                "com.hyprnote.nightly",
-                "com.hyprnote.staging",
+            Self::Char => &[
+                "com.char.dev",
+                "com.char.stable",
+                "com.char.nightly",
+                "com.char.staging",
             ],
             Self::Dictation => &[
                 "com.electron.wispr-flow",
@@ -72,7 +72,7 @@ impl AppCategory {
 
     pub fn all() -> &'static [AppCategory] {
         &[
-            Self::Hyprnote,
+            Self::Char,
             Self::Dictation,
             Self::IDE,
             Self::ScreenRecording,
@@ -208,8 +208,8 @@ mod tests {
     #[test]
     fn test_app_category_find() {
         assert_eq!(
-            AppCategory::find_category("com.hyprnote.dev"),
-            Some(AppCategory::Hyprnote)
+            AppCategory::find_category("com.char.dev"),
+            Some(AppCategory::Char)
         );
         assert_eq!(AppCategory::find_category("com.zoom.us"), None);
     }
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn test_app_category_all_returns_every_variant() {
         let all = AppCategory::all();
-        assert!(all.contains(&AppCategory::Hyprnote));
+        assert!(all.contains(&AppCategory::Char));
         assert!(all.contains(&AppCategory::Dictation));
         assert!(all.contains(&AppCategory::IDE));
         assert!(all.contains(&AppCategory::ScreenRecording));
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn test_should_not_track_categorized_app() {
         let policy = MicNotificationPolicy::default();
-        assert!(!policy.should_track_app("com.hyprnote.dev"));
+        assert!(!policy.should_track_app("com.char.dev"));
         assert!(!policy.should_track_app("com.electron.aqua-voice"));
         assert!(!policy.should_track_app("com.microsoft.VSCode"));
     }
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn test_evaluate_filters_all_categorized_apps() {
         let policy = MicNotificationPolicy::default();
-        let apps = vec![app("com.hyprnote.dev"), app("com.electron.aqua-voice")];
+        let apps = vec![app("com.char.dev"), app("com.electron.aqua-voice")];
         let ctx = PolicyContext {
             apps: &apps,
             is_dnd: false,
@@ -541,7 +541,7 @@ mod tests {
             ignored_categories: vec![],
             ..Default::default()
         };
-        let apps = vec![app("com.hyprnote.dev"), app("us.zoom.xos")];
+        let apps = vec![app("com.char.dev"), app("us.zoom.xos")];
         let ctx = PolicyContext {
             apps: &apps,
             is_dnd: false,
@@ -559,7 +559,7 @@ mod tests {
         };
         let apps = vec![
             app("com.electron.aqua-voice"),
-            app("com.hyprnote.dev"),
+            app("com.char.dev"),
             app("us.zoom.xos"),
         ];
         let ctx = PolicyContext {
@@ -569,6 +569,6 @@ mod tests {
         };
         let result = policy.evaluate(&ctx).unwrap();
         let ids: Vec<_> = result.filtered_apps.iter().map(|a| a.id.as_str()).collect();
-        assert_eq!(ids, vec!["com.hyprnote.dev", "us.zoom.xos"]);
+        assert_eq!(ids, vec!["com.char.dev", "us.zoom.xos"]);
     }
 }

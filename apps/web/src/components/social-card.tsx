@@ -99,9 +99,9 @@ const TAIL_R = 12;
 const tailMask = `radial-gradient(${TAIL_R}px at 100% 0, #0000 98%, #000 101%)`;
 
 const HIGHLIGHT_RE =
-  /(@tryhyprnote|@getcharnotes|Hyprnote|Hypernote|hyprnote)/gi;
+  /(@trychar|@getcharnotes|Char|Hypernote|char)/gi;
 const HIGHLIGHT_TEST =
-  /^(@tryhyprnote|@getcharnotes|Hyprnote|Hypernote|hyprnote)$/i;
+  /^(@trychar|@getcharnotes|Char|Hypernote|char)$/i;
 
 function HighlightedBody({ text }: { text: string }) {
   const parts = text.split(HIGHLIGHT_RE);

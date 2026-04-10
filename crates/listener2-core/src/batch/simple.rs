@@ -1,6 +1,6 @@
 use owhisper_client::{
     AdapterKind, ArgmaxAdapter, AssemblyAIAdapter, BatchSttAdapter, DeepgramAdapter,
-    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, HyprnoteAdapter, MistralAdapter,
+    ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, CharAdapter, MistralAdapter,
     OpenAIAdapter, PyannoteAdapter, SonioxAdapter,
 };
 use tracing::Instrument;
@@ -100,8 +100,8 @@ pub(super) async fn run_direct_batch_for_adapter_kind(
             )
             .await
         }
-        AdapterKind::Hyprnote => {
-            run_direct_batch::<HyprnoteAdapter>(
+        AdapterKind::Char => {
+            run_direct_batch::<CharAdapter>(
                 adapter_kind_label(adapter_kind),
                 params,
                 listen_params,
@@ -137,7 +137,7 @@ async fn run_direct_batch<A: BatchSttAdapter>(
                 let message = format_user_friendly_error(&raw_error);
                 tracing::error!(
                     error = %raw_error,
-                    hyprnote.error.user_message = %message,
+                    char.error.user_message = %message,
                     "batch transcription failed"
                 );
                 return Err(crate::BatchFailure::DirectRequestFailed {

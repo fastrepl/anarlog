@@ -236,7 +236,7 @@ impl NotificationManager {
         });
 
         Application::builder()
-            .application_id("com.hyprnote.notifications")
+            .application_id("com.char.notifications")
             .build()
     }
 

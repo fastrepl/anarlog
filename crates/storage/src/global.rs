@@ -13,10 +13,10 @@ pub fn compute_default_base(bundle_id: &str) -> Option<PathBuf> {
 }
 
 fn resolve_app_folder(bundle_id: &str) -> &str {
-    if cfg!(debug_assertions) || bundle_id == "com.hyprnote.staging" {
+    if cfg!(debug_assertions) || bundle_id == "com.char.staging" {
         bundle_id
     } else {
-        "hyprnote"
+        "char"
     }
 }
 
@@ -27,8 +27,8 @@ mod tests {
     #[test]
     fn resolve_app_folder_returns_bundle_id_for_staging() {
         assert_eq!(
-            resolve_app_folder("com.hyprnote.staging"),
-            "com.hyprnote.staging"
+            resolve_app_folder("com.char.staging"),
+            "com.char.staging"
         );
     }
 }

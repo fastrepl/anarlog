@@ -260,9 +260,9 @@ impl Session {
             );
 
             tracing::info!(
-                hyprnote.transcript.char_count = cloud_text.chars().count() as u64,
-                hyprnote.stt.job.id = job_id,
-                hyprnote.audio.channel_index = ch_idx,
+                char.transcript.char_count = cloud_text.chars().count() as u64,
+                char.stt.job.id = job_id,
+                char.audio.channel_index = ch_idx,
                 "cactus_cloud_correction"
             );
 
@@ -307,8 +307,8 @@ impl Session {
             }
 
             tracing::info!(
-                hyprnote.transcript.char_count = confirmed_text.chars().count() as u64,
-                hyprnote.audio.channel_index = ch_idx,
+                char.transcript.char_count = confirmed_text.chars().count() as u64,
+                char.audio.channel_index = ch_idx,
                 "cactus_confirmed_text"
             );
 

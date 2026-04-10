@@ -8,7 +8,7 @@ import { createTestMainStore } from "~/store/tinybase/persister/testing/mocks";
 const settingsMocks = vi.hoisted(() => ({
   base: vi
     .fn()
-    .mockResolvedValue({ status: "ok", data: "/mock/data/dir/hyprnote" }),
+    .mockResolvedValue({ status: "ok", data: "/mock/data/dir/char" }),
 }));
 
 const fsSyncMocks = vi.hoisted(() => ({

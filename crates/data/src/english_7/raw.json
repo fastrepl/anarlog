@@ -22,7 +22,7 @@
       {
         "alternatives": [
           {
-            "transcript": "Hey. This is John from Hyprnote, an AI notepad for private meetings. Everything runs fully on your device, so nothing ever leaves your computer. You can also turn off telemetry anytime. To start recording, just create a new note and hit the red record button. As people talk, you'll see words appear on the right panel. That's the live transcript. During the meeting, just jot down key points. Don't worry about the rest. Hyprnote is listening. When you stop recording, give it a few seconds. You'll get a clean summary right in your note. Hyprnote blends your rough notes and the transcript using a local AI model. No WiFi, no cloud, no third party anything. That's it. Super simple. If you want more, we've got extras like AI chat, meeting templates, and custom settings to match your workflow. Wanna learn more? Check out the docs or join our Discord. We'd love to hear from you. Thanks, and enjoy using Hyprnote.",
+            "transcript": "Hey. This is John from Char, an AI notepad for private meetings. Everything runs fully on your device, so nothing ever leaves your computer. You can also turn off telemetry anytime. To start recording, just create a new note and hit the red record button. As people talk, you'll see words appear on the right panel. That's the live transcript. During the meeting, just jot down key points. Don't worry about the rest. Char is listening. When you stop recording, give it a few seconds. You'll get a clean summary right in your note. Char blends your rough notes and the transcript using a local AI model. No WiFi, no cloud, no third party anything. That's it. Super simple. If you want more, we've got extras like AI chat, meeting templates, and custom settings to match your workflow. Wanna learn more? Check out the docs or join our Discord. We'd love to hear from you. Thanks, and enjoy using Char.",
             "confidence": 0.99873716,
             "words": [
               {
@@ -71,13 +71,13 @@
                 "punctuated_word": "from"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 1.12,
                 "end": 1.68,
                 "confidence": 0.9272712,
                 "speaker": 0,
                 "speaker_confidence": 1,
-                "punctuated_word": "Hyprnote,"
+                "punctuated_word": "Char,"
               },
               {
                 "word": "an",
@@ -683,13 +683,13 @@
                 "punctuated_word": "rest."
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 25.015,
                 "end": 25.575,
                 "confidence": 0.8601926,
                 "speaker": 0,
                 "speaker_confidence": 1,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "is",
@@ -872,13 +872,13 @@
                 "punctuated_word": "note."
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 32.44,
                 "end": 33.08,
                 "confidence": 0.9976709,
                 "speaker": 0,
                 "speaker_confidence": 1,
-                "punctuated_word": "Hyprnote"
+                "punctuated_word": "Char"
               },
               {
                 "word": "blends",
@@ -1457,17 +1457,17 @@
                 "punctuated_word": "using"
               },
               {
-                "word": "Hyprnote",
+                "word": "Char",
                 "start": 57.22894,
                 "end": 57.78894,
                 "confidence": 0.74318933,
                 "speaker": 0,
                 "speaker_confidence": 1,
-                "punctuated_word": "Hyprnote."
+                "punctuated_word": "Char."
               }
             ],
             "paragraphs": {
-              "transcript": "\nSpeaker 0: Hey. This is John from Hyprnote, an AI notepad for private meetings. Everything runs fully on your device, so nothing ever leaves your computer. You can also turn off telemetry anytime. To start recording, just create a new note and hit the red record button.\n\nAs people talk, you'll see words appear on the right panel. That's the live transcript. During the meeting, just jot down key points. Don't worry about the rest. Hyprnote is listening.\n\nWhen you stop recording, give it a few seconds. You'll get a clean summary right in your note. Hyprnote blends your rough notes and the transcript using a local AI model. No WiFi, no cloud, no third party anything. That's it.\n\nSuper simple. If you want more, we've got extras like AI chat, meeting templates, and custom settings to match your workflow. Wanna learn more? Check out the docs or join our Discord. We'd love to hear from you.\n\nThanks, and enjoy using Hyprnote.",
+              "transcript": "\nSpeaker 0: Hey. This is John from Char, an AI notepad for private meetings. Everything runs fully on your device, so nothing ever leaves your computer. You can also turn off telemetry anytime. To start recording, just create a new note and hit the red record button.\n\nAs people talk, you'll see words appear on the right panel. That's the live transcript. During the meeting, just jot down key points. Don't worry about the rest. Char is listening.\n\nWhen you stop recording, give it a few seconds. You'll get a clean summary right in your note. Char blends your rough notes and the transcript using a local AI model. No WiFi, no cloud, no third party anything. That's it.\n\nSuper simple. If you want more, we've got extras like AI chat, meeting templates, and custom settings to match your workflow. Wanna learn more? Check out the docs or join our Discord. We'd love to hear from you.\n\nThanks, and enjoy using Char.",
               "paragraphs": [
                 {
                   "sentences": [
@@ -1477,7 +1477,7 @@
                       "end": 0.48
                     },
                     {
-                      "text": "This is John from Hyprnote, an AI notepad for private meetings.",
+                      "text": "This is John from Char, an AI notepad for private meetings.",
                       "start": 0.48,
                       "end": 3.6
                     },
@@ -1525,7 +1525,7 @@
                       "end": 24.855
                     },
                     {
-                      "text": "Hyprnote is listening.",
+                      "text": "Char is listening.",
                       "start": 25.015,
                       "end": 26.135
                     }
@@ -1548,7 +1548,7 @@
                       "end": 32.2
                     },
                     {
-                      "text": "Hyprnote blends your rough notes and the transcript using a local AI model.",
+                      "text": "Char blends your rough notes and the transcript using a local AI model.",
                       "start": 32.44,
                       "end": 37.559998
                     },
@@ -1604,7 +1604,7 @@
                 {
                   "sentences": [
                     {
-                      "text": "Thanks, and enjoy using Hyprnote.",
+                      "text": "Thanks, and enjoy using Char.",
                       "start": 55.86894,
                       "end": 57.78894
                     }
@@ -1626,7 +1626,7 @@
         "end": 3.6,
         "confidence": 0.9814834,
         "channel": 0,
-        "transcript": "Hey. This is John from Hyprnote, an AI notepad for private meetings.",
+        "transcript": "Hey. This is John from Char, an AI notepad for private meetings.",
         "words": [
           {
             "word": "hey",
@@ -1674,13 +1674,13 @@
             "punctuated_word": "from"
           },
           {
-            "word": "Hyprnote",
+            "word": "Char",
             "start": 1.12,
             "end": 1.68,
             "confidence": 0.9272712,
             "speaker": 0,
             "speaker_confidence": 1,
-            "punctuated_word": "Hyprnote,"
+            "punctuated_word": "Char,"
           },
           {
             "word": "an",
@@ -2304,7 +2304,7 @@
         "end": 26.135,
         "confidence": 0.98070866,
         "channel": 0,
-        "transcript": "Don't worry about the rest. Hyprnote is listening.",
+        "transcript": "Don't worry about the rest. Char is listening.",
         "words": [
           {
             "word": "don't",
@@ -2352,13 +2352,13 @@
             "punctuated_word": "rest."
           },
           {
-            "word": "Hyprnote",
+            "word": "Char",
             "start": 25.015,
             "end": 25.575,
             "confidence": 0.8601926,
             "speaker": 0,
             "speaker_confidence": 1,
-            "punctuated_word": "Hyprnote"
+            "punctuated_word": "Char"
           },
           {
             "word": "is",
@@ -2560,16 +2560,16 @@
         "end": 37.559998,
         "confidence": 0.94043034,
         "channel": 0,
-        "transcript": "Hyprnote blends your rough notes and the transcript using a local AI model.",
+        "transcript": "Char blends your rough notes and the transcript using a local AI model.",
         "words": [
           {
-            "word": "Hyprnote",
+            "word": "Char",
             "start": 32.44,
             "end": 33.08,
             "confidence": 0.9976709,
             "speaker": 0,
             "speaker_confidence": 1,
-            "punctuated_word": "Hyprnote"
+            "punctuated_word": "Char"
           },
           {
             "word": "blends",
@@ -3164,7 +3164,7 @@
         "end": 57.78894,
         "confidence": 0.9364284,
         "channel": 0,
-        "transcript": "Thanks, and enjoy using Hyprnote.",
+        "transcript": "Thanks, and enjoy using Char.",
         "words": [
           {
             "word": "thanks",
@@ -3203,13 +3203,13 @@
             "punctuated_word": "using"
           },
           {
-            "word": "Hyprnote",
+            "word": "Char",
             "start": 57.22894,
             "end": 57.78894,
             "confidence": 0.74318933,
             "speaker": 0,
             "speaker_confidence": 1,
-            "punctuated_word": "Hyprnote."
+            "punctuated_word": "Char."
           }
         ],
         "speaker": 0,
