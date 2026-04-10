@@ -25,7 +25,7 @@ I tested six tools that take different positions on this spectrum. For each one,
 | **Shadow**     | Client-facing roles who need screen capture alongside audio        | Free transcription, Plus $8/mo |
 | **Talat**      | People who want Granola's UX without the cloud, for a one-time fee | $49 pre-release, $99 at 1.0    |
 | **Screenpipe** | Developers who want meeting notes as part of full desktop memory   | $400 lifetime                  |
-| **Granola**    | People already in its ecosystem who accept cloud processing        | Free tier, Business $14/mo     |
+|                |                                                                    |                                |
 
 
 ## 6 Tools for Local AI Meeting Notes: A Closer Look
@@ -167,60 +167,27 @@ It captures what audio-only tools miss: the URL someone dropped in the Zoom chat
 
 $400 lifetime (one-time). All features, all future updates. $600 lifetime + 1 year of Pro (cloud sync, priority support).
 
-### 6. Granola
-
-[Granola](https://granola.ai) captures system audio without a bot and produces AI summaries in a notepad-style interface where you can type your own notes during the call. The AI weaves your notes together with the transcript into polished output. It integrates with your calendar, detects meetings automatically, and works on macOS, Windows, and iOS. It is the most popular tool in this category, with over a million users and a [$250 million valuation](https://techcrunch.com/2026/03/24/talats-ai-meeting-notes-stay-on-your-machine-not-in-the-cloud/).
-
-It is also the only tool on this list that is not local-first. I am including it because most people reading this are comparing local tools against Granola, and skipping it would leave a gap.
-
-***How local is it actually***
-
-- Transcription: cloud. Audio processed through Deepgram's API.
-- Summarization: cloud. GPT-4o and Claude via cloud APIs.
-- Storage: AWS servers in the US. Encrypted at rest and in transit.
-- Notes are shareable via link. By default, anyone with the link can view them.
-
-Two incidents in early 2026 are worth knowing about:
-
-In March, Granola [encrypted its local database](https://weekinvoiceai.substack.com/p/week-in-voice-ai12-granola-scramble), breaking every agent workflow that read meeting data locally. An a16z partner posted that "in a world where notes are managed by agents, the app now has zero value." The post got 337,000 views.
-
-In April, [The Verge reported](https://www.theverge.com/ai-artificial-intelligence/906253/granola-note-links-ai-training-psa) that notes were viewable to anyone with a link by default, despite the security page claiming "private by default." Non-enterprise data is used for AI training unless you manually opt out.
-
-***Where it falls short***
-
-- Not local. Everything is cloud-processed and cloud-stored.
-- Requires a Google account to sign up.
-- No audio saved. You cannot replay meetings or verify exact wording.
-- No offline mode.
-- Data portability issues after the encrypted database change.
-
-***Pricing***
-
-- Free tier: limited features.
-- Business: $14/month per user.
-- Enterprise: custom pricing. AI training disabled by default on this tier only.
-
 **Which Local AI Meeting Notetaker Is Right for You?**
 
 Local processing means accepting tradeoffs. Local models are not as accurate as cloud transcription on messy audio, speaker diarization is still maturing across the board, and most of these tools are macOS-only or macOS-first. The gap is closing fast, though, and for anyone handling sensitive conversations, the architectural guarantee that your audio never left your device is worth more than a privacy policy that can change with a terms-of-service update.
 
 Char is the strongest choice if you want complete control: open-source, your choice of AI provider, and data that lives on your device in a format you own. Meetily is the best open-source option if you need Windows support or want a free polished app. Shadow is the only tool that captures what is on screen alongside what is said. Talat is for people who loved Granola but could not accept cloud dependency, and it is the only one-time purchase purpose-built meeting tool here.
 
-Screenpipe is the power user's option: not just meeting notes but a searchable memory of your entire workday. Granola remains the most polished experience if you accept cloud processing, but check your settings. The defaults are not as private as the marketing suggests.
+Screenpipe is the power user's option: not just meeting notes but a searchable memory of your entire workday. 
 
 If you want to start with local AI meeting notes that give you full ownership, [try Char](https://char.com). It is free, open-source, and works offline with local models. Your first meeting's notes will land on your device, readable by any tool you already use.
 
-**Frequently Asked Questions**
+## Frequently Asked Questions
 
-**Are local AI meeting notes as accurate as cloud-based tools?**
+**1. Are local AI meeting notes as accurate as cloud-based tools?**
 
 It depends on the model and your hardware. Cloud transcription services like Deepgram still have an edge on messy audio, heavy accents, and cross-talk. But local models like Parakeet and Whisper Large V3 have closed the gap significantly, especially on clear audio from a decent microphone. For most one-on-one and small group calls, the difference is negligible.
 
-**Can I use these tools for in-person meetings?**
+**2. Can I use these tools for in-person meetings?**
 
 Yes. Tools that capture microphone input (Char, Meetily, Talat, Screenpipe) work for in-person conversations. Place your laptop near the speakers and let the mic pick up the room. Speaker diarization accuracy varies since it was primarily designed for virtual calls with separate audio channels.
 
-**Do local meeting notetakers work offline?**
+**3. Do local meeting notetakers work offline?**
 
 If both transcription and summarization use local models, yes. Char with Ollama, Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper all work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
 
