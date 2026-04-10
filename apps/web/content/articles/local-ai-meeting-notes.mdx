@@ -179,22 +179,22 @@ If you want to start with local AI meeting notes that give you full ownership, [
 
 ## Frequently Asked Questions
 
-**1. Are local AI meeting notes as accurate as cloud-based tools?**
+### 1. Are local AI meeting notes as accurate as cloud-based tools?
 
 It depends on the model and your hardware. Cloud transcription services like Deepgram still have an edge on messy audio, heavy accents, and cross-talk. But local models like Parakeet and Whisper Large V3 have closed the gap significantly, especially on clear audio from a decent microphone. For most one-on-one and small group calls, the difference is negligible.
 
-**2. Can I use these tools for in-person meetings?**
+### 2. Can I use these tools for in-person meetings?
 
 Yes. Tools that capture microphone input (Char, Meetily, Talat, Screenpipe) work for in-person conversations. Place your laptop near the speakers and let the mic pick up the room. Speaker diarization accuracy varies since it was primarily designed for virtual calls with separate audio channels.
 
-**3. Do local meeting notetakers work offline?**
+### 3. Do local meeting notetakers work offline?
 
 If both transcription and summarization use local models, yes. Char with Ollama, Meetily with Parakeet + Ollama, Talat with its built-in LLM, and Screenpipe with local Whisper all work without an internet connection. Shadow's transcription works offline but the AI summary features need a connection.
 
-**What hardware do I need to run local transcription?**
+### 4. What hardware do I need to run local transcription?
 
 Most tools work on any Mac from the last five years. Apple Silicon (M1 or later) gives the best performance due to the Neural Engine. Intel Macs are supported by Meetily and Screenpipe but transcription will be slower. Talat requires M-series specifically. On Windows, a modern multi-core processor with 8+ GB RAM handles Whisper fine. A dedicated GPU (NVIDIA with CUDA) speeds things up significantly for Meetily and Screenpipe.
 
-**Is it legal to record meetings without telling participants?**
+### 5. Is it legal to record meetings without telling participants?
 
 Recording laws vary by jurisdiction. In many US states and most of Europe, you need consent from all parties to record a conversation. The fact that these tools do not send a bot into the meeting makes them less visible, but that does not remove your legal obligation to inform participants. Always tell the people on your call that you are recording.
