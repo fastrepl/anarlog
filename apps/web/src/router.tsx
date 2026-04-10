@@ -43,8 +43,8 @@ function MaybeGoogleAnalytics({ enabled }: { enabled: boolean }) {
     analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
     analyticsWindow.gtag =
       analyticsWindow.gtag ??
-      function gtag(...args) {
-        analyticsWindow.dataLayer?.push(args);
+      function gtag() {
+        analyticsWindow.dataLayer?.push(arguments);
       };
     analyticsWindow.gtag("js", new Date());
     analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID);
