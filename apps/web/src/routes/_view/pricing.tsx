@@ -46,7 +46,7 @@ const PRICING_FAQS = [
   {
     question: "What are custom instructions?",
     answer:
-      "Custom instructions let you override Char's default system prompt by configuring template variables and the overall instructions given to the AI.",
+      "Custom instructions let you tune Charlie's default response style and add standing guidance for chat replies without rewriting the full prompt.",
   },
   {
     question: "What are shortcuts?",

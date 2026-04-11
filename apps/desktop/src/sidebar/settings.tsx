@@ -10,6 +10,7 @@ import {
   CodeIcon,
   FlaskConical,
   LockIcon,
+  SmileIcon,
   SmartphoneIcon,
   SparklesIcon,
   TicketIcon,
@@ -44,6 +45,7 @@ function getBaseGroups() {
       items: [
         { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
         { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
+        { id: "personalization", label: "Personalization", icon: SmileIcon },
         { id: "memory", label: "Memory", icon: BrainIcon },
         {
           action: "open-templates",

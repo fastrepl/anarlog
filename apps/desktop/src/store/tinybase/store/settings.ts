@@ -118,6 +118,36 @@ export const SETTINGS_MAPPING = {
       type: "string",
       path: ["general", "selected_template_id"],
     },
+    chat_style_tone: {
+      type: "string",
+      path: ["personalization", "chat_style_tone"],
+      default: "professional" as string,
+    },
+    chat_warmth: {
+      type: "string",
+      path: ["personalization", "chat_warmth"],
+      default: "default" as string,
+    },
+    chat_enthusiasm: {
+      type: "string",
+      path: ["personalization", "chat_enthusiasm"],
+      default: "default" as string,
+    },
+    chat_headers_lists: {
+      type: "string",
+      path: ["personalization", "chat_headers_lists"],
+      default: "default" as string,
+    },
+    chat_emoji: {
+      type: "string",
+      path: ["personalization", "chat_emoji"],
+      default: "default" as string,
+    },
+    chat_custom_instructions: {
+      type: "string",
+      path: ["personalization", "chat_custom_instructions"],
+      default: "" as string,
+    },
     todo_linear_filter: {
       type: "string",
       path: ["todo", "linear_filter"],

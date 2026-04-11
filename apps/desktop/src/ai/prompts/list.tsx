@@ -15,7 +15,7 @@ export function PromptsListColumn({
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex h-12 items-center justify-between border-b border-neutral-200 py-2 pr-1 pl-3">
-        <h3 className="text-sm font-medium">Custom Prompts</h3>
+        <h3 className="text-sm font-medium">Meeting Notes</h3>
       </div>
 
       <div className="flex-1 overflow-y-auto">

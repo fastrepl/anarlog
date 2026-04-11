@@ -23,7 +23,7 @@ export function PromptDetailsColumn({
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-neutral-500">
-          Select a task type to view or customize its prompt
+          Select a meeting-note task to view or customize its instructions
         </p>
       </div>
     );
@@ -163,7 +163,7 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
             <PromptEditor
               value={localValue}
               onChange={setLocalValue}
-              placeholder="Enter your custom prompt template using Jinja2 syntax..."
+              placeholder="Enter custom meeting-note instructions using Jinja2 syntax..."
               variables={variables as string[]}
               filters={[...AVAILABLE_FILTERS]}
             />

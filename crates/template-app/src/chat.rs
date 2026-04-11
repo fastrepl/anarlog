@@ -19,6 +19,12 @@ common_derives! {
     #[template(path = "chat.system.md.jinja")]
     pub struct ChatSystem {
         pub language: Option<String>,
+        pub style_tone: String,
+        pub warmth: String,
+        pub enthusiasm: String,
+        pub headers_lists: String,
+        pub emoji: String,
+        pub custom_instructions: String,
     }
 }
 
@@ -33,12 +39,19 @@ common_derives! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use askama::Template;
     use hypr_askama_utils::tpl_snapshot_with_assert;
 
     tpl_snapshot_with_assert!(
         test_chat_system,
         ChatSystem {
             language: None,
+            style_tone: "professional".to_string(),
+            warmth: "default".to_string(),
+            enthusiasm: "default".to_string(),
+            headers_lists: "default".to_string(),
+            emoji: "default".to_string(),
+            custom_instructions: String::new(),
         },
         |v| !v.contains("Context:"),
         fixed_date = "2025-01-01",
@@ -60,6 +73,25 @@ mod tests {
     - Suggestion of a new version of the meeting note (in markdown block format, inside ``` blocks) based on user's request. However, be careful not to create an empty markdown block.
     - Information (when it's not rewriting the note, it shouldn't be inside `blocks. Only re-written version of the note should be inside` blocks.) Try your best to put markdown notes inside ``` blocks.
     "#);
+
+    #[test]
+    fn chat_system_renders_personalization_section() {
+        let rendered = ChatSystem {
+            language: Some("en".to_string()),
+            style_tone: "technical".to_string(),
+            warmth: "less".to_string(),
+            enthusiasm: "more".to_string(),
+            headers_lists: "less".to_string(),
+            emoji: "none".to_string(),
+            custom_instructions: "Lead with the answer.".to_string(),
+        }
+        .render()
+        .unwrap();
+
+        assert!(rendered.contains("# Personalization"));
+        assert!(rendered.contains("technical and analytical tone"));
+        assert!(rendered.contains("Lead with the answer."));
+    }
 
     tpl_snapshot_with_assert!(
         test_context_block_wrapped,

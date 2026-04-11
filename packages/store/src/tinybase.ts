@@ -201,4 +201,10 @@ export const valueSchemaForTinybase = {
   current_llm_model: { type: "string" },
   current_stt_provider: { type: "string" },
   current_stt_model: { type: "string" },
+  chat_style_tone: { type: "string" },
+  chat_warmth: { type: "string" },
+  chat_enthusiasm: { type: "string" },
+  chat_headers_lists: { type: "string" },
+  chat_emoji: { type: "string" },
+  chat_custom_instructions: { type: "string" },
 } as const satisfies InferTinyBaseSchema<typeof generalSchema>;

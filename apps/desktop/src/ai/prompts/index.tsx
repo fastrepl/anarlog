@@ -28,7 +28,7 @@ export const TabItemPrompt: TabItem<Extract<Tab, { type: "prompts" }>> = ({
   return (
     <TabItemBase
       icon={<SparklesIcon className="h-4 w-4" />}
-      title={"Prompts"}
+      title={"Meeting Notes"}
       selected={tab.active}
       pinned={tab.pinned}
       tabIndex={tabIndex}

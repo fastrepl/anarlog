@@ -299,6 +299,12 @@ export const generalSchema = z.object({
   current_llm_model: z.string().optional(),
   current_stt_provider: z.string().optional(),
   current_stt_model: z.string().optional(),
+  chat_style_tone: z.string().default("professional"),
+  chat_warmth: z.string().default("default"),
+  chat_enthusiasm: z.string().default("default"),
+  chat_headers_lists: z.string().default("default"),
+  chat_emoji: z.string().default("default"),
+  chat_custom_instructions: z.string().default(""),
   timezone: z.string().optional(),
   week_start: z.string().optional(),
 });
