@@ -133,6 +133,37 @@ Notes:
 | `trial_skipped` | `reason = "not_eligible"`, `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 | `trial_failed` | `reason` (`stripe_error`, `customer_error`, `rpc_error`), `source` | `crates/api-subscription/src/trial.rs`, `crates/api-subscription/src/routes/billing.rs` |
 
+## UTM parameters on owned links
+
+We tag selected `char.com` links with UTM parameters so PostHog can attribute visits and installs back to the place the click came from.
+
+### Convention
+
+| Parameter | Values |
+|-----------|--------|
+| `utm_source` | `github`, `app`, `website` |
+| `utm_medium` | `contributing`, `readme`, `settings`, `changelog`, `blog`, `docs` |
+| `utm_campaign` | `organic` |
+
+### Current coverage
+
+- GitHub docs links in `README.md` and `CONTRIBUTING.md`
+- Desktop links opened from settings and changelog screens
+- Blog article CTAs that point to the homepage or download pages
+- Docs CTAs that point to tracked marketing pages such as `/founders` or `/download/...`
+
+### Rules
+
+- Add UTMs only on owned `char.com` destinations we want to attribute.
+- Preserve existing query params and place UTMs before `#fragments`.
+- Do not add UTMs to relative links, blog-to-blog cross-links, third-party links, API endpoints, or legacy onboarding assets in `crates/db-user`.
+
+### Why this matters
+
+- `download_clicked` can be segmented by where the session originated.
+- Acquisition and install conversion are easier to break down by channel.
+- `utm_source` and `utm_medium` answer which owned surfaces are actually driving visits.
+
 ## User journey funnel
 
 The user lifecycle is divided into 8 stages. Each stage lists the analytics signals that measure it, how identity linking works at that point, and known gaps.

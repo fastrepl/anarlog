@@ -11,7 +11,7 @@ import {
   BreadcrumbSeparator,
 } from "@hypr/ui/components/ui/breadcrumb";
 import { Button } from "@hypr/ui/components/ui/button";
-import { safeFormat } from "@hypr/utils";
+import { safeFormat, withCharUtm } from "@hypr/utils";
 
 import { useChangelogContent } from "./data";
 
@@ -182,7 +182,10 @@ function ChangelogHeader({
   const formattedDate = date ? safeFormat(date, "MMM d, yyyy") : null;
   const webUrl = isNightly(version)
     ? githubReleaseUrl(version)
-    : `https://char.com/changelog/${version}`;
+    : withCharUtm(`https://char.com/changelog/${version}`, {
+        source: "app",
+        medium: "changelog",
+      });
 
   return (
     <div className="w-full pt-1">

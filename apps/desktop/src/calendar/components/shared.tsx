@@ -2,6 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import type { ReactNode } from "react";
 
 import { OutlookIcon } from "@hypr/ui/components/icons/outlook";
+import { withCharUtm } from "@hypr/utils";
 
 export type CalendarProvider = {
   disabled: boolean;
@@ -28,7 +29,10 @@ const _PROVIDERS = [
       />
     ),
     platform: "macos",
-    docsPath: "https://char.com/docs/calendar/apple",
+    docsPath: withCharUtm("https://char.com/docs/calendar/apple", {
+      source: "app",
+      medium: "settings",
+    }),
     nangoIntegrationId: undefined,
   },
   {
@@ -38,7 +42,10 @@ const _PROVIDERS = [
     badge: "Beta",
     icon: <Icon icon="logos:google-calendar" width={20} height={20} />,
     platform: "all",
-    docsPath: "https://char.com/docs/calendar/gcal",
+    docsPath: withCharUtm("https://char.com/docs/calendar/gcal", {
+      source: "app",
+      medium: "settings",
+    }),
     nangoIntegrationId: "google-calendar",
   },
   {
@@ -48,7 +55,10 @@ const _PROVIDERS = [
     badge: "Beta",
     icon: <OutlookIcon size={20} />,
     platform: "all",
-    docsPath: "https://char.com/docs/calendar/outlook",
+    docsPath: withCharUtm("https://char.com/docs/calendar/outlook", {
+      source: "app",
+      medium: "settings",
+    }),
     nangoIntegrationId: "outlook",
   },
 ] as const satisfies readonly CalendarProvider[];

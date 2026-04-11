@@ -9,6 +9,7 @@ import {
   type ImportSourceKind,
   type ImportStats,
 } from "@hypr/plugin-importer";
+import { withCharUtm } from "@hypr/utils";
 
 import { ImportPreview } from "./import-preview";
 import { SourceItem } from "./source-item";
@@ -22,6 +23,15 @@ type DryRunResult = {
   source: ImportSourceKind;
   stats: ImportStats;
 };
+
+const importDocsUrl = withCharUtm("https://char.com/docs/data/#import", {
+  source: "app",
+  medium: "settings",
+});
+const exportDocsUrl = withCharUtm("https://char.com/docs/data/#export", {
+  source: "app",
+  medium: "settings",
+});
 
 export function Data() {
   const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
@@ -101,9 +111,7 @@ export function Data() {
   return (
     <div>
       <StyledStreamdown className="text-neutral-500">
-        {
-          "Import data from other apps. Read more about [import](https://char.com/docs/data/#import) and [export](https://char.com/docs/data/#export)."
-        }
+        {`Import data from other apps. Read more about [import](${importDocsUrl}) and [export](${exportDocsUrl}).`}
       </StyledStreamdown>
 
       <div className="mt-4 flex flex-col gap-3">
