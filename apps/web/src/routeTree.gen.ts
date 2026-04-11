@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as YoutubeRouteImport } from './routes/youtube'
+import { Route as YcRouteImport } from './routes/yc'
 import { Route as XRouteImport } from './routes/x'
 import { Route as UpdatePasswordRouteImport } from './routes/update-password'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -151,6 +152,11 @@ import { Route as ViewDownloadNightlyAppleIntelRouteImport } from './routes/_vie
 const YoutubeRoute = YoutubeRouteImport.update({
   id: '/youtube',
   path: '/youtube',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const YcRoute = YcRouteImport.update({
+  id: '/yc',
+  path: '/yc',
   getParentRoute: () => rootRouteImport,
 } as any)
 const XRoute = XRouteImport.update({
@@ -871,6 +877,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/update-password': typeof UpdatePasswordRoute
   '/x': typeof XRoute
+  '/yc': typeof YcRoute
   '/youtube': typeof YoutubeRoute
   '/app': typeof ViewAppRouteRouteWithChildren
   '/company-handbook': typeof ViewCompanyHandbookRouteRouteWithChildren
@@ -1008,6 +1015,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/update-password': typeof UpdatePasswordRoute
   '/x': typeof XRoute
+  '/yc': typeof YcRoute
   '/youtube': typeof YoutubeRoute
   '/about': typeof ViewAboutRoute
   '/brand': typeof ViewBrandRoute
@@ -1145,6 +1153,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/update-password': typeof UpdatePasswordRoute
   '/x': typeof XRoute
+  '/yc': typeof YcRoute
   '/youtube': typeof YoutubeRoute
   '/_view/app': typeof ViewAppRouteRouteWithChildren
   '/_view/company-handbook': typeof ViewCompanyHandbookRouteRouteWithChildren
@@ -1287,6 +1296,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/update-password'
     | '/x'
+    | '/yc'
     | '/youtube'
     | '/app'
     | '/company-handbook'
@@ -1424,6 +1434,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/update-password'
     | '/x'
+    | '/yc'
     | '/youtube'
     | '/about'
     | '/brand'
@@ -1560,6 +1571,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/update-password'
     | '/x'
+    | '/yc'
     | '/youtube'
     | '/_view/app'
     | '/_view/company-handbook'
@@ -1701,6 +1713,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   UpdatePasswordRoute: typeof UpdatePasswordRoute
   XRoute: typeof XRoute
+  YcRoute: typeof YcRoute
   YoutubeRoute: typeof YoutubeRoute
   ApiK6ReportsRoute: typeof ApiK6ReportsRoute
   ApiMediaUploadRoute: typeof ApiMediaUploadRoute
@@ -1749,6 +1762,13 @@ declare module '@tanstack/react-router' {
       path: '/youtube'
       fullPath: '/youtube'
       preLoaderRoute: typeof YoutubeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/yc': {
+      id: '/yc'
+      path: '/yc'
+      fullPath: '/yc'
+      preLoaderRoute: typeof YcRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/x': {
@@ -2964,6 +2984,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   UpdatePasswordRoute: UpdatePasswordRoute,
   XRoute: XRoute,
+  YcRoute: YcRoute,
   YoutubeRoute: YoutubeRoute,
   ApiK6ReportsRoute: ApiK6ReportsRoute,
   ApiMediaUploadRoute: ApiMediaUploadRoute,

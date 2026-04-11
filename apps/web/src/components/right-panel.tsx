@@ -16,6 +16,8 @@ const socialLinks = [
   { href: "/discord", icon: "ri:discord-fill", label: "Discord" },
   { href: "/youtube", icon: "ri:youtube-fill", label: "YouTube" },
   { href: "/linkedin", icon: "ri:linkedin-fill", label: "LinkedIn" },
+  { href: "/github", icon: "mdi:github", label: "GitHub", size: 20 },
+  { href: "/yc", icon: "simple-icons:ycombinator", label: "Y Combinator" },
 ];
 
 export function RightPanel({
@@ -80,7 +82,11 @@ export function RightPanel({
                 aria-label={link.label}
                 className="text-color-secondary hover:text-color transition-colors"
               >
-                <Icon icon={link.icon} width={18} height={18} />
+                <Icon
+                  icon={link.icon}
+                  width={link.size ?? 18}
+                  height={link.size ?? 18}
+                />
               </a>
             ))}
           </div>
