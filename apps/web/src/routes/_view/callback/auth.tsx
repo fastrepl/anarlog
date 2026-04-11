@@ -12,6 +12,10 @@ import { CharLogo } from "@/components/sidebar";
 import { exchangeOAuthCode, exchangeOtpToken } from "@/functions/auth";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  getDesktopAttributionAliasCandidates,
+  getDesktopAttributionDistinctId,
+} from "@/lib/desktop-attribution";
 
 const validateSearch = z.object({
   code: z.string().optional(),
@@ -31,6 +35,7 @@ const validateSearch = z.object({
   redirect: z.string().optional(),
   access_token: z.string().optional(),
   refresh_token: z.string().optional(),
+  web_distinct_id: z.string().optional(),
   error: z.string().optional(),
   error_code: z.string().optional(),
   error_description: z.string().optional(),
@@ -186,7 +191,11 @@ function Header({ title }: { title: string }) {
 function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { identify: identifyPosthog } = useAnalytics();
+  const {
+    alias: aliasPosthog,
+    identify: identifyPosthog,
+    getDistinctId,
+  } = useAnalytics();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -198,6 +207,15 @@ function Component() {
       const userId = payload.sub;
 
       if (userId) {
+        const currentDistinctId = getDistinctId();
+        const aliasCandidates =
+          getDesktopAttributionAliasCandidates(currentDistinctId);
+        for (const distinctId of aliasCandidates) {
+          if (distinctId !== userId) {
+            aliasPosthog(userId, distinctId);
+          }
+        }
+
         const billing = deriveBillingInfo(payload);
         identifyPosthog(userId, {
           ...(email ? { email } : {}),
@@ -208,13 +226,19 @@ function Component() {
     } catch (e) {
       console.error("Failed to decode JWT for identify:", e);
     }
-  }, [search.access_token, identifyPosthog]);
+  }, [aliasPosthog, getDistinctId, identifyPosthog, search.access_token]);
 
   const getDeeplink = () => {
     if (search.access_token && search.refresh_token) {
       const params = new URLSearchParams();
       params.set("access_token", search.access_token);
       params.set("refresh_token", search.refresh_token);
+      const webDistinctId =
+        search.web_distinct_id ??
+        getDesktopAttributionDistinctId(getDistinctId());
+      if (webDistinctId) {
+        params.set("web_distinct_id", webDistinctId);
+      }
       return `${search.scheme}://auth/callback?${params.toString()}`;
     }
     return null;

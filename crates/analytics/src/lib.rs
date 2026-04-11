@@ -275,6 +275,34 @@ impl AnalyticsClient {
 
         Ok(())
     }
+
+    pub async fn alias(
+        &self,
+        alias: impl Into<String>,
+        original_distinct_id: impl Into<String>,
+    ) -> Result<(), Error> {
+        let alias = alias.into();
+        let original_distinct_id = original_distinct_id.into();
+
+        if alias == original_distinct_id {
+            return Ok(());
+        }
+
+        if let Some(lazy) = &self.posthog {
+            let state = lazy.get().await;
+            let mut event = Event::new("$create_alias", &original_distinct_id);
+            let _ = event.insert_prop("alias", &alias);
+            state.client.capture(event).await?;
+        } else {
+            tracing::info!(
+                "alias: alias={}, original_distinct_id={}",
+                alias,
+                original_distinct_id
+            );
+        }
+
+        Ok(())
+    }
 }
 
 pub trait ToAnalyticsPayload {

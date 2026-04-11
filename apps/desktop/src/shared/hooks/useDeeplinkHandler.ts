@@ -35,9 +35,11 @@ export function useDeeplinkHandler() {
 
     const unlisten = deeplink2Events.deepLinkEvent.listen(({ payload }) => {
       if (payload.to === "/auth/callback") {
-        const { access_token, refresh_token } = payload.search;
+        const { access_token, refresh_token, web_distinct_id } = payload.search;
         if (access_token && refresh_token && auth) {
-          void auth.setSessionFromTokens(access_token, refresh_token);
+          void auth.setSessionFromTokens(access_token, refresh_token, {
+            webDistinctId: web_distinct_id ?? undefined,
+          });
         }
       } else if (payload.to === "/billing/refresh") {
         if (auth) {
