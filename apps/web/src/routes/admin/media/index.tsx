@@ -300,7 +300,7 @@ function MediaLibrary() {
     });
   };
 
-  const openFileTab = useCallback((name: string, path: string) => {
+  const openFileTab = useCallback((path: string, name: string) => {
     setTabs((prev) => {
       const existingIndex = prev.findIndex(
         (tab) => tab.type === "file" && tab.path === path,
@@ -2632,7 +2632,10 @@ function FilePreview({
 
   return (
     <div
-      className="relative flex h-full min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-white p-4"
+      className={cn([
+        "relative flex h-full min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden bg-white",
+        isImage ? "p-0" : "p-4",
+      ])}
       style={{ backgroundImage: "url(/patterns/dots.svg)" }}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_800px_400px_at_50%_50%,white_0%,rgba(255,255,255,0.8)_40%,transparent_70%)]" />
@@ -2640,7 +2643,7 @@ function FilePreview({
         <img
           src={item.publicUrl}
           alt={item.name}
-          className="relative z-10 max-h-full max-w-full object-scale-down"
+          className="relative z-10 h-full w-full object-contain"
         />
       )}
       {isVideo && (
