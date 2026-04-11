@@ -71,14 +71,14 @@ function PromptView({ tab }: { tab: Extract<Tab, { type: "prompts" }> }) {
 
   return (
     <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+      <ResizablePanel defaultSize={24} minSize={18} maxSize={32}>
         <PromptsListColumn
           selectedTask={selectedTask as TaskType | null}
           setSelectedTask={setSelectedTask}
         />
       </ResizablePanel>
       <ResizableHandle />
-      <ResizablePanel defaultSize={70} minSize={50}>
+      <ResizablePanel defaultSize={76} minSize={48}>
         <PromptDetailsColumn selectedTask={selectedTask as TaskType | null} />
       </ResizablePanel>
     </ResizablePanelGroup>

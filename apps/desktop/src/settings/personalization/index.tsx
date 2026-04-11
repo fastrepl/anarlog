@@ -202,7 +202,7 @@ export function SettingsPersonalization() {
 
         <ActionSettingRow
           title="Advanced editor"
-          description="Fine-tune the templates used to generate meeting notes."
+          description="Fine-tune meeting-note templates in a split editor with a built-in prompt assistant."
           actionLabel="Open editor"
           onAction={openMeetingNotesEditor}
         />
