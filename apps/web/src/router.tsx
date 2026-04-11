@@ -126,7 +126,7 @@ export function getRouter() {
     defaultPreload: "intent",
     scrollRestoration: true,
     trailingSlash: "always",
-    Wrap: (props: { children: React.ReactNode }) => {
+    InnerWrap: (props: { children: React.ReactNode }) => {
       return (
         <PrivacyConsentProvider>
           <ConsentAwareProviders queryClient={queryClient}>

@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
@@ -27,8 +28,16 @@ type ConsentState = {
   updatedAt: string;
 };
 
-function isAdminPathname(pathname: string) {
-  return pathname.startsWith("/admin");
+function shouldHidePrivacyConsent(pathname: string) {
+  return ["/admin", "/auth", "/callback/auth"].some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function useShouldHidePrivacyConsent() {
+  return useRouterState({
+    select: (state) => shouldHidePrivacyConsent(state.location.pathname),
+  });
 }
 
 const PrivacyConsentContext = createContext<{
@@ -109,10 +118,9 @@ export function usePrivacyConsent() {
 
 export function CookiePreferencesButton() {
   const { openPreferences } = usePrivacyConsentContext();
-  const isAdminRoute =
-    typeof window !== "undefined" && isAdminPathname(window.location.pathname);
+  const shouldHideConsentUi = useShouldHidePrivacyConsent();
 
-  if (isAdminRoute) {
+  if (shouldHideConsentUi) {
     return null;
   }
 
@@ -137,6 +145,7 @@ export function PrivacyConsentProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const shouldHideConsentUi = useShouldHidePrivacyConsent();
   const [consent, setConsent] = useState<ConsentState | null>(null);
   const [draftAnalytics, setDraftAnalytics] = useState(false);
   const [isDialogOpen, setDialogOpen] = useState(false);
@@ -234,16 +243,14 @@ export function PrivacyConsentProvider({
     rejectNonEssential,
     saveAnalyticsChoice,
   };
-  const isAdminRoute =
-    typeof window !== "undefined" && isAdminPathname(window.location.pathname);
 
   return (
     <PrivacyConsentContext.Provider value={contextValue}>
       {children}
-      {!isAdminRoute ? (
+      {!shouldHideConsentUi ? (
         <CookieConsentBanner isDialogOpen={isDialogOpen} />
       ) : null}
-      {!isAdminRoute ? (
+      {!shouldHideConsentUi ? (
         <CookiePreferencesDialog
           analyticsChoice={draftAnalytics}
           isOpen={isDialogOpen}
