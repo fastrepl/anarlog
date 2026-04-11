@@ -7,6 +7,7 @@ use specta::Type;
 pub struct AuthCallbackSearch {
     pub access_token: String,
     pub refresh_token: String,
+    pub web_distinct_id: Option<String>,
 }
 
 impl fmt::Debug for AuthCallbackSearch {
@@ -14,6 +15,7 @@ impl fmt::Debug for AuthCallbackSearch {
         f.debug_struct("AuthCallbackSearch")
             .field("access_token", &"[REDACTED]")
             .field("refresh_token", &"[REDACTED]")
+            .field("web_distinct_id", &self.web_distinct_id)
             .finish()
     }
 }

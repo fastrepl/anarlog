@@ -22,6 +22,32 @@ Default permissions for the plugin
 <tr>
 <td>
 
+`analytics:allow-alias`
+
+</td>
+<td>
+
+Enables the alias command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`analytics:deny-alias`
+
+</td>
+<td>
+
+Denies the alias command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `analytics:allow-event`
 
 </td>

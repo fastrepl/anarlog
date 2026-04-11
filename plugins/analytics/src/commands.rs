@@ -55,3 +55,15 @@ pub(crate) async fn identify<R: tauri::Runtime>(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn alias<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    previous_distinct_id: String,
+) -> Result<(), String> {
+    app.analytics()
+        .alias(previous_distinct_id)
+        .await
+        .map_err(|e| e.to_string())
+}
