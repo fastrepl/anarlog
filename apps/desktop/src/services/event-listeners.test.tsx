@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -100,7 +101,11 @@ describe("EventListeners notification events", () => {
     };
     useSettingsStoreMock.mockReturnValue(settingsStore as never);
 
-    render(<EventListeners />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EventListeners />
+      </QueryClientProvider>,
+    );
 
     await vi.waitFor(() =>
       expect(notificationListenMock).toHaveBeenCalledTimes(1),

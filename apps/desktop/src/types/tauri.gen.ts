@@ -92,6 +92,38 @@ async setRecentlyOpenedSessions(v: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getOnboardingSurveyState() : Promise<Result<OnboardingSurveyState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_onboarding_survey_state") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async recordOnboardingSurveyLaunch() : Promise<Result<OnboardingSurveyState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("record_onboarding_survey_launch") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async finishOnboardingSurvey() : Promise<Result<OnboardingSurveyState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("finish_onboarding_survey") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resetOnboardingSurvey() : Promise<Result<OnboardingSurveyState, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("reset_onboarding_survey") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getCharV1p1Preview() : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_char_v1p1_preview") };
@@ -146,6 +178,7 @@ async uninstallEmbeddedCli() : Promise<Result<EmbeddedCliStatus, string>> {
 
 export type EmbeddedCliState = "installed" | "missing" | "conflict" | "unsupported" | "resource_missing"
 export type EmbeddedCliStatus = { supported: boolean; commandName: string; installPath: string; resourcePath: string | null; state: EmbeddedCliState; details: string | null }
+export type OnboardingSurveyState = { launchCount: number; done: boolean }
 
 /** tauri-specta globals **/
 

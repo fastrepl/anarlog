@@ -15,6 +15,7 @@ import {
 } from "~/store/tinybase/store/sessions";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
+import { OnboardingSurveyPrompt } from "~/survey/prompt";
 
 function parseIgnoredPlatforms(value: unknown) {
   if (typeof value !== "string") {
@@ -196,5 +197,5 @@ export function EventListeners() {
   useUpdaterEvents();
   useNotificationEvents();
 
-  return null;
+  return <OnboardingSurveyPrompt />;
 }

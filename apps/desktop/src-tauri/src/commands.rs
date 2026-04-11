@@ -1,5 +1,6 @@
 use crate::AppExt;
 use crate::embedded_cli::EmbeddedCliStatus;
+use crate::ext::OnboardingSurveyState;
 
 #[tauri::command]
 #[specta::specta]
@@ -108,6 +109,38 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
     v: String,
 ) -> Result<(), String> {
     app.set_recently_opened_sessions(v)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_onboarding_survey_state<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<OnboardingSurveyState, String> {
+    app.get_onboarding_survey_state()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn record_onboarding_survey_launch<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<OnboardingSurveyState, String> {
+    app.record_onboarding_survey_launch()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn finish_onboarding_survey<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<OnboardingSurveyState, String> {
+    app.finish_onboarding_survey()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn reset_onboarding_survey<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<OnboardingSurveyState, String> {
+    app.reset_onboarding_survey()
 }
 
 #[tauri::command]

@@ -9,6 +9,11 @@ import { cn } from "@hypr/utils";
 import { getLatestVersion } from "~/changelog";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
+import { OnboardingSurveyDialog } from "~/survey/dialog";
+import {
+  useOnboardingSurveyState,
+  useResetOnboardingSurvey,
+} from "~/survey/state";
 import { commands } from "~/types/tauri.gen";
 
 export function DevtoolView() {
@@ -17,6 +22,7 @@ export function DevtoolView() {
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
         <ToastsCard />
+        <SurveyCard />
         <CountdownTestCard />
         <ErrorTestCard />
       </div>
@@ -280,6 +286,62 @@ function CountdownTestCard() {
           +Zoom in 60s
         </button>
       </div>
+    </DevtoolCard>
+  );
+}
+
+function SurveyCard() {
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const { data: surveyState, refetch, isFetching } = useOnboardingSurveyState();
+  const resetMutation = useResetOnboardingSurvey();
+
+  const btnClass = cn([
+    "w-full rounded-md px-2.5 py-1.5",
+    "text-left text-xs font-medium",
+    "border border-neutral-200 text-neutral-700",
+    "cursor-pointer transition-colors",
+    "hover:border-neutral-300 hover:bg-neutral-50",
+    "disabled:cursor-not-allowed disabled:opacity-40",
+  ]);
+
+  return (
+    <DevtoolCard title="Survey">
+      <div className="flex flex-col gap-1.5">
+        <div className="text-xs text-neutral-500">
+          Launch count: {surveyState.launchCount} | Done:{" "}
+          {surveyState.done ? "yes" : "no"}
+        </div>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          className={btnClass}
+        >
+          Refresh State
+        </button>
+        <button
+          type="button"
+          onClick={() => resetMutation.mutate()}
+          disabled={resetMutation.isPending}
+          className={btnClass}
+        >
+          Reset Survey State
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreviewOpen(true)}
+          className={btnClass}
+        >
+          Preview Survey Modal
+        </button>
+      </div>
+      {previewOpen ? (
+        <OnboardingSurveyDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          onSubmit={() => setPreviewOpen(false)}
+        />
+      ) : null}
     </DevtoolCard>
   );
 }

@@ -40,6 +40,22 @@ vi.mock("./types/tauri.gen", () => ({
     getCharV1p1Preview: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: false }),
+    getOnboardingSurveyState: vi.fn().mockResolvedValue({
+      status: "ok",
+      data: { launchCount: 0, done: false },
+    }),
+    recordOnboardingSurveyLaunch: vi.fn().mockResolvedValue({
+      status: "ok",
+      data: { launchCount: 1, done: false },
+    }),
+    finishOnboardingSurvey: vi.fn().mockResolvedValue({
+      status: "ok",
+      data: { launchCount: 1, done: true },
+    }),
+    resetOnboardingSurvey: vi.fn().mockResolvedValue({
+      status: "ok",
+      data: { launchCount: 0, done: false },
+    }),
     getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     getRecentlyOpenedSessions: vi
