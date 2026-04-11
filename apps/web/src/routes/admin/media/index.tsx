@@ -30,13 +30,6 @@ import { Reorder } from "motion/react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@hypr/ui/components/ui/dialog";
-import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
@@ -49,6 +42,7 @@ import {
   type MediaItem,
   useMediaApi,
 } from "@/hooks/use-media-api";
+import { getMediaFolderFromPath } from "@/lib/media-library";
 
 interface TreeNode {
   path: string;
@@ -68,6 +62,8 @@ interface Tab {
   active: boolean;
   isHome?: boolean;
 }
+
+type MoveTarget = Pick<MediaItem, "path" | "type">;
 
 const HOME_TAB: Tab = {
   id: "home",
@@ -155,6 +151,264 @@ function getFolderPathForTab(tab: Tab | undefined): string {
   return tab.path.split("/").slice(0, -1).join("/");
 }
 
+function findTreeNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.children.length > 0) {
+      const found = findTreeNode(node.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function canMoveItemToFolder(item: MoveTarget, destinationFolder: string) {
+  const currentFolder = getMediaFolderFromPath(item.path);
+
+  if (item.type === "file") {
+    return destinationFolder !== currentFolder;
+  }
+
+  if (destinationFolder === currentFolder) return false;
+  if (destinationFolder === item.path) return false;
+  if (destinationFolder.startsWith(`${item.path}/`)) return false;
+
+  return true;
+}
+
+function MoveToMenuItem({
+  item,
+  folders,
+  rootLoaded,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
+  onClose,
+}: {
+  item: MoveTarget;
+  folders: TreeNode[];
+  rootLoaded: boolean;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
+  onClose: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      void onEnsureFolderLoaded("");
+    }
+  }, [isOpen, onEnsureFolderLoaded]);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        setIsOpen(true);
+        void onEnsureFolderLoaded("");
+      }}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          const next = !isOpen;
+          setIsOpen(next);
+          if (next) {
+            void onEnsureFolderLoaded("");
+          }
+        }}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
+      >
+        <MoveIcon className="size-4" />
+        <span className="flex-1">Move to...</span>
+        <ChevronRightIcon className="size-4 text-neutral-400" />
+      </button>
+
+      {isOpen && (
+        <FolderDestinationMenu
+          item={item}
+          folders={folders}
+          rootLoaded={rootLoaded}
+          loadingPaths={loadingPaths}
+          onEnsureFolderLoaded={onEnsureFolderLoaded}
+          onMoveToFolder={onMoveToFolder}
+          onClose={onClose}
+        />
+      )}
+    </div>
+  );
+}
+
+function FolderDestinationMenu({
+  item,
+  folders,
+  rootLoaded,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
+  onClose,
+}: {
+  item: MoveTarget;
+  folders: TreeNode[];
+  rootLoaded: boolean;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
+  onClose: () => void;
+}) {
+  const folderNodes = folders.filter((node) => node.type === "dir");
+  const isRootLoading = !rootLoaded || loadingPaths.has("");
+  const canMoveHome = canMoveItemToFolder(item, "");
+
+  return (
+    <div
+      className={cn([
+        "absolute top-0 left-full z-[60] min-w-44 py-1",
+        "rounded-xs border border-neutral-200 bg-white shadow-lg",
+      ])}
+    >
+      <button
+        disabled={!canMoveHome}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!canMoveHome) return;
+          onMoveToFolder(item, "");
+          onClose();
+        }}
+        className={cn([
+          "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
+          canMoveHome
+            ? "hover:bg-neutral-100"
+            : "cursor-not-allowed text-neutral-300",
+        ])}
+      >
+        <HomeIcon className="size-4" />
+        Home
+      </button>
+
+      {folderNodes.length > 0 && (
+        <div className="my-1 border-t border-neutral-200" />
+      )}
+
+      {folderNodes.map((node) => (
+        <FolderDestinationRow
+          key={node.path}
+          item={item}
+          node={node}
+          loadingPaths={loadingPaths}
+          onEnsureFolderLoaded={onEnsureFolderLoaded}
+          onMoveToFolder={onMoveToFolder}
+          onClose={onClose}
+        />
+      ))}
+
+      {isRootLoading && (
+        <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-500">
+          <Spinner size={14} />
+          Loading folders...
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FolderDestinationRow({
+  item,
+  node,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
+  onClose,
+}: {
+  item: MoveTarget;
+  node: TreeNode;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
+  onClose: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const childFolders = node.children.filter((child) => child.type === "dir");
+  const canMoveHere = canMoveItemToFolder(item, node.path);
+  const isLoadingChildren =
+    loadingPaths.has(node.path) || (isOpen && !node.loaded);
+  const showSubmenu = node.loaded ? childFolders.length > 0 : true;
+
+  useEffect(() => {
+    if (isOpen && !node.loaded) {
+      void onEnsureFolderLoaded(node.path);
+    }
+  }, [isOpen, node.loaded, node.path, onEnsureFolderLoaded]);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        setIsOpen(true);
+        if (!node.loaded) {
+          void onEnsureFolderLoaded(node.path);
+        }
+      }}
+      onMouseLeave={() => setIsOpen(false)}
+    >
+      <button
+        disabled={!canMoveHere}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (!canMoveHere) return;
+          onMoveToFolder(item, node.path);
+          onClose();
+        }}
+        className={cn([
+          "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
+          canMoveHere
+            ? "hover:bg-neutral-100"
+            : "cursor-not-allowed text-neutral-300",
+        ])}
+      >
+        <FolderIcon className="size-4 shrink-0" />
+        <span className="flex-1 truncate">{node.name}</span>
+        {showSubmenu &&
+          (isLoadingChildren ? (
+            <Spinner size={12} className="shrink-0" />
+          ) : (
+            <ChevronRightIcon className="size-4 shrink-0 text-neutral-400" />
+          ))}
+      </button>
+
+      {isOpen && showSubmenu && (
+        <div
+          className={cn([
+            "absolute top-0 left-full z-[70] min-w-44 py-1",
+            "rounded-xs border border-neutral-200 bg-white shadow-lg",
+          ])}
+        >
+          {isLoadingChildren ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 text-sm text-neutral-500">
+              <Spinner size={14} />
+              Loading folders...
+            </div>
+          ) : (
+            childFolders.map((child) => (
+              <FolderDestinationRow
+                key={child.path}
+                item={item}
+                node={child}
+                loadingPaths={loadingPaths}
+                onEnsureFolderLoaded={onEnsureFolderLoaded}
+                onMoveToFolder={onMoveToFolder}
+                onClose={onClose}
+              />
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MediaLibrary() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,8 +424,6 @@ function MediaLibrary() {
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
 
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
-  const [showMoveModal, setShowMoveModal] = useState(false);
-  const [itemToMove, setItemToMove] = useState<MediaItem | null>(null);
 
   const [navigationHistory, setNavigationHistory] = useState<
     Array<{ path: string; name: string }>
@@ -267,7 +519,7 @@ function MediaLibrary() {
   };
 
   const toggleNodeExpanded = async (path: string) => {
-    const node = findNode(treeNodes, path);
+    const node = findTreeNode(treeNodes, path);
     if (!node) return;
 
     const willExpand = !node.expanded;
@@ -275,17 +527,6 @@ function MediaLibrary() {
       await loadFolderContents(path);
     }
     setTreeNodes((prev) => toggleExpanded(prev, path));
-  };
-
-  const findNode = (nodes: TreeNode[], path: string): TreeNode | null => {
-    for (const node of nodes) {
-      if (node.path === path) return node;
-      if (node.children.length > 0) {
-        const found = findNode(node.children, path);
-        if (found) return found;
-      }
-    }
-    return null;
   };
 
   const toggleExpanded = (nodes: TreeNode[], path: string): TreeNode[] => {
@@ -455,8 +696,6 @@ function MediaLibrary() {
       }
     },
     onFileMoved: () => {
-      setShowMoveModal(false);
-      setItemToMove(null);
       loadFolderContents(currentTab?.path || "");
     },
     onSelectionCleared: () => {
@@ -473,13 +712,47 @@ function MediaLibrary() {
     setIsCreatingFolder(false);
   };
 
-  const handleMoveFile = (destinationFolder: string) => {
-    if (!itemToMove) return;
-    const fileName = itemToMove.path.split("/").pop() || "";
+  const handleMoveItemToFolder = useCallback(
+    (item: MoveTarget, destinationFolder: string) => {
+      if (!canMoveItemToFolder(item, destinationFolder)) return;
+
+      const fileName = item.path.split("/").pop() || "";
+      const toPath = destinationFolder
+        ? `${destinationFolder}/${fileName}`
+        : fileName;
+
+      if (item.path !== toPath) {
+        moveMutation.mutate({ fromPath: item.path, toPath });
+      }
+    },
+    [moveMutation],
+  );
+
+  const ensureFolderLoaded = useCallback(
+    async (path: string) => {
+      if (path === "") {
+        if (!rootLoaded) {
+          await loadFolderContents("");
+        }
+        return;
+      }
+
+      const node = findTreeNode(treeNodes, path);
+      if (!node || !node.loaded) {
+        await loadFolderContents(path);
+      }
+    },
+    [loadFolderContents, rootLoaded, treeNodes],
+  );
+
+  const moveDraggedItemToFolder = (destinationFolder: string) => {
+    const fileName = draggingItem?.path.split("/").pop() || "";
     const toPath = destinationFolder
       ? `${destinationFolder}/${fileName}`
       : fileName;
-    moveMutation.mutate({ fromPath: itemToMove.path, toPath });
+    if (draggingItem && draggingItem.path !== toPath) {
+      moveMutation.mutate({ fromPath: draggingItem.path, toPath });
+    }
   };
 
   const handleDragItemStart = (item: MediaItem) => {
@@ -496,22 +769,9 @@ function MediaLibrary() {
     if (draggingItem.path === targetFolderPath) return;
     if (draggingItem.path.startsWith(targetFolderPath + "/")) return;
 
-    const fileName = draggingItem.path.split("/").pop() || "";
-    const toPath = targetFolderPath
-      ? `${targetFolderPath}/${fileName}`
-      : fileName;
-
-    if (draggingItem.path !== toPath) {
-      moveMutation.mutate({ fromPath: draggingItem.path, toPath });
-    }
-
+    moveDraggedItemToFolder(targetFolderPath);
     setDraggingItem(null);
     setDropTargetPath(null);
-  };
-
-  const openMoveModal = (item: MediaItem) => {
-    setItemToMove(item);
-    setShowMoveModal(true);
   };
 
   const handleRename = (path: string, newName: string) => {
@@ -620,6 +880,8 @@ function MediaLibrary() {
           <Sidebar
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            folderTree={treeNodes}
+            rootLoaded={rootLoaded}
             loadingPaths={loadingPaths}
             filteredTreeNodes={filteredTreeNodes}
             onOpenFolder={navigateToFolder}
@@ -635,21 +897,8 @@ function MediaLibrary() {
             createFolderPending={createFolderMutation.isPending}
             currentTab={currentTab}
             onRename={handleRename}
-            onMove={(path, name, type) => {
-              setItemToMove({
-                id: path,
-                path,
-                name,
-                type,
-                size: 0,
-                mimeType: null,
-                publicUrl: "",
-                proxyUrl: "",
-                createdAt: null,
-                updatedAt: null,
-              });
-              setShowMoveModal(true);
-            }}
+            onEnsureFolderLoaded={ensureFolderLoaded}
+            onMoveToFolder={handleMoveItemToFolder}
             onDelete={(path) => handleDeleteSingle(path)}
           />
         </ResizablePanel>
@@ -684,7 +933,11 @@ function MediaLibrary() {
             onDeleteSingle={handleDeleteSingle}
             onOpenPreview={openFileTab}
             onOpenFolder={(path, name) => navigateToFolder(path, name)}
-            onMove={openMoveModal}
+            folderTree={treeNodes}
+            rootLoaded={rootLoaded}
+            loadingPaths={loadingPaths}
+            onEnsureFolderLoaded={ensureFolderLoaded}
+            onMoveToFolder={handleMoveItemToFolder}
             onRename={handleRename}
             onCreateFolder={() => setIsCreatingFolder(true)}
             fileInputRef={fileInputRef}
@@ -703,18 +956,6 @@ function MediaLibrary() {
           />
         </ResizablePanel>
       </ResizablePanelGroup>
-
-      <MoveFileModal
-        open={showMoveModal}
-        onOpenChange={(open) => {
-          setShowMoveModal(open);
-          if (!open) setItemToMove(null);
-        }}
-        item={itemToMove}
-        folders={treeNodes.filter((n) => n.type === "dir")}
-        onSubmit={handleMoveFile}
-        isPending={moveMutation.isPending}
-      />
     </>
   );
 }
@@ -722,6 +963,8 @@ function MediaLibrary() {
 function Sidebar({
   searchQuery,
   onSearchChange,
+  folderTree,
+  rootLoaded,
   loadingPaths,
   filteredTreeNodes,
   onOpenFolder,
@@ -737,11 +980,14 @@ function Sidebar({
   createFolderPending,
   currentTab,
   onRename,
-  onMove,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
   onDelete,
 }: {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  folderTree: TreeNode[];
+  rootLoaded: boolean;
   loadingPaths: Set<string>;
   filteredTreeNodes: TreeNode[];
   onOpenFolder: (path: string, name: string) => void;
@@ -757,7 +1003,8 @@ function Sidebar({
   createFolderPending: boolean;
   currentTab: Tab | undefined;
   onRename: (path: string, newName: string) => void;
-  onMove: (path: string, name: string, type: "file" | "dir") => void;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
   onDelete: (path: string) => void;
 }) {
   return (
@@ -801,7 +1048,10 @@ function Sidebar({
               onToggle={onToggleNodeExpanded}
               currentTab={currentTab}
               onRename={onRename}
-              onMove={onMove}
+              folderTree={folderTree}
+              rootLoaded={rootLoaded}
+              onEnsureFolderLoaded={onEnsureFolderLoaded}
+              onMoveToFolder={onMoveToFolder}
               onDelete={onDelete}
             />
           ))}
@@ -951,7 +1201,10 @@ function AddMenu({
         <>
           <div
             className="fixed inset-0 z-40"
-            onClick={() => setShowMenu(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(false);
+            }}
           />
           <button
             onClick={handleCreateFolder}
@@ -1024,24 +1277,30 @@ function AddMenu({
 function TreeNodeItem({
   node,
   depth,
+  folderTree,
+  rootLoaded,
   loadingPaths,
   onOpenFolder,
   onOpenFile,
   onToggle,
   currentTab,
   onRename,
-  onMove,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
   onDelete,
 }: {
   node: TreeNode;
   depth: number;
+  folderTree: TreeNode[];
+  rootLoaded: boolean;
   loadingPaths: Set<string>;
   onOpenFolder: (path: string, name: string) => void;
   onOpenFile: (path: string, name: string) => void;
   onToggle: (path: string) => Promise<void>;
   currentTab: Tab | undefined;
   onRename: (path: string, newName: string) => void;
-  onMove: (path: string, name: string, type: "file" | "dir") => void;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
   onDelete: (path: string) => void;
 }) {
   const isFolder = node.type === "dir";
@@ -1168,7 +1427,13 @@ function TreeNodeItem({
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeContextMenu();
+            }}
+          />
           <div
             className={cn([
               "fixed z-50 min-w-40 py-1",
@@ -1183,16 +1448,15 @@ function TreeNodeItem({
               <PencilIcon className="size-4" />
               Rename
             </button>
-            <button
-              onClick={() => {
-                closeContextMenu();
-                onMove(node.path, node.name, node.type);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
-            >
-              <MoveIcon className="size-4" />
-              Move to...
-            </button>
+            <MoveToMenuItem
+              item={{ path: node.path, type: node.type }}
+              folders={folderTree}
+              rootLoaded={rootLoaded}
+              loadingPaths={loadingPaths}
+              onEnsureFolderLoaded={onEnsureFolderLoaded}
+              onMoveToFolder={onMoveToFolder}
+              onClose={closeContextMenu}
+            />
             <div className="my-1 border-t border-neutral-200" />
             <button
               onClick={() => {
@@ -1221,7 +1485,10 @@ function TreeNodeItem({
               onToggle={onToggle}
               currentTab={currentTab}
               onRename={onRename}
-              onMove={onMove}
+              folderTree={folderTree}
+              rootLoaded={rootLoaded}
+              onEnsureFolderLoaded={onEnsureFolderLoaded}
+              onMoveToFolder={onMoveToFolder}
               onDelete={onDelete}
             />
           ))}
@@ -1257,7 +1524,11 @@ function ContentPanel({
   onDeleteSingle,
   onOpenPreview,
   onOpenFolder,
-  onMove,
+  folderTree,
+  rootLoaded,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
   onRename,
   onCreateFolder,
   fileInputRef,
@@ -1299,7 +1570,11 @@ function ContentPanel({
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
   onOpenFolder: (path: string, name: string) => void;
-  onMove: (item: MediaItem) => void;
+  folderTree: TreeNode[];
+  rootLoaded: boolean;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
   onRename: (path: string, newName: string) => void;
   onCreateFolder: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -1380,7 +1655,11 @@ function ContentPanel({
                 onDeleteSingle={onDeleteSingle}
                 onOpenPreview={onOpenPreview}
                 onOpenFolder={onOpenFolder}
-                onMove={onMove}
+                folderTree={folderTree}
+                rootLoaded={rootLoaded}
+                loadingPaths={loadingPaths}
+                onEnsureFolderLoaded={onEnsureFolderLoaded}
+                onMoveToFolder={onMoveToFolder}
                 onRename={onRename}
                 draggingItem={draggingItem}
                 dropTargetPath={dropTargetPath}
@@ -1559,9 +1838,13 @@ function TabContextMenu({
     <>
       <div
         className="fixed inset-0 z-40"
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
         onContextMenu={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onClose();
         }}
       />
@@ -1803,7 +2086,10 @@ function HeaderBar({
             <>
               <div
                 className="fixed inset-0 z-40"
-                onClick={() => setShowAddMenu(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAddMenu(false);
+                }}
               />
               <div
                 className={cn([
@@ -1932,7 +2218,11 @@ function FolderView({
   onDeleteSingle,
   onOpenPreview,
   onOpenFolder,
-  onMove,
+  folderTree,
+  rootLoaded,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
   onRename,
   draggingItem,
   dropTargetPath,
@@ -1956,7 +2246,11 @@ function FolderView({
   onDeleteSingle: (path: string) => void;
   onOpenPreview: (path: string, name: string) => void;
   onOpenFolder: (path: string, name: string) => void;
-  onMove: (item: MediaItem) => void;
+  folderTree: TreeNode[];
+  rootLoaded: boolean;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
   onRename: (path: string, newName: string) => void;
   draggingItem: MediaItem | null;
   dropTargetPath: string | null;
@@ -2010,7 +2304,11 @@ function FolderView({
               onDelete={() => onDeleteSingle(item.path)}
               onOpenPreview={() => onOpenPreview(item.path, item.name)}
               onOpenFolder={() => onOpenFolder(item.path, item.name)}
-              onMove={() => onMove(item)}
+              folderTree={folderTree}
+              rootLoaded={rootLoaded}
+              loadingPaths={loadingPaths}
+              onEnsureFolderLoaded={onEnsureFolderLoaded}
+              onMoveToFolder={onMoveToFolder}
               onRename={(newName) => onRename(item.path, newName)}
               isDragging={draggingItem?.path === item.path}
               isDropTarget={item.type === "dir" && dropTargetPath === item.path}
@@ -2043,7 +2341,11 @@ function MediaItemCard({
   onDelete,
   onOpenPreview,
   onOpenFolder,
-  onMove,
+  folderTree,
+  rootLoaded,
+  loadingPaths,
+  onEnsureFolderLoaded,
+  onMoveToFolder,
   onRename,
   isDragging,
   isDropTarget,
@@ -2062,7 +2364,11 @@ function MediaItemCard({
   onDelete: () => void;
   onOpenPreview: () => void;
   onOpenFolder: () => void;
-  onMove: () => void;
+  folderTree: TreeNode[];
+  rootLoaded: boolean;
+  loadingPaths: Set<string>;
+  onEnsureFolderLoaded: (path: string) => Promise<void>;
+  onMoveToFolder: (item: MoveTarget, destinationFolder: string) => void;
   onRename: (newName: string) => void;
   isDragging: boolean;
   isDropTarget: boolean;
@@ -2110,11 +2416,6 @@ function MediaItemCard({
 
   const handleDelete = () => {
     onDelete();
-    setShowMenu(false);
-  };
-
-  const handleMove = () => {
-    onMove();
     setShowMenu(false);
   };
 
@@ -2250,7 +2551,10 @@ function MediaItemCard({
             <>
               <div
                 className="fixed inset-0 z-40"
-                onClick={() => setShowMenu(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowMenu(false);
+                }}
               />
               <div
                 className={cn([
@@ -2265,13 +2569,15 @@ function MediaItemCard({
                   <PencilIcon className="size-4" />
                   Rename
                 </button>
-                <button
-                  onClick={handleMove}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
-                >
-                  <MoveIcon className="size-4" />
-                  Move to...
-                </button>
+                <MoveToMenuItem
+                  item={{ path: item.path, type: item.type }}
+                  folders={folderTree}
+                  rootLoaded={rootLoaded}
+                  loadingPaths={loadingPaths}
+                  onEnsureFolderLoaded={onEnsureFolderLoaded}
+                  onMoveToFolder={onMoveToFolder}
+                  onClose={() => setShowMenu(false)}
+                />
                 <div className="my-1 border-t border-neutral-200" />
                 <button
                   onClick={handleDelete}
@@ -2287,7 +2593,13 @@ function MediaItemCard({
 
         {contextMenu && (
           <>
-            <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
+            <div
+              className="fixed inset-0 z-40"
+              onClick={(e) => {
+                e.stopPropagation();
+                closeContextMenu();
+              }}
+            />
             <div
               className={cn([
                 "fixed z-50 min-w-40 py-1",
@@ -2305,16 +2617,15 @@ function MediaItemCard({
                 <PencilIcon className="size-4" />
                 Rename
               </button>
-              <button
-                onClick={() => {
-                  closeContextMenu();
-                  onMove();
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
-              >
-                <MoveIcon className="size-4" />
-                Move to...
-              </button>
+              <MoveToMenuItem
+                item={{ path: item.path, type: item.type }}
+                folders={folderTree}
+                rootLoaded={rootLoaded}
+                loadingPaths={loadingPaths}
+                onEnsureFolderLoaded={onEnsureFolderLoaded}
+                onMoveToFolder={onMoveToFolder}
+                onClose={closeContextMenu}
+              />
               <div className="my-1 border-t border-neutral-200" />
               <button
                 onClick={() => {
@@ -2434,7 +2745,10 @@ function MediaItemCard({
           <>
             <div
               className="fixed inset-0 z-40"
-              onClick={() => setShowMenu(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowMenu(false);
+              }}
             />
             <div
               className={cn([
@@ -2473,13 +2787,15 @@ function MediaItemCard({
                 <RefreshCwIcon className="size-4" />
                 Replace
               </button>
-              <button
-                onClick={handleMove}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
-              >
-                <MoveIcon className="size-4" />
-                Move to...
-              </button>
+              <MoveToMenuItem
+                item={{ path: item.path, type: item.type }}
+                folders={folderTree}
+                rootLoaded={rootLoaded}
+                loadingPaths={loadingPaths}
+                onEnsureFolderLoaded={onEnsureFolderLoaded}
+                onMoveToFolder={onMoveToFolder}
+                onClose={() => setShowMenu(false)}
+              />
               <div className="my-1 border-t border-neutral-200" />
               <button
                 onClick={handleDelete}
@@ -2526,7 +2842,13 @@ function MediaItemCard({
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={closeContextMenu} />
+          <div
+            className="fixed inset-0 z-40"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeContextMenu();
+            }}
+          />
           <div
             className={cn([
               "fixed z-50 min-w-40 py-1",
@@ -2574,16 +2896,15 @@ function MediaItemCard({
               <RefreshCwIcon className="size-4" />
               Replace
             </button>
-            <button
-              onClick={() => {
-                closeContextMenu();
-                onMove();
-              }}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-neutral-100"
-            >
-              <MoveIcon className="size-4" />
-              Move to...
-            </button>
+            <MoveToMenuItem
+              item={{ path: item.path, type: item.type }}
+              folders={folderTree}
+              rootLoaded={rootLoaded}
+              loadingPaths={loadingPaths}
+              onEnsureFolderLoaded={onEnsureFolderLoaded}
+              onMoveToFolder={onMoveToFolder}
+              onClose={closeContextMenu}
+            />
             <div className="my-1 border-t border-neutral-200" />
             <button
               onClick={() => {
@@ -2681,101 +3002,5 @@ function FilePreview({
         </div>
       )}
     </div>
-  );
-}
-
-function MoveFileModal({
-  open,
-  onOpenChange,
-  item,
-  folders,
-  onSubmit,
-  isPending,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  item: MediaItem | null;
-  folders: TreeNode[];
-  onSubmit: (destinationFolder: string) => void;
-  isPending: boolean;
-}) {
-  const [selectedFolder, setSelectedFolder] = useState<string>("");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(selectedFolder);
-  };
-
-  const getAllFolders = (
-    nodes: TreeNode[],
-    prefix = "",
-  ): { path: string; name: string }[] => {
-    const result: { path: string; name: string }[] = [];
-    for (const node of nodes) {
-      if (node.type === "dir") {
-        const displayName = prefix ? `${prefix}/${node.name}` : node.name;
-        result.push({ path: node.path, name: displayName });
-        if (node.children) {
-          result.push(...getAllFolders(node.children, displayName));
-        }
-      }
-    }
-    return result;
-  };
-
-  const allFolders = getAllFolders(folders);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Move File</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="py-4">
-            {item && (
-              <p className="mb-3 text-sm text-neutral-600">
-                Moving: <span className="font-medium">{item.name}</span>
-              </p>
-            )}
-            <label className="mb-2 block text-sm font-medium text-neutral-700">
-              Destination Folder
-            </label>
-            <select
-              value={selectedFolder}
-              onChange={(e) => setSelectedFolder(e.target.value)}
-              className="w-full rounded-md border border-neutral-200 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            >
-              <option value="">Root (no folder)</option>
-              {allFolders.map((folder) => (
-                <option key={folder.path} value={folder.path}>
-                  {folder.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              className="rounded-md px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className={cn([
-                "rounded-md px-4 py-2 text-sm font-medium text-white",
-                "bg-blue-500 hover:bg-blue-600",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              ])}
-            >
-              {isPending ? "Moving..." : "Move"}
-            </button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   );
 }
