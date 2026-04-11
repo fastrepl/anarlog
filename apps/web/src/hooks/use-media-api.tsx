@@ -80,6 +80,7 @@ export type { MediaItem } from "@/lib/media-library";
 
 const MEDIA_ITEMS_QUERY_STALE_TIME = 30_000;
 const MEDIA_ITEMS_QUERY_GC_TIME = 5 * 60_000;
+const UPLOAD_TOAST_NUDGE_PX = 12;
 
 export function getMediaItemsQueryKey(path: string) {
   return ["mediaItems", path] as const;
@@ -191,6 +192,10 @@ export function useMediaApi({
           {
             id: toastId,
             duration: done || error ? 3000 : Infinity,
+            style: {
+              marginBottom: -UPLOAD_TOAST_NUDGE_PX,
+              marginRight: -UPLOAD_TOAST_NUDGE_PX,
+            },
           },
         );
       };
