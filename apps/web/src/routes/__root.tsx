@@ -8,15 +8,12 @@ import {
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
 import { NotFoundDocument } from "@/components/not-found";
-import { getRequestPlatform } from "@/functions/platform";
-import { PlatformProvider } from "@/hooks/use-platform";
 import {
   DEFAULT_OG_IMAGE_URL,
   ROOT_DESCRIPTION,
   ROOT_KEYWORDS,
   ROOT_TITLE,
 } from "@/lib/seo";
-import { getGitHubStatsQueryOptions } from "@/queries";
 import appCss from "@/styles.css?url";
 
 interface RouterContext {
@@ -24,13 +21,6 @@ interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  loader: async ({ context }) => {
-    await context.queryClient.prefetchQuery(getGitHubStatsQueryOptions());
-
-    return {
-      initialPlatform: await getRequestPlatform(),
-    };
-  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -75,17 +65,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-  const { initialPlatform } = Route.useLoaderData();
-
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <PlatformProvider initialPlatform={initialPlatform}>
-          {children}
-        </PlatformProvider>
+        {children}
         <Toaster position="bottom-right" />
         <Scripts />
       </body>
