@@ -409,6 +409,16 @@ function LogoSection() {
   );
 }
 
+const TESTIMONIAL_AVATAR_BASE_URL = "/api/assets/blog/testimonials";
+
+const testimonialAvatarUrls = {
+  anand: `${TESTIMONIAL_AVATAR_BASE_URL}/anand.jpg`,
+  jamesK: `${TESTIMONIAL_AVATAR_BASE_URL}/james-k.jpg`,
+  jamesL: `${TESTIMONIAL_AVATAR_BASE_URL}/james-l.jpg`,
+  tobi: `${TESTIMONIAL_AVATAR_BASE_URL}/tobi.jpg`,
+  tom: `${TESTIMONIAL_AVATAR_BASE_URL}/tom.jpg`,
+};
+
 function SocialTestimonialsSection() {
   return (
     <section className="px-4 pt-16 pb-16">
@@ -429,27 +439,9 @@ function SocialTestimonialsSection() {
       <div className="flex flex-col gap-6 md:hidden">
         <SocialCard
           platform="twitter"
-          author="yoran was here"
-          username="yoran_beisher"
-          body="Been using Hypernote for a while now, truly one of the best AI apps I've used all year. Like they said, the best thing since sliced bread"
-          url="https://x.com/yoran_beisher/status/1953147865486012611"
-        />
-        <SocialCard
-          platform="twitter"
-          author="Tom Yang"
-          username="tomyang11_"
-          avatar="/avatars/tom.jpg"
-          body="I love the flexibility that @getcharnotes gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
-          url="https://twitter.com/tomyang11_/status/1956395933538902092"
-        />
-      </div>
-
-      <div className="hidden gap-4 md:grid md:grid-cols-3">
-        <SocialCard
-          platform="twitter"
           author="Tobi Lutke"
           username="tobi"
-          avatar="/avatars/tobi.jpg"
+          avatar={testimonialAvatarUrls.tobi}
           body={`I'm actually very pro meeting recording and ai summarization. But I'm not ok with bots joining as fake humans accomplish this. It's a meeting between you and me. Not you and me and some startup's viral growth strategy.
 
 Granola is great. Gemini does this well in Google Meet. Char is great and fully local. But use them with consent.
@@ -461,7 +453,66 @@ My tweet is about how ridiculous and self important it looks when you show up to
           platform="twitter"
           author="Anand Chowdhary"
           username="AnandChowdhary"
-          avatar="/avatars/anand.jpg"
+          avatar={testimonialAvatarUrls.anand}
+          body={`Char has been on my radar since their time in YC S25 as “that local-first meeting notes thing,” and I finally took a closer look today. It immediately hit a nerve I’ve had with AI note tools for years. I love the idea of getting help with meetings. I really don’t love bots joining every Zoom call or my audio being streamed to some mystery server “for quality purposes”.
+
+@getcharnotes leans into that tension in a pretty honest way. It calls itself a local-first AI notepad for private meetings, and the “private” bit is not just a tagline. There are no meeting bots and no calendar guests. It just listens directly to the audio going in and out of your computer, gives you a realtime transcript, and lets you stay in the conversation instead of turning into a court reporter.
+
+You still have a simple notepad to jot quick memos during the call. Those act more like hints than homework. After the meeting, Char can use your memos to shape a personalized summary, but that part is optional. If you forget to take notes altogether, it can still generate a recap from the transcript.
+
+The tech stack is pretty nice if you are into that sort of thing. TypeScript and React on the UI, Rust and Tauri for the desktop app. The cool part is what that enables. You can run the whole thing offline with LM Studio or Ollama. No Wi‑Fi, no outbound requests. That makes it genuinely interesting for teams that care a lot about compliance or even air‑gapped environments. And if you do want cloud models, it does the “bring your own LLM” thing with Gemini, Claude, Azure‑hosted GPT, etc., so it can fit into whatever your company’s approved stack is.
+
+If you have been waiting for an AI meeting assistant that behaves like a real desktop app and respects the fact that you might not want to ship your raw meeting audio to the cloud, Char is worth a look`}
+          url="https://x.com/AnandChowdhary/status/1997980479698723119"
+        />
+        <SocialCard
+          platform="twitter"
+          author="James Koshigoe"
+          username="JamesKoshigoe"
+          avatar={testimonialAvatarUrls.jamesK}
+          body={`@getcharnotes
+ is by far one of my favorite AI secret weapons as of late. It's an AI notetaking tool, and there's a ton, but it's the best open source one that respects privacy & isn't a walled garden like others
+No affiliation, just love their product & hope they succeed`}
+          url="https://x.com/JamesKoshigoe/status/2024676687980671195"
+        />
+        <SocialCard
+          platform="twitter"
+          author="James LePage"
+          username="jameswlepage"
+          avatar={testimonialAvatarUrls.jamesL}
+          body="Really liking char.com by @computeless. Open access to my data and a GPL codebase!"
+          url="https://x.com/jameswlepage/status/2042780872693166169"
+        />
+      </div>
+
+      <div className="hidden gap-4 md:grid md:grid-cols-3">
+        <div className="flex flex-col gap-8">
+          <SocialCard
+            platform="twitter"
+            author="Tobi Lutke"
+            username="tobi"
+            avatar={testimonialAvatarUrls.tobi}
+            body={`I'm actually very pro meeting recording and ai summarization. But I'm not ok with bots joining as fake humans accomplish this. It's a meeting between you and me. Not you and me and some startup's viral growth strategy.
+
+Granola is great. Gemini does this well in Google Meet. Char is great and fully local. But use them with consent.
+
+My tweet is about how ridiculous and self important it looks when you show up to a meeting with random bots as entourage.`}
+            url="https://x.com/tobi/status/1983892259230699921"
+          />
+          <SocialCard
+            platform="twitter"
+            author="James LePage"
+            username="jameswlepage"
+            avatar={testimonialAvatarUrls.jamesL}
+            body="Really liking char.com by @computeless. Open access to my data and a GPL codebase!"
+            url="https://x.com/jameswlepage/status/2042780872693166169"
+          />
+        </div>
+        <SocialCard
+          platform="twitter"
+          author="Anand Chowdhary"
+          username="AnandChowdhary"
+          avatar={testimonialAvatarUrls.anand}
           body={`Char has been on my radar since their time in YC S25 as “that local-first meeting notes thing,” and I finally took a closer look today. It immediately hit a nerve I’ve had with AI note tools for years. I love the idea of getting help with meetings. I really don’t love bots joining every Zoom call or my audio being streamed to some mystery server “for quality purposes”.
 
 @getcharnotes leans into that tension in a pretty honest way. It calls itself a local-first AI notepad for private meetings, and the “private” bit is not just a tagline. There are no meeting bots and no calendar guests. It just listens directly to the audio going in and out of your computer, gives you a realtime transcript, and lets you stay in the conversation instead of turning into a court reporter.
@@ -478,7 +529,7 @@ If you have been waiting for an AI meeting assistant that behaves like a real de
             platform="twitter"
             author="James Koshigoe"
             username="JamesKoshigoe"
-            avatar="/avatars/james.jpg"
+            avatar={testimonialAvatarUrls.jamesK}
             body={`@getcharnotes
  is by far one of my favorite AI secret weapons as of late. It's an AI notetaking tool, and there's a ton, but it's the best open source one that respects privacy & isn't a walled garden like others
 No affiliation, just love their product & hope they succeed`}
@@ -488,7 +539,7 @@ No affiliation, just love their product & hope they succeed`}
             platform="twitter"
             author="Tom Yang"
             username="tomyang11_"
-            avatar="/avatars/tom.jpg"
+            avatar={testimonialAvatarUrls.tom}
             body="I love the flexibility that @tryhyprnote gives me to integrate personal notes with AI summaries. I can quickly jot down important points during the meeting without getting distracted, then trust that the AI will capture them in full detail for review afterwards."
             url="https://twitter.com/tomyang11_/status/1956395933538902092"
           />
