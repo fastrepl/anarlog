@@ -11,6 +11,8 @@ import {
 } from "@lobehub/icons";
 import type { ReactNode } from "react";
 
+import { withCharUtm } from "@hypr/utils";
+
 import { env } from "~/env";
 import { CharProviderIcon } from "~/settings/ai/shared";
 import {
@@ -61,7 +63,13 @@ const _PROVIDERS = [
       models: { label: "Available models", url: "https://lmstudio.ai/models" },
       setup: {
         label: "Setup guide",
-        url: "https://char.com/docs/faq/local-llm-setup/#lm-studio-setup",
+        url: withCharUtm(
+          "https://char.com/docs/faq/local-llm-setup/#lm-studio-setup",
+          {
+            source: "app",
+            medium: "settings",
+          },
+        ),
       },
     },
   },
@@ -80,7 +88,13 @@ const _PROVIDERS = [
       models: { label: "Available models", url: "https://ollama.com/library" },
       setup: {
         label: "Setup guide",
-        url: "https://char.com/docs/faq/local-llm-setup/#ollama-setup",
+        url: withCharUtm(
+          "https://char.com/docs/faq/local-llm-setup/#ollama-setup",
+          {
+            source: "app",
+            medium: "settings",
+          },
+        ),
       },
     },
   },
