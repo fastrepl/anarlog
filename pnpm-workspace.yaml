@@ -8,3 +8,9 @@ packages:
 onlyBuiltDependencies:
   - supabase
   - "@infisical/cli"
+  - esbuild
+  - "@swc/core"
+  - "@parcel/watcher"
+  - sharp
+  - dprint
+  - protobufjs
