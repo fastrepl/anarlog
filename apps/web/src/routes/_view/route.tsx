@@ -1,11 +1,15 @@
 import {
   createFileRoute,
+  Link,
   Outlet,
   useMatchRoute,
   useRouterState,
 } from "@tanstack/react-router";
 import { allHandbooks } from "content-collections";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { XIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { cn } from "@hypr/utils";
 
 import { Footer } from "@/components/footer";
 import { NotFoundContent } from "@/components/not-found";
@@ -91,6 +95,7 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
+                {isHomePage && <AnnouncementBanner />}
                 {!isResourcePage && !isAppPage && (
                   <>
                     <div
@@ -117,7 +122,10 @@ function Component() {
                 )}
 
                 {/* Mobile top bar spacer */}
-                <div className="h-14 xl:hidden" />
+                <div
+                  className="xl:hidden"
+                  style={{ height: "calc(3.5rem + var(--announcement-bar-h, 0px))" }}
+                />
 
                 {/* Sidebar + content in a centered container */}
                 <div className="relative z-10 mx-auto flex w-full max-w-[1800px]">
@@ -285,6 +293,61 @@ function MobileHandbookDrawer({
           />
         </div>
       </div>
+    </>
+  );
+}
+
+const ANNOUNCEMENT_STORAGE_KEY = "char_announcement_dismissed";
+
+const ANNOUNCEMENT_BAR_HEIGHT = "36px";
+
+function AnnouncementBanner() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const isDismissed =
+      window.localStorage.getItem(ANNOUNCEMENT_STORAGE_KEY) === "true";
+    if (!isDismissed) {
+      setVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--announcement-bar-h",
+      visible ? ANNOUNCEMENT_BAR_HEIGHT : "0px",
+    );
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      <Link
+        to="/blog/$slug/"
+        params={{ slug: "hyprnote-is-now-char" }}
+        className={cn([
+          "fixed inset-x-0 top-0 z-[60] flex items-center justify-center",
+          "bg-stone-800 px-10 py-2",
+          "font-serif text-sm text-stone-200",
+          "transition-colors hover:bg-stone-700",
+        ])}
+      >
+        <span>Hyprnote is now <strong>Char</strong>.</span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, "true");
+            setVisible(false);
+          }}
+          className="absolute right-4 cursor-pointer text-stone-400 transition-colors hover:text-white"
+        >
+          <XIcon size={14} />
+        </button>
+      </Link>
+      <div style={{ height: ANNOUNCEMENT_BAR_HEIGHT }} />
     </>
   );
 }

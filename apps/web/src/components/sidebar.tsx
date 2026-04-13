@@ -214,7 +214,7 @@ export function Sidebar() {
   return (
     <>
       {/* ===== MOBILE: top bar + dropdown menu (<md / <768px) ===== */}
-      <div className="fixed top-0 right-0 left-0 z-50 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/80 px-4 backdrop-blur-xs md:hidden">
+      <div className="fixed right-0 left-0 top-[var(--announcement-bar-h,0px)] z-50 flex h-14 items-center justify-between border-b border-neutral-100 bg-white/80 px-4 backdrop-blur-xs md:hidden">
         <Link to="/">
           <CharLogo className="text-fg h-5 w-auto" />
         </Link>
@@ -241,7 +241,7 @@ export function Sidebar() {
             className="fixed inset-0 z-40 md:hidden"
             onClick={() => setIsMobileOpen(false)}
           />
-          <div className="animate-in slide-in-from-top fixed top-14 right-0 left-0 z-50 max-h-[calc(100vh-56px)] overflow-y-auto border-b border-neutral-100 bg-white/80 shadow-lg backdrop-blur-xs duration-300 md:hidden">
+          <div className="animate-in slide-in-from-top fixed right-0 left-0 top-[calc(theme(spacing.14)+var(--announcement-bar-h,0px))] z-50 max-h-[calc(100vh-56px-var(--announcement-bar-h,0px))] overflow-y-auto border-b border-neutral-100 bg-white/80 shadow-lg backdrop-blur-xs duration-300 md:hidden">
             <nav className="mx-auto max-w-6xl px-4 py-6">
               <div className="flex flex-col gap-6">
                 <MobileMenuLinks
@@ -262,7 +262,7 @@ export function Sidebar() {
       )}
 
       {/* ===== TABLET: horizontal header bar (md to xl / 768-1280px) ===== */}
-      <header className="fixed top-0 right-0 left-0 z-50 hidden border-b border-neutral-100 bg-white/80 backdrop-blur-xs md:block xl:hidden">
+      <header className="fixed right-0 left-0 top-[var(--announcement-bar-h,0px)] z-50 hidden border-b border-neutral-100 bg-white/80 backdrop-blur-xs md:block xl:hidden">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-6">
             <Link to="/" className="mr-2">

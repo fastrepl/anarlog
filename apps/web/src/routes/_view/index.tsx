@@ -137,7 +137,6 @@ function Component() {
   return (
     <main className="min-h-screen flex-1 overflow-x-hidden px-2 md:px-8">
       <div className="">
-        {/* <AnnouncementBanner /> */}
         <HeroSection
           onVideoExpand={setExpandedVideo}
           heroInputRef={heroInputRef}
