@@ -231,6 +231,10 @@ function TabContentNoteInner({
 
   const chatOpenMode =
     bottomAccessoryState?.expanded === true ? "right-panel" : "floating";
+  const mergeTranscriptSurface =
+    bottomAccessoryState?.expanded === true &&
+    (bottomAccessoryState.mode === "playback" ||
+      bottomAccessoryState.mode === "transcript_only");
 
   useEffect(() => {
     if (bottomAccessoryState?.expanded !== true) {
@@ -259,6 +263,7 @@ function TabContentNoteInner({
       }
       afterBorder={bottomAccessory}
       bottomBorderHandle={bottomBorderHandle}
+      mergeAfterBorder={mergeTranscriptSurface}
       floatingButton={
         <FloatingActionButton tab={tab} chatOpenMode={chatOpenMode} />
       }

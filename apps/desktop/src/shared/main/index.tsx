@@ -18,12 +18,14 @@ export function StandardTabWrapper({
   afterBorder,
   bottomBorderHandle,
   floatingButton,
+  mergeAfterBorder = false,
   noBorder = false,
 }: {
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
   bottomBorderHandle?: React.ReactNode;
   floatingButton?: React.ReactNode;
+  mergeAfterBorder?: boolean;
   noBorder?: boolean;
 }) {
   return (
@@ -31,8 +33,14 @@ export function StandardTabWrapper({
       <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           className={cn([
-            "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white",
-            !noBorder && "border border-neutral-200",
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden bg-white",
+            mergeAfterBorder && afterBorder
+              ? "rounded-t-xl rounded-b-none"
+              : "rounded-xl",
+            !noBorder &&
+              (mergeAfterBorder && afterBorder
+                ? "border border-b-0 border-neutral-200"
+                : "border border-neutral-200"),
           ])}
         >
           {children}
@@ -47,7 +55,11 @@ export function StandardTabWrapper({
         ) : null}
       </div>
       {afterBorder ? (
-        <div className={cn([bottomBorderHandle ? "pt-[10px]" : "mt-1"])}>
+        <div
+          className={cn([
+            !mergeAfterBorder && (bottomBorderHandle ? "pt-[10px]" : "mt-1"),
+          ])}
+        >
           {afterBorder}
         </div>
       ) : null}
