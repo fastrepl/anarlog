@@ -123,7 +123,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
     <div
       data-tauri-drag-region
       className={cn([
-        "flex h-9 w-full items-center",
+        "flex h-8 w-full items-center",
         isSidebarHidden && (isLinux ? "pl-3" : "pl-20"),
       ])}
       data-testid="main-tab-chrome"
