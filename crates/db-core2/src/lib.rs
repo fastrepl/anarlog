@@ -66,6 +66,8 @@ pub enum TableChangeKind {
     Delete,
 }
 
+/// Best-effort table-level mutation signal emitted for writes observed on pooled SQLite
+/// connections created by this crate.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableChange {
     pub table: String,
@@ -167,6 +169,8 @@ impl Db3 {
         &self.pool
     }
 
+    /// Subscribe to best-effort table-level change notifications for writes observed through
+    /// this app's pooled SQLite connections.
     pub fn subscribe_table_changes(&self) -> broadcast::Receiver<TableChange> {
         self.pool.subscribe_table_changes()
     }
@@ -206,6 +210,8 @@ impl Db3 {
 }
 
 impl DbPool {
+    /// Subscribe to best-effort table-level change notifications for writes observed through
+    /// this pool's physical SQLite connections.
     pub fn subscribe_table_changes(&self) -> broadcast::Receiver<TableChange> {
         self.table_change_tx.subscribe()
     }

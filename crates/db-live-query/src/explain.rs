@@ -67,9 +67,6 @@ fn strip_identifier_quotes(token: &str) -> &str {
     token
 }
 
-/// Build a map from alias → table name by scanning for `FROM table alias` and
-/// `JOIN table alias` patterns in the SQL. This is intentionally simple — it
-/// handles the common cases that EXPLAIN QUERY PLAN surfaces aliases for.
 fn build_alias_map(
     sql: &str,
     known_tables: &HashSet<String>,
@@ -88,7 +85,6 @@ fn build_alias_map(
             continue;
         }
 
-        // Skip "INNER/LEFT/RIGHT/CROSS" to get to "JOIN"
         let table_idx = if matches!(upper_tokens[i], "INNER" | "LEFT" | "RIGHT" | "CROSS") {
             if i + 1 < tokens.len() && upper_tokens[i + 1] == "JOIN" {
                 i + 2
@@ -103,13 +99,11 @@ fn build_alias_map(
             continue;
         }
 
-        // Strip trailing comma/paren from the table token
         let raw_table = normalize_identifier(tokens[table_idx]);
         if !known_tables.contains(&raw_table) {
             continue;
         }
 
-        // Check for optional AS alias or bare alias
         let alias_idx = if table_idx + 1 < upper_tokens.len() && upper_tokens[table_idx + 1] == "AS"
         {
             table_idx + 2

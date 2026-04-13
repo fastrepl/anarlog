@@ -4705,6 +4705,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "db-live-query"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "db-app",
+ "db-core2",
+ "db-watch",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "db-parser"
 version = "0.1.0"
 dependencies = [
@@ -4743,12 +4759,6 @@ dependencies = [
 [[package]]
 name = "db-watch"
 version = "0.1.0"
-dependencies = [
- "db-app",
- "db-core2",
- "sqlx",
- "tokio",
-]
 
 [[package]]
 name = "deadpool"
@@ -18545,7 +18555,7 @@ dependencies = [
  "anyhow",
  "db-app",
  "db-core2",
- "db-watch",
+ "db-live-query",
  "serde",
  "serde_json",
  "specta",
@@ -18557,7 +18567,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "uuid",
 ]
 
 [[package]]

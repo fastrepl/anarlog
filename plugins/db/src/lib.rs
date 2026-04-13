@@ -7,7 +7,7 @@ use tauri::Manager;
 
 const PLUGIN_NAME: &str = "db";
 
-pub type ManagedState = std::sync::Arc<runtime::DbRuntime>;
+pub type ManagedState = std::sync::Arc<runtime::PluginDbRuntime>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 #[serde(tag = "event", content = "data")]
@@ -36,7 +36,7 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
             let db = runtime::open_app_db(app)?;
-            app.manage(std::sync::Arc::new(runtime::DbRuntime::new(db)));
+            app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())
         })
         .build()
@@ -99,7 +99,7 @@ mod test {
         .map_err(anyhow::Error::from)
     }
 
-    async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::DbRuntime>) {
+    async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
         let db = hypr_db_core2::Db3::open_with_migrate(
@@ -116,7 +116,7 @@ mod test {
         .await
         .unwrap();
 
-        (dir, Arc::new(runtime::DbRuntime::new(db)))
+        (dir, Arc::new(runtime::PluginDbRuntime::new(db)))
     }
 
     #[tokio::test]
@@ -128,7 +128,7 @@ mod test {
             .subscribe(
                 "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
                 vec![],
-                channel,
+                runtime::QueryEventChannel::new(channel),
             )
             .await
             .unwrap();
@@ -146,7 +146,7 @@ mod test {
             .subscribe(
                 "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
                 vec![],
-                channel,
+                runtime::QueryEventChannel::new(channel),
             )
             .await
             .unwrap();
@@ -188,7 +188,7 @@ mod test {
             .subscribe(
                 "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
                 vec![],
-                channel,
+                runtime::QueryEventChannel::new(channel),
             )
             .await
             .unwrap();
@@ -222,17 +222,17 @@ mod test {
         let (_dir, runtime) = setup_runtime().await;
         let (channel, events) = capture_channel();
 
-        let subscription_id = runtime
+        let registration = runtime
             .subscribe(
                 "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
                 vec![],
-                channel,
+                runtime::QueryEventChannel::new(channel),
             )
             .await
             .unwrap();
 
         let _ = next_event(&events, 0).await.unwrap();
-        runtime.unsubscribe(&subscription_id).await.unwrap();
+        runtime.unsubscribe(&registration.id).await.unwrap();
 
         sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
             .bind("note-2")
@@ -253,7 +253,11 @@ mod test {
         let (channel, events) = capture_channel();
 
         runtime
-            .subscribe("SELECT * FROM missing_table".to_string(), vec![], channel)
+            .subscribe(
+                "SELECT * FROM missing_table".to_string(),
+                vec![],
+                runtime::QueryEventChannel::new(channel),
+            )
             .await
             .unwrap();
 

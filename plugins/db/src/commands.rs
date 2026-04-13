@@ -24,8 +24,13 @@ pub(crate) async fn subscribe(
     on_event: Channel<QueryEvent>,
 ) -> Result<String, String> {
     state
-        .subscribe(sql, params, on_event)
+        .subscribe(
+            sql,
+            params,
+            crate::runtime::QueryEventChannel::new(on_event),
+        )
         .await
+        .map(|registration| registration.id)
         .map_err(|error| error.to_string())
 }
 

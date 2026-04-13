@@ -28,6 +28,13 @@ macro_rules! common_derives {
 }
 
 common_derives! {
+    pub enum EditableTemplate {
+        EnhanceUser,
+        TitleUser,
+    }
+}
+
+common_derives! {
     pub enum Template {
         ActivityCaptureSystem(ActivityCaptureSystem),
         ActivityCaptureUser(Box<ActivityCaptureUser>),
@@ -73,4 +80,28 @@ pub fn render(t: Template) -> Result<String, Error> {
     }?;
 
     Ok(value)
+}
+
+pub fn template_source(template: EditableTemplate) -> &'static str {
+    match template {
+        EditableTemplate::EnhanceUser => include_str!("../assets/enhance.user.md.jinja"),
+        EditableTemplate::TitleUser => include_str!("../assets/title.user.md.jinja"),
+    }
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+
+    #[test]
+    fn editable_template_source_matches_assets() {
+        assert_eq!(
+            template_source(EditableTemplate::EnhanceUser),
+            include_str!("../assets/enhance.user.md.jinja")
+        );
+        assert_eq!(
+            template_source(EditableTemplate::TitleUser),
+            include_str!("../assets/title.user.md.jinja")
+        );
+    }
 }

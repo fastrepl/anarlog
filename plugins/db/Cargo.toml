@@ -10,21 +10,20 @@ description = ""
 [dependencies]
 hypr-db-app = { workspace = true }
 hypr-db-core2 = { workspace = true }
-hypr-db-watch = { workspace = true }
+hypr-db-live-query = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, features = ["serde_json"] }
 specta-typescript = { workspace = true }
-sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync", "time"] }
-uuid = { workspace = true, features = ["v4"] }
+tokio = { workspace = true, features = ["rt", "sync"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }
 serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
 

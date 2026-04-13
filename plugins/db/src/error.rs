@@ -9,11 +9,7 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-    #[error("subscription not found: {0}")]
-    SubscriptionNotFound(String),
-    #[error("failed to send query event: {0}")]
-    Channel(String),
+    Runtime(#[from] hypr_db_live_query::Error),
 }
 
 impl Serialize for Error {

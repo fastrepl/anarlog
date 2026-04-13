@@ -48,7 +48,7 @@ async fn sync_roundtrip() {
         .unwrap();
 
     let rows: Vec<(String, String)> = sqlx::query_as("SELECT id, value FROM test_sync")
-        .fetch_all(db_b.pool())
+        .fetch_all(db_b.pool().as_ref())
         .await
         .unwrap();
 

@@ -1,10 +1,6 @@
 #![forbid(unsafe_code)]
 
-pub mod explain;
-
 use std::collections::{HashMap, HashSet};
-
-pub use explain::extract_tables;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WatchId(u64);
@@ -46,6 +42,10 @@ impl TableDeps {
                 }
             }
         }
+    }
+
+    pub fn tables_for(&self, id: WatchId) -> Option<HashSet<String>> {
+        self.forward.get(&id).cloned()
     }
 
     pub fn affected(&self, changed_tables: &[&str]) -> HashSet<WatchId> {
@@ -133,5 +133,14 @@ mod tests {
         let affected = deps.affected(&["sessions", "sessions"]);
         assert_eq!(affected.len(), 1);
         assert!(affected.contains(&watch));
+    }
+
+    #[test]
+    fn tables_for_returns_registered_tables() {
+        let mut deps = TableDeps::new();
+        let watch = deps.register(HashSet::from(["sessions".into(), "words".into()]));
+
+        let tables = deps.tables_for(watch).unwrap();
+        assert_eq!(tables, HashSet::from(["sessions".into(), "words".into()]));
     }
 }

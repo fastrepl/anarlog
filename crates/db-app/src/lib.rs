@@ -6,6 +6,8 @@ mod daily_note_ops;
 mod daily_note_types;
 mod daily_summary_ops;
 mod daily_summary_types;
+mod prompt_override_ops;
+mod prompt_override_types;
 
 pub use activity_ops::*;
 pub use activity_types::*;
@@ -13,6 +15,8 @@ pub use daily_note_ops::*;
 pub use daily_note_types::*;
 pub use daily_summary_ops::*;
 pub use daily_summary_types::*;
+pub use prompt_override_ops::*;
+pub use prompt_override_types::*;
 
 use sqlx::SqlitePool;
 
@@ -53,6 +57,7 @@ mod tests {
                 "activity_screenshots",
                 "daily_notes",
                 "daily_summaries",
+                "prompt_overrides",
             ]
         );
     }
@@ -220,6 +225,87 @@ mod tests {
 
         delete_daily_summary(db.pool(), "ds1").await.unwrap();
         assert!(get_daily_summary(db.pool(), "ds1").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn prompt_override_roundtrip() {
+        let db = test_db().await;
+
+        upsert_prompt_override(
+            db.pool(),
+            UpsertPromptOverride {
+                task_type: "enhance",
+                content: "# Context",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_prompt_override(db.pool(), "enhance")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.task_type, "enhance");
+        assert_eq!(row.content, "# Context");
+
+        let rows = list_prompt_overrides(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].task_type, "enhance");
+    }
+
+    #[tokio::test]
+    async fn prompt_override_upsert_replaces_existing_row() {
+        let db = test_db().await;
+
+        upsert_prompt_override(
+            db.pool(),
+            UpsertPromptOverride {
+                task_type: "title",
+                content: "first",
+            },
+        )
+        .await
+        .unwrap();
+
+        upsert_prompt_override(
+            db.pool(),
+            UpsertPromptOverride {
+                task_type: "title",
+                content: "second",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_prompt_override(db.pool(), "title")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.content, "second");
+        assert_eq!(list_prompt_overrides(db.pool()).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn prompt_override_delete_removes_row() {
+        let db = test_db().await;
+
+        upsert_prompt_override(
+            db.pool(),
+            UpsertPromptOverride {
+                task_type: "enhance",
+                content: "value",
+            },
+        )
+        .await
+        .unwrap();
+
+        delete_prompt_override(db.pool(), "enhance").await.unwrap();
+        assert!(
+            get_prompt_override(db.pool(), "enhance")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[tokio::test]
