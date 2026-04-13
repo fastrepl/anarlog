@@ -27,18 +27,21 @@ export function PostHogProvider({
       typeof window === "undefined" ||
       !enabled ||
       !env.VITE_POSTHOG_API_KEY ||
-      isDev ||
-      didInitRef.current
+      isDev
     ) {
+      setIsInitialized(false);
       return;
     }
 
-    posthog.init(env.VITE_POSTHOG_API_KEY, {
-      api_host: env.VITE_POSTHOG_HOST,
-      autocapture: true,
-      capture_pageview: true,
-    });
-    didInitRef.current = true;
+    if (!didInitRef.current) {
+      posthog.init(env.VITE_POSTHOG_API_KEY, {
+        api_host: env.VITE_POSTHOG_HOST,
+        autocapture: true,
+        capture_pageview: true,
+      });
+      didInitRef.current = true;
+    }
+
     setIsInitialized(true);
   }, [enabled]);
 
