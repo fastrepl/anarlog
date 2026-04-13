@@ -130,8 +130,7 @@ export function ProfileMenu() {
                 {menuItems.map((item, index) => (
                   <div key={item.label}>
                     <MenuItem {...item} />
-                    {(index === (isPro ? 2 : 1) ||
-                      index === (isPro ? 4 : 3)) && (
+                    {index === (isPro ? 2 : 1) && (
                       <div className="my-1 border-t border-neutral-100" />
                     )}
                   </div>
