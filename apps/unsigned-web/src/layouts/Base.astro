@@ -22,11 +22,28 @@ const url = "https://unsigned.char.com";
     />
     <style>html { background: #fff }</style>
   </head>
-  <body>
-    <main
-      class="flex min-h-screen w-full items-center justify-center bg-white py-12 font-mono text-neutral-950"
-    >
-      <slot />
-    </main>
+  <body class="min-h-screen bg-white">
+    <div class="flex min-h-screen flex-col">
+      <div
+        class="w-full border-b border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-mono text-sm text-neutral-700"
+      >
+        Unsigned Char is an on-device version of
+        <a
+          href="https://char.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="underline decoration-neutral-700 decoration-[1.5px] underline-offset-4"
+        >
+          Char
+        </a>
+        that is free for everyone to use.
+      </div>
+
+      <main
+        class="flex flex-1 w-full items-center justify-center bg-white py-12 font-mono text-neutral-950"
+      >
+        <slot />
+      </main>
+    </div>
   </body>
 </html>
