@@ -1,0 +1,61 @@
+---
+layout: "../layouts/Base.astro"
+---
+
+import Brand from "../components/Brand.astro";
+import Byline from "../components/Byline.astro";
+import Command from "../components/Command.astro";
+import Faq from "../components/Faq.astro";
+import GithubMention from "../components/GithubMention.astro";
+import LinkCard from "../components/LinkCard.astro";
+import Title from "../components/Title.astro";
+
+<Brand stagger={1} />
+<Title stagger={2}>Unsigned Char keeps the repo, releases, and feedback loop one click away.</Title>
+<Byline stagger={3}>Source and updates live in <GithubMention name="@fastrepl/unsigned-char" />.</Byline>
+
+<div class="stagger-4">
+
+## Start Here
+
+Unsigned Char is a small front door for the `fastrepl/unsigned-char` project. The page keeps the same terminal-forward feel as `cli-web`, but trims the content down to the few paths people actually need first.
+
+<Command command="git clone https://github.com/fastrepl/unsigned-char.git" label="Clone the repo locally." />
+
+<Command command="cd unsigned-char" label="Jump straight into the project root." />
+
+## Explore
+
+<LinkCard
+  href="https://github.com/fastrepl/unsigned-char"
+  label="source"
+  meta="Browse the code, README, and current branch activity."
+/>
+
+<LinkCard
+  href="https://github.com/fastrepl/unsigned-char/releases"
+  label="releases"
+  meta="Track tagged builds and published release notes."
+/>
+
+<LinkCard
+  href="https://github.com/fastrepl/unsigned-char/issues"
+  label="issues"
+  meta="Follow open work or file feedback without hunting through the monorepo."
+/>
+
+## Notes
+
+- Same visual language as `apps/cli-web`.
+- Separate entry point for `unsigned-char`.
+- Intentionally small until the repo needs more public-facing detail.
+
+<Faq question="Why keep this page this small?">
+The repository should stay the source of truth. The landing page only needs to make the important paths obvious and fast.
+</Faq>
+
+<Faq question="Can this grow later?">
+Yes. Add docs, install detail, or release notes here once `unsigned-char` has stable user-facing behavior worth publishing.
+</Faq>
+
+</div>

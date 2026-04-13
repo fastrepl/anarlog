@@ -1,0 +1,11 @@
+---
+interface Props {
+  stagger?: number;
+}
+
+const { stagger } = Astro.props;
+---
+
+<p class:list={[stagger && `stagger-${stagger}`, "mt-1.5 text-xs text-neutral-600"]}>
+  <slot />
+</p>

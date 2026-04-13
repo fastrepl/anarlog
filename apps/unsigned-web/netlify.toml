@@ -1,0 +1,9 @@
+[build]
+base = "apps/unsigned-web"
+command = "pnpm build"
+publish = "dist"
+
+[[redirects]]
+from = "/*"
+to = "/"
+status = 200
