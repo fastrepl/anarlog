@@ -124,7 +124,9 @@ function Component() {
                 {/* Mobile top bar spacer */}
                 <div
                   className="xl:hidden"
-                  style={{ height: "calc(3.5rem + var(--announcement-bar-h, 0px))" }}
+                  style={{
+                    height: "calc(3.5rem + var(--announcement-bar-h, 0px))",
+                  }}
                 />
 
                 {/* Sidebar + content in a centered container */}
@@ -333,7 +335,9 @@ function AnnouncementBanner() {
           "transition-colors hover:bg-stone-700",
         ])}
       >
-        <span>Hyprnote is now <strong>Char</strong>.</span>
+        <span>
+          Hyprnote is now <strong>Char</strong>.
+        </span>
         <button
           type="button"
           onClick={(e) => {
