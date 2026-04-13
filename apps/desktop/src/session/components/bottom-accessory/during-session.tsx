@@ -4,6 +4,7 @@ import { useMemo, useRef } from "react";
 import { cn } from "@hypr/utils";
 
 import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
+import { useAutoScroll } from "~/session/components/note-input/transcript/renderer/viewport-hooks";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
@@ -82,7 +83,6 @@ function LiveTranscriptFooter({
     return SpeakerLabelManager.fromSegments(segments, labelContext);
   }, [labelContext, segments, store]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
   const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
 
   return (
@@ -94,7 +94,6 @@ function LiveTranscriptFooter({
           <LiveTranscriptContent
             isExpanded={isExpanded}
             previewText={previewText}
-            scrollRef={scrollRef}
             segments={segments}
             labelContext={labelContext}
             speakerLabelManager={speakerLabelManager}
@@ -124,18 +123,19 @@ function RecordOnlyFooter({
 function LiveTranscriptContent({
   isExpanded,
   previewText,
-  scrollRef,
   segments,
   labelContext,
   speakerLabelManager,
 }: {
   isExpanded: boolean;
   previewText: string | null;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
   segments: Segment[];
   labelContext: ReturnType<typeof defaultRenderLabelContext> | undefined;
   speakerLabelManager: SpeakerLabelManager;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useAutoScroll(scrollRef, [segments, isExpanded], isExpanded);
+
   if (!isExpanded) {
     return <CollapsedFooterMessage message={previewText ?? "Listening..."} />;
   }

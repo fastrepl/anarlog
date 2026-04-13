@@ -7,6 +7,16 @@ import {
   useState,
 } from "react";
 
+const AUTO_SCROLL_THRESHOLD = 80;
+
+function isNearBottom(
+  element: HTMLElement,
+  scrollHeight = element.scrollHeight,
+) {
+  return scrollHeight - element.scrollTop - element.clientHeight <
+    AUTO_SCROLL_THRESHOLD;
+}
+
 export function useScrollDetection(
   containerRef: RefObject<HTMLDivElement | null>,
 ) {
@@ -78,20 +88,12 @@ export function useAutoScroll(
       return;
     }
 
-    lastHeightRef.current = element.scrollHeight;
-
-    const isPinned = () => {
-      const distanceToBottom =
-        element.scrollHeight - element.scrollTop - element.clientHeight;
-      return distanceToBottom < 80;
-    };
-
     const flush = () => {
       element.scrollTop = element.scrollHeight;
     };
 
-    const schedule = (force = false) => {
-      if (!force && (!enabled || !isPinned())) {
+    const schedule = () => {
+      if (!enabled) {
         return;
       }
 
@@ -106,18 +108,25 @@ export function useAutoScroll(
 
     if (initialFlushRef.current) {
       initialFlushRef.current = false;
-      schedule(true);
-    } else {
+      schedule();
+    } else if (isNearBottom(element, lastHeightRef.current)) {
       schedule();
     }
 
+    lastHeightRef.current = element.scrollHeight;
+
     const resizeObserver = new ResizeObserver(() => {
+      const previousHeight = lastHeightRef.current;
       const nextHeight = element.scrollHeight;
-      if (nextHeight === lastHeightRef.current) {
+      if (nextHeight === previousHeight) {
         return;
       }
+
       lastHeightRef.current = nextHeight;
-      schedule();
+
+      if (isNearBottom(element, previousHeight)) {
+        schedule();
+      }
     });
 
     const targets = new Set<Element>([element]);
