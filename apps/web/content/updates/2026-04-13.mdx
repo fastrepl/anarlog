@@ -1,0 +1,52 @@
+---
+title: "Char Weekly: April 13, 2026"
+date: "2026-04-13"
+---
+
+Two stable desktop releases shipped this week — v1.0.21 and v1.0.22. Local speech-to-text models returned, recording gained a record-only mode, transcription picked up new providers and smarter fallback behavior, and the window learned to resize itself around sidebars and panels.
+
+## Local STT models are back
+
+Desktop v1.0.21 restores local speech-to-text with Parakeet V3 and Whisper Small. Local processing now runs in batch mode only, so transcription happens after the meeting rather than during it. Error reporting for failed model downloads was also improved, so you get a clearer message if something goes wrong during setup.
+
+## Record now, transcribe later
+
+A new record-only mode in v1.0.21 lets you capture a meeting without transcribing it on the spot. You can come back to the session view afterward and run transcription when you are ready — useful when you want to keep CPU and network quiet during a call.
+
+## Transcription provider improvements
+
+AssemblyAI live and batch transcription were significantly improved in v1.0.21 with better diarization and language handling, and a bug sending unsupported language codes to Deepgram was fixed. Audio downmix for non-mono microphones was also corrected.
+
+Desktop v1.0.22 goes further: providers and models that do not support live transcription now fall back to batch capture automatically. OpenAI and Pyannote were added as new batch-mode providers. Diarized OpenAI results use the mixed-capture channel consistently, which improves speaker labeling downstream. Direct-mic transcripts with provider-supplied speaker indices are no longer mislabeled as the local speaker. Very short captures are also no longer discarded just for missing an old duration threshold — post-capture handling now keys off usable transcript and audio output.
+
+## Smarter window resizing
+
+Desktop v1.0.22 introduced automatic window width management. Opening or closing the left sidebar, right chat panel, or search now expands or restores the window width to fit. `Cmd/Ctrl+W` also closes the desktop window when no tab is open.
+
+## Calendar refresh and sidebar polish
+
+In v1.0.21, connected calendar providers expand automatically in the sidebar on first open, and "Scroll to today" was improved in the main calendar view. Desktop v1.0.22 added a manual refresh button when no calendars are found, and Apple and OAuth calendar selection now support a force-refresh flow that cancels pending sync before running a fresh one. Calendar sidebar rows were restyled with clearer borders, spacing, and hover states. The same refreshable calendar picker is available during onboarding.
+
+## Ad-hoc sessions
+
+The Home header's record control was replaced in v1.0.22 with a compact ad-hoc session button. Starting an ad-hoc session now creates a session immediately, adds you as a participant, titles it from the current time, and opens it with auto-start capture enabled.
+
+## Transcript, chat, and editor UI
+
+Desktop v1.0.21 overhauled the transcript and chat panel layout inside sessions. A chat call-to-action now appears after a completed meeting, the floating chat backdrop was removed, and the send-button shortcut label was dropped for a cleaner composer. A new formatting toolbar for text selection in notes (bold, italic, and more) was added, and undo with Mod+Z works correctly again in inputs.
+
+## Other improvements
+
+- Template editor controls polished, tags rendered inline, and author byline displayed inline (v1.0.21)
+- Free plan templates correctly marked as included (v1.0.21)
+- Refreshed onboarding UI with updated calendar and permissions steps (v1.0.21)
+- Pricing tooltips added for in-progress plan features (v1.0.21)
+- Session titles fade when overflowing the tab header (v1.0.21)
+- Scroll fades switched to CSS masks for smoother rendering (v1.0.21)
+- LLM provider dropdown now allows selecting unconfigured providers (v1.0.21)
+- Spoken language settings merged into Language & Region in app settings (v1.0.21)
+- Microphone device enumeration hardened to avoid panics on problematic device lists (v1.0.22)
+- The large update banner now appears only on the Home surface instead of every tab (v1.0.22)
+- Update actions show an installing state and prevent repeated clicks while applying (v1.0.22)
+
+Full version details on the [changelog](/changelog).
