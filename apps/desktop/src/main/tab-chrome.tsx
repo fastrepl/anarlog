@@ -123,7 +123,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
     <div
       data-tauri-drag-region
       className={cn([
-        "flex h-8 w-full items-center",
+        "flex h-12 w-full items-center",
         isSidebarHidden && (isLinux ? "pl-3" : "pl-20"),
       ])}
       data-testid="main-tab-chrome"
@@ -205,7 +205,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
             axis="x"
             values={regularTabs}
             onReorder={reorder}
-            className="flex h-full w-max gap-1"
+            className="flex h-full w-max items-center gap-1"
           >
             {regularTabs.map((tab, index) => {
               const isLastTab = index === regularTabs.length - 1;
@@ -228,7 +228,7 @@ export function ClassicMainTabChrome({ tabs }: { tabs: Tab[] }) {
                   as="div"
                   ref={(el) => setTabRef(tab, el)}
                   style={{ position: "relative" }}
-                  className="z-10 h-full"
+                  className="z-10 flex h-full items-center"
                   transition={{ layout: { duration: 0.15 } }}
                 >
                   <ClassicMainTabItem

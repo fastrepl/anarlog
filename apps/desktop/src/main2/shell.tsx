@@ -180,7 +180,7 @@ export function Main2Shell() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region
-          className="flex h-8 w-full min-w-0 shrink-0 items-center gap-1 pr-1 pl-3"
+          className="flex h-12 w-full min-w-0 shrink-0 items-center gap-1 pr-1 pl-3"
         >
           <div
             className={cn([
@@ -240,7 +240,7 @@ export function Main2Shell() {
                 axis="x"
                 values={tabs}
                 onReorder={reorder}
-                className="flex h-full w-max gap-1"
+                className="flex h-full w-max items-center gap-1"
               >
                 {tabs.map((tab) => (
                   <Reorder.Item
@@ -249,7 +249,7 @@ export function Main2Shell() {
                     as="div"
                     ref={(el) => setTabRef(tab, el)}
                     style={{ position: "relative" }}
-                    className="z-10 h-full"
+                    className="z-10 flex h-full items-center"
                     transition={{ layout: { duration: 0.15 } }}
                   >
                     <MainTabItem

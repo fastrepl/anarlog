@@ -275,7 +275,7 @@ export function TabItemBase({
     <div
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative h-full"
+      className="relative h-9"
     >
       <InteractiveButton
         asChild
@@ -284,7 +284,7 @@ export function TabItemBase({
         onMouseDown={handleMouseDown}
         className={cn([
           "relative flex items-center gap-1",
-          "h-full w-[160px] px-2",
+          "h-9 w-[160px] px-2",
           "rounded-xl border",
           "group cursor-pointer",
           "transition-colors duration-200",
