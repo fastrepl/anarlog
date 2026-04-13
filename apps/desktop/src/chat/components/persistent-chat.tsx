@@ -24,7 +24,18 @@ export function PersistentChatPanel({
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
   const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
-  const activeContainerRef = isPanel ? panelContainerRef : floatingContainerRef;
+
+  const getActiveContainer = () => {
+    if (isPanel) {
+      return panelContainerRef.current;
+    }
+
+    return (
+      floatingContainerRef.current?.querySelector<HTMLDivElement>(
+        "[data-chat-floating-anchor]",
+      ) ?? floatingContainerRef.current
+    );
+  };
 
   useEffect(() => {
     if (isVisible && !hasBeenOpened) {
@@ -57,17 +68,17 @@ export function PersistentChatPanel({
   );
 
   useLayoutEffect(() => {
-    const container = activeContainerRef.current;
+    const container = getActiveContainer();
 
     if (!isVisible || !container) {
       setContainerRect(null);
       return;
     }
     setContainerRect(container.getBoundingClientRect());
-  }, [activeContainerRef, isVisible]);
+  }, [isVisible, isPanel, panelContainerRef, floatingContainerRef]);
 
   useEffect(() => {
-    const container = activeContainerRef.current;
+    const container = getActiveContainer();
 
     if (!isVisible || !container) {
       if (observerRef.current) {
@@ -84,13 +95,15 @@ export function PersistentChatPanel({
     observerRef.current = new ResizeObserver(updateRect);
     observerRef.current.observe(container);
     window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
 
     return () => {
       observerRef.current?.disconnect();
       observerRef.current = null;
       window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
     };
-  }, [activeContainerRef, isVisible]);
+  }, [isVisible, isPanel, panelContainerRef, floatingContainerRef]);
 
   if (!hasBeenOpened) {
     return null;
