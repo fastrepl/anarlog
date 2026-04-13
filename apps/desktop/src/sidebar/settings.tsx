@@ -30,6 +30,25 @@ type SettingsNavItem =
     };
 
 function getBaseGroups() {
+  const aiItems: SettingsNavItem[] = [
+    { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
+    { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
+    { id: "memory", label: "Memory", icon: BrainIcon },
+    {
+      action: "open-templates",
+      label: "Templates",
+      icon: BookText,
+    },
+  ];
+
+  if (import.meta.env.DEV) {
+    aiItems.push({
+      action: "open-prompts",
+      label: "Prompts",
+      icon: SparklesIcon,
+    });
+  }
+
   return [
     {
       label: "General",
@@ -42,21 +61,7 @@ function getBaseGroups() {
     },
     {
       label: "AI",
-      items: [
-        { id: "transcription", label: "Transcription", icon: AudioLinesIcon },
-        { id: "intelligence", label: "Intelligence", icon: SparklesIcon },
-        { id: "memory", label: "Memory", icon: BrainIcon },
-        {
-          action: "open-templates",
-          label: "Templates",
-          icon: BookText,
-        },
-        {
-          action: "open-prompts",
-          label: "Prompts",
-          icon: SparklesIcon,
-        },
-      ],
+      items: aiItems,
     },
     {
       label: "Lab",
