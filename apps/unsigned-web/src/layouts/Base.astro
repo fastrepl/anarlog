@@ -19,29 +19,23 @@ const url = "https://unsigned.char.com";
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif&display=swap"
       rel="stylesheet"
     />
     <style>html { background: #fff }</style>
   </head>
   <body class="min-h-screen bg-white">
     <div class="flex min-h-screen flex-col">
-      <div
-        class="w-full border-b border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-serif text-base text-neutral-700"
+      <a
+        href="https://char.com"
+        aria-label="Open char.com"
+        class="w-full border-b border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-mono text-sm text-neutral-700"
       >
-        <span>Unsigned Char is an on-device version of </span>
-        <a
-          href="https://char.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="underline decoration-neutral-700 decoration-[1.5px] underline-offset-4"
-          >Char</a
-        >
-        <span> that is free for everyone to use.</span>
-      </div>
+        <span>Unsigned Char is an on-device version of Char that is free for everyone to use.</span>
+      </a>
 
       <main
-        class="flex w-full flex-1 items-center justify-center bg-white py-12 font-serif text-neutral-950"
+        class="flex flex-1 w-full items-center justify-center bg-white py-12 font-mono text-neutral-950"
       >
         <slot />
       </main>
