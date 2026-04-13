@@ -346,7 +346,7 @@ export function SessionPreviewCard({
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
           onMouseEnter={handleMouseEnter}
-          className={side === "bottom" ? "h-full" : ""}
+          className={side === "bottom" ? "flex h-full items-center" : ""}
         >
           {children}
         </div>

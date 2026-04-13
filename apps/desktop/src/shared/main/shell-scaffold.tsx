@@ -11,7 +11,7 @@ export function MainShellScaffold({ children }: { children: React.ReactNode }) {
   return (
     <SyncWrapper>
       <div
-        className="flex h-full gap-1 overflow-hidden bg-stone-50 p-1"
+        className="flex h-full gap-1 overflow-hidden bg-stone-50 px-1 pb-1"
         data-testid="main-app-shell"
       >
         {children}

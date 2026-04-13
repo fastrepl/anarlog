@@ -65,7 +65,7 @@ export function LeftSidebar() {
         data-tauri-drag-region
         className={cn([
           "flex flex-row items-center",
-          "h-9 w-full py-1",
+          "h-10 w-full",
           isLinux ? "justify-between pl-3" : "justify-end pl-20",
           "shrink-0",
         ])}

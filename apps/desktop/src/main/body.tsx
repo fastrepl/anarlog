@@ -18,9 +18,9 @@ export function ClassicMainBody() {
   }
 
   return (
-    <div className="relative flex h-full flex-1 flex-col gap-1">
+    <div className="relative flex h-full flex-1 flex-col">
       <ClassicMainTabChrome tabs={tabs} />
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         <ClassicMainTabContent
           key={uniqueIdfromTab(currentTab)}
           tab={currentTab as Tab}

@@ -180,7 +180,7 @@ export function Main2Shell() {
       <div className="flex h-full min-w-0 flex-1 flex-col">
         <div
           data-tauri-drag-region
-          className="flex h-12 w-full min-w-0 shrink-0 items-center gap-1 pr-1 pl-3"
+          className="flex h-10 w-full min-w-0 shrink-0 items-center gap-1 pr-1 pl-3"
         >
           <div
             className={cn([
