@@ -5,18 +5,24 @@ export function SessionSurface({
   title,
   children,
   afterBorder,
+  bottomBorderHandle,
   floatingButton,
+  mergeAfterBorder,
 }: {
   header?: React.ReactNode;
   title?: React.ReactNode;
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
+  bottomBorderHandle?: React.ReactNode;
   floatingButton?: React.ReactNode;
+  mergeAfterBorder?: boolean;
 }) {
   return (
     <StandardTabWrapper
       afterBorder={afterBorder}
+      bottomBorderHandle={bottomBorderHandle}
       floatingButton={floatingButton}
+      mergeAfterBorder={mergeAfterBorder}
     >
       <div className="flex h-full flex-col">
         {header ? <div className="pr-1 pl-2">{header}</div> : null}

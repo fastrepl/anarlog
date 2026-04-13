@@ -125,7 +125,7 @@ const SegmentsList = memo(
         {segments.map((segment, index) => (
           <div
             key={createSegmentKey(segment, transcriptId, index)}
-            className={cn([index > 0 && "pt-8"])}
+            className={cn([index > 0 && "pt-4"])}
           >
             <SegmentRenderer
               segment={segment}

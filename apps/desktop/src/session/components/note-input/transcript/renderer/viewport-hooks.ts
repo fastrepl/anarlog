@@ -46,6 +46,7 @@ export function useScrollDetection(
     };
 
     element.addEventListener("scroll", handleScroll);
+    handleScroll();
     return () => element.removeEventListener("scroll", handleScroll);
   }, [containerRef]);
 

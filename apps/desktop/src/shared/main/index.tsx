@@ -16,26 +16,41 @@ export { useScrollActiveTabIntoView } from "./tab-scroll";
 export function StandardTabWrapper({
   children,
   afterBorder,
+  bottomBorderHandle,
   floatingButton,
   noBorder = false,
 }: {
   children: React.ReactNode;
   afterBorder?: React.ReactNode;
+  bottomBorderHandle?: React.ReactNode;
   floatingButton?: React.ReactNode;
   noBorder?: boolean;
 }) {
   return (
     <div className="flex h-full flex-col">
-      <div
-        className={cn([
-          "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white",
-          !noBorder && "border border-neutral-200",
-        ])}
-      >
-        {children}
-        {floatingButton}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          className={cn([
+            "relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl bg-white",
+            !noBorder && "border border-neutral-200",
+          ])}
+        >
+          {children}
+          {floatingButton}
+        </div>
+        {bottomBorderHandle ? (
+          <div className="pointer-events-none absolute right-0 bottom-0 left-0 z-20">
+            <div className="pointer-events-auto relative">
+              {bottomBorderHandle}
+            </div>
+          </div>
+        ) : null}
       </div>
-      {afterBorder && <div className="mt-1">{afterBorder}</div>}
+      {afterBorder ? (
+        <div className={cn([bottomBorderHandle ? "pt-[10px]" : "mt-1"])}>
+          {afterBorder}
+        </div>
+      ) : null}
     </div>
   );
 }

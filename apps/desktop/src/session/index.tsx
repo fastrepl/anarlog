@@ -191,12 +191,13 @@ function TabContentNoteInner({
   useAutoFocusTitle({ sessionId, titleInputRef });
   usePendingUpload(sessionId);
 
-  const { bottomAccessory, bottomAccessoryState } = useSessionBottomAccessory({
-    sessionId,
-    sessionMode,
-    audioUrl,
-    hasTranscript,
-  });
+  const { bottomAccessory, bottomBorderHandle, bottomAccessoryState } =
+    useSessionBottomAccessory({
+      sessionId,
+      sessionMode,
+      audioUrl,
+      hasTranscript,
+    });
 
   const handleNavigateToTitle = React.useCallback((pixelWidth?: number) => {
     if (pixelWidth !== undefined) {
@@ -240,6 +241,7 @@ function TabContentNoteInner({
         />
       }
       afterBorder={bottomAccessory}
+      bottomBorderHandle={bottomBorderHandle}
       floatingButton={<FloatingActionButton tab={tab} />}
     >
       <NoteInput

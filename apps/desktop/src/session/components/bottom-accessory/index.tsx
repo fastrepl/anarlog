@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { DuringSessionAccessory } from "./during-session";
+import { ExpandToggle } from "./expand-toggle";
 import { PostSessionAccessory } from "./post-session";
 
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -23,6 +24,7 @@ export function useSessionBottomAccessory({
   hasTranscript: boolean;
 }): {
   bottomAccessory: ReactNode;
+  bottomBorderHandle: ReactNode;
   bottomAccessoryState: BottomAccessoryState;
 } {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -75,11 +77,16 @@ export function useSessionBottomAccessory({
           sessionId={sessionId}
           isFinalizing={isFinalizing}
           isExpanded={effectiveExpanded}
-          onToggleExpand={
-            canExpandLiveTranscript ? () => setIsExpanded((v) => !v) : undefined
-          }
         />
       ),
+      bottomBorderHandle:
+        canExpandLiveTranscript && !isFinalizing ? (
+          <ExpandToggle
+            isExpanded={effectiveExpanded}
+            onToggle={() => setIsExpanded((v) => !v)}
+            label="Live"
+          />
+        ) : null,
       bottomAccessoryState,
     };
   }
@@ -92,7 +99,14 @@ export function useSessionBottomAccessory({
           hasAudio={hasAudio}
           hasTranscript={hasTranscript}
           isTranscriptExpanded={isExpanded}
-          onToggleTranscript={() => setIsExpanded((v) => !v)}
+        />
+      ),
+      bottomBorderHandle: (
+        <ExpandToggle
+          isExpanded={isExpanded}
+          onToggle={() => setIsExpanded((v) => !v)}
+          label="Transcript"
+          showExpandedCloseIcon
         />
       ),
       bottomAccessoryState,
@@ -101,6 +115,7 @@ export function useSessionBottomAccessory({
 
   return {
     bottomAccessory: null,
+    bottomBorderHandle: null,
     bottomAccessoryState,
   };
 }

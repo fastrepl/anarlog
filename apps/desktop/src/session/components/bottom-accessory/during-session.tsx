@@ -3,8 +3,6 @@ import { useMemo, useRef } from "react";
 
 import { cn } from "@hypr/utils";
 
-import { ExpandToggle } from "./expand-toggle";
-
 import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
 import * as main from "~/store/tinybase/store/main";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
@@ -23,12 +21,10 @@ export function DuringSessionAccessory({
   sessionId,
   isFinalizing = false,
   isExpanded = false,
-  onToggleExpand,
 }: {
   sessionId: string;
   isFinalizing?: boolean;
   isExpanded?: boolean;
-  onToggleExpand?: () => void;
 }) {
   if (isFinalizing) {
     return (
@@ -44,23 +40,15 @@ export function DuringSessionAccessory({
     );
   }
 
-  return (
-    <LiveTranscriptFooter
-      sessionId={sessionId}
-      isExpanded={isExpanded}
-      onToggleExpand={onToggleExpand}
-    />
-  );
+  return <LiveTranscriptFooter sessionId={sessionId} isExpanded={isExpanded} />;
 }
 
 function LiveTranscriptFooter({
   sessionId,
   isExpanded = false,
-  onToggleExpand,
 }: {
   sessionId: string;
   isExpanded?: boolean;
-  onToggleExpand?: () => void;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
   const segments = useLiveTranscriptSegments(sessionId);
@@ -98,15 +86,7 @@ function LiveTranscriptFooter({
   const previewText = useMemo(() => getTranscriptPreview(segments), [segments]);
 
   return (
-    <div className="relative w-full pt-3 select-none">
-      {mode.kind === "live" && onToggleExpand && (
-        <ExpandToggle
-          isExpanded={isExpanded}
-          onToggle={onToggleExpand}
-          label="Live"
-        />
-      )}
-
+    <div className="w-full select-none">
       <div className="rounded-xl bg-neutral-50">
         {mode.kind === "record_only" ? (
           <RecordOnlyFooter isFallbackFromLive={mode.isFallbackFromLive} />

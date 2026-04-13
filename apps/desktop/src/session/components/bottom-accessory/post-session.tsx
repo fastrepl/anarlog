@@ -1,5 +1,11 @@
-import { Pencil, RefreshCw, SquareIcon } from "lucide-react";
-import { useCallback, useRef } from "react";
+import {
+  Loader2Icon,
+  Pencil,
+  RefreshCw,
+  SquareIcon,
+  TrashIcon,
+} from "lucide-react";
+import { type ReactNode, useCallback, useRef } from "react";
 
 import { commands as fsSyncCommands } from "@hypr/plugin-fs-sync";
 import { Button } from "@hypr/ui/components/ui/button";
@@ -10,8 +16,6 @@ import {
   TooltipTrigger,
 } from "@hypr/ui/components/ui/tooltip";
 import { cn } from "@hypr/utils";
-
-import { ExpandToggle } from "./expand-toggle";
 
 import * as AudioPlayer from "~/audio-player";
 import { Transcript } from "~/session/components/note-input/transcript";
@@ -25,30 +29,51 @@ export function PostSessionAccessory({
   hasAudio,
   hasTranscript,
   isTranscriptExpanded,
-  onToggleTranscript,
 }: {
   sessionId: string;
   hasAudio: boolean;
   hasTranscript: boolean;
   isTranscriptExpanded: boolean;
-  onToggleTranscript: () => void;
 }) {
   const screen = useTranscriptScreen({ sessionId });
+  const hasTranscriptPanel = isTranscriptExpanded;
+  const timeline =
+    screen.kind === "running_batch" ? (
+      <BatchProgressTimeline sessionId={sessionId} screen={screen} />
+    ) : hasAudio ? (
+      <AudioPlayer.Timeline />
+    ) : null;
+
+  if (!hasTranscriptPanel && !timeline) {
+    return null;
+  }
+
+  const shouldBalanceCollapsedTimeline =
+    !hasTranscriptPanel && Boolean(timeline);
 
   return (
-    <div className="flex flex-col gap-1">
-      <TranscriptPanel
-        sessionId={sessionId}
-        screen={screen}
-        hasTranscript={hasTranscript}
-        isExpanded={isTranscriptExpanded}
-        onToggleExpand={onToggleTranscript}
-      />
-      {screen.kind === "running_batch" ? (
-        <BatchProgressTimeline sessionId={sessionId} screen={screen} />
-      ) : hasAudio ? (
-        <AudioPlayer.Timeline />
+    <div
+      className={cn([
+        "flex flex-col",
+        isTranscriptExpanded && "gap-1",
+        shouldBalanceCollapsedTimeline && "relative -mt-[6px] pb-1",
+      ])}
+    >
+      {shouldBalanceCollapsedTimeline ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-[-4px] right-0 left-0 h-px bg-neutral-50"
+        />
       ) : null}
+      {hasTranscriptPanel ? (
+        <TranscriptPanel
+          sessionId={sessionId}
+          screen={screen}
+          hasTranscript={hasTranscript}
+          isExpanded={isTranscriptExpanded}
+        />
+      ) : null}
+      {timeline}
     </div>
   );
 }
@@ -58,13 +83,11 @@ function TranscriptPanel({
   screen,
   hasTranscript,
   isExpanded,
-  onToggleExpand,
 }: {
   sessionId: string;
   screen: ReturnType<typeof useTranscriptScreen>;
   hasTranscript: boolean;
   isExpanded: boolean;
-  onToggleExpand: () => void;
 }) {
   if (screen.kind === "running_batch") {
     return (
@@ -73,28 +96,17 @@ function TranscriptPanel({
         screen={screen}
         hasTranscript={hasTranscript}
         isExpanded={isExpanded}
-        onToggleExpand={onToggleExpand}
       />
     );
   }
 
   if (hasTranscript) {
     return (
-      <TranscriptReadyPanel
-        sessionId={sessionId}
-        isExpanded={isExpanded}
-        onToggleExpand={onToggleExpand}
-      />
+      <TranscriptReadyPanel sessionId={sessionId} isExpanded={isExpanded} />
     );
   }
 
-  return (
-    <TranscriptEmptyPanel
-      sessionId={sessionId}
-      isExpanded={isExpanded}
-      onToggleExpand={onToggleExpand}
-    />
-  );
+  return <TranscriptEmptyPanel sessionId={sessionId} isExpanded={isExpanded} />;
 }
 
 function useRegenerateTranscript(sessionId: string) {
@@ -124,7 +136,6 @@ function BatchingTranscriptPanel({
   screen,
   hasTranscript,
   isExpanded,
-  onToggleExpand,
 }: {
   sessionId: string;
   screen: {
@@ -134,7 +145,6 @@ function BatchingTranscriptPanel({
   };
   hasTranscript: boolean;
   isExpanded: boolean;
-  onToggleExpand: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const stopTranscription = useListener((state) => state.stopTranscription);
@@ -145,54 +155,46 @@ function BatchingTranscriptPanel({
   const phaseLabel = phase === "importing" ? "Importing..." : "Transcribing...";
   const canStopTranscription = phase !== "importing";
 
+  if (!isExpanded) {
+    return null;
+  }
+
   return (
-    <div className="relative w-full pt-1 select-none">
-      <ExpandToggle
-        isExpanded={isExpanded}
-        onToggle={onToggleExpand}
-        label="Transcript"
-      />
-
-      {isExpanded && (
-        <div className="rounded-xl bg-neutral-50">
-          <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-200 bg-neutral-100 px-3 py-1.5">
-            <span className="text-xs font-medium text-neutral-500">
-              Transcript
-            </span>
-            <div className="flex items-center gap-1 px-1 py-0.5">
-              <Spinner size={10} />
-              <span className="text-[11px] text-neutral-500">
-                {phaseLabel}
-                {typeof percentage === "number" && percentage > 0 && (
-                  <span className="ml-1 text-neutral-400 tabular-nums">
-                    {Math.round(percentage * 100)}%
-                  </span>
-                )}
+    <TranscriptCard>
+      <div className="flex items-center justify-between px-3 py-1.5">
+        <span className="text-xs font-medium text-neutral-500">Transcript</span>
+        <div className="flex items-center gap-1 px-1 py-0.5">
+          <Spinner size={10} />
+          <span className="text-[11px] text-neutral-500">
+            {phaseLabel}
+            {typeof percentage === "number" && percentage > 0 && (
+              <span className="ml-1 text-neutral-400 tabular-nums">
+                {Math.round(percentage * 100)}%
               </span>
-              {canStopTranscription ? (
-                <StopTranscriptionButton onClick={handleStop} compact />
-              ) : null}
-            </div>
-          </div>
+            )}
+          </span>
+          {canStopTranscription ? (
+            <StopTranscriptionButton onClick={handleStop} compact />
+          ) : null}
+        </div>
+      </div>
 
-          {hasTranscript ? (
-            <div className="h-[300px] overflow-y-auto px-3">
-              <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-            </div>
-          ) : (
-            <div className="flex h-[120px] flex-col items-center justify-center gap-2">
-              <Spinner size={24} />
-              {typeof percentage === "number" && percentage > 0 && (
-                <p className="text-xl font-medium text-neutral-500 tabular-nums">
-                  {Math.round(percentage * 100)}%
-                </p>
-              )}
-              <p className="text-sm text-neutral-400">{phaseLabel}</p>
-            </div>
+      {hasTranscript ? (
+        <div className="h-[300px] overflow-y-auto px-3">
+          <Transcript sessionId={sessionId} scrollRef={scrollRef} />
+        </div>
+      ) : (
+        <div className="flex h-[120px] flex-col items-center justify-center gap-2">
+          <Spinner size={24} />
+          {typeof percentage === "number" && percentage > 0 && (
+            <p className="text-xl font-medium text-neutral-500 tabular-nums">
+              {Math.round(percentage * 100)}%
+            </p>
           )}
+          <p className="text-sm text-neutral-400">{phaseLabel}</p>
         </div>
       )}
-    </div>
+    </TranscriptCard>
   );
 }
 
@@ -293,81 +295,90 @@ function StopTranscriptionButton({
 function TranscriptReadyPanel({
   sessionId,
   isExpanded,
-  onToggleExpand,
 }: {
   sessionId: string;
   isExpanded: boolean;
-  onToggleExpand: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const regenerate = useRegenerateTranscript(sessionId);
+  const { audioExists, deleteRecording, isDeletingRecording } =
+    AudioPlayer.useAudioPlayer();
+
+  if (!isExpanded) {
+    return null;
+  }
 
   return (
-    <div className="relative w-full pt-1 select-none">
-      <ExpandToggle
-        isExpanded={isExpanded}
-        onToggle={onToggleExpand}
-        label="Transcript"
-      />
-
-      {isExpanded && (
-        <div className="rounded-xl bg-neutral-50">
-          <div className="flex items-center justify-between rounded-t-xl border-b border-neutral-200 bg-neutral-100 px-3 py-1.5">
-            <span className="text-xs font-medium text-neutral-500">
-              Transcript
-            </span>
-            <div className="flex items-center gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    disabled
-                    className={cn([
-                      "flex items-center gap-1 rounded px-1.5 py-0.5",
-                      "text-[11px] font-medium text-neutral-300",
-                      "cursor-not-allowed",
-                    ])}
-                  >
-                    <Pencil size={10} />
-                    Edit
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Coming soon</p>
-                </TooltipContent>
-              </Tooltip>
+    <TranscriptCard>
+      <div className="flex items-center justify-between px-3 py-1.5">
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
               <button
                 type="button"
-                onClick={regenerate}
+                disabled
                 className={cn([
                   "flex items-center gap-1 rounded px-1.5 py-0.5",
-                  "text-[11px] font-medium text-neutral-500",
-                  "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
+                  "text-[11px] font-medium text-neutral-300",
+                  "cursor-not-allowed",
                 ])}
               >
-                <RefreshCw size={10} />
-                Regenerate
+                <Pencil size={10} />
+                Edit
               </button>
-            </div>
-          </div>
-
-          <div className="h-[300px] overflow-y-auto px-3">
-            <Transcript sessionId={sessionId} scrollRef={scrollRef} />
-          </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Coming soon</p>
+            </TooltipContent>
+          </Tooltip>
+          <button
+            type="button"
+            onClick={regenerate}
+            className={cn([
+              "flex items-center gap-1 rounded px-1.5 py-0.5",
+              "text-[11px] font-medium text-neutral-500",
+              "transition-colors hover:bg-neutral-200/60 hover:text-neutral-700",
+            ])}
+          >
+            <RefreshCw size={10} />
+            Regenerate
+          </button>
         </div>
-      )}
-    </div>
+        {audioExists ? (
+          <button
+            type="button"
+            onClick={() => void deleteRecording()}
+            disabled={isDeletingRecording}
+            className={cn([
+              "flex items-center gap-1 rounded px-1.5 py-0.5",
+              "text-[11px] font-medium text-red-600",
+              "transition-colors hover:bg-red-50 hover:text-red-700",
+              "disabled:cursor-not-allowed disabled:text-red-300",
+            ])}
+          >
+            {isDeletingRecording ? (
+              <Loader2Icon size={10} className="animate-spin" />
+            ) : (
+              <TrashIcon size={10} />
+            )}
+            {isDeletingRecording ? "Deleting..." : "Delete recording"}
+          </button>
+        ) : null}
+      </div>
+
+      <div className="h-[300px] overflow-y-auto px-3">
+        <Transcript sessionId={sessionId} scrollRef={scrollRef} />
+      </div>
+    </TranscriptCard>
   );
 }
 
 function TranscriptEmptyPanel({
   sessionId,
   isExpanded,
-  onToggleExpand,
 }: {
   sessionId: string;
   isExpanded: boolean;
-  onToggleExpand: () => void;
 }) {
   const screen = useTranscriptScreen({ sessionId });
   const { uploadAudio } = useUploadFile(sessionId);
@@ -376,49 +387,49 @@ function TranscriptEmptyPanel({
   const error = screen.kind === "empty" ? screen.error : null;
   const hasAudio = screen.kind === "empty" ? screen.hasAudio : false;
 
+  if (!isExpanded) {
+    return null;
+  }
+
   return (
-    <div className="relative w-full pt-1 select-none">
-      <ExpandToggle
-        isExpanded={isExpanded}
-        onToggle={onToggleExpand}
-        label="Transcript"
-      />
+    <TranscriptCard>
+      <div className="flex items-center justify-between px-4 py-3">
+        {error ? (
+          <span className="text-xs text-red-500">{error}</span>
+        ) : (
+          <span className="text-xs text-neutral-400">No transcript yet</span>
+        )}
 
-      {isExpanded && (
-        <div className="rounded-xl bg-neutral-50">
-          <div className="flex items-center justify-between px-4 py-3">
-            {error ? (
-              <span className="text-xs text-red-500">{error}</span>
-            ) : (
-              <span className="text-xs text-neutral-400">
-                No transcript yet
-              </span>
-            )}
-
-            <div className="flex items-center gap-1.5">
-              {hasAudio && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1.5 text-xs text-neutral-500"
-                  onClick={regenerate}
-                >
-                  <RefreshCw size={12} />
-                  Generate
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-neutral-500"
-                onClick={uploadAudio}
-              >
-                Upload audio
-              </Button>
-            </div>
-          </div>
+        <div className="flex items-center gap-1.5">
+          {hasAudio && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-xs text-neutral-500"
+              onClick={regenerate}
+            >
+              <RefreshCw size={12} />
+              Generate
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-neutral-500"
+            onClick={uploadAudio}
+          >
+            Upload audio
+          </Button>
         </div>
-      )}
+      </div>
+    </TranscriptCard>
+  );
+}
+
+function TranscriptCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-b-xl border-x border-b border-neutral-200 bg-white">
+      {children}
     </div>
   );
 }

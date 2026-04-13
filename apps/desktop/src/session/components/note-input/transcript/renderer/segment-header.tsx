@@ -23,9 +23,8 @@ export function SegmentHeader({
   const label = useSpeakerLabel(segment.key, speakerLabelManager);
   const timestamp = getTimestampRange(segment);
   const headerClassName = cn([
-    "bg-background sticky top-0 z-20",
+    "sticky top-0 z-20 bg-neutral-50",
     "-mx-3 px-3 py-1",
-    "border-b border-neutral-200",
     "text-xs font-light",
     "flex items-center justify-between",
   ]);
