@@ -1,10 +1,16 @@
 import { PostHogProvider as PostHogReactProvider } from "@posthog/react";
 import posthog from "posthog-js";
-import { useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 import { env } from "../env";
 
 const isDev = import.meta.env.DEV;
+
+const PostHogReadyContext = createContext(false);
+
+export function usePostHogReady() {
+  return useContext(PostHogReadyContext);
+}
 
 export function PostHogProvider({
   children,
@@ -14,6 +20,7 @@ export function PostHogProvider({
   enabled: boolean;
 }) {
   const didInitRef = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     if (
@@ -32,13 +39,20 @@ export function PostHogProvider({
       capture_pageview: true,
     });
     didInitRef.current = true;
+    setIsInitialized(true);
   }, [enabled]);
 
   if (!env.VITE_POSTHOG_API_KEY || isDev) {
-    return <>{children}</>;
+    return (
+      <PostHogReadyContext.Provider value={isInitialized}>
+        {children}
+      </PostHogReadyContext.Provider>
+    );
   }
 
   return (
-    <PostHogReactProvider client={posthog}>{children}</PostHogReactProvider>
+    <PostHogReadyContext.Provider value={isInitialized}>
+      <PostHogReactProvider client={posthog}>{children}</PostHogReactProvider>
+    </PostHogReadyContext.Provider>
   );
 }
