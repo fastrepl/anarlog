@@ -5,6 +5,10 @@ import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { useShell } from "~/contexts/shell";
 import { useSearch } from "~/search/contexts/ui";
 import { LeftSidebar } from "~/sidebar";
+import {
+  hasCustomSidebarTab,
+  useCustomSidebarEffect,
+} from "~/sidebar/use-custom-sidebar";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar() {
@@ -14,35 +18,9 @@ export function ClassicMainSidebar() {
   const isOnboarding = currentTab?.type === "onboarding";
   const previousQueryRef = useRef(query);
 
-  const hasCustomSidebar =
-    currentTab?.type === "calendar" ||
-    currentTab?.type === "settings" ||
-    currentTab?.type === "contacts" ||
-    currentTab?.type === "templates" ||
-    currentTab?.type === "prompts";
-  const savedExpandedRef = useRef<boolean | null>(null);
-  const wasCustomSidebarRef = useRef(false);
+  const hasCustomSidebar = hasCustomSidebarTab(currentTab);
 
-  useEffect(() => {
-    if (hasCustomSidebar && !wasCustomSidebarRef.current) {
-      savedExpandedRef.current = leftsidebar.expanded;
-      if (!leftsidebar.expanded) {
-        leftsidebar.setExpanded(true);
-        windowsCommands
-          .windowExpandWidth(280, null, false, true)
-          .catch(console.error);
-      }
-      leftsidebar.setLocked(true);
-    } else if (!hasCustomSidebar && wasCustomSidebarRef.current) {
-      leftsidebar.setLocked(false);
-      if (savedExpandedRef.current !== null) {
-        leftsidebar.setExpanded(savedExpandedRef.current);
-      }
-      savedExpandedRef.current = null;
-      windowsCommands.windowRestoreWidth().catch(console.error);
-    }
-    wasCustomSidebarRef.current = hasCustomSidebar;
-  }, [hasCustomSidebar, leftsidebar]);
+  useCustomSidebarEffect(hasCustomSidebar, leftsidebar);
 
   useEffect(() => {
     const isStartingSearch =

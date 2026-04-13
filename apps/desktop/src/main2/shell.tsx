@@ -7,11 +7,10 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { Reorder } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useShallow } from "zustand/shallow";
 
-import { commands as windowsCommands } from "@hypr/plugin-windows";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
@@ -31,6 +30,10 @@ import { OpenNoteDialog } from "~/shared/open-note-dialog";
 import { TrafficLights } from "~/shared/ui/traffic-lights";
 import { id } from "~/shared/utils";
 import { LeftSidebar } from "~/sidebar";
+import {
+  hasCustomSidebarTab,
+  useCustomSidebarEffect,
+} from "~/sidebar/use-custom-sidebar";
 import { uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
 export function Main2Shell() {
@@ -80,28 +83,10 @@ export function Main2Shell() {
   });
   const openNew = useTabs((state) => state.openNew);
 
-  const hasCustomSidebar =
-    currentTab?.type === "calendar" ||
-    currentTab?.type === "settings" ||
-    currentTab?.type === "contacts" ||
-    currentTab?.type === "templates";
+  const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const showSidebar = hasCustomSidebar || leftsidebar.showDevtool;
 
-  const wasSidebarVisibleRef = useRef(false);
-  useEffect(() => {
-    if (showSidebar && !wasSidebarVisibleRef.current) {
-      leftsidebar.setExpanded(true);
-      leftsidebar.setLocked(true);
-      windowsCommands
-        .windowExpandWidth(280, null, false, true)
-        .catch(console.error);
-    } else if (!showSidebar && wasSidebarVisibleRef.current) {
-      leftsidebar.setLocked(false);
-      leftsidebar.setExpanded(false);
-      windowsCommands.windowRestoreWidth().catch(console.error);
-    }
-    wasSidebarVisibleRef.current = showSidebar;
-  }, [showSidebar, leftsidebar]);
+  useCustomSidebarEffect(showSidebar, leftsidebar);
 
   const isHomeActive = currentTab === null;
   const isChatOpen =
