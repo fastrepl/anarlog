@@ -27,3 +27,12 @@ pub async fn render_support<R: tauri::Runtime>(
 ) -> Result<String, String> {
     hypr_template_support::render(tpl).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_template_source<R: tauri::Runtime>(
+    _app: tauri::AppHandle<R>,
+    template: hypr_template_app::EditableTemplate,
+) -> Result<String, String> {
+    Ok(hypr_template_app::template_source(template).to_string())
+}

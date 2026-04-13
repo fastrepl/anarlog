@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the get_template_source command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-template-source",
+          "markdownDescription": "Enables the get_template_source command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_template_source command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-template-source",
+          "markdownDescription": "Denies the get_template_source command without any pre-configured scope."
+        },
+        {
           "description": "Enables the render command without any pre-configured scope.",
           "type": "string",
           "const": "allow-render",
@@ -331,10 +343,10 @@
           "markdownDescription": "Denies the render_support command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-render`\n- `allow-render-custom`\n- `allow-render-support`\n- `allow-get-template-source`"
         }
       ]
     }

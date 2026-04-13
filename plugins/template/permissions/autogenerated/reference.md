@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-render`
 - `allow-render-custom`
 - `allow-render-support`
+- `allow-get-template-source`
 
 ## Permission Table
 
@@ -16,6 +17,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`template:allow-get-template-source`
+
+</td>
+<td>
+
+Enables the get_template_source command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`template:deny-get-template-source`
+
+</td>
+<td>
+
+Denies the get_template_source command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>

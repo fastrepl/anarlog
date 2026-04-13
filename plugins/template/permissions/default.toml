@@ -1,3 +1,8 @@
 [default]
 description = "Default permissions for the plugin"
-permissions = ["allow-render", "allow-render-custom", "allow-render-support"]
+permissions = [
+  "allow-render",
+  "allow-render-custom",
+  "allow-render-support",
+  "allow-get-template-source",
+]

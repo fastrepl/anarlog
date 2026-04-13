@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-template-source"
+description = "Enables the get_template_source command without any pre-configured scope."
+commands.allow = ["get_template_source"]
+
+[[permission]]
+identifier = "deny-get-template-source"
+description = "Denies the get_template_source command without any pre-configured scope."
+commands.deny = ["get_template_source"]

@@ -29,6 +29,14 @@ async renderSupport(tpl: SupportTemplate) : Promise<Result<string, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async getTemplateSource(template: EditableTemplate) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:template|get_template_source", { template }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -54,6 +62,7 @@ export type DailySummaryStats = { signalCount: number; screenshotCount: number; 
 export type DailySummarySystem = { language: string | null }
 export type DailySummaryUser = { date: string; timezone: string | null; stats: DailySummaryStats; topApps: DailySummaryAppStat[]; analyses: DailySummaryAnalysis[]; totalAnalysisCount: number; existingSummary: string | null }
 export type DeviceInfo = { platform: string; arch: string; osVersion: string; appVersion: string; buildHash?: string | null; locale?: string | null }
+export type EditableTemplate = "enhanceUser" | "titleUser"
 export type EnhanceSystem = { language: string | null }
 export type EnhanceTemplate = { title: string; description: string | null; sections: TemplateSection[] }
 export type EnhanceUser = { session: Session; participants: Participant[]; template: EnhanceTemplate | null; transcripts: Transcript[]; preMeetingMemo: string; postMeetingMemo: string }
