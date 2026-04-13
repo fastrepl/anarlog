@@ -16,9 +16,7 @@ pub enum BridgeError {
     SerializationFailed { reason: String },
 }
 
-pub(crate) fn parse_params_json(
-    params_json: &str,
-) -> Result<Vec<serde_json::Value>, BridgeError> {
+pub(crate) fn parse_params_json(params_json: &str) -> Result<Vec<serde_json::Value>, BridgeError> {
     if params_json.trim().is_empty() {
         return Ok(Vec::new());
     }

@@ -40,11 +40,12 @@ impl MobileDbBridge {
                 reason: error.to_string(),
             })?;
         let path = std::path::PathBuf::from(db_path);
-        let db = runtime
-            .block_on(db::open_app_db(&path))
-            .map_err(|error| BridgeError::OpenFailed {
-                reason: error.to_string(),
-            })?;
+        let db =
+            runtime
+                .block_on(db::open_app_db(&path))
+                .map_err(|error| BridgeError::OpenFailed {
+                    reason: error.to_string(),
+                })?;
         let db_runtime = {
             let _guard = runtime.enter();
             DbRuntime::new(db)

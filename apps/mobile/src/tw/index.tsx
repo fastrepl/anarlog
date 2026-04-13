@@ -1,11 +1,3 @@
-import {
-  useCssElement,
-  useNativeVariable as useFunctionalVariable,
-  type StyledConfiguration,
-  type StyledProps,
-} from "react-native-css";
-
-import Animated from "react-native-reanimated";
 import React from "react";
 import {
   type PressableProps as RNPressableProps,
@@ -19,6 +11,13 @@ import {
   ScrollView as RNScrollView,
   TextInput as RNTextInput,
 } from "react-native";
+import {
+  useCssElement,
+  useNativeVariable as useFunctionalVariable,
+  type StyledConfiguration,
+  type StyledProps,
+} from "react-native-css";
+import Animated from "react-native-reanimated";
 
 const viewMapping = {
   className: "style",
@@ -89,11 +88,12 @@ export const TextInput = (props: TextInputProps) => {
 };
 TextInput.displayName = "CSS(TextInput)";
 
-type AnimatedScrollViewProps = React.ComponentProps<typeof Animated.ScrollView> &
-  {
-    className?: string;
-    contentContainerClassName?: string;
-  };
+type AnimatedScrollViewProps = React.ComponentProps<
+  typeof Animated.ScrollView
+> & {
+  className?: string;
+  contentContainerClassName?: string;
+};
 
 export const AnimatedScrollView = (props: AnimatedScrollViewProps) => {
   return useCssElement(
