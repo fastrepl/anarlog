@@ -7,11 +7,13 @@ export function ExpandToggle({
   onToggle,
   label,
   showExpandedCloseIcon = false,
+  collapsedClassName,
 }: {
   isExpanded: boolean;
   onToggle: () => void;
   label?: string;
   showExpandedCloseIcon?: boolean;
+  collapsedClassName?: string;
 }) {
   const hasLabel = Boolean(label);
 
@@ -24,7 +26,8 @@ export function ExpandToggle({
         "relative flex h-5 items-center justify-center gap-1",
         hasLabel ? "px-3" : "w-10",
         "rounded-t-[10px] rounded-b-none border-x border-t border-neutral-200",
-        "bg-neutral-50 text-neutral-400",
+        "text-neutral-400",
+        isExpanded ? "bg-white" : (collapsedClassName ?? "bg-white"),
         "transition-colors hover:bg-neutral-100 hover:text-neutral-600",
         "hover:cursor-pointer",
       ])}

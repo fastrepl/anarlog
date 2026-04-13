@@ -127,6 +127,7 @@ export function useSessionBottomAccessory({
           onToggle={() => setIsExpanded((v) => !v)}
           label="Transcript"
           showExpandedCloseIcon
+          collapsedClassName="bg-neutral-50"
         />
       ),
       bottomAccessoryState,
