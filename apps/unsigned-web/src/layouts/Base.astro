@@ -4,7 +4,7 @@ import { SEO } from "astro-seo";
 
 const title = "Unsigned Char";
 const description =
-  "Unsigned Char is a small landing page for the fastrepl/unsigned-char repository.";
+  "Unsigned Char is a simple download page for the fastrepl/unsigned-char project.";
 const url = "https://unsigned.char.com";
 ---
 
@@ -23,18 +23,10 @@ const url = "https://unsigned.char.com";
     <style>html { background: #0a0a0a }</style>
   </head>
   <body>
-    <div class="min-h-screen bg-neutral-950 font-mono text-neutral-100">
-      <a
-        href="https://github.com/fastrepl/unsigned-char"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="block w-full border-b border-neutral-800 bg-neutral-900 py-2 text-center text-sm text-neutral-400 underline transition-colors hover:text-neutral-200"
-      >
-        View fastrepl/unsigned-char on GitHub &rarr;
-      </a>
-      <main class="mx-auto max-w-3xl px-6 py-20 sm:py-28">
-        <slot />
-      </main>
-    </div>
+    <main
+      class="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center bg-neutral-950 px-6 py-12 font-mono text-neutral-100 sm:px-10"
+    >
+      <slot />
+    </main>
   </body>
 </html>
