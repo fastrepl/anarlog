@@ -2,6 +2,10 @@
 layout: "../layouts/Base.astro"
 ---
 
+export const UNSIGNED_CHAR_REPO = "fastrepl/unsigned-char";
+export const UNSIGNED_CHAR_RELEASES_URL =
+  `https://github.com/${UNSIGNED_CHAR_REPO}/releases/latest`;
+
 <section class="flex w-full flex-col items-center justify-center gap-8 text-center">
   <a
     href="https://char.com"
@@ -17,10 +21,45 @@ layout: "../layouts/Base.astro"
     <p class="max-w-2xl font-serif text-[30px] leading-snug text-neutral-950 sm:text-[38px]">Unsigned Char is a bot-free meeting note taker for macOS that runs fully on device. It&apos;s <a href="https://github.com/fastrepl/unsigned-char" target="_blank" rel="noopener noreferrer" class="underline decoration-neutral-950 decoration-[1.5px] underline-offset-4">open source</a> and free to use forever.</p>
   </div>
 
-  <a href="https://github.com/fastrepl/unsigned-char/releases" target="_blank" rel="noopener noreferrer" class="stagger-3 inline-flex items-center justify-center gap-2.5 rounded-full border border-neutral-950 bg-neutral-950 px-7 py-3.5 text-base font-medium text-white transition-colors hover:bg-neutral-800">
+  <a
+    data-download-link
+    href={UNSIGNED_CHAR_RELEASES_URL}
+    target="_blank"
+    rel="noopener noreferrer"
+    class="stagger-3 inline-flex items-center justify-center gap-2.5 rounded-full border border-neutral-950 bg-neutral-950 px-7 py-3.5 text-base font-medium text-white transition-colors hover:bg-neutral-800"
+  >
     <svg aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5 fill-current">
       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47c-1.34.03-1.77-.79-3.29-.79c-1.53 0-2 .77-3.27.82c-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51c1.28-.02 2.5.87 3.29.87c.78 0 2.26-1.07 3.81-.91c.65.03 2.47.26 3.64 1.98c-.09.06-2.17 1.28-2.15 3.81c.03 3.02 2.65 4.03 2.68 4.04c-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5c.13 1.17-.34 2.35-1.04 3.19c-.69.85-1.83 1.51-2.95 1.42c-.15-1.15.41-2.35 1.05-3.11" />
     </svg>
     <span>Download app</span>
   </a>
 </section>
+
+<script>
+  const downloadLink = document.querySelector("[data-download-link]");
+
+  if (downloadLink instanceof HTMLAnchorElement) {
+    const fallbackUrl = "https://github.com/fastrepl/unsigned-char/releases/latest";
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          "https://api.github.com/repos/fastrepl/unsigned-char/releases/latest",
+        );
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const dmgAsset = data.assets?.find(
+          (asset) =>
+            typeof asset?.name === "string" &&
+            asset.name.toLowerCase().endsWith(".dmg") &&
+            typeof asset.browser_download_url === "string",
+        );
+
+        downloadLink.href = dmgAsset?.browser_download_url ?? fallbackUrl;
+      } catch {
+        downloadLink.href = fallbackUrl;
+      }
+    })();
+  }
+</script>
