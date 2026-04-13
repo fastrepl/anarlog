@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { CircleDotIcon, RotateCcwIcon, SaveIcon } from "lucide-react";
+import { type ReactNode, useCallback, useMemo, useRef } from "react";
 
-import { commands as templateCommands } from "@hypr/plugin-template";
 import { Button } from "@hypr/ui/components/ui/button";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@hypr/ui/components/ui/resizable";
+import { cn } from "@hypr/utils";
 
-import { PromptEditor } from "./editor";
+import { PromptAssistantPanel } from "./assistant";
+import { getDefaultPromptTemplate } from "./defaults";
+import { PromptEditor, type PromptEditorHandle } from "./editor";
+import { PromptInsertChip, PromptTemplatePreview } from "./preview";
 
 import * as main from "~/store/tinybase/store/main";
 import {
@@ -19,6 +29,13 @@ export function PromptDetailsColumn({
 }: {
   selectedTask: TaskType | null;
 }) {
+  const customContent = main.UI.useCell(
+    "prompts",
+    selectedTask ?? "",
+    "content",
+    main.STORE_ID,
+  );
+
   if (!selectedTask) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -29,7 +46,12 @@ export function PromptDetailsColumn({
     );
   }
 
-  return <PromptDetails key={selectedTask} selectedTask={selectedTask} />;
+  return (
+    <PromptDetails
+      key={`${selectedTask}:${customContent ?? "__default__"}`}
+      selectedTask={selectedTask}
+    />
+  );
 }
 
 function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
@@ -40,166 +62,273 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
     "content",
     main.STORE_ID,
   );
+  const editorRef = useRef<PromptEditorHandle>(null);
 
-  const [defaultContent, setDefaultContent] = useState("");
-  const [localValue, setLocalValue] = useState(customContent || "");
-  const [isLoading, setIsLoading] = useState(true);
-
-  const taskConfig = TASK_CONFIGS.find((c) => c.type === selectedTask);
-  const variables = taskConfig?.variables ?? [];
-
-  useEffect(() => {
-    setIsLoading(true);
-
-    const template: Parameters<typeof templateCommands.render>[0] =
-      selectedTask === "enhance"
-        ? {
-            enhanceUser: {
-              session: {
-                event: null,
-                title: null,
-                startedAt: null,
-                endedAt: null,
-              },
-              participants: [],
-              template: null,
-              transcripts: [],
-              preMeetingMemo: "",
-              postMeetingMemo: "",
-            },
-          }
-        : { titleUser: { enhancedNote: "" } };
-
-    void templateCommands
-      .render(template)
-      .then((result) => {
-        if (result.status === "ok") {
-          setDefaultContent(result.data);
-        }
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [selectedTask]);
-
-  useEffect(() => {
-    setLocalValue(customContent || "");
-  }, [customContent, selectedTask]);
-
-  const handleSave = useCallback(() => {
-    if (!store) return;
-    const trimmed = localValue.trim();
-    if (trimmed) {
-      setCustomPrompt(store, selectedTask, trimmed);
-    } else {
-      deleteCustomPrompt(store, selectedTask);
-    }
-  }, [store, selectedTask, localValue]);
-
-  const handleReset = useCallback(() => {
-    if (!store) return;
-    deleteCustomPrompt(store, selectedTask);
-    setLocalValue("");
-  }, [store, selectedTask]);
-
-  const hasChanges = localValue !== (customContent || "");
+  const taskConfig = TASK_CONFIGS.find(
+    (config) => config.type === selectedTask,
+  );
+  const defaultTemplate = getDefaultPromptTemplate(selectedTask);
+  const savedContent = customContent || defaultTemplate;
   const hasCustomPrompt = !!customContent;
+  const variables = useMemo(
+    () => [...(taskConfig?.variables ?? [])],
+    [taskConfig?.variables],
+  );
+  const filters = useMemo(() => [...AVAILABLE_FILTERS], []);
+
+  const form = useForm({
+    defaultValues: {
+      content: savedContent,
+    },
+    onSubmit: ({ value }) => {
+      if (!store) {
+        return;
+      }
+
+      const nextContent = value.content.trim();
+      const normalizedDefault = defaultTemplate.trim();
+
+      if (!nextContent || nextContent === normalizedDefault) {
+        deleteCustomPrompt(store, selectedTask);
+        return;
+      }
+
+      setCustomPrompt(store, selectedTask, nextContent);
+    },
+  });
+
+  const handleInsertSnippet = useCallback((snippet: string) => {
+    editorRef.current?.insertText(snippet);
+  }, []);
+
+  if (!taskConfig) {
+    return null;
+  }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b border-neutral-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">{taskConfig?.label}</h2>
-            <p className="mt-1 text-sm text-neutral-500">
-              {taskConfig?.description}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {hasCustomPrompt && (
-              <Button variant="outline" size="sm" onClick={handleReset}>
-                Reset to Default
-              </Button>
-            )}
-            <Button size="sm" onClick={handleSave} disabled={!hasChanges}>
-              Save
-            </Button>
-          </div>
-        </div>
-      </div>
+    <form.Field name="content">
+      {(field) => {
+        const draftContent = field.state.value;
+        const hasChanges = draftContent !== savedContent;
 
-      <div className="border-b border-neutral-200 bg-neutral-50 px-6 py-3">
-        <h3 className="mb-2 text-xs font-medium text-neutral-600">
-          Available Variables
-        </h3>
-        <div className="flex flex-wrap gap-1.5">
-          {variables.map((variable) => (
-            <code
-              key={variable}
-              className="rounded-xs border border-neutral-200 bg-white px-2 py-0.5 font-mono text-xs"
-            >
-              {"{{ "}
-              {variable}
-              {" }}"}
-            </code>
-          ))}
-        </div>
-        <div className="mt-2 text-xs text-neutral-500">
-          <span className="font-medium">Filters:</span>{" "}
-          {AVAILABLE_FILTERS.map((filter, i) => (
-            <span key={filter}>
-              <code className="rounded-xs border border-neutral-200 bg-white px-1">
-                {filter}
-              </code>
-              {i < AVAILABLE_FILTERS.length - 1 && ", "}
-            </span>
-          ))}
-        </div>
-      </div>
+        return (
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="border-b border-neutral-200 px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <CircleDotIcon className="h-3.5 w-3.5" />
+                    <span>
+                      {hasCustomPrompt ? "Custom override" : "Default behavior"}
+                    </span>
+                  </div>
+                  <h2 className="mt-2 text-lg font-semibold text-neutral-900">
+                    {taskConfig.label}
+                  </h2>
+                  <p className="mt-1 text-sm text-neutral-500">
+                    {taskConfig.description}
+                  </p>
+                </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex-1 p-6">
-          <div className="h-full overflow-hidden rounded-lg border border-neutral-200">
-            <PromptEditor
-              value={localValue}
-              onChange={setLocalValue}
-              placeholder="Enter your custom prompt template using Jinja2 syntax..."
-              variables={variables as string[]}
-              filters={[...AVAILABLE_FILTERS]}
-            />
-          </div>
-        </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      field.handleChange(savedContent);
+                      editorRef.current?.focus();
+                    }}
+                    disabled={!hasChanges}
+                  >
+                    <RotateCcwIcon className="h-3.5 w-3.5" />
+                    Revert Draft
+                  </Button>
+                  {hasCustomPrompt ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (!store) {
+                          return;
+                        }
 
-        <div className="border-t border-neutral-200">
-          <details className="group">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-3 text-sm font-medium text-neutral-600 hover:bg-neutral-50">
-              <svg
-                className="h-4 w-4 transition-transform group-open:rotate-90"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-              Default Template Reference
-            </summary>
-            <div className="max-h-64 overflow-auto px-6 pb-4">
-              {isLoading ? (
-                <div className="text-sm text-neutral-500">Loading...</div>
-              ) : (
-                <pre className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-xs whitespace-pre-wrap text-neutral-600">
-                  {defaultContent || "No default template available"}
-                </pre>
-              )}
+                        deleteCustomPrompt(store, selectedTask);
+                      }}
+                    >
+                      Reset to Default
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      void form.handleSubmit();
+                    }}
+                    disabled={!hasChanges}
+                  >
+                    <SaveIcon className="h-3.5 w-3.5" />
+                    Save
+                  </Button>
+                </div>
+              </div>
             </div>
-          </details>
-        </div>
+
+            <ResizablePanelGroup
+              direction="horizontal"
+              className="min-h-0 flex-1"
+            >
+              <ResizablePanel defaultSize={60} minSize={42}>
+                <div className="flex h-full min-h-0 flex-col">
+                  <div className="border-b border-neutral-200 px-6 py-4">
+                    <div className="rounded-xl border border-neutral-200 bg-stone-50 px-4 py-3">
+                      <p className="text-xs leading-5 text-neutral-600">
+                        The built-in prompt uses internal helpers. This editor
+                        works on the supported custom-Jinja surface that becomes
+                        active after you save an override.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-3">
+                      <PromptLibraryRow
+                        label="Variables"
+                        helper="Click to insert or drag into the editor."
+                      >
+                        {variables.map((variable) => (
+                          <PromptInsertChip
+                            key={variable}
+                            label={variable}
+                            snippet={`{{ ${variable} }}`}
+                            kind="variable"
+                            onInsert={handleInsertSnippet}
+                          />
+                        ))}
+                      </PromptLibraryRow>
+
+                      <PromptLibraryRow
+                        label="Filters"
+                        helper="Use these inside an expression like {{ content | transcript }}."
+                      >
+                        {filters.map((filter) => (
+                          <PromptInsertChip
+                            key={filter}
+                            label={filter}
+                            snippet={`| ${filter}`}
+                            kind="filter"
+                            onInsert={handleInsertSnippet}
+                          />
+                        ))}
+                      </PromptLibraryRow>
+                    </div>
+                  </div>
+
+                  <ResizablePanelGroup
+                    direction="vertical"
+                    className="min-h-0 flex-1"
+                  >
+                    <ResizablePanel defaultSize={42} minSize={24}>
+                      <PromptSection
+                        title="Formatted View"
+                        description="A cleaner read of the active draft. Inline chips can be dragged or inserted back into the editor."
+                      >
+                        <PromptTemplatePreview
+                          content={draftContent}
+                          onInsert={handleInsertSnippet}
+                        />
+                      </PromptSection>
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel defaultSize={58} minSize={32}>
+                      <PromptSection
+                        title="Template Source"
+                        description="Edit the Jinja draft directly, or let Charlie rewrite it from the chat pane."
+                        flush
+                      >
+                        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-neutral-200">
+                          <PromptEditor
+                            ref={editorRef}
+                            value={draftContent}
+                            onChange={field.handleChange}
+                            placeholder="Write a custom prompt override, drag chips into place, or ask Charlie to rewrite the draft."
+                            variables={variables}
+                            filters={filters}
+                          />
+                        </div>
+                      </PromptSection>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
+                </div>
+              </ResizablePanel>
+
+              <ResizableHandle />
+
+              <ResizablePanel defaultSize={40} minSize={28}>
+                <PromptAssistantPanel
+                  selectedTask={selectedTask}
+                  taskLabel={taskConfig.label}
+                  taskDescription={taskConfig.description}
+                  variables={variables}
+                  filters={filters}
+                  draftContent={draftContent}
+                  hasCustomPrompt={hasCustomPrompt}
+                  onApplyTemplate={(content) => {
+                    field.handleChange(content);
+                    editorRef.current?.focus();
+                  }}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+        );
+      }}
+    </form.Field>
+  );
+}
+
+function PromptLibraryRow({
+  label,
+  helper,
+  children,
+}: {
+  label: string;
+  helper: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-neutral-700">{label}</span>
+        <span className="text-[11px] text-neutral-500">{helper}</span>
       </div>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function PromptSection({
+  title,
+  description,
+  children,
+  flush = false,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div
+        className={cn([
+          "border-b border-neutral-200 px-6 py-4",
+          flush && "pb-3",
+        ])}
+      >
+        <h3 className="text-sm font-medium text-neutral-900">{title}</h3>
+        <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-6 py-4">{children}</div>
     </div>
   );
 }

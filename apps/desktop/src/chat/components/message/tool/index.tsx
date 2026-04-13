@@ -6,6 +6,7 @@ import { ToolGeneric } from "./generic";
 import { ToolListSubscriptions } from "./list-subscriptions";
 import { ToolSearchSessions } from "./search";
 import { ToolSearchIssues } from "./search-issues";
+import { ToolUpdatePromptTemplate } from "./update-prompt-template";
 
 import type { Part } from "~/chat/components/message/types";
 
@@ -19,6 +20,7 @@ const toolRegistry: Record<string, ToolComponent> = {
   "tool-list_subscriptions": ToolListSubscriptions as ToolComponent,
   "tool-create_billing_portal_session": ToolBillingPortal as ToolComponent,
   "tool-edit_summary": ToolEditSummary as ToolComponent,
+  "tool-update_prompt_template": ToolUpdatePromptTemplate as ToolComponent,
 };
 
 export function Tool({ part }: { part: Part }) {
