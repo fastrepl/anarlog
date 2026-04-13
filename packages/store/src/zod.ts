@@ -248,12 +248,6 @@ export const taskSchema = z.object({
   due_date: z.preprocess((val) => val ?? undefined, z.string().optional()),
 });
 
-export const promptSchema = z.object({
-  user_id: z.string(),
-  task_type: z.string(),
-  content: z.string(),
-});
-
 export const wordSchema = z.object({
   text: z.string(),
   start_ms: z.number(),
@@ -352,7 +346,6 @@ export type Memory = z.infer<typeof memorySchema>;
 export type DailyNote = z.infer<typeof dailyNoteSchema>;
 export type EnhancedNote = z.infer<typeof enhancedNoteSchema>;
 export type Task = z.infer<typeof taskSchema>;
-export type Prompt = z.infer<typeof promptSchema>;
 export type AIProvider = z.infer<typeof aiProviderSchema>;
 export type General = z.infer<typeof generalSchema>;
 
@@ -366,7 +359,6 @@ export type EnhancedNoteStorage = ToStorageType<typeof enhancedNoteSchema>;
 export type TaskStorage = ToStorageType<typeof taskSchema>;
 export type HumanStorage = ToStorageType<typeof humanSchema>;
 export type OrganizationStorage = ToStorageType<typeof organizationSchema>;
-export type PromptStorage = ToStorageType<typeof promptSchema>;
 export type ChatShortcutStorage = ToStorageType<typeof chatShortcutSchema>;
 export type MemoryStorage = ToStorageType<typeof memorySchema>;
 export type DailyNoteStorage = ToStorageType<typeof dailyNoteSchema>;

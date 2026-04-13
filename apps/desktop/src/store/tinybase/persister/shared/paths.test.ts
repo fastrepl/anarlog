@@ -77,8 +77,10 @@ describe("buildEntityPath", () => {
     );
   });
 
-  test("builds entity path for prompts", () => {
-    expect(buildEntityPath(dataDir, "prompts")).toBe("/data/hyprnote/prompts");
+  test("builds entity path for templates", () => {
+    expect(buildEntityPath(dataDir, "templates")).toBe(
+      "/data/hyprnote/templates",
+    );
   });
 });
 
@@ -250,9 +252,9 @@ describe("createMarkdownEntityParser", () => {
       expect(parseOrgId("humans/person.md")).toBeNull();
     });
 
-    test("works with prompts directory", () => {
-      const parsePromptId = createMarkdownEntityParser("prompts");
-      expect(parsePromptId("prompts/my-prompt.md")).toBe("my-prompt");
+    test("works with templates directory", () => {
+      const parseTemplateId = createMarkdownEntityParser("templates");
+      expect(parseTemplateId("templates/my-template.md")).toBe("my-template");
     });
   });
 });

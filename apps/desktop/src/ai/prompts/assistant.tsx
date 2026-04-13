@@ -8,13 +8,13 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
 import { useLanguageModel } from "~/ai/hooks";
+import type { TaskType } from "~/ai/prompts/config";
 import { ChatBodyNonEmpty } from "~/chat/components/body/non-empty";
 import { useChatAutoScroll } from "~/chat/components/body/use-chat-auto-scroll";
 import { ChatMessageInput } from "~/chat/components/input";
 import { ChatSession } from "~/chat/components/session-provider";
 import type { HyprUIMessage } from "~/chat/types";
 import { id } from "~/shared/utils";
-import type { TaskType } from "~/store/tinybase/store/prompts";
 
 const PROMPT_ASSISTANT_SUGGESTIONS = {
   enhance: [

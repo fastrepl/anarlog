@@ -1,3 +1,4 @@
+import { TabItemPrompt } from "~/ai/prompts";
 import { TabItemCalendar } from "~/calendar";
 import { TabItemChangelog } from "~/changelog";
 import { TabItemChat } from "~/chat/tab/tab-item";
@@ -144,6 +145,20 @@ export function MainTabItem({
   if (tab.type === "templates") {
     return (
       <TabItemTemplate
+        tab={tab}
+        tabIndex={tabIndex}
+        handleCloseThis={handleClose}
+        handleSelectThis={handleSelect}
+        handleCloseOthers={handleCloseOthers}
+        handleCloseAll={handleCloseAll}
+        handlePinThis={handlePinThis}
+        handleUnpinThis={handleUnpinThis}
+      />
+    );
+  }
+  if (tab.type === "prompts") {
+    return (
+      <TabItemPrompt
         tab={tab}
         tabIndex={tabIndex}
         handleCloseThis={handleClose}

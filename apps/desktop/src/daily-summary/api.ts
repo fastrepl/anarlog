@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import { commands as activityCaptureCommands } from "@hypr/plugin-activity-capture";
 
-import { useLiveQuery } from "./use-live-query";
+import { useLiveQuery } from "~/db/use-live-query";
 
 export type DailyActivityAppStat = {
   appName: string;

@@ -16,8 +16,8 @@ import { templateSectionSchema } from "@hypr/store";
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import { createEnhanceValidator } from "./enhance-validator";
 
+import { loadPromptOverride } from "~/ai/prompts/data";
 import type { Store } from "~/store/tinybase/store/main";
-import { getCustomPrompt } from "~/store/tinybase/store/prompts";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
 
@@ -82,7 +82,7 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
 
 async function getUserPrompt(
   args: TaskArgsMapTransformed["enhance"],
-  store: Store,
+  _store: Store,
 ) {
   const {
     session,
@@ -102,7 +102,7 @@ async function getUserPrompt(
     post_meeting_memo: postMeetingMemo,
   };
 
-  const customPrompt = getCustomPrompt(store, "enhance");
+  const customPrompt = await loadPromptOverride("enhance");
   if (customPrompt) {
     const result = await templateCommands.renderCustom(customPrompt, ctx);
     if (result.status === "error") {

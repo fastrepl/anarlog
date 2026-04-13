@@ -21,6 +21,14 @@ import { cn } from "@hypr/utils";
 
 import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
 
+type SettingsNavItem =
+  | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
+  | {
+      action: "open-templates" | "open-prompts";
+      label: string;
+      icon: typeof SmartphoneIcon;
+    };
+
 function getBaseGroups() {
   return [
     {
@@ -30,14 +38,7 @@ function getBaseGroups() {
         { id: "account", label: "Account", icon: UserIcon },
         { id: "calendar", label: "Calendar", icon: CalendarIcon },
         { id: "notifications", label: "Notifications", icon: BellIcon },
-      ] as (
-        | { id: SettingsTab; label: string; icon: typeof SmartphoneIcon }
-        | {
-            action: "open-templates";
-            label: string;
-            icon: typeof SmartphoneIcon;
-          }
-      )[],
+      ] as SettingsNavItem[],
     },
     {
       label: "AI",
@@ -49,6 +50,11 @@ function getBaseGroups() {
           action: "open-templates",
           label: "Templates",
           icon: BookText,
+        },
+        {
+          action: "open-prompts",
+          label: "Prompts",
+          icon: SparklesIcon,
         },
       ],
     },
@@ -87,6 +93,13 @@ export function SettingsNav() {
     openNew({ type: "templates" });
   }, [openNew]);
 
+  const handleOpenPrompts = useCallback(() => {
+    openNew({
+      type: "prompts",
+      state: { selectedTask: "enhance" },
+    });
+  }, [openNew]);
+
   const groups = getBaseGroups();
   const isMacos = platform() === "macos";
   if (isMacos) {
@@ -118,6 +131,11 @@ export function SettingsNav() {
                     onClick={() => {
                       if (isSettingsItem) {
                         setActiveTab(item.id as SettingsTab);
+                        return;
+                      }
+
+                      if (item.action === "open-prompts") {
+                        handleOpenPrompts();
                         return;
                       }
 

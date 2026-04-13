@@ -10,9 +10,9 @@ import {
 import { PromptDetailsColumn } from "./details";
 import { PromptsListColumn } from "./list";
 
+import type { TaskType } from "~/ai/prompts/config";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import type { TaskType } from "~/store/tinybase/store/prompts";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export const TabItemPrompt: TabItem<Extract<Tab, { type: "prompts" }>> = ({

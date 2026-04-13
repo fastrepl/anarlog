@@ -14,7 +14,6 @@ import { useEventsPersister } from "~/store/tinybase/persister/events";
 import { useHumanPersister } from "~/store/tinybase/persister/human";
 import { useMemoryPersister } from "~/store/tinybase/persister/memory";
 import { useOrganizationPersister } from "~/store/tinybase/persister/organization";
-import { usePromptPersister } from "~/store/tinybase/persister/prompts";
 import { useSessionPersister } from "~/store/tinybase/persister/session";
 import { useTaskPersister } from "~/store/tinybase/persister/tasks";
 import { useTemplatePersister } from "~/store/tinybase/persister/templates";
@@ -28,7 +27,6 @@ export function useMainPersisters(store: Store) {
   const eventPersister = useEventsPersister(store);
   const chatPersister = useChatPersister(store);
   const chatShortcutPersister = useChatShortcutPersister(store);
-  const promptPersister = usePromptPersister(store);
   const templatePersister = useTemplatePersister(store);
   const calendarPersister = useCalendarPersister(store);
   const memoryPersister = useMemoryPersister(store);
@@ -48,7 +46,6 @@ export function useMainPersisters(store: Store) {
       { id: "event", persister: eventPersister },
       { id: "chat", persister: chatPersister },
       { id: "chatShortcut", persister: chatShortcutPersister },
-      { id: "prompt", persister: promptPersister },
       { id: "template", persister: templatePersister },
       { id: "calendar", persister: calendarPersister },
       { id: "memory", persister: memoryPersister },
@@ -75,7 +72,6 @@ export function useMainPersisters(store: Store) {
     eventPersister,
     chatPersister,
     chatShortcutPersister,
-    promptPersister,
     templatePersister,
     calendarPersister,
     memoryPersister,
@@ -97,7 +93,6 @@ export function useMainPersisters(store: Store) {
     eventPersister,
     chatPersister,
     chatShortcutPersister,
-    promptPersister,
     templatePersister,
     calendarPersister,
     memoryPersister,

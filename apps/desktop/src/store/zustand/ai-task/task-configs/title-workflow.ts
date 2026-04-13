@@ -4,8 +4,8 @@ import { commands as templateCommands } from "@hypr/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 
+import { loadPromptOverride } from "~/ai/prompts/data";
 import type { Store } from "~/store/tinybase/store/main";
-import { getCustomPrompt } from "~/store/tinybase/store/prompts";
 
 export const titleWorkflow: Pick<
   TaskConfig<"title">,
@@ -63,12 +63,12 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["title"]) {
 
 async function getUserPrompt(
   args: TaskArgsMapTransformed["title"],
-  store: Store,
+  _store: Store,
 ) {
   const { enhancedNote } = args;
   const ctx = { enhanced_note: enhancedNote };
 
-  const customPrompt = getCustomPrompt(store, "title");
+  const customPrompt = await loadPromptOverride("title");
 
   if (customPrompt) {
     const result = await templateCommands.renderCustom(customPrompt, ctx);

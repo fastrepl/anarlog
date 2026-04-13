@@ -16,7 +16,6 @@ import {
   mappingTagSessionSchema,
   memorySchema,
   organizationSchema,
-  promptSchema,
   sessionSchema,
   tagSchema,
   taskSchema,
@@ -159,11 +158,6 @@ export const tableSchemaForTinybase = {
     body_json: { type: "string" },
     due_date: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof taskSchema>,
-  prompts: {
-    user_id: { type: "string" },
-    task_type: { type: "string" },
-    content: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof promptSchema>,
   chat_shortcuts: {
     user_id: { type: "string" },
     title: { type: "string" },

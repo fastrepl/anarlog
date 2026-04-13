@@ -11,31 +11,21 @@ import {
 import { cn } from "@hypr/utils";
 
 import { PromptAssistantPanel } from "./assistant";
-import { getDefaultPromptTemplate } from "./defaults";
+import { AVAILABLE_FILTERS, TASK_CONFIGS, type TaskType } from "./config";
+import {
+  useDeletePromptOverrideMutation,
+  usePromptOverride,
+  usePromptTemplateSource,
+  useUpsertPromptOverrideMutation,
+} from "./data";
 import { PromptEditor, type PromptEditorHandle } from "./editor";
 import { PromptInsertChip, PromptTemplatePreview } from "./preview";
-
-import * as main from "~/store/tinybase/store/main";
-import {
-  AVAILABLE_FILTERS,
-  deleteCustomPrompt,
-  setCustomPrompt,
-  TASK_CONFIGS,
-  type TaskType,
-} from "~/store/tinybase/store/prompts";
 
 export function PromptDetailsColumn({
   selectedTask,
 }: {
   selectedTask: TaskType | null;
 }) {
-  const customContent = main.UI.useCell(
-    "prompts",
-    selectedTask ?? "",
-    "content",
-    main.STORE_ID,
-  );
-
   if (!selectedTask) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -46,30 +36,61 @@ export function PromptDetailsColumn({
     );
   }
 
+  return <PromptDetailsLoader selectedTask={selectedTask} />;
+}
+
+function PromptDetailsLoader({ selectedTask }: { selectedTask: TaskType }) {
+  const overrideQuery = usePromptOverride(selectedTask);
+  const templateQuery = usePromptTemplateSource(selectedTask);
+
+  if (overrideQuery.error || templateQuery.error) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-red-600">Failed to load prompt data.</p>
+      </div>
+    );
+  }
+
+  if (
+    overrideQuery.isLoading ||
+    templateQuery.isLoading ||
+    !templateQuery.data
+  ) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-neutral-500">Loading prompt...</p>
+      </div>
+    );
+  }
+
   return (
     <PromptDetails
-      key={`${selectedTask}:${customContent ?? "__default__"}`}
+      key={`${selectedTask}:${overrideQuery.data?.content ?? "__default__"}:${templateQuery.data}`}
       selectedTask={selectedTask}
+      defaultSource={templateQuery.data}
+      overrideContent={overrideQuery.data?.content ?? null}
     />
   );
 }
 
-function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
-  const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
-  const customContent = main.UI.useCell(
-    "prompts",
-    selectedTask,
-    "content",
-    main.STORE_ID,
-  );
+function PromptDetails({
+  selectedTask,
+  defaultSource,
+  overrideContent,
+}: {
+  selectedTask: TaskType;
+  defaultSource: string;
+  overrideContent: string | null;
+}) {
   const editorRef = useRef<PromptEditorHandle>(null);
+  const saveMutation = useUpsertPromptOverrideMutation(selectedTask);
+  const resetMutation = useDeletePromptOverrideMutation(selectedTask);
 
   const taskConfig = TASK_CONFIGS.find(
     (config) => config.type === selectedTask,
   );
-  const defaultTemplate = getDefaultPromptTemplate(selectedTask);
-  const savedContent = customContent || defaultTemplate;
-  const hasCustomPrompt = !!customContent;
+  const savedContent = overrideContent ?? defaultSource;
+  const hasCustomPrompt = overrideContent !== null;
   const variables = useMemo(
     () => [...(taskConfig?.variables ?? [])],
     [taskConfig?.variables],
@@ -80,20 +101,8 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
     defaultValues: {
       content: savedContent,
     },
-    onSubmit: ({ value }) => {
-      if (!store) {
-        return;
-      }
-
-      const nextContent = value.content.trim();
-      const normalizedDefault = defaultTemplate.trim();
-
-      if (!nextContent || nextContent === normalizedDefault) {
-        deleteCustomPrompt(store, selectedTask);
-        return;
-      }
-
-      setCustomPrompt(store, selectedTask, nextContent);
+    onSubmit: async ({ value }) => {
+      await saveMutation.mutateAsync(value.content.trim());
     },
   });
 
@@ -104,6 +113,8 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
   if (!taskConfig) {
     return null;
   }
+
+  const isMutating = saveMutation.isPending || resetMutation.isPending;
 
   return (
     <form.Field name="content">
@@ -119,7 +130,7 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                   <div className="flex items-center gap-2 text-xs text-neutral-500">
                     <CircleDotIcon className="h-3.5 w-3.5" />
                     <span>
-                      {hasCustomPrompt ? "Custom override" : "Default behavior"}
+                      {hasCustomPrompt ? "Saved override" : "Built-in template"}
                     </span>
                   </div>
                   <h2 className="mt-2 text-lg font-semibold text-neutral-900">
@@ -139,7 +150,7 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                       field.handleChange(savedContent);
                       editorRef.current?.focus();
                     }}
-                    disabled={!hasChanges}
+                    disabled={!hasChanges || isMutating}
                   >
                     <RotateCcwIcon className="h-3.5 w-3.5" />
                     Revert Draft
@@ -150,12 +161,9 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (!store) {
-                          return;
-                        }
-
-                        deleteCustomPrompt(store, selectedTask);
+                        void resetMutation.mutateAsync();
                       }}
+                      disabled={isMutating}
                     >
                       Reset to Default
                     </Button>
@@ -166,7 +174,7 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                     onClick={() => {
                       void form.handleSubmit();
                     }}
-                    disabled={!hasChanges}
+                    disabled={!hasChanges || isMutating}
                   >
                     <SaveIcon className="h-3.5 w-3.5" />
                     Save
@@ -184,9 +192,9 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                   <div className="border-b border-neutral-200 px-6 py-4">
                     <div className="rounded-xl border border-neutral-200 bg-stone-50 px-4 py-3">
                       <p className="text-xs leading-5 text-neutral-600">
-                        The built-in prompt uses internal helpers. This editor
-                        works on the supported custom-Jinja surface that becomes
-                        active after you save an override.
+                        This editor shows the real built-in Askama template when
+                        no override is saved. Save to persist a SQLite-backed
+                        override for this prompt task.
                       </p>
                     </div>
 
@@ -250,7 +258,7 @@ function PromptDetails({ selectedTask }: { selectedTask: TaskType }) {
                             ref={editorRef}
                             value={draftContent}
                             onChange={field.handleChange}
-                            placeholder="Write a custom prompt override, drag chips into place, or ask Charlie to rewrite the draft."
+                            placeholder="Edit the template source, drag chips into place, or ask Charlie to rewrite the draft."
                             variables={variables}
                             filters={filters}
                           />

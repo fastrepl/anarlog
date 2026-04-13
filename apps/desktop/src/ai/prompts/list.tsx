@@ -2,8 +2,8 @@ import { CheckIcon, SparklesIcon } from "lucide-react";
 
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
-import { TASK_CONFIGS, type TaskType } from "~/store/tinybase/store/prompts";
+import { TASK_CONFIGS, type TaskType } from "~/ai/prompts/config";
+import { usePromptOverrides } from "~/ai/prompts/data";
 
 export function PromptsListColumn({
   selectedTask,
@@ -12,6 +12,8 @@ export function PromptsListColumn({
   selectedTask: TaskType | null;
   setSelectedTask: (id: string | null) => void;
 }) {
+  const overridesQuery = usePromptOverrides();
+
   return (
     <div className="flex h-full w-full flex-col">
       <div className="flex h-12 items-center justify-between border-b border-neutral-200 py-2 pr-1 pl-3">
@@ -23,10 +25,10 @@ export function PromptsListColumn({
           {TASK_CONFIGS.map((config) => (
             <TaskItem
               key={config.type}
-              taskType={config.type}
               label={config.label}
               description={config.description}
               isSelected={selectedTask === config.type}
+              hasCustomPrompt={!!overridesQuery.data?.[config.type]}
               onClick={() => setSelectedTask(config.type)}
             />
           ))}
@@ -37,26 +39,18 @@ export function PromptsListColumn({
 }
 
 function TaskItem({
-  taskType,
   label,
   description,
   isSelected,
+  hasCustomPrompt,
   onClick,
 }: {
-  taskType: TaskType;
   label: string;
   description: string;
   isSelected: boolean;
+  hasCustomPrompt: boolean;
   onClick: () => void;
 }) {
-  const content = main.UI.useCell(
-    "prompts",
-    taskType,
-    "content",
-    main.STORE_ID,
-  );
-  const hasCustomPrompt = !!content;
-
   return (
     <button
       onClick={onClick}
