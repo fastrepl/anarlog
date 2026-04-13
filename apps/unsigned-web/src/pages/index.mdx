@@ -3,8 +3,8 @@ layout: "../layouts/Base.astro"
 ---
 
 export const UNSIGNED_CHAR_REPO = "fastrepl/unsigned-char";
-export const UNSIGNED_CHAR_RELEASES_URL =
-  `https://github.com/${UNSIGNED_CHAR_REPO}/releases/latest`;
+export const UNSIGNED_CHAR_DOWNLOAD_URL =
+  `https://github.com/${UNSIGNED_CHAR_REPO}/releases/latest/download/unsigned-char-aarch64.dmg`;
 
 <section class="flex w-full flex-col items-center justify-center gap-8 text-center">
   <div class="stagger-1 block w-full max-w-[720px]">
@@ -36,10 +36,7 @@ export const UNSIGNED_CHAR_RELEASES_URL =
   </div>
 
   <a
-    data-download-link
-    href={UNSIGNED_CHAR_RELEASES_URL}
-    target="_blank"
-    rel="noopener noreferrer"
+    href={UNSIGNED_CHAR_DOWNLOAD_URL}
     class="stagger-3 inline-flex items-center justify-center gap-2.5 rounded-full border border-neutral-950 bg-neutral-950 px-7 py-3.5 text-base font-medium text-white transition-colors hover:bg-neutral-800"
   >
     <svg aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5 fill-current">
@@ -48,32 +45,3 @@ export const UNSIGNED_CHAR_RELEASES_URL =
     <span>Download app</span>
   </a>
 </section>
-
-<script>
-  const downloadLink = document.querySelector("[data-download-link]");
-
-  if (downloadLink instanceof HTMLAnchorElement) {
-    const fallbackUrl = "https://github.com/fastrepl/unsigned-char/releases/latest";
-
-    void (async () => {
-      try {
-        const response = await fetch(
-          "https://api.github.com/repos/fastrepl/unsigned-char/releases/latest",
-        );
-        if (!response.ok) return;
-
-        const data = await response.json();
-        const dmgAsset = data.assets?.find(
-          (asset) =>
-            typeof asset?.name === "string" &&
-            asset.name.toLowerCase().endsWith(".dmg") &&
-            typeof asset.browser_download_url === "string",
-        );
-
-        downloadLink.href = dmgAsset?.browser_download_url ?? fallbackUrl;
-      } catch {
-        downloadLink.href = fallbackUrl;
-      }
-    })();
-  }
-</script>
