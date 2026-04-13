@@ -240,7 +240,6 @@ pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
     provider.to_string()
 }
 
-
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
     tracing::info_span!("session", hyprnote.session.id = %session_id)
 }

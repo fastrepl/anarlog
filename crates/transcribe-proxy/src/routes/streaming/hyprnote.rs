@@ -170,7 +170,10 @@ fn build_proxy_with_adapter(
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let mut listen_params = build_listen_params(client_params);
     let channels: u8 = parse_param(client_params, "channels", 1);
-    if matches!(provider, Provider::AquaVoice | Provider::OpenAI | Provider::Pyannote) {
+    if matches!(
+        provider,
+        Provider::AquaVoice | Provider::OpenAI | Provider::Pyannote
+    ) {
         return Err(crate::ProxyError::InvalidRequest(format!(
             "{provider} only supports batch transcription"
         )));
