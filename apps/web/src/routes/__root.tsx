@@ -20,15 +20,6 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const FONT_PRECONNECTS = [
-  { rel: "preconnect", href: "https://fonts.googleapis.com" },
-  {
-    rel: "preconnect",
-    href: "https://fonts.gstatic.com",
-    crossOrigin: "anonymous" as const,
-  },
-] as const;
-
 const FONT_STYLESHEETS = [
   "https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Instrument+Serif:ital@1&family=Lora:wght@400;500;600;700&display=swap",
   "https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&display=swap",
@@ -68,15 +59,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: DEFAULT_OG_IMAGE_URL,
       },
     ],
+    // Render-blocking stylesheets are placed directly in the shell JSX
+    // (RootDocument) before <HeadContent /> so the browser discovers them
+    // before TanStack Router's 70+ modulepreload links. Only non-blocking
+    // links belong here.
     links: [
-      ...FONT_PRECONNECTS,
-      ...FONT_STYLESHEETS.map((href) => ({
-        rel: "stylesheet" as const,
-        href,
-      })),
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
-      { rel: "stylesheet", href: appCss },
     ],
   }),
   shellComponent: RootDocument,
@@ -87,6 +76,16 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        {FONT_STYLESHEETS.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
+        <link rel="stylesheet" href={appCss} />
         <HeadContent />
       </head>
       <body>
