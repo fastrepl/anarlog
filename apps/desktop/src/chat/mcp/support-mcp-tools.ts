@@ -1,19 +1,72 @@
-import type {
-  AddCommentOutput,
-  AddCommentParams,
-  CreateBillingPortalSessionOutput,
-  CreateBillingPortalSessionParams,
-  CreateIssueOutput,
-  CreateIssueParams,
-  ListSubscriptionsParams,
-  SearchIssueItem,
-  SearchIssuesOutput,
-  SearchIssuesParams,
-  SubscriptionItem,
-} from "@hypr/plugin-mcp";
-
 import type { McpTextContentOutput } from "./mcp-output-parser";
 import { parseMcpToolOutput } from "./mcp-output-parser";
+
+export type AddCommentParams = {
+  issue_number: number;
+  body: string;
+};
+
+type AddCommentOutput = {
+  success: boolean;
+  comment_url: string;
+};
+
+export type CreateBillingPortalSessionParams = {
+  return_url?: string | null;
+};
+
+type CreateBillingPortalSessionOutput = {
+  url: string;
+};
+
+export type CreateIssueParams = {
+  title: string;
+  body: string;
+  issue_type?: string | null;
+  labels?: string[] | null;
+};
+
+type CreateIssueOutput = {
+  success: boolean;
+  issue_url: string;
+  issue_number: number;
+  labels?: string[] | null;
+};
+
+export type ListSubscriptionsParams = {
+  status?: string | null;
+};
+
+export type SearchIssueItem = {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  created_at: string;
+  labels: string[];
+};
+
+type SearchIssuesOutput = {
+  total_results: number;
+  issues: SearchIssueItem[];
+};
+
+export type SearchIssuesParams = {
+  query: string;
+  state?: string | null;
+  limit?: number | null;
+};
+
+type SubscriptionItem = {
+  id: string;
+  status: string;
+  start_date: number | null;
+  cancel_at_period_end: boolean;
+  cancel_at: number | null;
+  canceled_at: number | null;
+  trial_start: number | null;
+  trial_end: number | null;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

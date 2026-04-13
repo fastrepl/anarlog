@@ -1,11 +1,18 @@
 import {
   useCssElement,
   useNativeVariable as useFunctionalVariable,
+  type StyledConfiguration,
+  type StyledProps,
 } from "react-native-css";
 
 import Animated from "react-native-reanimated";
 import React from "react";
 import {
+  type PressableProps as RNPressableProps,
+  type ScrollViewProps as RNScrollViewProps,
+  type TextInputProps as RNTextInputProps,
+  type TextProps as RNTextProps,
+  type ViewProps as RNViewProps,
   View as RNView,
   Text as RNText,
   Pressable as RNPressable,
@@ -13,63 +20,86 @@ import {
   TextInput as RNTextInput,
 } from "react-native";
 
+const viewMapping = {
+  className: "style",
+} satisfies StyledConfiguration<typeof RNView>;
+
+const textMapping = {
+  className: "style",
+} satisfies StyledConfiguration<typeof RNText>;
+
+const scrollViewMapping = {
+  className: "style",
+  contentContainerClassName: "contentContainerStyle",
+} as const;
+
+const pressableMapping = {
+  className: "style",
+} as const;
+
+const textInputMapping = {
+  className: "style",
+} satisfies StyledConfiguration<typeof RNTextInput>;
+
+const animatedScrollViewMapping = {
+  className: "style",
+  contentContainerClassName: "contentContainerStyle",
+} as const;
+
 export const useCSSVariable =
   process.env.EXPO_OS !== "web"
     ? useFunctionalVariable
     : (variable: string) => `var(${variable})`;
 
-export type ViewProps = React.ComponentProps<typeof RNView> & {
-  className?: string;
-};
+export type ViewProps = StyledProps<RNViewProps, typeof viewMapping>;
 
 export const View = (props: ViewProps) => {
-  return useCssElement(RNView, props, { className: "style" });
+  return useCssElement(RNView, props, viewMapping);
 };
 View.displayName = "CSS(View)";
 
-export const Text = (
-  props: React.ComponentProps<typeof RNText> & { className?: string },
-) => {
-  return useCssElement(RNText, props, { className: "style" });
+type TextProps = StyledProps<RNTextProps, typeof textMapping>;
+
+export const Text = (props: TextProps) => {
+  return useCssElement(RNText, props, textMapping);
 };
 Text.displayName = "CSS(Text)";
 
-export const ScrollView = (
-  props: React.ComponentProps<typeof RNScrollView> & {
-    className?: string;
-    contentContainerClassName?: string;
-  },
-) => {
-  return useCssElement(RNScrollView, props, {
-    className: "style",
-    contentContainerClassName: "contentContainerStyle",
-  });
+type ScrollViewProps = RNScrollViewProps & {
+  className?: string;
+  contentContainerClassName?: string;
+};
+
+export const ScrollView = (props: ScrollViewProps) => {
+  return useCssElement(RNScrollView as any, props, scrollViewMapping as any);
 };
 ScrollView.displayName = "CSS(ScrollView)";
 
-export const Pressable = (
-  props: React.ComponentProps<typeof RNPressable> & { className?: string },
-) => {
-  return useCssElement(RNPressable, props, { className: "style" });
+type PressableProps = RNPressableProps & { className?: string };
+
+export const Pressable = (props: PressableProps) => {
+  return useCssElement(RNPressable as any, props, pressableMapping as any);
 };
 Pressable.displayName = "CSS(Pressable)";
 
-export const TextInput = (
-  props: React.ComponentProps<typeof RNTextInput> & { className?: string },
-) => {
-  return useCssElement(RNTextInput, props, { className: "style" });
+type TextInputProps = StyledProps<RNTextInputProps, typeof textInputMapping>;
+
+export const TextInput = (props: TextInputProps) => {
+  return useCssElement(RNTextInput, props, textInputMapping);
 };
 TextInput.displayName = "CSS(TextInput)";
 
-export const AnimatedScrollView = (
-  props: React.ComponentProps<typeof Animated.ScrollView> & {
+type AnimatedScrollViewProps = React.ComponentProps<typeof Animated.ScrollView> &
+  {
     className?: string;
     contentContainerClassName?: string;
-  },
-) => {
-  return useCssElement(Animated.ScrollView, props, {
-    className: "style",
-    contentContainerClassName: "contentContainerStyle",
-  });
+  };
+
+export const AnimatedScrollView = (props: AnimatedScrollViewProps) => {
+  return useCssElement(
+    Animated.ScrollView as any,
+    props,
+    animatedScrollViewMapping as any,
+  );
 };
 AnimatedScrollView.displayName = "CSS(AnimatedScrollView)";

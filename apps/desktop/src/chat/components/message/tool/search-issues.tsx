@@ -5,7 +5,10 @@ import { cn } from "@hypr/utils";
 import { defineTool } from "./define-tool";
 import { ToolCardBody } from "./shared";
 
-import { parseSearchIssuesOutput } from "~/chat/mcp/support-mcp-tools";
+import {
+  parseSearchIssuesOutput,
+  type SearchIssueItem,
+} from "~/chat/mcp/support-mcp-tools";
 
 export const ToolSearchIssues = defineTool({
   icon: <SearchIcon />,
@@ -31,7 +34,7 @@ export const ToolSearchIssues = defineTool({
     }
     return (
       <ToolCardBody>
-        {parsed.issues.map((issue) => (
+        {parsed.issues.map((issue: SearchIssueItem) => (
           <a
             key={issue.url}
             href={issue.url}
@@ -55,7 +58,7 @@ export const ToolSearchIssues = defineTool({
                 <span className="text-[11px] text-neutral-500">
                   #{issue.number}
                 </span>
-                {issue.labels.map((label) => (
+                {issue.labels.map((label: string) => (
                   <span
                     key={label}
                     className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-100 px-1.5 py-0 text-[10px] text-neutral-500"
