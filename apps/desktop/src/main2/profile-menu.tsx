@@ -127,13 +127,8 @@ export function ProfileMenu() {
           >
             <div className="w-56 overflow-hidden rounded-xl border bg-white shadow-xs">
               <div className="py-1">
-                {menuItems.map((item, index) => (
-                  <div key={item.label}>
-                    <MenuItem {...item} />
-                    {index === (isPro ? 2 : 1) && (
-                      <div className="my-1 border-t border-neutral-100" />
-                    )}
-                  </div>
+                {menuItems.map((item) => (
+                  <MenuItem key={item.label} {...item} />
                 ))}
                 <AuthSection
                   isAuthenticated={isAuthenticated}
