@@ -15,6 +15,7 @@ import { cn } from "@hypr/utils";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
 import { ProfileSection } from "./profile";
+import { PromptsNav } from "./prompts";
 import { SidebarSearchInput } from "./search";
 import { SettingsNav } from "./settings";
 import { TemplatesNav } from "./templates";
@@ -48,14 +49,15 @@ export function LeftSidebar() {
   const isCalendarMode = currentTab?.type === "calendar";
   const isContactsMode = currentTab?.type === "contacts";
   const isTemplatesMode = currentTab?.type === "templates";
-  const showCollapseButton =
-    !isSettingsMode && !isContactsMode && !isCalendarMode && !isTemplatesMode;
-  const showSearchResults =
-    !isSettingsMode &&
-    !isContactsMode &&
-    !isCalendarMode &&
-    !isTemplatesMode &&
-    query.trim() !== "";
+  const isPromptsMode = currentTab?.type === "prompts";
+  const isSpecialMode =
+    isSettingsMode ||
+    isCalendarMode ||
+    isContactsMode ||
+    isTemplatesMode ||
+    isPromptsMode;
+  const showCollapseButton = !isSpecialMode;
+  const showSearchResults = !isSpecialMode && query.trim() !== "";
 
   return (
     <div className="flex h-full w-70 shrink-0 flex-col gap-1 overflow-hidden">
@@ -100,10 +102,7 @@ export function LeftSidebar() {
         </div>
       </header>
 
-      {!isSettingsMode &&
-        !isCalendarMode &&
-        !isContactsMode &&
-        !isTemplatesMode && <SidebarSearchInput />}
+      {!isSpecialMode && <SidebarSearchInput />}
 
       <div className="flex flex-1 flex-col gap-1 overflow-hidden">
         <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -119,6 +118,8 @@ export function LeftSidebar() {
             <ContactsNav />
           ) : isTemplatesMode ? (
             <TemplatesNav />
+          ) : isPromptsMode ? (
+            <PromptsNav />
           ) : (
             <>
               <div className={showSearchResults ? "h-full" : "hidden"}>
@@ -129,13 +130,9 @@ export function LeftSidebar() {
               </div>
             </>
           )}
-          {!leftsidebar.showDevtool &&
-            !isSettingsMode &&
-            !isCalendarMode &&
-            !isContactsMode &&
-            !isTemplatesMode && (
-              <ToastArea isProfileExpanded={isProfileExpanded} />
-            )}
+          {!leftsidebar.showDevtool && !isSpecialMode && (
+            <ToastArea isProfileExpanded={isProfileExpanded} />
+          )}
         </div>
         <div className="relative z-30">
           <ProfileSection onExpandChange={setIsProfileExpanded} />

@@ -1,19 +1,11 @@
 import { SparklesIcon } from "lucide-react";
-import { useCallback } from "react";
-
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@hypr/ui/components/ui/resizable";
 
 import { PromptDetailsColumn } from "./details";
-import { PromptsListColumn } from "./list";
 
 import type { TaskType } from "~/ai/prompts/config";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { type Tab } from "~/store/zustand/tabs";
 
 export const TabItemPrompt: TabItem<Extract<Tab, { type: "prompts" }>> = ({
   tab,
@@ -49,38 +41,9 @@ export function TabContentPrompt({
 }) {
   return (
     <StandardTabWrapper>
-      <PromptView tab={tab} />
+      <PromptDetailsColumn
+        selectedTask={tab.state.selectedTask as TaskType | null}
+      />
     </StandardTabWrapper>
-  );
-}
-
-function PromptView({ tab }: { tab: Extract<Tab, { type: "prompts" }> }) {
-  const updatePromptsTabState = useTabs((state) => state.updatePromptsTabState);
-
-  const { selectedTask } = tab.state;
-
-  const setSelectedTask = useCallback(
-    (value: string | null) => {
-      updatePromptsTabState(tab, {
-        ...tab.state,
-        selectedTask: value,
-      });
-    },
-    [updatePromptsTabState, tab],
-  );
-
-  return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={24} minSize={18} maxSize={32}>
-        <PromptsListColumn
-          selectedTask={selectedTask as TaskType | null}
-          setSelectedTask={setSelectedTask}
-        />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel defaultSize={76} minSize={48}>
-        <PromptDetailsColumn selectedTask={selectedTask as TaskType | null} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
   );
 }

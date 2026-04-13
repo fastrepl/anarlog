@@ -8,7 +8,6 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@hypr/ui/components/ui/resizable";
-import { cn } from "@hypr/utils";
 
 import { PromptAssistantPanel } from "./assistant";
 import { AVAILABLE_FILTERS, TASK_CONFIGS, type TaskType } from "./config";
@@ -123,73 +122,75 @@ function PromptDetails({
         const hasChanges = draftContent !== savedContent;
 
         return (
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="border-b border-neutral-200 px-6 py-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2 text-xs text-neutral-500">
-                    <CircleDotIcon className="h-3.5 w-3.5" />
-                    <span>
-                      {hasCustomPrompt ? "Saved override" : "Built-in template"}
-                    </span>
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full min-h-0"
+          >
+            <ResizablePanel defaultSize={60} minSize={42}>
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="border-b border-neutral-200 px-6 py-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <CircleDotIcon className="h-3.5 w-3.5" />
+                        <span>
+                          {hasCustomPrompt
+                            ? "Saved override"
+                            : "Built-in template"}
+                        </span>
+                      </div>
+                      <h2 className="mt-1 text-lg font-semibold text-neutral-900">
+                        {taskConfig.label}
+                      </h2>
+                      <p className="mt-0.5 text-sm text-neutral-500">
+                        {taskConfig.description}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          field.handleChange(savedContent);
+                          editorRef.current?.focus();
+                        }}
+                        disabled={!hasChanges || isMutating}
+                      >
+                        <RotateCcwIcon className="h-3.5 w-3.5" />
+                        Revert Draft
+                      </Button>
+                      {hasCustomPrompt ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            void resetMutation.mutateAsync();
+                          }}
+                          disabled={isMutating}
+                        >
+                          Reset to Default
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          void form.handleSubmit();
+                        }}
+                        disabled={!hasChanges || isMutating}
+                      >
+                        <SaveIcon className="h-3.5 w-3.5" />
+                        Save
+                      </Button>
+                    </div>
                   </div>
-                  <h2 className="mt-2 text-lg font-semibold text-neutral-900">
-                    {taskConfig.label}
-                  </h2>
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {taskConfig.description}
-                  </p>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      field.handleChange(savedContent);
-                      editorRef.current?.focus();
-                    }}
-                    disabled={!hasChanges || isMutating}
-                  >
-                    <RotateCcwIcon className="h-3.5 w-3.5" />
-                    Revert Draft
-                  </Button>
-                  {hasCustomPrompt ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        void resetMutation.mutateAsync();
-                      }}
-                      disabled={isMutating}
-                    >
-                      Reset to Default
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      void form.handleSubmit();
-                    }}
-                    disabled={!hasChanges || isMutating}
-                  >
-                    <SaveIcon className="h-3.5 w-3.5" />
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <ResizablePanelGroup
-              direction="horizontal"
-              className="min-h-0 flex-1"
-            >
-              <ResizablePanel defaultSize={60} minSize={42}>
-                <div className="flex h-full min-h-0 flex-col">
-                  <div className="border-b border-neutral-200 px-6 py-4">
+                <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto">
+                  <div className="flex flex-col gap-4 px-6 py-4">
                     <div className="rounded-xl border border-neutral-200 bg-stone-50 px-4 py-3">
                       <p className="text-xs leading-5 text-neutral-600">
                         This editor shows the real built-in Askama template when
@@ -198,7 +199,7 @@ function PromptDetails({
                       </p>
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-3">
+                    <div className="flex flex-col gap-3">
                       <PromptLibraryRow
                         label="Variables"
                         helper="Click to insert or drag into the editor."
@@ -229,65 +230,55 @@ function PromptDetails({
                         ))}
                       </PromptLibraryRow>
                     </div>
-                  </div>
 
-                  <ResizablePanelGroup
-                    direction="vertical"
-                    className="min-h-0 flex-1"
-                  >
-                    <ResizablePanel defaultSize={42} minSize={24}>
-                      <PromptSection
-                        title="Formatted View"
-                        description="A cleaner read of the active draft. Inline chips can be dragged or inserted back into the editor."
-                      >
-                        <PromptTemplatePreview
-                          content={draftContent}
-                          onInsert={handleInsertSnippet}
+                    <PromptSection
+                      title="Formatted View"
+                      description="A cleaner read of the active draft. Inline chips can be dragged or inserted back into the editor."
+                    >
+                      <PromptTemplatePreview
+                        content={draftContent}
+                        onInsert={handleInsertSnippet}
+                      />
+                    </PromptSection>
+
+                    <PromptSection
+                      title="Template Source"
+                      description="Edit the Jinja draft directly, or let Charlie rewrite it from the chat pane."
+                    >
+                      <div className="h-64 overflow-hidden rounded-xl border border-neutral-200">
+                        <PromptEditor
+                          ref={editorRef}
+                          value={draftContent}
+                          onChange={field.handleChange}
+                          placeholder="Edit the template source, drag chips into place, or ask Charlie to rewrite the draft."
+                          variables={variables}
+                          filters={filters}
                         />
-                      </PromptSection>
-                    </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel defaultSize={58} minSize={32}>
-                      <PromptSection
-                        title="Template Source"
-                        description="Edit the Jinja draft directly, or let Charlie rewrite it from the chat pane."
-                        flush
-                      >
-                        <div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-neutral-200">
-                          <PromptEditor
-                            ref={editorRef}
-                            value={draftContent}
-                            onChange={field.handleChange}
-                            placeholder="Edit the template source, drag chips into place, or ask Charlie to rewrite the draft."
-                            variables={variables}
-                            filters={filters}
-                          />
-                        </div>
-                      </PromptSection>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
+                      </div>
+                    </PromptSection>
+                  </div>
                 </div>
-              </ResizablePanel>
+              </div>
+            </ResizablePanel>
 
-              <ResizableHandle />
+            <ResizableHandle />
 
-              <ResizablePanel defaultSize={40} minSize={28}>
-                <PromptAssistantPanel
-                  selectedTask={selectedTask}
-                  taskLabel={taskConfig.label}
-                  taskDescription={taskConfig.description}
-                  variables={variables}
-                  filters={filters}
-                  draftContent={draftContent}
-                  hasCustomPrompt={hasCustomPrompt}
-                  onApplyTemplate={(content) => {
-                    field.handleChange(content);
-                    editorRef.current?.focus();
-                  }}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
+            <ResizablePanel defaultSize={40} minSize={28}>
+              <PromptAssistantPanel
+                selectedTask={selectedTask}
+                taskLabel={taskConfig.label}
+                taskDescription={taskConfig.description}
+                variables={variables}
+                filters={filters}
+                draftContent={draftContent}
+                hasCustomPrompt={hasCustomPrompt}
+                onApplyTemplate={(content) => {
+                  field.handleChange(content);
+                  editorRef.current?.focus();
+                }}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         );
       }}
     </form.Field>
@@ -318,25 +309,20 @@ function PromptSection({
   title,
   description,
   children,
-  flush = false,
 }: {
   title: string;
   description: string;
   children: ReactNode;
-  flush?: boolean;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div
-        className={cn([
-          "border-b border-neutral-200 px-6 py-4",
-          flush && "pb-3",
-        ])}
-      >
+    <div className="flex flex-col gap-2">
+      <div>
         <h3 className="text-sm font-medium text-neutral-900">{title}</h3>
-        <p className="mt-1 text-xs leading-5 text-neutral-500">{description}</p>
+        <p className="mt-0.5 text-xs leading-5 text-neutral-500">
+          {description}
+        </p>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col px-6 py-4">{children}</div>
+      {children}
     </div>
   );
 }

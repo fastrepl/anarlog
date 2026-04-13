@@ -18,7 +18,8 @@ export function ClassicMainSidebar() {
     currentTab?.type === "calendar" ||
     currentTab?.type === "settings" ||
     currentTab?.type === "contacts" ||
-    currentTab?.type === "templates";
+    currentTab?.type === "templates" ||
+    currentTab?.type === "prompts";
   const savedExpandedRef = useRef<boolean | null>(null);
   const wasCustomSidebarRef = useRef(false);
 
