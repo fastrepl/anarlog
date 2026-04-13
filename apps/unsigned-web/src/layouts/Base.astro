@@ -12,12 +12,14 @@ const url = "https://unsigned.char.com";
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <link rel="alternate icon" type="image/svg+xml" href="/icon.svg" />
     <SEO title={title} description={description} canonical={url} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap"
       rel="stylesheet"
     />
     <style>html { background: #fff }</style>
@@ -25,7 +27,7 @@ const url = "https://unsigned.char.com";
   <body class="min-h-screen bg-white">
     <div class="flex min-h-screen flex-col">
       <div
-        class="w-full border-b border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-mono text-sm text-neutral-700"
+        class="w-full border-b border-neutral-200 bg-neutral-50 px-4 py-3 text-center font-serif text-base text-neutral-700"
       >
         <span>Unsigned Char is an on-device version of </span>
         <a
@@ -39,7 +41,7 @@ const url = "https://unsigned.char.com";
       </div>
 
       <main
-        class="flex flex-1 w-full items-center justify-center bg-white py-12 font-mono text-neutral-950"
+        class="flex w-full flex-1 items-center justify-center bg-white py-12 font-serif text-neutral-950"
       >
         <slot />
       </main>
