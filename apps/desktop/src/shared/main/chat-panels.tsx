@@ -26,6 +26,7 @@ export function MainChatPanels({
   const previousModeRef = useRef(rightPanelMode);
   const bodyPanelRef = useRef<ImperativePanelHandle>(null);
   const chatPanelContainerRef = useRef<HTMLDivElement>(null);
+  const bodyPanelContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const isOpeningRightPanel =
@@ -61,7 +62,9 @@ export function MainChatPanels({
           ref={bodyPanelRef}
           className="min-h-0 flex-1 overflow-hidden"
         >
-          {children}
+          <div ref={bodyPanelContainerRef} className="h-full min-h-0">
+            {children}
+          </div>
         </ResizablePanel>
         {isRightPanelOpen && (
           <>
@@ -82,7 +85,10 @@ export function MainChatPanels({
         )}
       </ResizablePanelGroup>
 
-      <PersistentChatPanel panelContainerRef={chatPanelContainerRef} />
+      <PersistentChatPanel
+        panelContainerRef={chatPanelContainerRef}
+        floatingContainerRef={bodyPanelContainerRef}
+      />
     </>
   );
 }

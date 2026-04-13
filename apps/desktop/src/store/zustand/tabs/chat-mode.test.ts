@@ -33,6 +33,16 @@ describe("Chat Mode", () => {
     expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
   });
 
+  test("OPEN_FLOATING from FloatingClosed → FloatingOpen", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN_FLOATING" });
+    expect(useTabs.getState().chatMode).toBe("FloatingOpen");
+  });
+
+  test("OPEN_RIGHT_PANEL from FloatingClosed → RightPanelOpen", () => {
+    useTabs.getState().transitionChatMode({ type: "OPEN_RIGHT_PANEL" });
+    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+  });
+
   test("OPEN_TAB transitions to FullTab", () => {
     useTabs.getState().transitionChatMode({ type: "OPEN_TAB" });
     expect(useTabs.getState().chatMode).toBe("FullTab");

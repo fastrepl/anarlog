@@ -10,6 +10,8 @@ export type ChatMode =
 
 export type ChatEvent =
   | { type: "OPEN" }
+  | { type: "OPEN_FLOATING" }
+  | { type: "OPEN_RIGHT_PANEL" }
   | { type: "CLOSE" }
   | { type: "SHIFT" }
   | { type: "TOGGLE" }
@@ -31,6 +33,9 @@ const computeNextChatMode = (
 ): ChatMode => {
   switch (state) {
     case "RightPanelOpen":
+      if (event.type === "OPEN_FLOATING") {
+        return "FloatingOpen";
+      }
       if (event.type === "CLOSE" || event.type === "TOGGLE") {
         return "FloatingClosed";
       }
@@ -45,11 +50,20 @@ const computeNextChatMode = (
       if (event.type === "OPEN" || event.type === "TOGGLE") {
         return lastOpenMode;
       }
+      if (event.type === "OPEN_FLOATING") {
+        return "FloatingOpen";
+      }
+      if (event.type === "OPEN_RIGHT_PANEL") {
+        return "RightPanelOpen";
+      }
       if (event.type === "OPEN_TAB") {
         return "FullTab";
       }
       return state;
     case "FloatingOpen":
+      if (event.type === "OPEN_RIGHT_PANEL") {
+        return "RightPanelOpen";
+      }
       if (event.type === "CLOSE" || event.type === "TOGGLE") {
         return "FloatingClosed";
       }
@@ -61,6 +75,12 @@ const computeNextChatMode = (
       }
       return state;
     case "FullTab":
+      if (event.type === "OPEN_FLOATING") {
+        return "FloatingOpen";
+      }
+      if (event.type === "OPEN_RIGHT_PANEL") {
+        return "RightPanelOpen";
+      }
       if (event.type === "CLOSE" || event.type === "TOGGLE") {
         return "FloatingClosed";
       }

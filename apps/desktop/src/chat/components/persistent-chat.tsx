@@ -10,8 +10,10 @@ import { useShell } from "~/contexts/shell";
 
 export function PersistentChatPanel({
   panelContainerRef,
+  floatingContainerRef,
 }: {
   panelContainerRef: React.RefObject<HTMLDivElement | null>;
+  floatingContainerRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { chat } = useShell();
   const mode = chat.mode;
@@ -20,8 +22,9 @@ export function PersistentChatPanel({
   const isVisible = isFloating || isPanel;
 
   const [hasBeenOpened, setHasBeenOpened] = useState(false);
-  const [panelRect, setPanelRect] = useState<DOMRect | null>(null);
+  const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
+  const activeContainerRef = isPanel ? panelContainerRef : floatingContainerRef;
 
   useEffect(() => {
     if (isVisible && !hasBeenOpened) {
@@ -54,15 +57,19 @@ export function PersistentChatPanel({
   );
 
   useLayoutEffect(() => {
-    if (!isPanel || !panelContainerRef.current) {
-      setPanelRect(null);
+    const container = activeContainerRef.current;
+
+    if (!isVisible || !container) {
+      setContainerRect(null);
       return;
     }
-    setPanelRect(panelContainerRef.current.getBoundingClientRect());
-  }, [isPanel, panelContainerRef]);
+    setContainerRect(container.getBoundingClientRect());
+  }, [activeContainerRef, isVisible]);
 
   useEffect(() => {
-    if (!isPanel || !panelContainerRef.current) {
+    const container = activeContainerRef.current;
+
+    if (!isVisible || !container) {
       if (observerRef.current) {
         observerRef.current.disconnect();
         observerRef.current = null;
@@ -70,13 +77,12 @@ export function PersistentChatPanel({
       return;
     }
 
-    const el = panelContainerRef.current;
     const updateRect = () => {
-      setPanelRect(el.getBoundingClientRect());
+      setContainerRect(container.getBoundingClientRect());
     };
 
     observerRef.current = new ResizeObserver(updateRect);
-    observerRef.current.observe(el);
+    observerRef.current.observe(container);
     window.addEventListener("resize", updateRect);
 
     return () => {
@@ -84,7 +90,7 @@ export function PersistentChatPanel({
       observerRef.current = null;
       window.removeEventListener("resize", updateRect);
     };
-  }, [isPanel, panelContainerRef]);
+  }, [activeContainerRef, isVisible]);
 
   if (!hasBeenOpened) {
     return null;
@@ -95,12 +101,12 @@ export function PersistentChatPanel({
       <div
         className="pointer-events-none fixed z-100"
         style={
-          panelRect
+          containerRect
             ? {
-                top: panelRect.top,
-                left: panelRect.left,
-                width: panelRect.width,
-                height: panelRect.height,
+                top: containerRect.top,
+                left: containerRect.left,
+                width: containerRect.width,
+                height: containerRect.height,
               }
             : { display: "none" }
         }
@@ -116,31 +122,45 @@ export function PersistentChatPanel({
     <AnimatePresence>
       {isFloating && (
         <motion.div
-          className="fixed inset-0 z-100 flex items-end justify-center px-4 pb-4"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              chat.sendEvent({ type: "CLOSE" });
-            }
-          }}
+          className="pointer-events-none fixed z-100"
+          style={
+            containerRect
+              ? {
+                  top: containerRect.top,
+                  left: containerRect.left,
+                  width: containerRect.width,
+                  height: containerRect.height,
+                }
+              : { display: "none" }
+          }
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <motion.div
-            className={cn([
-              "relative flex flex-col overflow-hidden",
-              "max-h-[70vh] w-full max-w-[640px]",
-              "rounded-2xl bg-white shadow-2xl",
-              "border border-neutral-200",
-            ])}
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+          <div
+            className="pointer-events-auto flex h-full items-end justify-center px-4 pb-4"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                chat.sendEvent({ type: "CLOSE" });
+              }
+            }}
           >
-            <ChatView />
-          </motion.div>
+            <motion.div
+              className={cn([
+                "relative flex flex-col overflow-hidden",
+                "max-h-[70vh] w-full max-w-[640px]",
+                "rounded-2xl bg-white shadow-2xl",
+                "border border-neutral-200",
+              ])}
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+            >
+              <ChatView />
+            </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

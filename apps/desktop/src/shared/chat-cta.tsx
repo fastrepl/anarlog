@@ -4,16 +4,33 @@ import { useShell } from "~/contexts/shell";
 
 export function ChatCTA({
   label = "Ask about this session",
+  openMode = "remember",
 }: {
   label?: string;
+  openMode?: "remember" | "floating" | "right-panel";
 }) {
   const { chat } = useShell();
+  const isChatOpen =
+    chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
 
   const handleClick = useCallback(() => {
-    const isChatOpen =
-      chat.mode === "FloatingOpen" || chat.mode === "RightPanelOpen";
-    chat.sendEvent(isChatOpen ? { type: "TOGGLE" } : { type: "OPEN" });
-  }, [chat]);
+    if (isChatOpen) {
+      chat.sendEvent({ type: "TOGGLE" });
+      return;
+    }
+
+    chat.sendEvent(
+      openMode === "floating"
+        ? { type: "OPEN_FLOATING" }
+        : openMode === "right-panel"
+          ? { type: "OPEN_RIGHT_PANEL" }
+          : { type: "OPEN" },
+    );
+  }, [chat, isChatOpen, openMode]);
+
+  if (isChatOpen) {
+    return null;
+  }
 
   return (
     <button
