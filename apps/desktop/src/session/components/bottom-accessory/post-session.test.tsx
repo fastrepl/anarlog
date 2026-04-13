@@ -56,6 +56,11 @@ vi.mock("~/audio-player", () => ({
   TimelineMeta: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  useAudioPlayer: () => ({
+    audioExists: true,
+    deleteRecording: vi.fn(),
+    isDeletingRecording: false,
+  }),
 }));
 
 vi.mock("~/session/components/note-input/transcript", () => ({
