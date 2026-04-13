@@ -45,3 +45,9 @@
 
 - Live-query orchestration, dependency analysis, rerun policy, and stale subscriber cleanup belong below this plugin in `db-live-query`.
 - If the app needs richer query abstractions, put them in app code or a separate shared package instead of expanding the plugin API surface.
+
+## Test Ownership
+
+- Put tests here when the behavior is about app bootstrap, migration invocation during setup, Tauri command wiring, channel adaptation, generated bindings, or the minimal JS API contract.
+- Keep plugin tests thin. Prefer adapter smoke tests over re-testing live-query invalidation behavior that already belongs in `db-live-query`.
+- Do not add table-targeting, rerun-policy, or stale-subscriber behavior tests here unless the plugin layer itself changes that behavior.

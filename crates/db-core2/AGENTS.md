@@ -48,3 +48,9 @@
 - If the pool policy changes between single-connection and multi-connection, the hook path should remain correct without upper-layer changes.
 - In-memory databases should still be treated carefully; `max_connections(1)` is the safe default unless shared-memory behavior is explicitly intended.
 - If code needs to answer "what tables does this SQL depend on?" or "which subscribers should rerun?", it belongs above this crate.
+
+## Test Ownership
+
+- Put tests here when the behavior is about database opening, connection policy, migration failure handling, cloudsync wiring, or raw table-change hook behavior.
+- Prefer temp-database integration tests here over higher-level plugin tests when verifying pooled connection semantics.
+- Do not test subscription reruns, dependency extraction, transport delivery, or Tauri command behavior here.

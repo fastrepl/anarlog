@@ -4711,7 +4711,6 @@ dependencies = [
  "anyhow",
  "db-app",
  "db-core2",
- "db-watch",
  "serde_json",
  "sqlx",
  "tempfile",
@@ -4755,10 +4754,6 @@ dependencies = [
  "tokio",
  "uuid",
 ]
-
-[[package]]
-name = "db-watch"
-version = "0.1.0"
 
 [[package]]
 name = "deadpool"

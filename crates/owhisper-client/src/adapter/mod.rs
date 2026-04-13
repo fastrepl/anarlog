@@ -1,6 +1,7 @@
 pub mod parsing;
 mod url_builder;
 
+mod aquavoice;
 mod argmax;
 pub(crate) mod assemblyai;
 mod cactus;
@@ -20,6 +21,7 @@ mod pyannote;
 pub(crate) mod soniox;
 mod whispercpp;
 
+pub use aquavoice::*;
 pub use argmax::*;
 pub use assemblyai::*;
 pub use cactus::*;
@@ -361,6 +363,8 @@ pub fn append_provider_param(base_url: &str, provider: &str) -> String {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 pub enum AdapterKind {
+    #[strum(serialize = "aquavoice")]
+    AquaVoice,
     #[strum(serialize = "argmax")]
     Argmax,
     #[strum(serialize = "soniox")]
@@ -421,6 +425,7 @@ impl AdapterKind {
         model: Option<&str>,
     ) -> LanguageSupport {
         match self {
+            Self::AquaVoice => LanguageSupport::NotSupported,
             Self::Deepgram => {
                 let model = model.and_then(|m| m.parse::<deepgram::DeepgramModel>().ok());
                 DeepgramAdapter::language_support_live(languages, model)
@@ -447,6 +452,7 @@ impl AdapterKind {
         model: Option<&str>,
     ) -> LanguageSupport {
         match self {
+            Self::AquaVoice => AquaVoiceAdapter::language_support_batch(languages),
             Self::Deepgram => {
                 let model = model.and_then(|m| m.parse::<deepgram::DeepgramModel>().ok());
                 DeepgramAdapter::language_support_batch(languages, model)
@@ -508,6 +514,7 @@ impl From<crate::providers::Provider> for AdapterKind {
     fn from(p: crate::providers::Provider) -> Self {
         use crate::providers::Provider;
         match p {
+            Provider::AquaVoice => Self::AquaVoice,
             Provider::Deepgram => Self::Deepgram,
             Provider::AssemblyAI => Self::AssemblyAI,
             Provider::Soniox => Self::Soniox,

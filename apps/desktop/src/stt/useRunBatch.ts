@@ -31,17 +31,18 @@ type RunOptions = {
   maxSpeakers?: number;
 };
 
-const BATCH_PROVIDER_MAP: Record<string, TranscriptionParams["provider"]> = {
-  deepgram: "deepgram",
-  soniox: "soniox",
-  assemblyai: "assemblyai",
-  openai: "openai",
-  gladia: "gladia",
-  elevenlabs: "elevenlabs",
-  mistral: "mistral",
-  fireworks: "fireworks",
-  pyannote: "pyannote",
-};
+const DIRECT_BATCH_PROVIDERS: Set<TranscriptionParams["provider"]> = new Set([
+  "deepgram",
+  "soniox",
+  "assemblyai",
+  "openai",
+  "gladia",
+  "elevenlabs",
+  "mistral",
+  "fireworks",
+  "pyannote",
+  "aquavoice",
+]);
 
 export const STOPPED_TRANSCRIPTION_ERROR_MESSAGE = "Transcription stopped.";
 
@@ -54,7 +55,10 @@ export function getBatchProvider(
     if (model.startsWith("cactus-")) return "cactus";
     return "hyprnote";
   }
-  return BATCH_PROVIDER_MAP[provider] ?? null;
+  if (DIRECT_BATCH_PROVIDERS.has(provider as TranscriptionParams["provider"])) {
+    return provider as TranscriptionParams["provider"];
+  }
+  return null;
 }
 
 export function canRunBatchTranscription(

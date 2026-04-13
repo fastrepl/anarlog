@@ -1,28 +1,21 @@
 #![forbid(unsafe_code)]
 
+mod error;
 mod explain;
+mod query;
+mod watch;
 
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use hypr_db_core2::Db3;
-use hypr_db_watch::{TableDeps, WatchId};
-use sqlx::{Column, Row, TypeInfo, ValueRef};
-use tokio::sync::watch;
+use tokio::sync::watch as tokio_watch;
+use watch::{TableDeps, WatchId};
 
+pub use error::{Error, Result};
 pub use explain::extract_tables;
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-    #[error("subscription not found: {0}")]
-    SubscriptionNotFound(String),
-    #[error("failed to send query event: {0}")]
-    Sink(String),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
+use query::run_query;
 
 pub trait QueryEventSink: Clone + Send + 'static {
     fn send_result(&self, rows: Vec<serde_json::Value>) -> std::result::Result<(), String>;
@@ -74,7 +67,7 @@ impl<S> Default for Inner<S> {
 pub struct DbRuntime<S> {
     db: Arc<Db3>,
     inner: Arc<tokio::sync::Mutex<Inner<S>>>,
-    shutdown_tx: watch::Sender<bool>,
+    shutdown_tx: tokio_watch::Sender<bool>,
     dispatcher: std::sync::Mutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
@@ -87,7 +80,7 @@ impl<S: QueryEventSink> DbRuntime<S> {
     pub fn new(db: Db3) -> Self {
         let db = Arc::new(db);
         let inner = Arc::new(tokio::sync::Mutex::<Inner<S>>::new(Inner::default()));
-        let (shutdown_tx, mut shutdown_rx) = watch::channel(false);
+        let (shutdown_tx, mut shutdown_rx) = tokio_watch::channel(false);
         let mut change_rx = db.subscribe_table_changes();
         let dispatcher_inner = Arc::clone(&inner);
         let dispatcher_db = Arc::clone(&db);
@@ -144,10 +137,6 @@ impl<S: QueryEventSink> DbRuntime<S> {
             shutdown_tx,
             dispatcher: std::sync::Mutex::new(Some(dispatcher)),
         }
-    }
-
-    pub fn pool(&self) -> &sqlx::SqlitePool {
-        self.db.pool()
     }
 
     pub async fn execute(
@@ -330,369 +319,5 @@ async fn remove_stale<S: QueryEventSink>(
             guard.ids.remove(&subscription.id);
         }
         guard.deps.unregister(*watch_id);
-    }
-}
-
-async fn run_query(
-    db: &Db3,
-    sql: &str,
-    params: &[serde_json::Value],
-) -> std::result::Result<Vec<serde_json::Value>, sqlx::Error> {
-    let mut query = sqlx::query(sql);
-    for param in params {
-        query = match param {
-            serde_json::Value::Null => query.bind(None::<String>),
-            serde_json::Value::Bool(value) => query.bind(*value),
-            serde_json::Value::Number(value) => {
-                if let Some(integer) = value.as_i64() {
-                    query.bind(integer)
-                } else {
-                    query.bind(value.as_f64().unwrap_or_default())
-                }
-            }
-            serde_json::Value::String(value) => query.bind(value.clone()),
-            other => query.bind(other.to_string()),
-        };
-    }
-
-    let rows = query.fetch_all(db.pool().as_ref()).await?;
-    Ok(rows.iter().map(row_to_json).collect())
-}
-
-fn row_to_json(row: &sqlx::sqlite::SqliteRow) -> serde_json::Value {
-    let mut map = serde_json::Map::new();
-    for (index, column) in row.columns().iter().enumerate() {
-        let value = match row.try_get_raw(index) {
-            Ok(raw) if !raw.is_null() => match raw.type_info().name() {
-                "TEXT" => row
-                    .get::<Option<String>, _>(index)
-                    .map(serde_json::Value::String)
-                    .unwrap_or(serde_json::Value::Null),
-                "INTEGER" | "INT" | "BOOLEAN" => row
-                    .get::<Option<i64>, _>(index)
-                    .map(serde_json::Value::from)
-                    .unwrap_or(serde_json::Value::Null),
-                "REAL" => row
-                    .get::<Option<f64>, _>(index)
-                    .map(serde_json::Value::from)
-                    .unwrap_or(serde_json::Value::Null),
-                "BLOB" => row
-                    .get::<Option<Vec<u8>>, _>(index)
-                    .map(serde_json::Value::from)
-                    .unwrap_or(serde_json::Value::Null),
-                _ => row
-                    .get::<Option<String>, _>(index)
-                    .map(serde_json::Value::String)
-                    .unwrap_or(serde_json::Value::Null),
-            },
-            _ => serde_json::Value::Null,
-        };
-        map.insert(column.name().to_string(), value);
-    }
-
-    serde_json::Value::Object(map)
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::{Arc, Mutex};
-    use std::time::Duration;
-
-    use hypr_db_core2::{DbOpenOptions, DbStorage, MigrationFailurePolicy};
-
-    use super::*;
-
-    #[derive(Clone, Debug, PartialEq)]
-    enum TestEvent {
-        Result(Vec<serde_json::Value>),
-        Error(String),
-    }
-
-    #[derive(Clone)]
-    struct TestSink {
-        events: Arc<Mutex<Vec<TestEvent>>>,
-        fail_after: Option<usize>,
-    }
-
-    impl QueryEventSink for TestSink {
-        fn send_result(&self, rows: Vec<serde_json::Value>) -> std::result::Result<(), String> {
-            self.push(TestEvent::Result(rows))
-        }
-
-        fn send_error(&self, error: String) -> std::result::Result<(), String> {
-            self.push(TestEvent::Error(error))
-        }
-    }
-
-    impl TestSink {
-        fn capture() -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
-            let events = Arc::new(Mutex::new(Vec::new()));
-            (
-                Self {
-                    events: Arc::clone(&events),
-                    fail_after: None,
-                },
-                events,
-            )
-        }
-
-        fn fail_after(limit: usize) -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
-            let events = Arc::new(Mutex::new(Vec::new()));
-            (
-                Self {
-                    events: Arc::clone(&events),
-                    fail_after: Some(limit),
-                },
-                events,
-            )
-        }
-
-        fn push(&self, event: TestEvent) -> std::result::Result<(), String> {
-            let mut guard = self.events.lock().unwrap();
-            if self.fail_after.is_some_and(|limit| guard.len() >= limit) {
-                return Err("sink closed".to_string());
-            }
-            guard.push(event);
-            Ok(())
-        }
-    }
-
-    async fn next_event(
-        events: &Arc<Mutex<Vec<TestEvent>>>,
-        index: usize,
-    ) -> anyhow::Result<TestEvent> {
-        tokio::time::timeout(Duration::from_secs(1), async {
-            loop {
-                if let Some(event) = events.lock().unwrap().get(index).cloned() {
-                    return event;
-                }
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .map_err(anyhow::Error::from)
-    }
-
-    async fn setup_runtime() -> (tempfile::TempDir, DbRuntime<TestSink>) {
-        let dir = tempfile::tempdir().unwrap();
-        let db_path = dir.path().join("app.db");
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&db_path),
-                cloudsync: false,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(4),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |pool| Box::pin(hypr_db_app::migrate(pool)),
-        )
-        .await
-        .unwrap();
-
-        (dir, DbRuntime::new(db))
-    }
-
-    #[tokio::test]
-    async fn subscribe_sends_initial_result() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                sink,
-            )
-            .await
-            .unwrap();
-
-        let event = next_event(&events, 0).await.unwrap();
-        assert_eq!(event, TestEvent::Result(Vec::new()));
-    }
-
-    #[tokio::test]
-    async fn dependent_writes_trigger_refresh() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                sink,
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-1")
-            .bind("2026-04-13")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-
-        let event = next_event(&events, 1).await.unwrap();
-        let TestEvent::Result(rows) = event else {
-            panic!("expected result event");
-        };
-        assert_eq!(rows.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn unrelated_writes_do_not_trigger_refresh() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-seed")
-            .bind("2026-04-12")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                sink,
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-
-        sqlx::query(
-            "INSERT INTO daily_summaries (id, daily_note_id, date, content, timeline_json, topics_json, status, source_cursor_ms, source_fingerprint, generation_error, generated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind("summary-1")
-        .bind("note-seed")
-        .bind("2026-04-12")
-        .bind("{}")
-        .bind("[]")
-        .bind("[]")
-        .bind("ready")
-        .bind(0_i64)
-        .bind("")
-        .bind("")
-        .bind("2026-04-12T00:00:00Z")
-        .execute(runtime.pool())
-        .await
-        .unwrap();
-
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        assert_eq!(events.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn unsubscribe_stops_future_events() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        let registration = runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                sink,
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-        runtime.unsubscribe(&registration.id).await.unwrap();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-2")
-            .bind("2026-04-14")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        assert_eq!(events.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn invalid_sql_sends_error_event() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        runtime
-            .subscribe("SELECT * FROM missing_table".to_string(), vec![], sink)
-            .await
-            .unwrap();
-
-        let event = next_event(&events, 0).await.unwrap();
-        assert!(matches!(event, TestEvent::Error(_)));
-    }
-
-    #[tokio::test]
-    async fn extraction_failures_become_explicit_non_reactive_subscriptions() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::capture();
-
-        let registration = runtime
-            .subscribe("SELECT * FROM missing_table".to_string(), vec![], sink)
-            .await
-            .unwrap();
-
-        assert!(matches!(
-            &registration.analysis,
-            DependencyAnalysis::NonReactive { .. }
-        ));
-
-        let analysis = runtime
-            .dependency_analysis(&registration.id)
-            .await
-            .expect("subscription should exist");
-        assert!(matches!(analysis, DependencyAnalysis::NonReactive { .. }));
-
-        let event = next_event(&events, 0).await.unwrap();
-        assert!(matches!(event, TestEvent::Error(_)));
-    }
-
-    #[tokio::test]
-    async fn stale_subscribers_are_removed_after_send_failures() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (sink, events) = TestSink::fail_after(1);
-
-        let registration = runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                sink,
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-stale")
-            .bind("2026-04-15")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-
-        tokio::time::sleep(Duration::from_millis(150)).await;
-
-        assert!(
-            runtime
-                .dependency_analysis(&registration.id)
-                .await
-                .is_none()
-        );
-        assert_eq!(events.lock().unwrap().len(), 1);
     }
 }

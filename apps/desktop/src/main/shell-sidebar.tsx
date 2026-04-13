@@ -1,7 +1,5 @@
 import { useEffect, useRef } from "react";
 
-import { commands as windowsCommands } from "@hypr/plugin-windows";
-
 import { useShell } from "~/contexts/shell";
 import { useSearch } from "~/search/contexts/ui";
 import { LeftSidebar } from "~/sidebar";
@@ -28,9 +26,6 @@ export function ClassicMainSidebar() {
 
     if (isStartingSearch && !leftsidebar.expanded && !isOnboarding) {
       leftsidebar.setExpanded(true);
-      windowsCommands
-        .windowExpandWidth(280, null, false, true)
-        .catch(console.error);
     }
 
     previousQueryRef.current = query;

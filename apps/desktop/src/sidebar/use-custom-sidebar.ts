@@ -1,7 +1,5 @@
 import { useEffect, useRef } from "react";
 
-import { commands as windowsCommands } from "@hypr/plugin-windows";
-
 import type { Tab } from "~/store/zustand/tabs";
 
 const CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
@@ -23,6 +21,7 @@ export function useCustomSidebarEffect(
     setExpanded: (v: boolean) => void;
     setLocked: (v: boolean) => void;
   },
+  { restoreExpandedOnExit = true }: { restoreExpandedOnExit?: boolean } = {},
 ) {
   const savedExpandedRef = useRef<boolean | null>(null);
   const wasActiveRef = useRef(false);
@@ -32,19 +31,17 @@ export function useCustomSidebarEffect(
       savedExpandedRef.current = leftsidebar.expanded;
       if (!leftsidebar.expanded) {
         leftsidebar.setExpanded(true);
-        windowsCommands
-          .windowExpandWidth(280, null, false, true)
-          .catch(console.error);
       }
       leftsidebar.setLocked(true);
     } else if (!active && wasActiveRef.current) {
       leftsidebar.setLocked(false);
-      if (savedExpandedRef.current !== null) {
+      if (restoreExpandedOnExit && savedExpandedRef.current !== null) {
         leftsidebar.setExpanded(savedExpandedRef.current);
+      } else if (!restoreExpandedOnExit) {
+        leftsidebar.setExpanded(false);
       }
       savedExpandedRef.current = null;
-      windowsCommands.windowRestoreWidth().catch(console.error);
     }
     wasActiveRef.current = active;
-  }, [active, leftsidebar]);
+  }, [active, leftsidebar, restoreExpandedOnExit]);
 }

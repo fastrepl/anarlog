@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 hypr-db-core2 = { workspace = true }
-hypr-db-watch = { workspace = true }
 serde_json = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
 thiserror = { workspace = true }

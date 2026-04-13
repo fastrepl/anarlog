@@ -20,10 +20,21 @@ pub use webhook::{ForwardHandler, ForwardHandlerRegistry, WebhookResponse, forwa
 pub use whoami::{WhoAmIItem, WhoAmIResponse};
 
 pub fn router(config: NangoConfig) -> Router {
+    session_router(config.clone()).merge(management_router(config))
+}
+
+pub fn session_router(config: NangoConfig) -> Router {
     let state = AppState::new(config);
 
     Router::new()
         .route("/session", post(connect::create_session))
+        .with_state(state)
+}
+
+pub fn management_router(config: NangoConfig) -> Router {
+    let state = AppState::new(config);
+
+    Router::new()
         .route(
             "/connections",
             get(status::list_connections).delete(disconnect::delete_connection),

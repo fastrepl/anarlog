@@ -14,4 +14,7 @@ pub use integrations::{
     Slack,
 };
 pub use openapi::openapi;
-pub use routes::{ForwardHandler, ForwardHandlerRegistry, forward_handler, router, webhook_router};
+pub use routes::{
+    ForwardHandler, ForwardHandlerRegistry, forward_handler, management_router, router,
+    session_router, webhook_router,
+};

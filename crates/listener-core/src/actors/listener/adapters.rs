@@ -31,84 +31,44 @@ pub(super) async fn spawn_rx_task(
         AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model));
     let is_dual = matches!(args.mode, crate::actors::ChannelMode::MicAndSpeaker);
 
-    let result = match (adapter_kind, is_dual) {
-        (AdapterKind::Argmax, false) => {
-            spawn_rx_task_single_with_adapter::<ArgmaxAdapter>(args, myself).await
-        }
-        (AdapterKind::Argmax, true) => {
-            spawn_rx_task_dual_with_adapter::<ArgmaxAdapter>(args, myself).await
-        }
-        (AdapterKind::Soniox, false) => {
-            spawn_rx_task_single_with_adapter::<SonioxAdapter>(args, myself).await
-        }
-        (AdapterKind::Soniox, true) => {
-            spawn_rx_task_dual_with_adapter::<SonioxAdapter>(args, myself).await
-        }
-        (AdapterKind::Fireworks, false) => {
-            spawn_rx_task_single_with_adapter::<FireworksAdapter>(args, myself).await
-        }
-        (AdapterKind::Fireworks, true) => {
-            spawn_rx_task_dual_with_adapter::<FireworksAdapter>(args, myself).await
-        }
-        (AdapterKind::Deepgram, false) => {
-            spawn_rx_task_single_with_adapter::<DeepgramAdapter>(args, myself).await
-        }
-        (AdapterKind::Deepgram, true) => {
-            spawn_rx_task_dual_with_adapter::<DeepgramAdapter>(args, myself).await
-        }
-        (AdapterKind::AssemblyAI, false) => {
-            spawn_rx_task_single_with_adapter::<AssemblyAIAdapter>(args, myself).await
-        }
-        (AdapterKind::AssemblyAI, true) => {
-            spawn_rx_task_dual_with_adapter::<AssemblyAIAdapter>(args, myself).await
-        }
-        (AdapterKind::OpenAI, _) => {
-            return Err(actor_error(
-                "provider_batch_only: openai only supports batch transcription",
-            ));
-        }
-        (AdapterKind::Gladia, false) => {
-            spawn_rx_task_single_with_adapter::<GladiaAdapter>(args, myself).await
-        }
-        (AdapterKind::Gladia, true) => {
-            spawn_rx_task_dual_with_adapter::<GladiaAdapter>(args, myself).await
-        }
-        (AdapterKind::ElevenLabs, false) => {
-            spawn_rx_task_single_with_adapter::<ElevenLabsAdapter>(args, myself).await
-        }
-        (AdapterKind::ElevenLabs, true) => {
-            spawn_rx_task_dual_with_adapter::<ElevenLabsAdapter>(args, myself).await
-        }
-        (AdapterKind::DashScope, false) => {
-            spawn_rx_task_single_with_adapter::<DashScopeAdapter>(args, myself).await
-        }
-        (AdapterKind::DashScope, true) => {
-            spawn_rx_task_dual_with_adapter::<DashScopeAdapter>(args, myself).await
-        }
-        (AdapterKind::Mistral, false) => {
-            spawn_rx_task_single_with_adapter::<MistralAdapter>(args, myself).await
-        }
-        (AdapterKind::Mistral, true) => {
-            spawn_rx_task_dual_with_adapter::<MistralAdapter>(args, myself).await
-        }
-        (AdapterKind::Hyprnote, false) => {
-            spawn_rx_task_single_with_adapter::<HyprnoteAdapter>(args, myself).await
-        }
-        (AdapterKind::Hyprnote, true) => {
-            spawn_rx_task_dual_with_adapter::<HyprnoteAdapter>(args, myself).await
-        }
-        (AdapterKind::Cactus, false) => {
-            spawn_rx_task_single_with_adapter::<CactusAdapter>(args, myself).await
-        }
-        (AdapterKind::Cactus, true) => {
-            spawn_rx_task_dual_with_adapter::<CactusAdapter>(args, myself).await
-        }
-        (AdapterKind::Pyannote, _) => {
-            return Err(actor_error(
-                "provider_batch_only: pyannote only supports batch transcription",
-            ));
-        }
-    }?;
+    macro_rules! dispatch_realtime {
+        ($ak:expr, $is_dual:expr, $args:expr, $myself:expr,
+         { $($var:ident => $adapter:ty),+ $(,)? },
+         batch_only: [$($bo:ident),* $(,)?]
+        ) => {
+            match ($ak, $is_dual) {
+                $(
+                    (AdapterKind::$var, false) => {
+                        spawn_rx_task_single_with_adapter::<$adapter>($args, $myself).await
+                    }
+                    (AdapterKind::$var, true) => {
+                        spawn_rx_task_dual_with_adapter::<$adapter>($args, $myself).await
+                    }
+                )+
+                $(
+                    (AdapterKind::$bo, _) => {
+                        return Err(actor_error(
+                            concat!("provider_batch_only: ", stringify!($bo), " only supports batch transcription")
+                        ));
+                    }
+                )*
+            }
+        };
+    }
+
+    let result = dispatch_realtime!(adapter_kind, is_dual, args, myself, {
+        Argmax => ArgmaxAdapter,
+        Soniox => SonioxAdapter,
+        Fireworks => FireworksAdapter,
+        Deepgram => DeepgramAdapter,
+        AssemblyAI => AssemblyAIAdapter,
+        Gladia => GladiaAdapter,
+        ElevenLabs => ElevenLabsAdapter,
+        DashScope => DashScopeAdapter,
+        Mistral => MistralAdapter,
+        Hyprnote => HyprnoteAdapter,
+        Cactus => CactusAdapter,
+    }, batch_only: [OpenAI, AquaVoice, Pyannote])?;
 
     Ok((result.0, result.1, result.2, adapter_kind.to_string()))
 }

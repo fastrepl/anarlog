@@ -33,6 +33,27 @@ pub enum BatchProvider {
     Hyprnote,
     Am,
     Cactus,
+    AquaVoice,
+}
+
+impl BatchProvider {
+    pub fn to_adapter_kind(&self) -> Option<AdapterKind> {
+        match self {
+            Self::Argmax => Some(AdapterKind::Argmax),
+            Self::Deepgram => Some(AdapterKind::Deepgram),
+            Self::Soniox => Some(AdapterKind::Soniox),
+            Self::AssemblyAI => Some(AdapterKind::AssemblyAI),
+            Self::Fireworks => Some(AdapterKind::Fireworks),
+            Self::OpenAI => Some(AdapterKind::OpenAI),
+            Self::Gladia => Some(AdapterKind::Gladia),
+            Self::ElevenLabs => Some(AdapterKind::ElevenLabs),
+            Self::Pyannote => Some(AdapterKind::Pyannote),
+            Self::Mistral => Some(AdapterKind::Mistral),
+            Self::Hyprnote => Some(AdapterKind::Hyprnote),
+            Self::AquaVoice => Some(AdapterKind::AquaVoice),
+            Self::Am | Self::WhisperLocal | Self::Cactus | Self::DashScope => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -158,21 +179,6 @@ async fn run_batch_inner(
         BatchProvider::WhisperLocal | BatchProvider::Cactus => {
             run_progressive_batch_session(runtime, params, listen_params).await
         }
-        BatchProvider::Argmax => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Argmax, params, listen_params).await
-        }
-        BatchProvider::Deepgram => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Deepgram, params, listen_params).await
-        }
-        BatchProvider::Soniox => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Soniox, params, listen_params).await
-        }
-        BatchProvider::AssemblyAI => {
-            run_direct_batch_for_adapter_kind(AdapterKind::AssemblyAI, params, listen_params).await
-        }
-        BatchProvider::Fireworks => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Fireworks, params, listen_params).await
-        }
         BatchProvider::OpenAI => {
             if OpenAIAdapter::supports_progressive_batch_model(listen_params.model.as_deref()) {
                 run_progressive_batch_session(runtime, params, listen_params).await
@@ -180,24 +186,15 @@ async fn run_batch_inner(
                 run_direct_batch_for_adapter_kind(AdapterKind::OpenAI, params, listen_params).await
             }
         }
-        BatchProvider::Gladia => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Gladia, params, listen_params).await
-        }
-        BatchProvider::ElevenLabs => {
-            run_direct_batch_for_adapter_kind(AdapterKind::ElevenLabs, params, listen_params).await
-        }
-        BatchProvider::Pyannote => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Pyannote, params, listen_params).await
-        }
         BatchProvider::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
             provider: batch_provider_label(BatchProvider::DashScope),
         }
         .into()),
-        BatchProvider::Mistral => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Mistral, params, listen_params).await
-        }
-        BatchProvider::Hyprnote => {
-            run_direct_batch_for_adapter_kind(AdapterKind::Hyprnote, params, listen_params).await
+        ref provider => {
+            let adapter_kind = provider
+                .to_adapter_kind()
+                .expect("all non-special BatchProvider variants have an AdapterKind mapping");
+            run_direct_batch_for_adapter_kind(adapter_kind, params, listen_params).await
         }
     }
 }
@@ -243,23 +240,6 @@ pub(super) fn batch_provider_label(provider: BatchProvider) -> String {
     provider.to_string()
 }
 
-pub(super) fn adapter_kind_label(adapter_kind: AdapterKind) -> &'static str {
-    match adapter_kind {
-        AdapterKind::Argmax => "argmax",
-        AdapterKind::Deepgram => "deepgram",
-        AdapterKind::Soniox => "soniox",
-        AdapterKind::AssemblyAI => "assemblyai",
-        AdapterKind::Fireworks => "fireworks",
-        AdapterKind::OpenAI => "openai",
-        AdapterKind::Gladia => "gladia",
-        AdapterKind::ElevenLabs => "elevenlabs",
-        AdapterKind::Pyannote => "pyannote",
-        AdapterKind::DashScope => "dashscope",
-        AdapterKind::Mistral => "mistral",
-        AdapterKind::Hyprnote => "hyprnote",
-        AdapterKind::Cactus => "cactus",
-    }
-}
 
 pub(super) fn session_span(session_id: &str) -> tracing::Span {
     tracing::info_span!("session", hyprnote.session.id = %session_id)

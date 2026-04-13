@@ -177,11 +177,25 @@ async fn app() -> Router {
         .nest("/calendar", hypr_api_calendar::router())
         .nest("/mail", hypr_api_mail::router())
         .nest("/ticket", hypr_api_ticket::router())
-        .nest("/nango", hypr_api_nango::router(nango_config.clone()))
+        .nest(
+            "/nango",
+            hypr_api_nango::session_router(nango_config.clone()),
+        )
         .layer(axum::Extension(nango_connection_state))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state_integration,
+            auth::require_auth,
+        ));
+
+    let integration_management_routes = Router::new()
+        .nest(
+            "/nango",
+            hypr_api_nango::management_router(nango_config.clone()),
+        )
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state_basic.clone(),
             auth::require_auth,
         ));
 
@@ -229,6 +243,7 @@ async fn app() -> Router {
         .merge(webhook_routes)
         .merge(pro_routes)
         .merge(integration_routes)
+        .merge(integration_management_routes)
         .merge(auth_routes)
         .layer(
             CorsLayer::new()

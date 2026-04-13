@@ -44,6 +44,7 @@ fn build_upstream_url_with_adapter(
         Provider::ElevenLabs => ElevenLabsAdapter.build_ws_url(api_base, params, channels),
         Provider::DashScope => DashScopeAdapter.build_ws_url(api_base, params, channels),
         Provider::Mistral => MistralAdapter::default().build_ws_url(api_base, params, channels),
+        Provider::AquaVoice => unreachable!("aquavoice only supports batch transcription"),
         Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
     }
 }
@@ -64,6 +65,7 @@ fn build_initial_message_with_adapter(
         Provider::ElevenLabs => ElevenLabsAdapter.initial_message(api_key, params, channels),
         Provider::DashScope => DashScopeAdapter.initial_message(api_key, params, channels),
         Provider::Mistral => MistralAdapter::default().initial_message(api_key, params, channels),
+        Provider::AquaVoice => unreachable!("aquavoice only supports batch transcription"),
         Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
     };
 
@@ -88,6 +90,9 @@ fn build_response_transformer(
             Provider::ElevenLabs => ElevenLabsAdapter.parse_response(raw),
             Provider::DashScope => DashScopeAdapter.parse_response(raw),
             Provider::Mistral => mistral_adapter.parse_response(raw),
+            Provider::AquaVoice => {
+                unreachable!("aquavoice only supports batch transcription")
+            }
             Provider::Pyannote => unreachable!("pyannote only supports batch transcription"),
         };
 
@@ -165,7 +170,7 @@ fn build_proxy_with_adapter(
 ) -> Result<StreamingProxy, crate::ProxyError> {
     let mut listen_params = build_listen_params(client_params);
     let channels: u8 = parse_param(client_params, "channels", 1);
-    if matches!(provider, Provider::OpenAI | Provider::Pyannote) {
+    if matches!(provider, Provider::AquaVoice | Provider::OpenAI | Provider::Pyannote) {
         return Err(crate::ProxyError::InvalidRequest(format!(
             "{provider} only supports batch transcription"
         )));

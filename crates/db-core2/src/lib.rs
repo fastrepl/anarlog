@@ -456,6 +456,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn open_with_migrate_returns_recreate_failed_when_retry_also_fails() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("app.db");
+        let attempts = AtomicUsize::new(0);
+
+        let error = Db3::open_with_migrate(
+            DbOpenOptions {
+                storage: DbStorage::Local(&db_path),
+                cloudsync: false,
+                journal_mode_wal: true,
+                foreign_keys: true,
+                max_connections: Some(1),
+                migration_failure_policy: MigrationFailurePolicy::Recreate,
+            },
+            |pool| {
+                let n = attempts.fetch_add(1, Ordering::SeqCst);
+                Box::pin(async move {
+                    let table_name = if n == 0 {
+                        "first_attempt"
+                    } else {
+                        "second_attempt"
+                    };
+                    let sql = format!("CREATE TABLE {table_name} (id TEXT PRIMARY KEY NOT NULL)");
+                    sqlx::query(&sql).execute(pool).await.unwrap();
+                    Err::<(), &'static str>("still broken")
+                })
+            },
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+        assert!(
+            matches!(error, DbOpenError::RecreateFailed(message) if message == "migration failed: still broken")
+        );
+    }
+
+    #[tokio::test]
+    async fn open_with_migrate_applies_requested_pragmas() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("app.db");
+
+        let db = Db3::open_with_migrate(
+            DbOpenOptions {
+                storage: DbStorage::Local(&db_path),
+                cloudsync: false,
+                journal_mode_wal: true,
+                foreign_keys: true,
+                max_connections: Some(1),
+                migration_failure_policy: MigrationFailurePolicy::Fail,
+            },
+            |_pool| Box::pin(async { Ok::<(), sqlx::Error>(()) }),
+        )
+        .await
+        .unwrap();
+
+        let foreign_keys: i64 = sqlx::query_scalar("PRAGMA foreign_keys")
+            .fetch_one(db.pool().as_ref())
+            .await
+            .unwrap();
+        let journal_mode: String = sqlx::query_scalar("PRAGMA journal_mode")
+            .fetch_one(db.pool().as_ref())
+            .await
+            .unwrap();
+
+        assert_eq!(foreign_keys, 1);
+        assert_eq!(journal_mode.to_lowercase(), "wal");
+    }
+
+    #[tokio::test]
     async fn emits_table_changes_for_local_writes() {
         let db = Db3::connect_memory_plain().await.unwrap();
         sqlx::query("CREATE TABLE test_events (id TEXT PRIMARY KEY NOT NULL)")
@@ -477,6 +547,44 @@ mod tests {
 
         assert_eq!(change.table, "test_events");
         assert_eq!(change.kind, TableChangeKind::Insert);
+    }
+
+    #[tokio::test]
+    async fn emits_update_and_delete_table_changes() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        sqlx::query("CREATE TABLE test_events (id TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL)")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO test_events (id, value) VALUES ('a', 'before')")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
+
+        let mut changes = db.subscribe_table_changes();
+
+        sqlx::query("UPDATE test_events SET value = 'after' WHERE id = 'a'")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM test_events WHERE id = 'a'")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
+
+        let update = tokio::time::timeout(std::time::Duration::from_secs(1), changes.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        let delete = tokio::time::timeout(std::time::Duration::from_secs(1), changes.recv())
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(update.table, "test_events");
+        assert_eq!(update.kind, TableChangeKind::Update);
+        assert_eq!(delete.table, "test_events");
+        assert_eq!(delete.kind, TableChangeKind::Delete);
     }
 
     #[tokio::test]

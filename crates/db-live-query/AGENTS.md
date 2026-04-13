@@ -4,7 +4,7 @@
 
 - `db-live-query` is the reusable live-query service layer.
 - It executes SQL, analyzes query dependencies, tracks subscriptions, reruns affected queries, and serializes rows for sinks.
-- It consumes raw table-change signals from `db-core2` and pure watch indexing from `db-watch`.
+- It consumes raw table-change signals from `db-core2` and maintains its own watch indexing (`watch.rs`).
 
 ## This Crate Owns
 
@@ -36,7 +36,7 @@
 
 ## Dependency Direction
 
-- This crate may depend on `db-core2` and `db-watch`.
+- This crate may depend on `db-core2`.
 - `plugins/db` may depend on this crate.
 - This crate must not depend on Tauri or app-specific UI/runtime layers.
 
@@ -46,3 +46,9 @@
 - Raw SQLite hook installation and pooled connection setup belong below this crate in `db-core2`.
 - Tauri channels, app bootstrap, and JS-facing event types belong above this crate in `plugins/db`.
 - If this layer ever becomes app-specific, it should be split again rather than letting transport or product logic leak inward.
+
+## Test Ownership
+
+- Put tests here when the behavior is about dependency extraction, reactive vs non-reactive classification, rerun targeting, unsubscribe semantics, stale-sink cleanup, or JSON row serialization.
+- These tests may use a real temp database plus a fake sink, but they should not depend on Tauri transport types.
+- Higher layers should not duplicate this crate's rerun and invalidation tests unless they are specifically proving adapter integration.

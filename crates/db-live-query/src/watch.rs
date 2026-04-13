@@ -1,10 +1,9 @@
-#![forbid(unsafe_code)]
-
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WatchId(u64);
 
+#[derive(Default)]
 pub struct TableDeps {
     next_id: u64,
     forward: HashMap<WatchId, HashSet<String>>,
@@ -12,14 +11,6 @@ pub struct TableDeps {
 }
 
 impl TableDeps {
-    pub fn new() -> Self {
-        Self {
-            next_id: 0,
-            forward: HashMap::new(),
-            reverse: HashMap::new(),
-        }
-    }
-
     pub fn register(&mut self, tables: HashSet<String>) -> WatchId {
         let id = WatchId(self.next_id);
         self.next_id += 1;
@@ -59,19 +50,13 @@ impl TableDeps {
     }
 }
 
-impl Default for TableDeps {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn register_and_affected() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
 
         let w1 = deps.register(HashSet::from(["sessions".into(), "words".into()]));
         let w2 = deps.register(HashSet::from(["sessions".into(), "chat_messages".into()]));
@@ -87,7 +72,7 @@ mod tests {
 
     #[test]
     fn unregister_removes_from_index() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
 
         let w1 = deps.register(HashSet::from(["sessions".into()]));
         let w2 = deps.register(HashSet::from(["sessions".into()]));
@@ -101,7 +86,7 @@ mod tests {
 
     #[test]
     fn empty_changed_tables() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
         deps.register(HashSet::from(["sessions".into()]));
 
         let affected = deps.affected(&[]);
@@ -110,13 +95,13 @@ mod tests {
 
     #[test]
     fn unregister_nonexistent_is_noop() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
         deps.unregister(WatchId(999));
     }
 
     #[test]
     fn register_empty_tables_never_matches() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
         let watch = deps.register(HashSet::new());
 
         assert!(deps.affected(&["sessions"]).is_empty());
@@ -127,7 +112,7 @@ mod tests {
 
     #[test]
     fn duplicate_changed_tables_are_deduped() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
         let watch = deps.register(HashSet::from(["sessions".into()]));
 
         let affected = deps.affected(&["sessions", "sessions"]);
@@ -137,7 +122,7 @@ mod tests {
 
     #[test]
     fn tables_for_returns_registered_tables() {
-        let mut deps = TableDeps::new();
+        let mut deps = TableDeps::default();
         let watch = deps.register(HashSet::from(["sessions".into(), "words".into()]));
 
         let tables = deps.tables_for(watch).unwrap();

@@ -81,6 +81,10 @@ export const displayModelId = (model: string) => {
     return "Voxtral Mini Transcribe 2";
   }
 
+  if (model === "avalon-v1-en") {
+    return "Avalon V1";
+  }
+
   if (model === "parakeet-tdt-0.6b-v3") {
     return "Parakeet TDT 0.6B V3";
   }
@@ -213,6 +217,22 @@ const _PROVIDERS = [
     ),
     baseUrl: "https://api.pyannote.ai",
     models: ["parakeet-tdt-0.6b-v3", "faster-whisper-large-v3-turbo"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+  },
+  {
+    disabled: false,
+    id: "aquavoice",
+    displayName: "AquaVoice",
+    badge: "Batch only",
+    icon: (
+      <img
+        src="/assets/aquavoice-black.png"
+        alt="AquaVoice"
+        className="size-4 rounded-xs"
+      />
+    ),
+    baseUrl: "https://api.aquavoice.com/api/v1",
+    models: ["avalon-v1-en"],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
   },
   {

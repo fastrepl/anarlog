@@ -47,6 +47,8 @@ mod test {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use hypr_db_live_query::QueryEventSink;
+    use serde_json::json;
     use tauri::ipc::{Channel, InvokeResponseBody};
 
     use super::*;
@@ -120,7 +122,42 @@ mod test {
     }
 
     #[tokio::test]
-    async fn subscribe_sends_initial_result() {
+    async fn query_event_channel_sends_result_payload() {
+        let (channel, events) = capture_channel();
+        let sink = runtime::QueryEventChannel::new(channel);
+
+        sink.send_result(vec![json!({ "id": "note-1" })]).unwrap();
+
+        let event = next_event(&events, 0).await.unwrap();
+        assert_eq!(event, QueryEvent::Result(vec![json!({ "id": "note-1" })]));
+    }
+
+    #[tokio::test]
+    async fn query_event_channel_sends_error_payload() {
+        let (channel, events) = capture_channel();
+        let sink = runtime::QueryEventChannel::new(channel);
+
+        sink.send_error("boom".to_string()).unwrap();
+
+        let event = next_event(&events, 0).await.unwrap();
+        assert_eq!(event, QueryEvent::Error("boom".to_string()));
+    }
+
+    #[test]
+    fn query_event_serializes_with_tagged_shape() {
+        let result =
+            serde_json::to_value(QueryEvent::Result(vec![json!({ "id": "note-1" })])).unwrap();
+        let error = serde_json::to_value(QueryEvent::Error("boom".to_string())).unwrap();
+
+        assert_eq!(
+            result,
+            json!({ "event": "result", "data": [{ "id": "note-1" }] })
+        );
+        assert_eq!(error, json!({ "event": "error", "data": "boom" }));
+    }
+
+    #[tokio::test]
+    async fn subscribe_sends_initial_result_through_channel() {
         let (_dir, runtime) = setup_runtime().await;
         let (channel, events) = capture_channel();
 
@@ -138,117 +175,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn dependent_writes_trigger_refresh() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (channel, events) = capture_channel();
-
-        runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                runtime::QueryEventChannel::new(channel),
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-1")
-            .bind("2026-04-13")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-
-        let event = next_event(&events, 1).await.unwrap();
-        let QueryEvent::Result(rows) = event else {
-            panic!("expected result event");
-        };
-        assert_eq!(rows.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn unrelated_writes_do_not_trigger_refresh() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (channel, events) = capture_channel();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-seed")
-            .bind("2026-04-12")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                runtime::QueryEventChannel::new(channel),
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-
-        sqlx::query(
-            "INSERT INTO daily_summaries (id, daily_note_id, date, content, timeline_json, topics_json, status, source_cursor_ms, source_fingerprint, generation_error, generated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )
-        .bind("summary-1")
-        .bind("note-seed")
-        .bind("2026-04-12")
-        .bind("{}")
-        .bind("[]")
-        .bind("[]")
-        .bind("ready")
-        .bind(0_i64)
-        .bind("")
-        .bind("")
-        .bind("2026-04-12T00:00:00Z")
-        .execute(runtime.pool())
-        .await
-        .unwrap();
-
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        assert_eq!(events.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn unsubscribe_stops_future_events() {
-        let (_dir, runtime) = setup_runtime().await;
-        let (channel, events) = capture_channel();
-
-        let registration = runtime
-            .subscribe(
-                "SELECT id, date FROM daily_notes ORDER BY id".to_string(),
-                vec![],
-                runtime::QueryEventChannel::new(channel),
-            )
-            .await
-            .unwrap();
-
-        let _ = next_event(&events, 0).await.unwrap();
-        runtime.unsubscribe(&registration.id).await.unwrap();
-
-        sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
-            .bind("note-2")
-            .bind("2026-04-14")
-            .bind("{}")
-            .bind("user-1")
-            .execute(runtime.pool())
-            .await
-            .unwrap();
-
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        assert_eq!(events.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn invalid_sql_sends_error_event() {
+    async fn invalid_sql_sends_error_through_channel() {
         let (_dir, runtime) = setup_runtime().await;
         let (channel, events) = capture_channel();
 

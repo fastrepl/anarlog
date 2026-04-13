@@ -23,6 +23,8 @@ pub struct SttApiKeysEnv {
     pub dashscope_api_key: Option<String>,
     #[serde(default)]
     pub mistral_api_key: Option<String>,
+    #[serde(default)]
+    pub aquavoice_api_key: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -87,6 +89,9 @@ impl From<&SttApiKeysEnv> for ApiKeys {
         }
         if let Some(key) = env.mistral_api_key.as_ref().filter(|s| !s.is_empty()) {
             map.insert(Provider::Mistral, key.clone());
+        }
+        if let Some(key) = env.aquavoice_api_key.as_ref().filter(|s| !s.is_empty()) {
+            map.insert(Provider::AquaVoice, key.clone());
         }
         Self(map)
     }

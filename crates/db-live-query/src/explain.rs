@@ -217,6 +217,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn bracket_quoted_alias_query() {
+        let db = test_db().await;
+        let tables = extract_tables(
+            db.pool(),
+            "SELECT [dn].id FROM [daily_notes] AS [dn] WHERE [dn].date = '2026-04-11'",
+        )
+        .await
+        .unwrap();
+        assert_eq!(tables, HashSet::from(["daily_notes".to_string()]));
+    }
+
+    #[tokio::test]
     async fn schema_qualified_query() {
         let db = test_db().await;
         let tables = extract_tables(

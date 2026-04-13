@@ -66,6 +66,8 @@ impl Auth {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::Display)]
 pub enum Provider {
+    #[strum(serialize = "aquavoice")]
+    AquaVoice,
     #[strum(serialize = "deepgram")]
     Deepgram,
     #[strum(serialize = "assemblyai")]
@@ -89,7 +91,8 @@ pub enum Provider {
 }
 
 impl Provider {
-    const ALL: [Provider; 10] = [
+    const ALL: [Provider; 11] = [
+        Self::AquaVoice,
         Self::Deepgram,
         Self::AssemblyAI,
         Self::Soniox,
@@ -108,6 +111,10 @@ impl Provider {
 
     pub fn auth(&self) -> Auth {
         match self {
+            Self::AquaVoice => Auth::Header {
+                name: "Authorization",
+                prefix: Some("Bearer "),
+            },
             Self::Deepgram => Auth::Header {
                 name: "Authorization",
                 prefix: Some("Token "),
@@ -159,6 +166,7 @@ impl Provider {
 
     pub fn default_api_host(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "api.aquavoice.com",
             Self::Deepgram => "api.deepgram.com",
             Self::AssemblyAI => "api.assemblyai.com",
             Self::Soniox => "api.soniox.com",
@@ -174,6 +182,7 @@ impl Provider {
 
     pub fn default_ws_host(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "api.aquavoice.com",
             Self::Deepgram => "api.deepgram.com",
             Self::AssemblyAI => "streaming.assemblyai.com",
             Self::Soniox => "stt-rt.soniox.com",
@@ -189,6 +198,7 @@ impl Provider {
 
     pub fn ws_path(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "",
             Self::Deepgram => "/v1/listen",
             Self::AssemblyAI => "/v3/ws",
             Self::Soniox => "/transcribe-websocket",
@@ -204,6 +214,7 @@ impl Provider {
 
     pub fn default_api_url(&self) -> Option<&'static str> {
         match self {
+            Self::AquaVoice => None,
             Self::Deepgram => None,
             Self::AssemblyAI => Some("https://api.assemblyai.com/v2"),
             Self::Soniox => None,
@@ -219,6 +230,7 @@ impl Provider {
 
     pub fn default_api_base(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "https://api.aquavoice.com/api/v1",
             Self::Deepgram => "https://api.deepgram.com/v1",
             Self::AssemblyAI => "https://api.assemblyai.com/v2",
             Self::Soniox => "https://api.soniox.com",
@@ -234,6 +246,7 @@ impl Provider {
 
     pub fn domain(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "aquavoice.com",
             Self::Deepgram => "deepgram.com",
             Self::AssemblyAI => "assemblyai.com",
             Self::Soniox => "soniox.com",
@@ -267,6 +280,7 @@ impl Provider {
 
     pub fn env_key_name(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "AQUAVOICE_API_KEY",
             Self::Deepgram => "DEEPGRAM_API_KEY",
             Self::AssemblyAI => "ASSEMBLYAI_API_KEY",
             Self::Soniox => "SONIOX_API_KEY",
@@ -282,6 +296,7 @@ impl Provider {
 
     pub fn default_live_model(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "avalon-v1-en",
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-rt-v3",
             Self::AssemblyAI => "u3-rt-pro",
@@ -297,6 +312,7 @@ impl Provider {
 
     pub fn default_live_sample_rate(&self) -> u32 {
         match self {
+            Self::AquaVoice => 16000,
             Self::OpenAI => 24000,
             Self::ElevenLabs | Self::DashScope | Self::Mistral | Self::Pyannote => 16000,
             _ => 16000,
@@ -305,6 +321,7 @@ impl Provider {
 
     pub fn default_batch_model(&self) -> &'static str {
         match self {
+            Self::AquaVoice => "avalon-v1-en",
             Self::Deepgram => "nova-3",
             Self::Soniox => "stt-async-v3",
             Self::AssemblyAI => "universal-3-pro",
@@ -322,7 +339,7 @@ impl Provider {
         match self {
             Self::Deepgram => &[("model", "nova-3-general"), ("mip_opt_out", "false")],
             Self::OpenAI => &[("intent", "transcription")],
-            Self::DashScope | Self::Mistral | Self::Pyannote => &[],
+            Self::AquaVoice | Self::DashScope | Self::Mistral | Self::Pyannote => &[],
             _ => &[],
         }
     }
@@ -330,7 +347,8 @@ impl Provider {
     pub fn supports_native_multichannel(&self) -> bool {
         match self {
             Self::Deepgram | Self::Gladia => true,
-            Self::Soniox
+            Self::AquaVoice
+            | Self::Soniox
             | Self::AssemblyAI
             | Self::Fireworks
             | Self::OpenAI
@@ -343,6 +361,7 @@ impl Provider {
 
     pub fn control_message_types(&self) -> &'static [&'static str] {
         match self {
+            Self::AquaVoice => &[],
             Self::Deepgram => &["KeepAlive", "CloseStream", "Finalize"],
             Self::AssemblyAI => &["Terminate"],
             Self::Soniox => &["keepalive", "finalize"],
@@ -369,7 +388,7 @@ impl Provider {
                     "words_accurate_timestamps": true
                 }
             })),
-            Self::Mistral | Self::Pyannote => None,
+            Self::AquaVoice | Self::Mistral | Self::Pyannote => None,
             _ => None,
         }
     }
@@ -406,6 +425,7 @@ impl Provider {
             Self::ElevenLabs => from_adapter(&crate::adapter::ElevenLabsAdapter, msg),
             Self::DashScope => from_adapter(&crate::adapter::DashScopeAdapter, msg),
             Self::Mistral => from_adapter(&crate::adapter::MistralAdapter::default(), msg),
+            Self::AquaVoice => None,
             Self::OpenAI => None,
             Self::Pyannote => None,
         }
@@ -417,7 +437,8 @@ impl Provider {
             Self::Soniox => soniox::error::detect_error(data),
             Self::ElevenLabs => elevenlabs::error::detect_error(data),
             Self::AssemblyAI => assemblyai::error::detect_error(data),
-            Self::Fireworks
+            Self::AquaVoice
+            | Self::Fireworks
             | Self::OpenAI
             | Self::Gladia
             | Self::DashScope

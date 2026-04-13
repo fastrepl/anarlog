@@ -86,7 +86,9 @@ export function Main2Shell() {
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const showSidebar = hasCustomSidebar || leftsidebar.showDevtool;
 
-  useCustomSidebarEffect(showSidebar, leftsidebar);
+  useCustomSidebarEffect(showSidebar, leftsidebar, {
+    restoreExpandedOnExit: false,
+  });
 
   const isHomeActive = currentTab === null;
   const isChatOpen =

@@ -7,7 +7,7 @@ use owhisper_client::{AdapterKind, OpenAIAdapter};
 
 use crate::BatchRuntime;
 
-use super::{BatchParams, BatchRunOutput, adapter_kind_label};
+use super::{BatchParams, BatchRunOutput};
 
 #[derive(Debug, Clone, Copy, strum::IntoStaticStr)]
 pub(super) enum ProgressiveProvider {
@@ -66,11 +66,11 @@ fn resolve_progressive_provider(
             Ok(ProgressiveProvider::OpenAI)
         }
         AdapterKind::DashScope => Err(crate::BatchFailure::BatchCapabilityUnsupported {
-            provider: adapter_kind_label(adapter_kind).to_string(),
+            provider: adapter_kind.to_string(),
         }
         .into()),
         _ => Err(crate::BatchFailure::ProgressiveBatchUnsupported {
-            provider: adapter_kind_label(adapter_kind).to_string(),
+            provider: adapter_kind.to_string(),
         }
         .into()),
     }
