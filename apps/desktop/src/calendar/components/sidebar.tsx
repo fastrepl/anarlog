@@ -76,7 +76,11 @@ function getProviderAccordionKey(
     .join("|");
 }
 
-export function CalendarSidebarContent() {
+export function CalendarSidebarContent({
+  returnTo = "calendar",
+}: {
+  returnTo?: string;
+}) {
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
   const { isPaid } = useBillingAccess();
@@ -127,6 +131,7 @@ export function CalendarSidebarContent() {
             key={provider.id}
             provider={provider}
             calendar={calendar}
+            returnTo={returnTo}
           />
         ),
       )}
@@ -137,9 +142,11 @@ export function CalendarSidebarContent() {
 function ProviderAccordionItem({
   provider,
   calendar,
+  returnTo,
 }: {
   provider: CalendarProvider;
   calendar: ReturnType<typeof usePermission>;
+  returnTo: string;
 }) {
   const auth = useAuth();
   const { isPaid, isPro, upgradeToPro } = useBillingAccess();
@@ -172,10 +179,10 @@ function ProviderAccordionItem({
         provider.nangoIntegrationId,
         undefined,
         "connect",
-        "calendar",
+        returnTo,
       );
     },
-    [provider.nangoIntegrationId, shouldConnectOnClick, requiresPro],
+    [provider.nangoIntegrationId, requiresPro, returnTo, shouldConnectOnClick],
   );
   const handleAddAccount = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -186,10 +193,10 @@ function ProviderAccordionItem({
         provider.nangoIntegrationId,
         undefined,
         "connect",
-        "calendar",
+        returnTo,
       );
     },
-    [canAddAccount, provider.nangoIntegrationId],
+    [canAddAccount, provider.nangoIntegrationId, returnTo],
   );
   const providerMenuItems = useMemo(
     () =>
@@ -203,7 +210,7 @@ function ProviderAccordionItem({
                   provider.nangoIntegrationId,
                   undefined,
                   "connect",
-                  "calendar",
+                  returnTo,
                 ),
             },
           ]
@@ -213,6 +220,7 @@ function ProviderAccordionItem({
       provider.displayName,
       provider.id,
       provider.nangoIntegrationId,
+      returnTo,
     ],
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
@@ -305,7 +313,7 @@ function ProviderAccordionItem({
             </div>
           )}
           {provider.nangoIntegrationId && (
-            <OAuthProviderContent config={provider} />
+            <OAuthProviderContent config={provider} returnTo={returnTo} />
           )}
         </AccordionContent>
       )}

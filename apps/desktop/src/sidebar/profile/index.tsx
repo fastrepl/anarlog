@@ -99,7 +99,7 @@ export function ProfileSection({ onExpandChange }: ProfileSectionProps = {}) {
   }, [openNew, closeMenu]);
 
   const handleClickCalendar = useCallback(() => {
-    openNew({ type: "calendar" });
+    openNew({ type: "settings", state: { tab: "calendar" } });
     closeMenu();
   }, [openNew, closeMenu]);
 

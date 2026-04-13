@@ -13,7 +13,7 @@ function SettingsCalendarContent() {
   return (
     <div className="flex flex-col gap-4">
       <SettingsPageTitle title="Calendar" />
-      <CalendarSidebarContent />
+      <CalendarSidebarContent returnTo="settings-calendar" />
     </div>
   );
 }

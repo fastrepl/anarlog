@@ -19,7 +19,13 @@ import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
 import { openIntegrationUrl } from "~/shared/integration";
 
-export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
+export function OAuthProviderContent({
+  config,
+  returnTo = "calendar",
+}: {
+  config: CalendarProvider;
+  returnTo?: string;
+}) {
   const auth = useAuth();
   const { isPro, upgradeToPro } = useBillingAccess();
   const { data: connections, isError } = useConnections(isPro);
@@ -37,9 +43,9 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
         config.nangoIntegrationId,
         undefined,
         "connect",
-        "calendar",
+        returnTo,
       ),
-    [config.nangoIntegrationId],
+    [config.nangoIntegrationId, returnTo],
   );
 
   if (!auth.session) {
@@ -91,7 +97,7 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "reconnect",
-                "calendar",
+                returnTo,
               )
             }
             onDisconnect={() =>
@@ -99,14 +105,18 @@ export function OAuthProviderContent({ config }: { config: CalendarProvider }) {
                 config.nangoIntegrationId,
                 connection.connection_id,
                 "disconnect",
-                "calendar",
+                returnTo,
               )
             }
             errorDescription={connection.last_error_description ?? null}
           />
         ))}
 
-        <ConnectedContent config={config} connections={providerConnections} />
+        <ConnectedContent
+          config={config}
+          connections={providerConnections}
+          returnTo={returnTo}
+        />
       </div>
     );
   }
@@ -177,9 +187,11 @@ function ReconnectRequiredContent({
 function ConnectedContent({
   config,
   connections,
+  returnTo,
 }: {
   config: CalendarProvider;
   connections: ConnectionItem[];
+  returnTo: string;
 }) {
   const {
     groups,
@@ -211,7 +223,7 @@ function ConnectedContent({
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "reconnect",
-                  "calendar",
+                  returnTo,
                 ),
             },
             {
@@ -222,13 +234,19 @@ function ConnectedContent({
                   config.nangoIntegrationId,
                   connection.connection_id,
                   "disconnect",
-                  "calendar",
+                  returnTo,
                 ),
             },
           ],
         };
       }),
-    [config.nangoIntegrationId, connectionSourceMap, connections, groups],
+    [
+      config.nangoIntegrationId,
+      connectionSourceMap,
+      connections,
+      groups,
+      returnTo,
+    ],
   );
 
   return (
