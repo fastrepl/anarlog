@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Facehash } from "facehash";
 import {
   CalendarIcon,
   ChevronUpIcon,
@@ -17,7 +16,7 @@ import { cn } from "@hypr/utils";
 
 import { AuthSection } from "./auth";
 import { NotificationsMenuContent } from "./notification";
-import { MenuItem } from "./shared";
+import { MenuItem, ProfileFacehash } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
@@ -281,8 +280,8 @@ function ProfileButton({
   });
 
   const facehashName = useMemo(
-    () => auth?.session?.user.email || name || "user",
-    [auth?.session?.user.email, name],
+    () => name || auth?.session?.user.email || "user",
+    [name, auth?.session?.user.email],
   );
 
   useEffect(() => {
@@ -312,14 +311,7 @@ function ProfileButton({
         ])}
       >
         {showFacehash ? (
-          <div className="rounded-full bg-amber-50">
-            <Facehash
-              name={facehashName}
-              size={32}
-              interactive={false}
-              showInitial={false}
-            />
-          </div>
+          <ProfileFacehash name={facehashName} size={32} />
         ) : (
           <img
             src={profile.data!}

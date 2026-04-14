@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Facehash } from "facehash";
 import {
   CalendarIcon,
   CircleHelp,
@@ -17,7 +16,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { AuthSection } from "~/sidebar/profile/auth";
-import { MenuItem } from "~/sidebar/profile/shared";
+import { MenuItem, ProfileFacehash } from "~/sidebar/profile/shared";
 import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -152,8 +151,8 @@ function ProfileName() {
   const displayName = name || auth?.session?.user.email || "Unknown";
 
   const facehashName = useMemo(
-    () => auth?.session?.user.email || displayName || "user",
-    [auth?.session?.user.email, displayName],
+    () => displayName || auth?.session?.user.email || "user",
+    [displayName, auth?.session?.user.email],
   );
 
   const badgeLabel = plan === "trial" ? "PRO" : plan.toUpperCase();
@@ -161,14 +160,7 @@ function ProfileName() {
   return (
     <div className="flex items-center gap-2.5 px-3 py-2">
       <div className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-300">
-        <div className="rounded-full bg-amber-50">
-          <Facehash
-            name={facehashName}
-            size={24}
-            interactive={false}
-            showInitial={false}
-          />
-        </div>
+        <ProfileFacehash name={facehashName} size={24} />
       </div>
       <div className="min-w-0 flex-1 truncate text-sm text-black">
         {displayName}
@@ -211,8 +203,8 @@ function AvatarButton({
   });
 
   const facehashName = useMemo(
-    () => auth?.session?.user.email || displayName || "user",
-    [auth?.session?.user.email, displayName],
+    () => displayName || auth?.session?.user.email || "user",
+    [displayName, auth?.session?.user.email],
   );
 
   useEffect(() => {
@@ -241,14 +233,11 @@ function AvatarButton({
         ])}
       >
         {showFacehash ? (
-          <div className="rounded-full bg-amber-50">
-            <Facehash
-              name={facehashName}
-              size={20}
-              interactive={false}
-              showInitial={false}
-            />
-          </div>
+          <ProfileFacehash
+            name={facehashName}
+            size={20}
+            showInitial={false}
+          />
         ) : (
           <img
             src={profile.data!}
