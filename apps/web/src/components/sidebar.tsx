@@ -8,7 +8,6 @@ import {
   FileText,
   History,
   LayoutTemplate,
-  Map,
   Menu,
   MessageCircle,
   Newspaper,
@@ -62,7 +61,6 @@ const resourcesList: MenuItem[] = [
   },
   { to: "/updates/", label: "Updates", icon: Newspaper },
   { to: "/changelog/", label: "Changelog", icon: History },
-  { to: "/roadmap/", label: "Roadmap", icon: Map },
   { to: "/company-handbook/", label: "Company Handbook", icon: Building2 },
   {
     to: "https://discord.gg/hyprnote",

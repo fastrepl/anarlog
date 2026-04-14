@@ -599,50 +599,6 @@ const shortcuts = defineCollection({
   },
 });
 
-const roadmap = defineCollection({
-  name: "roadmap",
-  directory: "content/roadmap",
-  include: "*.mdx",
-  exclude: "AGENTS.md",
-  schema: z.object({
-    title: z.string(),
-    status: z.enum(["todo", "in-progress", "done"]),
-    date: z.string(),
-    labels: z.array(z.string()).optional(),
-    priority: z.enum(["high", "mid", "low"]),
-  }),
-  transform: async (document, context) => {
-    const mdx = await compileMDX(context, document, {
-      remarkPlugins: [remarkGfm, mdxMermaid],
-      rehypePlugins: [
-        rehypeSlug,
-        [
-          rehypeAutolinkHeadings,
-          {
-            behavior: "wrap",
-            properties: {
-              className: ["anchor"],
-            },
-          },
-        ],
-      ],
-    });
-
-    const slug = document._meta.path.replace(/\.mdx$/, "");
-
-    const githubIssueRegex =
-      /https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+/g;
-    const githubIssues = document.content.match(githubIssueRegex) || [];
-
-    return {
-      ...document,
-      mdx,
-      slug,
-      githubIssues,
-    };
-  },
-});
-
 const ossFriends = defineCollection({
   name: "ossFriends",
   directory: "content/oss-friends",
@@ -826,7 +782,6 @@ export default defineConfig({
     vs,
     integrations,
     handbook,
-    roadmap,
     ossFriends,
     updates,
     solutions,

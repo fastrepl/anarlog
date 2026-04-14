@@ -47,7 +47,6 @@ function Component() {
     "/gallery",
     "/updates",
     "/changelog",
-    "/roadmap",
     "/company-handbook",
   ].some((path) => pathname.startsWith(path));
   const [onTrigger, setOnTrigger] = useState<(() => void) | null>(null);
