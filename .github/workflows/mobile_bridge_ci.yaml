@@ -7,6 +7,10 @@ on:
       - crates/mobile-bridge/**
       - crates/uniffi-bindgen/**
       - crates/xtask/**
+      - .github/actions/pnpm_install/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .cargo/config.toml
       - Cargo.toml
       - Cargo.lock
@@ -16,6 +20,7 @@ jobs:
     runs-on: depot-macos-15
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
       - uses: ./.github/actions/rust_install
         with:
           platform: ios

@@ -10,17 +10,13 @@ import {
   usePromptTemplateSource,
 } from "./data";
 
-const {
-  executeMock,
-  executeProxyMock,
-  subscribeMock,
-  getTemplateSourceMock,
-} = vi.hoisted(() => ({
-  executeMock: vi.fn(),
-  executeProxyMock: vi.fn(),
-  subscribeMock: vi.fn(),
-  getTemplateSourceMock: vi.fn(),
-}));
+const { executeMock, executeProxyMock, subscribeMock, getTemplateSourceMock } =
+  vi.hoisted(() => ({
+    executeMock: vi.fn(),
+    executeProxyMock: vi.fn(),
+    subscribeMock: vi.fn(),
+    getTemplateSourceMock: vi.fn(),
+  }));
 
 vi.mock("@hypr/plugin-db", () => ({
   execute: executeMock,

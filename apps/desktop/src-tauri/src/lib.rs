@@ -1,10 +1,12 @@
 mod agents;
 mod commands;
+mod db;
 mod embedded_cli;
 mod ext;
 mod store;
 mod supervisor;
 
+use db::open_desktop_db;
 use ext::*;
 use store::*;
 
@@ -84,24 +86,7 @@ pub async fn main() {
     let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
 
-    let db = {
-        #[cfg(debug_assertions)]
-        let db_path: Option<std::path::PathBuf> = None;
-        #[cfg(not(debug_assertions))]
-        let db_path: Option<std::path::PathBuf> = {
-            let data_dir = dirs::data_dir()
-                .expect("data_dir must be available")
-                .join(&context.config().identifier);
-            std::fs::create_dir_all(&data_dir).expect("failed to create app data dir");
-            Some(data_dir.join("app.db"))
-        };
-
-        std::sync::Arc::new(
-            tauri_plugin_db::open_app_db(db_path.as_deref())
-                .await
-                .expect("failed to open app database"),
-        )
-    };
+    let db = open_desktop_db(&context.config().identifier).await;
 
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
