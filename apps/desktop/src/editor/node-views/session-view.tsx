@@ -16,6 +16,7 @@ import {
 } from "../tasks";
 import { TaskCheckbox } from "./task-checkbox";
 
+import { toTz, useTimezone } from "~/calendar/hooks";
 import { useLinkedItemOpenBehavior } from "~/editor/session/linked-item-open-behavior";
 import { getSessionEvent } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
@@ -79,21 +80,29 @@ export const SessionNodeView = forwardRef<
   const sessionId = node.attrs.sessionId as string;
 
   const session = main.UI.useRow("sessions", sessionId, main.STORE_ID);
+  const tz = useTimezone();
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isRecording =
     liveSessionId === sessionId &&
     (liveStatus === "active" || liveStatus === "finalizing");
-  const createdAt = session?.created_at
-    ? safeParseDate(session.created_at as string)
-    : null;
+  const event = useMemo(() => getSessionEvent(session), [session]);
+  const displayTime = useMemo(() => {
+    if (event?.is_all_day) {
+      return null;
+    }
+
+    const rawDate = event?.started_at ?? session?.created_at;
+    const parsed = rawDate ? safeParseDate(rawDate) : null;
+
+    return parsed ? format(toTz(parsed, tz), "h:mm a") : null;
+  }, [event?.is_all_day, event?.started_at, session?.created_at, tz]);
 
   const isMeetingOver = useMemo(() => {
-    const event = getSessionEvent(session);
     if (!event?.ended_at) return false;
     const endedAt = safeParseDate(event.ended_at);
     return endedAt ? endedAt.getTime() <= Date.now() : false;
-  }, [session]);
+  }, [event]);
 
   const linkedItemOpenBehavior = useLinkedItemOpenBehavior();
   const openCurrent = useTabs((state) => state.openCurrent);
@@ -182,12 +191,12 @@ export const SessionNodeView = forwardRef<
           >
             {children}
           </div>
-          {createdAt && (
+          {displayTime && (
             <span
               className="shrink-0 font-mono text-xs text-neutral-400"
               contentEditable={false}
             >
-              {format(createdAt, "h:mm a")}
+              {displayTime}
             </span>
           )}
         </div>

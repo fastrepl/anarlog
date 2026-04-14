@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { format } from "date-fns";
 import { describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => {
@@ -27,10 +28,16 @@ vi.mock("~/store/tinybase/store/main", () => ({
     useRow: () => ({
       created_at: "2026-04-06T00:00:00.000Z",
       event_json: JSON.stringify({
+        started_at: "2026-04-06T02:30:00.000Z",
         ended_at: "2026-04-06T01:00:00.000Z",
       }),
     }),
   },
+}));
+
+vi.mock("~/calendar/hooks", () => ({
+  useTimezone: () => undefined,
+  toTz: (date: Date) => date,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -160,5 +167,34 @@ describe("SessionNodeView", () => {
       id: "session-1",
       type: "sessions",
     });
+  });
+
+  it("renders the event start time instead of the session creation time", () => {
+    const expectedEventTime = format(
+      new Date("2026-04-06T02:30:00.000Z"),
+      "h:mm a",
+    );
+    const unexpectedCreatedTime = format(
+      new Date("2026-04-06T00:00:00.000Z"),
+      "h:mm a",
+    );
+
+    render(
+      <SessionNodeView
+        nodeProps={
+          {
+            node: {
+              attrs: { sessionId: "session-1", status: "todo", checked: false },
+            },
+            getPos: () => 7,
+          } as any
+        }
+      >
+        Meeting
+      </SessionNodeView>,
+    );
+
+    expect(screen.queryAllByText(expectedEventTime).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(unexpectedCreatedTime)).toHaveLength(0);
   });
 });
