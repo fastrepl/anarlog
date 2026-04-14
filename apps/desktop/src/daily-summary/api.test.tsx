@@ -10,6 +10,7 @@ const { executeMock, subscribeMock } = vi.hoisted(() => ({
 
 vi.mock("@hypr/plugin-db", () => ({
   execute: executeMock,
+  executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   subscribe: subscribeMock,
 }));
 

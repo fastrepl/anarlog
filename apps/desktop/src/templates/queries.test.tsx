@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { execute, subscribe } from "@hypr/plugin-db";
+import { executeProxy, subscribe } from "@hypr/plugin-db";
 
 import { getTemplateById, useUserTemplate, useUserTemplates } from "./queries";
 
@@ -11,12 +11,12 @@ type SubscribeOptions<T> = {
 };
 
 describe("template queries", () => {
-  const executeMock = vi.mocked(execute);
+  const executeProxyMock = vi.mocked(executeProxy);
   const subscribeMock = vi.mocked(subscribe);
 
   beforeEach(() => {
     vi.clearAllMocks();
-    executeMock.mockResolvedValue([]);
+    executeProxyMock.mockResolvedValue({ rows: [] });
     subscribeMock.mockResolvedValue(() => {});
   });
 
@@ -84,20 +84,22 @@ describe("template queries", () => {
   });
 
   it("keeps execute-path reads working with Drizzle-mapped rows", async () => {
-    executeMock.mockResolvedValue([
-      {
-        id: "template-1",
-        title: "Standup",
-        description: "Daily sync",
-        pinned: 0,
-        pin_order: null,
-        category: null,
-        targets_json: '["engineering"]',
-        sections_json: '[{"title":"Notes","description":"Capture updates"}]',
-        created_at: "2026-04-14T00:00:00Z",
-        updated_at: "2026-04-14T00:00:00Z",
-      },
-    ]);
+    executeProxyMock.mockResolvedValue({
+      rows: [
+        [
+          "template-1",
+          "Standup",
+          "Daily sync",
+          0,
+          null,
+          null,
+          '["engineering"]',
+          '[{"title":"Notes","description":"Capture updates"}]',
+          "2026-04-14T00:00:00Z",
+          "2026-04-14T00:00:00Z",
+        ],
+      ],
+    });
 
     await expect(getTemplateById("template-1")).resolves.toEqual({
       id: "template-1",

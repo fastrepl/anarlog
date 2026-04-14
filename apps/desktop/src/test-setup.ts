@@ -25,6 +25,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 
 vi.mock("@hypr/plugin-db", () => ({
   execute: vi.fn().mockResolvedValue([]),
+  executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   subscribe: vi.fn().mockResolvedValue(() => {}),
 }));
 

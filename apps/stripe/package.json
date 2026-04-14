@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f ../../.env.stripe -f .env -- bun --hot src/index.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test --pass-with-no-tests"
+    "test": "sh -c 'if find src -type f \\( -name \"*.test.ts\" -o -name \"*.test.tsx\" -o -name \"*.test.js\" -o -name \"*.test.jsx\" -o -name \"*.spec.ts\" -o -name \"*.spec.tsx\" -o -name \"*.spec.js\" -o -name \"*.spec.jsx\" \\) | grep -q .; then command -v bun >/dev/null 2>&1 || { echo \"bun is required to run @hypr/stripe tests\" >&2; exit 1; }; bun test --pass-with-no-tests; else node --test; fi'"
   },
   "dependencies": {
     "@hypr/supabase": "workspace:*",

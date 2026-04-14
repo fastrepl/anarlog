@@ -1,5 +1,4 @@
 import { X } from "lucide-react";
-import { useTheme } from "next-themes";
 import React from "react";
 import { Toaster as Sonner, toast as sonnerToast } from "sonner";
 
@@ -89,12 +88,20 @@ export function toast(props: CustomToastProps) {
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme();
+const Toaster = ({ theme = "system", ...props }: ToasterProps) => {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       toastOptions={{
         classNames: {
