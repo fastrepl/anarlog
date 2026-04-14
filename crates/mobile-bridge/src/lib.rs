@@ -8,41 +8,15 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
 use error::{
-    cloudsync_error, cloudsync_runtime_error, parse_params_json, runtime_error, serialization_error,
+    BridgeError, cloudsync_error, cloudsync_runtime_error, parse_params_json, runtime_error,
+    serialization_error,
 };
-use hypr_db_live_query::DbRuntime;
-use listener::ListenerSink;
-
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum BridgeError {
-    #[error("bridge is closed")]
-    Closed,
-    #[error("invalid params json: {reason}")]
-    InvalidParamsJson { reason: String },
-    #[error("invalid cloudsync config json: {reason}")]
-    InvalidCloudsyncConfigJson { reason: String },
-    #[error("params json must encode an array")]
-    ParamsMustBeArray,
-    #[error("failed to open database: {reason}")]
-    OpenFailed { reason: String },
-    #[error("query failed: {reason}")]
-    QueryFailed { reason: String },
-    #[error("cloudsync failed: {reason}")]
-    CloudsyncFailed { reason: String },
-    #[error("failed to serialize payload: {reason}")]
-    SerializationFailed { reason: String },
-}
-
-#[uniffi::export(with_foreign)]
-pub trait QueryEventListener: Send + Sync {
-    fn on_result(&self, rows_json: String);
-    fn on_error(&self, message: String);
-}
+use listener::{ListenerSink, QueryEventListener};
 
 uniffi::setup_scaffolding!();
 
 struct BridgeState {
-    db_runtime: DbRuntime<ListenerSink>,
+    db_runtime: hypr_db_live_query::DbRuntime<ListenerSink>,
     runtime: tokio::runtime::Runtime,
     subscription_ids: HashSet<String>,
 }
@@ -75,7 +49,7 @@ impl MobileDbBridge {
             })?;
         let db_runtime = {
             let _guard = runtime.enter();
-            DbRuntime::new(std::sync::Arc::new(db))
+            hypr_db_live_query::DbRuntime::new(std::sync::Arc::new(db))
         };
 
         Ok(Self {
@@ -93,6 +67,22 @@ impl MobileDbBridge {
             let rows = state
                 .runtime
                 .block_on(state.db_runtime.execute(sql, params))
+                .map_err(runtime_error)?;
+            serde_json::to_string(&rows).map_err(serialization_error)
+        })
+    }
+
+    pub fn execute_proxy(
+        &self,
+        sql: String,
+        params_json: String,
+        method: String,
+    ) -> Result<String, BridgeError> {
+        let params = parse_params_json(&params_json)?;
+        self.with_state(|state| {
+            let rows = state
+                .runtime
+                .block_on(state.db_runtime.execute_proxy(sql, params, method))
                 .map_err(runtime_error)?;
             serde_json::to_string(&rows).map_err(serialization_error)
         })
@@ -412,6 +402,33 @@ mod tests {
         assert_eq!(rows[0]["id"], "note-1");
         assert_eq!(rows[0]["date"], "2026-04-13");
         assert_eq!(rows[0]["user_id"], "user-1");
+    }
+
+    #[test]
+    fn execute_proxy_roundtrips_positional_rows() {
+        let (_dir, bridge) = new_bridge(None);
+
+        bridge
+            .execute(
+                "INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)".to_string(),
+                r#"["note-1","2026-04-13","{}","user-1"]"#.to_string(),
+            )
+            .unwrap();
+
+        let result_json = bridge
+            .execute_proxy(
+                "SELECT id, date, user_id FROM daily_notes ORDER BY id".to_string(),
+                "[]".to_string(),
+                "all".to_string(),
+            )
+            .unwrap();
+        let result: hypr_db_live_query::ProxyQueryResult =
+            serde_json::from_str(&result_json).unwrap();
+
+        assert_eq!(
+            result.rows,
+            vec![serde_json::json!(["note-1", "2026-04-13", "user-1"])]
+        );
     }
 
     #[test]

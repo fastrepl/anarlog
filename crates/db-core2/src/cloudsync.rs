@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use backon::{ExponentialBuilder, Retryable};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tokio::sync::{broadcast, oneshot};
@@ -24,14 +25,6 @@ pub enum CloudsyncAuth {
     Token { token: String },
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CloudsyncAuthMode {
-    None,
-    ApiKey,
-    Token,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CloudsyncTableSpec {
     pub table_name: String,
@@ -50,6 +43,14 @@ pub struct CloudsyncRuntimeConfig {
     pub max_retries: Option<i64>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CloudsyncErrorKind {
+    Transient,
+    Auth,
+    Fatal,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CloudsyncStatus {
     pub open_mode: CloudsyncOpenMode,
@@ -57,16 +58,12 @@ pub struct CloudsyncStatus {
     pub configured: bool,
     pub running: bool,
     pub network_initialized: bool,
-    pub table_count: usize,
-    pub enabled_table_count: usize,
-    pub auth_mode: CloudsyncAuthMode,
-    pub sync_interval_ms: Option<u64>,
-    pub wait_ms: Option<i64>,
-    pub max_retries: Option<i64>,
     pub last_sync_downloaded_count: Option<i64>,
     pub last_sync_at_ms: Option<u64>,
     pub has_unsent_changes: Option<bool>,
     pub last_error: Option<String>,
+    pub last_error_kind: Option<CloudsyncErrorKind>,
+    pub consecutive_failures: u32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -81,12 +78,12 @@ pub enum CloudsyncRuntimeError {
     Cloudsync(#[from] hypr_cloudsync::Error),
 }
 
-impl CloudsyncAuth {
-    fn mode(&self) -> CloudsyncAuthMode {
-        match self {
-            Self::None => CloudsyncAuthMode::None,
-            Self::ApiKey { .. } => CloudsyncAuthMode::ApiKey,
-            Self::Token { .. } => CloudsyncAuthMode::Token,
+impl From<hypr_cloudsync::ErrorKind> for CloudsyncErrorKind {
+    fn from(kind: hypr_cloudsync::ErrorKind) -> Self {
+        match kind {
+            hypr_cloudsync::ErrorKind::Transient => Self::Transient,
+            hypr_cloudsync::ErrorKind::Auth => Self::Auth,
+            hypr_cloudsync::ErrorKind::Fatal => Self::Fatal,
         }
     }
 }
@@ -113,6 +110,8 @@ pub(crate) struct CloudsyncRuntimeState {
     pub(crate) last_sync_downloaded_count: Option<i64>,
     pub(crate) last_sync_at_ms: Option<u64>,
     pub(crate) last_error: Option<String>,
+    pub(crate) last_error_kind: Option<hypr_cloudsync::ErrorKind>,
+    pub(crate) consecutive_failures: u32,
 }
 
 pub(crate) struct CloudsyncBackgroundTask {
@@ -130,6 +129,8 @@ impl Default for CloudsyncRuntimeState {
             last_sync_downloaded_count: None,
             last_sync_at_ms: None,
             last_error: None,
+            last_error_kind: None,
+            consecutive_failures: 0,
         }
     }
 }
@@ -147,6 +148,8 @@ impl std::fmt::Debug for CloudsyncRuntimeState {
             )
             .field("last_sync_at_ms", &self.last_sync_at_ms)
             .field("last_error", &self.last_error)
+            .field("last_error_kind", &self.last_error_kind)
+            .field("consecutive_failures", &self.consecutive_failures)
             .finish()
     }
 }
@@ -243,6 +246,8 @@ impl Db3 {
         runtime.running = true;
         runtime.network_initialized = true;
         runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
         runtime.task = Some(CloudsyncBackgroundTask {
             shutdown_tx: Some(shutdown_tx),
             join_handle,
@@ -295,6 +300,8 @@ impl Db3 {
             last_sync_downloaded_count,
             last_sync_at_ms,
             last_error,
+            last_error_kind,
+            consecutive_failures,
         ) = {
             let runtime = self.cloudsync_runtime.lock().unwrap();
             (
@@ -304,6 +311,8 @@ impl Db3 {
                 runtime.last_sync_downloaded_count,
                 runtime.last_sync_at_ms,
                 runtime.last_error.clone(),
+                runtime.last_error_kind.map(CloudsyncErrorKind::from),
+                runtime.consecutive_failures,
             )
         };
 
@@ -314,35 +323,18 @@ impl Db3 {
                 None
             };
 
-        let (table_count, enabled_table_count, auth_mode, sync_interval_ms, wait_ms, max_retries) =
-            match config.as_ref() {
-                Some(config) => (
-                    config.tables.len(),
-                    config.enabled_tables().count(),
-                    config.auth.mode(),
-                    Some(config.sync_interval_ms),
-                    config.wait_ms,
-                    config.max_retries,
-                ),
-                None => (0, 0, CloudsyncAuthMode::None, None, None, None),
-            };
-
         Ok(CloudsyncStatus {
             open_mode: self.cloudsync_open_mode,
             extension_loaded: self.has_cloudsync(),
             configured: config.is_some(),
             running,
             network_initialized,
-            table_count,
-            enabled_table_count,
-            auth_mode,
-            sync_interval_ms,
-            wait_ms,
-            max_retries,
             last_sync_downloaded_count,
             last_sync_at_ms,
             has_unsent_changes,
             last_error,
+            last_error_kind,
+            consecutive_failures,
         })
     }
 
@@ -488,8 +480,12 @@ impl Db3 {
         runtime.last_sync_downloaded_count = Some(downloaded_count);
         runtime.last_sync_at_ms = Some(now_ms());
         runtime.last_error = None;
+        runtime.last_error_kind = None;
+        runtime.consecutive_failures = 0;
     }
 }
+
+const MAX_BACKOFF_SECS: u64 = 300;
 
 async fn cloudsync_background_loop(
     pool: SqlitePool,
@@ -499,21 +495,55 @@ async fn cloudsync_background_loop(
     max_retries: Option<i64>,
     mut shutdown_rx: oneshot::Receiver<()>,
 ) {
-    let interval = Duration::from_millis(sync_interval_ms);
+    let base_interval = Duration::from_millis(sync_interval_ms);
+
     loop {
         tokio::select! {
             _ = &mut shutdown_rx => break,
-            _ = tokio::time::sleep(interval) => {
-                match hypr_cloudsync::network_sync(&pool, wait_ms, max_retries).await {
+            _ = tokio::time::sleep(base_interval) => {
+                let state = Arc::clone(&runtime_state);
+
+                let result = (|| async {
+                    hypr_cloudsync::network_sync(&pool, wait_ms, max_retries).await
+                })
+                    .retry(
+                        ExponentialBuilder::default()
+                            .with_min_delay(base_interval)
+                            .with_max_delay(Duration::from_secs(MAX_BACKOFF_SECS))
+                            .with_jitter(),
+                    )
+                    .when(|e| e.kind() == hypr_cloudsync::ErrorKind::Transient)
+                    .notify(|e, dur| {
+                        let mut runtime = state.lock().unwrap();
+                        runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
+                        runtime.last_error = Some(e.to_string());
+                        runtime.last_error_kind = Some(e.kind());
+                        tracing::warn!(
+                            error = %e,
+                            retry_after = ?dur,
+                            failures = runtime.consecutive_failures,
+                            "cloudsync transient error, retrying",
+                        );
+                    })
+                    .await;
+
+                match result {
                     Ok(downloaded_count) => {
                         let mut runtime = runtime_state.lock().unwrap();
                         runtime.last_sync_downloaded_count = Some(downloaded_count);
                         runtime.last_sync_at_ms = Some(now_ms());
                         runtime.last_error = None;
+                        runtime.last_error_kind = None;
+                        runtime.consecutive_failures = 0;
                     }
                     Err(error) => {
+                        let kind = error.kind();
                         let mut runtime = runtime_state.lock().unwrap();
+                        runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
                         runtime.last_error = Some(error.to_string());
+                        runtime.last_error_kind = Some(kind);
+                        runtime.running = false;
+                        break;
                     }
                 }
             }

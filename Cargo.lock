@@ -4736,6 +4736,7 @@ dependencies = [
 name = "db-core2"
 version = "0.1.0"
 dependencies = [
+ "backon",
  "cloudsync",
  "libsqlite3-sys",
  "serde",
@@ -4755,6 +4756,7 @@ dependencies = [
  "cloudsync",
  "db-app",
  "db-core2",
+ "serde",
  "serde_json",
  "sqlx",
  "tempfile",

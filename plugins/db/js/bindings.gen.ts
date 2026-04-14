@@ -14,6 +14,14 @@ async execute(sql: string, params: JsonValue[]) : Promise<Result<JsonValue[], st
     else return { status: "error", error: e  as any };
 }
 },
+async executeProxy(sql: string, params: JsonValue[], method: string) : Promise<Result<ExecuteProxyResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|execute_proxy", { sql, params, method }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async subscribe(sql: string, params: JsonValue[], onEvent: TAURI_CHANNEL<QueryEvent>) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|subscribe", { sql, params, onEvent }) };
@@ -42,6 +50,7 @@ async unsubscribe(subscriptionId: string) : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
+export type ExecuteProxyResult = { rows: JsonValue[] }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
 export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "error"; data: string }
 export type TAURI_CHANNEL<TSend> = null

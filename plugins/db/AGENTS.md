@@ -9,6 +9,8 @@
 ## TypeScript Usage
 
 - Use `execute(sql, params?)` for one-shot reads or writes.
+- `execute(...)` is the generic query path and returns named object rows.
+- `executeProxy(sql, params, method)` is the Drizzle-only path and returns sqlite-proxy positional rows.
 - Use `subscribe(sql, params, { onData, onError })` for live query updates.
 - Build React hooks such as `useLiveQuery` in app code on top of `subscribe`; do not ship them from this plugin.
 
@@ -34,6 +36,7 @@
 - This plugin should only expose query execution and live subscription primitives to TypeScript.
 - The JS API should stay low-level and predictable rather than growing app-specific convenience methods.
 - Queries should target the app database managed at `app_data_dir()/app.db`.
+- Keep the row-shape split explicit: `execute(...)` returns named rows, `executeProxy(...)` returns positional proxy rows.
 
 ## Dependency Direction
 

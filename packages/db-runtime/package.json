@@ -10,5 +10,8 @@
   "types": "./src/index.ts",
   "devDependencies": {
     "typescript": "~5.8.3"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
   }
 }

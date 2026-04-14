@@ -217,6 +217,13 @@ extern "C" {
         RustBuffer params_json, 
         RustCallStatus *uniffi_out_err
     );
+    RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(
+        void * ptr, 
+        RustBuffer sql, 
+        RustBuffer params_json, 
+        RustBuffer method, 
+        RustCallStatus *uniffi_out_err
+    );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
         void * ptr, 
         RustCallStatus *uniffi_out_err
@@ -491,6 +498,8 @@ extern "C" {
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(
+    );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(
     );
@@ -2573,6 +2582,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy"),
+        4,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync"),
@@ -2731,6 +2748,14 @@ NativeMobileBridge::NativeMobileBridge(
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync"] = jsi::Function::createFromHostFunction(
@@ -3032,6 +3057,16 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge
         
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), 
+            &status
+        );
+        uniffi::mobile_bridge::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status, args[count - 1]);
+
+        
+        return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
         uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), 
@@ -3201,6 +3236,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledb
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(
+        );
+
+        
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(
         );
 
         

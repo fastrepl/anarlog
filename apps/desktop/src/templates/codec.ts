@@ -88,7 +88,7 @@ export function parseStoredTemplateSections(
   const context = `template ${templateId} sections_json`;
   const parsed =
     typeof value === "string" ? parseJsonText(value, context) : value;
-  return assertCanonicalTemplateSections(parsed, context);
+  return normalizeStoredTemplateSections(parsed, context);
 }
 
 export function parseStoredTemplateTargets(
@@ -102,7 +102,89 @@ export function parseStoredTemplateTargets(
   const context = `template ${templateId} targets_json`;
   const parsed =
     typeof value === "string" ? parseJsonText(value, context) : value;
-  return assertCanonicalTemplateTargets(parsed, context);
+  return normalizeStoredTemplateTargets(parsed, context);
+}
+
+function normalizeStoredTemplateSections(
+  value: unknown,
+  context: string,
+): TemplateSection[] {
+  if (!Array.isArray(value)) {
+    return templateDataError(context, "sections must be an array");
+  }
+
+  return value.map((section, index) => {
+    if (typeof section === "string") {
+      const title = section.trim();
+      if (!title) {
+        return templateDataError(
+          context,
+          `sections[${index}] must not be an empty string`,
+        );
+      }
+
+      return { title, description: "" };
+    }
+
+    if (!section || typeof section !== "object") {
+      return templateDataError(
+        context,
+        `sections[${index}] must be an object with title and description`,
+      );
+    }
+
+    const next = section as Record<string, unknown>;
+    if (typeof next.title !== "string" || !next.title.trim()) {
+      return templateDataError(
+        context,
+        `sections[${index}].title must be a non-empty string`,
+      );
+    }
+
+    if (
+      next.description !== undefined &&
+      typeof next.description !== "string"
+    ) {
+      return templateDataError(
+        context,
+        `sections[${index}].description must be a string when present`,
+      );
+    }
+
+    return {
+      title: next.title.trim(),
+      description: typeof next.description === "string" ? next.description : "",
+    };
+  });
+}
+
+function normalizeStoredTemplateTargets(
+  value: unknown,
+  context: string,
+): string[] | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const target = value.trim();
+    return target ? [target] : undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return templateDataError(context, "targets must be an array of strings");
+  }
+
+  const targets = value.flatMap((target, index) => {
+    if (typeof target !== "string") {
+      return templateDataError(context, `targets[${index}] must be a string`);
+    }
+
+    const trimmed = target.trim();
+    return trimmed ? [trimmed] : [];
+  });
+
+  return targets.length > 0 ? targets : undefined;
 }
 
 export function parseWebTemplates(

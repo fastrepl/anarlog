@@ -22,6 +22,7 @@
     "react": "^19.2.3"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --environment jsdom"
   }
 }

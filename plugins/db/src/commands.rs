@@ -1,6 +1,6 @@
 use tauri::ipc::Channel;
 
-use crate::{ManagedState, QueryEvent};
+use crate::{ExecuteProxyResult, ManagedState, QueryEvent};
 
 #[tauri::command]
 #[specta::specta]
@@ -12,6 +12,21 @@ pub(crate) async fn execute(
     state
         .execute(sql, params)
         .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn execute_proxy(
+    state: tauri::State<'_, ManagedState>,
+    sql: String,
+    params: Vec<serde_json::Value>,
+    method: String,
+) -> Result<ExecuteProxyResult, String> {
+    state
+        .execute_proxy(sql, params, method)
+        .await
+        .map(|result| ExecuteProxyResult { rows: result.rows })
         .map_err(|error| error.to_string())
 }
 

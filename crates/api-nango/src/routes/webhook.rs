@@ -305,7 +305,7 @@ mod tests {
     const SECRET: &str = "test-secret";
 
     fn sign_body(body: &str) -> String {
-        use hmac::{Hmac, Mac};
+        use hmac::{Hmac, KeyInit, Mac};
         use sha2::Sha256;
         let mut mac = Hmac::<Sha256>::new_from_slice(SECRET.as_bytes()).unwrap();
         mac.update(body.as_bytes());

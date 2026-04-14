@@ -12,6 +12,11 @@ const PLUGIN_NAME: &str = "db";
 pub type ManagedState = std::sync::Arc<runtime::PluginDbRuntime>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
+pub struct ExecuteProxyResult {
+    rows: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 #[serde(tag = "event", content = "data")]
 pub enum QueryEvent {
     #[serde(rename = "result")]
@@ -25,6 +30,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::execute,
+            commands::execute_proxy,
             commands::subscribe,
             commands::unsubscribe,
         ])

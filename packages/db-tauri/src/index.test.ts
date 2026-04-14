@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { executeMock, subscribeMock } = vi.hoisted(() => ({
+const { executeMock, executeProxyMock, subscribeMock } = vi.hoisted(() => ({
   executeMock: vi.fn(),
+  executeProxyMock: vi.fn(),
   subscribeMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
   execute: executeMock,
+  executeProxy: executeProxyMock,
   subscribe: subscribeMock,
 }));
 
@@ -49,5 +51,16 @@ describe("@hypr/db-tauri", () => {
 
     nextUnsubscribe();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it("delegates executeProxy to the db plugin", async () => {
+    const { tauriLiveQueryClient } = await import("./index");
+    executeProxyMock.mockResolvedValue({ rows: [[1]] });
+
+    await expect(
+      tauriLiveQueryClient.executeProxy("SELECT 1", [], "all"),
+    ).resolves.toEqual({ rows: [[1]] });
+
+    expect(executeProxyMock).toHaveBeenCalledWith("SELECT 1", [], "all");
   });
 });

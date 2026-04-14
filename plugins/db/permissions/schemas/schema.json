@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the execute command without any pre-configured scope."
         },
         {
+          "description": "Enables the execute_proxy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-execute-proxy",
+          "markdownDescription": "Enables the execute_proxy command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the execute_proxy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-execute-proxy",
+          "markdownDescription": "Denies the execute_proxy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the subscribe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-subscribe",
@@ -331,10 +343,10 @@
           "markdownDescription": "Denies the unsubscribe command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-subscribe`\n- `allow-unsubscribe`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-subscribe`\n- `allow-unsubscribe`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-subscribe`\n- `allow-unsubscribe`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-subscribe`\n- `allow-unsubscribe`"
         }
       ]
     }

@@ -14,8 +14,8 @@ use sqlx::sqlite::SqliteConnectOptions;
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
-    CloudsyncAuth, CloudsyncAuthMode, CloudsyncOpenMode, CloudsyncRuntimeConfig,
-    CloudsyncRuntimeError, CloudsyncStatus, CloudsyncTableSpec,
+    CloudsyncAuth, CloudsyncOpenMode, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
+    CloudsyncStatus, CloudsyncTableSpec,
 };
 use crate::pool::connect_pool;
 pub use crate::pool::{DbPool, TableChange, TableChangeKind};

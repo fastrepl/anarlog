@@ -20,6 +20,7 @@
   },
   "scripts": {
     "introspect": "drizzle-kit introspect",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   }
 }

@@ -2,6 +2,8 @@
 pub enum Error {
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
+    #[error("invalid query method: {0}")]
+    InvalidQueryMethod(String),
     #[error("subscription not found: {0}")]
     SubscriptionNotFound(String),
     #[error("failed to send query event: {0}")]

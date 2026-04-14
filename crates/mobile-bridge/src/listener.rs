@@ -1,7 +1,12 @@
 use std::sync::Arc;
 
-use crate::QueryEventListener;
 use hypr_db_live_query::QueryEventSink;
+
+#[uniffi::export(with_foreign)]
+pub trait QueryEventListener: Send + Sync {
+    fn on_result(&self, rows_json: String);
+    fn on_error(&self, message: String);
+}
 
 #[derive(Clone)]
 pub(crate) struct ListenerSink {

@@ -5,7 +5,7 @@ use rmcp::{
     },
 };
 
-pub fn create_service<S, F>(factory: F) -> StreamableHttpService<S>
+pub fn create_service<S, F>(factory: F) -> StreamableHttpService<S, LocalSessionManager>
 where
     S: ServerHandler + Send + 'static,
     F: Fn() -> Result<S, std::io::Error> + Send + Sync + 'static,

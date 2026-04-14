@@ -17,6 +17,7 @@
     "vitest": "^4.1.4"
   },
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   }
 }

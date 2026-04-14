@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-execute`
+- `allow-execute-proxy`
 - `allow-subscribe`
 - `allow-unsubscribe`
 
@@ -39,6 +40,32 @@ Enables the execute command without any pre-configured scope.
 <td>
 
 Denies the execute command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-execute-proxy`
+
+</td>
+<td>
+
+Enables the execute_proxy command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-execute-proxy`
+
+</td>
+<td>
+
+Denies the execute_proxy command without any pre-configured scope.
 
 </td>
 </tr>

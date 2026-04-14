@@ -91,6 +91,13 @@ interface NativeModuleInterface {
     paramsJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(
+    ptr: bigint,
+    sql: Uint8Array,
+    paramsJson: Uint8Array,
+    method: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -143,6 +150,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe(): number;

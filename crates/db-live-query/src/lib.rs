@@ -21,7 +21,32 @@ pub use error::{Error, Result};
 pub use explain::extract_dependencies;
 pub use schema::DependencyResolutionError;
 
-use query::run_query;
+use query::{run_query, run_query_proxy};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ProxyQueryMethod {
+    Run,
+    All,
+    Get,
+    Values,
+}
+
+impl ProxyQueryMethod {
+    fn parse(method: &str) -> Result<Self> {
+        match method {
+            "run" => Ok(Self::Run),
+            "all" => Ok(Self::All),
+            "get" => Ok(Self::Get),
+            "values" => Ok(Self::Values),
+            _ => Err(Error::InvalidQueryMethod(method.to_string())),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct ProxyQueryResult {
+    pub rows: Vec<serde_json::Value>,
+}
 
 pub trait QueryEventSink: Clone + Send + 'static {
     fn send_result(&self, rows: Vec<serde_json::Value>) -> std::result::Result<(), String>;
@@ -159,6 +184,18 @@ impl<S: QueryEventSink> DbRuntime<S> {
         params: Vec<serde_json::Value>,
     ) -> Result<Vec<serde_json::Value>> {
         run_query(&self.db, &sql, &params).await.map_err(Into::into)
+    }
+
+    pub async fn execute_proxy(
+        &self,
+        sql: String,
+        params: Vec<serde_json::Value>,
+        method: String,
+    ) -> Result<ProxyQueryResult> {
+        let method = ProxyQueryMethod::parse(&method)?;
+        run_query_proxy(&self.db, &sql, &params, method)
+            .await
+            .map_err(Into::into)
     }
 
     pub async fn subscribe(

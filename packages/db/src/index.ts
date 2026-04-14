@@ -1,28 +1,14 @@
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 
-import type { LiveQueryClient } from "@hypr/db-runtime";
+import type { DrizzleProxyClient } from "@hypr/db-runtime";
 
 import * as schema from "./schema";
 
-export function createDb(client: Pick<LiveQueryClient, "execute">) {
+export function createDb(client: DrizzleProxyClient) {
   return drizzle(
     async (sql, params, method) => {
       try {
-        if (method === "run") {
-          await client.execute(sql, params);
-          return { rows: [] };
-        }
-
-        const rows = await client.execute(sql, params);
-        const mapped = rows.map((row) =>
-          Object.values(row as Record<string, unknown>),
-        );
-
-        if (method === "get") {
-          return { rows: mapped[0] ?? [] };
-        }
-
-        return { rows: mapped };
+        return await client.executeProxy(sql, params, method);
       } catch (error) {
         console.error("[drizzle-proxy]", method, sql, error);
         throw error;

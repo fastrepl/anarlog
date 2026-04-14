@@ -160,23 +160,20 @@ impl SupportMcpServer {
 #[tool_handler]
 impl ServerHandler for SupportMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::LATEST,
-            capabilities: ServerCapabilities::builder()
+        ServerInfo::new(
+            ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()
                 .build(),
-            server_info: Implementation {
-                name: "char-support".to_string(),
-                title: None,
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                icons: None,
-                website_url: None,
-            },
-            instructions: Some(
-                "Char support server. Provides tools for GitHub issue management (search, create, comment) and Stripe billing operations (list subscriptions, billing portal). Always search before creating issues to avoid duplicates.".to_string(),
-            ),
-        }
+        )
+        .with_protocol_version(ProtocolVersion::LATEST)
+        .with_server_info(Implementation::new(
+            "char-support",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .with_instructions(
+            "Char support server. Provides tools for GitHub issue management (search, create, comment) and Stripe billing operations (list subscriptions, billing portal). Always search before creating issues to avoid duplicates.",
+        )
     }
 
     async fn list_prompts(

@@ -577,6 +577,11 @@ export interface MobileDbBridgeInterface {
   cloudsyncVersion() /*throws*/ : string;
   configureCloudsync(configJson: string) /*throws*/ : void;
   execute(sql: string, paramsJson: string) /*throws*/ : string;
+  executeProxy(
+    sql: string,
+    paramsJson: string,
+    method: string,
+  ) /*throws*/ : string;
   startCloudsync() /*throws*/ : void;
   stopCloudsync() /*throws*/ : void;
   subscribe(
@@ -808,6 +813,30 @@ export class MobileDbBridge
             uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
             FfiConverterString.lower(sql),
             FfiConverterString.lower(paramsJson),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public executeProxy(
+    sql: string,
+    paramsJson: string,
+    method: string,
+  ): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sql),
+            FfiConverterString.lower(paramsJson),
+            FfiConverterString.lower(method),
             callStatus,
           );
         },
@@ -1284,6 +1313,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy() !==
+    8575
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy",
     );
   }
   if (

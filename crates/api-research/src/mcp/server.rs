@@ -75,24 +75,20 @@ impl ResearchMcpServer {
 #[tool_handler]
 impl ServerHandler for ResearchMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder()
+        ServerInfo::new(
+            ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()
                 .build(),
-            server_info: Implementation {
-                name: "hyprnote-research".to_string(),
-                title: None,
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                icons: None,
-                website_url: None,
-            },
-            instructions: Some(
-                "Char research server. Provides tools for web search and content retrieval powered by Exa."
-                    .to_string(),
-            ),
-        }
+        )
+        .with_protocol_version(ProtocolVersion::V_2024_11_05)
+        .with_server_info(Implementation::new(
+            "hyprnote-research",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .with_instructions(
+            "Char research server. Provides tools for web search and content retrieval powered by Exa.",
+        )
     }
 
     async fn list_prompts(

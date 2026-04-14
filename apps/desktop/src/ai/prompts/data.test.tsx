@@ -57,7 +57,12 @@ describe("prompt data", () => {
 
   it("loads a stored prompt override from SQLite", async () => {
     executeMock.mockResolvedValue([
-      { task_type: "enhance", content: "# Context" },
+      {
+        task_type: "enhance",
+        content: "# Context",
+        created_at: "2026-04-13T00:00:00Z",
+        updated_at: "2026-04-13T00:00:00Z",
+      },
     ]);
 
     await expect(loadPromptOverride("enhance")).resolves.toBe("# Context");

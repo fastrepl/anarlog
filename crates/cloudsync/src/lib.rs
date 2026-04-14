@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use sqlx::sqlite::SqliteConnectOptions;
 
 pub use bundle::bundled_extension_path;
-pub use error::Error;
+pub use error::{Error, ErrorKind};
 pub use init::{begin_alter, cleanup, commit_alter, init, terminate, version};
 pub use network::{
     network_check_changes, network_cleanup, network_has_unsent_changes, network_init,

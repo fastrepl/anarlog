@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertCanonicalTemplateSections,
   parseStoredTemplateSections,
+  parseStoredTemplateTargets,
   parseWebTemplates,
 } from "./codec";
 
@@ -16,10 +17,27 @@ describe("parseStoredTemplateSections", () => {
     ).toEqual([{ title: "Updates", description: "What changed" }]);
   });
 
-  it("rejects legacy string arrays from SQLite", () => {
-    expect(() =>
+  it("normalizes legacy string arrays from SQLite", () => {
+    expect(
       parseStoredTemplateSections('["Updates","Feedback"]', "template-1"),
-    ).toThrow(/template template-1 sections_json/);
+    ).toEqual([
+      { title: "Updates", description: "" },
+      { title: "Feedback", description: "" },
+    ]);
+  });
+
+  it("fills missing descriptions on stored section objects", () => {
+    expect(
+      parseStoredTemplateSections('[{"title":"Updates"}]', "template-1"),
+    ).toEqual([{ title: "Updates", description: "" }]);
+  });
+});
+
+describe("parseStoredTemplateTargets", () => {
+  it("normalizes a legacy single-string target", () => {
+    expect(parseStoredTemplateTargets('"Manager"', "template-1")).toEqual([
+      "Manager",
+    ]);
   });
 });
 

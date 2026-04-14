@@ -1,6 +1,12 @@
 import "../bridge";
 
-import type { LiveQueryClient, Row } from "@hypr/db-runtime";
+import type {
+  DrizzleProxyClient,
+  LiveQueryClient,
+  ProxyQueryMethod,
+  ProxyQueryResult,
+  Row,
+} from "@hypr/db-runtime";
 
 import { MobileDbBridge } from "../bridge";
 import type { MobileDbBridgeInterface } from "../bridge";
@@ -38,16 +44,12 @@ export type CloudsyncStatus = {
   configured: boolean;
   running: boolean;
   network_initialized: boolean;
-  table_count: number;
-  enabled_table_count: number;
-  auth_mode: "none" | "api_key" | "token";
-  sync_interval_ms?: number;
-  wait_ms?: number;
-  max_retries?: number;
   last_sync_downloaded_count?: number;
   last_sync_at_ms?: number;
   has_unsent_changes?: boolean;
   last_error?: string;
+  last_error_kind?: "transient" | "auth" | "fatal";
+  consecutive_failures: number;
 };
 
 function toRustCloudsyncAuth(auth: CloudsyncAuth) {
@@ -121,6 +123,17 @@ export async function execute<T = Row>(
   return JSON.parse(bridge.execute(sql, JSON.stringify(params))) as T[];
 }
 
+export async function executeProxy(
+  sql: string,
+  params: unknown[] = [],
+  method: ProxyQueryMethod,
+): Promise<ProxyQueryResult> {
+  const bridge = await openBridge();
+  return JSON.parse(
+    bridge.executeProxy(sql, JSON.stringify(params), method),
+  ) as ProxyQueryResult;
+}
+
 export async function subscribe<T = Row>(
   sql: string,
   params: unknown[],
@@ -148,8 +161,9 @@ export async function subscribe<T = Row>(
   };
 }
 
-export const mobileLiveQueryClient: LiveQueryClient = {
+export const mobileLiveQueryClient: LiveQueryClient & DrizzleProxyClient = {
   execute,
+  executeProxy,
   subscribe,
 };
 
