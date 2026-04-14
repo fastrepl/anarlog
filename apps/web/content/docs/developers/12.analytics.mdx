@@ -91,14 +91,15 @@ Notes:
 |------|------------|--------|
 | `show_main_window` | none (plus auto-enriched desktop props) | `plugins/windows/src/ext.rs` |
 | `onboarding_step_viewed` | `step`, `platform` | `apps/desktop/src/onboarding/index.tsx` |
+| `onboarding_login_skipped` | none | `apps/desktop/src/onboarding/index.tsx` |
 | `onboarding_completed` | none | `apps/desktop/src/onboarding/final.tsx` |
 | `user_signed_in` | none | `apps/desktop/src/auth/context.tsx` |
 | `desktop_download_authenticated` | `download_intent_id` | `apps/desktop/src/auth/context.tsx` |
 | `trial_flow_client_error` | `properties.error` (nested object) | `apps/desktop/src/onboarding/account/trial.tsx` |
-| `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | `apps/desktop/src/onboarding/account/trial.tsx` |
+| `trial_flow_skipped` | `properties.reason` (`already_paid` or `already_trialing`) | `apps/desktop/src/onboarding/account/trial.tsx` |
 | `data_imported` | `source` | `apps/desktop/src/settings/data/index.tsx` |
 | `note_created` | `has_event_id` | `apps/desktop/src/store/tinybase/store/sessions.ts`, `apps/desktop/src/shared/main/useNewNote.ts` |
-| `file_uploaded` | Audio: `file_type = "audio"`; Transcript: `file_type = "transcript"`, `token_count` | `apps/desktop/src/session/components/floating/options-menu.tsx` |
+| `file_uploaded` | Audio: `file_type = "audio"`; Transcript: `file_type = "transcript"`, `token_count` | `apps/desktop/src/stt/useUploadFile.ts` |
 | `session_started` | `has_calendar_event`, `stt_provider`, `stt_model` | `apps/desktop/src/stt/useStartListening.ts` |
 | `tab_opened` | `view` | `apps/desktop/src/store/zustand/tabs/basic.ts` |
 | `search_performed` | none | `apps/desktop/src/search/contexts/ui.tsx` |
@@ -109,7 +110,7 @@ Notes:
 | `session_exported` | PDF export: `format = "pdf"`, `view_type`, `has_transcript`, `has_enhanced`, `has_memo` | `apps/desktop/src/session/components/outer-header/overflow/export-pdf.tsx` |
 | `session_exported` | Transcript export: `format = "vtt"`, `word_count` | `apps/desktop/src/session/components/outer-header/overflow/export-transcript.tsx` |
 | `session_deleted` | `includes_recording` (currently always `true`) | `apps/desktop/src/session/components/outer-header/overflow/delete.tsx` |
-| `settings_changed` | `autostart`, `notification_detect`, `save_recordings`, `telemetry_consent` | `apps/desktop/src/settings/general/index.tsx` |
+| `settings_changed` | `autostart`, `notification_detect`, `telemetry_consent` | `apps/desktop/src/settings/general/index.tsx` |
 | `ai_provider_configured` | `provider` | `apps/desktop/src/settings/ai/shared/index.tsx` |
 | `upgrade_clicked` | `plan` (`"lite"` or `"pro"`) | `apps/desktop/src/settings/general/account.tsx` |
 | `user_signed_out` | none | `apps/desktop/src/settings/general/account.tsx` |
@@ -123,6 +124,7 @@ Notes:
 | `dismiss` | none | `plugins/notification/src/handler.rs` |
 | `collapsed_timeout` | none | `plugins/notification/src/handler.rs` |
 | `option_selected` | none | `plugins/notification/src/handler.rs` |
+| `footer_action` | none | `plugins/notification/src/handler.rs` |
 
 ### API/server events
 
@@ -208,10 +210,11 @@ Goal: measure onboarding progress and completion.
 | Event | Properties | Notes |
 |-------|------------|-------|
 | `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `calendar` → `final`. |
+| `onboarding_login_skipped` | none | Desktop. Fired when the user skips the login step during onboarding. |
 | `user_signed_in` | none | Fires on sign-in. Desktop auth sync also updates `plan` and `trial_end_date` on sign-in, initial session restore, and token refresh. |
 | `desktop_download_authenticated` | `download_intent_id` | Fires when a desktop sign-in completes from a tracked download flow. |
 | `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
-| `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
+| `trial_flow_skipped` | `properties.reason` (`already_paid` or `already_trialing`) | Desktop. User already has a paid plan or active trial. |
 | `trial_flow_client_error` | `properties.error` | Desktop. Error during trial activation. |
 | `onboarding_completed` | none | Fires when user clicks "Get Started" on the final onboarding screen. |
 
