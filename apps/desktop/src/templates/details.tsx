@@ -1,7 +1,6 @@
 import { HeartIcon, MoreHorizontalIcon } from "lucide-react";
 import { useState } from "react";
 
-import type { TemplateSection } from "@hypr/store";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
   AppFloatingPanel,
@@ -12,24 +11,17 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
-import { getTemplateCreatorByline } from "../shared";
+import { type WebTemplate } from "./codec";
 import { TemplateDetailScrollArea } from "./detail-scroll-area";
+import { type UserTemplateDraft } from "./queries";
 import { SectionsList } from "./sections-editor";
 import { TemplateForm } from "./template-form";
+import { getTemplateCreatorLabel } from "./utils";
 
 import {
   ResourceDetailEmpty,
   ResourcePreviewHeader,
 } from "~/shared/ui/resource-list";
-
-type WebTemplate = {
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  targets?: string[];
-  sections: TemplateSection[];
-};
 
 export function TemplateDetailsColumn({
   isWebMode,
@@ -46,27 +38,9 @@ export function TemplateDetailsColumn({
   selectedWebTemplate: WebTemplate | null;
   handleDeleteTemplate: (id: string) => void;
   handleDuplicateTemplate: (id: string) => void;
-  handleCloneTemplate: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
-  handleFavoriteTemplate: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
-  handleSetDefaultTemplate: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
+  handleCloneTemplate: (template: UserTemplateDraft) => void;
+  handleFavoriteTemplate: (template: UserTemplateDraft) => void;
+  handleSetDefaultTemplate: (template: UserTemplateDraft) => void;
 }) {
   if (isWebMode) {
     if (!selectedWebTemplate) {
@@ -103,29 +77,11 @@ function WebTemplatePreview({
   onSetDefault,
 }: {
   template: WebTemplate;
-  onClone: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
-  onFavorite: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
-  onSetDefault: (template: {
-    title: string;
-    description: string;
-    category?: string;
-    targets?: string[];
-    sections: TemplateSection[];
-  }) => void;
+  onClone: (template: UserTemplateDraft) => void;
+  onFavorite: (template: UserTemplateDraft) => void;
+  onSetDefault: (template: UserTemplateDraft) => void;
 }) {
-  const nextTemplate = {
+  const nextTemplate: UserTemplateDraft = {
     title: template.title ?? "",
     description: template.description ?? "",
     category: template.category,
@@ -143,7 +99,10 @@ function WebTemplatePreview({
         targets={template.targets}
         titleMeta={
           <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
-            {getTemplateCreatorByline({ isUserTemplate: false })}
+            {getTemplateCreatorLabel({
+              isUserTemplate: false,
+              format: "short",
+            })}
           </span>
         }
         footer={null}

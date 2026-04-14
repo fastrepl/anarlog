@@ -1,5 +1,5 @@
 import { useTabs } from "~/store/zustand/tabs";
-import { TemplatesSidebarContent } from "~/templates/sidebar-content";
+import { TemplatesSidebarContent } from "~/templates";
 
 export function TemplatesNav() {
   const currentTab = useTabs((state) => state.currentTab);

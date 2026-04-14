@@ -15,15 +15,14 @@ import { Input } from "@hypr/ui/components/ui/input";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 import { cn } from "@hypr/utils";
 
+import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import {
-  getTemplateCreatorByline,
   useSaveTemplate,
-  useTemplateCreatorName,
   useToggleTemplateFavorite,
   useUserTemplate,
-} from "../shared";
-import { TemplateDetailScrollArea } from "./detail-scroll-area";
+} from "./queries";
 import { SectionsList } from "./sections-editor";
+import { getTemplateCreatorLabel, useTemplateCreatorName } from "./utils";
 
 import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
 import * as settings from "~/store/tinybase/store/settings";
@@ -329,9 +328,10 @@ export function TemplateForm({
                   />
                 </div>
                 <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-400">
-                  {getTemplateCreatorByline({
+                  {getTemplateCreatorLabel({
                     isUserTemplate: true,
                     creatorName,
+                    format: "short",
                   })}
                 </span>
               </div>

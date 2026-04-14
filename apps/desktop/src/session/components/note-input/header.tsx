@@ -57,6 +57,7 @@ import {
   useTemplateCreatorName,
   useUserTemplate,
   useUserTemplates,
+  type WebTemplate,
 } from "~/templates";
 
 function TruncatedTitle({
@@ -1196,15 +1197,6 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
   };
 }
 
-type WebTemplate = {
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  targets?: string[];
-  sections: Array<{ title: string; description: string }>;
-};
-
 function getTemplateTags(template: { category?: string; targets?: string[] }) {
   return [
     ...new Set([
@@ -1232,13 +1224,13 @@ function matchesTemplateSearch(
 }
 
 function sortFavoriteTemplates<
-  T extends { pinned?: boolean; pin_order?: number; title?: string },
+  T extends { pinned?: boolean; pinOrder?: number; title?: string },
 >(templates: T[]) {
   return [...templates]
     .filter((template) => template.pinned)
     .sort((a, b) => {
-      const orderA = a.pin_order ?? Infinity;
-      const orderB = b.pin_order ?? Infinity;
+      const orderA = a.pinOrder ?? Infinity;
+      const orderB = b.pinOrder ?? Infinity;
       if (orderA !== orderB) {
         return orderA - orderB;
       }

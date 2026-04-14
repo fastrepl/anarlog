@@ -11,20 +11,12 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
-import {
-  parseWebTemplates,
-  resolveTemplateTabSelection,
-  useCreateTemplate,
-  useDeleteTemplate,
-  useToggleTemplateFavorite,
-  useUserTemplates,
-  type UserTemplate,
-  type WebTemplate,
-} from "./shared";
+import { type WebTemplate } from "./codec";
+import { getTemplateCopyTitle, type UserTemplate } from "./queries";
+import { useTemplateTab } from "./utils";
 
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import { useWebResources } from "~/shared/ui/resource-list";
-import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { type Tab } from "~/store/zustand/tabs";
 
 type SortOption = "alphabetical" | "reverse-alphabetical";
 
@@ -33,56 +25,23 @@ export function TemplatesSidebarContent({
 }: {
   tab: Extract<Tab, { type: "templates" }>;
 }) {
-  const updateTabState = useTabs((state) => state.updateTemplatesTabState);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
-  const userTemplates = useUserTemplates();
-  const createTemplate = useCreateTemplate();
-  const deleteTemplate = useDeleteTemplate();
-  const toggleTemplateFavorite = useToggleTemplateFavorite();
-  const { data: rawWebTemplates = [], isLoading: isWebLoading } =
-    useWebResources<Record<string, unknown>>("templates");
-  const webTemplates = useMemo(
-    () => parseWebTemplates(rawWebTemplates),
-    [rawWebTemplates],
-  );
 
   const {
+    userTemplates,
+    webTemplates,
+    isWebLoading,
     isWebMode,
     selectedMineId: effectiveSelectedMineId,
     selectedWebIndex: effectiveSelectedWebIndex,
-  } = resolveTemplateTabSelection({
-    isWebMode: tab.state.isWebMode,
-    selectedMineId: tab.state.selectedMineId,
-    selectedWebIndex: tab.state.selectedWebIndex,
-    userTemplates,
-    webTemplates,
-  });
-
-  const setSelectedMineId = useCallback(
-    (id: string | null) => {
-      updateTabState(tab, {
-        ...tab.state,
-        isWebMode: false,
-        selectedMineId: id,
-        selectedWebIndex: null,
-      });
-    },
-    [updateTabState, tab],
-  );
-
-  const setSelectedWebIndex = useCallback(
-    (index: number | null) => {
-      updateTabState(tab, {
-        ...tab.state,
-        isWebMode: true,
-        selectedMineId: null,
-        selectedWebIndex: index,
-      });
-    },
-    [updateTabState, tab],
-  );
+    setSelectedMineId,
+    setSelectedWebIndex,
+    createTemplate,
+    deleteTemplate,
+    toggleTemplateFavorite,
+  } = useTemplateTab(tab);
 
   const handleCreateTemplate = useCallback(async () => {
     const id = await createTemplate({
@@ -99,7 +58,7 @@ export function TemplatesSidebarContent({
   const handleDuplicateTemplate = useCallback(
     async (template: UserTemplate) => {
       const id = await createTemplate({
-        title: getDuplicatedTemplateTitle(template.title),
+        title: getTemplateCopyTitle(template.title),
         description: template.description ?? "",
         category: template.category,
         targets: template.targets,
@@ -135,8 +94,8 @@ export function TemplatesSidebarContent({
     const favorites = userTemplates
       .filter((template) => template.pinned)
       .sort((a, b) => {
-        const orderA = a.pin_order ?? Infinity;
-        const orderB = b.pin_order ?? Infinity;
+        const orderA = a.pinOrder ?? Infinity;
+        const orderB = b.pinOrder ?? Infinity;
         if (orderA !== orderB) {
           return orderA - orderB;
         }
@@ -566,9 +525,4 @@ function TemplateListItem({
       </div>
     </button>
   );
-}
-
-function getDuplicatedTemplateTitle(title: string) {
-  const value = title.trim();
-  return value ? `${value} copy` : "Untitled copy";
 }

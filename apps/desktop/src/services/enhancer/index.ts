@@ -9,7 +9,7 @@ import { INDEXES } from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { TasksActions } from "~/store/zustand/ai-task/tasks";
 import { listenerStore } from "~/store/zustand/listener/instance";
-import { getTemplateById } from "~/templates/shared";
+import { getTemplateById } from "~/templates/queries";
 
 type EnhanceResult =
   | { type: "started"; noteId: string }

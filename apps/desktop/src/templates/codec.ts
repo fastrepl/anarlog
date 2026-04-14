@@ -186,20 +186,3 @@ function parseWebTemplateSections(
     };
   });
 }
-
-export function serializeTemplateSections(
-  sections: TemplateSection[],
-  context: string,
-): TemplateSection[] {
-  return assertCanonicalTemplateSections(sections, context).map((section) => ({
-    ...section,
-  }));
-}
-
-export function serializeTemplateTargets(
-  targets: string[] | undefined,
-  context: string,
-): string[] | undefined {
-  const canonicalTargets = assertCanonicalTemplateTargets(targets, context);
-  return canonicalTargets?.map((target) => target);
-}

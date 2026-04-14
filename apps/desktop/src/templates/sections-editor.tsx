@@ -160,7 +160,7 @@ function useEditableSections({
 
 export function SectionsList({
   disabled,
-  items: _items,
+  items,
   onChange,
 }: {
   disabled: boolean;
@@ -178,7 +178,7 @@ export function SectionsList({
     reorderSections,
   } = useEditableSections({
     disabled,
-    initialItems: _items,
+    initialItems: items,
     onChange,
   });
 

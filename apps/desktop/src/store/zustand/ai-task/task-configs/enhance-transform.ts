@@ -14,7 +14,7 @@ import {
   buildRenderTranscriptRequestFromStore,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
-import { getTemplateById } from "~/templates/shared";
+import { getTemplateById } from "~/templates/queries";
 
 type TranscriptMeta = {
   id: string;

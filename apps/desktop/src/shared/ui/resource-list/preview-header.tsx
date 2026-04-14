@@ -5,7 +5,7 @@ import { Button, type ButtonProps } from "@hypr/ui/components/ui/button";
 
 import { TemplateCategoryLabel } from "../template-category-label";
 
-import { getTemplateCreatorLabel } from "~/templates/shared";
+import { getTemplateCreatorLabel } from "~/templates/utils";
 
 export function ResourcePreviewHeader({
   title,
