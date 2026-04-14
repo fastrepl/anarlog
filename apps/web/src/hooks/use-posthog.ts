@@ -34,16 +34,6 @@ export function useAnalytics() {
     [posthog, analyticsReady],
   );
 
-  const alias = useCallback(
-    (aliasId: string, originalId?: string) => {
-      if (!posthog) {
-        return;
-      }
-      posthog.alias(aliasId, originalId);
-    },
-    [posthog],
-  );
-
   const getDistinctId = useCallback(() => {
     if (!posthog) {
       return null;
@@ -61,7 +51,6 @@ export function useAnalytics() {
   return {
     track,
     identify,
-    alias,
     getDistinctId,
     reset,
     posthog,

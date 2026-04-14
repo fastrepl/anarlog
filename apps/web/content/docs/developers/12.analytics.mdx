@@ -74,8 +74,8 @@ This enrichment applies to desktop frontend events and Rust plugin `event_fire_a
 | Event | Properties | Source |
 |------|------------|--------|
 | `hero_section_viewed` | `timestamp` | `apps/web/src/routes/_view/index.tsx` |
-| `download_clicked` | Homepage: `platform`, `timestamp` | `apps/web/src/components/download-button.tsx` |
-| `download_clicked` | Download page: `platform`, `spec`, `source` (`"download_page"`) | `apps/web/src/routes/_view/download/index.tsx` |
+| `download_clicked` | Homepage: `platform`, `timestamp`, optional `download_intent_id`, optional `web_distinct_id` | `apps/web/src/components/download-button.tsx` |
+| `download_clicked` | Download page: `platform`, `spec`, `source` (`"download_page"`), optional `download_intent_id`, optional `web_distinct_id` | `apps/web/src/routes/_view/download/index.tsx` |
 | `reminder_requested` | `platform`, `timestamp`, `email` | `apps/web/src/routes/_view/index.tsx` |
 | `os_waitlist_joined` | `platform`, `timestamp`, `email` | `apps/web/src/routes/_view/index.tsx` |
 
@@ -93,6 +93,7 @@ Notes:
 | `onboarding_step_viewed` | `step`, `platform` | `apps/desktop/src/onboarding/index.tsx` |
 | `onboarding_completed` | none | `apps/desktop/src/onboarding/final.tsx` |
 | `user_signed_in` | none | `apps/desktop/src/auth/context.tsx` |
+| `desktop_download_authenticated` | `download_intent_id` | `apps/desktop/src/auth/context.tsx` |
 | `trial_flow_client_error` | `properties.error` (nested object) | `apps/desktop/src/onboarding/account/trial.tsx` |
 | `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | `apps/desktop/src/onboarding/account/trial.tsx` |
 | `data_imported` | `source` | `apps/desktop/src/settings/data/index.tsx` |
@@ -189,10 +190,10 @@ Goal: measure how many website visitors download and open the app.
 
 | Event | Properties | Where |
 |-------|------------|-------|
-| `download_clicked` | Homepage: `platform`, `timestamp`; Download page: `platform`, `spec`, `source` | Web |
+| `download_clicked` | Homepage: `platform`, `timestamp`; Download page: `platform`, `spec`, `source`; tracked download CTAs also attach `download_intent_id` | Web |
 | `show_main_window` | none (auto-enriched with `app_version`, `git_hash`, `bundle_id`) | Desktop |
 
-Identity linking: `download_clicked` fires with anonymous browser ID. `show_main_window` fires with machine fingerprint. These two IDs are **not linked** at this point — there is no mechanism to pass the browser identity into the desktop app at download time. Conversion rate between these two events can only be measured at cohort level (e.g., X downloads this week, Y first app opens this week), not per-user.
+Identity linking: `download_clicked` fires with an anonymous browser ID and a one-shot `download_intent_id`. `show_main_window` still fires with machine fingerprint, and there is still no install-time mechanism to pass the browser identity into the desktop app. That means click → first open remains cohort-level unless the user continues into desktop auth.
 
 Gap: no explicit install-complete event. Install is inferred from first `show_main_window`.
 
@@ -208,12 +209,13 @@ Goal: measure onboarding progress and completion.
 |-------|------------|-------|
 | `onboarding_step_viewed` | `step`, `platform` | Fired per step. macOS steps: `permissions` → `login` → `calendar` → `final`. Other platforms: `login` → `calendar` → `final`. |
 | `user_signed_in` | none | Fires on sign-in. Desktop auth sync also updates `plan` and `trial_end_date` on sign-in, initial session restore, and token refresh. |
+| `desktop_download_authenticated` | `download_intent_id` | Fires when a desktop sign-in completes from a tracked download flow. |
 | `trial_started` | `plan`, `source` | Server-side. Fires when trial is successfully created. |
 | `trial_flow_skipped` | `properties.reason` (`already_pro` or `already_trialing`) | Desktop. User already has a subscription. |
 | `trial_flow_client_error` | `properties.error` | Desktop. Error during trial activation. |
 | `onboarding_completed` | none | Fires when user clicks "Get Started" on the final onboarding screen. |
 
-Identity linking: desktop sign-in opens `char.com/auth` **in the user's default browser**. The web auth callback calls `posthog.identify(supabaseUserId)`, which merges the anonymous browser ID with the Supabase user ID. The desktop then calls `identify(supabaseUserId)` with `$anon_distinct_id` = machine fingerprint. This links browser → Supabase user ID → machine fingerprint. Because the login opens in the same browser where the user may have previously clicked download, PostHog can retroactively merge `download_clicked` with the authenticated user — **but only if the same browser is used for both download and login**.
+Identity linking: desktop sign-in opens `char.com/auth` **in the user's default browser**. The web auth callback calls `posthog.identify(supabaseUserId)`, which merges the anonymous browser ID with the Supabase user ID. The desktop then calls `identify(supabaseUserId)` with `$anon_distinct_id` = machine fingerprint. This links browser → Supabase user ID → machine fingerprint. For tracked download flows, the website also passes a `download_intent_id` through the desktop deeplink, and desktop sign-in emits `desktop_download_authenticated` with that same value. That gives us an explicit query key for click → desktop auth without relying only on cross-surface person merges. Same-browser login is still required if we want the original anonymous `download_clicked` event merged onto the authenticated user.
 
 <GithubCode url="https://github.com/fastrepl/char/blob/main/apps/desktop/src/auth/context.tsx#L114-L145" />
 
