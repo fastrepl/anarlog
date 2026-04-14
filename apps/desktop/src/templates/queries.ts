@@ -15,6 +15,26 @@ import { db, useDrizzleLiveQuery } from "~/db";
 
 type TemplateRow = (typeof templates)["$inferSelect"];
 type NewTemplateRow = (typeof templates)["$inferInsert"];
+type TemplateLiveRow = {
+  id: string;
+  title: string;
+  description: string;
+  pinned: number | boolean;
+  pin_order: number | null;
+  category: string | null;
+  targets_json: unknown;
+  sections_json: unknown;
+};
+type StoredTemplateRecord = {
+  id: string;
+  title: string;
+  description: string;
+  pinned: boolean;
+  pinOrder: number | null;
+  category: string | null;
+  targetsJson: unknown;
+  sectionsJson: unknown;
+};
 
 export type UserTemplate = {
   id: string;
@@ -46,10 +66,21 @@ const templateRowSelection = {
 };
 
 function mapTemplateRows(rows: TemplateRow[]): UserTemplate[] {
-  return rows.map(mapTemplateRow);
+  return rows.map((row) =>
+    mapStoredTemplateRecord({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      pinned: row.pinned,
+      pinOrder: row.pinOrder,
+      category: row.category,
+      targetsJson: row.targetsJson,
+      sectionsJson: row.sectionsJson,
+    }),
+  );
 }
 
-function mapTemplateRow(row: TemplateRow): UserTemplate {
+function mapStoredTemplateRecord(row: StoredTemplateRecord): UserTemplate {
   const sections = parseStoredTemplateSections(row.sectionsJson, row.id);
   const targets = parseStoredTemplateTargets(row.targetsJson, row.id);
 
@@ -65,16 +96,28 @@ function mapTemplateRow(row: TemplateRow): UserTemplate {
   };
 }
 
-export function useUserTemplates(): UserTemplate[] {
-  const query = db
-    .select(templateRowSelection)
-    .from(templates)
-    .orderBy(templates.id);
+function mapTemplateLiveRows(rows: TemplateLiveRow[]): UserTemplate[] {
+  return rows.map((row) =>
+    mapStoredTemplateRecord({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      pinned: Boolean(row.pinned),
+      pinOrder: row.pin_order,
+      category: row.category,
+      targetsJson: row.targets_json,
+      sectionsJson: row.sections_json,
+    }),
+  );
+}
 
-  const { data = [] } = useDrizzleLiveQuery<TemplateRow, UserTemplate[]>(
+export function useUserTemplates(): UserTemplate[] {
+  const query = db.select().from(templates).orderBy(templates.id);
+
+  const { data = [] } = useDrizzleLiveQuery<TemplateLiveRow, UserTemplate[]>(
     query,
     {
-      mapRows: mapTemplateRows,
+      mapRows: mapTemplateLiveRows,
     },
   );
 
@@ -82,16 +125,11 @@ export function useUserTemplates(): UserTemplate[] {
 }
 
 export function useUserTemplate(id: string | null | undefined) {
-  const query = db
-    .select(templateRowSelection)
-    .from(templates)
-    .where(eq(templates.id, id ?? ""))
-    .limit(1);
+  const query = db.select().from(templates).where(eq(templates.id, id ?? "")).limit(1);
 
-  return useDrizzleLiveQuery<TemplateRow, UserTemplate | null>(query, {
+  return useDrizzleLiveQuery<TemplateLiveRow, UserTemplate | null>(query, {
     mapRows: (rows) => {
-      const row = rows[0];
-      return row ? mapTemplateRow(row) : null;
+      return mapTemplateLiveRows(rows)[0] ?? null;
     },
   });
 }
@@ -114,7 +152,7 @@ export async function getTemplateById(
     return null;
   }
 
-  return mapTemplateRow(row);
+  return mapTemplateRows([row])[0] ?? null;
 }
 
 export function useCreateTemplate() {

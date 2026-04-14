@@ -4738,6 +4738,7 @@ version = "0.1.0"
 dependencies = [
  "cloudsync",
  "libsqlite3-sys",
+ "serde",
  "sqlx",
  "tempfile",
  "thiserror 2.0.18",
