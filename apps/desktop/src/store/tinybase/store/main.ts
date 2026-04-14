@@ -133,19 +133,6 @@ export const StoreComponent = () => {
           },
         )
         .setQueryDefinition(
-          QUERIES.visibleTemplates,
-          "templates",
-          ({ select }) => {
-            select("title");
-            select("description");
-            select("pinned");
-            select("pin_order");
-            select("category");
-            select("targets");
-            select("sections");
-          },
-        )
-        .setQueryDefinition(
           QUERIES.visibleChatShortcuts,
           "chat_shortcuts",
           ({ select }) => {
@@ -191,22 +178,6 @@ export const StoreComponent = () => {
             select("provider");
             where("enabled", true);
           },
-        )
-        .setQueryDefinition(
-          QUERIES.userTemplates,
-          "templates",
-          ({ select, where, param }) => {
-            select("title");
-            select("description");
-            select("pinned");
-            select("pin_order");
-            select("category");
-            select("targets");
-            select("sections");
-            select("user_id");
-            where("user_id", (param("user_id") as string) ?? "");
-          },
-          { user_id: "" },
         )
         .setQueryDefinition(
           QUERIES.visibleVocabs,
@@ -383,13 +354,11 @@ export const QUERIES = {
   timelineSessions: "timelineSessions",
   visibleOrganizations: "visibleOrganizations",
   visibleHumans: "visibleHumans",
-  visibleTemplates: "visibleTemplates",
   visibleChatShortcuts: "visibleChatShortcuts",
   visibleVocabs: "visibleVocabs",
   sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
   sessionRecordingTimes: "sessionRecordingTimes",
   enabledCalendars: "enabledCalendars",
-  userTemplates: "userTemplates",
 } as const;
 
 export const METRICS = {
@@ -455,11 +424,6 @@ interface _QueryResultRows {
     pinned: boolean;
     pin_order: number;
   };
-  visibleTemplates: {
-    title: string;
-    description: string;
-    sections: string;
-  };
   visibleChatShortcuts: {
     user_id: string;
     title: string;
@@ -482,12 +446,6 @@ interface _QueryResultRows {
   };
   enabledCalendars: {
     provider: string;
-  };
-  userTemplates: {
-    title: string;
-    description: string;
-    sections: string;
-    user_id: string;
   };
   visibleVocabs: {
     text: string;

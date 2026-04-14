@@ -8,7 +8,6 @@ import {
   useSession,
   useSetSessionRawMd,
   useSetSessionTitle,
-  useTemplate,
 } from ".";
 
 describe("TinyBase hooks", () => {
@@ -88,20 +87,6 @@ describe("TinyBase hooks", () => {
       });
 
       expect(result.current).toHaveProperty("name");
-    });
-  });
-
-  describe("useTemplate", () => {
-    it("returns an object with template fields", () => {
-      const { result } = renderHook(() => useTemplate("test-template"), {
-        wrapper: ({ children }) => (
-          <TinyBaseTestWrapper>{children}</TinyBaseTestWrapper>
-        ),
-      });
-
-      expect(result.current).toHaveProperty("title");
-      expect(result.current).toHaveProperty("description");
-      expect(result.current).toHaveProperty("sections");
     });
   });
 

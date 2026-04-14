@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use hypr_db_core2::{Db3, DbOpenOptions, DbStorage, MigrationFailurePolicy};
+use hypr_db_core2::Db3;
 use tauri::Manager;
 
 mod analysis;
@@ -38,36 +38,16 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
-pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+pub fn init<R: tauri::Runtime>(db: Arc<Db3>) -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             specta_builder.mount_events(app);
-
-            let db_path = app
-                .path()
-                .app_data_dir()
-                .expect("app_data_dir must be available")
-                .join("app.db");
-
-            let db = hypr_tauri_utils::block_on(Db3::open_with_migrate(
-                DbOpenOptions {
-                    storage: DbStorage::Local(&db_path),
-                    cloudsync: false,
-                    journal_mode_wal: true,
-                    foreign_keys: true,
-                    max_connections: None,
-                    migration_failure_policy: MigrationFailurePolicy::Fail,
-                },
-                |pool| Box::pin(hypr_db_app::migrate(pool)),
-            ))
-            .expect("failed to initialize activity database");
-
             app.manage(Arc::new(runtime::ActivityCaptureRuntime::new(
                 app.app_handle().clone(),
-                Arc::new(db),
+                db,
             )));
             Ok(())
         })
@@ -95,15 +75,13 @@ mod test {
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
     }
 
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
-        builder
-            .plugin(init())
-            .build(tauri::test::mock_context(tauri::test::noop_assets()))
-            .unwrap()
-    }
-
     #[test]
     fn test_plugin_init() {
-        let _app = create_app(tauri::test::mock_builder());
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let db = Arc::new(rt.block_on(async { Db3::connect_memory_plain().await.unwrap() }));
+        let _app = tauri::test::mock_builder()
+            .plugin(init(db))
+            .build(tauri::test::mock_context(tauri::test::noop_assets()))
+            .unwrap();
     }
 }

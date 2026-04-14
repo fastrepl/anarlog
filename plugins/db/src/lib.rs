@@ -1,8 +1,10 @@
 mod commands;
 mod error;
+mod import;
 mod runtime;
 
 pub use error::{Error, Result};
+pub use runtime::open_app_db;
 use tauri::Manager;
 
 const PLUGIN_NAME: &str = "db";
@@ -29,13 +31,19 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
 
-pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+pub fn init<R: tauri::Runtime>(
+    db: std::sync::Arc<hypr_db_core2::Db3>,
+) -> tauri::plugin::TauriPlugin<R> {
     let specta_builder = make_specta_builder();
 
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
-            let db = runtime::open_app_db(app)?;
+            let pool = db.pool().clone();
+            let app_handle = app.app_handle().clone();
+            hypr_tauri_utils::spawn("import legacy templates.json", async move {
+                import::import_legacy_templates(&app_handle, &pool).await
+            });
             app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())
         })
@@ -118,7 +126,7 @@ mod test {
         .await
         .unwrap();
 
-        (dir, Arc::new(runtime::PluginDbRuntime::new(db)))
+        (dir, Arc::new(runtime::PluginDbRuntime::new(Arc::new(db))))
     }
 
     #[tokio::test]

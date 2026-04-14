@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 
-import type { Template, TemplateSection, TemplateStorage } from "@hypr/store";
+import { db, eq, max, ne, sql, templates } from "@hypr/db";
+import type { TemplateSection } from "@hypr/store";
 
-import * as main from "~/store/tinybase/store/main";
+import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
+import * as main from "~/store/tinybase/store/main"; // still used by useTemplateCreatorName
 
 export type WebTemplate = {
   slug: string;
@@ -13,7 +16,16 @@ export type WebTemplate = {
   sections: TemplateSection[];
 };
 
-export type UserTemplate = Template & { id: string };
+export type UserTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  pinned: boolean;
+  pin_order?: number;
+  category?: string;
+  targets?: string[];
+  sections: TemplateSection[];
+};
 
 type TemplateDraft = {
   title: string;
@@ -22,6 +34,149 @@ type TemplateDraft = {
   targets?: string[];
   sections: TemplateSection[];
 };
+
+function parseJsonString(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizeTemplateSection(value: unknown): TemplateSection | null {
+  if (typeof value === "string") {
+    const title = value.trim();
+    if (!title) {
+      return null;
+    }
+
+    return {
+      title,
+      description: "",
+    };
+  }
+
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const section = value as Record<string, unknown>;
+  const title = typeof section.title === "string" ? section.title.trim() : "";
+  if (!title) {
+    return null;
+  }
+
+  const description =
+    typeof section.description === "string" && section.description.trim()
+      ? section.description.trim()
+      : "";
+
+  return {
+    title,
+    description,
+  };
+}
+
+export function normalizeTemplateSections(value: unknown): TemplateSection[] {
+  if (typeof value === "string") {
+    const parsed = parseJsonString(value);
+    if (parsed !== value) {
+      return normalizeTemplateSections(parsed);
+    }
+
+    const normalizedSection = normalizeTemplateSection(value);
+    return normalizedSection ? [normalizedSection] : [];
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((section) => {
+    const normalizedSection = normalizeTemplateSection(section);
+    return normalizedSection ? [normalizedSection] : [];
+  });
+}
+
+function normalizeTemplateTargets(value: unknown): string[] | undefined {
+  if (typeof value === "string") {
+    const parsed = parseJsonString(value);
+    if (parsed !== value) {
+      return normalizeTemplateTargets(parsed);
+    }
+
+    const target = value.trim();
+    return target ? [target] : undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const targets = value.flatMap((target) => {
+    if (typeof target !== "string") {
+      return [];
+    }
+
+    const trimmed = target.trim();
+    return trimmed ? [trimmed] : [];
+  });
+
+  return targets.length > 0 ? targets : undefined;
+}
+
+export function normalizeWebTemplates(
+  templates: Record<string, unknown>[],
+): WebTemplate[] {
+  return templates.flatMap((template, index) => {
+    const slug =
+      typeof template.slug === "string" && template.slug.trim()
+        ? template.slug.trim()
+        : `template-${index}`;
+    const title =
+      typeof template.title === "string" ? template.title.trim() : "";
+
+    if (!title) {
+      return [];
+    }
+
+    return [
+      {
+        slug,
+        title,
+        description:
+          typeof template.description === "string" ? template.description : "",
+        category:
+          typeof template.category === "string" ? template.category : "",
+        targets: normalizeTemplateTargets(template.targets),
+        sections: normalizeTemplateSections(template.sections),
+      },
+    ];
+  });
+}
+
+function mapTemplateRows(rows: Record<string, unknown>[]): UserTemplate[] {
+  return rows.map(mapTemplateRow);
+}
+
+function mapTemplateRow(row: Record<string, unknown>): UserTemplate {
+  const sections = normalizeTemplateSections(
+    row.sections_json ?? row.sectionsJson,
+  );
+  const targets = normalizeTemplateTargets(row.targets_json ?? row.targetsJson);
+
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    description: row.description as string,
+    pinned: Boolean(row.pinned),
+    pin_order:
+      ((row.pin_order ?? row.pinOrder) as number | undefined) ?? undefined,
+    category: (row.category as string | null) ?? undefined,
+    targets,
+    sections,
+  };
+}
 
 export function resolveTemplateTabSelection({
   isWebMode,
@@ -83,27 +238,53 @@ export function resolveTemplateTabSelection({
 }
 
 export function useUserTemplates(): UserTemplate[] {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
+  const query = db.select().from(templates).orderBy(templates.id);
 
-  useEffect(() => {
-    queries?.setParamValue(
-      main.QUERIES.userTemplates,
-      "user_id",
-      user_id ?? "",
-    );
-  }, [queries, user_id]);
+  const { data = [] } = useDrizzleLiveQuery<
+    Record<string, unknown>,
+    UserTemplate[]
+  >(query, { mapRows: mapTemplateRows });
 
-  const templates = main.UI.useResultTable(
-    main.QUERIES.userTemplates,
-    main.STORE_ID,
+  return data;
+}
+
+export function useUserTemplate(id: string | null | undefined) {
+  const query = db
+    .select()
+    .from(templates)
+    .where(eq(templates.id, id ?? ""))
+    .limit(1);
+
+  return useDrizzleLiveQuery<Record<string, unknown>, UserTemplate | null>(
+    query,
+    {
+      mapRows: (rows) => {
+        const row = rows[0];
+        return row ? mapTemplateRow(row) : null;
+      },
+    },
   );
+}
 
-  return useMemo(() => {
-    return Object.entries(templates).map(([id, template]) =>
-      normalizeTemplateWithId(id, template as unknown),
-    );
-  }, [templates]);
+export async function getTemplateById(
+  id: string,
+): Promise<UserTemplate | null> {
+  if (!id) {
+    return null;
+  }
+
+  const rows = await db
+    .select()
+    .from(templates)
+    .where(eq(templates.id, id))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  return mapTemplateRow(row as unknown as Record<string, unknown>);
 }
 
 export function useTemplateCreatorName() {
@@ -138,155 +319,113 @@ export function getTemplateCreatorByline({
 }
 
 export function useCreateTemplate() {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
-
-  const setRow = main.UI.useSetRowCallback(
-    "templates",
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      description: string;
-      category?: string;
-      targets?: string[];
-      sections: TemplateSection[];
-    }) => p.id,
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      description: string;
-      category?: string;
-      targets?: string[];
-      sections: TemplateSection[];
-    }) =>
-      ({
-        user_id: p.user_id,
-        title: p.title,
-        description: p.description,
-        pinned: false,
-        pin_order: undefined,
-        category: p.category,
-        targets: p.targets ? JSON.stringify(p.targets) : undefined,
-        sections: JSON.stringify(p.sections),
-      }) satisfies TemplateStorage,
-    [],
-    main.STORE_ID,
-  );
-
-  return useCallback(
-    (template: TemplateDraft) => {
-      if (!user_id) return null;
-
+  const mutation = useMutation({
+    mutationFn: async (template: TemplateDraft) => {
       const id = crypto.randomUUID();
-      const now = new Date().toISOString();
+      const targets = normalizeTemplateTargets(template.targets);
+      const sections = normalizeTemplateSections(template.sections);
 
-      setRow({
+      await db.insert(templates).values({
         id,
-        user_id,
-        created_at: now,
         title: template.title,
         description: template.description,
+        pinned: false,
         category: template.category,
-        targets: template.targets,
-        sections: template.sections.map((section) => ({ ...section })),
+        targetsJson: targets ?? null,
+        sectionsJson: sections,
+        createdAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
       });
 
       return id;
     },
-    [user_id, setRow],
+    onError: (error) => {
+      console.error("[useCreateTemplate]", error);
+    },
+  });
+
+  return useCallback(
+    (template: TemplateDraft) => mutation.mutateAsync(template),
+    [mutation],
   );
 }
 
-export function useToggleTemplateFavorite() {
-  const store = main.UI.useStore(main.STORE_ID);
+export function useSaveTemplate() {
+  const mutation = useMutation({
+    mutationFn: async (template: UserTemplate) => {
+      const targets = normalizeTemplateTargets(template.targets);
+      const sections = normalizeTemplateSections(template.sections);
+
+      await db
+        .update(templates)
+        .set({
+          title: template.title,
+          description: template.description,
+          pinned: template.pinned,
+          pinOrder: template.pin_order ?? null,
+          category: template.category ?? null,
+          targetsJson: targets ?? null,
+          sectionsJson: sections,
+          updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+        })
+        .where(eq(templates.id, template.id));
+
+      return template.id;
+    },
+    onError: (error) => {
+      console.error("[useSaveTemplate]", error);
+    },
+  });
 
   return useCallback(
-    (templateId: string) => {
-      if (!store) return;
+    (template: UserTemplate) => mutation.mutateAsync(template),
+    [mutation],
+  );
+}
 
-      const isPinned = Boolean(
-        store.getCell("templates", templateId, "pinned"),
-      );
-      if (isPinned) {
-        store.setPartialRow("templates", templateId, {
+export function useDeleteTemplate() {
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      await db.delete(templates).where(eq(templates.id, id));
+    },
+    onError: (error) => {
+      console.error("[useDeleteTemplate]", error);
+    },
+  });
+
+  return useCallback((id: string) => mutation.mutateAsync(id), [mutation]);
+}
+
+export function useToggleTemplateFavorite() {
+  const saveTemplate = useSaveTemplate();
+
+  return useCallback(
+    async (templateId: string) => {
+      const template = await getTemplateById(templateId);
+      if (!template) {
+        return;
+      }
+
+      if (template.pinned) {
+        await saveTemplate({
+          ...template,
           pinned: false,
           pin_order: 0,
         });
         return;
       }
 
-      const allTemplates = store.getTable("templates");
-      const maxPinOrder = Object.entries(allTemplates).reduce(
-        (max, [id, template]) => {
-          if (id === templateId) return max;
+      const [row] = await db
+        .select({ maxOrder: max(templates.pinOrder) })
+        .from(templates)
+        .where(ne(templates.id, templateId));
 
-          const order =
-            typeof template.pin_order === "number" ? template.pin_order : 0;
-          return Math.max(max, order);
-        },
-        0,
-      );
-
-      store.setPartialRow("templates", templateId, {
+      await saveTemplate({
+        ...template,
         pinned: true,
-        pin_order: maxPinOrder + 1,
+        pin_order: ((row?.maxOrder as number | null) ?? 0) + 1,
       });
     },
-    [store],
+    [saveTemplate],
   );
-}
-
-export function normalizeTemplatePayload(template: unknown): Template {
-  const record = (
-    template && typeof template === "object" ? template : {}
-  ) as Record<string, unknown>;
-
-  let sections: Array<{ title: string; description: string }> = [];
-  if (typeof record.sections === "string") {
-    try {
-      sections = JSON.parse(record.sections);
-    } catch {
-      sections = [];
-    }
-  } else if (Array.isArray(record.sections)) {
-    sections = record.sections;
-  }
-
-  return {
-    user_id: typeof record.user_id === "string" ? record.user_id : "",
-    title: typeof record.title === "string" ? record.title : "",
-    description:
-      typeof record.description === "string" ? record.description : "",
-    pinned: Boolean(record.pinned),
-    pin_order:
-      typeof record.pin_order === "number" ? record.pin_order : undefined,
-    category: typeof record.category === "string" ? record.category : undefined,
-    targets:
-      typeof record.targets === "string"
-        ? (() => {
-            try {
-              const parsed = JSON.parse(record.targets);
-              return Array.isArray(parsed)
-                ? parsed.filter(
-                    (target): target is string => typeof target === "string",
-                  )
-                : undefined;
-            } catch {
-              return undefined;
-            }
-          })()
-        : Array.isArray(record.targets)
-          ? record.targets.filter(
-              (target): target is string => typeof target === "string",
-            )
-          : undefined,
-    sections,
-  };
-}
-
-function normalizeTemplateWithId(id: string, template: unknown) {
-  return { id, ...normalizeTemplatePayload(template) };
 }

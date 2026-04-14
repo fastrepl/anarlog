@@ -54,8 +54,8 @@ pub struct SubscriptionRegistration {
 }
 
 impl<S: QueryEventSink> DbRuntime<S> {
-    pub fn new(db: Db3) -> Self {
-        let db = Arc::new(db);
+    pub fn new(db: Arc<Db3>) -> Self {
+        let db = db;
         let catalog = CatalogStore::default();
         let subscriptions = Registry::default();
         let (shutdown_tx, mut shutdown_rx) = tokio_watch::channel(false);
@@ -419,7 +419,7 @@ mod tests {
         .unwrap();
 
         let pool = db.pool().as_ref().clone();
-        (dir, pool, DbRuntime::new(db))
+        (dir, pool, DbRuntime::new(Arc::new(db)))
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

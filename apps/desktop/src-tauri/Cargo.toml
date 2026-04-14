@@ -102,6 +102,7 @@ pico-args = { workspace = true }
 ractor = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
+dirs = { workspace = true }
 hypr-audio-actual = { workspace = true }
 hypr-audio-mock = { workspace = true, optional = true }
 hypr-db-core2 = { workspace = true }

@@ -19,7 +19,6 @@ import {
   sessionSchema,
   tagSchema,
   taskSchema,
-  templateSchema,
   transcriptSchema,
 } from "./zod";
 
@@ -114,16 +113,6 @@ export const tableSchemaForTinybase = {
     target_id: { type: "string" },
     target_type: { type: "string" },
   } as const satisfies InferTinyBaseSchema<typeof mappingMentionSchema>,
-  templates: {
-    user_id: { type: "string" },
-    title: { type: "string" },
-    description: { type: "string" },
-    pinned: { type: "boolean" },
-    pin_order: { type: "number" },
-    category: { type: "string" },
-    targets: { type: "string" },
-    sections: { type: "string" },
-  } as const satisfies InferTinyBaseSchema<typeof templateSchema>,
   chat_groups: {
     user_id: { type: "string" },
     created_at: { type: "string" },

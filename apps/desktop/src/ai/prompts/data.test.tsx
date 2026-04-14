@@ -62,8 +62,8 @@ describe("prompt data", () => {
 
     await expect(loadPromptOverride("enhance")).resolves.toBe("# Context");
     expect(executeMock).toHaveBeenCalledWith(
-      expect.stringContaining("FROM prompt_overrides"),
-      ["enhance"],
+      expect.stringContaining("prompt_overrides"),
+      expect.arrayContaining(["enhance"]),
     );
   });
 

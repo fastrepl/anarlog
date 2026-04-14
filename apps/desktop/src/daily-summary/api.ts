@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 
+import { dailySummaries, db, eq, and } from "@hypr/db";
 import { commands as activityCaptureCommands } from "@hypr/plugin-activity-capture";
 
+import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
 import { useLiveQuery } from "~/db/use-live-query";
 
 export type DailyActivityAppStat = {
@@ -75,14 +77,14 @@ type DailySummaryRow = {
   id: string;
   date: string;
   content: string;
-  timelineJson: string;
-  topicsJson: string;
+  timeline_json: string;
+  topics_json: string;
   status: string;
-  sourceCursorMs: number;
-  sourceFingerprint: string;
-  generatedAt: string;
-  generationError: string;
-  updatedAt: string;
+  source_cursor_ms: number;
+  source_fingerprint: string;
+  generated_at: string;
+  generation_error: string;
+  updated_at: string;
 };
 
 type DailyStatsRow = {
@@ -188,21 +190,18 @@ SELECT
   COALESCE((SELECT MAX(occurred_at_ms) FROM started_events), 0) AS eventCursorMs,
   COALESCE((SELECT MAX(captured_at_ms) FROM preferred_analyses), 0) AS analysisCursorMs`;
 
-const SUMMARY_SQL = `SELECT
-  id,
-  date,
-  content,
-  timeline_json AS timelineJson,
-  topics_json AS topicsJson,
-  status,
-  source_cursor_ms AS sourceCursorMs,
-  source_fingerprint AS sourceFingerprint,
-  generated_at AS generatedAt,
-  generation_error AS generationError,
-  updated_at AS updatedAt
-FROM daily_summaries
-WHERE date = ? AND daily_note_id = ?
-LIMIT 1`;
+function summaryQuery(date: string, dailyNoteId: string) {
+  return db
+    .select()
+    .from(dailySummaries)
+    .where(
+      and(
+        eq(dailySummaries.date, date),
+        eq(dailySummaries.dailyNoteId, dailyNoteId),
+      ),
+    )
+    .limit(1);
+}
 
 function parseJsonArray<T>(value: string, fallback: T[]) {
   try {
@@ -233,18 +232,31 @@ function mapSummary(rows: DailySummaryRow[]): StoredDailySummary | null {
     return null;
   }
 
+  const timelineRaw = row.timeline_json;
+  const topicsRaw = row.topics_json;
+
   return {
     id: row.id,
     date: row.date,
     content: row.content,
-    timeline: parseJsonArray<DailySummaryTimelineItem>(row.timelineJson, []),
-    topics: parseJsonArray<DailySummaryTopic>(row.topicsJson, []),
+    timeline:
+      typeof timelineRaw === "string"
+        ? parseJsonArray<DailySummaryTimelineItem>(timelineRaw, [])
+        : Array.isArray(timelineRaw)
+          ? (timelineRaw as DailySummaryTimelineItem[])
+          : [],
+    topics:
+      typeof topicsRaw === "string"
+        ? parseJsonArray<DailySummaryTopic>(topicsRaw, [])
+        : Array.isArray(topicsRaw)
+          ? (topicsRaw as DailySummaryTopic[])
+          : [],
     status: row.status,
-    sourceCursorMs: row.sourceCursorMs,
-    sourceFingerprint: row.sourceFingerprint,
-    generatedAt: row.generatedAt,
-    generationError: row.generationError,
-    updatedAt: row.updatedAt,
+    sourceCursorMs: row.source_cursor_ms,
+    sourceFingerprint: row.source_fingerprint,
+    generatedAt: row.generated_at,
+    generationError: row.generation_error,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -319,19 +331,18 @@ export function useDailySummarySnapshot(params: {
     ],
     mapRows: mapStats,
   });
-  const summaryQuery = useLiveQuery<DailySummaryRow, StoredDailySummary | null>(
-    {
-      sql: SUMMARY_SQL,
-      params: [params.date, dailyNoteId(params.date)],
-      mapRows: mapSummary,
-    },
-  );
+  const summaryResult = useDrizzleLiveQuery<
+    DailySummaryRow,
+    StoredDailySummary | null
+  >(summaryQuery(params.date, dailyNoteId(params.date)), {
+    mapRows: mapSummary,
+  });
 
   const data = useMemo<DailySummarySnapshot | undefined>(() => {
     if (
       !analysesQuery.data ||
       !statsQuery.data ||
-      summaryQuery.data === undefined
+      summaryResult.data === undefined
     ) {
       return undefined;
     }
@@ -339,7 +350,7 @@ export function useDailySummarySnapshot(params: {
     return {
       stats: statsQuery.data.stats,
       analyses: analysesQuery.data,
-      summary: summaryQuery.data,
+      summary: summaryResult.data,
       sourceCursorMs: statsQuery.data.sourceCursorMs,
       sourceFingerprint: buildSourceFingerprint({
         observationCount: statsQuery.data.stats.observationCount,
@@ -348,13 +359,15 @@ export function useDailySummarySnapshot(params: {
         sourceCursorMs: statsQuery.data.sourceCursorMs,
       }),
     };
-  }, [analysesQuery.data, statsQuery.data, summaryQuery.data]);
+  }, [analysesQuery.data, statsQuery.data, summaryResult.data]);
 
   return {
     data,
     isLoading:
-      analysesQuery.isLoading || statsQuery.isLoading || summaryQuery.isLoading,
-    error: analysesQuery.error ?? statsQuery.error ?? summaryQuery.error,
+      analysesQuery.isLoading ||
+      statsQuery.isLoading ||
+      summaryResult.isLoading,
+    error: analysesQuery.error ?? statsQuery.error ?? summaryResult.error,
   };
 }
 

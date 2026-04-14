@@ -49,6 +49,8 @@ pub enum DbOpenError {
     RecreateFailed(String),
 }
 
+pub type ManagedDb = std::sync::Arc<Db3>;
+
 #[derive(Debug)]
 pub struct Db3 {
     cloudsync_path: Option<PathBuf>,

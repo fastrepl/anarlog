@@ -1,8 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { HeartIcon, MoreHorizontalIcon, Plus, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { Template, TemplateSection, TemplateStorage } from "@hypr/store";
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 import {
@@ -18,62 +17,16 @@ import { cn } from "@hypr/utils";
 
 import {
   getTemplateCreatorByline,
+  useSaveTemplate,
   useTemplateCreatorName,
   useToggleTemplateFavorite,
+  useUserTemplate,
 } from "../shared";
 import { TemplateDetailScrollArea } from "./detail-scroll-area";
 import { SectionsList } from "./sections-editor";
 
 import { TemplateCategoryLabel } from "~/shared/ui/template-category-label";
-import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
-
-function normalizeTemplatePayload(template: unknown): Template {
-  const record = (
-    template && typeof template === "object" ? template : {}
-  ) as Record<string, unknown>;
-
-  let sections: TemplateSection[] = [];
-  if (typeof record.sections === "string") {
-    try {
-      sections = JSON.parse(record.sections);
-    } catch {
-      sections = [];
-    }
-  } else if (Array.isArray(record.sections)) {
-    sections = record.sections.map((s: unknown) => {
-      const sec = s as Record<string, unknown>;
-      return {
-        title: typeof sec.title === "string" ? sec.title : "",
-        description: typeof sec.description === "string" ? sec.description : "",
-      };
-    });
-  }
-
-  let targets: string[] = [];
-  if (typeof record.targets === "string") {
-    try {
-      targets = JSON.parse(record.targets);
-    } catch {
-      targets = [];
-    }
-  } else if (Array.isArray(record.targets)) {
-    targets = record.targets.filter((t): t is string => typeof t === "string");
-  }
-
-  return {
-    user_id: typeof record.user_id === "string" ? record.user_id : "",
-    title: typeof record.title === "string" ? record.title : "",
-    description:
-      typeof record.description === "string" ? record.description : "",
-    pinned: Boolean(record.pinned),
-    pin_order:
-      typeof record.pin_order === "number" ? record.pin_order : undefined,
-    category: typeof record.category === "string" ? record.category : undefined,
-    sections,
-    targets,
-  };
-}
 
 function parseTargets(value: string) {
   return value
@@ -198,11 +151,13 @@ export function TemplateForm({
   handleDeleteTemplate: (id: string) => void;
   handleDuplicateTemplate: (id: string) => void;
 }) {
-  const row = main.UI.useRow("templates", id, main.STORE_ID);
-  const value = row ? normalizeTemplatePayload(row) : undefined;
+  const { data: row, isLoading } = useUserTemplate(id);
+  const value = row ?? undefined;
+  const saveTemplate = useSaveTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const creatorName = useTemplateCreatorName();
   const [actionsOpen, setActionsOpen] = useState(false);
+  const didInitializeForm = useRef(false);
 
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
@@ -215,19 +170,6 @@ export function TemplateForm({
     () => (isDefault ? "" : id),
     [id, isDefault],
     settings.STORE_ID,
-  );
-
-  const handleUpdate = main.UI.useSetPartialRowCallback(
-    "templates",
-    id,
-    (row: Partial<Template>) =>
-      ({
-        ...row,
-        sections: row.sections ? JSON.stringify(row.sections) : undefined,
-        targets: row.targets ? JSON.stringify(row.targets) : undefined,
-      }) satisfies Partial<TemplateStorage>,
-    [id],
-    main.STORE_ID,
   );
 
   const form = useForm({
@@ -250,9 +192,38 @@ export function TemplateForm({
       },
     },
     onSubmit: ({ value }) => {
-      handleUpdate(value);
+      if (!row) {
+        return;
+      }
+
+      return saveTemplate({
+        ...row,
+        ...value,
+      });
     },
   });
+
+  useEffect(() => {
+    didInitializeForm.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    if (!value || didInitializeForm.current) {
+      return;
+    }
+
+    form.reset({
+      title: value.title ?? "",
+      description: value.description ?? "",
+      targets: value.targets ?? [],
+      sections: value.sections ?? [],
+    });
+    didInitializeForm.current = true;
+  }, [form, value]);
+
+  if (isLoading) {
+    return <div className="flex h-full flex-1" />;
+  }
 
   if (!value) {
     return (

@@ -1,10 +1,10 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use hypr_db_core2::{Db3, DbOpenOptions, DbStorage, MigrationFailurePolicy};
 use hypr_db_live_query::QueryEventSink;
 use tauri::ipc::Channel;
 
-use crate::{QueryEvent, Result, migrate};
+use crate::{QueryEvent, Result};
 
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
@@ -31,32 +31,13 @@ impl QueryEventSink for QueryEventChannel {
 
 pub type PluginDbRuntime = hypr_db_live_query::DbRuntime<QueryEventChannel>;
 
-fn resolve_db_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Option<PathBuf>> {
-    #[cfg(debug_assertions)]
-    {
-        let _ = app;
-        Ok(None)
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        use tauri::Manager;
-        let path = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| crate::Error::Io(std::io::Error::other(e.to_string())))?
-            .join("app.db");
-        Ok(Some(path))
-    }
-}
-
-pub fn open_app_db<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Db3> {
-    let db_path = resolve_db_path(app)?;
-    let storage = match &db_path {
+pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db3> {
+    let storage = match db_path {
         Some(path) => DbStorage::Local(path),
         None => DbStorage::Memory,
     };
 
-    let db = hypr_tauri_utils::block_on(Db3::open_with_migrate(
+    let db = Db3::open_with_migrate(
         DbOpenOptions {
             storage,
             cloudsync: false,
@@ -66,14 +47,8 @@ pub fn open_app_db<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Db3> 
             migration_failure_policy: MigrationFailurePolicy::Fail,
         },
         |pool| Box::pin(hypr_db_app::migrate(pool)),
-    ))?;
-
-    let pool = db.pool().clone();
-    let app = app.clone();
-
-    hypr_tauri_utils::spawn("import legacy templates.json", async move {
-        migrate::import_legacy_templates(&app, &pool).await
-    });
+    )
+    .await?;
 
     Ok(db)
 }

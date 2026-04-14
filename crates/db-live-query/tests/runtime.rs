@@ -193,7 +193,7 @@ async fn setup_runtime() -> (tempfile::TempDir, sqlx::SqlitePool, DbRuntime<Test
 
     let pool = db.pool().as_ref().clone();
 
-    (dir, pool, DbRuntime::new(db))
+    (dir, pool, DbRuntime::new(std::sync::Arc::new(db)))
 }
 
 #[tokio::test]

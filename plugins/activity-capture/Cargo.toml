@@ -19,9 +19,6 @@ hypr-activity-capture = { workspace = true, features = ["specta"] }
 hypr-db-app = { workspace = true }
 hypr-db-core2 = { workspace = true }
 hypr-screen-core = { workspace = true }
-hypr-tauri-utils = { workspace = true }
-hypr-template-app = { workspace = true }
-
 tauri = { workspace = true, features = ["specta", "test"] }
 tauri-plugin-local-llm = { workspace = true }
 

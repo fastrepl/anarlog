@@ -48,7 +48,7 @@ impl MobileDbBridge {
                 })?;
         let db_runtime = {
             let _guard = runtime.enter();
-            DbRuntime::new(db)
+            DbRuntime::new(std::sync::Arc::new(db))
         };
 
         Ok(Self {

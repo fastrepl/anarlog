@@ -38,6 +38,7 @@
     "@hypr/api-client": "workspace:*",
     "@hypr/changelog": "workspace:^",
     "@hypr/codemirror": "workspace:^",
+    "@hypr/db": "workspace:*",
     "@hypr/plugin-activity-capture": "workspace:*",
     "@hypr/plugin-agent": "workspace:*",
     "@hypr/plugin-analytics": "workspace:*",

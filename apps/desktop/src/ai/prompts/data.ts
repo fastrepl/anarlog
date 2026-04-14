@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { execute } from "@hypr/plugin-db";
+import { db, eq, promptOverrides, sql } from "@hypr/db";
 import {
   commands as templateCommands,
   type EditableTemplate,
@@ -8,16 +8,14 @@ import {
 
 import type { TaskType } from "./config";
 
-import { useLiveQuery } from "~/db/use-live-query";
+import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
 
-export type PromptOverrideRow = {
-  task_type: TaskType;
+type PromptOverrideRow = {
+  task_type: string;
   content: string;
   created_at: string;
   updated_at: string;
 };
-
-const PROMPT_OVERRIDE_COLUMNS = "task_type, content, created_at, updated_at";
 
 const TASK_TO_EDITABLE_TEMPLATE: Record<TaskType, EditableTemplate> = {
   enhance: "enhanceUser",
@@ -27,10 +25,11 @@ const TASK_TO_EDITABLE_TEMPLATE: Record<TaskType, EditableTemplate> = {
 export async function loadPromptOverride(
   taskType: TaskType,
 ): Promise<string | null> {
-  const rows = await execute<PromptOverrideRow>(
-    `SELECT ${PROMPT_OVERRIDE_COLUMNS} FROM prompt_overrides WHERE task_type = ? LIMIT 1`,
-    [taskType],
-  );
+  const rows = await db
+    .select()
+    .from(promptOverrides)
+    .where(eq(promptOverrides.taskType, taskType))
+    .limit(1);
 
   return rows[0]?.content ?? null;
 }
@@ -51,18 +50,27 @@ async function upsertPromptOverride(params: {
   taskType: TaskType;
   content: string;
 }) {
-  await execute(
-    `INSERT INTO prompt_overrides (task_type, content, updated_at)
-     VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-     ON CONFLICT(task_type) DO UPDATE SET
-       content = excluded.content,
-       updated_at = excluded.updated_at`,
-    [params.taskType, params.content],
-  );
+  await db
+    .insert(promptOverrides)
+    .values({
+      taskType: params.taskType,
+      content: params.content,
+      createdAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+    })
+    .onConflictDoUpdate({
+      target: promptOverrides.taskType,
+      set: {
+        content: sql`excluded.content`,
+        updatedAt: sql`strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`,
+      },
+    });
 }
 
 async function removePromptOverride(taskType: TaskType) {
-  await execute("DELETE FROM prompt_overrides WHERE task_type = ?", [taskType]);
+  await db
+    .delete(promptOverrides)
+    .where(eq(promptOverrides.taskType, taskType));
 }
 
 export function usePromptTemplateSource(taskType: TaskType) {
@@ -74,22 +82,31 @@ export function usePromptTemplateSource(taskType: TaskType) {
 }
 
 export function usePromptOverride(taskType: TaskType) {
-  return useLiveQuery<PromptOverrideRow, PromptOverrideRow | null>({
-    sql: `SELECT ${PROMPT_OVERRIDE_COLUMNS} FROM prompt_overrides WHERE task_type = ? LIMIT 1`,
-    params: [taskType],
-    mapRows: (rows) => rows[0] ?? null,
-  });
+  const query = db
+    .select()
+    .from(promptOverrides)
+    .where(eq(promptOverrides.taskType, taskType))
+    .limit(1);
+
+  return useDrizzleLiveQuery<PromptOverrideRow, PromptOverrideRow | null>(
+    query,
+    { mapRows: (rows) => rows[0] ?? null },
+  );
 }
 
 export function usePromptOverrides() {
-  return useLiveQuery<
+  const query = db
+    .select()
+    .from(promptOverrides)
+    .orderBy(promptOverrides.taskType);
+
+  return useDrizzleLiveQuery<
     PromptOverrideRow,
     Partial<Record<TaskType, PromptOverrideRow>>
-  >({
-    sql: `SELECT ${PROMPT_OVERRIDE_COLUMNS} FROM prompt_overrides ORDER BY task_type`,
+  >(query, {
     mapRows: (rows) =>
       rows.reduce<Partial<Record<TaskType, PromptOverrideRow>>>((acc, row) => {
-        acc[row.task_type] = row;
+        acc[row.task_type as TaskType] = row;
         return acc;
       }, {}),
   });

@@ -9,6 +9,7 @@ import { INDEXES } from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { TasksActions } from "~/store/zustand/ai-task/tasks";
 import { listenerStore } from "~/store/zustand/listener/instance";
+import { getTemplateById } from "~/templates/shared";
 
 type EnhanceResult =
   | { type: "started"; noteId: string }
@@ -35,6 +36,27 @@ type EnhancerDeps = {
   getLLMConn: () => { providerId?: string; modelId?: string } | null;
   getSelectedTemplateId: () => string | undefined;
 };
+
+const UUID_TITLE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+function shouldHydrateTemplateTitle(
+  currentTitle: string | null | undefined,
+  templateId: string,
+) {
+  const title = currentTitle?.trim();
+  if (!title) {
+    return true;
+  }
+
+  return (
+    title === "Summary" ||
+    title === templateId ||
+    UUID_TITLE_RE.test(title) ||
+    ISO_TITLE_RE.test(title)
+  );
+}
 
 let instance: EnhancerService | null = null;
 
@@ -218,31 +240,67 @@ export class EnhancerService {
         | undefined;
       return (tid || undefined) === normalizedTemplateId;
     });
-    if (existingId) return existingId;
+    if (existingId) {
+      if (normalizedTemplateId) {
+        void this.hydrateTemplateTitle(existingId, normalizedTemplateId);
+      }
+
+      return existingId;
+    }
 
     const enhancedNoteId = crypto.randomUUID();
     const userId = store.getValue("user_id");
     const nextPosition = existingIds.length + 1;
-
-    let title = "Summary";
-    if (normalizedTemplateId) {
-      const templateTitle = store.getCell(
-        "templates",
-        normalizedTemplateId,
-        "title",
-      );
-      if (typeof templateTitle === "string") title = templateTitle;
-    }
 
     store.setRow("enhanced_notes", enhancedNoteId, {
       user_id: userId || "",
       session_id: sessionId,
       content: "",
       position: nextPosition,
-      title,
+      title: "Summary",
       template_id: normalizedTemplateId,
     });
 
+    if (normalizedTemplateId) {
+      void this.hydrateTemplateTitle(enhancedNoteId, normalizedTemplateId);
+    }
+
     return enhancedNoteId;
+  }
+
+  private async hydrateTemplateTitle(
+    enhancedNoteId: string,
+    templateId: string,
+  ): Promise<void> {
+    const template = await getTemplateById(templateId);
+    const title = template?.title?.trim();
+    if (!title) {
+      return;
+    }
+
+    const currentTemplateId = this.deps.mainStore.getCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "template_id",
+    );
+    if (currentTemplateId !== templateId) {
+      return;
+    }
+
+    const currentTitle = this.deps.mainStore.getCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "title",
+    ) as string | undefined;
+    if (!shouldHydrateTemplateTitle(currentTitle, templateId)) {
+      return;
+    }
+
+    this.deps.mainStore.setCell(
+      "enhanced_notes",
+      enhancedNoteId,
+      "title",
+      title,
+    );
   }
 }

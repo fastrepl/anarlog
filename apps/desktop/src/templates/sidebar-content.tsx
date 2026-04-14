@@ -14,6 +14,7 @@ import { cn } from "@hypr/utils";
 import {
   resolveTemplateTabSelection,
   useCreateTemplate,
+  useDeleteTemplate,
   useToggleTemplateFavorite,
   useUserTemplates,
   type UserTemplate,
@@ -22,7 +23,6 @@ import {
 
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 type SortOption = "alphabetical" | "reverse-alphabetical";
@@ -38,14 +38,10 @@ export function TemplatesSidebarContent({
   const [sortOption, setSortOption] = useState<SortOption>("alphabetical");
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
+  const deleteTemplate = useDeleteTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
   const { data: webTemplates = [], isLoading: isWebLoading } =
     useWebResources<WebTemplate>("templates");
-  const deleteTemplateFromStore = main.UI.useDelRowCallback(
-    "templates",
-    (templateId: string) => templateId,
-    main.STORE_ID,
-  );
 
   const {
     isWebMode,
@@ -83,8 +79,8 @@ export function TemplatesSidebarContent({
     [updateTabState, tab],
   );
 
-  const handleCreateTemplate = useCallback(() => {
-    const id = createTemplate({
+  const handleCreateTemplate = useCallback(async () => {
+    const id = await createTemplate({
       title: "New Template",
       description: "",
       sections: [],
@@ -96,8 +92,8 @@ export function TemplatesSidebarContent({
   }, [createTemplate, setSelectedMineId]);
 
   const handleDuplicateTemplate = useCallback(
-    (template: UserTemplate) => {
-      const id = createTemplate({
+    async (template: UserTemplate) => {
+      const id = await createTemplate({
         title: getDuplicatedTemplateTitle(template.title),
         description: template.description ?? "",
         category: template.category,
@@ -113,19 +109,19 @@ export function TemplatesSidebarContent({
   );
 
   const handleDeleteTemplate = useCallback(
-    (id: string) => {
-      deleteTemplateFromStore(id);
+    async (id: string) => {
+      await deleteTemplate(id);
 
       if (effectiveSelectedMineId === id) {
         setSelectedMineId(null);
       }
     },
-    [deleteTemplateFromStore, effectiveSelectedMineId, setSelectedMineId],
+    [deleteTemplate, effectiveSelectedMineId, setSelectedMineId],
   );
 
   const handleToggleFavorite = useCallback(
-    (id: string) => {
-      toggleTemplateFavorite(id);
+    async (id: string) => {
+      await toggleTemplateFavorite(id);
     },
     [toggleTemplateFavorite],
   );

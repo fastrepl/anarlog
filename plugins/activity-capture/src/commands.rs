@@ -7,7 +7,6 @@ use crate::{
         ActivityCaptureObservationAnalysis, ActivityCaptureStatus,
     },
 };
-use hypr_db_core2::{Db3, DbOpenOptions, DbStorage, MigrationFailurePolicy};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -194,16 +193,17 @@ pub async fn get_daily_summary_snapshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     input: LoadDailySummarySnapshotInput,
 ) -> Result<DailySummarySnapshot, String> {
-    let db = open_app_db(&app).await?;
+    let runtime = app.state::<crate::ManagedState<R>>();
+    let pool = runtime.pool();
 
     let (events, analyses, screenshot_count) = tokio::try_join!(
-        hypr_db_app::list_observation_events_in_range(db.pool(), input.start_ms, input.end_ms),
+        hypr_db_app::list_observation_events_in_range(pool, input.start_ms, input.end_ms),
         hypr_db_app::list_preferred_observation_analyses_in_range(
-            db.pool(),
+            pool,
             input.start_ms,
             input.end_ms
         ),
-        hypr_db_app::count_screenshots_in_range(db.pool(), input.start_ms, input.end_ms),
+        hypr_db_app::count_screenshots_in_range(pool, input.start_ms, input.end_ms),
     )
     .map_err(|error| error.to_string())?;
 
@@ -238,7 +238,7 @@ pub async fn get_daily_summary_snapshot<R: tauri::Runtime>(
     );
 
     let summary =
-        hypr_db_app::get_daily_summary_by_date(db.pool(), &input.date, &daily_note_id(&input.date))
+        hypr_db_app::get_daily_summary_by_date(pool, &input.date, &daily_note_id(&input.date))
             .await
             .map_err(|error| error.to_string())?
             .map(map_stored_daily_summary);
@@ -258,16 +258,17 @@ pub async fn save_daily_summary<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     input: SaveDailySummaryInput,
 ) -> Result<StoredDailySummary, String> {
-    let db = open_app_db(&app).await?;
+    let runtime = app.state::<crate::ManagedState<R>>();
+    let pool = runtime.pool();
     let note_id = daily_note_id(&input.date);
     let summary_id = daily_summary_id(&input.date);
 
-    hypr_db_app::get_or_create_daily_note(db.pool(), &note_id, &input.date, DAILY_SUMMARY_USER_ID)
+    hypr_db_app::get_or_create_daily_note(pool, &note_id, &input.date, DAILY_SUMMARY_USER_ID)
         .await
         .map_err(|error| error.to_string())?;
 
     hypr_db_app::upsert_daily_summary(
-        db.pool(),
+        pool,
         hypr_db_app::UpsertDailySummary {
             id: &summary_id,
             daily_note_id: &note_id,
@@ -285,33 +286,12 @@ pub async fn save_daily_summary<R: tauri::Runtime>(
     .await
     .map_err(|error| error.to_string())?;
 
-    let row = hypr_db_app::get_daily_summary(db.pool(), &summary_id)
+    let row = hypr_db_app::get_daily_summary(pool, &summary_id)
         .await
         .map_err(|error| error.to_string())?
         .ok_or_else(|| "daily summary was not found after save".to_string())?;
 
     Ok(map_stored_daily_summary(row))
-}
-
-async fn open_app_db<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Db3, String> {
-    let db_path = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("app.db");
-    Db3::open_with_migrate(
-        DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync: false,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: None,
-            migration_failure_policy: MigrationFailurePolicy::Fail,
-        },
-        |pool| Box::pin(hypr_db_app::migrate(pool)),
-    )
-    .await
-    .map_err(|error| error.to_string())
 }
 
 fn daily_note_id(date: &str) -> String {

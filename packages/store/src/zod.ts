@@ -353,7 +353,6 @@ export type SessionStorage = ToStorageType<typeof sessionSchema>;
 export type TranscriptStorage = ToStorageType<typeof transcriptSchema>;
 export type WordStorage = ToStorageType<typeof wordSchema>;
 export type SpeakerHintStorage = ToStorageType<typeof speakerHintSchema>;
-export type TemplateStorage = ToStorageType<typeof templateSchema>;
 export type ChatMessageStorage = ToStorageType<typeof chatMessageSchema>;
 export type EnhancedNoteStorage = ToStorageType<typeof enhancedNoteSchema>;
 export type TaskStorage = ToStorageType<typeof taskSchema>;

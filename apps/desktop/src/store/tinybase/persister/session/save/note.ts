@@ -38,7 +38,7 @@ export function buildNoteSaveOps(
 }
 
 function collectEnhancedNotes(ctx: BuildContext): DocumentItem[] {
-  const { store, tables, dataDir, changedSessionIds } = ctx;
+  const { tables, dataDir, changedSessionIds } = ctx;
 
   return Array.from(iterateTableRows(tables, "enhanced_notes"))
     .filter((note) => note.content && note.session_id)
@@ -55,9 +55,7 @@ function collectEnhancedNotes(ctx: BuildContext): DocumentItem[] {
         note.session_id!,
         session?.folder_id ?? "",
       );
-      const path = [sessionDir, getEnhancedNoteFilename(store, note)].join(
-        sep(),
-      );
+      const path = [sessionDir, getEnhancedNoteFilename(note)].join(sep());
 
       const frontmatter: NoteFrontmatter = {
         id: note.id,
@@ -141,17 +139,11 @@ function tryParseAndConvertToMarkdown(content: string): string | undefined {
 }
 
 function getEnhancedNoteFilename(
-  store: Store,
   enhancedNote: ReturnType<typeof iterateTableRows<"enhanced_notes">>[number],
 ): string {
   if (enhancedNote.template_id) {
-    const templateTitle = store.getCell(
-      "templates",
-      enhancedNote.template_id,
-      "title",
-    );
     const safeName = sanitizeFilename(
-      templateTitle || enhancedNote.template_id,
+      enhancedNote.title || enhancedNote.template_id,
     );
     return `${safeName}.md`;
   }

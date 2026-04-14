@@ -72,16 +72,16 @@ describe("useDailySummarySnapshot", () => {
           id: "daily-summary-2026-04-13",
           date: "2026-04-13",
           content: "# Summary",
-          timelineJson:
+          timeline_json:
             '[{"time":"10:00","summary":"Worked on the daily summary view."}]',
-          topicsJson:
+          topics_json:
             '[{"title":"Desktop","summary":"Daily summary moved to SQLite."}]',
           status: "ready",
-          sourceCursorMs: 199,
-          sourceFingerprint: "ignored-by-hook",
-          generatedAt: "2026-04-13T10:30:00Z",
-          generationError: "",
-          updatedAt: "2026-04-13T10:30:00Z",
+          source_cursor_ms: 199,
+          source_fingerprint: "ignored-by-hook",
+          generated_at: "2026-04-13T10:30:00Z",
+          generation_error: "",
+          updated_at: "2026-04-13T10:30:00Z",
         },
       ]);
     });
@@ -189,14 +189,14 @@ describe("useDailySummarySnapshot", () => {
           id: "daily-summary-2026-04-13",
           date: "2026-04-13",
           content: "# New Summary",
-          timelineJson: "[]",
-          topicsJson: "[]",
+          timeline_json: "[]",
+          topics_json: "[]",
           status: "ready",
-          sourceCursorMs: 0,
-          sourceFingerprint: "",
-          generatedAt: "2026-04-13T10:45:00Z",
-          generationError: "",
-          updatedAt: "2026-04-13T10:45:00Z",
+          source_cursor_ms: 0,
+          source_fingerprint: "",
+          generated_at: "2026-04-13T10:45:00Z",
+          generation_error: "",
+          updated_at: "2026-04-13T10:45:00Z",
         },
       ]);
     });

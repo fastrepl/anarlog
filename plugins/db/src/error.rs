@@ -9,6 +9,8 @@ pub enum Error {
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
+    #[error(transparent)]
     Runtime(#[from] hypr_db_live_query::Error),
 }
 

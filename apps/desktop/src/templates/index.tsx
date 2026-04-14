@@ -1,27 +1,30 @@
 import { BookText } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { TemplateSection } from "@hypr/store";
 
 import { TemplateDetailsColumn } from "./components/details";
 import {
+  normalizeWebTemplates,
   resolveTemplateTabSelection,
   useCreateTemplate,
+  useDeleteTemplate,
   useToggleTemplateFavorite,
   useUserTemplates,
-  type WebTemplate,
 } from "./shared";
 
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export {
   getTemplateCreatorLabel,
+  normalizeWebTemplates,
+  useCreateTemplate,
   useTemplateCreatorName,
+  useUserTemplate,
   useUserTemplates,
 } from "./shared";
 
@@ -72,8 +75,14 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   const updateTabState = useTabs((state) => state.updateTemplatesTabState);
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
+  const deleteTemplate = useDeleteTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
-  const { data: webTemplates = [] } = useWebResources<WebTemplate>("templates");
+  const { data: rawWebTemplates = [] } =
+    useWebResources<Record<string, unknown>>("templates");
+  const webTemplates = useMemo(
+    () => normalizeWebTemplates(rawWebTemplates),
+    [rawWebTemplates],
+  );
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
 
   const setSelectedMineId = useCallback(
@@ -97,22 +106,16 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
       webTemplates,
     });
 
-  const deleteTemplateFromStore = main.UI.useDelRowCallback(
-    "templates",
-    (templateId: string) => templateId,
-    main.STORE_ID,
-  );
-
   const handleDeleteTemplate = useCallback(
-    (id: string) => {
-      deleteTemplateFromStore(id);
+    async (id: string) => {
+      await deleteTemplate(id);
       setSelectedMineId(null);
     },
-    [deleteTemplateFromStore, setSelectedMineId],
+    [deleteTemplate, setSelectedMineId],
   );
 
   const materializeTemplate = useCallback(
-    (
+    async (
       template: {
         title: string;
         description: string;
@@ -125,10 +128,10 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
         onCreate,
       }: {
         title?: string;
-        onCreate?: (id: string) => void;
+        onCreate?: (id: string) => void | Promise<void>;
       } = {},
     ) => {
-      const id = createTemplate({
+      const id = await createTemplate({
         ...template,
         title,
       });
@@ -136,7 +139,7 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
         return null;
       }
 
-      onCreate?.(id);
+      await onCreate?.(id);
       setSelectedMineId(id);
       return id;
     },
@@ -144,14 +147,14 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   );
 
   const handleCloneTemplate = useCallback(
-    (template: {
+    async (template: {
       title: string;
       description: string;
       category?: string;
       targets?: string[];
       sections: TemplateSection[];
     }) => {
-      materializeTemplate(template, {
+      await materializeTemplate(template, {
         title: getTemplateCopyTitle(template.title),
       });
     },
@@ -159,22 +162,24 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   );
 
   const handleFavoriteTemplate = useCallback(
-    (template: {
+    async (template: {
       title: string;
       description: string;
       category?: string;
       targets?: string[];
       sections: TemplateSection[];
     }) => {
-      materializeTemplate(template, {
-        onCreate: (id) => toggleTemplateFavorite(id),
+      await materializeTemplate(template, {
+        onCreate: async (id) => {
+          await toggleTemplateFavorite(id);
+        },
       });
     },
     [materializeTemplate, toggleTemplateFavorite],
   );
 
   const handleSetDefaultTemplate = useCallback(
-    (template: {
+    async (template: {
       title: string;
       description: string;
       category?: string;
@@ -185,7 +190,7 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
         return;
       }
 
-      const id = materializeTemplate(template);
+      const id = await materializeTemplate(template);
       if (!id) {
         return;
       }
@@ -196,11 +201,11 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   );
 
   const handleDuplicateTemplate = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const template = userTemplates.find((item) => item.id === id);
       if (!template) return;
 
-      handleCloneTemplate({
+      await handleCloneTemplate({
         title: template.title,
         description: template.description,
         category: template.category,

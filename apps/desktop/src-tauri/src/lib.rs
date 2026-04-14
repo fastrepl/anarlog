@@ -84,7 +84,28 @@ pub async fn main() {
     let audio: std::sync::Arc<dyn hypr_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
 
-    let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default()).manage(audio);
+    let db = {
+        #[cfg(debug_assertions)]
+        let db_path: Option<std::path::PathBuf> = None;
+        #[cfg(not(debug_assertions))]
+        let db_path: Option<std::path::PathBuf> = {
+            let data_dir = dirs::data_dir()
+                .expect("data_dir must be available")
+                .join(&context.config().identifier);
+            std::fs::create_dir_all(&data_dir).expect("failed to create app data dir");
+            Some(data_dir.join("app.db"))
+        };
+
+        std::sync::Arc::new(
+            tauri_plugin_db::open_app_db(db_path.as_deref())
+                .await
+                .expect("failed to open app database"),
+        )
+    };
+
+    let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
+        .manage(audio)
+        .manage(db.clone());
 
     // https://docs.crabnebula.dev/plugins/tauri-e2e-tests/#macos-support
     #[cfg(all(target_os = "macos", feature = "automation"))]
@@ -106,13 +127,13 @@ pub async fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_analytics::init())
         .plugin(tauri_plugin_agent::init())
-        .plugin(tauri_plugin_activity_capture::init())
+        .plugin(tauri_plugin_db::init(db.clone()))
+        .plugin(tauri_plugin_activity_capture::init(db.clone()))
         .plugin(tauri_plugin_bedrock::init())
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_todo::init())
         .plugin(tauri_plugin_auth::init())
-        .plugin(tauri_plugin_db::init())
         .plugin(tauri_plugin_tracing::init())
         .plugin(tauri_plugin_hooks::init())
         .plugin(tauri_plugin_icon::init())
@@ -311,6 +332,12 @@ pub async fn main() {
                 if let Ok(store) = app.store2().store() {
                     let _ = store.save();
                 }
+            }
+
+            {
+                let db = app.state::<hypr_db_core2::ManagedDb>();
+                let pool = db.pool().clone();
+                tauri::async_runtime::block_on(pool.close());
             }
 
             if let Some(ref ctx) = root_supervisor_ctx_for_run {

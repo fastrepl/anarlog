@@ -1,9 +1,7 @@
 import type {
-  EnhanceTemplate,
   Participant,
   Segment,
   Session,
-  TemplateSection,
   Transcript,
 } from "@hypr/plugin-template";
 
@@ -16,6 +14,7 @@ import {
   buildRenderTranscriptRequestFromStore,
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
+import { getTemplateById } from "~/templates/shared";
 
 type TranscriptMeta = {
   id: string;
@@ -44,7 +43,14 @@ async function transformArgs(
   const { sessionId, templateId } = args;
 
   const sessionContext = getSessionContext(sessionId, store);
-  const template = templateId ? getTemplateData(templateId, store) : null;
+  const templateRecord = templateId ? await getTemplateById(templateId) : null;
+  const template = templateRecord
+    ? {
+        title: templateRecord.title,
+        description: templateRecord.description ?? null,
+        sections: templateRecord.sections,
+      }
+    : null;
   const language = getLanguage(settingsStore);
   const segments = await getTranscriptSegmentsFromMeta(
     sessionContext.transcriptsMeta,
@@ -178,60 +184,6 @@ function getParticipants(sessionId: string, store: MainStore): Participant[] {
   });
 
   return participants;
-}
-
-function getTemplateData(
-  templateId: string,
-  store: MainStore,
-): EnhanceTemplate {
-  return {
-    title: getStringCell(store, "templates", templateId, "title"),
-    description:
-      getOptionalStringCell(store, "templates", templateId, "description") ??
-      null,
-    sections: parseTemplateSections(
-      store.getCell("templates", templateId, "sections"),
-    ),
-  };
-}
-
-function parseTemplateSections(raw: unknown): TemplateSection[] {
-  let value: unknown = raw;
-
-  if (typeof raw === "string") {
-    try {
-      value = JSON.parse(raw);
-    } catch {
-      return [];
-    }
-  }
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((section): TemplateSection | null => {
-      if (typeof section === "string") {
-        return { title: section, description: null };
-      }
-
-      if (section && typeof section === "object") {
-        const record = section as Record<string, unknown>;
-        const title =
-          typeof record.title === "string" ? record.title.trim() : "";
-        if (!title) {
-          return null;
-        }
-
-        const description =
-          typeof record.description === "string" ? record.description : null;
-        return { title, description };
-      }
-
-      return null;
-    })
-    .filter((section): section is TemplateSection => section !== null);
 }
 
 async function getTranscriptSegmentsFromMeta(

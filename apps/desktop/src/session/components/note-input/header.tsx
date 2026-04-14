@@ -52,7 +52,10 @@ import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
   getTemplateCreatorLabel,
+  normalizeWebTemplates,
+  useCreateTemplate,
   useTemplateCreatorName,
+  useUserTemplate,
   useUserTemplates,
 } from "~/templates";
 
@@ -84,6 +87,37 @@ function getStoredNoteMarkdown(content: string | undefined) {
   }
 
   return json2md(parseJsonContent(trimmed)).trim();
+}
+
+const UUID_TITLE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+function getEnhancedNoteTitle({
+  rawTitle,
+  templateTitle,
+  templateId,
+}: {
+  rawTitle: unknown;
+  templateTitle: string | null;
+  templateId: string | undefined;
+}) {
+  const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+  if (!title) {
+    return templateTitle || "Summary";
+  }
+
+  const isGeneratedTitle =
+    title === "Summary" ||
+    title === templateId ||
+    UUID_TITLE_RE.test(title) ||
+    ISO_TITLE_RE.test(title);
+
+  if (isGeneratedTitle && templateTitle) {
+    return templateTitle;
+  }
+
+  return title;
 }
 
 async function copyTextToClipboard(
@@ -192,22 +226,14 @@ function HeaderTabEnhanced({
     "template_id",
     main.STORE_ID,
   ) as string | undefined;
-  const rawTemplateTitle = main.UI.useCell(
-    "templates",
-    templateId ?? "",
-    "title",
-    main.STORE_ID,
-  );
-  const templateTitle =
-    typeof rawTemplateTitle === "string" && rawTemplateTitle.trim()
-      ? rawTemplateTitle.trim()
-      : null;
+  const { data: template } = useUserTemplate(templateId);
+  const templateTitle = template?.title?.trim() || null;
   const openTemplatesTab = useOpenTemplatesTab();
-  const summaryTitle = "Summary";
-  const tabTitle =
-    typeof rawTitle === "string" && rawTitle.trim()
-      ? rawTitle.trim()
-      : summaryTitle;
+  const tabTitle = getEnhancedNoteTitle({
+    rawTitle,
+    templateTitle,
+    templateId,
+  });
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
   const handleCopy = useCallback(() => {
@@ -467,7 +493,6 @@ function CreateOtherFormatButton({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
   const sessionTitle = main.UI.useCell(
     "sessions",
     sessionId,
@@ -482,44 +507,17 @@ function CreateOtherFormatButton({
   ) as string | undefined;
   const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
   const userTemplates = useUserTemplates();
+  const createTemplate = useCreateTemplate();
   const creatorName = useTemplateCreatorName();
   const {
-    data: suggestedTemplates = [],
+    data: rawSuggestedTemplates = [],
     isLoading: isSuggestedTemplatesLoading,
-  } = useWebResources<WebTemplate>("templates");
-  const openTemplatesTab = useOpenTemplatesTab();
-  const setRow = main.UI.useSetRowCallback(
-    "templates",
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      description: string;
-      category?: string;
-      targets?: string[];
-      sections: Array<{ title: string; description: string }>;
-    }) => p.id,
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      description: string;
-      category?: string;
-      targets?: string[];
-      sections: Array<{ title: string; description: string }>;
-    }) => ({
-      user_id: p.user_id,
-      title: p.title,
-      description: p.description,
-      category: p.category,
-      targets: p.targets ? JSON.stringify(p.targets) : undefined,
-      sections: JSON.stringify(p.sections),
-    }),
-    [],
-    main.STORE_ID,
+  } = useWebResources<Record<string, unknown>>("templates");
+  const suggestedTemplates = useMemo(
+    () => normalizeWebTemplates(rawSuggestedTemplates),
+    [rawSuggestedTemplates],
   );
+  const openTemplatesTab = useOpenTemplatesTab();
 
   const handleUseTemplate = useCallback(
     (templateId: string) => {
@@ -547,44 +545,35 @@ function CreateOtherFormatButton({
   }, []);
 
   const handleSuggestedTemplateClick = useCallback(
-    (template: WebTemplate) => {
-      if (!user_id) return;
-
-      const templateId = crypto.randomUUID();
-      const now = new Date().toISOString();
-
-      setRow({
-        id: templateId,
-        user_id,
-        created_at: now,
+    async (template: WebTemplate) => {
+      const templateId = await createTemplate({
         title: template.title,
         description: template.description,
         category: template.category,
         targets: template.targets,
         sections: template.sections ?? [],
       });
+      if (!templateId) {
+        return;
+      }
 
       handleUseTemplate(templateId);
     },
-    [handleUseTemplate, setRow, user_id],
+    [createTemplate, handleUseTemplate],
   );
 
   const handleCreateTemplate = useCallback(
-    (title?: string) => {
-      if (!user_id) return;
-
-      const templateId = crypto.randomUUID();
-      const now = new Date().toISOString();
+    async (title?: string) => {
       const nextTitle = title?.trim() || "New Template";
 
-      setRow({
-        id: templateId,
-        user_id,
-        created_at: now,
+      const templateId = await createTemplate({
         title: nextTitle,
         description: "",
         sections: [],
       });
+      if (!templateId) {
+        return;
+      }
 
       setOpen(false);
       setSearch("");
@@ -596,7 +585,7 @@ function CreateOtherFormatButton({
         showHomepage: false,
       });
     },
-    [openTemplatesTab, setRow, user_id],
+    [createTemplate, openTemplatesTab],
   );
   const handleSeeAllTemplates = useCallback(() => {
     setOpen(false);

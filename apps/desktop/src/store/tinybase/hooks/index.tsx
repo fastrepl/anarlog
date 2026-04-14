@@ -8,7 +8,6 @@ import type {
   OrganizationStorage,
   SessionEvent,
   SessionStorage,
-  TemplateStorage,
 } from "@hypr/store";
 
 import { getSessionEvent } from "~/session/utils";
@@ -298,38 +297,12 @@ export function useIgnoredEvents() {
   };
 }
 
-export function useTemplate(templateId: string) {
-  const title = main.UI.useCell(
-    "templates",
-    templateId,
-    "title",
-    main.STORE_ID,
-  );
-  const description = main.UI.useCell(
-    "templates",
-    templateId,
-    "description",
-    main.STORE_ID,
-  );
-  const sections = main.UI.useCell(
-    "templates",
-    templateId,
-    "sections",
-    main.STORE_ID,
-  );
-  return useMemo(
-    () => ({ title, description, sections }),
-    [title, description, sections],
-  );
-}
-
 interface TinyBaseTestWrapperProps {
   children: ReactNode;
   initialData?: {
     sessions?: Record<string, Partial<SessionStorage>>;
     humans?: Record<string, Partial<HumanStorage>>;
     organizations?: Record<string, Partial<OrganizationStorage>>;
-    templates?: Record<string, Partial<TemplateStorage>>;
     enhanced_notes?: Record<string, Partial<EnhancedNoteStorage>>;
   };
   initialValues?: {
@@ -380,11 +353,6 @@ export function TinyBaseTestWrapper({
     if (initialData?.organizations) {
       Object.entries(initialData.organizations).forEach(([id, data]) => {
         s.setRow("organizations", id, data as Record<string, unknown>);
-      });
-    }
-    if (initialData?.templates) {
-      Object.entries(initialData.templates).forEach(([id, data]) => {
-        s.setRow("templates", id, data as Record<string, unknown>);
       });
     }
     if (initialData?.enhanced_notes) {
@@ -450,15 +418,6 @@ export function TinyBaseTestWrapper({
         "organizations",
         ({ select }) => {
           select("name");
-        },
-      )
-      .setQueryDefinition(
-        main.QUERIES.visibleTemplates,
-        "templates",
-        ({ select }) => {
-          select("title");
-          select("description");
-          select("sections");
         },
       ),
   );

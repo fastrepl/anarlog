@@ -56,6 +56,25 @@ Columns:
 Unique:
 - `task_type`
 
+### `templates`
+
+User-authored note templates mirrored into the desktop SQLite database.
+
+Columns:
+- `id`
+- `title`
+- `description`
+- `pinned`
+- `pin_order`
+- `category`
+- `targets_json`
+- `sections_json`
+- `created_at`
+- `updated_at`
+
+Unique:
+- `id`
+
 ### `activity_observation_events`
 
 Raw observation lifecycle events emitted by activity capture.
@@ -72,4 +91,5 @@ Per-screenshot analysis output used to build higher-level summaries.
 
 - `daily_notes` is user-authored canonical content.
 - `daily_summaries` is machine-generated durable output.
+- `templates` is the durable local store for user templates.
 - Activity capture tables are append-heavy local telemetry owned by the desktop app.
