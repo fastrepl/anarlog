@@ -227,11 +227,7 @@ function AvatarButton({
         ])}
       >
         {showFacehash ? (
-          <ProfileFacehash
-            name={facehashName}
-            size={20}
-            showInitial={false}
-          />
+          <ProfileFacehash name={facehashName} size={20} showInitial={false} />
         ) : (
           <img
             src={profile.data!}
