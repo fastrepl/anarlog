@@ -7,7 +7,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
@@ -150,10 +150,7 @@ function ProfileName() {
   const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
   const displayName = name || auth?.session?.user.email || "Unknown";
 
-  const facehashName = useMemo(
-    () => displayName || auth?.session?.user.email || "user",
-    [displayName, auth?.session?.user.email],
-  );
+  const facehashName = displayName;
 
   const badgeLabel = plan === "trial" ? "PRO" : plan.toUpperCase();
 
@@ -202,10 +199,7 @@ function AvatarButton({
     },
   });
 
-  const facehashName = useMemo(
-    () => displayName || auth?.session?.user.email || "user",
-    [displayName, auth?.session?.user.email],
-  );
+  const facehashName = displayName;
 
   useEffect(() => {
     setImgError(false);

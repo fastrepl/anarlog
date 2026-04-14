@@ -8,7 +8,7 @@ import {
   UsersIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useResizeObserver } from "usehooks-ts";
 
 import { Kbd } from "@hypr/ui/components/ui/kbd";
@@ -279,10 +279,7 @@ function ProfileButton({
     },
   });
 
-  const facehashName = useMemo(
-    () => name || auth?.session?.user.email || "user",
-    [name, auth?.session?.user.email],
-  );
+  const facehashName = name;
 
   useEffect(() => {
     setImgError(false);
