@@ -5,7 +5,7 @@ import type { TemplateSection } from "@hypr/store";
 
 import { TemplateDetailsColumn } from "./components/details";
 import {
-  normalizeWebTemplates,
+  parseWebTemplates,
   resolveTemplateTabSelection,
   useCreateTemplate,
   useDeleteTemplate,
@@ -21,7 +21,7 @@ import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export {
   getTemplateCreatorLabel,
-  normalizeWebTemplates,
+  parseWebTemplates,
   useCreateTemplate,
   useTemplateCreatorName,
   useUserTemplate,
@@ -80,7 +80,7 @@ function TemplateView({ tab }: { tab: Extract<Tab, { type: "templates" }> }) {
   const { data: rawWebTemplates = [] } =
     useWebResources<Record<string, unknown>>("templates");
   const webTemplates = useMemo(
-    () => normalizeWebTemplates(rawWebTemplates),
+    () => parseWebTemplates(rawWebTemplates),
     [rawWebTemplates],
   );
   const settingsStore = settings.UI.useStore(settings.STORE_ID);

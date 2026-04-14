@@ -155,7 +155,7 @@ fn normalize_template_sections(raw: Option<&serde_json::Value>) -> Vec<serde_jso
 
                 Some(serde_json::json!({
                     "title": title,
-                    "description": null,
+                    "description": "",
                 }))
             }
             serde_json::Value::Object(section) => {
@@ -172,7 +172,7 @@ fn normalize_template_sections(raw: Option<&serde_json::Value>) -> Vec<serde_jso
 
                 Some(serde_json::json!({
                     "title": title,
-                    "description": description,
+                    "description": description.unwrap_or(""),
                 }))
             }
             _ => None,
@@ -258,8 +258,8 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&parsed[2].sections_json).unwrap(),
             serde_json::json!([
-                { "title": "Wins", "description": null },
-                { "title": "Risks", "description": null }
+                { "title": "Wins", "description": "" },
+                { "title": "Risks", "description": "" }
             ])
         );
     }

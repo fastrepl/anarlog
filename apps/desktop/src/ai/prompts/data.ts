@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { db, eq, promptOverrides, sql } from "@hypr/db";
+import { eq, promptOverrides, sql } from "@hypr/db";
 import {
   commands as templateCommands,
   type EditableTemplate,
@@ -8,7 +8,7 @@ import {
 
 import type { TaskType } from "./config";
 
-import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
+import { db, useDrizzleLiveQuery } from "~/db";
 
 type PromptOverrideRow = {
   task_type: string;

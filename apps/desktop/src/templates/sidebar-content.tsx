@@ -12,6 +12,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import {
+  parseWebTemplates,
   resolveTemplateTabSelection,
   useCreateTemplate,
   useDeleteTemplate,
@@ -40,8 +41,12 @@ export function TemplatesSidebarContent({
   const createTemplate = useCreateTemplate();
   const deleteTemplate = useDeleteTemplate();
   const toggleTemplateFavorite = useToggleTemplateFavorite();
-  const { data: webTemplates = [], isLoading: isWebLoading } =
-    useWebResources<WebTemplate>("templates");
+  const { data: rawWebTemplates = [], isLoading: isWebLoading } =
+    useWebResources<Record<string, unknown>>("templates");
+  const webTemplates = useMemo(
+    () => parseWebTemplates(rawWebTemplates),
+    [rawWebTemplates],
+  );
 
   const {
     isWebMode,

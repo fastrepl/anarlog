@@ -1,9 +1,9 @@
 import "../bridge";
 
+import type { LiveQueryClient, Row } from "@hypr/db-runtime";
+
 import { MobileDbBridge, type MobileDbBridgeInterface } from "../bridge";
 import { getAppDbPath } from "../native/mobilePaths";
-
-export type Row = Record<string, unknown>;
 
 let bridgePromise: Promise<MobileDbBridgeInterface> | null = null;
 
@@ -64,6 +64,11 @@ export async function subscribe<T = Row>(
     }
   };
 }
+
+export const mobileLiveQueryClient: LiveQueryClient = {
+  execute,
+  subscribe,
+};
 
 export async function cloudsyncVersion(): Promise<string> {
   const bridge = await openBridge();

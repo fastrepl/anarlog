@@ -39,6 +39,8 @@
     "@hypr/changelog": "workspace:^",
     "@hypr/codemirror": "workspace:^",
     "@hypr/db": "workspace:*",
+    "@hypr/db-react": "workspace:*",
+    "@hypr/db-tauri": "workspace:*",
     "@hypr/plugin-activity-capture": "workspace:*",
     "@hypr/plugin-agent": "workspace:*",
     "@hypr/plugin-analytics": "workspace:*",

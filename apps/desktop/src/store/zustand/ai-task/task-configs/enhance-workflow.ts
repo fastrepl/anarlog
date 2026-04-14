@@ -20,6 +20,7 @@ import { loadPromptOverride } from "~/ai/prompts/data";
 import type { Store } from "~/store/tinybase/store/main";
 import { normalizeBulletPoints } from "~/store/zustand/ai-task/shared/transform_impl";
 import { withEarlyValidationRetry } from "~/store/zustand/ai-task/shared/validate";
+import { assertCanonicalTemplateSections } from "~/templates/codec";
 
 export const enhanceWorkflow: Pick<
   TaskConfig<"enhance">,
@@ -87,11 +88,20 @@ async function getUserPrompt(
   const {
     session,
     participants,
-    template,
+    template: rawTemplate,
     transcripts,
     preMeetingMemo,
     postMeetingMemo,
   } = args;
+  const template = rawTemplate
+    ? {
+        ...rawTemplate,
+        sections: assertCanonicalTemplateSections(
+          rawTemplate.sections,
+          "enhance render template.sections",
+        ),
+      }
+    : null;
 
   const ctx = {
     content: transcripts,

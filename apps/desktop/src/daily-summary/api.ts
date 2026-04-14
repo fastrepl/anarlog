@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 
-import { dailySummaries, db, eq, and } from "@hypr/db";
+import { dailySummaries, eq, and } from "@hypr/db";
 import { commands as activityCaptureCommands } from "@hypr/plugin-activity-capture";
 
-import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
-import { useLiveQuery } from "~/db/use-live-query";
+import { db, useDrizzleLiveQuery, useLiveQuery } from "~/db";
 
 export type DailyActivityAppStat = {
   appName: string;

@@ -52,7 +52,7 @@ import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import {
   getTemplateCreatorLabel,
-  normalizeWebTemplates,
+  parseWebTemplates,
   useCreateTemplate,
   useTemplateCreatorName,
   useUserTemplate,
@@ -514,7 +514,7 @@ function CreateOtherFormatButton({
     isLoading: isSuggestedTemplatesLoading,
   } = useWebResources<Record<string, unknown>>("templates");
   const suggestedTemplates = useMemo(
-    () => normalizeWebTemplates(rawSuggestedTemplates),
+    () => parseWebTemplates(rawSuggestedTemplates),
     [rawSuggestedTemplates],
   );
   const openTemplatesTab = useOpenTemplatesTab();

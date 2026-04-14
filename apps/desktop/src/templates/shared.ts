@@ -1,20 +1,20 @@
 import { useMutation } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { db, eq, max, ne, sql, templates } from "@hypr/db";
+import { eq, max, ne, sql, templates } from "@hypr/db";
 import type { TemplateSection } from "@hypr/store";
 
-import { useDrizzleLiveQuery } from "~/db/use-drizzle-live-query";
-import * as main from "~/store/tinybase/store/main"; // still used by useTemplateCreatorName
+import {
+  parseStoredTemplateSections,
+  parseStoredTemplateTargets,
+  parseWebTemplates,
+  serializeTemplateSections,
+  serializeTemplateTargets,
+  type WebTemplate,
+} from "./codec";
 
-export type WebTemplate = {
-  slug: string;
-  title: string;
-  description: string;
-  category: string;
-  targets?: string[];
-  sections: TemplateSection[];
-};
+import { db, useDrizzleLiveQuery } from "~/db";
+import * as main from "~/store/tinybase/store/main"; // still used by useTemplateCreatorName
 
 export type UserTemplate = {
   id: string;
@@ -35,138 +35,23 @@ type TemplateDraft = {
   sections: TemplateSection[];
 };
 
-function parseJsonString(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function normalizeTemplateSection(value: unknown): TemplateSection | null {
-  if (typeof value === "string") {
-    const title = value.trim();
-    if (!title) {
-      return null;
-    }
-
-    return {
-      title,
-      description: "",
-    };
-  }
-
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const section = value as Record<string, unknown>;
-  const title = typeof section.title === "string" ? section.title.trim() : "";
-  if (!title) {
-    return null;
-  }
-
-  const description =
-    typeof section.description === "string" && section.description.trim()
-      ? section.description.trim()
-      : "";
-
-  return {
-    title,
-    description,
-  };
-}
-
-export function normalizeTemplateSections(value: unknown): TemplateSection[] {
-  if (typeof value === "string") {
-    const parsed = parseJsonString(value);
-    if (parsed !== value) {
-      return normalizeTemplateSections(parsed);
-    }
-
-    const normalizedSection = normalizeTemplateSection(value);
-    return normalizedSection ? [normalizedSection] : [];
-  }
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((section) => {
-    const normalizedSection = normalizeTemplateSection(section);
-    return normalizedSection ? [normalizedSection] : [];
-  });
-}
-
-function normalizeTemplateTargets(value: unknown): string[] | undefined {
-  if (typeof value === "string") {
-    const parsed = parseJsonString(value);
-    if (parsed !== value) {
-      return normalizeTemplateTargets(parsed);
-    }
-
-    const target = value.trim();
-    return target ? [target] : undefined;
-  }
-
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const targets = value.flatMap((target) => {
-    if (typeof target !== "string") {
-      return [];
-    }
-
-    const trimmed = target.trim();
-    return trimmed ? [trimmed] : [];
-  });
-
-  return targets.length > 0 ? targets : undefined;
-}
-
-export function normalizeWebTemplates(
-  templates: Record<string, unknown>[],
-): WebTemplate[] {
-  return templates.flatMap((template, index) => {
-    const slug =
-      typeof template.slug === "string" && template.slug.trim()
-        ? template.slug.trim()
-        : `template-${index}`;
-    const title =
-      typeof template.title === "string" ? template.title.trim() : "";
-
-    if (!title) {
-      return [];
-    }
-
-    return [
-      {
-        slug,
-        title,
-        description:
-          typeof template.description === "string" ? template.description : "",
-        category:
-          typeof template.category === "string" ? template.category : "",
-        targets: normalizeTemplateTargets(template.targets),
-        sections: normalizeTemplateSections(template.sections),
-      },
-    ];
-  });
-}
-
 function mapTemplateRows(rows: Record<string, unknown>[]): UserTemplate[] {
   return rows.map(mapTemplateRow);
 }
 
 function mapTemplateRow(row: Record<string, unknown>): UserTemplate {
-  const sections = normalizeTemplateSections(
+  const id = row.id as string;
+  const sections = parseStoredTemplateSections(
     row.sections_json ?? row.sectionsJson,
+    id,
   );
-  const targets = normalizeTemplateTargets(row.targets_json ?? row.targetsJson);
+  const targets = parseStoredTemplateTargets(
+    row.targets_json ?? row.targetsJson,
+    id,
+  );
 
   return {
-    id: row.id as string,
+    id,
     title: row.title as string,
     description: row.description as string,
     pinned: Boolean(row.pinned),
@@ -322,8 +207,14 @@ export function useCreateTemplate() {
   const mutation = useMutation({
     mutationFn: async (template: TemplateDraft) => {
       const id = crypto.randomUUID();
-      const targets = normalizeTemplateTargets(template.targets);
-      const sections = normalizeTemplateSections(template.sections);
+      const targets = serializeTemplateTargets(
+        template.targets,
+        `create template ${template.title || id} targets`,
+      );
+      const sections = serializeTemplateSections(
+        template.sections,
+        `create template ${template.title || id} sections`,
+      );
 
       await db.insert(templates).values({
         id,
@@ -353,8 +244,14 @@ export function useCreateTemplate() {
 export function useSaveTemplate() {
   const mutation = useMutation({
     mutationFn: async (template: UserTemplate) => {
-      const targets = normalizeTemplateTargets(template.targets);
-      const sections = normalizeTemplateSections(template.sections);
+      const targets = serializeTemplateTargets(
+        template.targets,
+        `save template ${template.id} targets`,
+      );
+      const sections = serializeTemplateSections(
+        template.sections,
+        `save template ${template.id} sections`,
+      );
 
       await db
         .update(templates)
@@ -429,3 +326,6 @@ export function useToggleTemplateFavorite() {
     [saveTemplate],
   );
 }
+
+export { parseWebTemplates };
+export type { WebTemplate };

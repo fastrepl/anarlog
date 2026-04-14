@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useDailySummarySnapshot } from "./api";
 
-const { subscribeMock } = vi.hoisted(() => ({
+const { executeMock, subscribeMock } = vi.hoisted(() => ({
+  executeMock: vi.fn(),
   subscribeMock: vi.fn(),
 }));
 
 vi.mock("@hypr/plugin-db", () => ({
+  execute: executeMock,
   subscribe: subscribeMock,
 }));
 
