@@ -1,7 +1,4 @@
-import { createMergeableStore } from "tinybase/with-schemas";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-
-import { SCHEMA } from "@hypr/store";
 
 const pluginCalendar = vi.hoisted(() => ({
   listCalendars: vi.fn(),
@@ -13,46 +10,99 @@ vi.mock("@hypr/plugin-calendar", () => ({
   },
 }));
 
+const calendarQueries = vi.hoisted(() => ({
+  getAllCalendars: vi.fn(),
+  getEnabledCalendars: vi.fn(),
+  insertCalendar: vi.fn(),
+  updateCalendar: vi.fn(),
+  deleteCalendar: vi.fn(),
+  deleteEventsByCalendarId: vi.fn(),
+}));
+
+vi.mock("~/calendar/queries", () => calendarQueries);
+
+vi.mock("~/calendar/utils", async (importOriginal) => {
+  const original = await importOriginal<typeof import("~/calendar/utils")>();
+  return {
+    getCalendarTrackingKey: original.getCalendarTrackingKey,
+    findCalendarByTrackingId: vi.fn(
+      async ({ provider, connectionId, trackingId }) => {
+        const calendars = await calendarQueries.getAllCalendars();
+        for (const cal of calendars) {
+          if (
+            cal.provider === provider &&
+            cal.connectionId === connectionId &&
+            cal.trackingIdCalendar === trackingId
+          ) {
+            return cal.id;
+          }
+        }
+        return null;
+      },
+    ),
+  };
+});
+
 import { syncCalendars } from "./ctx";
 
-function createStore() {
-  const store = createMergeableStore()
-    .setTablesSchema(SCHEMA.table)
-    .setValuesSchema(SCHEMA.value);
-
-  store.setValue("user_id", "user-1");
-
-  return store;
-}
-
-function getCalendarsByConnection(
-  store: ReturnType<typeof createStore>,
-  provider: string,
-) {
-  return store
-    .getRowIds("calendars")
-    .map((rowId) => ({ id: rowId, ...store.getRow("calendars", rowId) }))
-    .filter((calendar) => calendar.provider === provider);
-}
+type CalRecord = {
+  id: string;
+  trackingIdCalendar: string;
+  name: string;
+  enabled: boolean;
+  provider: string;
+  source: string;
+  color: string;
+  connectionId: string;
+  createdAt: string;
+};
 
 describe("syncCalendars", () => {
+  let calendarsDb: CalRecord[];
+
   beforeEach(() => {
     pluginCalendar.listCalendars.mockReset();
+    calendarsDb = [];
+
+    calendarQueries.getAllCalendars.mockImplementation(async () => [
+      ...calendarsDb,
+    ]);
+    calendarQueries.getEnabledCalendars.mockImplementation(async () =>
+      calendarsDb.filter((c) => c.enabled),
+    );
+    calendarQueries.insertCalendar.mockImplementation(
+      async (cal: CalRecord) => {
+        calendarsDb.push({
+          ...cal,
+          createdAt: cal.createdAt ?? new Date().toISOString(),
+        });
+      },
+    );
+    calendarQueries.updateCalendar.mockImplementation(
+      async (id: string, fields: Partial<CalRecord>) => {
+        const idx = calendarsDb.findIndex((c) => c.id === id);
+        if (idx >= 0) {
+          calendarsDb[idx] = { ...calendarsDb[idx], ...fields };
+        }
+      },
+    );
+    calendarQueries.deleteCalendar.mockImplementation(async (id: string) => {
+      calendarsDb = calendarsDb.filter((c) => c.id !== id);
+    });
+    calendarQueries.deleteEventsByCalendarId.mockResolvedValue(undefined);
   });
 
   test("keeps Google calendars isolated per connection when ids overlap", async () => {
-    const store = createStore();
-
-    store.setRow("calendars", "john-row", {
-      user_id: "user-1",
-      created_at: "2026-03-25T00:00:00.000Z",
-      tracking_id_calendar: "primary",
+    calendarsDb.push({
+      id: "john-row",
+      trackingIdCalendar: "primary",
       name: "John (Char)",
       enabled: true,
       provider: "google",
       source: "john@char.com",
       color: "#4285f4",
-      connection_id: "conn-john",
+      connectionId: "conn-john",
+      createdAt: "2026-03-25T00:00:00.000Z",
     });
 
     pluginCalendar.listCalendars.mockImplementation(
@@ -89,28 +139,28 @@ describe("syncCalendars", () => {
       },
     );
 
-    await syncCalendars(store, [
+    await syncCalendars([
       {
         provider: "google",
         connection_ids: ["conn-john", "conn-gmail"],
       },
     ]);
 
-    const calendars = getCalendarsByConnection(store, "google");
+    const googleCalendars = calendarsDb.filter((c) => c.provider === "google");
 
-    expect(calendars).toHaveLength(2);
+    expect(googleCalendars).toHaveLength(2);
     expect(
-      calendars.find((calendar) => calendar.connection_id === "conn-john"),
+      googleCalendars.find((c) => c.connectionId === "conn-john"),
     ).toMatchObject({
-      tracking_id_calendar: "primary",
+      trackingIdCalendar: "primary",
       name: "John (Char)",
       enabled: true,
       source: "john@char.com",
     });
     expect(
-      calendars.find((calendar) => calendar.connection_id === "conn-gmail"),
+      googleCalendars.find((c) => c.connectionId === "conn-gmail"),
     ).toMatchObject({
-      tracking_id_calendar: "primary",
+      trackingIdCalendar: "primary",
       name: "Personal",
       enabled: false,
       source: "jeeheontransformers@gmail.com",
@@ -118,30 +168,30 @@ describe("syncCalendars", () => {
   });
 
   test("removes calendars for disconnected accounts even when ids overlap", async () => {
-    const store = createStore();
-
-    store.setRow("calendars", "john-row", {
-      user_id: "user-1",
-      created_at: "2026-03-25T00:00:00.000Z",
-      tracking_id_calendar: "primary",
-      name: "John (Char)",
-      enabled: true,
-      provider: "google",
-      source: "john@char.com",
-      color: "#4285f4",
-      connection_id: "conn-john",
-    });
-    store.setRow("calendars", "gmail-row", {
-      user_id: "user-1",
-      created_at: "2026-03-25T00:00:00.000Z",
-      tracking_id_calendar: "primary",
-      name: "Personal",
-      enabled: false,
-      provider: "google",
-      source: "jeeheontransformers@gmail.com",
-      color: "#a142f4",
-      connection_id: "conn-gmail",
-    });
+    calendarsDb.push(
+      {
+        id: "john-row",
+        trackingIdCalendar: "primary",
+        name: "John (Char)",
+        enabled: true,
+        provider: "google",
+        source: "john@char.com",
+        color: "#4285f4",
+        connectionId: "conn-john",
+        createdAt: "2026-03-25T00:00:00.000Z",
+      },
+      {
+        id: "gmail-row",
+        trackingIdCalendar: "primary",
+        name: "Personal",
+        enabled: false,
+        provider: "google",
+        source: "jeeheontransformers@gmail.com",
+        color: "#a142f4",
+        connectionId: "conn-gmail",
+        createdAt: "2026-03-25T00:00:00.000Z",
+      },
+    );
 
     pluginCalendar.listCalendars.mockResolvedValue({
       status: "success",
@@ -155,18 +205,18 @@ describe("syncCalendars", () => {
       ],
     });
 
-    await syncCalendars(store, [
+    await syncCalendars([
       {
         provider: "google",
         connection_ids: ["conn-gmail"],
       },
     ]);
 
-    const calendars = getCalendarsByConnection(store, "google");
+    const googleCalendars = calendarsDb.filter((c) => c.provider === "google");
 
-    expect(calendars).toHaveLength(1);
-    expect(calendars[0]).toMatchObject({
-      connection_id: "conn-gmail",
+    expect(googleCalendars).toHaveLength(1);
+    expect(googleCalendars[0]).toMatchObject({
+      connectionId: "conn-gmail",
       name: "Personal",
     });
   });

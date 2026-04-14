@@ -1,5 +1,3 @@
-import type { Queries } from "tinybase/with-schemas";
-
 import { commands as calendarCommands } from "@hypr/plugin-calendar";
 import type {
   CalendarListItem,
@@ -8,10 +6,18 @@ import type {
 } from "@hypr/plugin-calendar";
 
 import {
+  deleteCalendar,
+  deleteEventsByCalendarId,
+  getAllCalendars,
+  getEnabledCalendars,
+  insertCalendar,
+  updateCalendar,
+} from "~/calendar/queries";
+import {
   findCalendarByTrackingId,
   getCalendarTrackingKey,
 } from "~/calendar/utils";
-import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
+import type { Store } from "~/store/tinybase/store/main";
 
 // ---
 
@@ -28,43 +34,30 @@ export interface Ctx {
 
 // ---
 
-export function createCtx(
+export async function createCtx(
   store: Store,
-  queries: Queries<Schemas>,
+  userId: string,
   provider: CalendarProviderType,
   connectionId: string,
-): Ctx | null {
-  const resultTable = queries.getResultTable(QUERIES.enabledCalendars);
+): Promise<Ctx | null> {
+  const enabledCalendars = await getEnabledCalendars();
 
   const calendarIds = new Set<string>();
   const calendarTrackingIdToId = new Map<string, string>();
 
-  for (const calendarId of Object.keys(resultTable)) {
-    const calendar = store.getRow("calendars", calendarId);
+  for (const calendar of enabledCalendars) {
     if (
-      calendar?.provider !== provider ||
-      calendar?.connection_id !== connectionId
+      calendar.provider !== provider ||
+      calendar.connectionId !== connectionId
     ) {
       continue;
     }
 
-    calendarIds.add(calendarId);
+    calendarIds.add(calendar.id);
 
-    const trackingId = calendar?.tracking_id_calendar as string | undefined;
-    if (trackingId) {
-      calendarTrackingIdToId.set(trackingId, calendarId);
+    if (calendar.trackingIdCalendar) {
+      calendarTrackingIdToId.set(calendar.trackingIdCalendar, calendar.id);
     }
-  }
-
-  // We can't do this because we need a ctx to delete
-  // left-over events from old calendars in sync
-  // if (calendarTrackingIdToId.size === 0) {
-  //   return null;
-  // }
-
-  const userId = store.getValue("user_id");
-  if (!userId) {
-    return null;
   }
 
   const { from, to } = getRange();
@@ -73,7 +66,7 @@ export function createCtx(
     store,
     provider,
     connectionId,
-    userId: String(userId),
+    userId,
     from,
     to,
     calendarIds,
@@ -92,12 +85,8 @@ export async function getProviderConnections(): Promise<
 }
 
 export async function syncCalendars(
-  store: Store,
   providerConnections: ProviderConnectionIds[],
 ): Promise<void> {
-  const userId = store.getValue("user_id");
-  if (!userId) return;
-
   for (const { provider, connection_ids } of providerConnections) {
     const perConnection: {
       connectionId: string;
@@ -130,65 +119,64 @@ export async function syncCalendars(
       ),
     );
 
-    store.transaction(() => {
-      const disabledCalendarIds = new Set<string>();
+    const allCalendars = await getAllCalendars();
+    const disabledCalendarIds = new Set<string>();
 
-      for (const rowId of store.getRowIds("calendars")) {
-        const row = store.getRow("calendars", rowId);
-        if (
-          row.provider === provider &&
-          (!requestedConnectionIds.has(row.connection_id as string) ||
-            (successfulConnectionIds.has(row.connection_id as string) &&
-              !incomingKeys.has(
-                getCalendarTrackingKey({
-                  provider: row.provider as string | undefined,
-                  connectionId: row.connection_id as string | undefined,
-                  trackingId: row.tracking_id_calendar as string | undefined,
-                }),
-              )))
-        ) {
-          disabledCalendarIds.add(rowId);
-          store.delRow("calendars", rowId);
-        } else if (row.provider === provider && !row.enabled) {
-          disabledCalendarIds.add(rowId);
-        }
+    for (const cal of allCalendars) {
+      if (
+        cal.provider === provider &&
+        (!requestedConnectionIds.has(cal.connectionId) ||
+          (successfulConnectionIds.has(cal.connectionId) &&
+            !incomingKeys.has(
+              getCalendarTrackingKey({
+                provider: cal.provider,
+                connectionId: cal.connectionId,
+                trackingId: cal.trackingIdCalendar,
+              }),
+            )))
+      ) {
+        disabledCalendarIds.add(cal.id);
+        await deleteCalendar(cal.id);
+      } else if (cal.provider === provider && !cal.enabled) {
+        disabledCalendarIds.add(cal.id);
       }
+    }
 
-      if (disabledCalendarIds.size > 0) {
-        for (const eventId of store.getRowIds("events")) {
-          const event = store.getRow("events", eventId);
-          if (event.calendar_id && disabledCalendarIds.has(event.calendar_id)) {
-            store.delRow("events", eventId);
-          }
-        }
-      }
+    for (const calId of disabledCalendarIds) {
+      await deleteEventsByCalendarId(calId);
+    }
 
-      for (const { connectionId, calendars } of perConnection) {
-        for (const cal of calendars) {
-          const existingRowId = findCalendarByTrackingId(store, {
-            provider,
-            connectionId,
-            trackingId: cal.id,
-          });
-          const rowId = existingRowId ?? crypto.randomUUID();
-          const existing = existingRowId
-            ? store.getRow("calendars", existingRowId)
-            : null;
+    for (const { connectionId, calendars } of perConnection) {
+      for (const cal of calendars) {
+        const existingRowId = await findCalendarByTrackingId({
+          provider,
+          connectionId,
+          trackingId: cal.id,
+        });
 
-          store.setRow("calendars", rowId, {
-            user_id: String(userId),
-            created_at: existing?.created_at || new Date().toISOString(),
-            tracking_id_calendar: cal.id,
+        if (existingRowId) {
+          await updateCalendar(existingRowId, {
+            trackingIdCalendar: cal.id,
             name: cal.title,
-            enabled: existing?.enabled ?? false,
             provider,
-            source: cal.source ?? undefined,
+            source: cal.source ?? "",
             color: cal.color ?? "#888",
-            connection_id: connectionId,
+            connectionId,
+          });
+        } else {
+          await insertCalendar({
+            id: crypto.randomUUID(),
+            trackingIdCalendar: cal.id,
+            name: cal.title,
+            enabled: false,
+            provider,
+            source: cal.source ?? "",
+            color: cal.color ?? "#888",
+            connectionId,
           });
         }
       }
-    });
+    }
   }
 }
 

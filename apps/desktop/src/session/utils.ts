@@ -1,5 +1,6 @@
 import type { SessionEvent } from "@hypr/store";
 
+import { eventExists, getEventById } from "~/calendar/queries";
 import type * as main from "~/store/tinybase/store/main";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
@@ -41,14 +42,14 @@ export function findSessionByTrackingId(
   return found;
 }
 
-export function findSessionByEventId(
+export async function findSessionByEventId(
   store: Store,
   eventId: string,
-): string | null {
-  if (!store.hasRow("events", eventId)) return null;
-  const event = store.getRow("events", eventId);
+): Promise<string | null> {
+  if (!(await eventExists(eventId))) return null;
+  const event = await getEventById(eventId);
   if (!event) return null;
-  const trackingId = event.tracking_id_event;
+  const trackingId = event.trackingIdEvent;
   if (!trackingId) return null;
   return findSessionByTrackingId(store, trackingId);
 }

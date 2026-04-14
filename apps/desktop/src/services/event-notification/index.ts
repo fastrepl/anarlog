@@ -4,6 +4,7 @@ import {
   type Participant,
 } from "@hypr/plugin-notification";
 
+import { getAllEvents } from "~/calendar/queries";
 import { findSessionByEventId } from "~/session/utils";
 import type * as main from "~/store/tinybase/store/main";
 import type * as settings from "~/store/tinybase/store/settings";
@@ -42,7 +43,7 @@ function getParticipantsForSession(
   return participants;
 }
 
-export function checkEventNotifications(
+export async function checkEventNotifications(
   store: main.Store,
   settingsStore: settings.Store,
   notifiedEvents: NotifiedEventsMap,
@@ -85,42 +86,42 @@ export function checkEventNotifications(
     }
   } catch {}
 
-  store.forEachRow("events", (eventId, _forEachCell) => {
-    const event = store.getRow("events", eventId);
-    if (!event?.started_at) return;
+  const allEvents = await getAllEvents();
 
-    const startTime = new Date(String(event.started_at));
+  for (const event of allEvents) {
+    if (!event.startedAt) continue;
+
+    const startTime = new Date(event.startedAt);
     const timeUntilStart = startTime.getTime() - now;
-    const notificationKey = `event-${eventId}-${startTime.getTime()}`;
+    const notificationKey = `event-${event.id}-${startTime.getTime()}`;
 
-    const trackingId = event.tracking_id_event as string | undefined;
-    const recurrenceSeriesId = event.recurrence_series_id as string | undefined;
+    const trackingId = event.trackingIdEvent;
+    const recurrenceSeriesId = event.recurrenceSeriesId;
 
     if (trackingId) {
-      if (ignoredIds.has(trackingId)) return;
+      if (ignoredIds.has(trackingId)) continue;
       if (recurrenceSeriesId && ignoredSeriesIds.has(recurrenceSeriesId))
-        return;
+        continue;
     }
 
     if (timeUntilStart > 0 && timeUntilStart <= NOTIFY_WINDOW_MS) {
       if (notifiedEvents.has(notificationKey)) {
-        return;
+        continue;
       }
 
       notifiedEvents.set(notificationKey, now);
 
-      const title = String(event.title || "Upcoming Event");
+      const title = event.title || "Upcoming Event";
       const minutesUntil = Math.ceil(timeUntilStart / 60000);
 
       const eventDetails: EventDetails = {
         what: title,
         timezone: null,
-        location:
-          (event.meeting_link as string) || (event.location as string) || null,
+        location: event.meetingLink || event.location || null,
       };
 
       let participants: Participant[] | null = null;
-      const sessionId = findSessionByEventId(store, eventId);
+      const sessionId = await findSessionByEventId(store, event.id);
       if (sessionId) {
         const sessionParticipants = getParticipantsForSession(store, sessionId);
         if (sessionParticipants.length > 0) {
@@ -133,7 +134,7 @@ export function checkEventNotifications(
         title: title,
         message: `Starting in ${minutesUntil} minute${minutesUntil !== 1 ? "s" : ""}`,
         timeout: null,
-        source: { type: "calendar_event", event_id: eventId },
+        source: { type: "calendar_event", event_id: event.id },
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: participants,
         event_details: eventDetails,
@@ -145,5 +146,5 @@ export function checkEventNotifications(
     } else if (timeUntilStart <= 0) {
       notifiedEvents.delete(notificationKey);
     }
-  });
+  }
 }

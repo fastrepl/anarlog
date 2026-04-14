@@ -1,58 +1,33 @@
 import type { Ctx } from "../ctx";
 import type { ExistingEvent } from "./types";
 
-function isEventInRange(
-  startedAt: string,
-  endedAt: string | undefined,
-  from: Date,
-  to: Date,
-): boolean {
-  const eventStart = new Date(startedAt);
-  const eventEnd = endedAt ? new Date(endedAt) : eventStart;
+import { getEventsByCalendarIds } from "~/calendar/queries";
 
-  return eventStart <= to && eventEnd >= from;
-}
+export async function fetchExistingEvents(ctx: Ctx): Promise<ExistingEvent[]> {
+  const calendarIds = Array.from(ctx.calendarIds);
+  if (calendarIds.length === 0) return [];
 
-export function fetchExistingEvents(ctx: Ctx): ExistingEvent[] {
-  const events: ExistingEvent[] = [];
+  const records = await getEventsByCalendarIds(
+    calendarIds,
+    ctx.from.toISOString(),
+    ctx.to.toISOString(),
+  );
 
-  ctx.store.forEachRow("events", (rowId, _forEachCell) => {
-    const event = ctx.store.getRow("events", rowId);
-    if (!event) return;
-
-    const calendarId = event.calendar_id;
-    if (!calendarId) {
-      return;
-    }
-
-    if (!ctx.calendarIds.has(calendarId)) {
-      return;
-    }
-
-    const startedAt = event.started_at;
-    if (!startedAt) return;
-
-    const endedAt = event.ended_at;
-    if (isEventInRange(startedAt, endedAt, ctx.from, ctx.to)) {
-      events.push({
-        id: rowId,
-        tracking_id_event: event.tracking_id_event,
-        user_id: event.user_id,
-        created_at: event.created_at,
-        calendar_id: calendarId,
-        title: event.title,
-        started_at: startedAt,
-        ended_at: endedAt,
-        location: event.location,
-        meeting_link: event.meeting_link,
-        description: event.description,
-        note: event.note,
-        recurrence_series_id: event.recurrence_series_id,
-        has_recurrence_rules: event.has_recurrence_rules,
-        provider: event.provider,
-      });
-    }
-  });
-
-  return events;
+  return records.map((r) => ({
+    id: r.id,
+    tracking_id_event: r.trackingIdEvent,
+    calendar_id: r.calendarId,
+    title: r.title,
+    started_at: r.startedAt,
+    ended_at: r.endedAt,
+    location: r.location,
+    meeting_link: r.meetingLink,
+    description: r.description,
+    note: r.note,
+    recurrence_series_id: r.recurrenceSeriesId,
+    has_recurrence_rules: r.hasRecurrenceRules,
+    provider: r.provider,
+    user_id: ctx.userId,
+    created_at: r.createdAt,
+  }));
 }

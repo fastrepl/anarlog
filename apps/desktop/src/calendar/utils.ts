@@ -1,6 +1,4 @@
-import type { Store } from "tinybase/with-schemas";
-
-import type { Schemas } from "~/store/tinybase/store/main";
+import { getAllCalendars } from "~/calendar/queries";
 
 export function getCalendarTrackingKey({
   provider,
@@ -14,31 +12,26 @@ export function getCalendarTrackingKey({
   return [provider ?? "", connectionId ?? "", trackingId ?? ""].join(":");
 }
 
-export function findCalendarByTrackingId(
-  store: Store<Schemas>,
-  {
-    provider,
-    connectionId,
-    trackingId,
-  }: {
-    provider: string;
-    connectionId: string;
-    trackingId: string;
-  },
-): string | null {
-  let foundRowId: string | null = null;
+export async function findCalendarByTrackingId({
+  provider,
+  connectionId,
+  trackingId,
+}: {
+  provider: string;
+  connectionId: string;
+  trackingId: string;
+}): Promise<string | null> {
+  const calendars = await getAllCalendars();
 
-  store.forEachRow("calendars", (rowId, _forEachCell) => {
-    if (foundRowId) return;
-    const row = store.getRow("calendars", rowId);
+  for (const cal of calendars) {
     if (
-      row?.provider === provider &&
-      row?.connection_id === connectionId &&
-      row?.tracking_id_calendar === trackingId
+      cal.provider === provider &&
+      cal.connectionId === connectionId &&
+      cal.trackingIdCalendar === trackingId
     ) {
-      foundRowId = rowId;
+      return cal.id;
     }
-  });
+  }
 
-  return foundRowId;
+  return null;
 }

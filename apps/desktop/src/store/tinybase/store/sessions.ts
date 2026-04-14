@@ -1,6 +1,5 @@
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 import type {
-  Event,
   EventParticipant,
   HumanStorage,
   MappingSessionParticipantStorage,
@@ -10,6 +9,7 @@ import { json2md } from "@hypr/tiptap/shared";
 
 import * as main from "./main";
 
+import { eventExists, getEventById } from "~/calendar/queries";
 import { findSessionByEventId } from "~/session/utils";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { id } from "~/shared/utils";
@@ -31,38 +31,40 @@ export function createSession(store: Store, title?: string): string {
   return sessionId;
 }
 
-export function getOrCreateSessionForEventId(
+export async function getOrCreateSessionForEventId(
   store: Store,
   eventId: string,
   title?: string,
-): string {
-  if (!store.hasRow("events", eventId)) {
+): Promise<string> {
+  if (!(await eventExists(eventId))) {
     console.trace(
       `[getOrCreateSessionForEventId] event that corresponds to the provided eventId ${eventId} does not exist`,
     );
     return createSession(store, title);
   }
 
-  const existingSessionId = findSessionByEventId(store, eventId);
+  const existingSessionId = await findSessionByEventId(store, eventId);
   if (existingSessionId) {
     return existingSessionId;
   }
 
-  const event = store.getRow("events", eventId) as Event;
+  const event = await getEventById(eventId);
+  if (!event) {
+    return createSession(store, title);
+  }
 
   let sessionEvent: SessionEvent = {
-    tracking_id: event.tracking_id_event,
-    calendar_id: event.calendar_id,
+    tracking_id: event.trackingIdEvent,
+    calendar_id: event.calendarId,
     title: event.title,
-    started_at: event.started_at,
-    ended_at: event.ended_at,
-    // TODO: fix this
-    is_all_day: !!event.is_all_day,
-    has_recurrence_rules: !!event.has_recurrence_rules,
+    started_at: event.startedAt,
+    ended_at: event.endedAt,
+    is_all_day: event.isAllDay,
+    has_recurrence_rules: event.hasRecurrenceRules,
     location: event.location,
-    meeting_link: event.meeting_link,
+    meeting_link: event.meetingLink,
     description: event.description,
-    recurrence_series_id: event.recurrence_series_id,
+    recurrence_series_id: event.recurrenceSeriesId,
   };
 
   const sessionId = id();
@@ -160,13 +162,17 @@ export function isSessionEmpty(store: Store, sessionId: string): boolean {
 function createParticipantsFromEvent(
   store: Store,
   sessionId: string,
-  event: Event,
+  event: { participantsJson: unknown },
 ): void {
-  if (!event.participants_json) return;
+  if (!event.participantsJson) return;
 
   let participants: EventParticipant[];
   try {
-    participants = JSON.parse(event.participants_json);
+    const raw =
+      typeof event.participantsJson === "string"
+        ? event.participantsJson
+        : JSON.stringify(event.participantsJson);
+    participants = JSON.parse(raw);
   } catch {
     return;
   }

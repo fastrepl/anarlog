@@ -80,14 +80,16 @@ function useNotificationEvents() {
     if (pendingAutoStart.current && store) {
       const { eventId } = pendingAutoStart.current;
       pendingAutoStart.current = null;
-      const sessionId = eventId
-        ? getOrCreateSessionForEventId(store, eventId)
-        : createSession(store);
-      openNew({
-        type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: true },
-      });
+      void (async () => {
+        const sessionId = eventId
+          ? await getOrCreateSessionForEventId(store, eventId)
+          : createSession(store);
+        openNew({
+          type: "sessions",
+          id: sessionId,
+          state: { view: null, autoStart: true },
+        });
+      })();
     }
   }, [store, openNew]);
 
@@ -114,14 +116,16 @@ function useNotificationEvents() {
             pendingAutoStart.current = { eventId };
             return;
           }
-          const sessionId = eventId
-            ? getOrCreateSessionForEventId(currentStore, eventId)
-            : createSession(currentStore);
-          openNewRef.current({
-            type: "sessions",
-            id: sessionId,
-            state: { view: null, autoStart: true },
-          });
+          void (async () => {
+            const sessionId = eventId
+              ? await getOrCreateSessionForEventId(currentStore, eventId)
+              : createSession(currentStore);
+            openNewRef.current({
+              type: "sessions",
+              id: sessionId,
+              state: { view: null, autoStart: true },
+            });
+          })();
         } else if (payload.type === "notification_option_selected") {
           const currentStore = storeRef.current;
           if (!currentStore) return;
@@ -132,19 +136,21 @@ function useNotificationEvents() {
               ? (payload.source.event_ids ?? [])
               : [];
 
-          const sessionId =
-            selectedIndex < eventIds.length
-              ? getOrCreateSessionForEventId(
-                  currentStore,
-                  eventIds[selectedIndex],
-                )
-              : createSession(currentStore);
+          void (async () => {
+            const sessionId =
+              selectedIndex < eventIds.length
+                ? await getOrCreateSessionForEventId(
+                    currentStore,
+                    eventIds[selectedIndex],
+                  )
+                : createSession(currentStore);
 
-          openNewRef.current({
-            type: "sessions",
-            id: sessionId,
-            state: { view: null, autoStart: true },
-          });
+            openNewRef.current({
+              type: "sessions",
+              id: sessionId,
+              state: { view: null, autoStart: true },
+            });
+          })();
         } else if (payload.type === "notification_footer_action") {
           if (payload.source?.type !== "mic_detected") {
             return;

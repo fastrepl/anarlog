@@ -20,10 +20,10 @@ import { SyncProvider, useSync } from "~/calendar/components/context";
 import { useOAuthCalendarSelection } from "~/calendar/components/oauth/calendar-selection";
 import { ReconnectRequiredIndicator } from "~/calendar/components/oauth/status";
 import { PROVIDERS } from "~/calendar/components/shared";
+import { useEnabledCalendars } from "~/calendar/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { buildWebAppUrl } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 
 const GOOGLE_PROVIDER = PROVIDERS.find((provider) => provider.id === "google");
 const OUTLOOK_PROVIDER = PROVIDERS.find(
@@ -548,11 +548,8 @@ function CalendarSectionContent({
   const calendar = usePermission("calendar");
   const isAuthorized = calendar.status === "authorized";
   const [showTroubleshooting, setShowTroubleshooting] = useState(false);
-  const enabledCalendars = main.UI.useResultTable(
-    main.QUERIES.enabledCalendars,
-    main.STORE_ID,
-  );
-  const hasConnectedCalendar = Object.keys(enabledCalendars ?? {}).length > 0;
+  const enabledCalendars = useEnabledCalendars();
+  const hasConnectedCalendar = enabledCalendars.length > 0;
 
   const hasAnyConnected = hasConnectedCalendar || isAuthorized;
 

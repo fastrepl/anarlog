@@ -5,11 +5,14 @@ import { ListenerProvider } from "./contexts";
 
 import { createListenerStore } from "~/store/zustand/listener";
 
-const { listenMock, showNotificationMock, useStoreMock } = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
   listenMock: vi.fn(),
   showNotificationMock: vi.fn(),
   useStoreMock: vi.fn(() => null),
+  getAllEventsMock: vi.fn().mockResolvedValue([]),
 }));
+const { listenMock, showNotificationMock, useStoreMock, getAllEventsMock } =
+  mocks;
 
 vi.mock("@hypr/plugin-detect", () => ({
   events: {
@@ -30,6 +33,10 @@ vi.mock("~/store/tinybase/store/main", () => ({
   UI: {
     useStore: useStoreMock,
   },
+}));
+
+vi.mock("~/calendar/queries", () => ({
+  getAllEvents: getAllEventsMock,
 }));
 
 describe("ListenerProvider detect events", () => {
@@ -93,6 +100,8 @@ describe("ListenerProvider detect events", () => {
         duration_secs: 15,
       },
     });
+
+    await vi.waitFor(() => expect(showNotificationMock).toHaveBeenCalled());
 
     expect(showNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({

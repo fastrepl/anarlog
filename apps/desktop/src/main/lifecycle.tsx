@@ -2,6 +2,7 @@ import { useRouteContext } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef } from "react";
 
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
+import { getAllEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
 import { useRegisterTools } from "~/contexts/tool";
@@ -142,6 +143,8 @@ function ToolRegistration() {
         sessionByTrackingId.set(event.tracking_id, sessionId);
       });
 
+      const allEvents = await getAllEvents();
+
       const rows: Array<{
         id: string;
         title: string;
@@ -155,45 +158,23 @@ function ToolRegistration() {
         startedAtMs: number;
       }> = [];
 
-      store.forEachRow("events", (eventId, _forEachCell) => {
-        const row = store.getRow("events", eventId);
-        if (!row) {
-          return;
-        }
-
-        const title = typeof row.title === "string" ? row.title : "";
-        const startedAt =
-          typeof row.started_at === "string" && row.started_at
-            ? row.started_at
-            : null;
-        const endedAt =
-          typeof row.ended_at === "string" && row.ended_at
-            ? row.ended_at
-            : null;
-        const location =
-          typeof row.location === "string" && row.location
-            ? row.location
-            : null;
-        const meetingLink =
-          typeof row.meeting_link === "string" && row.meeting_link
-            ? row.meeting_link
-            : null;
-        const description =
-          typeof row.description === "string" && row.description
-            ? row.description
-            : null;
-        const trackingId =
-          typeof row.tracking_id_event === "string"
-            ? row.tracking_id_event
-            : "";
+      for (const evt of allEvents) {
+        const title = evt.title || "";
+        const startedAt = evt.startedAt || null;
+        const endedAt = evt.endedAt || null;
+        const location = evt.location || null;
+        const meetingLink = evt.meetingLink || null;
+        const description = evt.description || null;
+        const trackingId = evt.trackingIdEvent || "";
 
         let participantCount = 0;
-        if (
-          typeof row.participants_json === "string" &&
-          row.participants_json
-        ) {
+        if (evt.participantsJson) {
           try {
-            const parsed = JSON.parse(row.participants_json);
+            const raw =
+              typeof evt.participantsJson === "string"
+                ? evt.participantsJson
+                : JSON.stringify(evt.participantsJson);
+            const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
               participantCount = parsed.length;
             }
@@ -206,11 +187,11 @@ function ToolRegistration() {
           .toLowerCase();
 
         if (q && !searchable.includes(q)) {
-          return;
+          continue;
         }
 
         rows.push({
-          id: eventId,
+          id: evt.id,
           title: title || "Untitled event",
           startedAt,
           endedAt,
@@ -221,7 +202,7 @@ function ToolRegistration() {
           linkedSessionId: sessionByTrackingId.get(trackingId) ?? null,
           startedAtMs: startedAt ? Date.parse(startedAt) || 0 : 0,
         });
-      });
+      }
 
       rows.sort((a, b) => b.startedAtMs - a.startedAtMs);
 

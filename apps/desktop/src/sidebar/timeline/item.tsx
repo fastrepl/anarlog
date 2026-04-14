@@ -18,6 +18,7 @@ import {
   TimelinePrecision,
 } from "./utils";
 
+import { useCalendarById } from "~/calendar/queries";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
@@ -196,9 +197,12 @@ const EventItem = memo(
           return;
         }
 
-        const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-        const tab: TabInput = { id: sessionId, type: "sessions" };
-        openInNewTab ? openNew(tab) : openCurrent(tab);
+        void getOrCreateSessionForEventId(store, eventId, title).then(
+          (sessionId) => {
+            const tab: TabInput = { id: sessionId, type: "sessions" };
+            openInNewTab ? openNew(tab) : openCurrent(tab);
+          },
+        );
       },
       [eventId, store, title, openCurrent, openNew],
     );
@@ -498,10 +502,10 @@ function formatDisplayTime(
 }
 
 function CalendarIndicator({ calendarId }: { calendarId: string }) {
-  const calendar = main.UI.useRow("calendars", calendarId, main.STORE_ID);
+  const calendar = useCalendarById(calendarId);
 
-  const name = calendar?.name ? String(calendar.name) : undefined;
-  const color = calendar?.color ? String(calendar.color) : "#888";
+  const name = calendar?.name ?? undefined;
+  const color = calendar?.color ?? "#888";
 
   return (
     <Tooltip delayDuration={0}>

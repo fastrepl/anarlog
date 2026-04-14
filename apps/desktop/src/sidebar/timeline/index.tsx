@@ -32,6 +32,7 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
+import { useTimelineEvents } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
@@ -549,10 +550,7 @@ function useTimelineTables(): {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
 } {
-  const timelineEventsTable = main.UI.useResultTable(
-    main.QUERIES.timelineEvents,
-    main.STORE_ID,
-  );
+  const timelineEventsTable = useTimelineEvents();
   const timelineSessionsTable = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
     main.STORE_ID,

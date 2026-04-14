@@ -22,21 +22,25 @@ export const CALENDAR_SYNC_TASK_ID = "calendarSync";
 
 export async function syncCalendarEvents(
   store: Store,
-  queries: Queries<Schemas>,
+  _queries?: Queries<Schemas>,
 ): Promise<void> {
   await Promise.all([
     new Promise((resolve) => setTimeout(resolve, 250)),
-    run(store, queries),
+    run(store),
   ]);
 }
 
-async function run(store: Store, queries: Queries<Schemas>) {
+async function run(store: Store) {
   const providerConnections = await getProviderConnections();
-  await syncCalendars(store, providerConnections);
+  await syncCalendars(providerConnections);
+
+  const userId = store.getValue("user_id");
+  if (!userId) return;
+
   for (const { provider, connection_ids } of providerConnections) {
     for (const connectionId of connection_ids) {
       try {
-        await runForConnection(store, queries, provider, connectionId);
+        await runForConnection(store, String(userId), provider, connectionId);
       } catch (error) {
         console.error(
           `[calendar-sync] Error syncing ${provider} (${connectionId}): ${error}`,
@@ -48,11 +52,11 @@ async function run(store: Store, queries: Queries<Schemas>) {
 
 async function runForConnection(
   store: Store,
-  queries: Queries<Schemas>,
+  userId: string,
   provider: CalendarProviderType,
   connectionId: string,
 ) {
-  const ctx = createCtx(store, queries, provider, connectionId);
+  const ctx = await createCtx(store, userId, provider, connectionId);
   if (!ctx) {
     return;
   }
@@ -74,14 +78,14 @@ async function runForConnection(
     throw error;
   }
 
-  const existing = fetchExistingEvents(ctx);
+  const existing = await fetchExistingEvents(ctx);
 
   const eventsOut = syncEvents(ctx, {
     incoming,
     existing,
     incomingParticipants,
   });
-  executeForEventsSync(ctx, eventsOut);
+  await executeForEventsSync(ctx, eventsOut);
   syncSessionEmbeddedEvents(ctx, incoming);
 
   const participantsOut = syncSessionParticipants(ctx, {

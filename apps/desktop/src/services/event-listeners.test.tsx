@@ -22,7 +22,9 @@ const {
   useSettingsStoreMock: vi.fn(() => null),
   openNewMock: vi.fn(),
   createSessionMock: vi.fn(() => "session-new"),
-  getOrCreateSessionForEventIdMock: vi.fn(() => "session-event"),
+  getOrCreateSessionForEventIdMock: vi.fn(() =>
+    Promise.resolve("session-event"),
+  ),
 }));
 
 vi.mock("@hypr/plugin-notification", () => ({
@@ -88,7 +90,9 @@ describe("EventListeners notification events", () => {
     notificationListenMock.mockResolvedValue(() => {});
     updaterListenMock.mockResolvedValue(() => {});
     createSessionMock.mockReturnValue("session-new");
-    getOrCreateSessionForEventIdMock.mockReturnValue("session-event");
+    getOrCreateSessionForEventIdMock.mockReturnValue(
+      Promise.resolve("session-event"),
+    );
     useMainStoreMock.mockReturnValue(null);
     useSettingsStoreMock.mockReturnValue(null);
   });

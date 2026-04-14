@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
+import { useTimelineEvents } from "~/calendar/queries";
 import { useConfigValue } from "~/shared/config";
 import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
@@ -70,10 +71,7 @@ function compareNullableDates(a: string | undefined, b: string | undefined) {
 export function useCalendarData(): CalendarData {
   const tz = useTimezone();
 
-  const eventsTable = main.UI.useResultTable(
-    main.QUERIES.timelineEvents,
-    main.STORE_ID,
-  );
+  const eventsTable = useTimelineEvents();
   const sessionsTable = main.UI.useResultTable(
     main.QUERIES.timelineSessions,
     main.STORE_ID,

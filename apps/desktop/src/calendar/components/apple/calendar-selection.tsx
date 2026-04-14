@@ -7,8 +7,8 @@ import {
   type CalendarItem,
   CalendarSelection,
 } from "~/calendar/components/calendar-selection";
+import { useCalendars, useToggleCalendarEnabled } from "~/calendar/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import * as main from "~/store/tinybase/store/main";
 
 const SUBSCRIBED_SOURCE_NAME = "Subscribed Calendars";
 
@@ -43,20 +43,20 @@ export function useAppleCalendarSelection() {
   const { cancelDebouncedSync, status, scheduleDebouncedSync, scheduleSync } =
     useSync();
 
-  const store = main.UI.useStore(main.STORE_ID);
-  const calendars = main.UI.useTable("calendars", main.STORE_ID);
+  const allCalendars = useCalendars();
+  const toggleEnabled = useToggleCalendarEnabled();
 
   const groups = useMemo((): CalendarGroup[] => {
-    const appleCalendars = Object.entries(calendars).filter(
-      ([_, cal]) => cal.provider === "apple",
+    const appleCalendars = allCalendars.filter(
+      (cal) => cal.provider === "apple",
     );
 
     const grouped = new Map<string, CalendarItem[]>();
-    for (const [id, cal] of appleCalendars) {
+    for (const cal of appleCalendars) {
       const source = cal.source || "Apple Calendar";
       if (!grouped.has(source)) grouped.set(source, []);
       grouped.get(source)!.push({
-        id,
+        id: cal.id,
         title: cal.name || "Untitled",
         color: cal.color ?? "#888",
         enabled: cal.enabled ?? false,
@@ -73,14 +73,14 @@ export function useAppleCalendarSelection() {
         if (b.sourceName === SUBSCRIBED_SOURCE_NAME) return -1;
         return 0;
       });
-  }, [calendars]);
+  }, [allCalendars]);
 
   const handleToggle = useCallback(
     (calendar: CalendarItem, enabled: boolean) => {
-      store?.setPartialRow("calendars", calendar.id, { enabled });
+      void toggleEnabled(calendar.id, enabled);
       scheduleDebouncedSync();
     },
-    [store, scheduleDebouncedSync],
+    [toggleEnabled, scheduleDebouncedSync],
   );
 
   const handleRefresh = useCallback(() => {

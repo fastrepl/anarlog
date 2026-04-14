@@ -57,7 +57,7 @@ export function TaskManager() {
 
   useSetTask(EVENT_NOTIFICATION_TASK_ID, async () => {
     if (!store || !settingsStore) return;
-    checkEventNotifications(
+    await checkEventNotifications(
       store as main.Store,
       settingsStore as settings.Store,
       notifiedEventsRef.current,
