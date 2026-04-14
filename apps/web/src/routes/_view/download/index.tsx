@@ -6,7 +6,7 @@ import { cn } from "@hypr/utils";
 
 import { Image } from "@/components/image";
 import { useAnalytics } from "@/hooks/use-posthog";
-import { rememberDesktopAttributionDistinctId } from "@/lib/desktop-attribution";
+import { rememberDesktopAttribution } from "@/lib/desktop-attribution";
 
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
@@ -111,12 +111,15 @@ function DownloadCard({
 
   const handleClick = () => {
     const webDistinctId = getDistinctId();
-    rememberDesktopAttributionDistinctId(webDistinctId);
+    const attribution = rememberDesktopAttribution();
 
     track("download_clicked", {
       platform: isNightly ? `${platform}-nightly` : platform,
       spec,
       source: "download_page",
+      ...(attribution
+        ? { download_intent_id: attribution.downloadIntentId }
+        : {}),
       ...(webDistinctId ? { web_distinct_id: webDistinctId } : {}),
     });
   };

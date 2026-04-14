@@ -4,7 +4,7 @@ import { cn } from "@hypr/utils";
 
 import { usePlatform } from "@/hooks/use-platform";
 import { useAnalytics } from "@/hooks/use-posthog";
-import { rememberDesktopAttributionDistinctId } from "@/lib/desktop-attribution";
+import { rememberDesktopAttribution } from "@/lib/desktop-attribution";
 
 export function DownloadButton({
   variant = "default",
@@ -47,11 +47,14 @@ export function DownloadButton({
 
   const handleClick = () => {
     const webDistinctId = getDistinctId();
-    rememberDesktopAttributionDistinctId(webDistinctId);
+    const attribution = rememberDesktopAttribution();
 
     track("download_clicked", {
       platform: platform,
       timestamp: new Date().toISOString(),
+      ...(attribution
+        ? { download_intent_id: attribution.downloadIntentId }
+        : {}),
       ...(webDistinctId ? { web_distinct_id: webDistinctId } : {}),
     });
   };

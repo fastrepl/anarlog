@@ -54,7 +54,7 @@ type AuthTokenHandlers = {
   setSessionFromTokens: (
     accessToken: string,
     refreshToken: string,
-    opts?: { webDistinctId?: string },
+    opts?: { downloadIntentId?: string },
   ) => Promise<void>;
 };
 
@@ -119,7 +119,7 @@ async function initSession(
 
 let trackedIdentifySignature: string | null = null;
 let trackedSignedInUserId: string | null = null;
-let pendingWebDistinctId: string | null = null;
+let pendingDownloadIntentId: string | null = null;
 
 async function getBillingAnalytics(accessToken: string) {
   const result = await authPluginCommands.decodeClaims(accessToken);
@@ -154,11 +154,6 @@ async function trackAuthEvent(
       event === "TOKEN_REFRESHED") &&
     session
   ) {
-    if (pendingWebDistinctId) {
-      void analyticsCommands.alias(pendingWebDistinctId);
-      pendingWebDistinctId = null;
-    }
-
     const appVersion = await getVersion();
     const billing = await getBillingAnalytics(session.access_token);
     const identifySignature = JSON.stringify({
@@ -186,6 +181,14 @@ async function trackAuthEvent(
       });
     }
 
+    if (pendingDownloadIntentId) {
+      void analyticsCommands.event({
+        event: "desktop_download_authenticated",
+        download_intent_id: pendingDownloadIntentId,
+      });
+      pendingDownloadIntentId = null;
+    }
+
     if (event === "SIGNED_IN" && trackedSignedInUserId !== session.user.id) {
       trackedSignedInUserId = session.user.id;
       void analyticsCommands.event({ event: "user_signed_in" });
@@ -195,7 +198,7 @@ async function trackAuthEvent(
   if (event === "SIGNED_OUT") {
     trackedIdentifySignature = null;
     trackedSignedInUserId = null;
-    pendingWebDistinctId = null;
+    pendingDownloadIntentId = null;
   }
 }
 
@@ -217,14 +220,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (
       accessToken: string,
       refreshToken: string,
-      opts?: { webDistinctId?: string },
+      opts?: { downloadIntentId?: string },
     ) => {
       if (!supabase) {
         console.error("Supabase client not found");
         return;
       }
 
-      pendingWebDistinctId = opts?.webDistinctId?.trim() || null;
+      pendingDownloadIntentId = opts?.downloadIntentId?.trim() || null;
 
       const res = await supabase.auth.setSession({
         access_token: accessToken,
@@ -232,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (res.error) {
-        pendingWebDistinctId = null;
+        pendingDownloadIntentId = null;
         console.error(res.error);
       } else {
         setSession(res.data.session);
@@ -246,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const parsed = new URL(url);
       const accessToken = parsed.searchParams.get("access_token");
       const refreshToken = parsed.searchParams.get("refresh_token");
-      const webDistinctId = parsed.searchParams.get("web_distinct_id");
+      const downloadIntentId = parsed.searchParams.get("download_intent_id");
 
       if (!accessToken || !refreshToken) {
         console.error("invalid_callback_url");
@@ -254,7 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await setSessionFromTokens(accessToken, refreshToken, {
-        webDistinctId: webDistinctId ?? undefined,
+        downloadIntentId: downloadIntentId ?? undefined,
       });
     },
     [setSessionFromTokens],
@@ -356,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ) {
           trackedIdentifySignature = null;
           trackedSignedInUserId = null;
-          pendingWebDistinctId = null;
+          pendingDownloadIntentId = null;
           await clearAuthStorage();
           setSession(null);
           return;
@@ -367,7 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       trackedIdentifySignature = null;
       trackedSignedInUserId = null;
-      pendingWebDistinctId = null;
+      pendingDownloadIntentId = null;
       await clearAuthStorage();
       setSession(null);
     } catch (e) {
@@ -377,7 +380,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ) {
         trackedIdentifySignature = null;
         trackedSignedInUserId = null;
-        pendingWebDistinctId = null;
+        pendingDownloadIntentId = null;
         await clearAuthStorage();
         setSession(null);
       }

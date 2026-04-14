@@ -124,21 +124,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         Ok(())
     }
-
-    pub async fn alias(&self, previous_distinct_id: impl Into<String>) -> Result<(), crate::Error> {
-        if !self.is_disabled()? {
-            let machine_id = hypr_host::fingerprint();
-            let previous_distinct_id = previous_distinct_id.into();
-
-            let client = self.manager.state::<crate::ManagedState>();
-            client
-                .alias(machine_id, previous_distinct_id)
-                .await
-                .map_err(crate::Error::HyprAnalytics)?;
-        }
-
-        Ok(())
-    }
 }
 
 pub trait AnalyticsPluginExt<R: tauri::Runtime> {

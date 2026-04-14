@@ -27,7 +27,7 @@ Standard consented website analytics tracking, plus PostHog pageview and session
 
 ## 2. Converting visits to app installs
 
-- **`download_clicked`** — `platform`, `spec`, `source`
+- **`download_clicked`** — `platform`, `spec`, `source`, optional `download_intent_id`
 - **`show_main_window`** — fired whenever the app is opened. First occurrence marks install.
 
 Optional:
@@ -38,6 +38,7 @@ Optional:
 
 - `onboarding_step_viewed` — freshly downloaded users see this on first open
 - `user_signed_in` + `identify()` — account created
+- `desktop_download_authenticated` — connects a tracked download click to desktop auth with `download_intent_id`
 - **`onboarding_completed`** — finished onboarding flow
 
 ## 4. Activation (first summary)

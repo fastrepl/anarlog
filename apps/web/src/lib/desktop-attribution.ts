@@ -1,7 +1,12 @@
-const STORAGE_KEY = "char_desktop_attribution_v1";
-const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const STORAGE_KEY = "char_desktop_attribution_v2";
+const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-function readStoredDistinctId() {
+type DesktopAttribution = {
+  downloadIntentId: string;
+  savedAt: number;
+};
+
+function readStoredAttribution() {
   if (typeof window === "undefined") {
     return null;
   }
@@ -12,13 +17,10 @@ function readStoredDistinctId() {
   }
 
   try {
-    const parsedValue = JSON.parse(rawValue) as Partial<{
-      distinctId: string;
-      savedAt: number;
-    }>;
+    const parsedValue = JSON.parse(rawValue) as Partial<DesktopAttribution>;
 
     if (
-      typeof parsedValue.distinctId !== "string" ||
+      typeof parsedValue.downloadIntentId !== "string" ||
       typeof parsedValue.savedAt !== "number"
     ) {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -30,43 +32,48 @@ function readStoredDistinctId() {
       return null;
     }
 
-    return parsedValue.distinctId;
+    return {
+      downloadIntentId: parsedValue.downloadIntentId,
+      savedAt: parsedValue.savedAt,
+    };
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
     return null;
   }
 }
 
-export function rememberDesktopAttributionDistinctId(
-  distinctId: string | null | undefined,
-) {
-  if (typeof window === "undefined" || !distinctId) {
+function createDownloadIntentId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `download-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function rememberDesktopAttribution() {
+  if (typeof window === "undefined") {
     return;
   }
 
+  const attribution = {
+    downloadIntentId: createDownloadIntentId(),
+    savedAt: Date.now(),
+  } satisfies DesktopAttribution;
+
   window.localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({
-      distinctId,
-      savedAt: Date.now(),
-    }),
+    JSON.stringify(attribution),
   );
+
+  return attribution;
 }
 
-export function getDesktopAttributionDistinctId(
-  currentDistinctId: string | null | undefined,
-) {
-  return readStoredDistinctId() ?? currentDistinctId ?? null;
-}
+export function consumeDesktopAttribution() {
+  const attribution = readStoredAttribution();
 
-export function getDesktopAttributionAliasCandidates(
-  currentDistinctId: string | null | undefined,
-) {
-  return [
-    ...new Set(
-      [readStoredDistinctId(), currentDistinctId].filter(
-        (distinctId): distinctId is string => Boolean(distinctId),
-      ),
-    ),
-  ];
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
+
+  return attribution;
 }
