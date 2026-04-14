@@ -20,6 +20,7 @@ export type LoadingPhase =
 export type LiveIntervalId = ReturnType<typeof setInterval>;
 
 export type GeneralState = {
+  micStoppedPending: boolean;
   live: {
     eventUnlistenersBySession: Record<string, (() => void)[]>;
     loading: boolean;
@@ -59,6 +60,7 @@ const initialLiveState: LiveState = {
 };
 
 export const initialGeneralState: GeneralState = {
+  micStoppedPending: false,
   live: initialLiveState,
 };
 

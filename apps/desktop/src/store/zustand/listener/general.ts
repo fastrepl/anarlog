@@ -42,6 +42,7 @@ export type GeneralActions = {
     options?: { handlePersist?: BatchPersistCallback },
   ) => Promise<void>;
   stopTranscription: (sessionId: string) => Promise<void>;
+  setMicStoppedPending: (value: boolean) => void;
   getSessionMode: (sessionId: string) => SessionMode;
 };
 
@@ -149,6 +150,13 @@ export const createGeneralSlice = <
     }
 
     await listenerCommands.stopTranscription(sessionId).catch(console.error);
+  },
+  setMicStoppedPending: (value) => {
+    set((state) =>
+      mutate(state, (draft) => {
+        draft.micStoppedPending = value;
+      }),
+    );
   },
   getSessionMode: (sessionId) => {
     if (!sessionId) {

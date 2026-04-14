@@ -4,6 +4,7 @@ import { useShallow } from "zustand/shallow";
 
 import { events as detectEvents } from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
+import { commands as windowsCommands } from "@hypr/plugin-windows";
 
 import * as main from "~/store/tinybase/store/main";
 import {
@@ -87,6 +88,7 @@ function getNearbyEvents(
 const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
+  const setMicStoppedPending = useStore(store, (state) => state.setMicStoppedPending);
   const tinybaseStore = main.UI.useStore(main.STORE_ID);
 
   const tinybaseStoreRef = useRef(tinybaseStore);
@@ -144,7 +146,8 @@ const useHandleDetectEvents = (store: ListenerStore) => {
             icon: null,
           });
         } else if (payload.type === "micStopped") {
-          stop();
+          setMicStoppedPending(true);
+          windowsCommands.windowShow({ type: "main" });
         } else if (payload.type === "sleepStateChanged") {
           if (payload.value) {
             stop();
@@ -168,5 +171,5 @@ const useHandleDetectEvents = (store: ListenerStore) => {
       cancelled = true;
       unlisten?.();
     };
-  }, [stop, setMuted]);
+  }, [stop, setMuted, setMicStoppedPending]);
 };

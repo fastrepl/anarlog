@@ -1,4 +1,5 @@
 import { ListenButton } from "./listen";
+import { MeetingOverCTA } from "./meeting-over-cta";
 
 import {
   useCurrentNoteTab,
@@ -15,20 +16,21 @@ export function FloatingActionButton({
   tab: Extract<Tab, { type: "sessions" }>;
   chatOpenMode?: "floating" | "right-panel";
 }) {
+  const micStoppedPending = useListener((state) => state.micStoppedPending);
   const shouldShowListen = useShouldShowListeningFab(tab);
   const shouldShowChat = useShouldShowChatFab(tab);
 
-  if (!shouldShowListen && !shouldShowChat) {
+  if (!micStoppedPending && !shouldShowListen && !shouldShowChat) {
     return null;
   }
 
   return (
     <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2">
-      {shouldShowListen ? (
-        <ListenButton tab={tab} />
-      ) : (
-        <ChatCTA openMode={chatOpenMode} />
-      )}
+      {micStoppedPending
+        ? <MeetingOverCTA />
+        : shouldShowListen
+          ? <ListenButton tab={tab} />
+          : <ChatCTA openMode={chatOpenMode} />}
     </div>
   );
 }
