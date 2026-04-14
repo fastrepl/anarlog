@@ -1,17 +1,24 @@
-use std::collections::HashMap;
+mod cloudsync;
+mod pool;
+
 use std::future::Future;
-use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::str::FromStr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 pub use hypr_cloudsync::Error;
 use sqlx::SqlitePool;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteOperation, SqlitePoolOptions};
-use tokio::sync::broadcast;
+use sqlx::sqlite::SqliteConnectOptions;
+
+use crate::cloudsync::CloudsyncRuntimeState;
+pub use crate::cloudsync::{
+    CloudsyncAuth, CloudsyncAuthMode, CloudsyncOpenMode, CloudsyncRuntimeConfig,
+    CloudsyncRuntimeError, CloudsyncStatus, CloudsyncTableSpec,
+};
+use crate::pool::connect_pool;
+pub use crate::pool::{DbPool, TableChange, TableChangeKind};
 
 #[derive(Clone, Copy, Debug)]
 pub enum DbStorage<'a> {
@@ -28,7 +35,7 @@ pub enum MigrationFailurePolicy {
 #[derive(Clone, Copy, Debug)]
 pub struct DbOpenOptions<'a> {
     pub storage: DbStorage<'a>,
-    pub cloudsync: bool,
+    pub cloudsync_open_mode: CloudsyncOpenMode,
     pub journal_mode_wal: bool,
     pub foreign_keys: bool,
     pub max_connections: Option<u32>,
@@ -51,38 +58,27 @@ pub enum DbOpenError {
 
 pub type ManagedDb = std::sync::Arc<Db3>;
 
-#[derive(Debug)]
-pub struct Db3 {
-    cloudsync_path: Option<PathBuf>,
-    pool: DbPool,
-}
-
-#[derive(Clone, Debug)]
-pub struct DbPool {
-    pool: SqlitePool,
-    table_change_tx: Arc<broadcast::Sender<TableChange>>,
-    change_tracker: Arc<ChangeTracker>,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TableChangeKind {
-    Insert,
-    Update,
-    Delete,
-}
-
-/// Best-effort table-level mutation signal emitted for writes observed on pooled SQLite
-/// connections created by this crate.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TableChange {
-    pub table: String,
-    pub kind: TableChangeKind,
-    pub seq: u64,
-}
-
 type BoxedMigrationFuture<'a, E> = Pin<Box<dyn Future<Output = Result<(), E>> + Send + 'a>>;
 
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub struct Db3 {
+    pub(crate) cloudsync_open_mode: CloudsyncOpenMode,
+    pub(crate) cloudsync_path: Option<PathBuf>,
+    pub(crate) cloudsync_runtime: Arc<Mutex<CloudsyncRuntimeState>>,
+    pub(crate) pool: DbPool,
+}
+
+impl std::fmt::Debug for Db3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let runtime = self.cloudsync_runtime.lock().unwrap();
+        f.debug_struct("Db3")
+            .field("cloudsync_open_mode", &self.cloudsync_open_mode)
+            .field("cloudsync_path", &self.cloudsync_path)
+            .field("cloudsync_runtime", &*runtime)
+            .finish_non_exhaustive()
+    }
+}
 
 impl Db3 {
     pub async fn open_with_migrate<F, E>(
@@ -122,7 +118,9 @@ impl Db3 {
         let pool = connect_pool(options, None).await.map_err(Error::from)?;
 
         Ok(Self {
+            cloudsync_open_mode: CloudsyncOpenMode::Enabled,
             cloudsync_path: Some(cloudsync_path),
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
         })
     }
@@ -134,7 +132,9 @@ impl Db3 {
         let pool = connect_pool(options, Some(1)).await.map_err(Error::from)?;
 
         Ok(Self {
+            cloudsync_open_mode: CloudsyncOpenMode::Enabled,
             cloudsync_path: Some(cloudsync_path),
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
         })
     }
@@ -150,7 +150,9 @@ impl Db3 {
         let pool = connect_pool(options, None).await?;
 
         Ok(Self {
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
             cloudsync_path: None,
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
         })
     }
@@ -162,93 +164,14 @@ impl Db3 {
         let pool = connect_pool(options, Some(1)).await?;
 
         Ok(Self {
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
             cloudsync_path: None,
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
         })
     }
 
-    pub fn has_cloudsync(&self) -> bool {
-        self.cloudsync_path.is_some()
-    }
-
-    pub fn cloudsync_path(&self) -> Option<&Path> {
-        self.cloudsync_path.as_deref()
-    }
-
     pub fn pool(&self) -> &DbPool {
-        &self.pool
-    }
-
-    /// Subscribe to best-effort table-level change notifications for writes observed through
-    /// this app's pooled SQLite connections.
-    pub fn subscribe_table_changes(&self) -> broadcast::Receiver<TableChange> {
-        self.pool.subscribe_table_changes()
-    }
-
-    pub async fn cloudsync_version(&self) -> Result<String, Error> {
-        hypr_cloudsync::version(self.pool.as_ref()).await
-    }
-
-    pub async fn cloudsync_init(
-        &self,
-        table_name: &str,
-        crdt_algo: Option<&str>,
-        force: Option<bool>,
-    ) -> Result<(), Error> {
-        hypr_cloudsync::init(self.pool.as_ref(), table_name, crdt_algo, force).await
-    }
-
-    pub async fn cloudsync_network_init(&self, connection_string: &str) -> Result<(), Error> {
-        hypr_cloudsync::network_init(self.pool.as_ref(), connection_string).await
-    }
-
-    pub async fn cloudsync_network_set_apikey(&self, api_key: &str) -> Result<(), Error> {
-        hypr_cloudsync::network_set_apikey(self.pool.as_ref(), api_key).await
-    }
-
-    pub async fn cloudsync_network_set_token(&self, token: &str) -> Result<(), Error> {
-        hypr_cloudsync::network_set_token(self.pool.as_ref(), token).await
-    }
-
-    pub async fn cloudsync_network_sync(
-        &self,
-        wait_ms: Option<i64>,
-        max_retries: Option<i64>,
-    ) -> Result<(), Error> {
-        hypr_cloudsync::network_sync(self.pool.as_ref(), wait_ms, max_retries).await
-    }
-}
-
-impl DbPool {
-    /// Subscribe to best-effort table-level change notifications for writes observed through
-    /// this pool's physical SQLite connections.
-    pub fn subscribe_table_changes(&self) -> broadcast::Receiver<TableChange> {
-        self.table_change_tx.subscribe()
-    }
-
-    pub fn current_table_change_seq(&self) -> u64 {
-        self.change_tracker.current_seq()
-    }
-
-    pub fn latest_table_change_seq(&self, table: &str) -> Option<u64> {
-        self.change_tracker.latest_table_seq(table)
-    }
-
-    pub async fn close(self) {
-        self.pool.close().await;
-    }
-}
-
-impl AsRef<SqlitePool> for DbPool {
-    fn as_ref(&self) -> &SqlitePool {
-        &self.pool
-    }
-}
-
-impl Deref for DbPool {
-    type Target = SqlitePool;
-
-    fn deref(&self) -> &Self::Target {
         &self.pool
     }
 }
@@ -293,12 +216,13 @@ async fn connect_with_options(options: &DbOpenOptions<'_>) -> Result<Db3, DbOpen
         connect_options = connect_options.pragma("foreign_keys", "ON");
     }
 
-    let (connect_options, cloudsync_path) = if options.cloudsync {
-        let (connect_options, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
-        (connect_options, Some(cloudsync_path))
-    } else {
-        (connect_options, None)
-    };
+    let (connect_options, cloudsync_path) =
+        if options.cloudsync_open_mode == CloudsyncOpenMode::Enabled {
+            let (connect_options, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
+            (connect_options, Some(cloudsync_path))
+        } else {
+            (connect_options, None)
+        };
 
     let max_connections = match options.storage {
         DbStorage::Memory => Some(1),
@@ -307,58 +231,10 @@ async fn connect_with_options(options: &DbOpenOptions<'_>) -> Result<Db3, DbOpen
     let pool = connect_pool(connect_options, max_connections).await?;
 
     Ok(Db3 {
+        cloudsync_open_mode: options.cloudsync_open_mode,
         cloudsync_path,
+        cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
         pool,
-    })
-}
-
-async fn connect_pool(
-    connect_options: SqliteConnectOptions,
-    max_connections: Option<u32>,
-) -> Result<DbPool, sqlx::Error> {
-    let (table_change_tx, _) = broadcast::channel(256);
-    let table_change_tx = Arc::new(table_change_tx);
-    let change_tracker = Arc::new(ChangeTracker::default());
-
-    let callback_tx = Arc::clone(&table_change_tx);
-    let callback_tracker = Arc::clone(&change_tracker);
-    let mut pool_options = SqlitePoolOptions::new().after_connect(move |conn, _| {
-        let callback_tx = Arc::clone(&callback_tx);
-        let callback_tracker = Arc::clone(&callback_tracker);
-        Box::pin(async move {
-            let mut handle = conn.lock_handle().await?;
-            let hook_state = Arc::new(HookState::new(callback_tx, callback_tracker));
-
-            let update_state = Arc::clone(&hook_state);
-            handle.set_update_hook(move |update| {
-                if let Some(kind) = table_change_kind(update.operation) {
-                    update_state.record(update.table, kind);
-                }
-            });
-
-            let commit_state = Arc::clone(&hook_state);
-            handle.set_commit_hook(move || {
-                commit_state.flush();
-                true
-            });
-
-            handle.set_rollback_hook(move || {
-                hook_state.clear();
-            });
-
-            Ok(())
-        })
-    });
-
-    if let Some(max_connections) = max_connections {
-        pool_options = pool_options.max_connections(max_connections);
-    }
-
-    let pool = pool_options.connect_with(connect_options).await?;
-    Ok(DbPool {
-        pool,
-        table_change_tx,
-        change_tracker,
     })
 }
 
@@ -366,85 +242,11 @@ fn apply_internal_connect_policy(connect_options: SqliteConnectOptions) -> Sqlit
     connect_options.busy_timeout(SQLITE_BUSY_TIMEOUT)
 }
 
-fn table_change_kind(operation: SqliteOperation) -> Option<TableChangeKind> {
-    match operation {
-        SqliteOperation::Insert => Some(TableChangeKind::Insert),
-        SqliteOperation::Update => Some(TableChangeKind::Update),
-        SqliteOperation::Delete => Some(TableChangeKind::Delete),
-        SqliteOperation::Unknown(_) => None,
-    }
-}
-
-#[derive(Debug)]
-struct HookState {
-    pending: std::sync::Mutex<HashMap<String, TableChangeKind>>,
-    tx: Arc<broadcast::Sender<TableChange>>,
-    change_tracker: Arc<ChangeTracker>,
-}
-
-impl HookState {
-    fn new(tx: Arc<broadcast::Sender<TableChange>>, change_tracker: Arc<ChangeTracker>) -> Self {
-        Self {
-            pending: std::sync::Mutex::new(HashMap::new()),
-            tx,
-            change_tracker,
-        }
-    }
-
-    fn record(&self, table: &str, kind: TableChangeKind) {
-        self.pending.lock().unwrap().insert(table.to_string(), kind);
-    }
-
-    fn flush(&self) {
-        let pending = std::mem::take(&mut *self.pending.lock().unwrap());
-        if pending.is_empty() {
-            return;
-        }
-
-        let seq = self.change_tracker.next_seq();
-        self.change_tracker.record_committed(&pending, seq);
-        for (table, kind) in pending {
-            let _ = self.tx.send(TableChange { table, kind, seq });
-        }
-    }
-
-    fn clear(&self) {
-        self.pending.lock().unwrap().clear();
-    }
-}
-
-#[derive(Debug, Default)]
-struct ChangeTracker {
-    current_seq: AtomicU64,
-    latest_by_table: std::sync::Mutex<HashMap<String, u64>>,
-}
-
-impl ChangeTracker {
-    fn next_seq(&self) -> u64 {
-        self.current_seq.fetch_add(1, Ordering::SeqCst) + 1
-    }
-
-    fn current_seq(&self) -> u64 {
-        self.current_seq.load(Ordering::SeqCst)
-    }
-
-    fn latest_table_seq(&self, table: &str) -> Option<u64> {
-        self.latest_by_table.lock().unwrap().get(table).copied()
-    }
-
-    fn record_committed(&self, pending: &HashMap<String, TableChangeKind>, seq: u64) {
-        let mut latest = self.latest_by_table.lock().unwrap();
-        for table in pending.keys() {
-            latest.insert(table.clone(), seq);
-        }
-    }
-}
-
 fn recreate_storage(options: &DbOpenOptions<'_>) -> Result<(), DbOpenError> {
     match options.storage {
         DbStorage::Local(path) => {
             wipe_db_file(path);
-            if options.cloudsync {
+            if options.cloudsync_open_mode == CloudsyncOpenMode::Enabled {
                 let connect_options = SqliteConnectOptions::new().filename(path);
                 let (_, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
                 wipe_db_file(&cloudsync_path);
@@ -470,6 +272,22 @@ mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
+    fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
+        CloudsyncRuntimeConfig {
+            connection_string: "sqlitecloud://demo.invalid/app.db?apikey=demo".to_string(),
+            auth: CloudsyncAuth::None,
+            tables: vec![CloudsyncTableSpec {
+                table_name: "test_sync".to_string(),
+                crdt_algo: None,
+                force_init: None,
+                enabled: true,
+            }],
+            sync_interval_ms: 30_000,
+            wait_ms: Some(500),
+            max_retries: Some(1),
+        }
+    }
+
     #[tokio::test]
     async fn connect_local_plain_creates_parent_dirs() {
         let tmp = tempfile::tempdir().unwrap();
@@ -488,7 +306,7 @@ mod tests {
         let db = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Local(&db_path),
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: true,
                 foreign_keys: true,
                 max_connections: Some(1),
@@ -535,7 +353,7 @@ mod tests {
         let error = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Memory,
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: false,
                 foreign_keys: true,
                 max_connections: Some(1),
@@ -558,7 +376,7 @@ mod tests {
         let error = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Local(&db_path),
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: true,
                 foreign_keys: true,
                 max_connections: Some(1),
@@ -595,7 +413,7 @@ mod tests {
         let db = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Local(&db_path),
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: true,
                 foreign_keys: true,
                 max_connections: Some(1),
@@ -622,6 +440,46 @@ mod tests {
         assert_eq!(foreign_keys, 1);
         assert_eq!(journal_mode.to_lowercase(), "wal");
         assert_eq!(busy_timeout, SQLITE_BUSY_TIMEOUT.as_millis() as i64);
+    }
+
+    #[tokio::test]
+    async fn disabled_open_mode_keeps_cloudsync_inert() {
+        let db = Db3::open_with_migrate(
+            DbOpenOptions {
+                storage: DbStorage::Memory,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+                journal_mode_wal: false,
+                foreign_keys: true,
+                max_connections: Some(1),
+                migration_failure_policy: MigrationFailurePolicy::Fail,
+            },
+            |_pool| Box::pin(async { Ok::<(), sqlx::Error>(()) }),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(db.cloudsync_open_mode(), CloudsyncOpenMode::Disabled);
+        assert!(!db.has_cloudsync());
+
+        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_start().await.unwrap();
+
+        let status = db.cloudsync_status().await.unwrap();
+        assert!(status.configured);
+        assert!(!status.extension_loaded);
+        assert!(!status.running);
+        assert!(!status.network_initialized);
+        assert_eq!(status.open_mode, CloudsyncOpenMode::Disabled);
+
+        db.cloudsync_stop().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn enabled_open_mode_requires_runtime_config_before_start() {
+        let db = Db3::connect_memory().await.unwrap();
+
+        let error = db.cloudsync_start().await.unwrap_err();
+        assert!(matches!(error, CloudsyncRuntimeError::NotConfigured));
     }
 
     #[tokio::test]
@@ -806,7 +664,7 @@ mod tests {
         let db = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Local(&path),
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: true,
                 foreign_keys: true,
                 max_connections: Some(4),
@@ -914,7 +772,7 @@ mod tests {
         let db = Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Memory,
-                cloudsync: false,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
                 journal_mode_wal: false,
                 foreign_keys: true,
                 max_connections: Some(4),

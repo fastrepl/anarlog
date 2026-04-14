@@ -8,46 +8,157 @@ import {
   type UniffiRustArcPtr,
   type UniffiRustFutureContinuationCallback as RuntimeUniffiRustFutureContinuationCallback,
   type UniffiResult,
- } from 'uniffi-bindgen-react-native';
+} from "uniffi-bindgen-react-native";
 
 interface NativeModuleInterface {
-    ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(string: string, uniffi_out_err: UniffiRustCallStatus): number;
-    ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(string: string, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
-    ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(buffer: Uint8Array, uniffi_out_err: UniffiRustCallStatus): string;
-    ubrn_uniffi_mobile_bridge_fn_clone_mobiledbbridge(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): bigint;
-    ubrn_uniffi_mobile_bridge_fn_free_mobiledbbridge(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(dbPath: Uint8Array, uniffi_out_err: UniffiRustCallStatus): bigint;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(ptr: bigint, tableName: Uint8Array, crdtAlgo: Uint8Array, force: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(ptr: bigint, connectionString: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(ptr: bigint, apiKey: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(ptr: bigint, token: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(ptr: bigint, waitMs: Uint8Array, maxRetries: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(ptr: bigint, sql: Uint8Array, paramsJson: Uint8Array, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(ptr: bigint, sql: Uint8Array, paramsJson: Uint8Array, listener: bigint, uniffi_out_err: UniffiRustCallStatus): Uint8Array;
-    ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(ptr: bigint, subscriptionId: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_clone_queryeventlistener(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): bigint;
-    ubrn_uniffi_mobile_bridge_fn_free_queryeventlistener(ptr: bigint, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(vtable: UniffiVTableCallbackInterfaceQueryEventListener): void;
-    ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(ptr: bigint, rowsJson: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(ptr: bigint, message: Uint8Array, uniffi_out_err: UniffiRustCallStatus): void;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result(): number;
-    ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error(): number;
-    ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(): number;
-    ubrn_ffi_mobile_bridge_uniffi_contract_version(): number;
-    ubrn_uniffi_internal_fn_method_mobiledbbridge_ffi__bless_pointer(pointer: bigint, uniffi_out_err: UniffiRustCallStatus): UniffiRustArcPtr;
-    ubrn_uniffi_internal_fn_method_queryeventlistener_ffi__bless_pointer(pointer: bigint, uniffi_out_err: UniffiRustCallStatus): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(
+    string: string,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(
+    string: string,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(
+    buffer: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): string;
+  ubrn_uniffi_mobile_bridge_fn_clone_mobiledbbridge(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_free_mobiledbbridge(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(
+    dbPath: Uint8Array,
+    cloudsyncOpenMode: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(
+    ptr: bigint,
+    tableName: Uint8Array,
+    crdtAlgo: Uint8Array,
+    force: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(
+    ptr: bigint,
+    connectionString: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(
+    ptr: bigint,
+    apiKey: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(
+    ptr: bigint,
+    token: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(
+    ptr: bigint,
+    waitMs: Uint8Array,
+    maxRetries: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(
+    ptr: bigint,
+    configJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
+    ptr: bigint,
+    sql: Uint8Array,
+    paramsJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(
+    ptr: bigint,
+    sql: Uint8Array,
+    paramsJson: Uint8Array,
+    listener: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(
+    ptr: bigint,
+    subscriptionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_clone_queryeventlistener(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_mobile_bridge_fn_free_queryeventlistener(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(
+    vtable: UniffiVTableCallbackInterfaceQueryEventListener,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(
+    ptr: bigint,
+    rowsJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(
+    ptr: bigint,
+    message: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_status(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error(): number;
+  ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open(): number;
+  ubrn_ffi_mobile_bridge_uniffi_contract_version(): number;
+  ubrn_uniffi_internal_fn_method_mobiledbbridge_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
+  ubrn_uniffi_internal_fn_method_queryeventlistener_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiRustArcPtr;
 }
 
 // Casting globalThis to any allows us to look for `NativeMobileBridge`
@@ -55,11 +166,15 @@ interface NativeModuleInterface {
 //
 // We use a getter here rather than simply `globalThis.NativeMobileBridge` so that
 // if/when the startup sequence isn't just so, an empty value isn't inadvertantly cached.
-const getter: () => NativeModuleInterface = () => (globalThis as any).NativeMobileBridge;
+const getter: () => NativeModuleInterface = () =>
+  (globalThis as any).NativeMobileBridge;
 export default getter;
 
 // Structs and function types for calling back into Typescript from Rust.
-export type UniffiRustFutureContinuationCallback = (data: bigint, pollResult: number) => void;
+export type UniffiRustFutureContinuationCallback = (
+  data: bigint,
+  pollResult: number,
+) => void;
 type UniffiForeignFutureFree = (handle: bigint) => void;
 type UniffiCallbackInterfaceFree = (handle: bigint) => void;
 export type UniffiForeignFuture = {
@@ -70,70 +185,113 @@ export type UniffiForeignFutureStructU8 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteU8 = (callbackData: bigint, result: UniffiForeignFutureStructU8) => void;
+export type UniffiForeignFutureCompleteU8 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructU8,
+) => void;
 export type UniffiForeignFutureStructI8 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteI8 = (callbackData: bigint, result: UniffiForeignFutureStructI8) => void;
+export type UniffiForeignFutureCompleteI8 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructI8,
+) => void;
 export type UniffiForeignFutureStructU16 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteU16 = (callbackData: bigint, result: UniffiForeignFutureStructU16) => void;
+export type UniffiForeignFutureCompleteU16 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructU16,
+) => void;
 export type UniffiForeignFutureStructI16 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteI16 = (callbackData: bigint, result: UniffiForeignFutureStructI16) => void;
+export type UniffiForeignFutureCompleteI16 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructI16,
+) => void;
 export type UniffiForeignFutureStructU32 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteU32 = (callbackData: bigint, result: UniffiForeignFutureStructU32) => void;
+export type UniffiForeignFutureCompleteU32 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructU32,
+) => void;
 export type UniffiForeignFutureStructI32 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteI32 = (callbackData: bigint, result: UniffiForeignFutureStructI32) => void;
+export type UniffiForeignFutureCompleteI32 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructI32,
+) => void;
 export type UniffiForeignFutureStructU64 = {
   returnValue: bigint;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteU64 = (callbackData: bigint, result: UniffiForeignFutureStructU64) => void;
+export type UniffiForeignFutureCompleteU64 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructU64,
+) => void;
 export type UniffiForeignFutureStructI64 = {
   returnValue: bigint;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteI64 = (callbackData: bigint, result: UniffiForeignFutureStructI64) => void;
+export type UniffiForeignFutureCompleteI64 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructI64,
+) => void;
 export type UniffiForeignFutureStructF32 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteF32 = (callbackData: bigint, result: UniffiForeignFutureStructF32) => void;
+export type UniffiForeignFutureCompleteF32 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructF32,
+) => void;
 export type UniffiForeignFutureStructF64 = {
   returnValue: number;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteF64 = (callbackData: bigint, result: UniffiForeignFutureStructF64) => void;
+export type UniffiForeignFutureCompleteF64 = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructF64,
+) => void;
 export type UniffiForeignFutureStructPointer = {
   returnValue: bigint;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompletePointer = (callbackData: bigint, result: UniffiForeignFutureStructPointer) => void;
+export type UniffiForeignFutureCompletePointer = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructPointer,
+) => void;
 export type UniffiForeignFutureStructRustBuffer = {
   returnValue: Uint8Array;
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteRustBuffer = (callbackData: bigint, result: UniffiForeignFutureStructRustBuffer) => void;
+export type UniffiForeignFutureCompleteRustBuffer = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructRustBuffer,
+) => void;
 export type UniffiForeignFutureStructVoid = {
   callStatus: UniffiRustCallStatus;
 };
-export type UniffiForeignFutureCompleteVoid = (callbackData: bigint, result: UniffiForeignFutureStructVoid) => void;
-type UniffiCallbackInterfaceQueryEventListenerMethod0 = (uniffiHandle: bigint, rowsJson: Uint8Array) => UniffiResult<void>
-;
-type UniffiCallbackInterfaceQueryEventListenerMethod1 = (uniffiHandle: bigint, message: Uint8Array) => UniffiResult<void>
-;
+export type UniffiForeignFutureCompleteVoid = (
+  callbackData: bigint,
+  result: UniffiForeignFutureStructVoid,
+) => void;
+type UniffiCallbackInterfaceQueryEventListenerMethod0 = (
+  uniffiHandle: bigint,
+  rowsJson: Uint8Array,
+) => UniffiResult<void>;
+type UniffiCallbackInterfaceQueryEventListenerMethod1 = (
+  uniffiHandle: bigint,
+  message: Uint8Array,
+) => UniffiResult<void>;
 export type UniffiVTableCallbackInterfaceQueryEventListener = {
   onResult: UniffiCallbackInterfaceQueryEventListenerMethod0;
   onError: UniffiCallbackInterfaceQueryEventListenerMethod1;

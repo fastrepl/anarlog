@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS templates (
-  id            TEXT PRIMARY KEY,
+  id            TEXT PRIMARY KEY NOT NULL,
   title         TEXT NOT NULL DEFAULT '',
   description   TEXT NOT NULL DEFAULT '',
   pinned        INTEGER NOT NULL DEFAULT 0,

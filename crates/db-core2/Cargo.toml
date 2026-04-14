@@ -5,10 +5,11 @@ edition = "2024"
 
 [dependencies]
 hypr-cloudsync = { workspace = true }
-libsqlite3-sys = "0.30.1"
+libsqlite3-sys = "0.30"
+serde = { workspace = true, features = ["derive"] }
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tracing = { workspace = true }
 
 [dev-dependencies]

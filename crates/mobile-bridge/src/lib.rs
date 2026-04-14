@@ -7,13 +7,37 @@ mod listener;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 
+use error::{
+    cloudsync_error, cloudsync_runtime_error, parse_params_json, runtime_error, serialization_error,
+};
 use hypr_db_live_query::DbRuntime;
-
-pub use error::BridgeError;
-pub use listener::QueryEventListener;
-
-use error::{cloudsync_error, parse_params_json, runtime_error, serialization_error};
 use listener::ListenerSink;
+
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum BridgeError {
+    #[error("bridge is closed")]
+    Closed,
+    #[error("invalid params json: {reason}")]
+    InvalidParamsJson { reason: String },
+    #[error("invalid cloudsync config json: {reason}")]
+    InvalidCloudsyncConfigJson { reason: String },
+    #[error("params json must encode an array")]
+    ParamsMustBeArray,
+    #[error("failed to open database: {reason}")]
+    OpenFailed { reason: String },
+    #[error("query failed: {reason}")]
+    QueryFailed { reason: String },
+    #[error("cloudsync failed: {reason}")]
+    CloudsyncFailed { reason: String },
+    #[error("failed to serialize payload: {reason}")]
+    SerializationFailed { reason: String },
+}
+
+#[uniffi::export(with_foreign)]
+pub trait QueryEventListener: Send + Sync {
+    fn on_result(&self, rows_json: String);
+    fn on_error(&self, message: String);
+}
 
 uniffi::setup_scaffolding!();
 
@@ -31,7 +55,7 @@ pub struct MobileDbBridge {
 #[uniffi::export]
 impl MobileDbBridge {
     #[uniffi::constructor]
-    pub fn open(db_path: String) -> Result<Self, BridgeError> {
+    pub fn open(db_path: String, cloudsync_open_mode: Option<String>) -> Result<Self, BridgeError> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
@@ -40,12 +64,15 @@ impl MobileDbBridge {
                 reason: error.to_string(),
             })?;
         let path = std::path::PathBuf::from(db_path);
-        let db =
-            runtime
-                .block_on(db::open_app_db(&path))
-                .map_err(|error| BridgeError::OpenFailed {
-                    reason: error.to_string(),
-                })?;
+        let cloudsync_open_mode = match cloudsync_open_mode.as_deref() {
+            Some("enabled") => hypr_db_core2::CloudsyncOpenMode::Enabled,
+            _ => hypr_db_core2::CloudsyncOpenMode::Disabled,
+        };
+        let db = runtime
+            .block_on(db::open_app_db(&path, cloudsync_open_mode))
+            .map_err(|error| BridgeError::OpenFailed {
+                reason: error.to_string(),
+            })?;
         let db_runtime = {
             let _guard = runtime.enter();
             DbRuntime::new(std::sync::Arc::new(db))
@@ -166,7 +193,7 @@ impl MobileDbBridge {
         &self,
         wait_ms: Option<i64>,
         max_retries: Option<i64>,
-    ) -> Result<(), BridgeError> {
+    ) -> Result<i64, BridgeError> {
         self.with_state(|state| {
             state
                 .runtime
@@ -177,6 +204,57 @@ impl MobileDbBridge {
                         .cloudsync_network_sync(wait_ms, max_retries),
                 )
                 .map_err(cloudsync_error)
+        })
+    }
+
+    pub fn configure_cloudsync(&self, config_json: String) -> Result<(), BridgeError> {
+        let config: hypr_db_core2::CloudsyncRuntimeConfig = serde_json::from_str(&config_json)
+            .map_err(|error| BridgeError::InvalidCloudsyncConfigJson {
+                reason: error.to_string(),
+            })?;
+        self.with_state(|state| {
+            state
+                .db_runtime
+                .db()
+                .cloudsync_configure(config)
+                .map_err(cloudsync_runtime_error)
+        })
+    }
+
+    pub fn start_cloudsync(&self) -> Result<(), BridgeError> {
+        self.with_state(|state| {
+            state
+                .runtime
+                .block_on(state.db_runtime.db().cloudsync_start())
+                .map_err(cloudsync_runtime_error)
+        })
+    }
+
+    pub fn stop_cloudsync(&self) -> Result<(), BridgeError> {
+        self.with_state(|state| {
+            state
+                .runtime
+                .block_on(state.db_runtime.db().cloudsync_stop())
+                .map_err(cloudsync_runtime_error)
+        })
+    }
+
+    pub fn cloudsync_status(&self) -> Result<String, BridgeError> {
+        self.with_state(|state| {
+            let status = state
+                .runtime
+                .block_on(state.db_runtime.db().cloudsync_status())
+                .map_err(cloudsync_runtime_error)?;
+            serde_json::to_string(&status).map_err(serialization_error)
+        })
+    }
+
+    pub fn cloudsync_sync_now(&self) -> Result<i64, BridgeError> {
+        self.with_state(|state| {
+            state
+                .runtime
+                .block_on(state.db_runtime.db().cloudsync_trigger_sync())
+                .map_err(cloudsync_runtime_error)
         })
     }
 
@@ -192,6 +270,7 @@ impl MobileDbBridge {
             for subscription_id in subscription_ids {
                 let _ = state.db_runtime.unsubscribe(&subscription_id).await;
             }
+            let _ = state.db_runtime.db().cloudsync_stop().await;
         });
         drop(state.db_runtime);
         state.runtime.block_on(pool.close());
@@ -299,16 +378,20 @@ mod tests {
         }
     }
 
-    fn new_bridge() -> (tempfile::TempDir, MobileDbBridge) {
+    fn new_bridge(open_mode: Option<&str>) -> (tempfile::TempDir, MobileDbBridge) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let bridge = MobileDbBridge::open(db_path.to_string_lossy().into_owned()).unwrap();
+        let bridge = MobileDbBridge::open(
+            db_path.to_string_lossy().into_owned(),
+            open_mode.map(str::to_string),
+        )
+        .unwrap();
         (dir, bridge)
     }
 
     #[test]
     fn execute_roundtrips_rows() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(None);
 
         bridge
             .execute(
@@ -333,7 +416,7 @@ mod tests {
 
     #[test]
     fn subscribe_reruns_after_write() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(None);
         let (listener, events) = TestListener::capture();
 
         let subscription_id = bridge
@@ -366,7 +449,7 @@ mod tests {
 
     #[test]
     fn unsubscribe_stops_future_events() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(None);
         let (listener, events) = TestListener::capture();
 
         let subscription_id = bridge
@@ -393,7 +476,7 @@ mod tests {
 
     #[test]
     fn close_rejects_future_calls() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(None);
 
         bridge.close().unwrap();
 
@@ -404,8 +487,38 @@ mod tests {
     }
 
     #[test]
+    fn cloudsync_manager_roundtrips_when_disabled() {
+        let (_dir, bridge) = new_bridge(None);
+
+        bridge
+            .configure_cloudsync(
+                r#"{
+                    "connection_string":"sqlitecloud://demo.invalid/app.db?apikey=demo",
+                    "auth":{"type":"none"},
+                    "tables":[{"table_name":"templates","crdt_algo":null,"force_init":null,"enabled":false}],
+                    "sync_interval_ms":30000,
+                    "wait_ms":1000,
+                    "max_retries":1
+                }"#
+                .to_string(),
+            )
+            .unwrap();
+        bridge.start_cloudsync().unwrap();
+
+        let status: serde_json::Value =
+            serde_json::from_str(&bridge.cloudsync_status().unwrap()).unwrap();
+        assert_eq!(status["open_mode"], "disabled");
+        assert_eq!(status["configured"], true);
+        assert_eq!(status["running"], false);
+        assert_eq!(status["network_initialized"], false);
+
+        assert_eq!(bridge.cloudsync_sync_now().unwrap(), 0);
+        bridge.stop_cloudsync().unwrap();
+    }
+
+    #[test]
     fn cloudsync_methods_delegate() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(Some("enabled"));
 
         let version = bridge.cloudsync_version().unwrap();
         assert!(!version.is_empty());
@@ -429,7 +542,7 @@ mod tests {
 
     #[test]
     fn invalid_params_shape_is_rejected() {
-        let (_dir, bridge) = new_bridge();
+        let (_dir, bridge) = new_bridge(None);
 
         let error = bridge
             .execute("SELECT 1".to_string(), "{}".to_string())

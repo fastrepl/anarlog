@@ -47,3 +47,38 @@ pub async fn init(
 
     Ok(())
 }
+
+pub async fn begin_alter(pool: &SqlitePool, table_name: &str) -> Result<(), Error> {
+    sqlx::query("SELECT cloudsync_begin_alter(?)")
+        .bind(table_name)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn commit_alter(pool: &SqlitePool, table_name: &str) -> Result<(), Error> {
+    sqlx::query("SELECT cloudsync_commit_alter(?)")
+        .bind(table_name)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn cleanup(pool: &SqlitePool, table_name: &str) -> Result<(), Error> {
+    sqlx::query("SELECT cloudsync_cleanup(?)")
+        .bind(table_name)
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(())
+}
+
+pub async fn terminate(pool: &SqlitePool) -> Result<(), Error> {
+    sqlx::query("SELECT cloudsync_terminate()")
+        .fetch_optional(pool)
+        .await?;
+
+    Ok(())
+}

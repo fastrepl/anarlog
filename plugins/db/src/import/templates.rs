@@ -7,13 +7,13 @@ pub async fn import_legacy_templates_from_path(
     pool: &SqlitePool,
     path: &Path,
 ) -> crate::Result<()> {
-    if templates_exist(pool).await? || !path.exists() {
+    if !path.exists() {
         return Ok(());
     }
 
     let templates = read_template_file(path)?;
     for template in templates {
-        hypr_db_app::upsert_template(
+        hypr_db_app::insert_template_if_missing(
             pool,
             UpsertTemplate {
                 id: &template.id,
@@ -30,13 +30,6 @@ pub async fn import_legacy_templates_from_path(
     }
 
     Ok(())
-}
-
-async fn templates_exist(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
-    let row = sqlx::query_scalar::<_, String>("SELECT id FROM templates LIMIT 1")
-        .fetch_optional(pool)
-        .await?;
-    Ok(row.is_some())
 }
 
 fn read_template_file(path: &Path) -> crate::Result<Vec<ParsedTemplate>> {
@@ -265,7 +258,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn import_legacy_templates_from_path_imports_only_when_table_empty() {
+    async fn import_legacy_templates_from_path_imports_missing_templates_without_overwriting() {
         let db = test_db().await;
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join(super::super::TEMPLATES_FILENAME);
@@ -300,10 +293,16 @@ mod tests {
         std::fs::write(
             &path,
             r#"{
+              "template-1": {
+
+                "title": "Changed Existing",
+                "description": "Should not overwrite",
+                "sections": "[{\"title\":\"Ignored\",\"description\":\"Ignored\"}]"
+              },
               "template-2": {
 
                 "title": "Changed",
-                "description": "Should not import",
+                "description": "Should import",
                 "sections": "[]"
               }
             }"#,
@@ -314,11 +313,81 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(
-            hypr_db_app::get_template(db.pool(), "template-2")
-                .await
-                .unwrap()
-                .is_none()
+        let existing_row = hypr_db_app::get_template(db.pool(), "template-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(existing_row.title, "Weekly");
+        assert_eq!(existing_row.description, "Agenda");
+
+        let imported_row = hypr_db_app::get_template(db.pool(), "template-2")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(imported_row.title, "Changed");
+        assert_eq!(imported_row.description, "Should import");
+    }
+
+    #[tokio::test]
+    async fn import_legacy_templates_from_path_preserves_seeded_rows_and_adds_missing_ones() {
+        let db = test_db().await;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(super::super::TEMPLATES_FILENAME);
+
+        hypr_db_app::upsert_template(
+            db.pool(),
+            UpsertTemplate {
+                id: "template-1",
+                title: "Seeded",
+                description: "Keep this",
+                pinned: false,
+                pin_order: None,
+                category: None,
+                targets_json: None,
+                sections_json: "[]",
+            },
+        )
+        .await
+        .unwrap();
+
+        std::fs::write(
+            &path,
+            r#"{
+              "template-1": {
+
+                "title": "Legacy Existing",
+                "description": "Should stay ignored",
+                "sections": "[{\"title\":\"Ignored\",\"description\":\"Ignored\"}]"
+              },
+              "template-2": {
+
+                "title": "Legacy New",
+                "description": "Should be inserted",
+                "sections": "[{\"title\":\"Notes\",\"description\":\"Added\"}]"
+              }
+            }"#,
+        )
+        .unwrap();
+
+        import_legacy_templates_from_path(db.pool(), &path)
+            .await
+            .unwrap();
+
+        let seeded_row = hypr_db_app::get_template(db.pool(), "template-1")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(seeded_row.title, "Seeded");
+        assert_eq!(seeded_row.description, "Keep this");
+
+        let inserted_row = hypr_db_app::get_template(db.pool(), "template-2")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(inserted_row.title, "Legacy New");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&inserted_row.sections_json).unwrap(),
+            serde_json::json!([{ "title": "Notes", "description": "Added" }])
         );
     }
 }

@@ -2,17 +2,99 @@ import "../bridge";
 
 import type { LiveQueryClient, Row } from "@hypr/db-runtime";
 
-import { MobileDbBridge, type MobileDbBridgeInterface } from "../bridge";
+import { MobileDbBridge } from "../bridge";
+import type { MobileDbBridgeInterface } from "../bridge";
 import { getAppDbPath } from "../native/mobilePaths";
 
-let bridgePromise: Promise<MobileDbBridgeInterface> | null = null;
+type CloudsyncOpenMode = "disabled" | "enabled";
 
-async function openBridge(): Promise<MobileDbBridgeInterface> {
+let bridgePromise: Promise<MobileDbBridgeInterface> | null = null;
+let bridgeMode: CloudsyncOpenMode | null = null;
+
+export type CloudsyncAuth =
+  | { type: "none" }
+  | { type: "apiKey"; apiKey: string }
+  | { type: "token"; token: string };
+
+export type CloudsyncTableSpec = {
+  tableName: string;
+  crdtAlgo?: string;
+  forceInit?: boolean;
+  enabled: boolean;
+};
+
+export type CloudsyncRuntimeConfig = {
+  connectionString: string;
+  auth: CloudsyncAuth;
+  tables: CloudsyncTableSpec[];
+  syncIntervalMs: number;
+  waitMs?: number;
+  maxRetries?: number;
+};
+
+export type CloudsyncStatus = {
+  open_mode: "disabled" | "enabled";
+  extension_loaded: boolean;
+  configured: boolean;
+  running: boolean;
+  network_initialized: boolean;
+  table_count: number;
+  enabled_table_count: number;
+  auth_mode: "none" | "api_key" | "token";
+  sync_interval_ms?: number;
+  wait_ms?: number;
+  max_retries?: number;
+  last_sync_downloaded_count?: number;
+  last_sync_at_ms?: number;
+  has_unsent_changes?: boolean;
+  last_error?: string;
+};
+
+function toRustCloudsyncAuth(auth: CloudsyncAuth) {
+  if (auth.type === "none") {
+    return { type: "none" };
+  }
+
+  if (auth.type === "apiKey") {
+    return { type: "api_key", api_key: auth.apiKey };
+  }
+
+  return { type: "token", token: auth.token };
+}
+
+function toRustCloudsyncConfig(config: CloudsyncRuntimeConfig) {
+  return {
+    connection_string: config.connectionString,
+    auth: toRustCloudsyncAuth(config.auth),
+    tables: config.tables.map((table) => ({
+      table_name: table.tableName,
+      crdt_algo: table.crdtAlgo,
+      force_init: table.forceInit,
+      enabled: table.enabled,
+    })),
+    sync_interval_ms: config.syncIntervalMs,
+    wait_ms: config.waitMs,
+    max_retries: config.maxRetries,
+  };
+}
+
+async function openBridge(
+  mode: CloudsyncOpenMode = "disabled",
+): Promise<MobileDbBridgeInterface> {
+  if (bridgePromise && bridgeMode !== mode) {
+    const bridge = await bridgePromise;
+    bridge.close();
+    bridgePromise = null;
+    bridgeMode = null;
+  }
+
   if (!bridgePromise) {
+    bridgeMode = mode;
     bridgePromise = getAppDbPath()
-      .then((dbPath) => MobileDbBridge.open(dbPath))
+      .then((dbPath) => MobileDbBridge.open(dbPath, mode))
       .catch((error) => {
         bridgePromise = null;
+        bridgeMode = null;
         throw error;
       });
   }
@@ -28,6 +110,7 @@ export async function closeBridge(): Promise<void> {
   const bridge = await bridgePromise;
   bridge.close();
   bridgePromise = null;
+  bridgeMode = null;
 }
 
 export async function execute<T = Row>(
@@ -71,7 +154,7 @@ export const mobileLiveQueryClient: LiveQueryClient = {
 };
 
 export async function cloudsyncVersion(): Promise<string> {
-  const bridge = await openBridge();
+  const bridge = await openBridge("enabled");
   return bridge.cloudsyncVersion();
 }
 
@@ -80,34 +163,63 @@ export async function cloudsyncInit(
   crdtAlgo?: string,
   force?: boolean,
 ): Promise<void> {
-  const bridge = await openBridge();
+  const bridge = await openBridge("enabled");
   bridge.cloudsyncInit(tableName, crdtAlgo, force);
 }
 
 export async function cloudsyncNetworkInit(
   connectionString: string,
 ): Promise<void> {
-  const bridge = await openBridge();
+  const bridge = await openBridge("enabled");
   bridge.cloudsyncNetworkInit(connectionString);
 }
 
 export async function cloudsyncNetworkSetApikey(apiKey: string): Promise<void> {
-  const bridge = await openBridge();
+  const bridge = await openBridge("enabled");
   bridge.cloudsyncNetworkSetApikey(apiKey);
 }
 
 export async function cloudsyncNetworkSetToken(token: string): Promise<void> {
-  const bridge = await openBridge();
+  const bridge = await openBridge("enabled");
   bridge.cloudsyncNetworkSetToken(token);
 }
 
 export async function cloudsyncNetworkSync(
   waitMs?: number,
   maxRetries?: number,
-): Promise<void> {
-  const bridge = await openBridge();
-  bridge.cloudsyncNetworkSync(
-    waitMs === undefined ? undefined : BigInt(waitMs),
-    maxRetries === undefined ? undefined : BigInt(maxRetries),
+): Promise<number> {
+  const bridge = await openBridge("enabled");
+  return Number(
+    bridge.cloudsyncNetworkSync(
+      waitMs === undefined ? undefined : BigInt(waitMs),
+      maxRetries === undefined ? undefined : BigInt(maxRetries),
+    ),
   );
+}
+
+export async function configureCloudsync(
+  config: CloudsyncRuntimeConfig,
+): Promise<void> {
+  const bridge = await openBridge("enabled");
+  bridge.configureCloudsync(JSON.stringify(toRustCloudsyncConfig(config)));
+}
+
+export async function startCloudsync(): Promise<void> {
+  const bridge = await openBridge("enabled");
+  bridge.startCloudsync();
+}
+
+export async function stopCloudsync(): Promise<void> {
+  const bridge = await openBridge("enabled");
+  bridge.stopCloudsync();
+}
+
+export async function cloudsyncStatus(): Promise<CloudsyncStatus> {
+  const bridge = await openBridge("enabled");
+  return JSON.parse(bridge.cloudsyncStatus()) as CloudsyncStatus;
+}
+
+export async function cloudsyncSyncNow(): Promise<number> {
+  const bridge = await openBridge("enabled");
+  return Number(bridge.cloudsyncSyncNow());
 }

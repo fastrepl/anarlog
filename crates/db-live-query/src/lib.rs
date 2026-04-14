@@ -407,7 +407,7 @@ mod tests {
         let db = hypr_db_core2::Db3::open_with_migrate(
             DbOpenOptions {
                 storage: DbStorage::Local(&db_path),
-                cloudsync: false,
+                cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
                 journal_mode_wal: true,
                 foreign_keys: true,
                 max_connections: Some(4),

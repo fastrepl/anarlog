@@ -28,6 +28,10 @@ function formatRows(rows: Row[]): string {
   return JSON.stringify(rows, null, 2);
 }
 
+function formatJson(value: unknown): string {
+  return JSON.stringify(value, null, 2);
+}
+
 function Button({
   label,
   onPress,
@@ -60,11 +64,21 @@ export default function HomeScreen() {
   const [rows, setRows] = useState<Row[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [cloudsyncState, setCloudsyncState] = useState("Not loaded");
+  const [cloudsyncManagerState, setCloudsyncManagerState] =
+    useState("Not configured");
   const [connectionString, setConnectionString] = useState(
     "sqlitecloud://demo.invalid/mobile.db?apikey=demo",
   );
   const [apiKey, setApiKey] = useState("demo-api-key");
   const [token, setToken] = useState("demo-token");
+  const [authMode, setAuthMode] = useState<"none" | "apiKey" | "token">(
+    "token",
+  );
+  const [syncTableName, setSyncTableName] = useState("templates");
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncIntervalMs, setSyncIntervalMs] = useState("30000");
+  const [waitMs, setWaitMs] = useState("1000");
+  const [maxRetries, setMaxRetries] = useState("1");
 
   function appendLog(message: string) {
     const timestamp = new Date().toISOString().slice(11, 19);
@@ -194,7 +208,76 @@ export default function HomeScreen() {
   async function handleSync() {
     await run("CloudSync sync", async () => {
       const bridge = await getBridge();
-      await bridge.cloudsyncNetworkSync(1_000, 1);
+      const downloadedCount = await bridge.cloudsyncNetworkSync(1_000, 1);
+      setCloudsyncState(`Downloaded ${downloadedCount} change(s)`);
+    });
+  }
+
+  async function handleConfigureCloudsync() {
+    await run("Configure CloudSync", async () => {
+      const bridge = await getBridge();
+      let auth:
+        | { type: "none" }
+        | { type: "apiKey"; apiKey: string }
+        | { type: "token"; token: string };
+      if (authMode === "none") {
+        auth = { type: "none" };
+      } else if (authMode === "apiKey") {
+        auth = { type: "apiKey", apiKey };
+      } else {
+        auth = { type: "token", token };
+      }
+      await bridge.configureCloudsync({
+        connectionString,
+        auth,
+        tables: [
+          {
+            tableName: syncTableName,
+            enabled: syncEnabled,
+          },
+        ],
+        syncIntervalMs: Number(syncIntervalMs) || 30_000,
+        waitMs: Number(waitMs) || undefined,
+        maxRetries: Number(maxRetries) || undefined,
+      });
+      const status = await bridge.cloudsyncStatus();
+      setCloudsyncManagerState(formatJson(status));
+    });
+  }
+
+  async function handleStartCloudsync() {
+    await run("Start CloudSync manager", async () => {
+      const bridge = await getBridge();
+      await bridge.startCloudsync();
+      const status = await bridge.cloudsyncStatus();
+      setCloudsyncManagerState(formatJson(status));
+    });
+  }
+
+  async function handleStopCloudsync() {
+    await run("Stop CloudSync manager", async () => {
+      const bridge = await getBridge();
+      await bridge.stopCloudsync();
+      const status = await bridge.cloudsyncStatus();
+      setCloudsyncManagerState(formatJson(status));
+    });
+  }
+
+  async function handleManagerStatus() {
+    await run("CloudSync manager status", async () => {
+      const bridge = await getBridge();
+      const status = await bridge.cloudsyncStatus();
+      setCloudsyncManagerState(formatJson(status));
+    });
+  }
+
+  async function handleManagerSyncNow() {
+    await run("CloudSync manager sync", async () => {
+      const bridge = await getBridge();
+      const downloadedCount = await bridge.cloudsyncSyncNow();
+      const status = await bridge.cloudsyncStatus();
+      setCloudsyncManagerState(formatJson(status));
+      appendLog(`Manager sync downloaded ${downloadedCount} change(s)`);
     });
   }
 
@@ -290,6 +373,82 @@ export default function HomeScreen() {
               />
               <Button label="Set Token" onPress={handleSetToken} />
               <Button label="Sync Now" onPress={handleSync} />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>CloudSync Manager</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                onChangeText={setSyncTableName}
+                placeholder="Candidate table"
+                placeholderTextColor="#71717a"
+                style={styles.input}
+                value={syncTableName}
+              />
+              <View style={styles.buttonGrid}>
+                <Button
+                  label={`Enabled: ${syncEnabled ? "On" : "Off"}`}
+                  onPress={() => {
+                    setSyncEnabled((current) => !current);
+                  }}
+                />
+                <Button
+                  label={`Auth: ${authMode}`}
+                  onPress={() => {
+                    setAuthMode((current) => {
+                      if (current === "token") {
+                        return "apiKey";
+                      }
+                      if (current === "apiKey") {
+                        return "none";
+                      }
+                      return "token";
+                    });
+                  }}
+                />
+              </View>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                onChangeText={setSyncIntervalMs}
+                placeholder="Sync interval (ms)"
+                placeholderTextColor="#71717a"
+                style={styles.input}
+                value={syncIntervalMs}
+              />
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                onChangeText={setWaitMs}
+                placeholder="Wait (ms)"
+                placeholderTextColor="#71717a"
+                style={styles.input}
+                value={waitMs}
+              />
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                onChangeText={setMaxRetries}
+                placeholder="Max retries"
+                placeholderTextColor="#71717a"
+                style={styles.input}
+                value={maxRetries}
+              />
+              <View style={styles.buttonGrid}>
+                <Button
+                  label="Configure Manager"
+                  onPress={handleConfigureCloudsync}
+                />
+                <Button label="Start Manager" onPress={handleStartCloudsync} />
+                <Button label="Stop Manager" onPress={handleStopCloudsync} />
+                <Button label="Manager Status" onPress={handleManagerStatus} />
+                <Button label="Manager Sync" onPress={handleManagerSyncNow} />
+              </View>
+              <Text style={styles.mono}>{cloudsyncManagerState}</Text>
             </View>
 
             <View style={styles.card}>

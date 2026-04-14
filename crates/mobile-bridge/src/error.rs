@@ -1,20 +1,4 @@
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum BridgeError {
-    #[error("bridge is closed")]
-    Closed,
-    #[error("invalid params json: {reason}")]
-    InvalidParamsJson { reason: String },
-    #[error("params json must encode an array")]
-    ParamsMustBeArray,
-    #[error("failed to open database: {reason}")]
-    OpenFailed { reason: String },
-    #[error("query failed: {reason}")]
-    QueryFailed { reason: String },
-    #[error("cloudsync failed: {reason}")]
-    CloudsyncFailed { reason: String },
-    #[error("failed to serialize payload: {reason}")]
-    SerializationFailed { reason: String },
-}
+use crate::BridgeError;
 
 pub(crate) fn parse_params_json(params_json: &str) -> Result<Vec<serde_json::Value>, BridgeError> {
     if params_json.trim().is_empty() {
@@ -38,6 +22,12 @@ pub(crate) fn runtime_error(error: hypr_db_live_query::Error) -> BridgeError {
 }
 
 pub(crate) fn cloudsync_error(error: hypr_db_core2::Error) -> BridgeError {
+    BridgeError::CloudsyncFailed {
+        reason: error.to_string(),
+    }
+}
+
+pub(crate) fn cloudsync_runtime_error(error: hypr_db_core2::CloudsyncRuntimeError) -> BridgeError {
     BridgeError::CloudsyncFailed {
         reason: error.to_string(),
     }

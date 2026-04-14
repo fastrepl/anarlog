@@ -32,34 +32,35 @@ import nativeModule, {
   type UniffiVTableCallbackInterfaceQueryEventListener,
 } from "./mobile_bridge-ffi";
 import {
-  type FfiConverter, 
-  type UniffiByteArray, 
-  type UniffiHandle, 
-  type UniffiObjectFactory, 
-  type UniffiReferenceHolder, 
-  type UniffiRustArcPtr, 
-  type UniffiRustCallStatus, 
-  type UnsafeMutableRawPointer, 
-  AbstractFfiConverterByteArray, 
-  FfiConverterBool, 
-  FfiConverterInt32, 
-  FfiConverterInt64, 
-  FfiConverterObject, 
-  FfiConverterObjectWithCallbacks, 
-  FfiConverterOptional, 
-  FfiConverterUInt64, 
-  RustBuffer, 
-  UniffiAbstractObject, 
-  UniffiError, 
-  UniffiInternalError, 
-  UniffiResult, 
-  UniffiRustCaller, 
-  destructorGuardSymbol, 
-  pointerLiteralSymbol, 
-  uniffiCreateFfiConverterString, 
-  uniffiTraitInterfaceCall, 
-  uniffiTypeNameSymbol, 
-  variantOrdinalSymbol } from "uniffi-bindgen-react-native";
+  type FfiConverter,
+  type UniffiByteArray,
+  type UniffiHandle,
+  type UniffiObjectFactory,
+  type UniffiReferenceHolder,
+  type UniffiRustArcPtr,
+  type UniffiRustCallStatus,
+  type UnsafeMutableRawPointer,
+  AbstractFfiConverterByteArray,
+  FfiConverterBool,
+  FfiConverterInt32,
+  FfiConverterInt64,
+  FfiConverterObject,
+  FfiConverterObjectWithCallbacks,
+  FfiConverterOptional,
+  FfiConverterUInt64,
+  RustBuffer,
+  UniffiAbstractObject,
+  UniffiError,
+  UniffiInternalError,
+  UniffiResult,
+  UniffiRustCaller,
+  destructorGuardSymbol,
+  pointerLiteralSymbol,
+  uniffiCreateFfiConverterString,
+  uniffiTraitInterfaceCall,
+  uniffiTypeNameSymbol,
+  variantOrdinalSymbol,
+} from "uniffi-bindgen-react-native";
 
 // Get converters from the other files, if any.
 const uniffiCaller = new UniffiRustCaller(() => ({ code: 0 }));
@@ -72,859 +73,1105 @@ const uniffiIsDebug =
   false;
 // Public interface members begin here.
 
-
-
-
-
-
-
-
-
 const stringConverter = {
-    stringToBytes: (s: string) =>
-        uniffiCaller.rustCall((status) => nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(s, status)),
-    bytesToString: (ab: UniffiByteArray) =>
-        uniffiCaller.rustCall((status) => nativeModule().ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(ab, status)),
-    stringByteLength: (s: string) =>
-        uniffiCaller.rustCall((status) => nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(s, status)),
+  stringToBytes: (s: string) =>
+    uniffiCaller.rustCall((status) =>
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_arraybuffer(
+        s,
+        status,
+      ),
+    ),
+  bytesToString: (ab: UniffiByteArray) =>
+    uniffiCaller.rustCall((status) =>
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__arraybuffer_to_string(
+        ab,
+        status,
+      ),
+    ),
+  stringByteLength: (s: string) =>
+    uniffiCaller.rustCall((status) =>
+      nativeModule().ubrn_uniffi_internal_fn_func_ffi__string_to_byte_length(
+        s,
+        status,
+      ),
+    ),
 };
 const FfiConverterString = uniffiCreateFfiConverterString(stringConverter);
-
-
-
 
 // Error type: BridgeError
 
 // Enum: BridgeError
 export enum BridgeError_Tags {
-    Closed = "Closed",
-    InvalidParamsJson = "InvalidParamsJson",
-    ParamsMustBeArray = "ParamsMustBeArray",
-    OpenFailed = "OpenFailed",
-    QueryFailed = "QueryFailed",
-    CloudsyncFailed = "CloudsyncFailed",
-    SerializationFailed = "SerializationFailed"
+  Closed = "Closed",
+  InvalidParamsJson = "InvalidParamsJson",
+  InvalidCloudsyncConfigJson = "InvalidCloudsyncConfigJson",
+  ParamsMustBeArray = "ParamsMustBeArray",
+  OpenFailed = "OpenFailed",
+  QueryFailed = "QueryFailed",
+  CloudsyncFailed = "CloudsyncFailed",
+  SerializationFailed = "SerializationFailed",
 }
 export const BridgeError = (() => {
-    
+  type Closed__interface = {
+    tag: BridgeError_Tags.Closed;
+  };
 
-    type Closed__interface = {
-        tag: BridgeError_Tags.Closed
-    };
-
-    
-    class Closed_ extends UniffiError implements Closed__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.Closed;
-        constructor() {
-            super("BridgeError", "Closed");
-        }
-
-        static new(): Closed_ {
-            return new Closed_();
-        }
-
-        static instanceOf(obj: any): obj is Closed_ {
-            return obj.tag === BridgeError_Tags.Closed;
-        }
-
-        
-        static hasInner(obj: any): obj is Closed_ {
-            return false;
-        }
-
-    }
-    
-
-    type InvalidParamsJson__interface = {
-        tag: BridgeError_Tags.InvalidParamsJson;
-        inner: Readonly<{reason: string}>
-    };
-
-    
-    class InvalidParamsJson_ extends UniffiError implements InvalidParamsJson__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.InvalidParamsJson;
-        readonly inner: Readonly<{reason: string}>;
-        constructor(inner: { reason: string }) {
-            super("BridgeError", "InvalidParamsJson");
-            this.inner = Object.freeze(inner);
-        }
-
-        static new(inner: { reason: string }): InvalidParamsJson_ {
-            return new InvalidParamsJson_(inner);
-        }
-
-        static instanceOf(obj: any): obj is InvalidParamsJson_ {
-            return obj.tag === BridgeError_Tags.InvalidParamsJson;
-        }
-
-        
-        static hasInner(obj: any): obj is InvalidParamsJson_ {
-            return InvalidParamsJson_.instanceOf(obj);
-        }
-
-        static getInner(obj: InvalidParamsJson_): Readonly<{reason: string}> {
-            return obj.inner;
-        }
-
-    }
-    
-
-    type ParamsMustBeArray__interface = {
-        tag: BridgeError_Tags.ParamsMustBeArray
-    };
-
-    
-    class ParamsMustBeArray_ extends UniffiError implements ParamsMustBeArray__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.ParamsMustBeArray;
-        constructor() {
-            super("BridgeError", "ParamsMustBeArray");
-        }
-
-        static new(): ParamsMustBeArray_ {
-            return new ParamsMustBeArray_();
-        }
-
-        static instanceOf(obj: any): obj is ParamsMustBeArray_ {
-            return obj.tag === BridgeError_Tags.ParamsMustBeArray;
-        }
-
-        
-        static hasInner(obj: any): obj is ParamsMustBeArray_ {
-            return false;
-        }
-
-    }
-    
-
-    type OpenFailed__interface = {
-        tag: BridgeError_Tags.OpenFailed;
-        inner: Readonly<{reason: string}>
-    };
-
-    
-    class OpenFailed_ extends UniffiError implements OpenFailed__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.OpenFailed;
-        readonly inner: Readonly<{reason: string}>;
-        constructor(inner: { reason: string }) {
-            super("BridgeError", "OpenFailed");
-            this.inner = Object.freeze(inner);
-        }
-
-        static new(inner: { reason: string }): OpenFailed_ {
-            return new OpenFailed_(inner);
-        }
-
-        static instanceOf(obj: any): obj is OpenFailed_ {
-            return obj.tag === BridgeError_Tags.OpenFailed;
-        }
-
-        
-        static hasInner(obj: any): obj is OpenFailed_ {
-            return OpenFailed_.instanceOf(obj);
-        }
-
-        static getInner(obj: OpenFailed_): Readonly<{reason: string}> {
-            return obj.inner;
-        }
-
-    }
-    
-
-    type QueryFailed__interface = {
-        tag: BridgeError_Tags.QueryFailed;
-        inner: Readonly<{reason: string}>
-    };
-
-    
-    class QueryFailed_ extends UniffiError implements QueryFailed__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.QueryFailed;
-        readonly inner: Readonly<{reason: string}>;
-        constructor(inner: { reason: string }) {
-            super("BridgeError", "QueryFailed");
-            this.inner = Object.freeze(inner);
-        }
-
-        static new(inner: { reason: string }): QueryFailed_ {
-            return new QueryFailed_(inner);
-        }
-
-        static instanceOf(obj: any): obj is QueryFailed_ {
-            return obj.tag === BridgeError_Tags.QueryFailed;
-        }
-
-        
-        static hasInner(obj: any): obj is QueryFailed_ {
-            return QueryFailed_.instanceOf(obj);
-        }
-
-        static getInner(obj: QueryFailed_): Readonly<{reason: string}> {
-            return obj.inner;
-        }
-
-    }
-    
-
-    type CloudsyncFailed__interface = {
-        tag: BridgeError_Tags.CloudsyncFailed;
-        inner: Readonly<{reason: string}>
-    };
-
-    
-    class CloudsyncFailed_ extends UniffiError implements CloudsyncFailed__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.CloudsyncFailed;
-        readonly inner: Readonly<{reason: string}>;
-        constructor(inner: { reason: string }) {
-            super("BridgeError", "CloudsyncFailed");
-            this.inner = Object.freeze(inner);
-        }
-
-        static new(inner: { reason: string }): CloudsyncFailed_ {
-            return new CloudsyncFailed_(inner);
-        }
-
-        static instanceOf(obj: any): obj is CloudsyncFailed_ {
-            return obj.tag === BridgeError_Tags.CloudsyncFailed;
-        }
-
-        
-        static hasInner(obj: any): obj is CloudsyncFailed_ {
-            return CloudsyncFailed_.instanceOf(obj);
-        }
-
-        static getInner(obj: CloudsyncFailed_): Readonly<{reason: string}> {
-            return obj.inner;
-        }
-
-    }
-    
-
-    type SerializationFailed__interface = {
-        tag: BridgeError_Tags.SerializationFailed;
-        inner: Readonly<{reason: string}>
-    };
-
-    
-    class SerializationFailed_ extends UniffiError implements SerializationFailed__interface {
-        /**
-         * @private
-         * This field is private and should not be used, use `tag` instead.
-         */
-        readonly [uniffiTypeNameSymbol] = "BridgeError";
-        readonly tag = BridgeError_Tags.SerializationFailed;
-        readonly inner: Readonly<{reason: string}>;
-        constructor(inner: { reason: string }) {
-            super("BridgeError", "SerializationFailed");
-            this.inner = Object.freeze(inner);
-        }
-
-        static new(inner: { reason: string }): SerializationFailed_ {
-            return new SerializationFailed_(inner);
-        }
-
-        static instanceOf(obj: any): obj is SerializationFailed_ {
-            return obj.tag === BridgeError_Tags.SerializationFailed;
-        }
-
-        
-        static hasInner(obj: any): obj is SerializationFailed_ {
-            return SerializationFailed_.instanceOf(obj);
-        }
-
-        static getInner(obj: SerializationFailed_): Readonly<{reason: string}> {
-            return obj.inner;
-        }
-
+  class Closed_ extends UniffiError implements Closed__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.Closed;
+    constructor() {
+      super("BridgeError", "Closed");
     }
 
-    function instanceOf(obj: any): obj is BridgeError {
-        return obj[uniffiTypeNameSymbol] === "BridgeError";
+    static new(): Closed_ {
+      return new Closed_();
     }
 
-    return Object.freeze({
-        instanceOf,
-  Closed: Closed_, 
-  InvalidParamsJson: InvalidParamsJson_, 
-  ParamsMustBeArray: ParamsMustBeArray_, 
-  OpenFailed: OpenFailed_, 
-  QueryFailed: QueryFailed_, 
-  CloudsyncFailed: CloudsyncFailed_, 
-  SerializationFailed: SerializationFailed_
-    });
+    static instanceOf(obj: any): obj is Closed_ {
+      return obj.tag === BridgeError_Tags.Closed;
+    }
 
+    static hasInner(obj: any): obj is Closed_ {
+      return false;
+    }
+  }
+
+  type InvalidParamsJson__interface = {
+    tag: BridgeError_Tags.InvalidParamsJson;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class InvalidParamsJson_
+    extends UniffiError
+    implements InvalidParamsJson__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.InvalidParamsJson;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "InvalidParamsJson");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): InvalidParamsJson_ {
+      return new InvalidParamsJson_(inner);
+    }
+
+    static instanceOf(obj: any): obj is InvalidParamsJson_ {
+      return obj.tag === BridgeError_Tags.InvalidParamsJson;
+    }
+
+    static hasInner(obj: any): obj is InvalidParamsJson_ {
+      return InvalidParamsJson_.instanceOf(obj);
+    }
+
+    static getInner(obj: InvalidParamsJson_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  type InvalidCloudsyncConfigJson__interface = {
+    tag: BridgeError_Tags.InvalidCloudsyncConfigJson;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class InvalidCloudsyncConfigJson_
+    extends UniffiError
+    implements InvalidCloudsyncConfigJson__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.InvalidCloudsyncConfigJson;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "InvalidCloudsyncConfigJson");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): InvalidCloudsyncConfigJson_ {
+      return new InvalidCloudsyncConfigJson_(inner);
+    }
+
+    static instanceOf(obj: any): obj is InvalidCloudsyncConfigJson_ {
+      return obj.tag === BridgeError_Tags.InvalidCloudsyncConfigJson;
+    }
+
+    static hasInner(obj: any): obj is InvalidCloudsyncConfigJson_ {
+      return InvalidCloudsyncConfigJson_.instanceOf(obj);
+    }
+
+    static getInner(
+      obj: InvalidCloudsyncConfigJson_,
+    ): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  type ParamsMustBeArray__interface = {
+    tag: BridgeError_Tags.ParamsMustBeArray;
+  };
+
+  class ParamsMustBeArray_
+    extends UniffiError
+    implements ParamsMustBeArray__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.ParamsMustBeArray;
+    constructor() {
+      super("BridgeError", "ParamsMustBeArray");
+    }
+
+    static new(): ParamsMustBeArray_ {
+      return new ParamsMustBeArray_();
+    }
+
+    static instanceOf(obj: any): obj is ParamsMustBeArray_ {
+      return obj.tag === BridgeError_Tags.ParamsMustBeArray;
+    }
+
+    static hasInner(obj: any): obj is ParamsMustBeArray_ {
+      return false;
+    }
+  }
+
+  type OpenFailed__interface = {
+    tag: BridgeError_Tags.OpenFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class OpenFailed_ extends UniffiError implements OpenFailed__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.OpenFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "OpenFailed");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): OpenFailed_ {
+      return new OpenFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is OpenFailed_ {
+      return obj.tag === BridgeError_Tags.OpenFailed;
+    }
+
+    static hasInner(obj: any): obj is OpenFailed_ {
+      return OpenFailed_.instanceOf(obj);
+    }
+
+    static getInner(obj: OpenFailed_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  type QueryFailed__interface = {
+    tag: BridgeError_Tags.QueryFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class QueryFailed_ extends UniffiError implements QueryFailed__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.QueryFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "QueryFailed");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): QueryFailed_ {
+      return new QueryFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is QueryFailed_ {
+      return obj.tag === BridgeError_Tags.QueryFailed;
+    }
+
+    static hasInner(obj: any): obj is QueryFailed_ {
+      return QueryFailed_.instanceOf(obj);
+    }
+
+    static getInner(obj: QueryFailed_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  type CloudsyncFailed__interface = {
+    tag: BridgeError_Tags.CloudsyncFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class CloudsyncFailed_
+    extends UniffiError
+    implements CloudsyncFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.CloudsyncFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "CloudsyncFailed");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): CloudsyncFailed_ {
+      return new CloudsyncFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is CloudsyncFailed_ {
+      return obj.tag === BridgeError_Tags.CloudsyncFailed;
+    }
+
+    static hasInner(obj: any): obj is CloudsyncFailed_ {
+      return CloudsyncFailed_.instanceOf(obj);
+    }
+
+    static getInner(obj: CloudsyncFailed_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  type SerializationFailed__interface = {
+    tag: BridgeError_Tags.SerializationFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+
+  class SerializationFailed_
+    extends UniffiError
+    implements SerializationFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.SerializationFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "SerializationFailed");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { reason: string }): SerializationFailed_ {
+      return new SerializationFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is SerializationFailed_ {
+      return obj.tag === BridgeError_Tags.SerializationFailed;
+    }
+
+    static hasInner(obj: any): obj is SerializationFailed_ {
+      return SerializationFailed_.instanceOf(obj);
+    }
+
+    static getInner(obj: SerializationFailed_): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
+  function instanceOf(obj: any): obj is BridgeError {
+    return obj[uniffiTypeNameSymbol] === "BridgeError";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    Closed: Closed_,
+    InvalidParamsJson: InvalidParamsJson_,
+    InvalidCloudsyncConfigJson: InvalidCloudsyncConfigJson_,
+    ParamsMustBeArray: ParamsMustBeArray_,
+    OpenFailed: OpenFailed_,
+    QueryFailed: QueryFailed_,
+    CloudsyncFailed: CloudsyncFailed_,
+    SerializationFailed: SerializationFailed_,
+  });
 })();
 
-
-
 export type BridgeError = InstanceType<
-    typeof BridgeError[keyof Omit<typeof BridgeError, 'instanceOf'>]
+  (typeof BridgeError)[keyof Omit<typeof BridgeError, "instanceOf">]
 >;
 
 // FfiConverter for enum BridgeError
 const FfiConverterTypeBridgeError = (() => {
-    const ordinalConverter = FfiConverterInt32;
-    type TypeName = BridgeError;
-    class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-        read(from: RustBuffer): TypeName {
-            switch (ordinalConverter.read(from)) {
-                case 1: return new BridgeError.Closed();
-                case 2: return new BridgeError.InvalidParamsJson({reason: FfiConverterString.read(from) });
-                case 3: return new BridgeError.ParamsMustBeArray();
-                case 4: return new BridgeError.OpenFailed({reason: FfiConverterString.read(from) });
-                case 5: return new BridgeError.QueryFailed({reason: FfiConverterString.read(from) });
-                case 6: return new BridgeError.CloudsyncFailed({reason: FfiConverterString.read(from) });
-                case 7: return new BridgeError.SerializationFailed({reason: FfiConverterString.read(from) });
-                default: throw new UniffiInternalError.UnexpectedEnumCase();
-            }
-        }
-        write(value: TypeName, into: RustBuffer): void {
-            switch (value.tag) {
-                case BridgeError_Tags.Closed: {
-                    ordinalConverter.write(1, into);
-                    return;
-                }
-                case BridgeError_Tags.InvalidParamsJson: {
-                    ordinalConverter.write(2, into);
-                    const inner = value.inner;
-                    FfiConverterString.write(inner.reason, into);
-                    return;
-                }
-                case BridgeError_Tags.ParamsMustBeArray: {
-                    ordinalConverter.write(3, into);
-                    return;
-                }
-                case BridgeError_Tags.OpenFailed: {
-                    ordinalConverter.write(4, into);
-                    const inner = value.inner;
-                    FfiConverterString.write(inner.reason, into);
-                    return;
-                }
-                case BridgeError_Tags.QueryFailed: {
-                    ordinalConverter.write(5, into);
-                    const inner = value.inner;
-                    FfiConverterString.write(inner.reason, into);
-                    return;
-                }
-                case BridgeError_Tags.CloudsyncFailed: {
-                    ordinalConverter.write(6, into);
-                    const inner = value.inner;
-                    FfiConverterString.write(inner.reason, into);
-                    return;
-                }
-                case BridgeError_Tags.SerializationFailed: {
-                    ordinalConverter.write(7, into);
-                    const inner = value.inner;
-                    FfiConverterString.write(inner.reason, into);
-                    return;
-                }
-                default:
-                    // Throwing from here means that BridgeError_Tags hasn't matched an ordinal.
-                    throw new UniffiInternalError.UnexpectedEnumCase();
-            }
-        }
-        allocationSize(value: TypeName): number {
-            switch (value.tag) {
-                case BridgeError_Tags.Closed: {
-                    return ordinalConverter.allocationSize(1);
-                }
-                case BridgeError_Tags.InvalidParamsJson: {
-                    const inner = value.inner;
-                    let size = ordinalConverter.allocationSize(2);
-                    size += FfiConverterString.allocationSize(inner.reason);
-                    return size;
-                }
-                case BridgeError_Tags.ParamsMustBeArray: {
-                    return ordinalConverter.allocationSize(3);
-                }
-                case BridgeError_Tags.OpenFailed: {
-                    const inner = value.inner;
-                    let size = ordinalConverter.allocationSize(4);
-                    size += FfiConverterString.allocationSize(inner.reason);
-                    return size;
-                }
-                case BridgeError_Tags.QueryFailed: {
-                    const inner = value.inner;
-                    let size = ordinalConverter.allocationSize(5);
-                    size += FfiConverterString.allocationSize(inner.reason);
-                    return size;
-                }
-                case BridgeError_Tags.CloudsyncFailed: {
-                    const inner = value.inner;
-                    let size = ordinalConverter.allocationSize(6);
-                    size += FfiConverterString.allocationSize(inner.reason);
-                    return size;
-                }
-                case BridgeError_Tags.SerializationFailed: {
-                    const inner = value.inner;
-                    let size = ordinalConverter.allocationSize(7);
-                    size += FfiConverterString.allocationSize(inner.reason);
-                    return size;
-                }
-                default: throw new UniffiInternalError.UnexpectedEnumCase();
-            }
-        }
+  const ordinalConverter = FfiConverterInt32;
+  type TypeName = BridgeError;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      switch (ordinalConverter.read(from)) {
+        case 1:
+          return new BridgeError.Closed();
+        case 2:
+          return new BridgeError.InvalidParamsJson({
+            reason: FfiConverterString.read(from),
+          });
+        case 3:
+          return new BridgeError.InvalidCloudsyncConfigJson({
+            reason: FfiConverterString.read(from),
+          });
+        case 4:
+          return new BridgeError.ParamsMustBeArray();
+        case 5:
+          return new BridgeError.OpenFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 6:
+          return new BridgeError.QueryFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 7:
+          return new BridgeError.CloudsyncFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 8:
+          return new BridgeError.SerializationFailed({
+            reason: FfiConverterString.read(from),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
     }
-    return new FFIConverter();
+    write(value: TypeName, into: RustBuffer): void {
+      switch (value.tag) {
+        case BridgeError_Tags.Closed: {
+          ordinalConverter.write(1, into);
+          return;
+        }
+        case BridgeError_Tags.InvalidParamsJson: {
+          ordinalConverter.write(2, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.InvalidCloudsyncConfigJson: {
+          ordinalConverter.write(3, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.ParamsMustBeArray: {
+          ordinalConverter.write(4, into);
+          return;
+        }
+        case BridgeError_Tags.OpenFailed: {
+          ordinalConverter.write(5, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.QueryFailed: {
+          ordinalConverter.write(6, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.CloudsyncFailed: {
+          ordinalConverter.write(7, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          ordinalConverter.write(8, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        default:
+          // Throwing from here means that BridgeError_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case BridgeError_Tags.Closed: {
+          return ordinalConverter.allocationSize(1);
+        }
+        case BridgeError_Tags.InvalidParamsJson: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(2);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.InvalidCloudsyncConfigJson: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(3);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.ParamsMustBeArray: {
+          return ordinalConverter.allocationSize(4);
+        }
+        case BridgeError_Tags.OpenFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(5);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.QueryFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(6);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.CloudsyncFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(7);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(8);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
 })();
 
-
 export interface MobileDbBridgeInterface {
-    
-    close()  /*throws*/: void;
-    cloudsyncInit(tableName: string, crdtAlgo: string | undefined, force: boolean | undefined)  /*throws*/: void;
-    cloudsyncNetworkInit(connectionString: string)  /*throws*/: void;
-    cloudsyncNetworkSetApikey(apiKey: string)  /*throws*/: void;
-    cloudsyncNetworkSetToken(token: string)  /*throws*/: void;
-    cloudsyncNetworkSync(waitMs: /*i64*/bigint | undefined, maxRetries: /*i64*/bigint | undefined)  /*throws*/: void;
-    cloudsyncVersion()  /*throws*/: string;
-    execute(sql: string, paramsJson: string)  /*throws*/: string;
-    subscribe(sql: string, paramsJson: string, listener: QueryEventListener)  /*throws*/: string;
-    unsubscribe(subscriptionId: string)  /*throws*/: void;
+  close() /*throws*/ : void;
+  cloudsyncInit(
+    tableName: string,
+    crdtAlgo: string | undefined,
+    force: boolean | undefined,
+  ) /*throws*/ : void;
+  cloudsyncNetworkInit(connectionString: string) /*throws*/ : void;
+  cloudsyncNetworkSetApikey(apiKey: string) /*throws*/ : void;
+  cloudsyncNetworkSetToken(token: string) /*throws*/ : void;
+  cloudsyncNetworkSync(
+    waitMs: /*i64*/ bigint | undefined,
+    maxRetries: /*i64*/ bigint | undefined,
+  ) /*throws*/ : /*i64*/ bigint;
+  cloudsyncStatus() /*throws*/ : string;
+  cloudsyncSyncNow() /*throws*/ : /*i64*/ bigint;
+  cloudsyncVersion() /*throws*/ : string;
+  configureCloudsync(configJson: string) /*throws*/ : void;
+  execute(sql: string, paramsJson: string) /*throws*/ : string;
+  startCloudsync() /*throws*/ : void;
+  stopCloudsync() /*throws*/ : void;
+  subscribe(
+    sql: string,
+    paramsJson: string,
+    listener: QueryEventListener,
+  ) /*throws*/ : string;
+  unsubscribe(subscriptionId: string) /*throws*/ : void;
 }
 
-
-export class MobileDbBridge extends UniffiAbstractObject implements MobileDbBridgeInterface {
-
-    readonly [uniffiTypeNameSymbol] = "MobileDbBridge";
-    readonly [destructorGuardSymbol]: UniffiRustArcPtr;
-    readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
-    // No primary constructor declared for this class.
-private constructor(pointer: UnsafeMutableRawPointer) {
+export class MobileDbBridge
+  extends UniffiAbstractObject
+  implements MobileDbBridgeInterface
+{
+  readonly [uniffiTypeNameSymbol] = "MobileDbBridge";
+  readonly [destructorGuardSymbol]: UniffiRustArcPtr;
+  readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
+  // No primary constructor declared for this class.
+  private constructor(pointer: UnsafeMutableRawPointer) {
     super();
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] = uniffiTypeMobileDbBridgeObjectFactory.bless(pointer);
-}
+    this[destructorGuardSymbol] =
+      uniffiTypeMobileDbBridgeObjectFactory.bless(pointer);
+  }
 
-    
-public static open(dbPath: string): MobileDbBridgeInterface /*throws*/ {
+  public static open(
+    dbPath: string,
+    cloudsyncOpenMode: string | undefined,
+  ): MobileDbBridgeInterface /*throws*/ {
     return FfiConverterTypeMobileDbBridge.lift(
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(
-        FfiConverterString.lower(dbPath),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    ));
-    }
-    
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(
+            FfiConverterString.lower(dbPath),
+            FfiConverterOptionalString.lower(cloudsyncOpenMode),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
 
-    
-public close(): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  public close(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
-    }
-    
-public cloudsyncInit(tableName: string, crdtAlgo: string | undefined, force: boolean | undefined): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(tableName),
-        FfiConverterOptionalString.lower(crdtAlgo),
-        FfiConverterOptionalBool.lower(force),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  }
+
+  public cloudsyncInit(
+    tableName: string,
+    crdtAlgo: string | undefined,
+    force: boolean | undefined,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(tableName),
+          FfiConverterOptionalString.lower(crdtAlgo),
+          FfiConverterOptionalBool.lower(force),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
-    }
-    
-public cloudsyncNetworkInit(connectionString: string): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(connectionString),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  }
+
+  public cloudsyncNetworkInit(connectionString: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(connectionString),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
-    }
-    
-public cloudsyncNetworkSetApikey(apiKey: string): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(apiKey),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  }
+
+  public cloudsyncNetworkSetApikey(apiKey: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_apikey(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(apiKey),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
-    }
-    
-public cloudsyncNetworkSetToken(token: string): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(token),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  }
+
+  public cloudsyncNetworkSetToken(token: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_set_token(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(token),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
-    }
-    
-public cloudsyncNetworkSync(waitMs: /*i64*/bigint | undefined, maxRetries: /*i64*/bigint | undefined): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterOptionalInt64.lower(waitMs),
-        FfiConverterOptionalInt64.lower(maxRetries),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+  }
+
+  public cloudsyncNetworkSync(
+    waitMs: /*i64*/ bigint | undefined,
+    maxRetries: /*i64*/ bigint | undefined,
+  ): /*i64*/ bigint /*throws*/ {
+    return FfiConverterInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_sync(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterOptionalInt64.lower(waitMs),
+            FfiConverterOptionalInt64.lower(maxRetries),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
-    }
-    
-public cloudsyncVersion(): string /*throws*/ {
+  }
+
+  public cloudsyncStatus(): string /*throws*/ {
     return FfiConverterString.lift(
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    ));
-    }
-    
-public execute(sql: string, paramsJson: string): string /*throws*/ {
-    return FfiConverterString.lift(
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(sql),
-        FfiConverterString.lower(paramsJson),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    ));
-    }
-    
-public subscribe(sql: string, paramsJson: string, listener: QueryEventListener): string /*throws*/ {
-    return FfiConverterString.lift(
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => {
-                return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(sql),
-        FfiConverterString.lower(paramsJson),
-        FfiConverterTypeQueryEventListener.lower(listener),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    ));
-    }
-    
-public unsubscribe(subscriptionId: string): void /*throws*/ {
-        uniffiCaller.rustCallWithError(
-            /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(FfiConverterTypeBridgeError),
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(subscriptionId),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_status(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
-    }
-    
+  }
 
-    /**
-     * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
-     */
-    uniffiDestroy(): void {
-        const ptr = (this as any)[destructorGuardSymbol];
-        if (ptr !== undefined) {
-            const pointer = uniffiTypeMobileDbBridgeObjectFactory.pointer(this);
-            uniffiTypeMobileDbBridgeObjectFactory.freePointer(pointer);
-            uniffiTypeMobileDbBridgeObjectFactory.unbless(ptr);
-            delete (this as any)[destructorGuardSymbol];
-        }
-    }
+  public cloudsyncSyncNow(): /*i64*/ bigint /*throws*/ {
+    return FfiConverterInt64.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_sync_now(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
 
-    static instanceOf(obj: any): obj is MobileDbBridge {
-        return uniffiTypeMobileDbBridgeObjectFactory.isConcreteType(obj);
-    }
+  public cloudsyncVersion(): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_version(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
 
-    
+  public configureCloudsync(configJson: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(configJson),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public execute(sql: string, paramsJson: string): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sql),
+            FfiConverterString.lower(paramsJson),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public startCloudsync(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public stopCloudsync(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public subscribe(
+    sql: string,
+    paramsJson: string,
+    listener: QueryEventListener,
+  ): string /*throws*/ {
+    return FfiConverterString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_subscribe(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sql),
+            FfiConverterString.lower(paramsJson),
+            FfiConverterTypeQueryEventListener.lower(listener),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public unsubscribe(subscriptionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_unsubscribe(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(subscriptionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeMobileDbBridgeObjectFactory.pointer(this);
+      uniffiTypeMobileDbBridgeObjectFactory.freePointer(pointer);
+      uniffiTypeMobileDbBridgeObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is MobileDbBridge {
+    return uniffiTypeMobileDbBridgeObjectFactory.isConcreteType(obj);
+  }
 }
 
-const uniffiTypeMobileDbBridgeObjectFactory: UniffiObjectFactory<MobileDbBridgeInterface> = (() => {
-    
+const uniffiTypeMobileDbBridgeObjectFactory: UniffiObjectFactory<MobileDbBridgeInterface> =
+  (() => {
     return {
-    create(pointer: UnsafeMutableRawPointer): MobileDbBridgeInterface {
+      create(pointer: UnsafeMutableRawPointer): MobileDbBridgeInterface {
         const instance = Object.create(MobileDbBridge.prototype);
         instance[pointerLiteralSymbol] = pointer;
         instance[destructorGuardSymbol] = this.bless(pointer);
         instance[uniffiTypeNameSymbol] = "MobileDbBridge";
         return instance;
-    },
+      },
 
-    
-    bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
+      bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
         return uniffiCaller.rustCall(
-            /*caller:*/ (status) =>
-                nativeModule().ubrn_uniffi_internal_fn_method_mobiledbbridge_ffi__bless_pointer(p, status),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_mobiledbbridge_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    unbless(ptr: UniffiRustArcPtr) {
+      unbless(ptr: UniffiRustArcPtr) {
         ptr.markDestroyed();
-    },
+      },
 
-    pointer(obj: MobileDbBridgeInterface): UnsafeMutableRawPointer {
+      pointer(obj: MobileDbBridgeInterface): UnsafeMutableRawPointer {
         if ((obj as any)[destructorGuardSymbol] === undefined) {
-            throw new UniffiInternalError.UnexpectedNullPointer();
+          throw new UniffiInternalError.UnexpectedNullPointer();
         }
         return (obj as any)[pointerLiteralSymbol];
-    },
+      },
 
-    clonePointer(obj: MobileDbBridgeInterface): UnsafeMutableRawPointer {
+      clonePointer(obj: MobileDbBridgeInterface): UnsafeMutableRawPointer {
         const pointer = this.pointer(obj);
         return uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_mobiledbbridge(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_mobiledbbridge(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    freePointer(pointer: UnsafeMutableRawPointer): void {
+      freePointer(pointer: UnsafeMutableRawPointer): void {
         uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_mobile_bridge_fn_free_mobiledbbridge(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_free_mobiledbbridge(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    isConcreteType(obj: any): obj is MobileDbBridgeInterface {
-        return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === "MobileDbBridge";
-    },
-}})();
+      isConcreteType(obj: any): obj is MobileDbBridgeInterface {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "MobileDbBridge"
+        );
+      },
+    };
+  })();
 // FfiConverter for MobileDbBridgeInterface
-const FfiConverterTypeMobileDbBridge =  new FfiConverterObject(uniffiTypeMobileDbBridgeObjectFactory);
-
+const FfiConverterTypeMobileDbBridge = new FfiConverterObject(
+  uniffiTypeMobileDbBridgeObjectFactory,
+);
 
 export interface QueryEventListener {
-    
-    onResult(rowsJson: string) : void;
-    onError(message: string) : void;
+  onResult(rowsJson: string): void;
+  onError(message: string): void;
 }
 
-
-export class QueryEventListenerImpl extends UniffiAbstractObject implements QueryEventListener {
-
-    readonly [uniffiTypeNameSymbol] = "QueryEventListenerImpl";
-    readonly [destructorGuardSymbol]: UniffiRustArcPtr;
-    readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
-    // No primary constructor declared for this class.
-private constructor(pointer: UnsafeMutableRawPointer) {
+export class QueryEventListenerImpl
+  extends UniffiAbstractObject
+  implements QueryEventListener
+{
+  readonly [uniffiTypeNameSymbol] = "QueryEventListenerImpl";
+  readonly [destructorGuardSymbol]: UniffiRustArcPtr;
+  readonly [pointerLiteralSymbol]: UnsafeMutableRawPointer;
+  // No primary constructor declared for this class.
+  private constructor(pointer: UnsafeMutableRawPointer) {
     super();
     this[pointerLiteralSymbol] = pointer;
-    this[destructorGuardSymbol] = uniffiTypeQueryEventListenerImplObjectFactory.bless(pointer);
+    this[destructorGuardSymbol] =
+      uniffiTypeQueryEventListenerImplObjectFactory.bless(pointer);
+  }
+
+  public onResult(rowsJson: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(
+          uniffiTypeQueryEventListenerImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(rowsJson),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public onError(message: string): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(
+          uniffiTypeQueryEventListenerImplObjectFactory.clonePointer(this),
+          FfiConverterString.lower(message),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer =
+        uniffiTypeQueryEventListenerImplObjectFactory.pointer(this);
+      uniffiTypeQueryEventListenerImplObjectFactory.freePointer(pointer);
+      uniffiTypeQueryEventListenerImplObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is QueryEventListenerImpl {
+    return uniffiTypeQueryEventListenerImplObjectFactory.isConcreteType(obj);
+  }
 }
 
-    
-
-    
-public onResult(rowsJson: string): void {uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_result(uniffiTypeQueryEventListenerImplObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(rowsJson),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    );
-    }
-    
-public onError(message: string): void {uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => { nativeModule().ubrn_uniffi_mobile_bridge_fn_method_queryeventlistener_on_error(uniffiTypeQueryEventListenerImplObjectFactory.clonePointer(this), 
-        FfiConverterString.lower(message),
-                callStatus);
-            },
-            /*liftString:*/ FfiConverterString.lift,
-    );
-    }
-    
-
-    /**
-     * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
-     */
-    uniffiDestroy(): void {
-        const ptr = (this as any)[destructorGuardSymbol];
-        if (ptr !== undefined) {
-            const pointer = uniffiTypeQueryEventListenerImplObjectFactory.pointer(this);
-            uniffiTypeQueryEventListenerImplObjectFactory.freePointer(pointer);
-            uniffiTypeQueryEventListenerImplObjectFactory.unbless(ptr);
-            delete (this as any)[destructorGuardSymbol];
-        }
-    }
-
-    static instanceOf(obj: any): obj is QueryEventListenerImpl {
-        return uniffiTypeQueryEventListenerImplObjectFactory.isConcreteType(obj);
-    }
-
-    
-}
-
-const uniffiTypeQueryEventListenerImplObjectFactory: UniffiObjectFactory<QueryEventListener> = (() => {
-    
+const uniffiTypeQueryEventListenerImplObjectFactory: UniffiObjectFactory<QueryEventListener> =
+  (() => {
     return {
-    create(pointer: UnsafeMutableRawPointer): QueryEventListener {
+      create(pointer: UnsafeMutableRawPointer): QueryEventListener {
         const instance = Object.create(QueryEventListenerImpl.prototype);
         instance[pointerLiteralSymbol] = pointer;
         instance[destructorGuardSymbol] = this.bless(pointer);
         instance[uniffiTypeNameSymbol] = "QueryEventListenerImpl";
         return instance;
-    },
+      },
 
-    
-    bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
+      bless(p: UnsafeMutableRawPointer): UniffiRustArcPtr {
         return uniffiCaller.rustCall(
-            /*caller:*/ (status) =>
-                nativeModule().ubrn_uniffi_internal_fn_method_queryeventlistener_ffi__bless_pointer(p, status),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_queryeventlistener_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    unbless(ptr: UniffiRustArcPtr) {
+      unbless(ptr: UniffiRustArcPtr) {
         ptr.markDestroyed();
-    },
+      },
 
-    pointer(obj: QueryEventListener): UnsafeMutableRawPointer {
+      pointer(obj: QueryEventListener): UnsafeMutableRawPointer {
         if ((obj as any)[destructorGuardSymbol] === undefined) {
-            throw new UniffiInternalError.UnexpectedNullPointer();
+          throw new UniffiInternalError.UnexpectedNullPointer();
         }
         return (obj as any)[pointerLiteralSymbol];
-    },
+      },
 
-    clonePointer(obj: QueryEventListener): UnsafeMutableRawPointer {
+      clonePointer(obj: QueryEventListener): UnsafeMutableRawPointer {
         const pointer = this.pointer(obj);
         return uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_queryeventlistener(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_clone_queryeventlistener(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    freePointer(pointer: UnsafeMutableRawPointer): void {
+      freePointer(pointer: UnsafeMutableRawPointer): void {
         uniffiCaller.rustCall(
-            /*caller:*/ (callStatus) => nativeModule().ubrn_uniffi_mobile_bridge_fn_free_queryeventlistener(pointer, callStatus),
-            /*liftString:*/ FfiConverterString.lift
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_mobile_bridge_fn_free_queryeventlistener(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
         );
-    },
+      },
 
-    isConcreteType(obj: any): obj is QueryEventListener {
-        return obj[destructorGuardSymbol] && obj[uniffiTypeNameSymbol] === "QueryEventListenerImpl";
-    },
-}})();
+      isConcreteType(obj: any): obj is QueryEventListener {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "QueryEventListenerImpl"
+        );
+      },
+    };
+  })();
 // FfiConverter for QueryEventListener
-const FfiConverterTypeQueryEventListener = new FfiConverterObjectWithCallbacks(uniffiTypeQueryEventListenerImplObjectFactory);
+const FfiConverterTypeQueryEventListener = new FfiConverterObjectWithCallbacks(
+  uniffiTypeQueryEventListenerImplObjectFactory,
+);
 
 // Add a vtavble for the callbacks that go in QueryEventListener.
 
-
 // Put the implementation in a struct so we don't pollute the top-level namespace
-const uniffiCallbackInterfaceQueryEventListener: { vtable: UniffiVTableCallbackInterfaceQueryEventListener; register: () => void; } = {
-    // Create the VTable using a series of closures.
-    // ts automatically converts these into C callback functions.
-    vtable: {
-        onResult: (
-            uniffiHandle: bigint,
-            rowsJson: Uint8Array,) => {
-            const uniffiMakeCall = 
-            ()
-            : void => {
-                const jsCallback = FfiConverterTypeQueryEventListener.lift(uniffiHandle);
-                return jsCallback.onResult(
-                    FfiConverterString.lift(rowsJson)
-                )
-            };
-            const uniffiResult = UniffiResult.ready<void>();
-            const uniffiHandleSuccess = (obj: any) => {};
-            const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
-                UniffiResult.writeError(uniffiResult, code, errBuf);
-            };
-            uniffiTraitInterfaceCall(
-                /*makeCall:*/ uniffiMakeCall,
-                /*handleSuccess:*/ uniffiHandleSuccess,
-                /*handleError:*/ uniffiHandleError,
-                /*lowerString:*/ FfiConverterString.lower
-            )
-            return uniffiResult;
-        },
-        onError: (
-            uniffiHandle: bigint,
-            message: Uint8Array,) => {
-            const uniffiMakeCall = 
-            ()
-            : void => {
-                const jsCallback = FfiConverterTypeQueryEventListener.lift(uniffiHandle);
-                return jsCallback.onError(
-                    FfiConverterString.lift(message)
-                )
-            };
-            const uniffiResult = UniffiResult.ready<void>();
-            const uniffiHandleSuccess = (obj: any) => {};
-            const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
-                UniffiResult.writeError(uniffiResult, code, errBuf);
-            };
-            uniffiTraitInterfaceCall(
-                /*makeCall:*/ uniffiMakeCall,
-                /*handleSuccess:*/ uniffiHandleSuccess,
-                /*handleError:*/ uniffiHandleError,
-                /*lowerString:*/ FfiConverterString.lower
-            )
-            return uniffiResult;
-        },
-        uniffiFree: (uniffiHandle: UniffiHandle): void => {
-            // QueryEventListener: this will throw a stale handle error if the handle isn't found.
-            FfiConverterTypeQueryEventListener.drop(uniffiHandle);
-        }
+const uniffiCallbackInterfaceQueryEventListener: {
+  vtable: UniffiVTableCallbackInterfaceQueryEventListener;
+  register: () => void;
+} = {
+  // Create the VTable using a series of closures.
+  // ts automatically converts these into C callback functions.
+  vtable: {
+    onResult: (uniffiHandle: bigint, rowsJson: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback =
+          FfiConverterTypeQueryEventListener.lift(uniffiHandle);
+        return jsCallback.onResult(FfiConverterString.lift(rowsJson));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
     },
-    register: () => {
-        nativeModule().ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(
-            uniffiCallbackInterfaceQueryEventListener.vtable
-        );
+    onError: (uniffiHandle: bigint, message: Uint8Array) => {
+      const uniffiMakeCall = (): void => {
+        const jsCallback =
+          FfiConverterTypeQueryEventListener.lift(uniffiHandle);
+        return jsCallback.onError(FfiConverterString.lift(message));
+      };
+      const uniffiResult = UniffiResult.ready<void>();
+      const uniffiHandleSuccess = (obj: any) => {};
+      const uniffiHandleError = (code: number, errBuf: UniffiByteArray) => {
+        UniffiResult.writeError(uniffiResult, code, errBuf);
+      };
+      uniffiTraitInterfaceCall(
+        /*makeCall:*/ uniffiMakeCall,
+        /*handleSuccess:*/ uniffiHandleSuccess,
+        /*handleError:*/ uniffiHandleError,
+        /*lowerString:*/ FfiConverterString.lower,
+      );
+      return uniffiResult;
     },
+    uniffiFree: (uniffiHandle: UniffiHandle): void => {
+      // QueryEventListener: this will throw a stale handle error if the handle isn't found.
+      FfiConverterTypeQueryEventListener.drop(uniffiHandle);
+    },
+  },
+  register: () => {
+    nativeModule().ubrn_uniffi_mobile_bridge_fn_init_callback_vtable_queryeventlistener(
+      uniffiCallbackInterfaceQueryEventListener.vtable,
+    );
+  },
 };
-
 
 // FfiConverter for boolean | undefined
 const FfiConverterOptionalBool = new FfiConverterOptional(FfiConverterBool);
 
-
 // FfiConverter for /*i64*/bigint | undefined
 const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
-
 
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
@@ -940,55 +1187,164 @@ const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
  * It also initializes the machinery to enable Rust to talk back to Javascript.
  */
 function uniffiEnsureInitialized() {
-    // Get the bindings contract version from our ComponentInterface
-    const bindingsContractVersion = 29;
-    // Get the scaffolding contract version by calling the into the dylib
-    const scaffoldingContractVersion = nativeModule().ubrn_ffi_mobile_bridge_uniffi_contract_version();
-    if (bindingsContractVersion !== scaffoldingContractVersion) {
-        throw new UniffiInternalError.ContractVersionMismatch(scaffoldingContractVersion, bindingsContractVersion);
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close() !== 45652) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_close");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init() !== 21973) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init() !== 4715) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey() !== 26337) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token() !== 37270) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync() !== 26633) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version() !== 54059) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute() !== 20975) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe() !== 38855) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe() !== 60624) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result() !== 26885) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error() !== 57230) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error");
-    }
-    if (nativeModule().ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open() !== 8108) {
-        throw new UniffiInternalError.ApiChecksumMismatch("uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open");
-    }
+  // Get the bindings contract version from our ComponentInterface
+  const bindingsContractVersion = 29;
+  // Get the scaffolding contract version by calling the into the dylib
+  const scaffoldingContractVersion =
+    nativeModule().ubrn_ffi_mobile_bridge_uniffi_contract_version();
+  if (bindingsContractVersion !== scaffoldingContractVersion) {
+    throw new UniffiInternalError.ContractVersionMismatch(
+      scaffoldingContractVersion,
+      bindingsContractVersion,
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close() !==
+    45652
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_close",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init() !==
+    21973
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init() !==
+    4715
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey() !==
+    26337
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_apikey",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token() !==
+    37270
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_set_token",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync() !==
+    51067
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_sync",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_status() !==
+    21420
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_status",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now() !==
+    29034
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version() !==
+    54059
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync() !==
+    13872
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute() !==
+    20975
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync() !==
+    43800
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync() !==
+    23108
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe() !==
+    38855
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_subscribe",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe() !==
+    60624
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_unsubscribe",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result() !==
+    26885
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_queryeventlistener_on_result",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error() !==
+    57230
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_queryeventlistener_on_error",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open() !==
+    2789
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_constructor_mobiledbbridge_open",
+    );
+  }
 
-    uniffiCallbackInterfaceQueryEventListener.register();
-    }
+  uniffiCallbackInterfaceQueryEventListener.register();
+}
 
 export default Object.freeze({
   initialize: uniffiEnsureInitialized,
@@ -996,5 +1352,5 @@ export default Object.freeze({
     FfiConverterTypeBridgeError,
     FfiConverterTypeMobileDbBridge,
     FfiConverterTypeQueryEventListener,
-  }
+  },
 });

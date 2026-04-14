@@ -125,7 +125,11 @@ export function useUserTemplates(): UserTemplate[] {
 }
 
 export function useUserTemplate(id: string | null | undefined) {
-  const query = db.select().from(templates).where(eq(templates.id, id ?? "")).limit(1);
+  const query = db
+    .select()
+    .from(templates)
+    .where(eq(templates.id, id ?? ""))
+    .limit(1);
 
   return useDrizzleLiveQuery<TemplateLiveRow, UserTemplate | null>(query, {
     mapRows: (rows) => {

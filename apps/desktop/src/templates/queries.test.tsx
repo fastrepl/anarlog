@@ -3,11 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { execute, subscribe } from "@hypr/plugin-db";
 
-import {
-  getTemplateById,
-  useUserTemplate,
-  useUserTemplates,
-} from "./queries";
+import { getTemplateById, useUserTemplate, useUserTemplates } from "./queries";
 
 type SubscribeOptions<T> = {
   onData: (rows: T[]) => void;
@@ -50,9 +46,8 @@ describe("template queries", () => {
           pinned: 1,
           pin_order: 2,
           category: "meetings",
-          targets_json: "[\"engineering\"]",
-          sections_json:
-            '[{"title":"Notes","description":"Capture updates"}]',
+          targets_json: '["engineering"]',
+          sections_json: '[{"title":"Notes","description":"Capture updates"}]',
           created_at: "2026-04-14T00:00:00Z",
           updated_at: "2026-04-14T00:00:00Z",
         },
@@ -97,9 +92,8 @@ describe("template queries", () => {
         pinned: 0,
         pin_order: null,
         category: null,
-        targets_json: "[\"engineering\"]",
-        sections_json:
-          '[{"title":"Notes","description":"Capture updates"}]',
+        targets_json: '["engineering"]',
+        sections_json: '[{"title":"Notes","description":"Capture updates"}]',
         created_at: "2026-04-14T00:00:00Z",
         updated_at: "2026-04-14T00:00:00Z",
       },
