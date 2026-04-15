@@ -1,16 +1,80 @@
+/* --- Daily notes editor style overrides --- */
+
+.main2-daily-note-editor .tiptap p {
+  margin-bottom: 0rem;
+  line-height: 26px;
+}
+
+.main2-daily-note-editor .tiptap h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 1.25rem;
+}
+.main2-daily-note-editor .tiptap h2 {
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.main2-daily-note-editor .tiptap h3,
+.main2-daily-note-editor .tiptap h4,
+.main2-daily-note-editor .tiptap h5,
+.main2-daily-note-editor .tiptap h6 {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.main2-daily-note-editor .tiptap :not(:first-child):is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1rem;
+}
+
+.main2-daily-note-editor .tiptap ul[data-type="taskList"] {
+  padding: 0;
+  margin-left: 0;
+  margin-top: 0rem;
+}
+
+.main2-daily-note-editor .tiptap ul[data-type="taskList"] li {
+  margin-bottom: 0.5rem;
+}
+
+.main2-daily-note-editor .tiptap li[data-type="taskItem"] {
+  margin-bottom: 0.5rem;
+}
+
+.text-box-trim {
+  text-box-trim: trim-start;
+}
+
+.main2-daily-note-editor .tiptap hr {
+  border: none;
+  border-top: 1px solid #e5e5e5;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+/* --- Session title icon --- */
+
 .main2-daily-note-editor [data-session-title] {
   position: relative;
-  padding-left: 28px;
+  padding-left: 24px;
   line-height: 1.25rem;
+}
+
+.main2-daily-note-editor [data-session-title] > p {
+  text-box-trim: trim-both;
 }
 
 .main2-daily-note-editor [data-session-title]::before {
   content: "";
   position: absolute;
-  top: calc((1.25rem - 13px) / 2);
-  left: 8px;
-  width: 13px;
-  height: 13px;
+  top: calc((1.25rem - 12px) / 2);
+  left: 4px;
+  width: 12px;
+  height: 12px;
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a3a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect width='18' height='18' x='3' y='4' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E");
   background-position: center;

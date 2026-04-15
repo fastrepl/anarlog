@@ -8,7 +8,7 @@ export const welcomeContent: JSONContent = {
   content: [
     {
       type: "heading",
-      attrs: { level: 2 },
+      attrs: { level: 1 },
       content: [{ type: "text", text: "Welcome to Char!" }],
     },
     {
@@ -64,7 +64,7 @@ export const welcomeContent: JSONContent = {
     },
     {
       type: "heading",
-      attrs: { level: 3 },
+      attrs: { level: 2 },
       content: [
         { type: "text", text: "This is what you can do with Daily Notes" },
       ],
@@ -259,8 +259,8 @@ export const welcomeContent: JSONContent = {
     },
     {
       type: "heading",
-      attrs: { level: 3 },
-      content: [{ type: "text", text: "Enjoy Char! Here is your day:" }],
+      attrs: { level: 1 },
+      content: [{ type: "text", text: "Enjoy! Here is your day:" }],
     },
   ],
 };

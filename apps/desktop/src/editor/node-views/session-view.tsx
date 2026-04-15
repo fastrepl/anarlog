@@ -156,26 +156,23 @@ export const SessionNodeView = forwardRef<
         onMouseDown={handleRowMouseDown}
         onClick={handleRowClick}
         className={cn([
-          "group flex items-start rounded-md px-2 py-1 transition-colors",
+          "group flex items-start rounded-md px-2 py-1.5 transition-colors",
           "-mx-2 focus-within:bg-neutral-50 hover:bg-neutral-50",
           "cursor-pointer",
         ])}
       >
         {isRecording ? (
-          <div
-            className="flex size-[18px] shrink-0 items-center justify-center"
-            contentEditable={false}
-          >
+          <div className="flex size-[18px] shrink-0" contentEditable={false}>
             <div className="size-2.5 animate-pulse rounded-full bg-red-500" />
           </div>
         ) : (
           <TaskCheckbox status={status} isInteractive onToggle={handleToggle} />
         )}
-        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+        <div className="flex min-w-0 flex-1 gap-2">
           <div
             data-session-title
             className={cn([
-              "min-w-0 text-sm text-neutral-900",
+              "min-w-0 text-neutral-900",
               "[&>p]:m-0 [&>p]:min-w-0 [&>p]:truncate",
               status === "done" && "[&>p]:line-through [&>p]:opacity-60",
             ])}
