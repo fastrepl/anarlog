@@ -1,3 +1,4 @@
+import { Icon } from "@iconify-icon/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@hypr/utils";
@@ -49,13 +50,8 @@ function Component() {
             </h1>
             <p className="text-fg-muted text-lg sm:text-xl">
               Download press materials, logos, screenshots, and learn more about
-              Char. For press inquiries, contact us at{" "}
-              <a
-                href="mailto:founders@char.com"
-                className="text-stone-600 underline hover:text-stone-700"
-              >
-                founders@char.com
-              </a>
+              Char. For help, join our <Link to="/discord/">Discord</Link>. For
+              press inquiries, email founders@char.com.
             </p>
           </div>
         </div>
@@ -105,9 +101,14 @@ function Component() {
                       appIcon
                     />
                     <FinderAction
-                      href="mailto:founders@char.com"
-                      iconImage="/api/assets/icons/macos-mail.png"
-                      label="Contact"
+                      href="/discord/"
+                      label="Discord"
+                      icon={
+                        <Icon
+                          icon="ri:discord-fill"
+                          className="mx-auto h-16 w-16 text-[#5865F2] transition-transform group-hover:scale-110"
+                        />
+                      }
                     />
                     <FinderAction
                       href="https://github.com/fastrepl/char"
@@ -172,6 +173,7 @@ function FinderFolder({
 function FinderAction({
   href,
   iconImage,
+  icon,
   label,
   download,
   external,
@@ -180,6 +182,7 @@ function FinderAction({
 }: {
   href: string;
   iconImage?: string;
+  icon?: React.ReactNode;
   label: string;
   download?: boolean;
   external?: boolean;
@@ -195,6 +198,8 @@ function FinderAction({
             alt="Char"
             className="mx-auto h-16 w-16 rounded-[20px] border border-neutral-100 shadow-md transition-transform group-hover:scale-110"
           />
+        ) : icon ? (
+          icon
         ) : iconImage ? (
           <img
             src={iconImage}

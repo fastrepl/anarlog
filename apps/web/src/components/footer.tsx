@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { ExternalLinkIcon, MailIcon } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -383,15 +383,6 @@ function ResourcesLinks() {
           >
             Discussions
             <ExternalLinkIcon className="size-3" />
-          </a>
-        </li>
-        <li>
-          <a
-            href="mailto:support@char.com"
-            className="text-color hover:text-color inline-flex items-center gap-1 text-sm no-underline transition-colors hover:underline hover:decoration-dotted"
-          >
-            Support
-            <MailIcon className="size-3" />
           </a>
         </li>
         <li onMouseEnter={useCase.pause} onMouseLeave={useCase.resume}>

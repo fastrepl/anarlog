@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Mail, Menu, X, XIcon } from "lucide-react";
+import { Menu, X, XIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -810,16 +810,6 @@ function FounderDetail({
           </p>
 
           <div className="flex flex-wrap gap-2">
-            {founder.email && (
-              <a
-                href={`mailto:${founder.email}`}
-                className="flex items-center gap-2 rounded-full border border-neutral-300 px-3 py-2 text-xs text-stone-700 transition-colors hover:bg-stone-50"
-                aria-label="Email"
-              >
-                <Mail className="h-3 w-3" />
-                <span>Email</span>
-              </a>
-            )}
             {founder.links.twitter && (
               <a
                 href={founder.links.twitter}

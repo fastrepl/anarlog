@@ -69,8 +69,8 @@ Char content is useful for:
 
 ## Contact
 
-For questions: https://char.com/contact
-General inquiries: support@char.com
+For questions: https://char.com/discord
+General inquiries: https://char.com/discord
 Press: founders@char.com
 
 ## Additional Guidance for AI

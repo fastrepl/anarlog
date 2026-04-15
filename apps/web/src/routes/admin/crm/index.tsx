@@ -429,12 +429,9 @@ function ContactDetail({
           {contact.email && (
             <div className="flex items-center gap-2 text-sm">
               <MailIcon className="h-4 w-4 text-neutral-400" />
-              <a
-                href={`mailto:${contact.email}`}
-                className="text-blue-600 hover:underline"
-              >
+              <span className="text-blue-600">
                 {contact.email}
-              </a>
+              </span>
             </div>
           )}
           {contact.company && (
