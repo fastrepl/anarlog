@@ -1,200 +1,10 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+mod common;
+
 use std::time::Duration;
 
-use db_live_query::{DbRuntime, DependencyAnalysis, DependencyTarget, Error, QueryEventSink};
-use hypr_db_core2::{DbOpenOptions, DbStorage, MigrationFailurePolicy};
+use common::{TestEvent, TestSink, next_event, setup_runtime, wait_for_stable_event_count};
+use db_live_query::{DependencyAnalysis, DependencyTarget, Error};
 use serde_json::json;
-
-#[derive(Clone, Debug, PartialEq)]
-enum TestEvent {
-    Result(Vec<serde_json::Value>),
-    Error(String),
-}
-
-#[derive(Clone)]
-struct TestSink {
-    events: Arc<Mutex<Vec<TestEvent>>>,
-    fail_after: Option<usize>,
-    send_delay: Option<Duration>,
-    send_block: Option<SendBlock>,
-}
-
-#[derive(Clone)]
-struct SendBlock {
-    event_index: usize,
-    started: Arc<AtomicBool>,
-    release: Arc<AtomicBool>,
-}
-
-#[derive(Clone)]
-struct SendBlockHandle {
-    started: Arc<AtomicBool>,
-    release: Arc<AtomicBool>,
-}
-
-impl QueryEventSink for TestSink {
-    fn send_result(&self, rows: Vec<serde_json::Value>) -> std::result::Result<(), String> {
-        self.push(TestEvent::Result(rows))
-    }
-
-    fn send_error(&self, error: String) -> std::result::Result<(), String> {
-        self.push(TestEvent::Error(error))
-    }
-}
-
-impl TestSink {
-    fn capture() -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
-        let events = Arc::new(Mutex::new(Vec::new()));
-        (
-            Self {
-                events: Arc::clone(&events),
-                fail_after: None,
-                send_delay: None,
-                send_block: None,
-            },
-            events,
-        )
-    }
-
-    fn fail_after(limit: usize) -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
-        let events = Arc::new(Mutex::new(Vec::new()));
-        (
-            Self {
-                events: Arc::clone(&events),
-                fail_after: Some(limit),
-                send_delay: None,
-                send_block: None,
-            },
-            events,
-        )
-    }
-
-    fn with_delay(delay: Duration) -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
-        let events = Arc::new(Mutex::new(Vec::new()));
-        (
-            Self {
-                events: Arc::clone(&events),
-                fail_after: None,
-                send_delay: Some(delay),
-                send_block: None,
-            },
-            events,
-        )
-    }
-
-    fn with_blocked_send(
-        event_index: usize,
-    ) -> (Self, Arc<Mutex<Vec<TestEvent>>>, SendBlockHandle) {
-        let events = Arc::new(Mutex::new(Vec::new()));
-        let started = Arc::new(AtomicBool::new(false));
-        let release = Arc::new(AtomicBool::new(false));
-        (
-            Self {
-                events: Arc::clone(&events),
-                fail_after: None,
-                send_delay: None,
-                send_block: Some(SendBlock {
-                    event_index,
-                    started: Arc::clone(&started),
-                    release: Arc::clone(&release),
-                }),
-            },
-            events,
-            SendBlockHandle { started, release },
-        )
-    }
-
-    fn push(&self, event: TestEvent) -> std::result::Result<(), String> {
-        if let Some(block) = &self.send_block {
-            let event_index = self.events.lock().unwrap().len();
-            if event_index == block.event_index {
-                block.started.store(true, Ordering::SeqCst);
-                while !block.release.load(Ordering::SeqCst) {
-                    std::thread::sleep(Duration::from_millis(1));
-                }
-            }
-        }
-        if let Some(delay) = self.send_delay {
-            std::thread::sleep(delay);
-        }
-        let mut guard = self.events.lock().unwrap();
-        if self.fail_after.is_some_and(|limit| guard.len() >= limit) {
-            return Err("sink closed".to_string());
-        }
-        guard.push(event);
-        Ok(())
-    }
-}
-
-impl SendBlockHandle {
-    async fn wait_until_started(&self) {
-        tokio::time::timeout(Duration::from_secs(1), async {
-            while !self.started.load(Ordering::SeqCst) {
-                tokio::time::sleep(Duration::from_millis(5)).await;
-            }
-        })
-        .await
-        .expect("blocked send should start");
-    }
-
-    fn release(&self) {
-        self.release.store(true, Ordering::SeqCst);
-    }
-}
-
-async fn next_event(
-    events: &Arc<Mutex<Vec<TestEvent>>>,
-    index: usize,
-) -> anyhow::Result<TestEvent> {
-    tokio::time::timeout(Duration::from_secs(1), async {
-        loop {
-            if let Some(event) = events.lock().unwrap().get(index).cloned() {
-                return event;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .map_err(anyhow::Error::from)
-}
-
-async fn wait_for_stable_event_count(
-    events: &Arc<Mutex<Vec<TestEvent>>>,
-    stable_for: Duration,
-) -> usize {
-    let mut last_len = events.lock().unwrap().len();
-    loop {
-        tokio::time::sleep(stable_for).await;
-        let len = events.lock().unwrap().len();
-        if len == last_len {
-            return len;
-        }
-        last_len = len;
-    }
-}
-
-async fn setup_runtime() -> (tempfile::TempDir, sqlx::SqlitePool, DbRuntime<TestSink>) {
-    let dir = tempfile::tempdir().unwrap();
-    let db_path = dir.path().join("app.db");
-    let db = hypr_db_core2::Db3::open_with_migrate(
-        DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(4),
-            migration_failure_policy: MigrationFailurePolicy::Fail,
-        },
-        |pool| Box::pin(hypr_db_app::migrate(pool)),
-    )
-    .await
-    .unwrap();
-
-    let pool = db.pool().as_ref().clone();
-
-    (dir, pool, DbRuntime::new(std::sync::Arc::new(db)))
-}
 
 #[tokio::test]
 async fn subscribe_sends_initial_result() {
@@ -210,7 +20,9 @@ async fn subscribe_sends_initial_result() {
         .await
         .unwrap();
 
-    let event = next_event(&events, 0).await.unwrap();
+    let event = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(event, TestEvent::Result(Vec::new()));
 }
 
@@ -242,10 +54,14 @@ async fn initialization_defers_refresh_until_after_initial_snapshot() {
 
     subscribe.await.unwrap().unwrap();
 
-    let initial = next_event(&events, 0).await.unwrap();
+    let initial = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(initial, TestEvent::Result(Vec::new()));
 
-    let refresh = next_event(&events, 1).await.unwrap();
+    let refresh = next_event(&events, 1, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = refresh else {
         panic!("expected result event");
     };
@@ -283,7 +99,9 @@ async fn initialization_suppresses_duplicate_catch_up_payloads() {
 
     subscribe.await.unwrap().unwrap();
 
-    let initial = next_event(&events, 0).await.unwrap();
+    let initial = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(initial, TestEvent::Result(Vec::new()));
 
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -361,7 +179,9 @@ async fn dependent_writes_trigger_refresh() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
         .bind("note-1")
@@ -372,7 +192,9 @@ async fn dependent_writes_trigger_refresh() {
         .await
         .unwrap();
 
-    let event = next_event(&events, 1).await.unwrap();
+    let event = next_event(&events, 1, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = event else {
         panic!("expected result event");
     };
@@ -393,7 +215,9 @@ async fn open_transactions_do_not_refresh_until_commit() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
@@ -410,7 +234,9 @@ async fn open_transactions_do_not_refresh_until_commit() {
 
     tx.commit().await.unwrap();
 
-    let event = next_event(&events, 1).await.unwrap();
+    let event = next_event(&events, 1, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = event else {
         panic!("expected result event");
     };
@@ -431,7 +257,9 @@ async fn rollback_after_write_does_not_refresh() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     let mut tx = pool.begin().await.unwrap();
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
@@ -472,7 +300,9 @@ async fn unrelated_writes_do_not_trigger_refresh() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     sqlx::query(
         "INSERT INTO daily_summaries (id, daily_note_id, date, content, timeline_json, topics_json, status, source_cursor_ms, source_fingerprint, generation_error, generated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -555,7 +385,9 @@ async fn fts_match_subscriptions_refresh_after_writes() {
         }
     );
 
-    let initial = next_event(&events, 0).await.unwrap();
+    let initial = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(initial, TestEvent::Result(Vec::new()));
 
     sqlx::query("INSERT INTO docs_fts (title, body) VALUES (?, ?)")
@@ -565,7 +397,9 @@ async fn fts_match_subscriptions_refresh_after_writes() {
         .await
         .unwrap();
 
-    let refresh = next_event(&events, 1).await.unwrap();
+    let refresh = next_event(&events, 1, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = refresh else {
         panic!("expected result event");
     };
@@ -591,7 +425,9 @@ async fn virtual_table_created_after_runtime_start_is_discovered() {
         .await
         .unwrap();
 
-    let initial = next_event(&events, 0).await.unwrap();
+    let initial = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(initial, TestEvent::Result(Vec::new()));
 
     sqlx::query("INSERT INTO docs_fts (title, body) VALUES (?, ?)")
@@ -601,7 +437,9 @@ async fn virtual_table_created_after_runtime_start_is_discovered() {
         .await
         .unwrap();
 
-    let refresh = next_event(&events, 1).await.unwrap();
+    let refresh = next_event(&events, 1, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = refresh else {
         panic!("expected result event");
     };
@@ -632,7 +470,9 @@ async fn unsupported_virtual_tables_are_explicitly_non_reactive() {
         DependencyAnalysis::NonReactive { .. }
     ));
 
-    let initial = next_event(&events, 0).await.unwrap();
+    let initial = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert_eq!(initial, TestEvent::Result(Vec::new()));
 
     sqlx::query("INSERT INTO docs_rtree (id, min_x, max_x) VALUES (?, ?, ?)")
@@ -661,7 +501,9 @@ async fn unsubscribe_stops_future_events() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     runtime.unsubscribe(&registration.id).await.unwrap();
 
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
@@ -691,7 +533,9 @@ async fn unsubscribe_waits_for_in_flight_refresh_delivery() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
         .bind("note-blocked-refresh")
@@ -738,7 +582,9 @@ async fn invalid_sql_sends_error_event() {
         .await
         .unwrap();
 
-    let event = next_event(&events, 0).await.unwrap();
+    let event = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert!(matches!(event, TestEvent::Error(_)));
 }
 
@@ -781,7 +627,9 @@ async fn extraction_failures_become_explicit_non_reactive_subscriptions() {
         .expect("subscription should exist");
     assert!(matches!(analysis, DependencyAnalysis::NonReactive { .. }));
 
-    let event = next_event(&events, 0).await.unwrap();
+    let event = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
     assert!(matches!(event, TestEvent::Error(_)));
 }
 
@@ -799,7 +647,9 @@ async fn stale_subscribers_are_removed_after_send_failures() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
         .bind("note-stale")
@@ -835,7 +685,9 @@ async fn lagged_broadcast_receiver_resyncs_and_keeps_dispatcher_alive() {
         .await
         .unwrap();
 
-    let _ = next_event(&events, 0).await.unwrap();
+    let _ = next_event(&events, 0, Duration::from_secs(1))
+        .await
+        .unwrap();
 
     for idx in 0..320 {
         sqlx::query("INSERT INTO daily_notes (id, date, body, user_id) VALUES (?, ?, ?, ?)")
@@ -861,7 +713,9 @@ async fn lagged_broadcast_receiver_resyncs_and_keeps_dispatcher_alive() {
         .await
         .unwrap();
 
-    let event = next_event(&events, before).await.unwrap();
+    let event = next_event(&events, before, Duration::from_secs(1))
+        .await
+        .unwrap();
     let TestEvent::Result(rows) = event else {
         panic!("expected result event");
     };
