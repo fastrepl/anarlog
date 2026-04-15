@@ -14,7 +14,6 @@ uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 hypr-cloudsync = { workspace = true }
-hypr-db-app = { workspace = true }
 hypr-db-migrate = { workspace = true }
 
 anyhow = { workspace = true }

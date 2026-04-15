@@ -40,12 +40,12 @@ mod tests {
         migrate(&db, empty_schema()).await.unwrap();
 
         let tables: Vec<String> = sqlx::query_scalar(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx%' ORDER BY name",
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
         )
         .fetch_all(db.pool().as_ref())
         .await
         .unwrap();
 
-        assert!(tables.contains(&"_char_migrations".to_string()));
+        assert!(tables.contains(&"_sqlx_migrations".to_string()));
     }
 }

@@ -1,73 +1,115 @@
 # `db-migrate`
 
-## Role
+## Purpose
 
-- `db-migrate` is the app-database migration engine.
-- It owns migration orchestration, migration history bookkeeping, and schema change execution.
-- It exists to keep schema declaration crates such as `db-app` focused on tables, types, ops, and migration manifests, while keeping CloudSync-sensitive migration mechanics in a core-adjacent layer.
+`db-migrate` owns app-database migration execution.
 
-## Why This Crate Exists (why not sqlx's builtin migrator)
+- Input: a checked-open `Db3` from `db-core2` plus a schema manifest from a schema crate such as `db-app`
+- Output: schema changes applied and recorded in `_sqlx_migrations`
 
-sqlx's `Migrator::run()` applies SQL in a transaction and records it — but gives no hook to run per-connection setup/teardown around each DDL statement. CloudSync alter requires `cloudsync_begin_alter_on(conn, table)` → DDL → `cloudsync_commit_alter_on(conn, table)` **on the same connection**. sqlx's `apply()` owns the connection internally, so there's no way to inject these calls.
+This crate exists to keep:
 
-The migration runner here reimplements the subset of sqlx's migrator that we need (checksum validation via SHA-384, history table, idempotent apply) while adding the CloudSync scope semantics. See `sqlx-core/src/migrate/` and `sqlx-sqlite/src/migrate.rs` in the sqlx repo for the upstream implementation this is based on.
+- `db-core2` focused on database opening, pooling, and SQLite/CloudSync primitives
+- schema crates focused on migration manifests and table meaning
+- CloudSync-sensitive migration mechanics enforced in one place
 
-Other reasons this crate exists:
-- `db-core2` is schema-agnostic substrate. It should open databases, manage pools, and expose CloudSync/SQLite primitives, but it should not know app schema history.
-- `db-app` is schema declaration. It should define the CloudSync table registry and migration steps, but it should not own migration execution.
-- CloudSync-backed schema changes introduce operational constraints that are stronger than ordinary SQLite migrations, so the runner needs to enforce them centrally instead of leaving each caller to remember them.
+## Model
+
+Treat this crate as a narrow port of `sqlx` migration behavior, not as a custom migration system.
+
+It should preserve the usual `sqlx` SQLite semantics:
+
+- `_sqlx_migrations` history table
+- ordered apply
+- checksum validation
+- dirty-version detection
+- idempotent re-run behavior
+
+The only intentional divergence is explicit per-step scope:
+
+- `Plain`
+- `CloudsyncAlter { table_name }`
+
+## Why Not Just Use `sqlx::Migrator`
+
+Built-in `sqlx` migrator logic is close, but it does not expose a hook for:
+
+1. `cloudsync_begin_alter_on(conn, table)`
+2. run DDL on that same `conn`
+3. `cloudsync_commit_alter_on(conn, table)`
+
+For ordinary SQLite migrations, pool-level execution is fine.
+For CloudSync alter steps, it is not.
+
+The invariant is:
+
+```text
+same checked-out connection:
+  begin_alter
+  DDL
+  commit_alter
+```
+
+Not:
+
+```text
+pool:
+  begin_alter -> conn A
+  DDL         -> conn B
+  commit      -> conn C
+```
+
+`max_connections = 1` is not a real substitute. The requirement is explicit ownership of one connection across the whole alter protocol, not merely "the pool only has one connection available right now."
 
 ## API
-
-The crate exposes a single entry point:
 
 ```rust
 pub async fn migrate(db: &Db3, schema: DbSchema) -> Result<(), MigrateError>
 ```
 
-Callers are responsible for opening the database via `db-core2` first, then passing it here to run migrations. This keeps storage/connection concerns in `db-core2` and migration concerns here.
+Callers must open the database first. This crate does not own connection setup or storage configuration.
 
-## This Crate Owns
+## Ownership Boundary
 
-- The `_char_migrations` history table for post-baseline migration steps.
-- Execution of migration steps with explicit scope:
-  - `Plain`
-  - `CloudsyncAlter { table_name }`
-- Validation that CloudSync alter steps only target tables declared as synced by the schema crate.
+This crate owns:
 
-## This Crate Does Not Own
+- migration orchestration
+- translation from `MigrationStep` to `sqlx::migrate::Migration`
+- validation of step ids, duplicate versions, and CloudSync-target eligibility
+- execution semantics for `Plain` vs `CloudsyncAlter`
+- `_sqlx_migrations` bookkeeping
 
-- Database opening, connection pooling, or storage configuration (that's `db-core2`).
-- App table definitions, row types, or query/ops functions.
-- The set of synced tables for a given app schema.
-- Migration `.sql` files themselves (those live in the schema crate, embedded via `include_str!`).
-- Raw SQLite/CloudSync connection setup and same-connection CloudSync alter helpers. That belongs in `db-core2`.
+This crate does not own:
 
-## CloudSync Constraints
+- pool creation or database opening
+- CloudSync extension loading or network/runtime setup
+- app table definitions, row types, or query APIs
+- migration SQL contents
+- inference of whether a step "looks like" a CloudSync alter
 
-Treat CloudSync-backed schema changes as a different class of migration from normal SQLite DDL.
+If a change is about schema meaning, it probably belongs in the schema crate.
+If a change is about how migrations are executed, it probably belongs here.
 
-- For synced-table schema changes, the runner must use:
-  1. `db-core2`'s connection-scoped `cloudsync_begin_alter_on(...)`
-  2. run the DDL on the same checked-out connection
-  3. `db-core2`'s connection-scoped `cloudsync_commit_alter_on(...)`
-- Do not run `begin_alter` / DDL / `commit_alter` through a pool-level API that may hop connections.
-- Do not hide CloudSync alter behavior behind SQL parsing or table-name inference. Migration steps must declare CloudSync scope explicitly.
-- When CloudSync is disabled at open time, the same schema step may run without the alter wrapper so local and synced schemas remain structurally aligned.
+## Rules
 
-## Design Rules
+- Keep behavior as close to upstream `sqlx` as possible.
+- Add divergence only when CloudSync or connection-control requirements force it.
+- Make migration scope explicit in the manifest; do not infer it from SQL text.
+- For `CloudsyncAlter`, use connection-scoped helpers from `db-core2`, never pool-level wrappers.
+- When CloudSync is disabled, the same `CloudsyncAlter` step should fall back to normal SQLite execution so local and synced schemas stay aligned.
+- Prefer a small, auditable port over a growing custom framework.
 
-- Keep the runner generic over schema providers. Schema crates should pass:
-  - migration step manifest (using `include_str!` for SQL, checksums computed at runtime via SHA-384)
-  - CloudSync table validator
-- Prefer explicit step metadata over "magic" inspection.
-- Add new migration policy here only when it is about migration execution semantics, not about schema meaning.
-- If a future change only affects one app's schema contents, it probably belongs in that schema crate, not here.
+## Testing
 
-## Testing Ownership
+Tests here should cover migration execution semantics, not app behavior.
 
-- Put tests here when behavior is about:
-  - migration history bookkeeping
-  - CloudSync alter-step validation
-  - migration orchestration
-- Do not test app-specific query behavior here. That belongs in the schema crate.
+Keep coverage focused on:
+
+- plain migration parity with `sqlx` expectations
+- idempotent re-runs
+- checksum/version validation failures
+- manifest validation failures
+- CloudSync alter behavior on one checked-out connection
+- CloudSync-disabled fallback for `CloudsyncAlter`
+
+Do not put app-specific query or domain tests here.

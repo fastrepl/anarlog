@@ -4755,7 +4755,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cloudsync",
- "db-app",
  "db-core2",
  "db-migrate",
  "serde",
@@ -4772,7 +4771,6 @@ name = "db-migrate"
 version = "0.1.0"
 dependencies = [
  "db-core2",
- "sha2 0.10.9",
  "sqlx",
  "thiserror 2.0.18",
  "tokio",
