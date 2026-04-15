@@ -1957,15 +1957,13 @@ export function MainFeaturesSection({
   setSelectedFeature: (index: number) => void;
   scrollToFeature: (index: number) => void;
 }) {
-  const [progress, setProgress] = useState(0);
-  const progressRef = useRef(0);
+  const [progressKey, setProgressKey] = useState(0);
   const { ref, isInView } = useHasEnteredView<HTMLElement>(0.2);
 
   const handleFeatureIndexChange = useCallback(
     (nextIndex: number) => {
       setSelectedFeature(nextIndex);
-      setProgress(0);
-      progressRef.current = 0;
+      setProgressKey((k) => k + 1);
     },
     [setSelectedFeature],
   );
@@ -1975,49 +1973,35 @@ export function MainFeaturesSection({
       return;
     }
 
-    const startTime =
-      Date.now() - (progressRef.current / 100) * FEATURES_AUTO_ADVANCE_DURATION;
-    let animationId: number;
-
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const newProgress = Math.min(
-        (elapsed / FEATURES_AUTO_ADVANCE_DURATION) * 100,
-        100,
-      );
-      setProgress(newProgress);
-      progressRef.current = newProgress;
-
-      if (newProgress >= 100) {
-        const currentActiveIndex =
-          activeFeatureIndices.indexOf(selectedFeature);
-        const nextActiveIndex =
-          (currentActiveIndex + 1) % activeFeatureIndices.length;
-        const nextIndex = activeFeatureIndices[nextActiveIndex];
-        setSelectedFeature(nextIndex);
-        setProgress(0);
-        progressRef.current = 0;
-        if (featuresScrollRef.current) {
-          const container = featuresScrollRef.current;
-          const scrollLeft = container.offsetWidth * nextIndex;
-          container.scrollTo({
-            left: scrollLeft,
-            behavior: "smooth",
-          });
-        }
-      } else {
-        animationId = requestAnimationFrame(animate);
+    const id = setTimeout(() => {
+      const currentActiveIndex = activeFeatureIndices.indexOf(selectedFeature);
+      const nextActiveIndex =
+        (currentActiveIndex + 1) % activeFeatureIndices.length;
+      const nextIndex = activeFeatureIndices[nextActiveIndex];
+      setSelectedFeature(nextIndex);
+      setProgressKey((k) => k + 1);
+      if (featuresScrollRef.current) {
+        const container = featuresScrollRef.current;
+        const scrollLeft = container.offsetWidth * nextIndex;
+        container.scrollTo({
+          left: scrollLeft,
+          behavior: "smooth",
+        });
       }
-    };
+    }, FEATURES_AUTO_ADVANCE_DURATION);
 
-    animationId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationId);
-  }, [featuresScrollRef, isInView, selectedFeature, setSelectedFeature]);
+    return () => clearTimeout(id);
+  }, [
+    featuresScrollRef,
+    isInView,
+    selectedFeature,
+    setSelectedFeature,
+    progressKey,
+  ]);
 
   const handleScrollToFeature = (index: number) => {
     scrollToFeature(index);
-    setProgress(0);
-    progressRef.current = 0;
+    setProgressKey((k) => k + 1);
   };
 
   return (
@@ -2046,7 +2030,7 @@ export function MainFeaturesSection({
         selectedFeature={selectedFeature}
         onIndexChange={handleFeatureIndexChange}
         scrollToFeature={handleScrollToFeature}
-        progress={progress}
+        progressKey={progressKey}
       />
       <FeaturesDesktopGrid />
     </section>
@@ -2058,13 +2042,13 @@ function FeaturesMobileCarousel({
   selectedFeature,
   onIndexChange,
   scrollToFeature,
-  progress,
+  progressKey,
 }: {
   featuresScrollRef: React.RefObject<HTMLDivElement | null>;
   selectedFeature: number;
   onIndexChange: (index: number) => void;
   scrollToFeature: (index: number) => void;
-  progress: number;
+  progressKey: number;
 }) {
   const isSwiping = useRef(false);
 
@@ -2157,8 +2141,11 @@ function FeaturesMobileCarousel({
           >
             {selectedFeature === index && (
               <div
-                className="h-full bg-stone-600 transition-none"
-                style={{ width: `${progress}%` }}
+                key={progressKey}
+                className="h-full bg-stone-600"
+                style={{
+                  animation: `progressFill ${FEATURES_AUTO_ADVANCE_DURATION}ms linear forwards`,
+                }}
               />
             )}
           </button>
@@ -2180,22 +2167,21 @@ function MobileFeatureVideo({
   const playerRef = useRef<MuxPlayerRefAttributes>(null);
   const { ref, isInView, hasEnteredView } =
     useHasEnteredView<HTMLDivElement>(0.35);
-  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=960&height=540&fit_mode=smartcrop`;
   const shouldLoadPlayer = hasEnteredView || isActive;
+  const isPlaying = isActive && isInView;
 
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isActive && isInView) {
-      player.play()?.catch(() => {
-        // Autoplay blocked or player not ready - fail silently
-      });
+    if (isPlaying) {
+      player.play()?.catch(() => {});
     } else {
       player.pause();
       player.currentTime = 0;
     }
-  }, [isActive, isInView]);
+  }, [isPlaying]);
 
   return (
     <div ref={ref} className="relative h-full w-full">
@@ -2204,7 +2190,7 @@ function MobileFeatureVideo({
         alt={alt}
         className={cn([
           "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
-          isActive ? "opacity-0" : "opacity-100",
+          isPlaying ? "opacity-0" : "opacity-100",
         ])}
       />
       {shouldLoadPlayer && (
@@ -2218,7 +2204,7 @@ function MobileFeatureVideo({
           minResolution="720p"
           className={cn([
             "h-full w-full object-contain transition-opacity duration-300",
-            isActive ? "opacity-100" : "opacity-0",
+            isPlaying ? "opacity-100" : "opacity-0",
           ])}
           style={
             {
@@ -2243,20 +2229,21 @@ function FeatureVideo({
   const playerRef = useRef<MuxPlayerRefAttributes>(null);
   const { ref, isInView, hasEnteredView } =
     useHasEnteredView<HTMLDivElement>(0.35);
-  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=1920&height=1080&fit_mode=smartcrop`;
+  const thumbnailUrl = `https://image.mux.com/${playbackId}/thumbnail.jpg?width=960&height=540&fit_mode=smartcrop`;
   const shouldLoadPlayer = hasEnteredView || isHovered;
+  const isPlaying = isHovered && isInView;
 
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isHovered && isInView) {
+    if (isPlaying) {
       player.play();
     } else {
       player.pause();
       player.currentTime = 0;
     }
-  }, [isHovered, isInView]);
+  }, [isPlaying]);
 
   return (
     <div ref={ref} className="relative h-full w-full">
@@ -2265,7 +2252,7 @@ function FeatureVideo({
         alt={alt}
         className={cn([
           "absolute inset-0 h-full w-full object-contain transition-opacity duration-300",
-          isHovered ? "opacity-0" : "opacity-100",
+          isPlaying ? "opacity-0" : "opacity-100",
         ])}
       />
       {shouldLoadPlayer && (
@@ -2279,7 +2266,7 @@ function FeatureVideo({
           minResolution="720p"
           className={cn([
             "h-full w-full object-contain transition-opacity duration-300",
-            isHovered ? "opacity-100" : "opacity-0",
+            isPlaying ? "opacity-100" : "opacity-0",
           ])}
           style={
             {
