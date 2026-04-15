@@ -105,6 +105,7 @@ export function useSessionBottomAccessory({
             isExpanded={effectiveExpanded}
             onToggle={() => setIsExpanded((v) => !v)}
             label="Live"
+            collapsedClassName="bg-neutral-50"
           />
         ) : null,
       bottomAccessoryState,
