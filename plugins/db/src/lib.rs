@@ -47,8 +47,8 @@ pub fn init<R: tauri::Runtime>(
         .setup(move |app, _| {
             let pool = db.pool().clone();
             let app_handle = app.app_handle().clone();
-            hypr_tauri_utils::spawn("import legacy templates.json", async move {
-                import::import_legacy_templates(&app_handle, &pool).await
+            hypr_tauri_utils::spawn("import legacy tinybase json", async move {
+                import::import_legacy_data(&app_handle, &pool).await
             });
             app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())

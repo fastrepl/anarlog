@@ -2,21 +2,29 @@
 
 mod activity_ops;
 mod activity_types;
+mod calendar_ops;
+mod calendar_types;
 mod cloudsync;
 mod daily_note_ops;
 mod daily_note_types;
 mod daily_summary_ops;
 mod daily_summary_types;
+mod event_ops;
+mod event_types;
 mod template_ops;
 mod template_types;
 
 pub use activity_ops::*;
 pub use activity_types::*;
+pub use calendar_ops::*;
+pub use calendar_types::*;
 pub use cloudsync::*;
 pub use daily_note_ops::*;
 pub use daily_note_types::*;
 pub use daily_summary_ops::*;
 pub use daily_summary_types::*;
+pub use event_ops::*;
+pub use event_types::*;
 pub use template_ops::*;
 pub use template_types::*;
 
@@ -58,8 +66,10 @@ mod tests {
                 "activity_observation_analyses",
                 "activity_observation_events",
                 "activity_screenshots",
+                "calendars",
                 "daily_notes",
                 "daily_summaries",
+                "events",
                 "templates",
             ]
         );
@@ -274,6 +284,71 @@ mod tests {
 
         delete_daily_summary(db.pool(), "ds1").await.unwrap();
         assert!(get_daily_summary(db.pool(), "ds1").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn calendar_roundtrip() {
+        let db = test_db().await;
+
+        upsert_calendar(
+            db.pool(),
+            UpsertCalendar {
+                id: "cal1",
+                tracking_id_calendar: "tracking-cal-1",
+                name: "Work",
+                enabled: true,
+                provider: "google",
+                source: "team",
+                color: "#123456",
+                connection_id: "conn-1",
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_calendar(db.pool(), "cal1").await.unwrap().unwrap();
+        assert_eq!(row.name, "Work");
+        assert!(row.enabled);
+
+        let rows = list_calendars(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "cal1");
+    }
+
+    #[tokio::test]
+    async fn event_roundtrip() {
+        let db = test_db().await;
+
+        upsert_event(
+            db.pool(),
+            UpsertEvent {
+                id: "evt1",
+                tracking_id_event: "tracking-evt-1",
+                calendar_id: "cal1",
+                title: "Standup",
+                started_at: "2026-04-15T09:00:00Z",
+                ended_at: "2026-04-15T09:30:00Z",
+                location: "",
+                meeting_link: "https://meet.example/1",
+                description: "Daily sync",
+                note: "",
+                recurrence_series_id: "series-1",
+                has_recurrence_rules: true,
+                is_all_day: false,
+                provider: "google",
+                participants_json: Some("[{\"email\":\"a@example.com\"}]"),
+            },
+        )
+        .await
+        .unwrap();
+
+        let row = get_event(db.pool(), "evt1").await.unwrap().unwrap();
+        assert_eq!(row.title, "Standup");
+        assert_eq!(row.calendar_id, "cal1");
+
+        let rows = list_events(db.pool()).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "evt1");
     }
 
     #[tokio::test]
