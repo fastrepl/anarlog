@@ -11,8 +11,8 @@ use sqlx::sqlite::SqliteConnectOptions;
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
-    CloudsyncAuth, CloudsyncOpenMode, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
-    CloudsyncStatus, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
+    CloudsyncAuth, CloudsyncRuntimeConfig, CloudsyncRuntimeError, CloudsyncStatus,
+    CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
 };
 use crate::pool::connect_pool;
 pub use crate::pool::{DbPool, TableChange, TableChangeKind};
@@ -26,7 +26,7 @@ pub enum DbStorage<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct DbOpenOptions<'a> {
     pub storage: DbStorage<'a>,
-    pub cloudsync_open_mode: CloudsyncOpenMode,
+    pub cloudsync_enabled: bool,
     pub journal_mode_wal: bool,
     pub foreign_keys: bool,
     pub max_connections: Option<u32>,
@@ -47,7 +47,7 @@ pub type ManagedDb = std::sync::Arc<Db3>;
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct Db3 {
-    pub(crate) cloudsync_open_mode: CloudsyncOpenMode,
+    pub(crate) cloudsync_enabled: bool,
     pub(crate) cloudsync_path: Option<PathBuf>,
     pub(crate) cloudsync_runtime: Arc<Mutex<CloudsyncRuntimeState>>,
     pub(crate) pool: DbPool,
@@ -57,7 +57,7 @@ impl std::fmt::Debug for Db3 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let runtime = self.cloudsync_runtime.lock().unwrap();
         f.debug_struct("Db3")
-            .field("cloudsync_open_mode", &self.cloudsync_open_mode)
+            .field("cloudsync_enabled", &self.cloudsync_enabled)
             .field("cloudsync_path", &self.cloudsync_path)
             .field("cloudsync_runtime", &*runtime)
             .finish_non_exhaustive()
@@ -97,7 +97,7 @@ impl Db3 {
         let pool = connect_pool(options, None).await.map_err(Error::from)?;
 
         Ok(Self {
-            cloudsync_open_mode: CloudsyncOpenMode::Enabled,
+            cloudsync_enabled: true,
             cloudsync_path: Some(cloudsync_path),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
@@ -111,7 +111,7 @@ impl Db3 {
         let pool = connect_pool(options, Some(1)).await.map_err(Error::from)?;
 
         Ok(Self {
-            cloudsync_open_mode: CloudsyncOpenMode::Enabled,
+            cloudsync_enabled: true,
             cloudsync_path: Some(cloudsync_path),
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
@@ -129,7 +129,7 @@ impl Db3 {
         let pool = connect_pool(options, None).await?;
 
         Ok(Self {
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             cloudsync_path: None,
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
@@ -143,7 +143,7 @@ impl Db3 {
         let pool = connect_pool(options, Some(1)).await?;
 
         Ok(Self {
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             cloudsync_path: None,
             cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
             pool,
@@ -178,7 +178,7 @@ async fn connect_with_options(options: &DbOpenOptions<'_>) -> Result<Db3, DbOpen
     }
 
     let (connect_options, cloudsync_path) =
-        if options.cloudsync_open_mode == CloudsyncOpenMode::Enabled {
+        if options.cloudsync_enabled {
             let (connect_options, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
             (connect_options, Some(cloudsync_path))
         } else {
@@ -192,7 +192,7 @@ async fn connect_with_options(options: &DbOpenOptions<'_>) -> Result<Db3, DbOpen
     let pool = connect_pool(connect_options, max_connections).await?;
 
     Ok(Db3 {
-        cloudsync_open_mode: options.cloudsync_open_mode,
+        cloudsync_enabled: options.cloudsync_enabled,
         cloudsync_path,
         cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
         pool,
@@ -243,7 +243,7 @@ mod tests {
 
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(1),
@@ -273,7 +273,7 @@ mod tests {
     async fn disabled_open_mode_keeps_cloudsync_inert() {
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Memory,
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: false,
             foreign_keys: true,
             max_connections: Some(1),
@@ -281,7 +281,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(db.cloudsync_open_mode(), CloudsyncOpenMode::Disabled);
+        assert!(!db.cloudsync_enabled());
         assert!(!db.has_cloudsync());
 
         db.cloudsync_configure(test_cloudsync_config()).unwrap();
@@ -292,7 +292,7 @@ mod tests {
         assert!(!status.extension_loaded);
         assert!(!status.running);
         assert!(!status.network_initialized);
-        assert_eq!(status.open_mode, CloudsyncOpenMode::Disabled);
+        assert!(!status.cloudsync_enabled);
 
         db.cloudsync_stop().await.unwrap();
     }
@@ -335,7 +335,7 @@ mod tests {
     async fn reconfigure_preserves_stopped_state_when_runtime_is_inert() {
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Memory,
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: false,
             foreign_keys: true,
             max_connections: Some(1),
@@ -583,7 +583,7 @@ mod tests {
 
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Local(&path),
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(4),
@@ -683,7 +683,7 @@ mod tests {
     async fn open_memory_clamps_max_connections_to_one() {
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Memory,
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: false,
             foreign_keys: true,
             max_connections: Some(4),

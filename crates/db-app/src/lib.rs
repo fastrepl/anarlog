@@ -57,7 +57,7 @@ mod tests {
     async fn test_db() -> Db3 {
         let db = Db3::open(hypr_db_core2::DbOpenOptions {
             storage: hypr_db_core2::DbStorage::Memory,
-            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(1),
@@ -72,7 +72,7 @@ mod tests {
     async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
         let db = Db3::open(hypr_db_core2::DbOpenOptions {
             storage: hypr_db_core2::DbStorage::Memory,
-            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(1),

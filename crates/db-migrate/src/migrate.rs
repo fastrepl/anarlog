@@ -1,6 +1,6 @@
 use sha2::{Digest, Sha384};
 
-use hypr_db_core2::{CloudsyncOpenMode, Db3};
+use hypr_db_core2::Db3;
 
 use crate::error::MigrateError;
 use crate::schema::{DbSchema, MigrationScope, MigrationStep};
@@ -92,19 +92,18 @@ async fn run_cloudsync_step(
     table_name: &'static str,
     checksum: &str,
 ) -> Result<(), MigrateError> {
-    let mut conn = db.pool().acquire().await?;
-
-    if db.cloudsync_open_mode() == CloudsyncOpenMode::Enabled {
+    if db.cloudsync_enabled() {
+        let mut conn = db.pool().acquire().await?;
         hypr_db_core2::cloudsync_begin_alter_on(&mut *conn, table_name).await?;
-    }
-
-    sqlx::raw_sql(step.sql).execute(&mut *conn).await?;
-
-    if db.cloudsync_open_mode() == CloudsyncOpenMode::Enabled {
+        sqlx::raw_sql(step.sql).execute(&mut *conn).await?;
         hypr_db_core2::cloudsync_commit_alter_on(&mut *conn, table_name).await?;
+        record_step(&mut *conn, step, checksum).await?;
+    } else {
+        let mut tx = db.pool().begin().await?;
+        sqlx::raw_sql(step.sql).execute(&mut *tx).await?;
+        record_step(&mut *tx, step, checksum).await?;
+        tx.commit().await?;
     }
-
-    record_step(&mut *conn, step, checksum).await?;
     Ok(())
 }
 

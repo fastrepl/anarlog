@@ -29,7 +29,7 @@ mod tests {
     async fn migrate_bootstraps_migration_history() {
         let db = Db3::open(DbOpenOptions {
             storage: DbStorage::Memory,
-            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            cloudsync_enabled: false,
             journal_mode_wal: true,
             foreign_keys: true,
             max_connections: Some(1),

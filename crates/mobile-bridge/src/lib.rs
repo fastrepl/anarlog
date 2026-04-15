@@ -38,12 +38,9 @@ impl MobileDbBridge {
                 reason: error.to_string(),
             })?;
         let path = std::path::PathBuf::from(db_path);
-        let cloudsync_open_mode = match cloudsync_open_mode.as_deref() {
-            Some("enabled") => hypr_db_core2::CloudsyncOpenMode::Enabled,
-            _ => hypr_db_core2::CloudsyncOpenMode::Disabled,
-        };
+        let cloudsync_enabled = cloudsync_open_mode.as_deref() == Some("enabled");
         let db = runtime
-            .block_on(db::open_app_db(&path, cloudsync_open_mode))
+            .block_on(db::open_app_db(&path, cloudsync_enabled))
             .map_err(|error| BridgeError::OpenFailed {
                 reason: error.to_string(),
             })?;

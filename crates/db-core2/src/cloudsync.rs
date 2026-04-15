@@ -10,12 +10,6 @@ use tokio::task::JoinHandle;
 use crate::Db3;
 use crate::pool::TableChange;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CloudsyncOpenMode {
-    Disabled,
-    Enabled,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -53,7 +47,7 @@ pub enum CloudsyncErrorKind {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CloudsyncStatus {
-    pub open_mode: CloudsyncOpenMode,
+    pub cloudsync_enabled: bool,
     pub extension_loaded: bool,
     pub configured: bool,
     pub running: bool,
@@ -165,8 +159,8 @@ impl std::fmt::Debug for CloudsyncBackgroundTask {
 }
 
 impl Db3 {
-    pub fn cloudsync_open_mode(&self) -> CloudsyncOpenMode {
-        self.cloudsync_open_mode
+    pub fn cloudsync_enabled(&self) -> bool {
+        self.cloudsync_enabled
     }
 
     pub fn has_cloudsync(&self) -> bool {
@@ -216,7 +210,7 @@ impl Db3 {
     }
 
     pub async fn cloudsync_start(&self) -> Result<(), CloudsyncRuntimeError> {
-        if self.cloudsync_open_mode == CloudsyncOpenMode::Disabled {
+        if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.running = false;
             runtime.network_initialized = false;
@@ -294,7 +288,7 @@ impl Db3 {
             let _ = task.join_handle.await;
         }
 
-        if self.cloudsync_open_mode == CloudsyncOpenMode::Disabled {
+        if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.network_initialized = false;
             runtime.last_error = None;
@@ -341,14 +335,14 @@ impl Db3 {
         };
 
         let has_unsent_changes =
-            if self.cloudsync_open_mode == CloudsyncOpenMode::Enabled && network_initialized {
+            if self.cloudsync_enabled && network_initialized {
                 Some(self.cloudsync_network_has_unsent_changes().await?)
             } else {
                 None
             };
 
         Ok(CloudsyncStatus {
-            open_mode: self.cloudsync_open_mode,
+            cloudsync_enabled: self.cloudsync_enabled,
             extension_loaded: self.has_cloudsync(),
             configured: config.is_some(),
             running,
@@ -363,7 +357,7 @@ impl Db3 {
     }
 
     pub async fn cloudsync_trigger_sync(&self) -> Result<i64, CloudsyncRuntimeError> {
-        if self.cloudsync_open_mode == CloudsyncOpenMode::Disabled {
+        if !self.cloudsync_enabled {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.last_error = None;
             return Ok(0);

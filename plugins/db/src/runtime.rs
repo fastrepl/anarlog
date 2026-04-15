@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use hypr_db_core2::{CloudsyncOpenMode, Db3, DbOpenOptions, DbStorage};
+use hypr_db_core2::{Db3, DbOpenOptions, DbStorage};
 use hypr_db_live_query::QueryEventSink;
 use tauri::ipc::Channel;
 
@@ -39,7 +39,7 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db3> {
 
     let db = Db3::open(DbOpenOptions {
         storage,
-        cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+        cloudsync_enabled: false,
         journal_mode_wal: true,
         foreign_keys: true,
         max_connections: Some(4),
