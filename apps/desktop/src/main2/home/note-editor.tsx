@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { parseJsonContent } from "@hypr/tiptap/shared";
 import { format, parseISO, subDays } from "@hypr/utils";
 
+import { welcomeContent } from "./welcome-content";
+
 import { useCalendarData } from "~/calendar/hooks";
 import {
   type JSONContent,
@@ -32,6 +34,7 @@ import {
 } from "~/session/utils";
 import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
+import { useTabs } from "~/store/zustand/tabs";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
@@ -160,12 +163,45 @@ function readRawContent(store: Store, date: string): JSONContent {
   return normalizeTaskContent(parseJsonContent(cell as string)) ?? emptyDoc;
 }
 
+function hasWelcomeContent(content: JSONContent): boolean {
+  const firstWelcomeNode = welcomeContent.content?.[0];
+  const firstContentNode = content.content?.[0];
+  if (!firstWelcomeNode || !firstContentNode) return false;
+  return JSON.stringify(firstContentNode) === JSON.stringify(firstWelcomeNode);
+}
+
+const WELCOME_NODE_COUNT = (welcomeContent.content?.length ?? 0) + 1; // +1 for separator paragraph
+
+function prependWelcome(content: JSONContent): JSONContent {
+  const welcomeNodes = welcomeContent.content ?? [];
+  const existingNodes = content.content ?? [];
+  return {
+    type: "doc",
+    content: [...welcomeNodes, { type: "paragraph" }, ...existingNodes],
+  };
+}
+
+function stripWelcome(content: JSONContent): JSONContent {
+  let result = content;
+  while (hasWelcomeContent(result)) {
+    const nodes = result.content ?? [];
+    const remaining = nodes.slice(WELCOME_NODE_COUNT);
+    result = {
+      type: "doc",
+      content: remaining.length > 0 ? remaining : [{ type: "paragraph" }],
+    };
+  }
+  return result;
+}
+
 export function DailyNoteEditor({
   date,
   isToday,
+  showWelcome,
 }: {
   date: string;
   isToday?: boolean;
+  showWelcome?: boolean;
 }) {
   const store = main.UI.useStore(main.STORE_ID);
   const editorRef = useRef<NoteEditorRef>(null);
@@ -259,11 +295,18 @@ export function DailyNoteEditor({
       }
     }
 
-    if (JSON.stringify(content) !== JSON.stringify(rawContent)) {
+    // Strip any previously persisted welcome content
+    const cleanedContent = stripWelcome(content);
+    if (JSON.stringify(cleanedContent) !== JSON.stringify(rawContent)) {
+      content = cleanedContent;
       store.setPartialRow("daily_notes", date, {
         date,
-        content: JSON.stringify(content),
+        content: JSON.stringify(cleanedContent),
       });
+    }
+
+    if (showWelcome) {
+      content = prependWelcome(stripWelcome(content));
     }
 
     initialContentRef.current = content;
@@ -276,6 +319,24 @@ export function DailyNoteEditor({
     [date],
     main.STORE_ID,
   );
+
+  useEffect(() => {
+    if (!showWelcome) {
+      const view = editorRef.current?.view;
+      if (view && hasWelcomeContent(view.state.doc.toJSON() as JSONContent)) {
+        const currentContent = view.state.doc.toJSON() as JSONContent;
+        const cleaned = stripWelcome(currentContent);
+        const nextDoc = PMNode.fromJSON(schema, cleaned);
+        view.dispatch(
+          view.state.tr.replaceWith(
+            0,
+            view.state.doc.content.size,
+            nextDoc.content,
+          ),
+        );
+      }
+    }
+  }, [showWelcome]);
 
   useEffect(() => {
     const view = editorRef.current?.view;
@@ -292,8 +353,10 @@ export function DailyNoteEditor({
 
   const handleChange = useCallback(
     (input: JSONContent) => {
+      const contentToSave = showWelcome ? stripWelcome(input) : input;
+
       if (store) {
-        for (const node of input.content ?? []) {
+        for (const node of contentToSave.content ?? []) {
           if (node.type !== "session") {
             continue;
           }
@@ -311,9 +374,26 @@ export function DailyNoteEditor({
         }
       }
 
-      persistDailyNote(input);
+      persistDailyNote(contentToSave);
     },
-    [persistDailyNote, store],
+    [persistDailyNote, store, showWelcome],
+  );
+
+  const openNew = useTabs((s) => s.openNew);
+  const handleLinkClick = useCallback(
+    (e: React.MouseEvent) => {
+      const anchor = (e.target as HTMLElement).closest("a[href]");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href) return;
+
+      if (href.startsWith("char://settings/")) {
+        e.preventDefault();
+        const tab = href.replace("char://settings/", "");
+        openNew({ type: "settings", state: { tab } });
+      }
+    },
+    [openNew],
   );
 
   if (!initialContentRef.current) {
@@ -321,7 +401,7 @@ export function DailyNoteEditor({
   }
 
   return (
-    <div className="main2-daily-note-editor px-6">
+    <div className="main2-daily-note-editor px-6" onClick={handleLinkClick}>
       <NoteEditor
         ref={editorRef}
         key={`daily-${date}`}

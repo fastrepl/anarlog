@@ -16,6 +16,7 @@ export function DevtoolView() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-1 py-2">
         <NavigationCard />
+        <DailyNotesCard />
         <ToastsCard />
         <CountdownTestCard />
         <ErrorTestCard />
@@ -278,6 +279,34 @@ function CountdownTestCard() {
           className={btnClass}
         >
           +Zoom in 60s
+        </button>
+      </div>
+    </DevtoolCard>
+  );
+}
+
+function DailyNotesCard() {
+  const handleResetWelcome = useCallback(() => {
+    localStorage.removeItem("daily-notes-welcome-dismissed");
+    localStorage.removeItem("daily-notes-welcome-date");
+    window.location.reload();
+  }, []);
+
+  return (
+    <DevtoolCard title="Daily Notes">
+      <div className="flex flex-col gap-1.5">
+        <button
+          type="button"
+          onClick={handleResetWelcome}
+          className={cn([
+            "w-full rounded-md px-2.5 py-1.5",
+            "text-left text-xs font-medium",
+            "border border-neutral-200 text-neutral-700",
+            "cursor-pointer transition-colors",
+            "hover:border-neutral-300 hover:bg-neutral-50",
+          ])}
+        >
+          Reset Welcome Screen
         </button>
       </div>
     </DevtoolCard>
