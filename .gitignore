@@ -23,3 +23,6 @@ internal
 # Local Netlify folder
 .netlify
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
