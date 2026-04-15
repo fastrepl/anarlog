@@ -37,20 +37,16 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db3> {
         None => DbStorage::Memory,
     };
 
-    let db = hypr_db_migrate::open_db(
-        hypr_db_migrate::AppDbOpenOptions {
-            db: DbOpenOptions {
-                storage,
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(4),
-            },
-            migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
-        },
-        hypr_db_app::schema(),
-    )
+    let db = Db3::open(DbOpenOptions {
+        storage,
+        cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+        journal_mode_wal: true,
+        foreign_keys: true,
+        max_connections: Some(4),
+    })
     .await?;
+
+    hypr_db_migrate::migrate(&db, hypr_db_app::schema()).await?;
 
     Ok(db)
 }

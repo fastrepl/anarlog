@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-hypr-cloudsync = { workspace = true }
 hypr-db-core2 = { workspace = true }
 
 sha2 = "0.10"

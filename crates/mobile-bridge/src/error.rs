@@ -56,3 +56,11 @@ pub(crate) fn serialization_error(error: serde_json::Error) -> BridgeError {
         reason: error.to_string(),
     }
 }
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum OpenAppDbError {
+    #[error(transparent)]
+    Open(#[from] hypr_db_core2::DbOpenError),
+    #[error(transparent)]
+    Migrate(#[from] hypr_db_migrate::MigrateError),
+}

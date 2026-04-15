@@ -55,40 +55,31 @@ mod tests {
     use sqlx::Row;
 
     async fn test_db() -> Db3 {
-        hypr_db_migrate::open_db(
-            hypr_db_migrate::AppDbOpenOptions {
-                db: hypr_db_core2::DbOpenOptions {
-                    storage: hypr_db_core2::DbStorage::Memory,
-                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-                    journal_mode_wal: true,
-                    foreign_keys: true,
-                    max_connections: Some(1),
-                },
-                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
-            },
-            schema(),
-        )
+        let db = Db3::open(hypr_db_core2::DbOpenOptions {
+            storage: hypr_db_core2::DbStorage::Memory,
+            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
         .await
-        .unwrap()
+        .unwrap();
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
+        db
     }
 
     #[tokio::test]
     async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
-        let db = hypr_db_migrate::open_db(
-            hypr_db_migrate::AppDbOpenOptions {
-                db: hypr_db_core2::DbOpenOptions {
-                    storage: hypr_db_core2::DbStorage::Memory,
-                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-                    journal_mode_wal: true,
-                    foreign_keys: true,
-                    max_connections: Some(1),
-                },
-                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
-            },
-            schema(),
-        )
+        let db = Db3::open(hypr_db_core2::DbOpenOptions {
+            storage: hypr_db_core2::DbStorage::Memory,
+            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
         .await
         .unwrap();
+        hypr_db_migrate::migrate(&db, schema()).await.unwrap();
 
         let tables: Vec<String> = sqlx::query_scalar(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx%' ORDER BY name",
@@ -98,7 +89,7 @@ mod tests {
         .unwrap();
 
         assert!(tables.contains(&"templates".to_string()));
-        assert!(tables.contains(&"app_migrations".to_string()));
+        assert!(tables.contains(&"_char_migrations".to_string()));
     }
 
     #[tokio::test]
@@ -117,7 +108,7 @@ mod tests {
 
         assert_eq!(
             tables,
-            vec!["app_migrations", "calendars", "events", "templates"]
+            vec!["_char_migrations", "calendars", "events", "templates"]
         );
     }
 

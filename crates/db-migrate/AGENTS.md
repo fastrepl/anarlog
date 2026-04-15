@@ -3,7 +3,7 @@
 ## Role
 
 - `db-migrate` is the app-database migration engine.
-- It owns migration orchestration, migration history bookkeeping, and failure policy around opening a database that needs schema changes.
+- It owns migration orchestration, migration history bookkeeping, and schema change execution.
 - It exists to keep schema declaration crates such as `db-app` focused on tables, types, ops, and migration manifests, while keeping CloudSync-sensitive migration mechanics in a core-adjacent layer.
 
 ## Why This Crate Exists (why not sqlx's builtin migrator)
@@ -14,22 +14,30 @@ The migration runner here reimplements the subset of sqlx's migrator that we nee
 
 Other reasons this crate exists:
 - `db-core2` is schema-agnostic substrate. It should open databases, manage pools, and expose CloudSync/SQLite primitives, but it should not know app schema history.
-- `db-app` is schema declaration. It should define the CloudSync table registry and migration steps, but it should not own migration policy or retry/recreate behavior.
+- `db-app` is schema declaration. It should define the CloudSync table registry and migration steps, but it should not own migration execution.
 - CloudSync-backed schema changes introduce operational constraints that are stronger than ordinary SQLite migrations, so the runner needs to enforce them centrally instead of leaving each caller to remember them.
+
+## API
+
+The crate exposes a single entry point:
+
+```rust
+pub async fn migrate(db: &Db3, schema: DbSchema) -> Result<(), MigrateError>
+```
+
+Callers are responsible for opening the database via `db-core2` first, then passing it here to run migrations. This keeps storage/connection concerns in `db-core2` and migration concerns here.
 
 ## This Crate Owns
 
-- `AppDbOpenOptions` and migration failure policy.
-- The open-and-migrate flow for app databases.
-- The `app_migrations` history table for post-baseline migration steps.
+- The `_char_migrations` history table for post-baseline migration steps.
 - Execution of migration steps with explicit scope:
   - `Plain`
   - `CloudsyncAlter { table_name }`
 - Validation that CloudSync alter steps only target tables declared as synced by the schema crate.
-- The policy that CloudSync-enabled opens must not auto-recreate storage after migration failure.
 
 ## This Crate Does Not Own
 
+- Database opening, connection pooling, or storage configuration (that's `db-core2`).
 - App table definitions, row types, or query/ops functions.
 - The set of synced tables for a given app schema.
 - Migration `.sql` files themselves (those live in the schema crate, embedded via `include_str!`).
@@ -46,14 +54,13 @@ Treat CloudSync-backed schema changes as a different class of migration from nor
 - Do not run `begin_alter` / DDL / `commit_alter` through a pool-level API that may hop connections.
 - Do not hide CloudSync alter behavior behind SQL parsing or table-name inference. Migration steps must declare CloudSync scope explicitly.
 - When CloudSync is disabled at open time, the same schema step may run without the alter wrapper so local and synced schemas remain structurally aligned.
-- Automatic recreate-on-failure is forbidden for CloudSync-enabled opens. Wiping a synced database is not equivalent to recovering a local cache.
 
 ## Design Rules
 
 - Keep the runner generic over schema providers. Schema crates should pass:
   - migration step manifest (using `include_str!` for SQL, checksums computed at runtime via SHA-384)
   - CloudSync table validator
-- Prefer explicit step metadata over “magic” inspection.
+- Prefer explicit step metadata over "magic" inspection.
 - Add new migration policy here only when it is about migration execution semantics, not about schema meaning.
 - If a future change only affects one app's schema contents, it probably belongs in that schema crate, not here.
 
@@ -61,7 +68,6 @@ Treat CloudSync-backed schema changes as a different class of migration from nor
 
 - Put tests here when behavior is about:
   - migration history bookkeeping
-  - recreate/fail policy
   - CloudSync alter-step validation
-  - open-time migration orchestration
+  - migration orchestration
 - Do not test app-specific query behavior here. That belongs in the schema crate.

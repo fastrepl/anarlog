@@ -363,21 +363,18 @@ mod tests {
     async fn stale_init_time_broadcast_processed_after_activation_is_ignored() {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_migrate::open_db(
-            hypr_db_migrate::AppDbOpenOptions {
-                db: DbOpenOptions {
-                    storage: DbStorage::Local(&db_path),
-                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-                    journal_mode_wal: true,
-                    foreign_keys: true,
-                    max_connections: Some(4),
-                },
-                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
-            },
-            hypr_db_app::schema(),
-        )
+        let db = hypr_db_core2::Db3::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
         .await
         .unwrap();
+        hypr_db_migrate::migrate(&db, hypr_db_app::schema())
+            .await
+            .unwrap();
 
         let pool = db.pool().as_ref().clone();
         let runtime = DbRuntime::new(Arc::new(db));

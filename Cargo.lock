@@ -4771,7 +4771,6 @@ dependencies = [
 name = "db-migrate"
 version = "0.1.0"
 dependencies = [
- "cloudsync",
  "db-core2",
  "sha2 0.10.9",
  "sqlx",

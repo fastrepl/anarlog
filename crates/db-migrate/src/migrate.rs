@@ -2,7 +2,7 @@ use sha2::{Digest, Sha384};
 
 use hypr_db_core2::{CloudsyncOpenMode, Db3};
 
-use crate::error::AppDbOpenError;
+use crate::error::MigrateError;
 use crate::schema::{DbSchema, MigrationScope, MigrationStep};
 
 fn compute_checksum(sql: &str) -> String {
@@ -10,15 +10,15 @@ fn compute_checksum(sql: &str) -> String {
     hash.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-pub(crate) async fn run_migrations(db: &Db3, schema: DbSchema) -> Result<(), AppDbOpenError> {
-    ensure_app_migrations_table(db.pool().as_ref()).await?;
-    run_app_migration_steps(db, schema).await?;
+pub(crate) async fn run_migrations(db: &Db3, schema: DbSchema) -> Result<(), MigrateError> {
+    ensure_migrations_table(db.pool().as_ref()).await?;
+    run_migration_steps(db, schema).await?;
     Ok(())
 }
 
-async fn ensure_app_migrations_table(pool: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
+async fn ensure_migrations_table(pool: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query(
-        "CREATE TABLE IF NOT EXISTS app_migrations (
+        "CREATE TABLE IF NOT EXISTS _char_migrations (
             id TEXT PRIMARY KEY NOT NULL,
             checksum TEXT NOT NULL,
             applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -29,21 +29,21 @@ async fn ensure_app_migrations_table(pool: &sqlx::SqlitePool) -> Result<(), sqlx
     Ok(())
 }
 
-async fn run_app_migration_steps(db: &Db3, schema: DbSchema) -> Result<(), AppDbOpenError> {
+async fn run_migration_steps(db: &Db3, schema: DbSchema) -> Result<(), MigrateError> {
     for step in schema.steps {
         validate_step(schema, step)?;
 
         let checksum = compute_checksum(step.sql);
 
         let applied_checksum: Option<String> =
-            sqlx::query_scalar("SELECT checksum FROM app_migrations WHERE id = ?")
+            sqlx::query_scalar("SELECT checksum FROM _char_migrations WHERE id = ?")
                 .bind(step.id)
                 .fetch_optional(db.pool().as_ref())
                 .await?;
 
         if let Some(applied_checksum) = applied_checksum {
             if applied_checksum != checksum {
-                return Err(AppDbOpenError::StepChecksumMismatch { step_id: step.id });
+                return Err(MigrateError::StepChecksumMismatch { step_id: step.id });
             }
             continue;
         }
@@ -59,7 +59,7 @@ async fn run_app_migration_steps(db: &Db3, schema: DbSchema) -> Result<(), AppDb
     Ok(())
 }
 
-fn validate_step(schema: DbSchema, step: &MigrationStep) -> Result<(), AppDbOpenError> {
+fn validate_step(schema: DbSchema, step: &MigrationStep) -> Result<(), MigrateError> {
     let MigrationScope::CloudsyncAlter { table_name } = step.scope else {
         return Ok(());
     };
@@ -68,7 +68,7 @@ fn validate_step(schema: DbSchema, step: &MigrationStep) -> Result<(), AppDbOpen
         return Ok(());
     }
 
-    Err(AppDbOpenError::InvalidCloudsyncStep {
+    Err(MigrateError::InvalidCloudsyncStep {
         step_id: step.id,
         table_name,
     })
@@ -78,7 +78,7 @@ async fn run_plain_step(
     pool: &sqlx::SqlitePool,
     step: &MigrationStep,
     checksum: &str,
-) -> Result<(), AppDbOpenError> {
+) -> Result<(), MigrateError> {
     let mut tx = pool.begin().await?;
     sqlx::raw_sql(step.sql).execute(&mut *tx).await?;
     record_step(&mut *tx, step, checksum).await?;
@@ -91,7 +91,7 @@ async fn run_cloudsync_step(
     step: &MigrationStep,
     table_name: &'static str,
     checksum: &str,
-) -> Result<(), AppDbOpenError> {
+) -> Result<(), MigrateError> {
     let mut conn = db.pool().acquire().await?;
 
     if db.cloudsync_open_mode() == CloudsyncOpenMode::Enabled {
@@ -116,7 +116,7 @@ async fn record_step<'e, E>(
 where
     E: sqlx::Executor<'e, Database = sqlx::Sqlite>,
 {
-    sqlx::query("INSERT INTO app_migrations (id, checksum) VALUES (?, ?)")
+    sqlx::query("INSERT INTO _char_migrations (id, checksum) VALUES (?, ?)")
         .bind(step.id)
         .bind(checksum)
         .execute(executor)
