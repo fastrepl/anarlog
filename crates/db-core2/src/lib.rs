@@ -203,31 +203,6 @@ fn apply_internal_connect_policy(connect_options: SqliteConnectOptions) -> Sqlit
     connect_options.busy_timeout(SQLITE_BUSY_TIMEOUT)
 }
 
-pub fn recreate_storage(options: &DbOpenOptions<'_>) -> Result<(), DbOpenError> {
-    match options.storage {
-        DbStorage::Local(path) => {
-            wipe_db_file(path);
-            if options.cloudsync_open_mode == CloudsyncOpenMode::Enabled {
-                let connect_options = SqliteConnectOptions::new().filename(path);
-                let (_, cloudsync_path) = hypr_cloudsync::apply(connect_options)?;
-                wipe_db_file(&cloudsync_path);
-            }
-        }
-        DbStorage::Memory => {}
-    }
-
-    Ok(())
-}
-
-fn wipe_db_file(path: &Path) {
-    for suffix in ["", "-wal", "-shm", "-journal"] {
-        let file = PathBuf::from(format!("{}{suffix}", path.display()));
-        if file.exists() {
-            let _ = std::fs::remove_file(file);
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,57 +234,6 @@ mod tests {
         let db = Db3::connect_local_plain(&db_path).await.unwrap();
         assert!(db_path.exists());
         drop(db);
-    }
-
-    #[tokio::test]
-    async fn recreate_storage_wipes_local_db_when_requested() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db_path = tmp.path().join("app.db");
-        let db = Db3::open(DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(1),
-        })
-        .await
-        .unwrap();
-        sqlx::query("CREATE TABLE broken (id TEXT PRIMARY KEY NOT NULL)")
-            .execute(db.pool().as_ref())
-            .await
-            .unwrap();
-        db.pool.clone().close().await;
-
-        recreate_storage(&DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(1),
-        })
-        .unwrap();
-
-        let db = Db3::open(DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(1),
-        })
-        .await
-        .unwrap();
-
-        let tables: Vec<String> = sqlx::query_as::<_, (String,)>(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-        )
-        .fetch_all(db.pool().as_ref())
-        .await
-        .unwrap()
-        .into_iter()
-        .map(|row| row.0)
-        .collect();
-
-        assert!(tables.is_empty());
     }
 
     #[tokio::test]
