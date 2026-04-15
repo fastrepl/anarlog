@@ -33,7 +33,7 @@ export const SegmentRenderer = memo(
   }: {
     segment: Segment;
     offsetMs: number;
-    transcriptId: string;
+    transcriptId?: string;
     speakerLabelManager?: SpeakerLabelManager;
     currentMs: number;
     seekAndPlay: (word: SegmentWord) => void;

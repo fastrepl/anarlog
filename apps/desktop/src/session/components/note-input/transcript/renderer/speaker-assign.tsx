@@ -52,7 +52,11 @@ export function SpeakerAssignPopover({
   );
 
   if (isSelf) {
-    return <span style={{ color }}>{label}</span>;
+    return (
+      <span className="font-medium" style={{ color }}>
+        {label}
+      </span>
+    );
   }
 
   return (
@@ -62,6 +66,7 @@ export function SpeakerAssignPopover({
           type="button"
           className={cn([
             "-ml-1 cursor-pointer rounded-xs px-1",
+            "font-medium",
             "transition-colors hover:bg-neutral-100",
           ])}
           style={{ color }}

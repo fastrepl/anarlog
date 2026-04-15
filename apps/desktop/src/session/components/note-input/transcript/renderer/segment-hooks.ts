@@ -25,10 +25,10 @@ export function useStableSegments(segments: Segment[]): Segment[] {
 
 export function createSegmentKey(
   segment: Segment,
-  transcriptId: string,
+  transcriptId: string | undefined,
   fallbackIndex: number,
 ) {
-  return segment.id || `${transcriptId}-segment-${fallbackIndex}`;
+  return segment.id || `${transcriptId ?? "live"}-segment-${fallbackIndex}`;
 }
 
 function segmentsEqual(a: Segment, b: Segment) {

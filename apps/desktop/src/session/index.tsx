@@ -229,7 +229,8 @@ function TabContentNoteInner({
 
   const mergeTranscriptSurface =
     bottomAccessoryState?.expanded === true &&
-    (bottomAccessoryState.mode === "playback" ||
+    (bottomAccessoryState.mode === "live" ||
+      bottomAccessoryState.mode === "playback" ||
       bottomAccessoryState.mode === "transcript_only");
 
   return (

@@ -34,7 +34,7 @@ export function RenderTranscript({
   scrollElement: HTMLDivElement | null;
   isLastTranscript: boolean;
   isAtBottom: boolean;
-  transcriptId: string;
+  transcriptId?: string;
   liveSegments: Segment[];
   currentMs: number;
   seek: (sec: number) => void;
@@ -52,7 +52,7 @@ export function RenderTranscript({
   }
 
   return (
-    <SegmentsList
+    <TranscriptSegmentsList
       segments={segments}
       scrollElement={scrollElement}
       transcriptId={transcriptId}
@@ -66,7 +66,7 @@ export function RenderTranscript({
   );
 }
 
-const SegmentsList = memo(
+export const TranscriptSegmentsList = memo(
   ({
     segments,
     scrollElement,
@@ -80,7 +80,7 @@ const SegmentsList = memo(
   }: {
     segments: Segment[];
     scrollElement: HTMLDivElement | null;
-    transcriptId: string;
+    transcriptId?: string;
     offsetMs: number;
     shouldScrollToEnd: boolean;
     currentMs: number;

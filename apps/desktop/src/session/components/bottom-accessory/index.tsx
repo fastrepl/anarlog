@@ -105,7 +105,13 @@ export function useSessionBottomAccessory({
             onToggle={() => setIsExpanded((v) => !v)}
             label="Live"
             collapsedClassName="bg-neutral-50"
-          />
+            className="text-red-500 hover:bg-red-50 hover:text-red-600"
+          >
+            <span
+              aria-hidden
+              className="size-1.5 shrink-0 rounded-full bg-red-500"
+            />
+          </ExpandToggle>
         ) : null,
       bottomAccessoryState,
     };

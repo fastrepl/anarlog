@@ -16,28 +16,34 @@ export function SegmentHeader({
   speakerLabelManager,
 }: {
   segment: Segment;
-  transcriptId: string;
+  transcriptId?: string;
   speakerLabelManager?: SpeakerLabelManager;
 }) {
   const color = useSegmentColor(segment.key);
   const label = useSpeakerLabel(segment.key, speakerLabelManager);
   const timestamp = getTimestampRange(segment);
   const headerClassName = cn([
-    "sticky top-0 z-20 bg-neutral-50",
+    "sticky top-0 z-20 bg-white",
     "-mx-3 px-3 py-1",
-    "text-xs font-light",
+    "text-xs",
     "flex items-center justify-between",
   ]);
 
   return (
     <p className={headerClassName}>
-      <SpeakerAssignPopover
-        segment={segment}
-        transcriptId={transcriptId}
-        color={color}
-        label={label}
-      />
-      <span className="font-mono text-neutral-500">{timestamp}</span>
+      {transcriptId ? (
+        <SpeakerAssignPopover
+          segment={segment}
+          transcriptId={transcriptId}
+          color={color}
+          label={label}
+        />
+      ) : (
+        <span className="font-medium" style={{ color }}>
+          {label}
+        </span>
+      )}
+      <span className="font-mono font-light text-neutral-500">{timestamp}</span>
     </p>
   );
 }

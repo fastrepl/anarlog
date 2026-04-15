@@ -27,11 +27,13 @@ export function TranscriptViewer({
   liveSegments,
   currentActive,
   scrollRef,
+  enablePlaybackControls = true,
 }: {
   transcriptIds: string[];
   liveSegments: Segment[];
   currentActive: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
+  enablePlaybackControls?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(
@@ -60,6 +62,12 @@ export function TranscriptViewer({
   const time = useAudioTime();
   const deferredCurrentMs = useDeferredValue(time.current * 1000);
   const isPlaying = playerState === "playing";
+  const transcriptEntries =
+    transcriptIds.length > 0
+      ? transcriptIds.map((transcriptId) => ({ transcriptId }))
+      : liveSegments.length > 0
+        ? [{ transcriptId: undefined }]
+        : [];
 
   useHotkeys(
     "space",
@@ -73,10 +81,17 @@ export function TranscriptViewer({
         start();
       }
     },
-    { enableOnFormTags: false },
+    {
+      enabled: enablePlaybackControls,
+      enableOnFormTags: false,
+    },
   );
 
-  usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
+  usePlaybackAutoScroll(
+    containerRef,
+    deferredCurrentMs,
+    enablePlaybackControls && isPlaying,
+  );
   const shouldAutoScroll = currentActive && autoScrollEnabled;
   useAutoScroll(
     containerRef,
@@ -102,15 +117,18 @@ export function TranscriptViewer({
           "scrollbar-hide scroll-pb-32 pb-16",
         ])}
       >
-        {transcriptIds.map((transcriptId, index) => (
-          <div key={transcriptId} className="flex flex-col gap-8">
+        {transcriptEntries.map(({ transcriptId }, index) => (
+          <div
+            key={transcriptId ?? "live-transcript"}
+            className="flex flex-col gap-8"
+          >
             <RenderTranscript
               scrollElement={scrollElement}
-              isLastTranscript={index === transcriptIds.length - 1}
+              isLastTranscript={index === transcriptEntries.length - 1}
               isAtBottom={isAtBottom}
               transcriptId={transcriptId}
               liveSegments={
-                index === transcriptIds.length - 1 && currentActive
+                index === transcriptEntries.length - 1 && currentActive
                   ? liveSegments
                   : []
               }
@@ -119,7 +137,7 @@ export function TranscriptViewer({
               startPlayback={start}
               audioExists={audioExists}
             />
-            {index < transcriptIds.length - 1 && <TranscriptSeparator />}
+            {index < transcriptEntries.length - 1 && <TranscriptSeparator />}
           </div>
         ))}
 

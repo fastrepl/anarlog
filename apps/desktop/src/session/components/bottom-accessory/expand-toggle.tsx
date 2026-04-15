@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { cn } from "@hypr/utils";
 
@@ -8,12 +9,16 @@ export function ExpandToggle({
   label,
   showExpandedCloseIcon = false,
   collapsedClassName,
+  className,
+  children,
 }: {
   isExpanded: boolean;
   onToggle: () => void;
   label?: string;
   showExpandedCloseIcon?: boolean;
   collapsedClassName?: string;
+  className?: string;
+  children?: ReactNode;
 }) {
   const hasLabel = Boolean(label);
 
@@ -30,12 +35,14 @@ export function ExpandToggle({
         isExpanded ? "bg-white" : (collapsedClassName ?? "bg-white"),
         "transition-colors hover:bg-neutral-100 hover:text-neutral-600",
         "hover:cursor-pointer",
+        className,
       ])}
       aria-label={
         isExpanded ? `Collapse ${label ?? ""}`.trim() : `Expand ${label ?? ""}`
       }
     >
       {label ? <span className="text-[10px] font-medium">{label}</span> : null}
+      {children}
       {isExpanded && showExpandedCloseIcon ? (
         <X size={10} className="shrink-0" />
       ) : null}

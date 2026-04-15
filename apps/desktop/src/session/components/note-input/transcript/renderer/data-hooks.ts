@@ -8,7 +8,9 @@ import {
   renderTranscriptSegments,
 } from "~/stt/render-transcript";
 
-export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
+export function useRenderedTranscriptSegments(
+  transcriptId?: string,
+): Segment[] {
   const store = main.UI.useStore(main.STORE_ID);
   const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
   const participantMappingsTable = main.UI.useTable(
@@ -19,7 +21,7 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
   const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
 
   const request = useMemo(() => {
-    if (!store) {
+    if (!store || !transcriptId) {
       return null;
     }
 
@@ -48,12 +50,12 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
   return data;
 }
 
-export function useTranscriptOffset(transcriptId: string): number {
+export function useTranscriptOffset(transcriptId?: string): number {
   const store = main.UI.useStore(main.STORE_ID);
   const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
   const sessionId = main.UI.useCell(
     "transcripts",
-    transcriptId,
+    transcriptId ?? "",
     "session_id",
     main.STORE_ID,
   );
@@ -65,7 +67,7 @@ export function useTranscriptOffset(transcriptId: string): number {
   );
 
   return useMemo(() => {
-    if (!store) {
+    if (!store || !transcriptId) {
       return 0;
     }
 
