@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use backon::{ExponentialBuilder, Retryable};
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
+use sqlx::{Executor, Sqlite, SqlitePool};
 use tokio::sync::{broadcast, oneshot};
 use tokio::task::JoinHandle;
 
@@ -72,6 +72,8 @@ pub enum CloudsyncRuntimeError {
     NotConfigured,
     #[error("cloudsync runtime is not started")]
     NotStarted,
+    #[error("cloudsync runtime is running; stop it first or use cloudsync_reconfigure")]
+    RestartRequired,
     #[error("cloudsync sync interval must be greater than 0")]
     InvalidSyncInterval,
     #[error(transparent)]
@@ -186,8 +188,30 @@ impl Db3 {
         config: CloudsyncRuntimeConfig,
     ) -> Result<(), CloudsyncRuntimeError> {
         let mut runtime = self.cloudsync_runtime.lock().unwrap();
+        if runtime.running {
+            return Err(CloudsyncRuntimeError::RestartRequired);
+        }
         runtime.config = Some(config.normalized()?);
         runtime.last_error = None;
+        Ok(())
+    }
+
+    pub async fn cloudsync_reconfigure(
+        &self,
+        config: CloudsyncRuntimeConfig,
+    ) -> Result<(), CloudsyncRuntimeError> {
+        let was_running = self.cloudsync_runtime.lock().unwrap().running;
+
+        if was_running {
+            self.cloudsync_stop().await?;
+        }
+
+        self.cloudsync_configure(config)?;
+
+        if was_running {
+            self.cloudsync_start().await?;
+        }
+
         Ok(())
     }
 
@@ -404,14 +428,14 @@ impl Db3 {
         &self,
         table_name: &str,
     ) -> Result<(), hypr_cloudsync::Error> {
-        hypr_cloudsync::begin_alter(self.pool.as_ref(), table_name).await
+        cloudsync_begin_alter_on(self.pool.as_ref(), table_name).await
     }
 
     pub async fn cloudsync_commit_alter(
         &self,
         table_name: &str,
     ) -> Result<(), hypr_cloudsync::Error> {
-        hypr_cloudsync::commit_alter(self.pool.as_ref(), table_name).await
+        cloudsync_commit_alter_on(self.pool.as_ref(), table_name).await
     }
 
     pub async fn cloudsync_cleanup(&self, table_name: &str) -> Result<(), hypr_cloudsync::Error> {
@@ -483,6 +507,26 @@ impl Db3 {
         runtime.last_error_kind = None;
         runtime.consecutive_failures = 0;
     }
+}
+
+pub async fn cloudsync_begin_alter_on<'e, E>(
+    executor: E,
+    table_name: &str,
+) -> Result<(), hypr_cloudsync::Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    hypr_cloudsync::begin_alter(executor, table_name).await
+}
+
+pub async fn cloudsync_commit_alter_on<'e, E>(
+    executor: E,
+    table_name: &str,
+) -> Result<(), hypr_cloudsync::Error>
+where
+    E: Executor<'e, Database = Sqlite>,
+{
+    hypr_cloudsync::commit_alter(executor, table_name).await
 }
 
 const MAX_BACKOFF_SECS: u64 = 300;

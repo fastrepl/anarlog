@@ -118,16 +118,18 @@ mod test {
     async fn setup_runtime() -> (tempfile::TempDir, Arc<runtime::PluginDbRuntime>) {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core2::Db3::open_with_migrate(
-            hypr_db_core2::DbOpenOptions {
-                storage: hypr_db_core2::DbStorage::Local(&db_path),
-                cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(4),
-                migration_failure_policy: hypr_db_core2::MigrationFailurePolicy::Fail,
+        let db = hypr_db_migrate::open_db(
+            hypr_db_migrate::AppDbOpenOptions {
+                db: hypr_db_core2::DbOpenOptions {
+                    storage: hypr_db_core2::DbStorage::Local(&db_path),
+                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+                    journal_mode_wal: true,
+                    foreign_keys: true,
+                    max_connections: Some(4),
+                },
+                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
             },
-            |pool| Box::pin(hypr_db_app::migrate(pool)),
+            hypr_db_app::schema(),
         )
         .await
         .unwrap();

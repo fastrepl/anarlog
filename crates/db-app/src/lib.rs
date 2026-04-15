@@ -28,10 +28,24 @@ pub use event_types::*;
 pub use template_ops::*;
 pub use template_types::*;
 
-use sqlx::SqlitePool;
+pub const APP_MIGRATION_STEPS: &[hypr_db_migrate::MigrationStep] = &[
+    hypr_db_migrate::MigrationStep {
+        id: "20260413020000_templates",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260413020000_templates.sql"),
+    },
+    hypr_db_migrate::MigrationStep {
+        id: "20260414120000_calendars_events",
+        scope: hypr_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260414120000_calendars_events.sql"),
+    },
+];
 
-pub async fn migrate(pool: &SqlitePool) -> Result<(), sqlx::migrate::MigrateError> {
-    sqlx::migrate!("./migrations").run(pool).await
+pub fn schema() -> hypr_db_migrate::DbSchema {
+    hypr_db_migrate::DbSchema {
+        steps: APP_MIGRATION_STEPS,
+        validate_cloudsync_table: cloudsync_alter_guard_required,
+    }
 }
 
 #[cfg(test)]
@@ -41,9 +55,50 @@ mod tests {
     use sqlx::Row;
 
     async fn test_db() -> Db3 {
-        let db = Db3::connect_memory_plain().await.unwrap();
-        migrate(db.pool()).await.unwrap();
-        db
+        hypr_db_migrate::open_db(
+            hypr_db_migrate::AppDbOpenOptions {
+                db: hypr_db_core2::DbOpenOptions {
+                    storage: hypr_db_core2::DbStorage::Memory,
+                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+                    journal_mode_wal: true,
+                    foreign_keys: true,
+                    max_connections: Some(1),
+                },
+                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
+            },
+            schema(),
+        )
+        .await
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
+        let db = hypr_db_migrate::open_db(
+            hypr_db_migrate::AppDbOpenOptions {
+                db: hypr_db_core2::DbOpenOptions {
+                    storage: hypr_db_core2::DbStorage::Memory,
+                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+                    journal_mode_wal: true,
+                    foreign_keys: true,
+                    max_connections: Some(1),
+                },
+                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
+            },
+            schema(),
+        )
+        .await
+        .unwrap();
+
+        let tables: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '_sqlx%' ORDER BY name",
+        )
+        .fetch_all(db.pool().as_ref())
+        .await
+        .unwrap();
+
+        assert!(tables.contains(&"templates".to_string()));
+        assert!(tables.contains(&"app_migrations".to_string()));
     }
 
     #[tokio::test]
@@ -62,16 +117,7 @@ mod tests {
 
         assert_eq!(
             tables,
-            vec![
-                "activity_observation_analyses",
-                "activity_observation_events",
-                "activity_screenshots",
-                "calendars",
-                "daily_notes",
-                "daily_summaries",
-                "events",
-                "templates",
-            ]
+            vec!["app_migrations", "calendars", "events", "templates"]
         );
     }
 

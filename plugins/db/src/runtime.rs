@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use hypr_db_core2::{CloudsyncOpenMode, Db3, DbOpenOptions, DbStorage, MigrationFailurePolicy};
+use hypr_db_core2::{CloudsyncOpenMode, Db3, DbOpenOptions, DbStorage};
 use hypr_db_live_query::QueryEventSink;
 use tauri::ipc::Channel;
 
@@ -37,16 +37,18 @@ pub async fn open_app_db(db_path: Option<&Path>) -> Result<Db3> {
         None => DbStorage::Memory,
     };
 
-    let db = Db3::open_with_migrate(
-        DbOpenOptions {
-            storage,
-            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(4),
-            migration_failure_policy: MigrationFailurePolicy::Fail,
+    let db = hypr_db_migrate::open_db(
+        hypr_db_migrate::AppDbOpenOptions {
+            db: DbOpenOptions {
+                storage,
+                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+                journal_mode_wal: true,
+                foreign_keys: true,
+                max_connections: Some(4),
+            },
+            migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
         },
-        |pool| Box::pin(hypr_db_app::migrate(pool)),
+        hypr_db_app::schema(),
     )
     .await?;
 

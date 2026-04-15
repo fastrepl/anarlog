@@ -13,8 +13,10 @@ tokio = { workspace = true, features = ["macros", "sync", "time"] }
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
-anyhow = { workspace = true }
 hypr-cloudsync = { workspace = true }
 hypr-db-app = { workspace = true }
+hypr-db-migrate = { workspace = true }
+
+anyhow = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "time"] }
