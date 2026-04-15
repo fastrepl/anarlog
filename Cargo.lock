@@ -4717,6 +4717,7 @@ name = "db-app"
 version = "0.1.0"
 dependencies = [
  "db-core2",
+ "db-migrate",
  "sqlx",
  "tokio",
 ]
@@ -4756,6 +4757,7 @@ dependencies = [
  "cloudsync",
  "db-app",
  "db-core2",
+ "db-migrate",
  "serde",
  "serde_json",
  "sqlx",
@@ -4763,6 +4765,18 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "db-migrate"
+version = "0.1.0"
+dependencies = [
+ "cloudsync",
+ "db-core2",
+ "sha2 0.10.9",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
 ]
 
 [[package]]
@@ -11546,6 +11560,7 @@ dependencies = [
  "db-app",
  "db-core2",
  "db-live-query",
+ "db-migrate",
  "serde_json",
  "tempfile",
  "thiserror 2.0.18",
@@ -18602,6 +18617,7 @@ dependencies = [
  "db-app",
  "db-core2",
  "db-live-query",
+ "db-migrate",
  "serde",
  "serde_json",
  "specta",

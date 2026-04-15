@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use db_live_query::{DbRuntime, QueryEventSink};
-use hypr_db_core2::{DbOpenOptions, DbStorage, MigrationFailurePolicy};
+use hypr_db_core2::{DbOpenOptions, DbStorage};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TestEvent {
@@ -179,16 +179,18 @@ pub async fn wait_for_stable_event_count(
 pub async fn setup_runtime() -> (tempfile::TempDir, sqlx::SqlitePool, DbRuntime<TestSink>) {
     let dir = tempfile::tempdir().unwrap();
     let db_path = dir.path().join("app.db");
-    let db = hypr_db_core2::Db3::open_with_migrate(
-        DbOpenOptions {
-            storage: DbStorage::Local(&db_path),
-            cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-            journal_mode_wal: true,
-            foreign_keys: true,
-            max_connections: Some(4),
-            migration_failure_policy: MigrationFailurePolicy::Fail,
+    let db = hypr_db_migrate::open_db(
+        hypr_db_migrate::AppDbOpenOptions {
+            db: DbOpenOptions {
+                storage: DbStorage::Local(&db_path),
+                cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+                journal_mode_wal: true,
+                foreign_keys: true,
+                max_connections: Some(4),
+            },
+            migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
         },
-        |pool| Box::pin(hypr_db_app::migrate(pool)),
+        hypr_db_app::schema(),
     )
     .await
     .unwrap();

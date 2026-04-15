@@ -2,7 +2,7 @@
 
 mod bundle;
 mod error;
-mod init;
+mod api;
 mod network;
 
 use std::path::PathBuf;
@@ -11,7 +11,20 @@ use sqlx::sqlite::SqliteConnectOptions;
 
 pub use bundle::bundled_extension_path;
 pub use error::{Error, ErrorKind};
-pub use init::{begin_alter, cleanup, commit_alter, init, terminate, version};
+pub use api::{
+    begin_alter,
+    cleanup,
+    commit_alter,
+    db_version,
+    disable,
+    enable,
+    is_enabled,
+    init,
+    siteid,
+    terminate,
+    uuid,
+    version,
+};
 pub use network::{
     network_check_changes, network_cleanup, network_has_unsent_changes, network_init,
     network_logout, network_reset_sync_version, network_send_changes, network_set_apikey,

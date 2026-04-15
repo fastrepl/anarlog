@@ -3,7 +3,7 @@
 ## Role
 
 - `db-core2` is the database substrate layer.
-- It owns `Db3`/`DbPool`, SQLite open options, pool lifecycle, migration failure policy, and per-connection SQLite wiring.
+- It owns `Db3`/`DbPool`, SQLite open options, pool lifecycle, storage-recreation primitives, and per-connection SQLite wiring.
 - Raw SQLite hook integration belongs here, including `sqlite3_update_hook`.
 - Cloudsync integration also belongs here because it is part of how the database is opened and managed, not how queries are exposed to the app.
 - Higher layers should consume `Db3`/`DbPool` and raw table-change events from here instead of reimplementing pool setup.
@@ -14,7 +14,8 @@
 - Applying low-level SQLite pragmas and connection policy.
 - Installing per-connection hooks in `SqlitePoolOptions::after_connect`.
 - Exposing best-effort table-level mutation notifications for pooled writes.
-- Database recreation behavior when migrations fail and policy requests it.
+- Database recreation primitives that upper layers may invoke when their policy requests it.
+- Connection-scoped CloudSync helpers that must run on one checked-out executor.
 - Keeping `DbPool` ergonomic as an `sqlx::SqlitePool` wrapper.
 
 ## This Crate Does Not Own
@@ -33,6 +34,7 @@
 - Change events are table-level, not row-level or predicate-level.
 - `DbPool` must continue to `Deref`/`AsRef` to `SqlitePool` so existing SQL callers stay ergonomic.
 - App code may supply a migration callback, but the crate must stay schema-agnostic.
+- CloudSync operations that require executor affinity should be wrapped here so upper layers do not call `hypr_cloudsync` directly.
 - Reactive support must stay additive to normal database usage; callers that do not subscribe should see ordinary open/query behavior.
 
 ## Dependency Direction

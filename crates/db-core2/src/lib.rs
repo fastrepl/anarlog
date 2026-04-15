@@ -1,21 +1,18 @@
 mod cloudsync;
 mod pool;
 
-use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 pub use hypr_cloudsync::Error;
-use sqlx::SqlitePool;
 use sqlx::sqlite::SqliteConnectOptions;
 
 use crate::cloudsync::CloudsyncRuntimeState;
 pub use crate::cloudsync::{
     CloudsyncAuth, CloudsyncOpenMode, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
-    CloudsyncStatus, CloudsyncTableSpec,
+    CloudsyncStatus, CloudsyncTableSpec, cloudsync_begin_alter_on, cloudsync_commit_alter_on,
 };
 use crate::pool::connect_pool;
 pub use crate::pool::{DbPool, TableChange, TableChangeKind};
@@ -26,12 +23,6 @@ pub enum DbStorage<'a> {
     Memory,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MigrationFailurePolicy {
-    Fail,
-    Recreate,
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct DbOpenOptions<'a> {
     pub storage: DbStorage<'a>,
@@ -39,7 +30,6 @@ pub struct DbOpenOptions<'a> {
     pub journal_mode_wal: bool,
     pub foreign_keys: bool,
     pub max_connections: Option<u32>,
-    pub migration_failure_policy: MigrationFailurePolicy,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -50,15 +40,9 @@ pub enum DbOpenError {
     Sqlx(#[from] sqlx::Error),
     #[error(transparent)]
     Cloudsync(#[from] hypr_cloudsync::Error),
-    #[error("migration failed: {0}")]
-    Migration(String),
-    #[error("failed to recreate database after migration failure: {0}")]
-    RecreateFailed(String),
 }
 
 pub type ManagedDb = std::sync::Arc<Db3>;
-
-type BoxedMigrationFuture<'a, E> = Pin<Box<dyn Future<Output = Result<(), E>> + Send + 'a>>;
 
 const SQLITE_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -80,31 +64,26 @@ impl std::fmt::Debug for Db3 {
     }
 }
 
-impl Db3 {
-    pub async fn open_with_migrate<F, E>(
-        options: DbOpenOptions<'_>,
-        migrate: F,
-    ) -> Result<Self, DbOpenError>
-    where
-        F: for<'a> Fn(&'a SqlitePool) -> BoxedMigrationFuture<'a, E>,
-        E: std::fmt::Display,
-    {
-        match try_open_with_migrate(&options, &migrate).await {
-            Ok(db) => Ok(db),
-            Err(DbOpenError::Migration(message))
-                if matches!(
-                    options.migration_failure_policy,
-                    MigrationFailurePolicy::Recreate
-                ) =>
-            {
-                tracing::warn!("database migration failed, recreating fresh database: {message}");
-                recreate_storage(&options)?;
-                try_open_with_migrate(&options, &migrate)
-                    .await
-                    .map_err(|error| DbOpenError::RecreateFailed(error.to_string()))
+impl Drop for Db3 {
+    fn drop(&mut self) {
+        let task = {
+            let mut runtime = self.cloudsync_runtime.lock().unwrap();
+            runtime.running = false;
+            runtime.task.take()
+        };
+
+        if let Some(mut task) = task {
+            if let Some(shutdown_tx) = task.shutdown_tx.take() {
+                let _ = shutdown_tx.send(());
             }
-            Err(error) => Err(error),
+            task.join_handle.abort();
         }
+    }
+}
+
+impl Db3 {
+    pub async fn open(options: DbOpenOptions<'_>) -> Result<Self, DbOpenError> {
+        connect_with_options(&options).await
     }
 
     pub async fn connect_local(path: impl AsRef<Path>) -> Result<Self, Error> {
@@ -176,24 +155,6 @@ impl Db3 {
     }
 }
 
-async fn try_open_with_migrate<F, E>(
-    options: &DbOpenOptions<'_>,
-    migrate: &F,
-) -> Result<Db3, DbOpenError>
-where
-    F: for<'a> Fn(&'a SqlitePool) -> BoxedMigrationFuture<'a, E>,
-    E: std::fmt::Display,
-{
-    let db = connect_with_options(options).await?;
-
-    if let Err(error) = migrate(db.pool()).await {
-        db.pool.clone().close().await;
-        return Err(DbOpenError::Migration(error.to_string()));
-    }
-
-    Ok(db)
-}
-
 async fn connect_with_options(options: &DbOpenOptions<'_>) -> Result<Db3, DbOpenError> {
     let mut connect_options = match options.storage {
         DbStorage::Local(path) => {
@@ -242,7 +203,7 @@ fn apply_internal_connect_policy(connect_options: SqliteConnectOptions) -> Sqlit
     connect_options.busy_timeout(SQLITE_BUSY_TIMEOUT)
 }
 
-fn recreate_storage(options: &DbOpenOptions<'_>) -> Result<(), DbOpenError> {
+pub fn recreate_storage(options: &DbOpenOptions<'_>) -> Result<(), DbOpenError> {
     match options.storage {
         DbStorage::Local(path) => {
             wipe_db_file(path);
@@ -270,7 +231,10 @@ fn wipe_db_file(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use tokio::sync::oneshot;
 
     fn test_cloudsync_config() -> CloudsyncRuntimeConfig {
         CloudsyncRuntimeConfig {
@@ -298,39 +262,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_with_migrate_recreates_local_db_when_requested() {
+    async fn recreate_storage_wipes_local_db_when_requested() {
         let tmp = tempfile::tempdir().unwrap();
         let db_path = tmp.path().join("app.db");
-        let attempts = AtomicUsize::new(0);
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        sqlx::query("CREATE TABLE broken (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
+        db.pool.clone().close().await;
 
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&db_path),
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(1),
-                migration_failure_policy: MigrationFailurePolicy::Recreate,
-            },
-            |pool| {
-                let n = attempts.fetch_add(1, Ordering::SeqCst);
-                Box::pin(async move {
-                    if n == 0 {
-                        sqlx::query("CREATE TABLE broken (id TEXT PRIMARY KEY NOT NULL)")
-                            .execute(pool)
-                            .await
-                            .unwrap();
-                        Err("boom")
-                    } else {
-                        sqlx::query("CREATE TABLE fresh (id TEXT PRIMARY KEY NOT NULL)")
-                            .execute(pool)
-                            .await
-                            .unwrap();
-                        Ok::<(), &'static str>(())
-                    }
-                })
-            },
-        )
+        recreate_storage(&DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .unwrap();
+
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
         .await
         .unwrap();
 
@@ -344,83 +309,21 @@ mod tests {
         .map(|row| row.0)
         .collect();
 
-        assert_eq!(attempts.load(Ordering::SeqCst), 2);
-        assert_eq!(tables, vec!["fresh"]);
+        assert!(tables.is_empty());
     }
 
     #[tokio::test]
-    async fn open_with_migrate_returns_migration_error_when_fail_policy_is_used() {
-        let error = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Memory,
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: false,
-                foreign_keys: true,
-                max_connections: Some(1),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |_pool| Box::pin(async { Err::<(), _>("nope") }),
-        )
-        .await
-        .unwrap_err();
-
-        assert!(matches!(error, DbOpenError::Migration(message) if message == "nope"));
-    }
-
-    #[tokio::test]
-    async fn open_with_migrate_returns_recreate_failed_when_retry_also_fails() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db_path = tmp.path().join("app.db");
-        let attempts = AtomicUsize::new(0);
-
-        let error = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&db_path),
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(1),
-                migration_failure_policy: MigrationFailurePolicy::Recreate,
-            },
-            |pool| {
-                let n = attempts.fetch_add(1, Ordering::SeqCst);
-                Box::pin(async move {
-                    let table_name = if n == 0 {
-                        "first_attempt"
-                    } else {
-                        "second_attempt"
-                    };
-                    let sql = format!("CREATE TABLE {table_name} (id TEXT PRIMARY KEY NOT NULL)");
-                    sqlx::query(&sql).execute(pool).await.unwrap();
-                    Err::<(), &'static str>("still broken")
-                })
-            },
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(attempts.load(Ordering::SeqCst), 2);
-        assert!(
-            matches!(error, DbOpenError::RecreateFailed(message) if message == "migration failed: still broken")
-        );
-    }
-
-    #[tokio::test]
-    async fn open_with_migrate_applies_requested_pragmas() {
+    async fn open_applies_requested_pragmas() {
         let tmp = tempfile::tempdir().unwrap();
         let db_path = tmp.path().join("app.db");
 
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&db_path),
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(1),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |_pool| Box::pin(async { Ok::<(), sqlx::Error>(()) }),
-        )
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Local(&db_path),
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
         .await
         .unwrap();
 
@@ -444,17 +347,13 @@ mod tests {
 
     #[tokio::test]
     async fn disabled_open_mode_keeps_cloudsync_inert() {
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Memory,
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: false,
-                foreign_keys: true,
-                max_connections: Some(1),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |_pool| Box::pin(async { Ok::<(), sqlx::Error>(()) }),
-        )
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
         .await
         .unwrap();
 
@@ -480,6 +379,103 @@ mod tests {
 
         let error = db.cloudsync_start().await.unwrap_err();
         assert!(matches!(error, CloudsyncRuntimeError::NotConfigured));
+    }
+
+    #[tokio::test]
+    async fn configure_rejects_live_runtime_changes() {
+        let db = Db3::connect_memory_plain().await.unwrap();
+        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        db.cloudsync_runtime.lock().unwrap().running = true;
+
+        let error = db
+            .cloudsync_configure(CloudsyncRuntimeConfig {
+                connection_string: "sqlitecloud://demo.invalid/other.db?apikey=demo".to_string(),
+                ..test_cloudsync_config()
+            })
+            .unwrap_err();
+
+        assert!(matches!(error, CloudsyncRuntimeError::RestartRequired));
+        assert_eq!(
+            db.cloudsync_runtime
+                .lock()
+                .unwrap()
+                .config
+                .as_ref()
+                .unwrap()
+                .connection_string,
+            "sqlitecloud://demo.invalid/app.db?apikey=demo"
+        );
+    }
+
+    #[tokio::test]
+    async fn reconfigure_preserves_stopped_state_when_runtime_is_inert() {
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(1),
+        })
+        .await
+        .unwrap();
+        db.cloudsync_configure(test_cloudsync_config()).unwrap();
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = true;
+            runtime.network_initialized = true;
+        }
+
+        let next_config = CloudsyncRuntimeConfig {
+            connection_string: "sqlitecloud://demo.invalid/reconfigured.db?apikey=demo".to_string(),
+            sync_interval_ms: 2_000,
+            ..test_cloudsync_config()
+        };
+
+        db.cloudsync_reconfigure(next_config.clone()).await.unwrap();
+
+        let runtime = db.cloudsync_runtime.lock().unwrap();
+        assert_eq!(runtime.config, Some(next_config));
+        assert!(!runtime.running);
+        assert!(!runtime.network_initialized);
+    }
+
+    #[tokio::test]
+    async fn dropping_db_stops_background_task_best_effort() {
+        struct DropFlag(Arc<AtomicBool>);
+
+        impl Drop for DropFlag {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::SeqCst);
+            }
+        }
+
+        let db = Db3::connect_memory_plain().await.unwrap();
+        let dropped = Arc::new(AtomicBool::new(false));
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let guard = DropFlag(Arc::clone(&dropped));
+        let join_handle = tokio::spawn(async move {
+            let _guard = guard;
+            let _ = shutdown_rx.await;
+        });
+
+        {
+            let mut runtime = db.cloudsync_runtime.lock().unwrap();
+            runtime.running = true;
+            runtime.task = Some(crate::cloudsync::CloudsyncBackgroundTask {
+                shutdown_tx: Some(shutdown_tx),
+                join_handle,
+            });
+        }
+
+        drop(db);
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while !dropped.load(Ordering::SeqCst) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -661,27 +657,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("app.db");
 
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&path),
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(4),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |pool| {
-                Box::pin(async move {
-                    sqlx::query("CREATE TABLE multi_conn_events (id TEXT PRIMARY KEY NOT NULL)")
-                        .execute(pool)
-                        .await
-                        .unwrap();
-                    Ok::<(), sqlx::Error>(())
-                })
-            },
-        )
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Local(&path),
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: true,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
         .await
         .unwrap();
+        sqlx::query("CREATE TABLE multi_conn_events (id TEXT PRIMARY KEY NOT NULL)")
+            .execute(db.pool().as_ref())
+            .await
+            .unwrap();
 
         let mut changes = db.subscribe_table_changes();
         let mut conn_a = db.pool().acquire().await.unwrap();
@@ -768,18 +756,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn open_with_migrate_memory_clamps_max_connections_to_one() {
-        let db = Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Memory,
-                cloudsync_open_mode: CloudsyncOpenMode::Disabled,
-                journal_mode_wal: false,
-                foreign_keys: true,
-                max_connections: Some(4),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
-            },
-            |_pool| Box::pin(async { Ok::<(), sqlx::Error>(()) }),
-        )
+    async fn open_memory_clamps_max_connections_to_one() {
+        let db = Db3::open(DbOpenOptions {
+            storage: DbStorage::Memory,
+            cloudsync_open_mode: CloudsyncOpenMode::Disabled,
+            journal_mode_wal: false,
+            foreign_keys: true,
+            max_connections: Some(4),
+        })
         .await
         .unwrap();
 

@@ -86,6 +86,7 @@ hypr-data = { path = "crates/data", package = "data" }
 hypr-db-app = { path = "crates/db-app", package = "db-app" }
 hypr-db-core2 = { path = "crates/db-core2", package = "db-core2" }
 hypr-db-live-query = { path = "crates/db-live-query", package = "db-live-query" }
+hypr-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 hypr-denoise = { path = "crates/denoise", package = "denoise" }
 hypr-detect = { path = "crates/detect", package = "detect" }
 hypr-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }

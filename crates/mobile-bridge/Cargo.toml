@@ -11,6 +11,8 @@ name = "mobile_bridge"
 hypr-db-app = { workspace = true }
 hypr-db-core2 = { workspace = true }
 hypr-db-live-query = { workspace = true }
+hypr-db-migrate = { workspace = true }
+
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }

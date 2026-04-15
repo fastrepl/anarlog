@@ -318,7 +318,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
-    use hypr_db_core2::{DbOpenOptions, DbStorage, MigrationFailurePolicy};
+    use hypr_db_core2::{DbOpenOptions, DbStorage};
     use serde_json::json;
 
     use super::*;
@@ -350,7 +350,12 @@ mod tests {
     impl TestSink {
         fn capture() -> (Self, Arc<Mutex<Vec<TestEvent>>>) {
             let events = Arc::new(Mutex::new(Vec::new()));
-            (Self { events: Arc::clone(&events) }, events)
+            (
+                Self {
+                    events: Arc::clone(&events),
+                },
+                events,
+            )
         }
     }
 
@@ -358,16 +363,18 @@ mod tests {
     async fn stale_init_time_broadcast_processed_after_activation_is_ignored() {
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("app.db");
-        let db = hypr_db_core2::Db3::open_with_migrate(
-            DbOpenOptions {
-                storage: DbStorage::Local(&db_path),
-                cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
-                journal_mode_wal: true,
-                foreign_keys: true,
-                max_connections: Some(4),
-                migration_failure_policy: MigrationFailurePolicy::Fail,
+        let db = hypr_db_migrate::open_db(
+            hypr_db_migrate::AppDbOpenOptions {
+                db: DbOpenOptions {
+                    storage: DbStorage::Local(&db_path),
+                    cloudsync_open_mode: hypr_db_core2::CloudsyncOpenMode::Disabled,
+                    journal_mode_wal: true,
+                    foreign_keys: true,
+                    max_connections: Some(4),
+                },
+                migration_failure_policy: hypr_db_migrate::MigrationFailurePolicy::Fail,
             },
-            |pool| Box::pin(hypr_db_app::migrate(pool)),
+            hypr_db_app::schema(),
         )
         .await
         .unwrap();

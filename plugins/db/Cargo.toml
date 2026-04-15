@@ -11,6 +11,7 @@ description = ""
 hypr-db-app = { workspace = true }
 hypr-db-core2 = { workspace = true }
 hypr-db-live-query = { workspace = true }
+hypr-db-migrate = { workspace = true }
 hypr-storage = { workspace = true }
 hypr-tauri-utils = { workspace = true }
 
