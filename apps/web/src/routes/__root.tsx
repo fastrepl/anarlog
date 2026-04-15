@@ -2,12 +2,16 @@ import type { QueryClient } from "@tanstack/react-query";
 import {
   createRootRouteWithContext,
   HeadContent,
+  Outlet,
   Scripts,
 } from "@tanstack/react-router";
 
 import { Toaster } from "@hypr/ui/components/ui/toast";
 
+import { ConsentAwareProviders } from "@/components/consent-aware-providers";
 import { NotFoundDocument } from "@/components/not-found";
+import { PrivacyConsentProvider } from "@/components/privacy-consent";
+import { getPrivacyConsentRegion } from "@/functions/privacy-consent";
 import {
   DEFAULT_OG_IMAGE_URL,
   ROOT_DESCRIPTION,
@@ -26,6 +30,10 @@ const FONT_STYLESHEETS = [
 ] as const;
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  loader: async () => ({
+    privacyConsentRegion: await getPrivacyConsentRegion(),
+  }),
+  staleTime: 60 * 60 * 1000,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -68,9 +76,23 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "icon", href: "/favicon.ico", sizes: "32x32" },
     ],
   }),
+  component: RootApp,
   shellComponent: RootDocument,
   notFoundComponent: NotFoundDocument,
 });
+
+function RootApp() {
+  const { queryClient } = Route.useRouteContext();
+  const { privacyConsentRegion } = Route.useLoaderData();
+
+  return (
+    <PrivacyConsentProvider region={privacyConsentRegion}>
+      <ConsentAwareProviders queryClient={queryClient}>
+        <Outlet />
+      </ConsentAwareProviders>
+    </PrivacyConsentProvider>
+  );
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (

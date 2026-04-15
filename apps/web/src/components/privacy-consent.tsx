@@ -1,5 +1,5 @@
 import { useRouterState } from "@tanstack/react-router";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 import { Button } from "@hypr/ui/components/ui/button";
 import { Checkbox } from "@hypr/ui/components/ui/checkbox";
@@ -12,10 +12,13 @@ import {
 } from "@hypr/ui/components/ui/dialog";
 import { cn } from "@hypr/utils";
 
+import { useMountEffect } from "@/hooks/useMountEffect";
+import type { PrivacyConsentRegion } from "@/lib/privacy-consent";
+
 const STORAGE_KEY = "char_web_tracking_consent_v1";
 const COOKIE_POLICY_PATH = "/legal/cookies/";
 const PRIVACY_POLICY_PATH = "/legal/privacy/";
-const ACCEPT_CTA_BUTTON_CLASS =
+const PRIMARY_ACTION_BUTTON_CLASS =
   "rounded-full border-0 surface-dark text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%]";
 const MUTED_ACTION_BUTTON_CLASS =
   "border-0 bg-transparent text-fg-muted shadow-none hover:bg-transparent hover:text-fg";
@@ -142,8 +145,10 @@ export function CookiePreferencesButton() {
 
 export function PrivacyConsentProvider({
   children,
+  region,
 }: {
   children: React.ReactNode;
+  region: PrivacyConsentRegion;
 }) {
   const shouldHideConsentUi = useShouldHidePrivacyConsent();
   const [consent, setConsent] = useState<ConsentState | null>(null);
@@ -152,7 +157,7 @@ export function PrivacyConsentProvider({
   const [isReady, setIsReady] = useState(false);
   const [isGpcEnabled, setIsGpcEnabled] = useState(false);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -186,15 +191,7 @@ export function PrivacyConsentProvider({
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  useEffect(() => {
-    if (!isDialogOpen) {
-      return;
-    }
-
-    setDraftAnalytics(Boolean(consent?.analytics));
-  }, [consent, isDialogOpen]);
+  });
 
   const analyticsEnabled =
     isReady && consent?.analytics === true && !isGpcEnabled;
@@ -234,12 +231,20 @@ export function PrivacyConsentProvider({
     setDialogOpen(false);
   };
 
+  const handleDialogOpenChange = (value: boolean) => {
+    if (value) {
+      setDraftAnalytics(Boolean(consent?.analytics));
+    }
+
+    setDialogOpen(value);
+  };
+
   const contextValue = {
     analyticsChoice: consent?.analytics ?? null,
     analyticsEnabled,
     isGpcEnabled,
     isReady,
-    openPreferences: () => setDialogOpen(true),
+    openPreferences: () => handleDialogOpenChange(true),
     rejectNonEssential,
     saveAnalyticsChoice,
   };
@@ -248,7 +253,7 @@ export function PrivacyConsentProvider({
     <PrivacyConsentContext.Provider value={contextValue}>
       {children}
       {!shouldHideConsentUi ? (
-        <CookieConsentBanner isDialogOpen={isDialogOpen} />
+        <CookieConsentBanner isDialogOpen={isDialogOpen} region={region} />
       ) : null}
       {!shouldHideConsentUi ? (
         <CookiePreferencesDialog
@@ -256,14 +261,43 @@ export function PrivacyConsentProvider({
           isOpen={isDialogOpen}
           isGpcEnabled={isGpcEnabled}
           onAnalyticsChoiceChange={setDraftAnalytics}
-          onOpenChange={setDialogOpen}
+          onOpenChange={handleDialogOpenChange}
         />
       ) : null}
     </PrivacyConsentContext.Provider>
   );
 }
 
-function CookieConsentBanner({ isDialogOpen }: { isDialogOpen: boolean }) {
+function getCookieBannerCopy(region: PrivacyConsentRegion) {
+  switch (region) {
+    case "california":
+      return {
+        description:
+          "We use cookies and similar technologies for site analytics and support tools. Non-essential tracking stays off unless you accept all, and you can change this later from the footer.",
+        acceptLabel: "Accept all",
+      };
+    case "europe":
+      return {
+        description:
+          "We use cookies and similar technologies for site analytics and support tools. You can accept all, reject all, or customize your choice at any time from the footer.",
+        acceptLabel: "Accept all",
+      };
+    default:
+      return {
+        description:
+          "We use cookies and similar technologies for site analytics and support tools. You can accept all, reject non-essential tracking, or change your choice later from the footer.",
+        acceptLabel: "Accept all",
+      };
+  }
+}
+
+function CookieConsentBanner({
+  isDialogOpen,
+  region,
+}: {
+  isDialogOpen: boolean;
+  region: PrivacyConsentRegion;
+}) {
   const {
     analyticsChoice,
     isReady,
@@ -271,6 +305,7 @@ function CookieConsentBanner({ isDialogOpen }: { isDialogOpen: boolean }) {
     rejectNonEssential,
     saveAnalyticsChoice,
   } = usePrivacyConsentContext();
+  const bannerCopy = getCookieBannerCopy(region);
 
   if (!isReady || analyticsChoice !== null || isDialogOpen) {
     return null;
@@ -289,9 +324,7 @@ function CookieConsentBanner({ isDialogOpen }: { isDialogOpen: boolean }) {
           <div className="space-y-2">
             <p className="text-fg font-mono text-xl font-semibold">Cookies.</p>
             <p className="text-fg text-sm leading-6">
-              We use cookies and similar technologies for site analytics and
-              support tools. You can accept analytics, reject non-essential
-              tracking, or change your choice later from the footer.
+              {bannerCopy.description}
             </p>
             <p className="text-fg-muted text-xs leading-5">
               See our{" "}
@@ -313,26 +346,62 @@ function CookieConsentBanner({ isDialogOpen }: { isDialogOpen: boolean }) {
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              className={MUTED_ACTION_BUTTON_CLASS}
-              variant="ghost"
-              onClick={rejectNonEssential}
-            >
-              Reject non-essential
-            </Button>
-            <Button
-              className={MUTED_ACTION_BUTTON_CLASS}
-              variant="ghost"
-              onClick={openPreferences}
-            >
-              Manage choices
-            </Button>
-            <Button
-              className={ACCEPT_CTA_BUTTON_CLASS}
-              onClick={() => saveAnalyticsChoice(true)}
-            >
-              Accept analytics
-            </Button>
+            {region === "europe" ? (
+              <>
+                <Button
+                  className={MUTED_ACTION_BUTTON_CLASS}
+                  variant="ghost"
+                  onClick={() => saveAnalyticsChoice(true)}
+                >
+                  Accept all
+                </Button>
+                <Button
+                  className={MUTED_ACTION_BUTTON_CLASS}
+                  variant="ghost"
+                  onClick={rejectNonEssential}
+                >
+                  Reject all
+                </Button>
+                <Button
+                  className={PRIMARY_ACTION_BUTTON_CLASS}
+                  onClick={openPreferences}
+                >
+                  Customize
+                </Button>
+              </>
+            ) : null}
+            {region === "default" ? (
+              <>
+                <Button
+                  className={MUTED_ACTION_BUTTON_CLASS}
+                  variant="ghost"
+                  onClick={rejectNonEssential}
+                >
+                  Reject non-essential
+                </Button>
+                <Button
+                  className={MUTED_ACTION_BUTTON_CLASS}
+                  variant="ghost"
+                  onClick={openPreferences}
+                >
+                  Manage choices
+                </Button>
+                <Button
+                  className={PRIMARY_ACTION_BUTTON_CLASS}
+                  onClick={() => saveAnalyticsChoice(true)}
+                >
+                  {bannerCopy.acceptLabel}
+                </Button>
+              </>
+            ) : null}
+            {region === "california" ? (
+              <Button
+                className={PRIMARY_ACTION_BUTTON_CLASS}
+                onClick={() => saveAnalyticsChoice(true)}
+              >
+                {bannerCopy.acceptLabel}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -411,10 +480,10 @@ function CookiePreferencesDialog({
               variant="ghost"
               onClick={rejectNonEssential}
             >
-              Reject non-essential
+              Reject all
             </Button>
             <Button
-              className={ACCEPT_CTA_BUTTON_CLASS}
+              className={PRIMARY_ACTION_BUTTON_CLASS}
               onClick={() => saveAnalyticsChoice(analyticsChoice)}
             >
               Save preferences
