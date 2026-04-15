@@ -16,7 +16,7 @@ export const welcomeContent: JSONContent = {
       content: [
         {
           type: "text",
-          text: "Every day you get a fresh note for your task, ideas and meetings \u2014 write it any way you want and build your own workflow.",
+          text: "Every day you get a fresh note for your tasks, ideas and meetings \u2014 write it any way you want and build your own workflow.",
         },
       ],
     },
@@ -25,7 +25,7 @@ export const welcomeContent: JSONContent = {
       content: [
         {
           type: "text",
-          text: "Char record your daily work on screen, learn of your day and projects to help you with your routine. All data stays and processed locally and never leave your computer.",
+          text: "Char records your daily work on screen, learns about your day and projects to help you with your routine. All data is stored and processed locally and never leaves your computer.",
         },
       ],
     },
@@ -58,7 +58,7 @@ export const welcomeContent: JSONContent = {
         },
         {
           type: "text",
-          text: " about how Char record your day",
+          text: " about how Char records your day",
         },
       ],
     },
@@ -84,7 +84,7 @@ export const welcomeContent: JSONContent = {
                   text: "You can write and create any lists there. Just type ",
                 },
                 { type: "text", marks: [{ type: "code" }], text: "/" },
-                { type: "text", text: " or in markdown" },
+                { type: "text", text: " or use Markdown" },
               ],
             },
           ],
@@ -108,7 +108,7 @@ export const welcomeContent: JSONContent = {
                 },
                 {
                   type: "text",
-                  text: " your AI to work with there. Char works with Cloud, API providers and local models to transcribe meetings, answer questions and complete your tasks",
+                  text: " your AI to work with. Char works with Cloud, API providers and local models to transcribe meetings, answer questions and complete your tasks",
                 },
               ],
             },
@@ -123,7 +123,7 @@ export const welcomeContent: JSONContent = {
               content: [
                 {
                   type: "text",
-                  text: "All your meetings appears there. Click on it to open",
+                  text: "All your meetings appear here. Click on one to open notes and summarized files",
                 },
               ],
             },
@@ -137,16 +137,7 @@ export const welcomeContent: JSONContent = {
               content: [
                 {
                   type: "paragraph",
-                  content: [{ type: "text", text: "This is dummy meeting" }],
-                },
-              ],
-            },
-            {
-              type: "paragraph",
-              content: [
-                {
-                  type: "text",
-                  text: " Char will transcribe them by using all context around: audio, presentations, your notes",
+                  content: [{ type: "text", text: "This is a demo meeting" }],
                 },
               ],
             },
@@ -256,7 +247,7 @@ export const welcomeContent: JSONContent = {
                   ],
                   text: "Discord",
                 },
-                { type: "text", text: " to get latest updates" },
+                { type: "text", text: " to get the latest updates" },
               ],
             },
           ],
@@ -269,7 +260,7 @@ export const welcomeContent: JSONContent = {
     {
       type: "heading",
       attrs: { level: 3 },
-      content: [{ type: "text", text: "Enjoy Char! There is your day:" }],
+      content: [{ type: "text", text: "Enjoy Char! Here is your day:" }],
     },
   ],
 };

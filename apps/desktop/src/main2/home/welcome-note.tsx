@@ -26,7 +26,7 @@ const welcomeContent: JSONContent = {
       content: [
         {
           type: "text",
-          text: "Every day you get a fresh note for your task, ideas and meetings \u2014 write it any way you want and build your own workflow. Char took all context around your work and help you to fill your day.",
+          text: "Every day you get a fresh note for your task, ideas and meetings \u2014 write it any way you want and build your own workflow. Char takes all context around your work and help you to fill your day.",
         },
       ],
     },
@@ -85,7 +85,7 @@ const welcomeContent: JSONContent = {
       content: [
         {
           type: "text",
-          text: "All meetings from calendar appears in your daily notes. You can write notes inside the meetings or create new note",
+          text: "All meetings from calendar appear in your daily notes. You can write notes inside the meetings or create new note",
         },
       ],
     },

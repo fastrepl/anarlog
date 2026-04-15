@@ -52,7 +52,7 @@ export function DateHeader({
           onClick={onDismissWelcome}
           className="text-xs text-neutral-400 transition-colors hover:text-neutral-600"
         >
-          Dismiss welcome
+          Clear welcome message
         </button>
       )}
     </div>
