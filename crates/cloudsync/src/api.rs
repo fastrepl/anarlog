@@ -100,12 +100,10 @@ pub async fn is_enabled<'e, E>(executor: E, table_name: &str) -> Result<bool, Er
 where
     E: Executor<'e, Database = Sqlite>,
 {
-    Ok(
-        sqlx::query_scalar("SELECT cloudsync_is_enabled(?)")
-            .bind(table_name)
-            .fetch_one(executor)
-            .await?,
-    )
+    Ok(sqlx::query_scalar("SELECT cloudsync_is_enabled(?)")
+        .bind(table_name)
+        .fetch_one(executor)
+        .await?)
 }
 
 /// https://docs.sqlitecloud.io/docs/sqlite-sync-api-cloudsync-commit-alter
