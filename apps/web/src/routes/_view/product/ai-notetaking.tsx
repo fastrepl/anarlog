@@ -12,7 +12,7 @@ import { CTASection as SharedCTA } from "@/components/cta-section";
 import { DownloadButton } from "@/components/download-button";
 import { GithubStars } from "@/components/github-stars";
 import { Image } from "@/components/image";
-import { HowItWorksSection } from "@/routes/_view/index";
+import { AISection, HowItWorksSection } from "@/routes/_view/index";
 
 export const Route = createFileRoute("/_view/product/ai-notetaking")({
   component: Component,
@@ -46,6 +46,7 @@ function Component() {
       <div className="mx-auto">
         <HeroSection />
         <HowItWorksSection />
+        <AISection />
         <SearchSection />
         <SharingSection />
         <SharedCTA />

@@ -83,6 +83,7 @@ import { Route as ViewProductLocalAiRouteImport } from './routes/_view/product/l
 import { Route as ViewProductIntegrationsRouteImport } from './routes/_view/product/integrations'
 import { Route as ViewProductFlexibleAiRouteImport } from './routes/_view/product/flexible-ai'
 import { Route as ViewProductExtensionsRouteImport } from './routes/_view/product/extensions'
+import { Route as ViewProductDailyNotesRouteImport } from './routes/_view/product/daily-notes'
 import { Route as ViewProductBotRouteImport } from './routes/_view/product/bot'
 import { Route as ViewProductApiRouteImport } from './routes/_view/product/api'
 import { Route as ViewProductAiNotetakingRouteImport } from './routes/_view/product/ai-notetaking'
@@ -521,6 +522,11 @@ const ViewProductExtensionsRoute = ViewProductExtensionsRouteImport.update({
   path: '/product/extensions',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewProductDailyNotesRoute = ViewProductDailyNotesRouteImport.update({
+  id: '/product/daily-notes',
+  path: '/product/daily-notes',
+  getParentRoute: () => ViewRouteRoute,
+} as any)
 const ViewProductBotRoute = ViewProductBotRouteImport.update({
   id: '/product/bot',
   path: '/product/bot',
@@ -924,6 +930,7 @@ export interface FileRoutesByFullPath {
   '/product/ai-notetaking': typeof ViewProductAiNotetakingRoute
   '/product/api': typeof ViewProductApiRoute
   '/product/bot': typeof ViewProductBotRoute
+  '/product/daily-notes': typeof ViewProductDailyNotesRoute
   '/product/extensions': typeof ViewProductExtensionsRoute
   '/product/flexible-ai': typeof ViewProductFlexibleAiRoute
   '/product/integrations': typeof ViewProductIntegrationsRoute
@@ -1059,6 +1066,7 @@ export interface FileRoutesByTo {
   '/product/ai-notetaking': typeof ViewProductAiNotetakingRoute
   '/product/api': typeof ViewProductApiRoute
   '/product/bot': typeof ViewProductBotRoute
+  '/product/daily-notes': typeof ViewProductDailyNotesRoute
   '/product/extensions': typeof ViewProductExtensionsRoute
   '/product/flexible-ai': typeof ViewProductFlexibleAiRoute
   '/product/integrations': typeof ViewProductIntegrationsRoute
@@ -1201,6 +1209,7 @@ export interface FileRoutesById {
   '/_view/product/ai-notetaking': typeof ViewProductAiNotetakingRoute
   '/_view/product/api': typeof ViewProductApiRoute
   '/_view/product/bot': typeof ViewProductBotRoute
+  '/_view/product/daily-notes': typeof ViewProductDailyNotesRoute
   '/_view/product/extensions': typeof ViewProductExtensionsRoute
   '/_view/product/flexible-ai': typeof ViewProductFlexibleAiRoute
   '/_view/product/integrations': typeof ViewProductIntegrationsRoute
@@ -1343,6 +1352,7 @@ export interface FileRouteTypes {
     | '/product/ai-notetaking'
     | '/product/api'
     | '/product/bot'
+    | '/product/daily-notes'
     | '/product/extensions'
     | '/product/flexible-ai'
     | '/product/integrations'
@@ -1478,6 +1488,7 @@ export interface FileRouteTypes {
     | '/product/ai-notetaking'
     | '/product/api'
     | '/product/bot'
+    | '/product/daily-notes'
     | '/product/extensions'
     | '/product/flexible-ai'
     | '/product/integrations'
@@ -1619,6 +1630,7 @@ export interface FileRouteTypes {
     | '/_view/product/ai-notetaking'
     | '/_view/product/api'
     | '/_view/product/bot'
+    | '/_view/product/daily-notes'
     | '/_view/product/extensions'
     | '/_view/product/flexible-ai'
     | '/_view/product/integrations'
@@ -2275,6 +2287,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewProductExtensionsRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/product/daily-notes': {
+      id: '/_view/product/daily-notes'
+      path: '/product/daily-notes'
+      fullPath: '/product/daily-notes'
+      preLoaderRoute: typeof ViewProductDailyNotesRouteImport
+      parentRoute: typeof ViewRouteRoute
+    }
     '/_view/product/bot': {
       id: '/_view/product/bot'
       path: '/product/bot'
@@ -2833,6 +2852,7 @@ interface ViewRouteRouteChildren {
   ViewProductAiNotetakingRoute: typeof ViewProductAiNotetakingRoute
   ViewProductApiRoute: typeof ViewProductApiRoute
   ViewProductBotRoute: typeof ViewProductBotRoute
+  ViewProductDailyNotesRoute: typeof ViewProductDailyNotesRoute
   ViewProductExtensionsRoute: typeof ViewProductExtensionsRoute
   ViewProductFlexibleAiRoute: typeof ViewProductFlexibleAiRoute
   ViewProductIntegrationsRoute: typeof ViewProductIntegrationsRoute
@@ -2903,6 +2923,7 @@ const ViewRouteRouteChildren: ViewRouteRouteChildren = {
   ViewProductAiNotetakingRoute: ViewProductAiNotetakingRoute,
   ViewProductApiRoute: ViewProductApiRoute,
   ViewProductBotRoute: ViewProductBotRoute,
+  ViewProductDailyNotesRoute: ViewProductDailyNotesRoute,
   ViewProductExtensionsRoute: ViewProductExtensionsRoute,
   ViewProductFlexibleAiRoute: ViewProductFlexibleAiRoute,
   ViewProductIntegrationsRoute: ViewProductIntegrationsRoute,
