@@ -299,8 +299,6 @@ function MobileHandbookDrawer({
 
 const ANNOUNCEMENT_STORAGE_KEY = "char_announcement_dismissed";
 
-const ANNOUNCEMENT_BAR_HEIGHT = "36px";
-
 export function AnnouncementBanner() {
   const [visible, setVisible] = useState(false);
 
