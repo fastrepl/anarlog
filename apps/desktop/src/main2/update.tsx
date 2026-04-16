@@ -1,7 +1,6 @@
 import { useRouterState } from "@tanstack/react-router";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { message } from "@tauri-apps/plugin-dialog";
-import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { commands, events } from "@hypr/plugin-updater2";
@@ -50,30 +49,31 @@ export function UpdateBanner() {
     <div
       className={cn([
         "flex items-center justify-center gap-3 px-4 py-1.5",
-        "bg-neutral-100 text-sm text-neutral-700",
+        "bg-neutral-50 text-sm text-neutral-700",
       ])}
     >
-      <span>v{version} available</span>
+      <span>New version {version} is ready.</span>
       {isDownloading ? (
         <DownloadProgress progress={progress} />
       ) : (
         <Button
           size="sm"
-          variant="outline"
           onClick={handleInstallUpdate}
           disabled={installing}
-          className="h-7 px-3 text-xs font-medium"
+          className="h-7 bg-black px-3 text-xs font-medium text-white hover:bg-neutral-800"
         >
           {installing ? "Installing..." : "Update & Restart"}
         </Button>
       )}
-      <button
+      <Button
         type="button"
+        size="sm"
+        variant="ghost"
         onClick={() => setDismissed(true)}
-        className="ml-1 text-neutral-400 hover:text-neutral-600"
+        className="h-7 px-2 text-xs font-medium text-neutral-500 hover:bg-transparent hover:text-neutral-700"
       >
-        <XIcon size={14} />
-      </button>
+        Later
+      </Button>
     </div>
   );
 }
