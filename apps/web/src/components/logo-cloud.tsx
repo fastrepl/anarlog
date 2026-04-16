@@ -6,6 +6,7 @@ import { cn } from "@hypr/utils";
 type Logo = {
   src: string;
   alt: string;
+  small?: boolean;
 };
 
 const LOGOS: Logo[][] = [
@@ -27,12 +28,12 @@ const LOGOS: Logo[][] = [
   ],
   [
     { src: "/icons/wayfair.svg", alt: "Wayfair Logo" },
-    { src: "/icons/bain.svg", alt: "Bain Logo" },
+    { src: "/icons/bain.svg", alt: "Bain Logo", small: true },
   ],
 ];
 
 const CYCLE_INTERVAL = 3000;
-const STAGGER_DELAY = 300;
+const STAGGER_DELAY = 150;
 
 function LogoSlot({ logos, delay }: { logos: Logo[]; delay: number }) {
   const [index, setIndex] = useState(0);
@@ -70,7 +71,10 @@ function LogoSlot({ logos, delay }: { logos: Logo[]; delay: number }) {
           key={logo.src}
           src={logo.src}
           alt={logo.alt}
-          className="pointer-events-none h-5 select-none md:h-6"
+          className={cn([
+            "pointer-events-none select-none",
+            logo.small ? "h-5 md:h-6" : "h-7 md:h-8",
+          ])}
           initial={{ y: -30, opacity: 0, filter: "blur(8px)" }}
           animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
           exit={{ y: 30, opacity: 0, filter: "blur(8px)" }}

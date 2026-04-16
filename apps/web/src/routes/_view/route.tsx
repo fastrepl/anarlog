@@ -94,7 +94,6 @@ function Component() {
               }}
             >
               <div className="relative flex min-h-screen flex-col">
-                {isHomePage && <AnnouncementBanner />}
                 {!isResourcePage && !isAppPage && (
                   <>
                     <div
@@ -302,7 +301,7 @@ const ANNOUNCEMENT_STORAGE_KEY = "char_announcement_dismissed";
 
 const ANNOUNCEMENT_BAR_HEIGHT = "36px";
 
-function AnnouncementBanner() {
+export function AnnouncementBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -313,44 +312,34 @@ function AnnouncementBanner() {
     }
   }, []);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--announcement-bar-h",
-      visible ? ANNOUNCEMENT_BAR_HEIGHT : "0px",
-    );
-  }, [visible]);
-
   if (!visible) return null;
 
   return (
-    <>
-      <Link
-        to="/blog/$slug/"
-        params={{ slug: "hyprnote-is-now-char" }}
-        className={cn([
-          "fixed inset-x-0 top-0 z-[60] flex items-center justify-center",
-          "bg-stone-800 px-10 py-2",
-          "font-serif text-sm text-stone-200",
-          "transition-colors hover:bg-stone-700",
-        ])}
+    <Link
+      to="/blog/$slug/"
+      params={{ slug: "hyprnote-is-now-char" }}
+      className={cn([
+        "relative inline-flex w-fit items-center gap-2 rounded-full",
+        "bg-stone-800 px-4 py-1.5",
+        "font-serif text-sm text-stone-200",
+        "transition-colors hover:bg-stone-700",
+      ])}
+    >
+      <span>
+        Hyprnote is now <strong>Char</strong>.
+      </span>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, "true");
+          setVisible(false);
+        }}
+        className="cursor-pointer text-stone-400 transition-colors hover:text-white"
       >
-        <span>
-          Hyprnote is now <strong>Char</strong>.
-        </span>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            window.localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, "true");
-            setVisible(false);
-          }}
-          className="absolute right-4 cursor-pointer text-stone-400 transition-colors hover:text-white"
-        >
-          <XIcon size={14} />
-        </button>
-      </Link>
-      <div style={{ height: ANNOUNCEMENT_BAR_HEIGHT }} />
-    </>
+        <XIcon size={14} />
+      </button>
+    </Link>
   );
 }
