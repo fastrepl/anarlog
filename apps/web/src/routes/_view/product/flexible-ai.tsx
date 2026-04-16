@@ -91,8 +91,8 @@ const localCapabilities = [
 
 function Component() {
   return (
-    <main className="min-h-screen flex-1">
-      <div className="mx-auto">
+    <main className="min-h-screen flex-1 overflow-x-hidden px-2 md:px-8">
+      <div className="">
         <HeroSection />
         <AISetupSection />
         <LocalFeaturesSection />
@@ -110,8 +110,8 @@ function Component() {
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <div className="border-b border-neutral-100 text-left">
-      <p className="text-color-muted py-6 font-mono font-medium tracking-wide uppercase">
+    <div className="text-left">
+      <p className="text-color-secondary py-6 font-mono text-xs font-medium tracking-widest uppercase">
         {children}
       </p>
     </div>
@@ -120,43 +120,48 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 function HeroSection() {
   return (
-    <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center gap-6 px-4 py-24 text-left">
-        <div className="flex max-w-4xl flex-col gap-6">
-          <h1 className="text-color font-mono text-4xl tracking-tight sm:text-5xl">
+    <div className="">
+      <div className="px-6 py-12 lg:py-20">
+        <header className="mx-auto mb-12 text-left">
+          <h1 className="text-color mb-6 font-mono text-2xl tracking-wide sm:text-5xl">
             Take Meeting Notes With
             <br />
             AI of Your Choice
           </h1>
-          <p className="text-color-muted mx-auto max-w-3xl text-lg sm:text-xl">
+          <p className="text-color text-lg sm:text-xl">
             Char lets you choose between managed cloud AI, your own provider
-            keys, or fully local models on your machine.
+            keys,
+            <br className="hidden sm:inline" /> or fully local models on your
+            machine.
           </p>
-        </div>
-        <div className="flex flex-col items-center gap-4 pt-6 sm:flex-row">
-          <DownloadButton />
-          <GithubStars />
-        </div>
+          <div className="mt-8 flex items-center gap-4">
+            <DownloadButton />
+            <GithubStars />
+          </div>
+        </header>
       </div>
-    </section>
+    </div>
   );
 }
 
 function AISetupSection() {
   return (
-    <section>
-      <SectionTitle>Pick your AI setup</SectionTitle>
+    <section className="border-color-brand surface rounded-xl border">
+      <div className="border-color-brand border-b px-4 py-6">
+        {" "}
+        <SectionTitle>Pick your AI setup</SectionTitle>
+      </div>
       <div className="grid md:grid-cols-3">
         {setupOptions.map((option, index) => (
           <div
             key={option.title}
             className={cn([
-              "border-b border-neutral-100 p-8",
+              "border-color-brand p-8",
               index < setupOptions.length - 1 && "md:border-r",
             ])}
           >
             <Icon icon={option.icon} className="text-color mb-4 text-3xl" />
-            <p className="text-color-secondary mb-1 font-mono text-sm">
+            <p className="text-color-secondary mb-1 font-mono text-xs tracking-widest uppercase">
               {option.eyebrow}
             </p>
             <h3 className="text-color mb-2 font-mono text-xl">
@@ -165,7 +170,9 @@ function AISetupSection() {
             <p className="text-color mb-4 text-sm font-medium">
               {option.detail}
             </p>
-            <p className="text-color-muted">{option.description}</p>
+            <p className="text-fg text-base leading-relaxed">
+              {option.description}
+            </p>
           </div>
         ))}
       </div>
@@ -175,9 +182,9 @@ function AISetupSection() {
 
 function LocalFeaturesSection() {
   return (
-    <section>
+    <section className="pt-8">
       <SectionTitle>Local features</SectionTitle>
-      <div className="divide-y divide-neutral-100">
+      <div className="divide-brand flex flex-row divide-x pb-8">
         {localCapabilities.map((capability) => (
           <div key={capability.title} className="flex items-start gap-4 p-8">
             <Icon
@@ -188,7 +195,9 @@ function LocalFeaturesSection() {
               <h3 className="text-color mb-2 font-mono text-xl">
                 {capability.title}
               </h3>
-              <p className="text-color-muted">{capability.description}</p>
+              <p className="text-fg text-base leading-relaxed">
+                {capability.description}
+              </p>
             </div>
           </div>
         ))}
@@ -199,9 +208,12 @@ function LocalFeaturesSection() {
 
 function SwitchSection() {
   return (
-    <section>
-      <SectionTitle>Switch providers anytime</SectionTitle>
-      <p className="text-color-muted border-b border-neutral-100 px-4 py-6 text-left">
+    <section className="border-color-brand surface rounded-xl border">
+      <div className="px-8 pt-6">
+        {" "}
+        <SectionTitle>Switch providers anytime</SectionTitle>
+      </div>
+      <p className="text-fg border-color-brand border-b px-8 pb-8 text-left text-base leading-relaxed">
         Your notes are never locked to a single AI provider.
       </p>
       <div className="grid md:grid-cols-2">
@@ -209,15 +221,17 @@ function SwitchSection() {
           <div
             key={benefit.title}
             className={cn([
-              "border-neutral-100 p-8",
+              "border-color-brand p-8",
               index < 2 && "border-b",
               index % 2 === 0 && "md:border-r",
             ])}
           >
-            <h3 className="text-color mb-2 font-mono text-lg">
+            <h3 className="text-color mb-2 font-mono text-lg font-medium">
               {benefit.title}
             </h3>
-            <p className="text-color-muted">{benefit.description}</p>
+            <p className="text-fg text-base leading-relaxed">
+              {benefit.description}
+            </p>
           </div>
         ))}
       </div>
@@ -227,37 +241,35 @@ function SwitchSection() {
 
 function BenchmarkSection() {
   return (
-    <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
-      <div className="flex flex-col items-center gap-6 px-4 py-16 text-left">
-        <h2 className="text-color font-mono text-2xl sm:text-3xl">
+    <section className="px-4 pt-16 pb-16">
+      <div className="">
+        <h2 className="text-color mb-8 font-mono text-2xl tracking-wide sm:text-3xl">
           Compare model performance before you decide
         </h2>
-        <p className="text-color-muted mx-auto max-w-2xl">
+        <p className="text-fg max-w-2xl text-base leading-relaxed">
           We benchmark leading models on meeting tasks like summaries, action
           items, speaker tracking, and Q&A so you can choose with confidence.
         </p>
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <Link
-            to="/eval/"
-            className={cn([
-              "rounded-full px-8 py-3 text-base font-medium",
-              "border border-neutral-300 text-color",
-              "transition-colors hover:bg-stone-50",
-            ])}
-          >
-            View AI model evaluations
-          </Link>
-          <Link
-            to="/product/local-ai/"
-            className={cn([
-              "rounded-full px-8 py-3 text-base font-medium",
-              "border border-neutral-300 text-color",
-              "transition-colors hover:bg-stone-50",
-            ])}
-          >
-            Explore local AI setup
-          </Link>
-        </div>
+      </div>
+      <div className="flex flex-col gap-4 pt-10 sm:flex-row">
+        <Link
+          to="/eval/"
+          className={cn([
+            "flex h-9 items-center rounded-lg px-4 text-sm transition-colors",
+            "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+          ])}
+        >
+          View AI model evaluations
+        </Link>
+        <Link
+          to="/product/local-ai/"
+          className={cn([
+            "flex h-9 items-center rounded-lg px-4 text-sm transition-colors",
+            "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50",
+          ])}
+        >
+          Explore local AI setup
+        </Link>
       </div>
     </section>
   );
@@ -265,13 +277,14 @@ function BenchmarkSection() {
 
 function FAQSection() {
   return (
-    <section className="px-4 py-16">
-      <div className="mx-auto max-w-4xl">
-        <div className="mb-12 text-left">
-          <h2 className="text-color font-mono text-3xl">
-            Frequently asked questions
+    <section id="faq" className="px-4 pt-16 pb-16">
+      <div className="mx-auto flex flex-col gap-4 md:flex-row md:gap-8">
+        <div className="mb-4 text-left md:mb-12">
+          <h2 className="text-color mb-4 font-mono text-2xl tracking-wide md:text-4xl">
+            Frequently Asked Questions
           </h2>
         </div>
+
         <FAQ>
           <FAQItem question="Which AI models does Char use?">
             Char Cloud routes requests to the best models for each task.
