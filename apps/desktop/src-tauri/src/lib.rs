@@ -53,11 +53,15 @@ pub async fn main() {
             let release =
                 option_env!("APP_VERSION").map(|v| format!("hyprnote-desktop@{}", v).into());
 
+            // traces_sample_rate=1.0 captured every trace and accumulated them in
+            // the sentry transport's in-memory queue. When the machine slept with the
+            // lid closed, traces couldn't flush (no network) and the queue grew
+            // unboundedly -- one of the drivers behind #5068.
             let client = sentry::init((
                 dsn,
                 sentry::ClientOptions {
                     release,
-                    traces_sample_rate: 1.0,
+                    traces_sample_rate: 0.1,
                     auto_session_tracking: false,
                     ..Default::default()
                 },
@@ -195,6 +199,7 @@ pub async fn main() {
     let specta_builder = make_specta_builder::<tauri::Wry>();
 
     let root_supervisor_ctx_for_run = root_supervisor_ctx.clone();
+    let sentry_enabled = sentry_client.is_some();
 
     let app = builder
         .invoke_handler(specta_builder.invoke_handler())
@@ -319,6 +324,15 @@ pub async fn main() {
             }
 
             let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            // Drain sentry's in-memory trace/event queue before we go idle in the
+            // tray. If the user puts the machine to sleep from here the queue
+            // would otherwise grow unboundedly (see #5068).
+            if sentry_enabled {
+                if let Some(client) = sentry::Hub::current().client() {
+                    client.flush(Some(std::time::Duration::from_secs(2)));
+                }
+            }
         }
         tauri::RunEvent::Exit => {
             {
