@@ -111,7 +111,7 @@ function Component() {
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <div className="border-b border-neutral-100 text-left">
-      <p className="py-6 font-mono font-medium tracking-wide text-neutral-600 uppercase">
+      <p className="text-color-muted py-6 font-mono font-medium tracking-wide uppercase">
         {children}
       </p>
     </div>
@@ -123,12 +123,12 @@ function HeroSection() {
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="flex flex-col items-center gap-6 px-4 py-24 text-left">
         <div className="flex max-w-4xl flex-col gap-6">
-          <h1 className="font-mono text-4xl tracking-tight text-stone-700 sm:text-5xl">
+          <h1 className="text-color font-mono text-4xl tracking-tight sm:text-5xl">
             Take Meeting Notes With
             <br />
             AI of Your Choice
           </h1>
-          <p className="mx-auto max-w-3xl text-lg text-neutral-600 sm:text-xl">
+          <p className="text-color-muted mx-auto max-w-3xl text-lg sm:text-xl">
             Char lets you choose between managed cloud AI, your own provider
             keys, or fully local models on your machine.
           </p>
@@ -155,17 +155,17 @@ function AISetupSection() {
               index < setupOptions.length - 1 && "md:border-r",
             ])}
           >
-            <Icon icon={option.icon} className="mb-4 text-3xl text-stone-700" />
-            <p className="mb-1 font-mono text-sm text-neutral-500">
+            <Icon icon={option.icon} className="text-color mb-4 text-3xl" />
+            <p className="text-color-secondary mb-1 font-mono text-sm">
               {option.eyebrow}
             </p>
-            <h3 className="mb-2 font-mono text-xl text-stone-700">
+            <h3 className="text-color mb-2 font-mono text-xl">
               {option.title}
             </h3>
-            <p className="mb-4 text-sm font-medium text-stone-700">
+            <p className="text-color mb-4 text-sm font-medium">
               {option.detail}
             </p>
-            <p className="text-neutral-600">{option.description}</p>
+            <p className="text-color-muted">{option.description}</p>
           </div>
         ))}
       </div>
@@ -182,13 +182,13 @@ function LocalFeaturesSection() {
           <div key={capability.title} className="flex items-start gap-4 p-8">
             <Icon
               icon={capability.icon}
-              className="shrink-0 text-3xl text-stone-700"
+              className="text-color shrink-0 text-3xl"
             />
             <div>
-              <h3 className="mb-2 font-mono text-xl text-stone-700">
+              <h3 className="text-color mb-2 font-mono text-xl">
                 {capability.title}
               </h3>
-              <p className="text-neutral-600">{capability.description}</p>
+              <p className="text-color-muted">{capability.description}</p>
             </div>
           </div>
         ))}
@@ -201,7 +201,7 @@ function SwitchSection() {
   return (
     <section>
       <SectionTitle>Switch providers anytime</SectionTitle>
-      <p className="border-b border-neutral-100 px-4 py-6 text-left text-neutral-600">
+      <p className="text-color-muted border-b border-neutral-100 px-4 py-6 text-left">
         Your notes are never locked to a single AI provider.
       </p>
       <div className="grid md:grid-cols-2">
@@ -214,10 +214,10 @@ function SwitchSection() {
               index % 2 === 0 && "md:border-r",
             ])}
           >
-            <h3 className="mb-2 font-mono text-lg text-stone-700">
+            <h3 className="text-color mb-2 font-mono text-lg">
               {benefit.title}
             </h3>
-            <p className="text-neutral-600">{benefit.description}</p>
+            <p className="text-color-muted">{benefit.description}</p>
           </div>
         ))}
       </div>
@@ -229,10 +229,10 @@ function BenchmarkSection() {
   return (
     <section className="bg-linear-to-b from-stone-50/30 to-stone-100/30">
       <div className="flex flex-col items-center gap-6 px-4 py-16 text-left">
-        <h2 className="font-mono text-2xl text-stone-700 sm:text-3xl">
+        <h2 className="text-color font-mono text-2xl sm:text-3xl">
           Compare model performance before you decide
         </h2>
-        <p className="mx-auto max-w-2xl text-neutral-600">
+        <p className="text-color-muted mx-auto max-w-2xl">
           We benchmark leading models on meeting tasks like summaries, action
           items, speaker tracking, and Q&A so you can choose with confidence.
         </p>
@@ -241,7 +241,7 @@ function BenchmarkSection() {
             to="/eval/"
             className={cn([
               "rounded-full px-8 py-3 text-base font-medium",
-              "border border-neutral-300 text-stone-700",
+              "border border-neutral-300 text-color",
               "transition-colors hover:bg-stone-50",
             ])}
           >
@@ -251,7 +251,7 @@ function BenchmarkSection() {
             to="/product/local-ai/"
             className={cn([
               "rounded-full px-8 py-3 text-base font-medium",
-              "border border-neutral-300 text-stone-700",
+              "border border-neutral-300 text-color",
               "transition-colors hover:bg-stone-50",
             ])}
           >
@@ -268,7 +268,7 @@ function FAQSection() {
     <section className="px-4 py-16">
       <div className="mx-auto max-w-4xl">
         <div className="mb-12 text-left">
-          <h2 className="font-mono text-3xl text-stone-700">
+          <h2 className="text-color font-mono text-3xl">
             Frequently asked questions
           </h2>
         </div>
