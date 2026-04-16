@@ -27,7 +27,8 @@
       "@tiptap/extension-paragraph@3.20.1": "patches/@tiptap__extension-paragraph@3.20.1.patch"
     },
     "overrides": {
-      "@tiptap/extension-paragraph": "3.20.1"
+      "@tiptap/extension-paragraph": "3.20.1",
+      "@astrojs/internal-helpers": "0.8.0"
     }
   },
   "packageManager": "pnpm@10.33.0",

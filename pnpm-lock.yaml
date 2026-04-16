@@ -6,6 +6,7 @@ settings:
 
 overrides:
   '@tiptap/extension-paragraph': 3.20.1
+  '@astrojs/internal-helpers': 0.8.0
 
 patchedDependencies:
   '@tiptap/extension-paragraph@3.20.1':
@@ -2439,9 +2440,6 @@ packages:
 
   '@astrojs/compiler@3.0.1':
     resolution: {integrity: sha512-z97oYbdebO5aoWzuJ/8q5hLK232+17KcLZ7cJ8BCWk6+qNzVxn/gftC0KzMBUTD8WAaBkPpNSQK6PXLnNrZ0CA==}
-
-  '@astrojs/internal-helpers@0.7.6':
-    resolution: {integrity: sha512-GOle7smBWKfMSP8osUIGOlB5kaHdQLV3foCsf+5Q9Wsuu+C6Fs3Ez/ttXmhjZ1HkSgsogcM1RXSjjOVieHq16Q==}
 
   '@astrojs/internal-helpers@0.8.0':
     resolution: {integrity: sha512-J56GrhEiV+4dmrGLPNOl2pZjpHXAndWVyiVDYGDuw6MWKpBSEMLdFxHzeM/6sqaknw9M+HFfHZAcvi3OfT3D/w==}
@@ -20094,8 +20092,6 @@ snapshots:
 
   '@astrojs/compiler@3.0.1': {}
 
-  '@astrojs/internal-helpers@0.7.6': {}
-
   '@astrojs/internal-helpers@0.8.0':
     dependencies:
       picomatch: 4.0.4
@@ -20127,7 +20123,7 @@ snapshots:
 
   '@astrojs/markdown-remark@6.3.11':
     dependencies:
-      '@astrojs/internal-helpers': 0.7.6
+      '@astrojs/internal-helpers': 0.8.0
       '@astrojs/prism': 3.3.0
       github-slugger: 2.0.0
       hast-util-from-html: 2.0.3
@@ -30098,7 +30094,7 @@ snapshots:
   astro@5.18.1(@netlify/blobs@10.7.4)(@types/node@25.6.0)(aws4fetch@1.0.20)(ioredis@5.9.2)(jiti@2.6.1)(lightningcss@1.32.0)(rollup@4.60.1)(terser@5.46.1)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3):
     dependencies:
       '@astrojs/compiler': 2.13.1
-      '@astrojs/internal-helpers': 0.7.6
+      '@astrojs/internal-helpers': 0.8.0
       '@astrojs/markdown-remark': 6.3.11
       '@astrojs/telemetry': 3.3.0
       '@capsizecss/unpack': 4.0.0
