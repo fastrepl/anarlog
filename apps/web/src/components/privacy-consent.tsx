@@ -450,7 +450,8 @@ function CookiePreferencesDialog({
             <span className="space-y-1">
               <span className="block">Analytics and support tools</span>
               <span className="block text-sm leading-6 text-neutral-500">
-                Includes PostHog and the website support widget.
+                Includes PostHog, Google Analytics, Microsoft Clarity, and the
+                website support widget.
               </span>
             </span>
           </label>

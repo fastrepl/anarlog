@@ -10,6 +10,16 @@ const CHATWOOT_BASE_URL = "https://app.chatwoot.com";
 const CHATWOOT_WEBSITE_TOKEN = "FH1mNsxrXPZLcgi3Rfgrb13R";
 const GOOGLE_TAG_ID = "google-tag";
 const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
+const MICROSOFT_CLARITY_SCRIPT_ID = "microsoft-clarity-script";
+const MICROSOFT_CLARITY_TAG_ID = "wcjttoibok";
+
+type ClarityFunction = ((...args: unknown[]) => void) & {
+  q?: IArguments[];
+};
+type ClarityWindow = Window &
+  typeof globalThis & {
+    clarity?: ClarityFunction;
+  };
 
 type AnalyticsWindow = Window &
   typeof globalThis & {
@@ -88,6 +98,70 @@ function ChatwootWidget() {
   return null;
 }
 
+function ensureMicrosoftClarityScript() {
+  if (document.getElementById(MICROSOFT_CLARITY_SCRIPT_ID)) {
+    return;
+  }
+
+  const clarityWindow = window as ClarityWindow;
+  clarityWindow.clarity =
+    clarityWindow.clarity ??
+    function clarity() {
+      const queuedClarity = clarityWindow.clarity;
+      if (!queuedClarity) {
+        return;
+      }
+
+      queuedClarity.q = queuedClarity.q ?? [];
+      queuedClarity.q.push(arguments);
+    };
+
+  const script = document.createElement("script");
+  script.id = MICROSOFT_CLARITY_SCRIPT_ID;
+  script.async = true;
+  script.src = `https://www.clarity.ms/tag/${MICROSOFT_CLARITY_TAG_ID}`;
+  document.head.appendChild(script);
+}
+
+function MicrosoftClarityConsent({
+  enabled,
+  isReady,
+}: {
+  enabled: boolean;
+  isReady: boolean;
+}) {
+  useMountEffect(() => {
+    if (
+      !isReady ||
+      typeof window === "undefined" ||
+      import.meta.env.DEV ||
+      window.location.pathname.startsWith("/admin")
+    ) {
+      return;
+    }
+
+    if (enabled) {
+      ensureMicrosoftClarityScript();
+    }
+
+    const clarity = (window as ClarityWindow).clarity;
+    if (!clarity) {
+      return;
+    }
+
+    clarity("consentv2", {
+      ad_Storage: "denied",
+      analytics_Storage: enabled ? "granted" : "denied",
+    });
+
+    if (!enabled) {
+      clarity("consent", false);
+    }
+  });
+
+  return null;
+}
+
 export function ConsentAwareProviders({
   children,
   queryClient,
@@ -95,12 +169,17 @@ export function ConsentAwareProviders({
   children: React.ReactNode;
   queryClient: QueryClient;
 }) {
-  const { analyticsEnabled } = usePrivacyConsent();
+  const { analyticsEnabled, isReady } = usePrivacyConsent();
 
   return (
     <PostHogProvider enabled={analyticsEnabled}>
       <QueryClientProvider client={queryClient}>
         {children}
+        <MicrosoftClarityConsent
+          key={`${isReady}:${analyticsEnabled}`}
+          enabled={analyticsEnabled}
+          isReady={isReady}
+        />
         {analyticsEnabled ? <GoogleAnalyticsScript /> : null}
         {analyticsEnabled ? <ChatwootWidget /> : null}
       </QueryClientProvider>

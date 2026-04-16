@@ -1,5 +1,5 @@
 ---
-date: "2026-03-31"
+date: "2026-04-16"
 title: "Privacy Policy"
 summary: "How we collect, use, and protect your personal information"
 ---
@@ -30,10 +30,11 @@ When you use our Service, we automatically collect:
 - **Usage Data:** Information about how you interact with the Service, including product interaction events (for example, onboarding, downloads, note creation, transcription, summary generation, exports, and settings interactions)
 - **Device Information:** Device type, operating system, browser type, and IP address
 - **Log Data:** Access times, pages viewed, system activity, and technical diagnostics (for example, latency, status codes, and error events)
+- **Website Analytics Data:** On Char-owned websites, behavioral metrics, heatmaps, session replay, click and scroll activity, referrers, approximate location derived from IP address, browser/device information, and similar interaction metadata when non-essential website analytics are enabled
 - **Service Telemetry Metadata:** Pseudonymous identifiers (such as device fingerprint or user ID), app/browser version metadata, and cloud feature usage metadata (for example, speech-to-text duration, AI token counts, AI latency, provider/model metadata, and subscription trial events) used for operations, billing, product improvement, and abuse prevention
 - **Cookies:** See our Cookie Policy for more information
 
-Analytics and telemetry events are designed to avoid including raw meeting audio, transcript text, note content, and summary text.
+Analytics and telemetry events are designed to avoid including raw meeting audio, transcript text, note content, and summary text. Website session replay and heatmap analytics are used to understand how visitors interact with Char-owned web pages, not to inspect your meeting content.
 
 ### 3.3 Google Calendar and Other Connected Calendar Accounts
 
@@ -82,7 +83,7 @@ We may share your information with third-party service providers who perform ser
 - **Cloud hosting and infrastructure providers** (e.g., Fly.io, Netlify, Cloudflare, Supabase) for hosting our application and storing your data securely
 - **Integration providers** (e.g., Nango) for OAuth connection management, credential handling, and calendar sync infrastructure when you connect Google Calendar or other supported accounts
 - **Payment processors** (e.g., Stripe) for processing payments securely
-- **Analytics services** (e.g., PostHog, Google Analytics) for understanding how users interact with our Service
+- **Analytics services** (e.g., PostHog, Google Analytics, Microsoft Clarity) for understanding how users interact with our Service and Char-owned web properties
 - **Speech-to-text providers** (e.g., Deepgram, AssemblyAI, Soniox) for cloud-based transcription when you enable this feature
 - **AI model providers** (e.g., via OpenRouter) for cloud-based AI features when you enable them
 - **Error monitoring services** (e.g., Sentry) for identifying and fixing issues
@@ -123,7 +124,7 @@ We retain your information for as long as your account is active or as needed to
 ### 7.4 Analytics and Telemetry Controls
 
 - **Desktop app setting:** You can disable desktop usage analytics in Settings (`Share usage data`).
-- **Web tracking controls:** You can accept or reject non-essential website tracking from the `Cookie preferences` control in the website footer, as described in our [Cookie Policy](/legal/cookies).
+- **Web tracking controls:** You can accept or reject non-essential website tracking, including PostHog, Google Analytics, Microsoft Clarity, and website support tools, from the `Cookie preferences` control in the website footer, as described in our [Cookie Policy](/legal/cookies).
 - **Global Privacy Control:** We honor Global Privacy Control (GPC) for non-essential website tracking.
 - **Cloud feature metadata:** Disabling desktop usage analytics does not disable limited server-side operational and billing telemetry required to provide cloud requests (for example, speech-to-text and AI request metadata, and subscription trial status events).
 
