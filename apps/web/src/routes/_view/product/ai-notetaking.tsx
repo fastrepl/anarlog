@@ -62,7 +62,7 @@ function HeroSection() {
           <h1 className="text-color mb-6 font-mono text-2xl tracking-wide sm:text-5xl">
             AI Notepad for Smarter Meeting Notes
           </h1>
-          <p className="text-fg-muted text-lg sm:text-xl">
+          <p className="text-color text-lg sm:text-xl">
             You focus on the conversation. AI transcribes, summarizes,
             <br className="hidden sm:inline" /> and fills in what you missed.
           </p>
