@@ -399,10 +399,9 @@ function HeroSection({
                 </div>
               </a>
 
-              <div className="absolute right-0 bottom-0 flex justify-end p-10">
-                <button
-                  onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
-                  className="group surface border-color-brand relative flex w-4/5 flex-col overflow-hidden rounded-xl border shadow-xl transition-transform duration-200 hover:scale-105"
+              <div className="absolute inset-x-0 bottom-0 flex justify-end p-10">
+                <div
+                  className="group surface border-color-brand relative w-4/5 overflow-hidden rounded-xl border shadow-xl"
                   style={{ aspectRatio: "16/9" }}
                 >
                   <MuxPlayer
@@ -410,18 +409,24 @@ function HeroSection({
                     autoPlay="muted"
                     muted
                     loop
-                    className="h-full w-full object-cover"
+                    playsInline
+                    className="pointer-events-none h-full w-full object-cover"
                     style={{ "--controls": "none" } as React.CSSProperties}
                   />
-                  <div className="absolute inset-0 flex items-end justify-end p-3 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => onVideoExpand(MUX_PLAYBACK_ID)}
+                    className="absolute inset-0 flex items-end justify-end p-3 transition-transform duration-200 hover:scale-105"
+                    aria-label="Open product demo video"
+                  >
                     <div className="flex size-10 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform group-hover:scale-120">
                       <Icon
                         icon="mdi:play"
                         className="text-color ml-0.5 text-lg"
                       />
                     </div>
-                  </div>
-                </button>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
