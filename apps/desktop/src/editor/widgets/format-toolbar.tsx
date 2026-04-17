@@ -51,6 +51,10 @@ const TOOLBAR_BUTTONS: {
 export function FormatToolbar() {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const portalRoot =
+    typeof document === "undefined"
+      ? null
+      : (document.getElementById("root") ?? document.body);
 
   const editorState = useEditorState();
   const hasSelection = editorState ? !editorState.selection.empty : false;
@@ -87,6 +91,7 @@ export function FormatToolbar() {
 
     const update = () => {
       void computePosition(referenceEl, toolbar, {
+        strategy: "fixed",
         placement: "top",
         middleware: [offset(8), flip(), shift({ padding: 8 })],
       }).then(({ x, y }) => {
@@ -102,16 +107,16 @@ export function FormatToolbar() {
     update();
   });
 
-  if (!hasSelection || !editorState) return null;
+  if (!hasSelection || !editorState || !portalRoot) return null;
 
   return createPortal(
     <div
       ref={toolbarRef}
       className={cn([
-        "absolute z-[9999] flex items-center gap-0.5 rounded-lg bg-white p-1",
+        "fixed z-30 flex items-center gap-0.5 rounded-lg bg-white p-1",
         "shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_6px_12px_-3px_rgba(0,0,0,0.08)]",
       ])}
-      style={{ top: 0, left: 0 }}
+      style={{ position: "fixed", top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {TOOLBAR_BUTTONS.map((button) => {
@@ -133,6 +138,6 @@ export function FormatToolbar() {
         );
       })}
     </div>,
-    document.body,
+    portalRoot,
   );
 }
