@@ -1,24 +1,29 @@
+<!-- TODO: replace with Char 1.1 hero image -->
 ![twitter-image](https://github.com/user-attachments/assets/b6161cfd-ddfa-4c09-9fbb-ab5a2d6961fc)
 
 <p align="center">
-  <p align="center">Char - The AI notepad for <strong>private</strong> meetings</p>
+  <p align="center">Char — AI <strong>daily notes</strong> that remember and act</p>
   <p align="center">
    <a href="https://deepwiki.com/fastrepl/char"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
    <a href="https://char.com/discord" target="_blank"><img src="https://img.shields.io/static/v1?label=Join%20our&message=Discord&color=blue&logo=Discord" alt="Discord"></a>
    <a href="https://x.com/getcharnotes" target="_blank"><img src="https://img.shields.io/static/v1?label=Follow%20us%20on&message=X&color=black&logo=x" alt="X"></a>
   </p>
 </p>
-   
+
 ## What is Char?
 
-Char is an AI notetaking app specifically designed to take meeting notes. With Char, you can transcribe all kinds of meetings whether it be online or offline.
+Char is a daily notes app that listens to your meetings, reads your emails, and watches what you work on. It pulls out tasks and delegates them to AI agents or your team.
 
-- **Listens** to your meetings so you can only jot down important stuff
-- **No bots** joining your meetings - Char listens directly to sounds coming in & out of your computer
-- Crafts perfect **summaries** based on your memos, right after the meeting is over
-- You can run Char completely **offline** by using LM Studio or Ollama
+One note per day. Context that compounds.
 
-You can also use it for taking notes for lectures or organizing your thoughts.
+- **Captures** meetings, emails, and screen activity — no bots, no audio leaves your device
+- **Extracts** action items from everything that happened today
+- **Delegates** tasks to AI agents (Claude, Cursor, Devin) or the right person on your team
+- **Open source** and local-first — markdown files, your data stays yours
+
+> *Week one it helps. Month one it knows you.*
+
+<!-- TODO: add Char 1.1 daily note overview screenshot -->
 
 ## Installation
 
@@ -30,29 +35,63 @@ brew install --cask fastrepl/fastrepl/char
 - [Windows](https://github.com/fastrepl/char/issues/66) (q2 2026)
 - [Linux](https://github.com/fastrepl/char/issues/67) (q2 2026)
 
+## The Three Pillars
+
+```
+Capture → Extract → Delegate
+```
+
+Everything you do in a day flows through one note. Meetings, emails, screen activity, quick thoughts — it all stacks up. Action items get surfaced. Tasks get routed. Every day adds to the memory.
+
+<!-- TODO: add pillars diagram / animated flow -->
+
 ## Highlights
 
-### Notepad
+### Daily Note
 
-Char is designed to take notes easily during meetings. Just jot down stuff you think are important!
+One timeline for your day. Meetings, emails, screen activity, and quick thoughts all flow into a single note that evolves as the day goes on.
 
-<img width="732" height="612" alt="Screenshot 2025-11-23 at 2 38 20 PM" src="https://github.com/user-attachments/assets/268ab859-a194-484b-b895-bc640df18dd4" />
+<!-- TODO: add daily note screenshot (Char 1.1) -->
+
+### Meeting Capture
+
+Char listens directly to sounds coming in and out of your computer — no bots joining your calls. Transcripts, summaries, and action items appear in your daily note automatically.
+
+<!-- TODO: add meeting capture screenshot (Char 1.1) -->
+
+### Email Triage
+
+Char reads your inbox, separates what matters from what doesn't, and pulls real action items into your daily note. Inbox zero as a side effect.
+
+<!-- TODO: add email triage screenshot -->
+
+### Screen Activity
+
+Char notices what you're actually working on — the doc you're writing, the PR you're reviewing, the thread you're deep in. That context feeds back into your daily note so nothing gets lost between tabs.
+
+<!-- TODO: add screen activity screenshot -->
+
+### Task Delegation
+
+Action items don't just sit on a list. Delegate them to AI agents (Claude, Cursor, Devin) or route them to the right person on your team — directly from your daily note.
+
+<!-- TODO: add task delegation screenshot -->
 
 ### Realtime Transcript
 
 While you stay engaged in the conversation, Char captures every detail so you don't have to type frantically.
 
-<img width="688" height="568" alt="Screenshot 2025-11-23 at 2 35 47 PM" src="https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc" />
+<img width="688" height="568" alt="Realtime transcript" src="https://github.com/user-attachments/assets/e63ce73f-1a5f-49ce-a14d-dd8ba161e5bc" />
 
 ### From Memos to Summaries
 
-Once the meeting is over, Char will craft a personalized summary based on your memos — which is not mandatory. Char will still create great summaries without your notes.
+Once the meeting is over, Char crafts a personalized summary based on your memos — though memos aren't mandatory. Char will still produce great summaries without your notes.
 
 ![offline enhancing-1](https://github.com/user-attachments/assets/13af787b-2f6e-4877-b90f-719edc45fb75)
 
 ### Truly Local
 
-If you noticed the GIF above, you can see that Char works without any internet connection available. Just set up LM Studio or Ollama to operate Char in air-gapped environments!
+Char runs fully offline. Set up LM Studio or Ollama to operate Char in air-gapped environments — no internet required.
 
 <img width="780" height="585" alt="no-wifi" src="https://github.com/user-attachments/assets/ecf08a9e-3b6c-4fb6-ab38-0bc572f54859" />
 
@@ -60,15 +99,15 @@ If you noticed the GIF above, you can see that Char works without any internet c
 
 ### Bring Your Own LLM
 
-Prefer something custom? You can swap in your own language model:
+Prefer something custom? Swap in your own language model:
 
-- Run local models via Ollama
+- Run local models via Ollama or LM Studio
 - Use approved third-party APIs like Gemini, Claude, or Azure-hosted GPT
 - Stay compliant with whatever your org allows
 
 Char plays nice with whatever stack you're running.
 
-<img width="912" height="712" alt="Screenshot 2025-11-23 at 2 41 03 PM" src="https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344" />
+<img width="912" height="712" alt="BYO LLM settings" src="https://github.com/user-attachments/assets/a6552c99-acbc-4d47-9d21-7f1925989344" />
 
 ### Note Templates
 
@@ -84,7 +123,7 @@ Ask follow-ups right inside your notes:
 - "Rewrite this in simpler language"
 - "Translate to Spanish"
 
-<img width="959" height="712" alt="image" src="https://github.com/user-attachments/assets/52b7dc14-906f-445f-91f9-b0089d40a495" />
+<img width="959" height="712" alt="AI chat" src="https://github.com/user-attachments/assets/52b7dc14-906f-445f-91f9-b0089d40a495" />
 
 ### Integrations
 
@@ -92,4 +131,4 @@ Ask follow-ups right inside your notes:
 - Obsidian
 - Coming soon: Notion, Slack, Hubspot, Salesforce
 
-<img width="912" height="712" alt="image" src="https://github.com/user-attachments/assets/ab559e54-fda5-4c8c-97d7-ba1b9d134cc8" />
+<img width="912" height="712" alt="Integrations" src="https://github.com/user-attachments/assets/ab559e54-fda5-4c8c-97d7-ba1b9d134cc8" />
