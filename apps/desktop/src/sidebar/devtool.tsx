@@ -7,7 +7,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { getLatestVersion } from "~/changelog";
-import * as main from "~/store/tinybase/store/main";
+import { useCurrentUserId, useMainStore } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 import { commands } from "~/types/tauri.gen";
 
@@ -188,8 +188,8 @@ function ToastsCard() {
 }
 
 function CountdownTestCard() {
-  const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const store = useMainStore();
+  const user_id = useCurrentUserId();
   const openNew = useTabs((s) => s.openNew);
 
   const createWithCountdown = useCallback(

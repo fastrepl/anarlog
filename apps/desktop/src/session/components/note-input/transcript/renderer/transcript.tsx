@@ -13,7 +13,7 @@ import {
   useStableSegments,
 } from "./segment-hooks";
 
-import * as main from "~/store/tinybase/store/main";
+import { useMainStore } from "~/session/hooks/storage";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
 import {
   defaultRenderLabelContext,
@@ -88,7 +88,7 @@ const SegmentsList = memo(
     startPlayback: () => void;
     audioExists: boolean;
   }) => {
-    const store = main.UI.useStore(main.STORE_ID);
+    const store = useMainStore();
     const speakerLabelManager = useMemo(() => {
       if (!store) {
         return new SpeakerLabelManager();

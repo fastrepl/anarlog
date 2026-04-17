@@ -38,13 +38,18 @@ import { json2md, parseJsonContent } from "~/editor/markdown";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { getEnhancerService } from "~/services/enhancer";
 import { useHasTranscript } from "~/session/components/shared";
+import {
+  useEnhancedNoteCell,
+  useMainStore,
+  useSessionCell,
+} from "~/session/hooks/storage";
+import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import {
   type MenuItemDef,
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { type TaskStepInfo } from "~/store/zustand/ai-task/tasks";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -156,12 +161,7 @@ function HeaderTabRaw({
   onClick?: () => void;
   sessionId: string;
 }) {
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
+  const rawMd = useSessionCell(sessionId, "raw_md");
   const memoMarkdown = useMemo(() => getStoredNoteMarkdown(rawMd), [rawMd]);
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [
@@ -209,24 +209,9 @@ function HeaderTabEnhanced({
 }) {
   const { isGenerating, isError, onRegenerate, onCancel, currentStep } =
     useEnhanceLogic(sessionId, enhancedNoteId);
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  ) as string | undefined;
-  const rawTitle = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "title",
-    main.STORE_ID,
-  );
-  const templateId = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "template_id",
-    main.STORE_ID,
-  ) as string | undefined;
+  const content = useEnhancedNoteCell(enhancedNoteId, "content");
+  const rawTitle = useEnhancedNoteCell(enhancedNoteId, "title");
+  const templateId = useEnhancedNoteCell(enhancedNoteId, "template_id");
   const { data: template } = useUserTemplate(templateId);
   const templateTitle = template?.title?.trim() || null;
   const openTemplatesTab = useOpenTemplatesTab();
@@ -494,18 +479,8 @@ function CreateOtherFormatButton({
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const resultRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const sessionTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  ) as string | undefined;
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
+  const sessionTitle = useSessionCell(sessionId, "title");
+  const rawMd = useSessionCell(sessionId, "raw_md");
   const { data: transcriptSegments } = useTranscriptExportSegments(sessionId);
   const userTemplates = useUserTemplates();
   const createTemplate = useCreateTemplate();
@@ -1018,7 +993,7 @@ export function Header({
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const isLiveProcessing = sessionMode === "active";
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
@@ -1101,11 +1076,7 @@ export function useEditorTabs({
 
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const hasTranscript = useHasTranscript(sessionId);
-  const enhancedNoteIds = main.UI.useSliceRowIds(
-    main.INDEXES.enhancedNotesBySession,
-    sessionId,
-    main.STORE_ID,
-  );
+  const enhancedNoteIds = useEnhancedNotes(sessionId);
 
   if (sessionMode === "active") {
     return [{ type: "raw" }];
@@ -1131,12 +1102,7 @@ function useEnhanceLogic(sessionId: string, enhancedNoteId: string) {
   );
 
   const noteTemplateId =
-    (main.UI.useCell(
-      "enhanced_notes",
-      enhancedNoteId,
-      "template_id",
-      main.STORE_ID,
-    ) as string | undefined) || undefined;
+    useEnhancedNoteCell(enhancedNoteId, "template_id") || undefined;
 
   const enhanceTask = useAITaskTask(taskId, "enhance");
 

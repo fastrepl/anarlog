@@ -13,10 +13,14 @@ import {
 import { useSTTConnection } from "./useSTTConnection";
 
 import { getEnhancerService } from "~/services/enhancer";
+import {
+  useCurrentUserId,
+  useMainIndexes,
+  useMainStore,
+} from "~/session/hooks/storage";
 import { getSessionEventById } from "~/session/utils";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
@@ -42,9 +46,9 @@ export function getPostCaptureAction(
 }
 
 export function useStartListening(sessionId: string) {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const user_id = useCurrentUserId();
+  const store = useMainStore();
+  const indexes = useMainIndexes();
 
   const languages = useConfigValue("spoken_languages");
 

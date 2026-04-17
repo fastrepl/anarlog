@@ -9,13 +9,14 @@ import { forwardRef, type ReactNode, useMemo, useState } from "react";
 import { cn, format, parseISO } from "@hypr/utils";
 
 import { useTaskSourceOptional } from "../task-source";
-import { useTaskRecord, useTaskStorageOptional } from "../task-storage";
 import {
   createTaskStatusAttrs,
   getNextTaskStatus,
   normalizeTaskStatus,
 } from "../tasks";
 import { TaskCheckbox } from "./task-checkbox";
+
+import { useTaskRecord, useTaskStorageOptional } from "~/tasks/hooks";
 
 export const taskListNodeSpec: NodeSpec = {
   content: "taskItem+",

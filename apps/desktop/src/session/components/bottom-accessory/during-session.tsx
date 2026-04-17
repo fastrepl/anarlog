@@ -4,7 +4,14 @@ import { useMemo, useRef } from "react";
 import { cn } from "@hypr/utils";
 
 import { getSegmentColor } from "~/session/components/note-input/transcript/renderer/utils";
-import * as main from "~/store/tinybase/store/main";
+import {
+  useCurrentUserId,
+  useHumansTable,
+  useMainStore,
+  useParticipantMappingsTable,
+  useTranscriptIdsForSession,
+  useTranscriptsTable,
+} from "~/session/hooks/storage";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import { SegmentKeyUtils, type Segment } from "~/stt/live-segment";
@@ -50,7 +57,7 @@ function LiveTranscriptFooter({
   sessionId: string;
   isExpanded?: boolean;
 }) {
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const segments = useLiveTranscriptSegments(sessionId);
   const requestedLiveTranscription = useListener(
     (state) => state.live.requestedLiveTranscription,
@@ -184,20 +191,12 @@ function CollapsedFooterMessage({ message }: { message: string }) {
 }
 
 function useLiveTranscriptSegments(sessionId: string): Segment[] {
-  const store = main.UI.useStore(main.STORE_ID);
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
-  const participantMappingsTable = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humansTable = main.UI.useTable("humans", main.STORE_ID);
-  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
+  const store = useMainStore();
+  const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
+  const transcriptsTable = useTranscriptsTable();
+  const participantMappingsTable = useParticipantMappingsTable();
+  const humansTable = useHumansTable();
+  const selfHumanId = useCurrentUserId();
   const liveSegments = useListener((state) => state.liveSegments);
 
   const request = useMemo(() => {

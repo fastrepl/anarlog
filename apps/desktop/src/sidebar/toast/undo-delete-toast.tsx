@@ -5,8 +5,8 @@ import { createPortal } from "react-dom";
 
 import { cn } from "@hypr/utils";
 
+import { useMainStore } from "~/session/hooks/storage";
 import { restoreSessionData } from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { UNDO_TIMEOUT_MS, useUndoDelete } from "~/store/zustand/undo-delete";
 
@@ -63,7 +63,7 @@ function useToastGroups(): ToastGroup[] {
 }
 
 function useRestoreGroup() {
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const queryClient = useQueryClient();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const clearDeletion = useUndoDelete((state) => state.clearDeletion);

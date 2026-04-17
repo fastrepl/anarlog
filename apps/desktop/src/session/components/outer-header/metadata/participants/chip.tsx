@@ -4,7 +4,13 @@ import { useCallback } from "react";
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  TRANSCRIPT_BY_SESSION_INDEX,
+  useMainIndexes,
+  useMainStore,
+  useParticipantSourceCell,
+  useSessionParticipantDetails,
+} from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs/index";
 import { parseTranscriptHints, updateTranscriptHints } from "~/stt/utils";
 
@@ -61,34 +67,24 @@ export function ParticipantChip({ mappingId }: { mappingId: string }) {
 }
 
 function useParticipantDetails(mappingId: string) {
-  const result = main.UI.useResultRow(
-    main.QUERIES.sessionParticipantsWithDetails,
-    mappingId,
-    main.STORE_ID,
-  );
-  const source = main.UI.useCell(
-    "mapping_session_participant",
-    mappingId,
-    "source",
-    main.STORE_ID,
-  );
+  const details = useSessionParticipantDetails(mappingId);
+  const source = useParticipantSourceCell(mappingId);
 
-  if (!result) {
+  if (!details) {
     return null;
   }
 
   return {
     mappingId,
-    humanId: result.human_id as string,
-    humanName: (result.human_name as string) || "",
-    humanEmail: (result.human_email as string | undefined) || undefined,
-    humanJobTitle: (result.human_job_title as string | undefined) || undefined,
-    humanLinkedinUsername:
-      (result.human_linkedin_username as string | undefined) || undefined,
-    orgId: (result.org_id as string | undefined) || undefined,
-    orgName: result.org_name as string | undefined,
-    sessionId: result.session_id as string,
-    source: source as string | undefined,
+    humanId: details.human_id,
+    humanName: details.human_name || "",
+    humanEmail: details.human_email,
+    humanJobTitle: details.human_job_title,
+    humanLinkedinUsername: details.human_linkedin_username,
+    orgId: details.org_id,
+    orgName: details.org_name,
+    sessionId: details.session_id,
+    source: source || undefined,
   };
 }
 
@@ -121,8 +117,8 @@ function useRemoveParticipant({
   sessionId: string | undefined;
   source: string | undefined;
 }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
 
   return useCallback(() => {
     if (!store) {
@@ -131,7 +127,7 @@ function useRemoveParticipant({
 
     if (assignedHumanId && sessionId && indexes) {
       const transcriptIds = indexes.getSliceRowIds(
-        main.INDEXES.transcriptBySession,
+        TRANSCRIPT_BY_SESSION_INDEX,
         sessionId,
       );
 

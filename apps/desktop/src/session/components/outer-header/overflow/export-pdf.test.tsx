@@ -81,24 +81,14 @@ vi.mock("~/session/components/note-input/transcript/export-data", () => ({
   useTranscriptExportSegments: useTranscriptExportSegmentsMock,
 }));
 
-vi.mock("~/store/tinybase/hooks", () => ({
+vi.mock("~/session/hooks/storage", () => ({
+  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY: "sessionParticipantsWithDetails",
+  useEnhancedNoteCell: useCellMock,
+  useMainQueries: useQueriesMock,
+  useMainStore: useStoreMock,
+  useSessionCell: useCellMock,
   useSessionEvent: useSessionEventMock,
-}));
-
-vi.mock("~/store/tinybase/store/main", () => ({
-  STORE_ID: "main",
-  INDEXES: {
-    transcriptBySession: "transcriptBySession",
-  },
-  QUERIES: {
-    sessionParticipantsWithDetails: "sessionParticipantsWithDetails",
-  },
-  UI: {
-    useStore: useStoreMock,
-    useQueries: useQueriesMock,
-    useCell: useCellMock,
-    useSliceRowIds: useSliceRowIdsMock,
-  },
+  useTranscriptIdsForSession: useSliceRowIdsMock,
 }));
 
 describe("ExportPDF", () => {

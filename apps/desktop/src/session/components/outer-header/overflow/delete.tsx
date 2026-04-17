@@ -7,11 +7,11 @@ import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 import { cn } from "@hypr/utils";
 
 import { useAudioPlayer } from "~/audio-player";
+import { useMainIndexes, useMainStore } from "~/session/hooks/storage";
 import {
   captureSessionData,
   deleteSessionCascade,
 } from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
 import { useListener } from "~/stt/contexts";
@@ -49,8 +49,8 @@ export function DeleteRecording({ sessionId }: { sessionId: string }) {
 }
 
 export function DeleteNote({ sessionId }: { sessionId: string }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 

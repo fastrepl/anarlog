@@ -1,8 +1,8 @@
 import { UserIcon } from "lucide-react";
 
+import { useHumanCell } from "~/contacts/hooks";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab } from "~/store/zustand/tabs";
 
 export const TabItemHuman: TabItem<Extract<Tab, { type: "humans" }>> = ({
@@ -15,12 +15,12 @@ export const TabItemHuman: TabItem<Extract<Tab, { type: "humans" }>> = ({
   handlePinThis,
   handleUnpinThis,
 }) => {
-  const title = main.UI.useCell("humans", tab.id, "name", main.STORE_ID);
+  const title = useHumanCell(tab.id, "name");
 
   return (
     <TabItemBase
       icon={<UserIcon className="h-4 w-4" />}
-      title={title ?? "Human"}
+      title={title || "Human"}
       selected={tab.active}
       pinned={tab.pinned}
       tabIndex={tabIndex}

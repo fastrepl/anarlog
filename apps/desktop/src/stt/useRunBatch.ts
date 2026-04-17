@@ -7,9 +7,14 @@ import { useListener } from "./contexts";
 import { useKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
+import {
+  TRANSCRIPT_BY_SESSION_INDEX,
+  useCurrentUserId,
+  useMainIndexes,
+  useMainStore,
+} from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
 import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
@@ -80,9 +85,9 @@ export function isStoppedTranscriptionError(error: unknown) {
 }
 
 export const useRunBatch = (sessionId: string) => {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
+  const user_id = useCurrentUserId();
 
   const startTranscription = useListener((state) => state.startTranscription);
   const { conn } = useSTTConnection();
@@ -139,7 +144,7 @@ export const useRunBatch = (sessionId: string) => {
             store.transaction(() => {
               const transcriptIds =
                 indexes?.getSliceRowIds(
-                  main.INDEXES.transcriptBySession,
+                  TRANSCRIPT_BY_SESSION_INDEX,
                   sessionId,
                 ) ?? [];
 

@@ -1,7 +1,6 @@
 import { Globe, MessageSquare, Plus, Search, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
-import type { ChatShortcut } from "@hypr/store";
 import { Button } from "@hypr/ui/components/ui/button";
 import { Switch } from "@hypr/ui/components/ui/switch";
 import {
@@ -13,10 +12,14 @@ import { cn } from "@hypr/utils";
 
 import { ChatShortcutDetailsColumn } from "./details";
 
+import {
+  useChatShortcuts,
+  useCreateChatShortcut,
+  type UserShortcut,
+} from "~/chat_shortcuts/hooks";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import { ResourceListLayout, useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export const TabItemChatShortcut: TabItem<
@@ -69,31 +72,13 @@ export type WebShortcut = {
   prompt: string;
 };
 
-type UserShortcut = ChatShortcut & { id: string };
-
-function useChatShortcuts(): UserShortcut[] {
-  const shortcuts = main.UI.useResultTable(
-    main.QUERIES.visibleChatShortcuts,
-    main.STORE_ID,
-  );
-
-  return useMemo(() => {
-    return Object.entries(shortcuts as Record<string, ChatShortcut>).map(
-      ([id, shortcut]) => ({
-        id,
-        ...shortcut,
-      }),
-    );
-  }, [shortcuts]);
-}
-
 function ChatShortcutView({
   tab,
 }: {
   tab: Extract<Tab, { type: "chat_shortcuts" }>;
 }) {
   const updateTabState = useTabs((state) => state.updateChatShortcutsTabState);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const createShortcut = useCreateChatShortcut();
 
   const userShortcuts = useChatShortcuts();
   const { data: webShortcuts = [], isLoading: isWebLoading } =
@@ -138,45 +123,13 @@ function ChatShortcutView({
   const selectedWebShortcut =
     selectedWebIndex !== null ? (webShortcuts[selectedWebIndex] ?? null) : null;
 
-  const setRow = main.UI.useSetRowCallback(
-    "chat_shortcuts",
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      content: string;
-    }) => p.id,
-    (p: {
-      id: string;
-      user_id: string;
-      created_at: string;
-      title: string;
-      content: string;
-    }) => ({
-      user_id: p.user_id,
-      created_at: p.created_at,
-      title: p.title,
-      content: p.content,
-    }),
-    [],
-    main.STORE_ID,
-  );
-
   const handleCloneShortcut = useCallback(
     (shortcut: WebShortcut) => {
-      if (!user_id) return;
-
-      const newId = crypto.randomUUID();
-      const now = new Date().toISOString();
-
-      setRow({
-        id: newId,
-        user_id,
-        created_at: now,
+      const newId = createShortcut({
         title: shortcut.title,
         content: shortcut.prompt,
       });
+      if (!newId) return;
 
       updateTabState(tab, {
         isWebMode: false,
@@ -184,23 +137,19 @@ function ChatShortcutView({
         selectedWebIndex: null,
       });
     },
-    [user_id, setRow, updateTabState, tab],
+    [createShortcut, updateTabState, tab],
   );
 
   const handleAddNew = useCallback(() => {
-    if (!user_id) return;
-
-    const newId = crypto.randomUUID();
-    const now = new Date().toISOString();
-
-    setRow({ id: newId, user_id, created_at: now, title: "", content: "" });
+    const newId = createShortcut({ title: "", content: "" });
+    if (!newId) return;
 
     updateTabState(tab, {
       isWebMode: false,
       selectedMineId: newId,
       selectedWebIndex: null,
     });
-  }, [user_id, setRow, updateTabState, tab]);
+  }, [createShortcut, updateTabState, tab]);
 
   return (
     <ResourceListLayout

@@ -4,8 +4,11 @@ import { commands as analyticsCommands } from "@hypr/plugin-analytics";
 
 import { getEligibility } from "./eligibility";
 
+import {
+  ENHANCED_NOTES_BY_SESSION_INDEX,
+  TRANSCRIPT_BY_SESSION_INDEX,
+} from "~/session/hooks/storage";
 import type { Store as MainStore } from "~/store/tinybase/store/main";
-import { INDEXES } from "~/store/tinybase/store/main";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { TasksActions } from "~/store/zustand/ai-task/tasks";
 import { listenerStore } from "~/store/zustand/listener/instance";
@@ -217,14 +220,14 @@ export class EnhancerService {
 
   private getTranscriptIds(sessionId: string): string[] {
     return this.deps.indexes.getSliceRowIds(
-      INDEXES.transcriptBySession,
+      TRANSCRIPT_BY_SESSION_INDEX,
       sessionId,
     );
   }
 
   private getEnhancedNoteIds(sessionId: string): string[] {
     return this.deps.indexes.getSliceRowIds(
-      INDEXES.enhancedNotesBySession,
+      ENHANCED_NOTES_BY_SESSION_INDEX,
       sessionId,
     );
   }

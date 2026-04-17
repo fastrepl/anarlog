@@ -5,7 +5,7 @@ import { useShallow } from "zustand/shallow";
 import { events as detectEvents } from "@hypr/plugin-detect";
 import { commands as notificationCommands } from "@hypr/plugin-notification";
 
-import * as main from "~/store/tinybase/store/main";
+import { type MainStore, useMainStore } from "~/session/hooks/storage";
 import {
   createListenerStore,
   type ListenerStore,
@@ -57,7 +57,7 @@ export const useListener = <T,>(
 };
 
 function getNearbyEvents(
-  tinybaseStore: NonNullable<ReturnType<typeof main.UI.useStore>>,
+  tinybaseStore: MainStore,
 ): { id: string; title: string }[] {
   const now = Date.now();
   const windowMs = 15 * 60 * 1000;
@@ -87,7 +87,7 @@ function getNearbyEvents(
 const useHandleDetectEvents = (store: ListenerStore) => {
   const stop = useStore(store, (state) => state.stop);
   const setMuted = useStore(store, (state) => state.setMuted);
-  const tinybaseStore = main.UI.useStore(main.STORE_ID);
+  const tinybaseStore = useMainStore();
 
   const tinybaseStoreRef = useRef(tinybaseStore);
   useEffect(() => {

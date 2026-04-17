@@ -6,16 +6,14 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { Input } from "@hypr/ui/components/ui/input";
 import { format, safeFormat, safeParseDate } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useSessionCell,
+  useSetSessionCreatedAt,
+} from "~/session/hooks/storage";
 
 export function DateEditor({ sessionId }: { sessionId: string }) {
   const [isEditing, setIsEditing] = useState(false);
-  const createdAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  );
+  const createdAt = useSessionCell(sessionId, "created_at");
   const noteDate = safeFormat(
     createdAt ?? new Date(),
     "MMM d, yyyy h:mm a",
@@ -64,14 +62,7 @@ function EditableDateForm({
   onCancel?: () => void;
   onSaved?: () => void;
 }) {
-  const handleChangeCreatedAt = main.UI.useSetCellCallback(
-    "sessions",
-    sessionId,
-    "created_at",
-    (value: string) => value,
-    [],
-    main.STORE_ID,
-  );
+  const handleChangeCreatedAt = useSetSessionCreatedAt(sessionId);
 
   const form = useForm({
     defaultValues: {

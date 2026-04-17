@@ -3,10 +3,11 @@ import { z } from "zod";
 
 import type { ToolDependencies } from "./types";
 
+import { ENHANCED_NOTES_BY_SESSION_INDEX } from "~/chat/hooks/chat-store";
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { json2md, md2json, parseJsonContent } from "~/editor/markdown";
 import { id } from "~/shared/utils";
-import * as main from "~/store/tinybase/store/main";
+import type * as main from "~/store/tinybase/store/main";
 
 type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
 
@@ -91,7 +92,7 @@ export const buildEditSummaryTool = (
       }
 
       const noteIds = indexes.getSliceRowIds(
-        main.INDEXES.enhancedNotesBySession,
+        ENHANCED_NOTES_BY_SESSION_INDEX,
         sessionId,
       );
 

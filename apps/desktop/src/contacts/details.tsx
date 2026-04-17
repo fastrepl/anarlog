@@ -21,7 +21,18 @@ import { cn } from "@hypr/utils";
 
 import { getContactBgClass } from "./shared";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useCreateOrganization,
+  useHuman,
+  useHumanCell,
+  useMergeContacts,
+  useOrganization,
+  usePersonDuplicatesByEmail,
+  usePersonSessions,
+  useSetHumanOrgId,
+  useUpdateHumanStringCell,
+  useVisibleOrganizationList,
+} from "~/contacts/hooks";
 
 export function DetailsColumn({
   selectedHumanId,
@@ -30,170 +41,29 @@ export function DetailsColumn({
   selectedHumanId?: string | null;
   handleSessionClick: (id: string) => void;
 }) {
-  const selectedPersonData = main.UI.useRow(
-    "humans",
-    selectedHumanId ?? "",
-    main.STORE_ID,
-  );
-  const mappingIdsByHuman = main.UI.useSliceRowIds(
-    main.INDEXES.sessionsByHuman,
-    selectedHumanId ?? "",
-    main.STORE_ID,
+  const selectedPerson = useHuman(selectedHumanId);
+  const personSessions = usePersonSessions(selectedHumanId);
+  const duplicatesWithData = usePersonDuplicatesByEmail(
+    selectedHumanId,
+    selectedPerson?.email,
   );
 
-  const allMappings = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const allSessions = main.UI.useTable("sessions", main.STORE_ID);
-
-  const personSessions = React.useMemo(() => {
-    if (!mappingIdsByHuman || mappingIdsByHuman.length === 0) {
-      return [];
-    }
-
-    return mappingIdsByHuman
-      .map((mappingId: string) => {
-        const mapping = allMappings[mappingId];
-        if (!mapping || !mapping.session_id || mapping.source === "excluded") {
-          return null;
-        }
-
-        const sessionId = mapping.session_id as string;
-        const session = allSessions[sessionId];
-        if (!session) {
-          return null;
-        }
-
-        return {
-          id: sessionId,
-          ...session,
-        };
-      })
-      .filter(
-        (session: any): session is NonNullable<typeof session> =>
-          session !== null,
-      );
-  }, [mappingIdsByHuman, allMappings, allSessions]);
-
-  const email = main.UI.useCell(
-    "humans",
-    selectedHumanId ?? "",
-    "email",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const duplicateHumanIds = main.UI.useSliceRowIds(
-    main.INDEXES.humansByEmail,
-    email ?? "",
-    main.STORE_ID,
-  );
-
-  const duplicates = React.useMemo(() => {
-    if (!email || !duplicateHumanIds || duplicateHumanIds.length <= 1) {
-      return [];
-    }
-    return duplicateHumanIds.filter((id) => id !== selectedHumanId);
-  }, [email, duplicateHumanIds, selectedHumanId]);
-
-  const allHumans = main.UI.useTable("humans", main.STORE_ID);
-
-  const duplicatesWithData = React.useMemo(() => {
-    return duplicates
-      .map((id) => {
-        const data = allHumans[id];
-        if (!data) return null;
-        return { id, ...data };
-      })
-      .filter((dup): dup is NonNullable<typeof dup> => dup !== null);
-  }, [duplicates, allHumans]);
-
-  const store = main.UI.useStore(main.STORE_ID);
-
+  const mergeContacts = useMergeContacts();
   const handleMergeContacts = useCallback(
     (duplicateId: string) => {
-      if (!store || !selectedHumanId) return;
-
-      const userId = store.getValue("user_id") as string;
-
-      let primaryId = selectedHumanId;
-      let dupId = duplicateId;
-
-      if (duplicateId === userId) {
-        primaryId = duplicateId;
-        dupId = selectedHumanId;
-      }
-
-      const duplicateData = store.getRow("humans", dupId);
-      const primaryData = store.getRow("humans", primaryId);
-
-      store.transaction(() => {
-        const allMappingIds = store.getRowIds("mapping_session_participant");
-        allMappingIds.forEach((mappingId) => {
-          const mapping = store.getRow(
-            "mapping_session_participant",
-            mappingId,
-          );
-          if (mapping.human_id === dupId) {
-            store.setPartialRow("mapping_session_participant", mappingId, {
-              human_id: primaryId,
-            });
-          }
-        });
-
-        if (duplicateData && primaryData) {
-          const mergedFields: Record<string, any> = {};
-
-          if (duplicateData.job_title) {
-            if (primaryData.job_title) {
-              mergedFields.job_title = `${primaryData.job_title}, ${duplicateData.job_title}`;
-            } else {
-              mergedFields.job_title = duplicateData.job_title;
-            }
-          }
-
-          if (duplicateData.linkedin_username) {
-            if (primaryData.linkedin_username) {
-              mergedFields.linkedin_username = `${primaryData.linkedin_username}, ${duplicateData.linkedin_username}`;
-            } else {
-              mergedFields.linkedin_username = duplicateData.linkedin_username;
-            }
-          }
-
-          if (duplicateData.memo) {
-            if (primaryData.memo) {
-              mergedFields.memo = `${primaryData.memo}, ${duplicateData.memo}`;
-            } else {
-              mergedFields.memo = duplicateData.memo;
-            }
-          }
-
-          if (!primaryData.org_id && duplicateData.org_id) {
-            mergedFields.org_id = duplicateData.org_id;
-          }
-
-          if (Object.keys(mergedFields).length > 0) {
-            store.setPartialRow("humans", primaryId, mergedFields);
-          }
-        }
-
-        store.delRow("humans", dupId);
-      });
+      if (!selectedHumanId) return;
+      mergeContacts({ primaryId: selectedHumanId, duplicateId });
     },
-    [store, selectedHumanId],
+    [mergeContacts, selectedHumanId],
   );
 
-  const facehashName = String(
-    selectedPersonData?.name ||
-      selectedPersonData?.email ||
-      selectedHumanId ||
-      "",
-  );
+  const facehashName =
+    selectedPerson?.name || selectedPerson?.email || selectedHumanId || "";
   const bgClass = getContactBgClass(facehashName);
 
   return (
     <div className="flex h-full flex-1 flex-col">
-      {selectedPersonData && selectedHumanId ? (
+      {selectedPerson && selectedHumanId ? (
         <>
           <div className="flex items-center justify-center border-b border-neutral-200 py-6">
             <div className={cn(["rounded-full", bgClass])}>
@@ -232,19 +102,17 @@ export function DetailsColumn({
                         <div
                           className={cn([
                             "shrink-0 rounded-full",
-                            getContactBgClass(
-                              String(dup.name || dup.email || dup.id),
-                            ),
+                            getContactBgClass(dup.name || dup.email || dup.id),
                           ])}
                         >
                           <Facehash
-                            name={String(dup.name || dup.email || dup.id)}
+                            name={dup.name || dup.email || dup.id}
                             size={32}
                             interactive={false}
                             showInitial={false}
                             colorClasses={[
                               getContactBgClass(
-                                String(dup.name || dup.email || dup.id),
+                                dup.name || dup.email || dup.id,
                               ),
                             ]}
                           />
@@ -314,7 +182,7 @@ export function DetailsColumn({
               </h3>
               <div className="flex flex-col gap-2">
                 {personSessions.length > 0 ? (
-                  personSessions.map((session: any) => (
+                  personSessions.map((session) => (
                     <button
                       key={session.id}
                       onClick={() => handleSessionClick(session.id)}
@@ -326,11 +194,6 @@ export function DetailsColumn({
                           {session.title || "Untitled Note"}
                         </span>
                       </div>
-                      {session.summary && (
-                        <p className="mt-1 line-clamp-2 text-xs text-neutral-600">
-                          {session.summary}
-                        </p>
-                      )}
                       {session.created_at && (
                         <div className="mt-1 text-xs text-neutral-500">
                           {new Date(session.created_at).toLocaleDateString()}
@@ -361,20 +224,12 @@ export function DetailsColumn({
 }
 
 function EditablePersonNameField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "name", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "name",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useHumanCell(personId, "name");
+  const handleChange = useUpdateHumanStringCell(personId, "name");
 
   return (
     <Input
-      value={(value as string) || ""}
+      value={value}
       onChange={handleChange}
       placeholder="Name"
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -383,23 +238,15 @@ function EditablePersonNameField({ personId }: { personId: string }) {
 }
 
 function EditablePersonJobTitleField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "job_title", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "job_title",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useHumanCell(personId, "job_title");
+  const handleChange = useUpdateHumanStringCell(personId, "job_title");
 
   return (
     <div className="flex items-center border-b border-neutral-200 px-4 py-3">
       <div className="w-28 text-sm text-neutral-500">Job Title</div>
       <div className="flex-1">
         <Input
-          value={(value as string) || ""}
+          value={value}
           onChange={handleChange}
           placeholder="Software Engineer"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -410,16 +257,8 @@ function EditablePersonJobTitleField({ personId }: { personId: string }) {
 }
 
 function EditablePersonEmailField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "email", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "email",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useHumanCell(personId, "email");
+  const handleChange = useUpdateHumanStringCell(personId, "email");
 
   return (
     <div className="flex items-center border-b border-neutral-200 px-4 py-3">
@@ -427,7 +266,7 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
       <div className="flex-1">
         <Input
           type="email"
-          value={(value as string) || ""}
+          value={value}
           onChange={handleChange}
           placeholder="john@example.com"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -438,28 +277,15 @@ function EditablePersonEmailField({ personId }: { personId: string }) {
 }
 
 function EditablePersonLinkedInField({ personId }: { personId: string }) {
-  const value = main.UI.useCell(
-    "humans",
-    personId,
-    "linkedin_username",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "linkedin_username",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useHumanCell(personId, "linkedin_username");
+  const handleChange = useUpdateHumanStringCell(personId, "linkedin_username");
 
   return (
     <div className="flex items-center border-b border-neutral-200 px-4 py-3">
       <div className="w-28 text-sm text-neutral-500">LinkedIn</div>
       <div className="flex-1">
         <Input
-          value={(value as string) || ""}
+          value={value}
           onChange={handleChange}
           placeholder="https://www.linkedin.com/in/johntopia/"
           className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -470,23 +296,15 @@ function EditablePersonLinkedInField({ personId }: { personId: string }) {
 }
 
 function EditablePersonMemoField({ personId }: { personId: string }) {
-  const value = main.UI.useCell("humans", personId, "memo", main.STORE_ID);
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "memo",
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useHumanCell(personId, "memo");
+  const handleChange = useUpdateHumanStringCell(personId, "memo");
 
   return (
     <div className="flex border-b border-neutral-200 px-4 py-3">
       <div className="w-28 pt-2 text-sm text-neutral-500">Notes</div>
       <div className="flex-1">
         <Textarea
-          value={(value as string) || ""}
+          value={value}
           onChange={handleChange}
           placeholder="Add notes about this contact..."
           className="min-h-[80px] resize-none border-none px-0 py-2 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -499,23 +317,9 @@ function EditablePersonMemoField({ personId }: { personId: string }) {
 
 function EditPersonOrganizationSelector({ personId }: { personId: string }) {
   const [open, setOpen] = useState(false);
-  const orgId = main.UI.useCell("humans", personId, "org_id", main.STORE_ID) as
-    | string
-    | null;
-  const organization = main.UI.useRow(
-    "organizations",
-    orgId ?? "",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "humans",
-    personId,
-    "org_id",
-    (newOrgId: string | null) => newOrgId ?? "",
-    [],
-    main.STORE_ID,
-  );
+  const orgId = useHumanCell(personId, "org_id");
+  const organization = useOrganization(orgId || null);
+  const handleChange = useSetHumanOrgId(personId);
 
   const handleRemoveOrganization = () => {
     handleChange(null);
@@ -568,40 +372,19 @@ function OrganizationControl({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
 
-  const organizationsData = main.UI.useResultTable(
-    main.QUERIES.visibleOrganizations,
-    main.STORE_ID,
-  );
-
-  const allOrganizations = Object.entries(organizationsData).map(
-    ([id, data]) => ({
-      id,
-      ...(data as any),
-    }),
-  );
+  const allOrganizations = useVisibleOrganizationList();
 
   const organizations = searchTerm.trim()
-    ? allOrganizations.filter((org: any) =>
+    ? allOrganizations.filter((org) =>
         org.name.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     : allOrganizations;
 
-  const showCreateOption = searchTerm.trim() && organizations.length === 0;
+  const showCreateOption = !!searchTerm.trim() && organizations.length === 0;
   const itemCount = organizations.length + (showCreateOption ? 1 : 0);
 
-  const createOrganization = main.UI.useSetRowCallback(
-    "organizations",
-    (p: { name: string; orgId: string }) => p.orgId,
-    (p: { name: string; orgId: string }) => ({
-      user_id: userId || "",
-      name: p.name,
-      created_at: new Date().toISOString(),
-    }),
-    [userId],
-    main.STORE_ID,
-  );
+  const createOrganization = useCreateOrganization();
 
   const handleCreateOrganization = () => {
     const orgId = crypto.randomUUID();
@@ -661,7 +444,7 @@ function OrganizationControl({
 
           {searchTerm.trim() && (
             <div className="flex w-full flex-col overflow-hidden rounded-xs border border-neutral-200">
-              {organizations.map((org: any, index: number) => (
+              {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"
@@ -709,7 +492,7 @@ function OrganizationControl({
 
           {!searchTerm.trim() && organizations.length > 0 && (
             <div className="custom-scrollbar flex max-h-[40vh] w-full flex-col overflow-hidden overflow-y-auto rounded-xs border border-neutral-200">
-              {organizations.map((org: any, index: number) => (
+              {organizations.map((org, index) => (
                 <button
                   key={org.id}
                   type="button"

@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { Kbd } from "@hypr/ui/components/ui/kbd";
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import { useAllSessionIds, useMainStore } from "~/session/hooks/storage";
 import { useTabs } from "~/store/zustand/tabs";
 
 const MAX_RECENT_DISPLAY = 5;
@@ -30,8 +30,8 @@ export function OpenNoteDialog({ open, onOpenChange }: OpenNoteDialogProps) {
     (state) => state.recentlyOpenedSessionIds,
   );
 
-  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
+  const sessionIds = useAllSessionIds();
+  const store = useMainStore();
 
   const sessionsMap = useMemo(() => {
     if (!store || !sessionIds) return new Map<string, Session>();

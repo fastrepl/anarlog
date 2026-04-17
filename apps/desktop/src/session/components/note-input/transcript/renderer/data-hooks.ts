@@ -1,7 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useCurrentUserId,
+  useHumansTable,
+  useMainStore,
+  useParticipantMappingsTable,
+  useTranscriptIdsForSession,
+  useTranscriptSessionId,
+  useTranscriptsTable,
+} from "~/session/hooks/storage";
 import type { Segment } from "~/stt/live-segment";
 import {
   buildRenderTranscriptRequestFromStore,
@@ -9,14 +17,11 @@ import {
 } from "~/stt/render-transcript";
 
 export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
-  const store = main.UI.useStore(main.STORE_ID);
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
-  const participantMappingsTable = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humansTable = main.UI.useTable("humans", main.STORE_ID);
-  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
+  const store = useMainStore();
+  const transcriptsTable = useTranscriptsTable();
+  const participantMappingsTable = useParticipantMappingsTable();
+  const humansTable = useHumansTable();
+  const selfHumanId = useCurrentUserId();
 
   const request = useMemo(() => {
     if (!store) {
@@ -49,20 +54,10 @@ export function useRenderedTranscriptSegments(transcriptId: string): Segment[] {
 }
 
 export function useTranscriptOffset(transcriptId: string): number {
-  const store = main.UI.useStore(main.STORE_ID);
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
-  );
-
-  const transcriptIds = main.UI.useSliceRowIds(
-    main.INDEXES.transcriptBySession,
-    sessionId ?? "",
-    main.STORE_ID,
-  );
+  const store = useMainStore();
+  const transcriptsTable = useTranscriptsTable();
+  const sessionId = useTranscriptSessionId(transcriptId);
+  const transcriptIds = useTranscriptIdsForSession(sessionId);
 
   return useMemo(() => {
     if (!store) {

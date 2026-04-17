@@ -21,8 +21,9 @@ import { MenuItem, ProfileFacehash } from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
+import { useHumanCell } from "~/contacts/hooks";
+import { useCurrentUserId } from "~/session/hooks/storage";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 type ProfileView = "main" | "notifications";
@@ -321,7 +322,7 @@ function ProfileButton({
 }
 
 function useMyName(email?: string) {
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-  const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
+  const userId = useCurrentUserId();
+  const name = useHumanCell(userId ?? "", "name");
   return name || email || "Unknown";
 }

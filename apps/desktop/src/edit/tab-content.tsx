@@ -4,8 +4,8 @@ import { useCallback, useMemo } from "react";
 import { useStrictModeUnmount } from "./hooks";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
+import { useMainStore } from "~/session/hooks/storage";
 import { StandardTabWrapper } from "~/shared/main";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 type EditTab = Extract<Tab, { type: "edit" }>;
@@ -14,7 +14,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
   const edit = usePendingEditStore((s) => s.edits.get(tab.requestId));
   const resolveEdit = usePendingEditStore((s) => s.resolveEdit);
 
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const sessionTitle = useMemo(() => {
     if (!store || !edit) return null;
     const title = store.getCell("sessions", edit.sessionId, "title");

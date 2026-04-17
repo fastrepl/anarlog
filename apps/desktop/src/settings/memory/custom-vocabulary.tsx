@@ -13,12 +13,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@hypr/ui/components/ui/button";
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
-
-interface VocabItem {
-  text: string;
-  rowId: string;
-}
+import { type VocabItem, useVocabMutations, useVocabs } from "./hooks";
 
 export function CustomVocabularyView() {
   const vocabItems = useVocabs();
@@ -299,63 +294,4 @@ function VocabularyItem({
       </div>
     </div>
   );
-}
-
-function useVocabs() {
-  const table = main.UI.useResultTable(
-    main.QUERIES.visibleVocabs,
-    main.STORE_ID,
-  );
-
-  return Object.entries(table ?? {}).map(
-    ([rowId, { text }]) =>
-      ({
-        rowId,
-        text,
-      }) as VocabItem,
-  );
-}
-
-function useVocabMutations() {
-  const { user_id } = main.UI.useValues(main.STORE_ID);
-
-  const createRow = main.UI.useSetRowCallback(
-    "memories",
-    () => crypto.randomUUID(),
-    (text: string) => ({
-      user_id: user_id!,
-      type: "vocab",
-      text,
-      created_at: new Date().toISOString(),
-    }),
-    [user_id],
-    main.STORE_ID,
-  );
-
-  const updateRow = main.UI.useSetPartialRowCallback(
-    "memories",
-    ({ rowId }: { rowId: string; text: string }) => rowId,
-    ({ text }: { rowId: string; text: string }) => ({ text }),
-    [],
-    main.STORE_ID,
-  ) as (args: { rowId: string; text: string }) => void;
-
-  const deleteRow = main.UI.useDelRowCallback(
-    "memories",
-    (rowId: string) => rowId,
-    main.STORE_ID,
-  );
-
-  return {
-    create: (text: string) => {
-      if (!user_id) return;
-      createRow(text);
-    },
-    update: (rowId: string, text: string) => {
-      updateRow({ rowId, text });
-    },
-    delete: (rowId: string) => {
-      deleteRow(rowId);
-    },
-  };
 }

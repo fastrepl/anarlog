@@ -3,7 +3,14 @@ import { useMemo } from "react";
 
 import type { TranscriptItem } from "@hypr/plugin-export";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useCurrentUserId,
+  useHumansTable,
+  useMainStore,
+  useParticipantMappingsTable,
+  useTranscriptIdsForSession,
+  useTranscriptsTable,
+} from "~/session/hooks/storage";
 import {
   buildRenderTranscriptRequestFromStore,
   renderTranscriptSegments,
@@ -33,21 +40,13 @@ export function useTranscriptExportSegments(sessionId: string): {
   data: TranscriptExportSegment[];
   isLoading: boolean;
 } {
-  const store = main.UI.useStore(main.STORE_ID);
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
-  const participantMappingsTable = main.UI.useTable(
-    "mapping_session_participant",
-    main.STORE_ID,
-  );
-  const humansTable = main.UI.useTable("humans", main.STORE_ID);
-  const selfHumanId = main.UI.useValue("user_id", main.STORE_ID);
+  const store = useMainStore();
+  const transcriptsTable = useTranscriptsTable();
+  const participantMappingsTable = useParticipantMappingsTable();
+  const humansTable = useHumansTable();
+  const selfHumanId = useCurrentUserId();
 
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
+  const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
 
   const request = useMemo(() => {
     if (!store || transcriptIds.length === 0) {

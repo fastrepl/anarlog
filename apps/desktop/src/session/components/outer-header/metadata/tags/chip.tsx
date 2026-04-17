@@ -3,22 +3,16 @@ import { X } from "lucide-react";
 import { Badge } from "@hypr/ui/components/ui/badge";
 import { Button } from "@hypr/ui/components/ui/button";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useSessionTagMutations,
+  useTagMappingCell,
+  useTagName,
+} from "~/session/hooks/storage";
 
 export function TagChip({ mappingId }: { mappingId: string }) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const tagId = main.UI.useCell(
-    "mapping_tag_session",
-    mappingId,
-    "tag_id",
-    main.STORE_ID,
-  ) as string | undefined;
-  const tagName = main.UI.useCell(
-    "tags",
-    tagId ?? "",
-    "name",
-    main.STORE_ID,
-  ) as string | undefined;
+  const tagId = useTagMappingCell(mappingId, "tag_id");
+  const tagName = useTagName(tagId);
+  const { deleteTagMapping } = useSessionTagMutations();
 
   if (!tagId || !tagName) {
     return null;
@@ -35,9 +29,7 @@ export function TagChip({ mappingId }: { mappingId: string }) {
         variant="ghost"
         size="sm"
         className="ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
-        onClick={() => {
-          store?.delRow("mapping_tag_session", mappingId);
-        }}
+        onClick={() => deleteTagMapping(mappingId)}
       >
         <X className="h-2.5 w-2.5" />
       </Button>

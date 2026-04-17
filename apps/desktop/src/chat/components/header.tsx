@@ -24,8 +24,12 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 import { cn, formatDistanceToNow } from "@hypr/utils";
 
+import {
+  useChatGroup,
+  useChatGroupTitle,
+  useRecentChatGroupIds,
+} from "~/chat/hooks/chat-groups";
 import { useShell } from "~/contexts/shell";
-import * as main from "~/store/tinybase/store/main";
 
 export function ChatHeader({
   currentChatGroupId,
@@ -144,20 +148,8 @@ function ChatGroups({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-  const currentChatTitle = main.UI.useCell(
-    "chat_groups",
-    currentChatGroupId || "",
-    "title",
-    main.STORE_ID,
-  );
-  const recentChatGroupIds = main.UI.useSortedRowIds(
-    "chat_groups",
-    "created_at",
-    true,
-    0,
-    5,
-    main.STORE_ID,
-  );
+  const currentChatTitle = useChatGroupTitle(currentChatGroupId);
+  const recentChatGroupIds = useRecentChatGroupIds(5);
 
   return (
     <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
@@ -234,7 +226,7 @@ function ChatGroupItem({
   isActive: boolean;
   onSelect: (groupId: string) => void;
 }) {
-  const chatGroup = main.UI.useRow("chat_groups", groupId, main.STORE_ID);
+  const chatGroup = useChatGroup(groupId);
 
   if (!chatGroup) {
     return null;

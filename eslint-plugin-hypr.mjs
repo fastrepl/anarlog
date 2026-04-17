@@ -91,7 +91,12 @@ const BANNED_TINYBASE_EXACT_IMPORTS = new Set([
   "tinybase",
 ]);
 
-const BANNED_MAIN_STORE_IMPORTS = new Set(["~/store/tinybase/store/main"]);
+const BANNED_MAIN_STORE_IMPORTS = new Set([
+  "~/store/tinybase/store/main",
+  "~/store/tinybase/hooks",
+]);
+
+const BANNED_MAIN_STORE_IMPORT_PREFIXES = ["~/store/tinybase/hooks/"];
 
 const noRawTinybase = {
   meta: {
@@ -135,7 +140,13 @@ const noRawTinybase = {
           }
         }
 
-        if (BANNED_MAIN_STORE_IMPORTS.has(source)) {
+        const isBannedMainStore =
+          BANNED_MAIN_STORE_IMPORTS.has(source) ||
+          BANNED_MAIN_STORE_IMPORT_PREFIXES.some((prefix) =>
+            source.startsWith(prefix),
+          );
+
+        if (isBannedMainStore) {
           const hasRuntimeSpecifier = node.specifiers.some(
             (s) =>
               s.type === "ImportNamespaceSpecifier" ||

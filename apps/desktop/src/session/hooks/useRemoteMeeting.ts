@@ -1,4 +1,4 @@
-import { useSessionEvent } from "~/store/tinybase/hooks";
+import { useSessionEvent } from "~/session/hooks/storage";
 
 export type RemoteMeeting = {
   type: "zoom" | "google-meet" | "webex" | "teams";

@@ -2,14 +2,18 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { TagChip } from "./chip";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useMainStore,
+  useSessionTagMappingIds,
+  useSessionTagMutations,
+} from "~/session/hooks/storage";
 
 export function TagInput({ sessionId }: { sessionId: string }) {
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { mappingIds, existingTagIdsByName } = useSessionTags(sessionId);
   const addTag = useAddTag(sessionId, existingTagIdsByName);
-  const store = main.UI.useStore(main.STORE_ID);
+  const { deleteTagMapping } = useSessionTagMutations();
 
   const placeholder =
     mappingIds.length > 0 ? "Add another tag" : "Add tags to this note";
@@ -55,7 +59,7 @@ export function TagInput({ sessionId }: { sessionId: string }) {
           if (e.key === "Backspace" && !inputValue && mappingIds.length > 0) {
             const lastMappingId = mappingIds[mappingIds.length - 1];
             if (lastMappingId) {
-              store?.delRow("mapping_tag_session", lastMappingId);
+              deleteTagMapping(lastMappingId);
             }
           }
         }}
@@ -65,12 +69,8 @@ export function TagInput({ sessionId }: { sessionId: string }) {
 }
 
 function useSessionTags(sessionId: string) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.tagSessionsBySession,
-    sessionId,
-    main.STORE_ID,
-  ) as string[];
+  const store = useMainStore();
+  const mappingIds = useSessionTagMappingIds(sessionId);
 
   const existingTagIdsByName = useMemo(() => {
     const byName = new Map<string, string>();
@@ -97,12 +97,15 @@ function useAddTag(
   sessionId: string,
   existingTagIdsByName: Map<string, string>,
 ) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
+  const store = useMainStore();
 
   return useCallback(
     (name: string) => {
-      if (!store || !userId) {
+      if (!store) {
+        return;
+      }
+      const userId = store.getValue("user_id") as string | undefined;
+      if (!userId) {
         return;
       }
 
@@ -165,7 +168,7 @@ function useAddTag(
         });
       }
     },
-    [existingTagIdsByName, sessionId, store, userId],
+    [existingTagIdsByName, sessionId, store],
   );
 }
 

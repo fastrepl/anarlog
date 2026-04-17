@@ -19,7 +19,7 @@ import {
 import { cn } from "@hypr/utils";
 
 import { useTitleGenerating } from "~/ai/hooks";
-import * as main from "~/store/tinybase/store/main";
+import { useMainStore, useUpdateSessionCell } from "~/session/hooks/storage";
 import { useLiveTitle } from "~/store/zustand/live-title";
 import { type Tab } from "~/store/zustand/tabs";
 
@@ -53,7 +53,7 @@ export const TitleInput = forwardRef<
       id: sessionId,
       state: { view },
     } = tab;
-    const store = main.UI.useStore(main.STORE_ID);
+    const store = useMainStore();
     const isGenerating = useTitleGenerating(sessionId);
     const wasGenerating = usePrevious(isGenerating);
     const [showRevealAnimation, setShowRevealAnimation] = useState(false);
@@ -147,7 +147,7 @@ const TitleInputInner = memo(
       const [isTitleFocused, setIsTitleFocused] = useState(false);
       const isFocused = useRef(false);
       const internalRef = useRef<HTMLInputElement>(null);
-      const store = main.UI.useStore(main.STORE_ID);
+      const store = useMainStore();
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
 
@@ -255,13 +255,7 @@ const TitleInputInner = memo(
         };
       }, [store, sessionId, updateOverflowState]);
 
-      const setStoreTitle = main.UI.useSetPartialRowCallback(
-        "sessions",
-        sessionId,
-        (title: string) => ({ title }),
-        [],
-        main.STORE_ID,
-      );
+      const setStoreTitle = useUpdateSessionCell(sessionId, "title");
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "ArrowUp") {

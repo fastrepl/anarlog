@@ -3,16 +3,19 @@ import { useMemo } from "react";
 import {
   type ContextEntity,
   type ContextRef,
-  extractToolContextEntities,
   dedupeByKey,
+  extractToolContextEntities,
 } from "./entities";
 import { extractContextRefsFromMessages } from "./refs";
 
+import { useChatStore } from "~/chat/hooks/chat-store";
 import type { HyprUIMessage } from "~/chat/types";
 import type * as main from "~/store/tinybase/store/main";
 
+type Store = ReturnType<typeof main.UI.useStore>;
+
 function getSessionDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  store: Store,
   sessionId: string,
 ): { title: string | null; date: string | null } {
   if (!store) {
@@ -29,7 +32,7 @@ function getSessionDisplayData(
 }
 
 function getHumanDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  store: Store,
   humanId: string,
 ): {
   name: string | null;
@@ -58,7 +61,7 @@ function getHumanDisplayData(
 }
 
 function getOrganizationDisplayData(
-  store: ReturnType<typeof main.UI.useStore>,
+  store: Store,
   organizationId: string,
 ): { name: string | null } {
   if (!store) {
@@ -73,7 +76,7 @@ function getOrganizationDisplayData(
 
 function toDisplayEntity(
   ref: ContextRef,
-  store: ReturnType<typeof main.UI.useStore>,
+  store: Store,
   removable: boolean,
 ): ContextEntity {
   if (ref.kind === "session") {
@@ -103,7 +106,6 @@ type UseChatContextPipelineParams = {
   messages: HyprUIMessage[];
   currentSessionId?: string;
   pendingManualRefs: ContextRef[];
-  store: ReturnType<typeof main.UI.useStore>;
 };
 
 export type DisplayEntity = ContextEntity & { pending: boolean };
@@ -112,11 +114,12 @@ export function useChatContextPipeline({
   messages,
   currentSessionId,
   pendingManualRefs,
-  store,
 }: UseChatContextPipelineParams): {
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
 } {
+  const store = useChatStore();
+
   const committedRefs = useMemo(
     () => extractContextRefsFromMessages(messages),
     [messages],

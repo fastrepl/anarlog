@@ -10,11 +10,15 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
-import { toTz, useCalendar, useTimezone } from "~/calendar/hooks";
+import {
+  toTz,
+  useCalendar,
+  useEvent,
+  useGetOrCreateSessionForEventId,
+  useTimelineEvent,
+  useTimezone,
+} from "~/calendar/hooks";
 import { EventDisplay } from "~/session/components/outer-header/metadata";
-import { useEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
-import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useTabs } from "~/store/zustand/tabs";
 
 function useCalendarColor(calendarId: string | null): string | null {
@@ -24,24 +28,18 @@ function useCalendarColor(calendarId: string | null): string | null {
 
 export function EventChip({ eventId }: { eventId: string }) {
   const tz = useTimezone();
-  const event = main.UI.useResultRow(
-    main.QUERIES.timelineEvents,
-    eventId,
-    main.STORE_ID,
-  );
-  const calendarColor = useCalendarColor(
-    (event?.calendar_id as string) ?? null,
-  );
+  const event = useTimelineEvent(eventId);
+  const calendarColor = useCalendarColor(event?.calendar_id ?? null);
 
   if (!event || !event.title) {
     return null;
   }
 
-  const isAllDay = !!event.is_all_day;
+  const isAllDay = event.is_all_day;
   const color = calendarColor ?? "#888";
 
   const startedAt = event.started_at
-    ? format(toTz(event.started_at as string, tz), "h:mm a")
+    ? format(toTz(event.started_at, tz), "h:mm a")
     : null;
 
   return (
@@ -55,7 +53,7 @@ export function EventChip({ eventId }: { eventId: string }) {
             ])}
             style={{ backgroundColor: color }}
           >
-            {event.title as string}
+            {event.title}
           </button>
         ) : (
           <button
@@ -68,7 +66,7 @@ export function EventChip({ eventId }: { eventId: string }) {
               className="w-[2.5px] shrink-0 self-stretch rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="truncate">{event.title as string}</span>
+            <span className="truncate">{event.title}</span>
             {startedAt && (
               <span className="ml-auto shrink-0 font-mono text-neutral-400">
                 {startedAt}
@@ -93,21 +91,17 @@ export function EventChip({ eventId }: { eventId: string }) {
 
 function EventPopoverContent({ eventId }: { eventId: string }) {
   const event = useEvent(eventId);
-  const store = main.UI.useStore(main.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
-
-  const eventRow = main.UI.useResultRow(
-    main.QUERIES.timelineEvents,
-    eventId,
-    main.STORE_ID,
-  );
+  const eventRow = useTimelineEvent(eventId);
+  const getOrCreateSession = useGetOrCreateSessionForEventId();
 
   const handleOpen = useCallback(() => {
-    if (!store) return;
-    const title = (eventRow?.title as string) || "Untitled";
-    const sessionId = getOrCreateSessionForEventId(store, eventId, title);
-    openNew({ type: "sessions", id: sessionId });
-  }, [store, eventId, eventRow?.title, openNew]);
+    const title = eventRow?.title || "Untitled";
+    const sessionId = getOrCreateSession(eventId, title);
+    if (sessionId) {
+      openNew({ type: "sessions", id: sessionId });
+    }
+  }, [eventId, eventRow?.title, openNew, getOrCreateSession]);
 
   if (!event) {
     return null;

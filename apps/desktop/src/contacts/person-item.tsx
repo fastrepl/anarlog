@@ -4,9 +4,9 @@ import React, { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useHuman, useToggleHumanPin } from "~/contacts/hooks";
 import { getContactBgClass } from "~/contacts/shared";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import * as main from "~/store/tinybase/store/main";
 
 export function PersonItem({
   humanId,
@@ -19,41 +19,14 @@ export function PersonItem({
   onClick: () => void;
   onDelete?: (id: string) => void;
 }) {
-  const person = main.UI.useRow("humans", humanId, main.STORE_ID);
-  const isPinned = Boolean(person.pinned);
-  const personName = String(person.name ?? "");
-  const personEmail = String(person.email ?? "");
+  const person = useHuman(humanId);
+  const isPinned = person?.pinned ?? false;
+  const personName = person?.name ?? "";
+  const personEmail = person?.email ?? "";
   const facehashName = personName || personEmail || humanId;
   const bgClass = getContactBgClass(facehashName);
 
-  const store = main.UI.useStore(main.STORE_ID);
-
-  const togglePin = useCallback(() => {
-    if (!store) return;
-
-    const currentPinned = store.getCell("humans", humanId, "pinned");
-    if (currentPinned) {
-      store.setPartialRow("humans", humanId, {
-        pinned: false,
-        pin_order: 0,
-      });
-    } else {
-      const allHumans = store.getTable("humans");
-      const allOrgs = store.getTable("organizations");
-      const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
-        const order = (h.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
-        const order = (o.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      store.setPartialRow("humans", humanId, {
-        pinned: true,
-        pin_order: Math.max(maxHumanOrder, maxOrgOrder) + 1,
-      });
-    }
-  }, [store, humanId]);
+  const togglePin = useToggleHumanPin(humanId);
 
   const showContextMenu = useNativeContextMenu([
     {

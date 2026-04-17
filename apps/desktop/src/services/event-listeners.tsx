@@ -8,7 +8,7 @@ import {
 } from "@hypr/plugin-updater2";
 import { getCurrentWebviewWindowLabel } from "@hypr/plugin-windows";
 
-import * as main from "~/store/tinybase/store/main";
+import { useMainStore } from "~/session/hooks/storage";
 import {
   createSession,
   getOrCreateSessionForEventId,
@@ -62,7 +62,7 @@ function useUpdaterEvents() {
 }
 
 function useNotificationEvents() {
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
   const pendingAutoStart = useRef<{ eventId: string | null } | null>(null);

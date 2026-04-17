@@ -18,7 +18,6 @@ import {
   getNodeTextContent,
   mergeLinkedSessionsIntoContent,
 } from "~/editor/session/linked-session-content";
-import { useTaskStorageOptional } from "~/editor/task-storage";
 import {
   extractTasksFromContent,
   hydrateTaskContent,
@@ -26,14 +25,19 @@ import {
   normalizeTaskContent,
 } from "~/editor/tasks";
 import {
+  type MainStore,
+  useMainStore,
+  useUpdateDailyNoteContent,
+} from "~/session/hooks/storage";
+import {
   findSessionByEventId,
   findSessionByTrackingId,
   getSessionEventById,
 } from "~/session/utils";
-import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
+import { useTaskStorageOptional } from "~/tasks/hooks";
 
-type Store = NonNullable<ReturnType<typeof main.UI.useStore>>;
+type Store = MainStore;
 const emptyDoc: JSONContent = { type: "doc", content: [{ type: "paragraph" }] };
 
 function getSessionTitle(store: Store, sessionId: string): string {
@@ -173,7 +177,7 @@ export function DailyNoteEditor({
   date: string;
   isToday?: boolean;
 }) {
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const editorRef = useRef<NoteEditorRef>(null);
   const taskStorage = useTaskStorageOptional();
   const taskSource = useMemo(() => ({ type: "daily_note", id: date }), [date]);
@@ -275,12 +279,10 @@ export function DailyNoteEditor({
     initialContentRef.current = content;
   }
 
-  const persistDailyNote = main.UI.useSetPartialRowCallback(
-    "daily_notes",
-    date,
-    (input: JSONContent) => ({ content: JSON.stringify(input), date }),
-    [date],
-    main.STORE_ID,
+  const updateDailyNoteContent = useUpdateDailyNoteContent(date);
+  const persistDailyNote = useCallback(
+    (input: JSONContent) => updateDailyNoteContent(JSON.stringify(input)),
+    [updateDailyNoteContent],
   );
 
   useEffect(() => {

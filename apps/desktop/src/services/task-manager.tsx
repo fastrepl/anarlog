@@ -16,23 +16,21 @@ import {
   type NotifiedEventsMap,
 } from "./event-notification";
 
-import * as main from "~/store/tinybase/store/main";
+import { useMainQueries, useMainStore } from "~/session/hooks/storage";
+import type { Schemas, Store } from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 
 export function TaskManager() {
-  const store = main.UI.useStore(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
+  const store = useMainStore();
+  const queries = useMainQueries();
 
   const settingsStore = settings.UI.useStore(settings.STORE_ID);
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());
 
   useSetTask(CALENDAR_SYNC_TASK_ID, async () => {
-    await syncCalendarEvents(
-      store as main.Store,
-      queries as Queries<main.Schemas>,
-    );
+    await syncCalendarEvents(store as Store, queries as Queries<Schemas>);
   }, [store, queries, settingsStore]);
 
   useScheduleTaskRun(CALENDAR_SYNC_TASK_ID, undefined, 0, {
@@ -58,7 +56,7 @@ export function TaskManager() {
   useSetTask(EVENT_NOTIFICATION_TASK_ID, async () => {
     if (!store || !settingsStore) return;
     checkEventNotifications(
-      store as main.Store,
+      store as Store,
       settingsStore as settings.Store,
       notifiedEventsRef.current,
     );

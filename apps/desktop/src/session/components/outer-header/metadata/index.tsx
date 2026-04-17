@@ -21,9 +21,8 @@ import {
 import { DateEditor } from "./date";
 import { ParticipantsDisplay } from "./participants";
 
+import { useSessionCell, useSessionEvent } from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
-import { useSessionEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
 
 export function MetadataButton({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
@@ -50,12 +49,7 @@ const TriggerInner = forwardRef<
   HTMLButtonElement,
   { sessionId: string; open?: boolean }
 >(({ sessionId, open, ...props }, ref) => {
-  const createdAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  );
+  const createdAt = useSessionCell(sessionId, "created_at");
   const sessionEvent = useSessionEvent(sessionId);
 
   const hasEvent = !!sessionEvent;

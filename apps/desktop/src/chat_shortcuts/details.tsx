@@ -5,11 +5,15 @@ import { Input } from "@hypr/ui/components/ui/input";
 import { Textarea } from "@hypr/ui/components/ui/textarea";
 
 import {
+  useChatShortcutCell,
+  useDeleteChatShortcut,
+  useUpdateChatShortcut,
+} from "~/chat_shortcuts/hooks";
+import {
   DangerZone,
   ResourceDetailEmpty,
   ResourcePreviewHeader,
 } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 
 type WebShortcut = {
   slug: string;
@@ -96,34 +100,18 @@ function ChatShortcutForm({
   id: string;
   setSelectedMineId: (id: string | null) => void;
 }) {
-  const title = main.UI.useCell("chat_shortcuts", id, "title", main.STORE_ID);
-  const content = main.UI.useCell(
-    "chat_shortcuts",
-    id,
-    "content",
-    main.STORE_ID,
-  );
-  const [localTitle, setLocalTitle] = useState(title || "");
-  const [localContent, setLocalContent] = useState(content || "");
+  const title = useChatShortcutCell(id, "title");
+  const content = useChatShortcutCell(id, "content");
+  const [localTitle, setLocalTitle] = useState(title);
+  const [localContent, setLocalContent] = useState(content);
 
   useEffect(() => {
-    setLocalTitle(title || "");
-    setLocalContent(content || "");
+    setLocalTitle(title);
+    setLocalContent(content);
   }, [title, content, id]);
 
-  const handleUpdate = main.UI.useSetPartialRowCallback(
-    "chat_shortcuts",
-    id,
-    (row: { title?: string; content?: string }) => row,
-    [id],
-    main.STORE_ID,
-  );
-
-  const handleDelete = main.UI.useDelRowCallback(
-    "chat_shortcuts",
-    () => id,
-    main.STORE_ID,
-  );
+  const handleUpdate = useUpdateChatShortcut(id);
+  const handleDelete = useDeleteChatShortcut(id);
 
   const handleSave = useCallback(() => {
     handleUpdate({ title: localTitle, content: localContent });

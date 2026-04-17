@@ -32,6 +32,16 @@ vi.mock("~/store/tinybase/store/main", () => ({
         ended_at: "2026-04-06T01:00:00.000Z",
       }),
     }),
+    useCell: (_table: string, _rowId: string, field: string) => {
+      if (field === "created_at") return "2026-04-06T00:00:00.000Z";
+      if (field === "event_json") {
+        return JSON.stringify({
+          started_at: "2026-04-06T02:30:00.000Z",
+          ended_at: "2026-04-06T01:00:00.000Z",
+        });
+      }
+      return undefined;
+    },
   },
 }));
 

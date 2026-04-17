@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { createInMemoryTaskStorage } from "./task-storage";
 import {
   createTaskItemNode,
   extractTasksFromContent,
@@ -8,6 +7,8 @@ import {
   moveOpenTasksBetweenContents,
   normalizeTaskContent,
 } from "./tasks";
+
+import { createInMemoryTaskStorage } from "~/tasks/hooks";
 
 describe("task content", () => {
   it("assigns unique task ids and task item ids to missing and duplicated task items", () => {

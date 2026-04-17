@@ -1,4 +1,4 @@
-import { RowListener } from "tinybase/with-schemas";
+import type { RowListener } from "tinybase/with-schemas";
 
 import { commands as tantivy } from "@hypr/plugin-tantivy";
 
@@ -14,8 +14,7 @@ import {
   toTrimmedString,
 } from "./utils";
 
-import { Schemas } from "~/store/tinybase/store/main";
-import { type Store as MainStore } from "~/store/tinybase/store/main";
+import type { Schemas, Store as MainStore } from "~/store/tinybase/store/main";
 
 export function createSessionListener(): RowListener<
   Schemas,

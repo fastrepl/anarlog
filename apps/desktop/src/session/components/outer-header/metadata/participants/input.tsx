@@ -3,8 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ParticipantChip } from "./chip";
 import { ParticipantDropdown } from "./dropdown";
 
+import {
+  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
+  useAllHumanIds,
+  useMainQueries,
+  useMainStore,
+  useSessionParticipantMappingIds,
+  useSessionParticipantMutations,
+} from "~/session/hooks/storage";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
-import * as main from "~/store/tinybase/store/main";
 
 export function ParticipantInput({ sessionId }: { sessionId: string }) {
   const {
@@ -102,13 +109,8 @@ type Candidate = {
 };
 
 function useSessionParticipants(sessionId: string) {
-  const queries = main.UI.useQueries(main.STORE_ID);
-
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId,
-    main.STORE_ID,
-  ) as string[];
+  const queries = useMainQueries();
+  const mappingIds = useSessionParticipantMappingIds(sessionId);
 
   const existingHumanIds = useMemo(() => {
     if (!queries) {
@@ -118,7 +120,7 @@ function useSessionParticipants(sessionId: string) {
     const ids = new Set<string>();
     for (const mappingId of mappingIds) {
       const result = queries.getResultRow(
-        main.QUERIES.sessionParticipantsWithDetails,
+        SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
         mappingId,
       );
       if (result?.human_id) {
@@ -135,8 +137,8 @@ function useCandidateSearch(
   inputValue: string,
   existingHumanIds: Set<string>,
 ): Candidate[] {
-  const store = main.UI.useStore(main.STORE_ID);
-  const allHumanIds = main.UI.useRowIds("humans", main.STORE_ID) as string[];
+  const store = useMainStore();
+  const allHumanIds = useAllHumanIds();
 
   return useMemo(() => {
     const searchLower = inputValue.toLowerCase();
@@ -200,34 +202,38 @@ function useDropdownOptions(
 }
 
 function useParticipantMutations(sessionId: string, mappingIds: string[]) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-
-  const createHuman = useCreateHuman(userId || "");
-  const linkHumanToSession = useLinkHumanToSession(userId || "", sessionId);
+  const mutations = useSessionParticipantMutations();
 
   const addParticipant = useCallback(
     (option: Candidate) => {
-      if (!userId) {
-        return;
-      }
-
       if (option.isNew) {
-        const humanId = createHuman(option.name);
-        linkHumanToSession(humanId);
+        const humanId = crypto.randomUUID();
+        mutations.createHuman({
+          id: humanId,
+          name: option.name,
+          email: "",
+        });
+        mutations.addParticipant({
+          sessionId,
+          humanId,
+          source: "manual",
+        });
       } else {
-        linkHumanToSession(option.id);
+        mutations.addParticipant({
+          sessionId,
+          humanId: option.id,
+          source: "manual",
+        });
       }
     },
-    [userId, createHuman, linkHumanToSession],
+    [mutations, sessionId],
   );
 
   const deleteLastParticipant = useCallback(() => {
-    if (mappingIds.length > 0 && store) {
-      const lastMappingId = mappingIds[mappingIds.length - 1];
-      store.delRow("mapping_session_participant", lastMappingId);
+    if (mappingIds.length > 0) {
+      mutations.deleteMapping(mappingIds[mappingIds.length - 1]);
     }
-  }, [mappingIds, store]);
+  }, [mappingIds, mutations]);
 
   return { addParticipant, deleteLastParticipant };
 }
@@ -286,58 +292,4 @@ function useParticipantInput(sessionId: string) {
     deleteLastParticipant,
     resetInput,
   };
-}
-
-function useLinkHumanToSession(
-  userId: string,
-  sessionId: string,
-): (humanId: string) => void {
-  const linkMapping = main.UI.useSetRowCallback(
-    "mapping_session_participant",
-    () => crypto.randomUUID(),
-    (p: { humanId: string }) => ({
-      user_id: userId,
-      created_at: new Date().toISOString(),
-      session_id: sessionId,
-      human_id: p.humanId,
-      source: "manual",
-    }),
-    [userId, sessionId],
-    main.STORE_ID,
-  );
-
-  return useCallback(
-    (humanId: string) => {
-      linkMapping({ humanId });
-    },
-    [linkMapping],
-  );
-}
-
-function useCreateHuman(userId: string): (name: string) => string {
-  const createHuman = main.UI.useSetRowCallback(
-    "humans",
-    (p: { name: string; humanId: string }) => p.humanId,
-    (p: { name: string; humanId: string }) => ({
-      user_id: userId,
-      created_at: new Date().toISOString(),
-      name: p.name,
-      email: "",
-      org_id: "",
-      job_title: "",
-      linkedin_username: "",
-      memo: "",
-    }),
-    [userId],
-    main.STORE_ID,
-  );
-
-  return useCallback(
-    (name: string) => {
-      const humanId = crypto.randomUUID();
-      createHuman({ name, humanId });
-      return humanId;
-    },
-    [createHuman],
-  );
 }

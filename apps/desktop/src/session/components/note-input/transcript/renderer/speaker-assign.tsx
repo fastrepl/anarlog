@@ -8,7 +8,13 @@ import {
 } from "@hypr/ui/components/ui/popover";
 import { cn } from "@hypr/utils";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
+  useMainQueries,
+  useMainStore,
+  useSessionParticipantMappingIds,
+  useTranscriptSessionId,
+} from "~/session/hooks/storage";
 import type { Segment } from "~/stt/live-segment";
 import { upsertSpeakerAssignment } from "~/stt/utils";
 
@@ -24,15 +30,10 @@ export function SpeakerAssignPopover({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
   const isSelf = segment.key.channel === "DirectMic";
 
-  const sessionId = main.UI.useCell(
-    "transcripts",
-    transcriptId,
-    "session_id",
-    main.STORE_ID,
-  ) as string | undefined;
+  const sessionId = useTranscriptSessionId(transcriptId);
 
   const handleAssign = useCallback(
     (humanId: string) => {
@@ -88,20 +89,15 @@ function ParticipantList({
   sessionId: string | undefined;
   onSelect: (humanId: string) => void;
 }) {
-  const queries = main.UI.useQueries(main.STORE_ID);
-
-  const mappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId ?? "",
-    main.STORE_ID,
-  ) as string[];
+  const queries = useMainQueries();
+  const mappingIds = useSessionParticipantMappingIds(sessionId ?? "");
 
   const participants = useMemo(() => {
     if (!queries) return [];
     return mappingIds
       .map((mappingId) => {
         const result = queries.getResultRow(
-          main.QUERIES.sessionParticipantsWithDetails,
+          SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
           mappingId,
         );
         if (!result?.human_id) return null;

@@ -15,14 +15,14 @@ import {
   useChatContextPipeline,
 } from "~/chat/context/use-chat-context-pipeline";
 import {
-  buildPersistedChatMessageRow,
-  getPersistedChatMessages,
-  getVisibleChatMessages,
-} from "~/chat/store/persisted-messages";
+  useDeleteLatestAssistantMessage,
+  useGetVisibleChatMessages,
+  useSetChatMessage,
+  useSyncChatMessages,
+} from "~/chat/hooks/chat-messages";
 import { stripEphemeralToolContext } from "~/chat/tools/strip-ephemeral-tool-context";
 import { useTransport } from "~/chat/transport/use-transport";
 import type { HyprUIMessage } from "~/chat/types";
-import * as main from "~/store/tinybase/store/main";
 
 interface ChatSessionProps {
   sessionId: string;
@@ -60,8 +60,10 @@ export function ChatSession({
   systemPromptOverride,
   children,
 }: ChatSessionProps) {
-  const store = main.UI.useStore(main.STORE_ID);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const getVisibleChatMessages = useGetVisibleChatMessages();
+  const setChatMessage = useSetChatMessage();
+  const deleteLatestAssistantMessage = useDeleteLatestAssistantMessage();
+  const syncChatMessages = useSyncChatMessages();
 
   const [pendingManualRefs, setPendingManualRefs] = useState<ContextRef[]>([]);
   const [pendingDraftRefs, setPendingDraftRefs] = useState<ContextRef[]>([]);
@@ -90,7 +92,6 @@ export function ChatSession({
     modelOverride,
     extraTools,
     systemPromptOverride,
-    store,
   );
 
   const {
@@ -103,27 +104,20 @@ export function ChatSession({
     setMessages: chatSetMessages,
   } = useChat<HyprUIMessage>({
     id: sessionId,
-    messages:
-      store && chatGroupId ? getVisibleChatMessages(store, chatGroupId) : [],
+    messages: chatGroupId ? getVisibleChatMessages(chatGroupId) : [],
     transport: transport ?? undefined,
     onFinish: ({ message, isAbort }) => {
-      if (isAbort || !chatGroupId || !store || !user_id) return;
+      if (isAbort || !chatGroupId) return;
       const sanitizedParts = stripEphemeralToolContext(message.parts);
       const sanitizedMessage =
         sanitizedParts === message.parts
           ? message
           : { ...message, parts: sanitizedParts };
-      store.setRow(
-        "chat_messages",
-        sanitizedMessage.id,
-        buildPersistedChatMessageRow({
-          message: sanitizedMessage,
-          chatGroupId,
-          userId: user_id,
-          status: "ready",
-          existingRow: store.getRow("chat_messages", sanitizedMessage.id),
-        }),
-      );
+      setChatMessage({
+        message: sanitizedMessage,
+        chatGroupId,
+        status: "ready",
+      });
     },
   });
 
@@ -137,27 +131,20 @@ export function ChatSession({
   );
 
   const regenerate = useCallback(() => {
-    if (!store || !chatGroupId) return;
-    const last = [...getPersistedChatMessages(store, chatGroupId)]
-      .reverse()
-      .find((m) => m.message.role === "assistant");
-    if (last) store.delRow("chat_messages", last.id);
+    if (!chatGroupId) return;
+    deleteLatestAssistantMessage(chatGroupId);
     void chatRegenerate();
-  }, [store, chatGroupId, chatRegenerate]);
+  }, [chatGroupId, chatRegenerate, deleteLatestAssistantMessage]);
 
   const setMessages = useCallback(
     (next: HyprUIMessage[] | ((prev: HyprUIMessage[]) => HyprUIMessage[])) => {
       chatSetMessages(next);
-      if (!store || !chatGroupId) return;
+      if (!chatGroupId) return;
       const resolved = typeof next === "function" ? next(messages) : next;
       const nextIds = new Set(resolved.map((m) => m.id));
-      store.transaction(() => {
-        getPersistedChatMessages(store, chatGroupId).forEach(({ id }) => {
-          if (!nextIds.has(id)) store.delRow("chat_messages", id);
-        });
-      });
+      syncChatMessages(chatGroupId, nextIds);
     },
-    [chatGroupId, messages, chatSetMessages, store],
+    [chatGroupId, messages, chatSetMessages, syncChatMessages],
   );
 
   const prevUserMsgCountRef = useRef(0);
@@ -179,7 +166,6 @@ export function ChatSession({
     messages,
     currentSessionId,
     pendingManualRefs: pendingMessageRefs,
-    store,
   });
 
   return (

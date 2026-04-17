@@ -6,9 +6,12 @@ import {
   type ReactNode,
 } from "react";
 
-import type { JSONContent } from "./session";
-import { createTaskSourceKey, type TaskRecord, type TaskSource } from "./tasks";
-
+import type { JSONContent } from "~/editor/session";
+import {
+  createTaskSourceKey,
+  type TaskRecord,
+  type TaskSource,
+} from "~/editor/tasks";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import * as main from "~/store/tinybase/store/main";
 

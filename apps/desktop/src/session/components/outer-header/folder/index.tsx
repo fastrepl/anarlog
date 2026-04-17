@@ -15,18 +15,13 @@ import {
 } from "@hypr/ui/components/ui/tooltip";
 
 import { useBillingAccess } from "~/auth/billing";
+import { useSessionCell } from "~/session/hooks/storage";
 import { FolderBreadcrumb } from "~/shared/ui/folder-breadcrumb";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function FolderChain({ sessionId }: { sessionId: string }) {
   const { isPro } = useBillingAccess();
-  const folderId = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "folder_id",
-    main.STORE_ID,
-  );
+  const folderId = useSessionCell(sessionId, "folder_id");
 
   if (!folderId) {
     return <UnassignedFolderBreadcrumb />;

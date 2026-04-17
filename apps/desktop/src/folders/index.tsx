@@ -7,20 +7,24 @@ import { cn } from "@hypr/utils";
 import { Section } from "./shared";
 
 import { useBillingAccess } from "~/auth/billing";
+import {
+  useAllSessionIds,
+  useMainStore,
+  useSession,
+  useSessionIdsInFolder,
+} from "~/session/hooks/storage";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
 import {
   FolderBreadcrumb,
   useFolderChain,
 } from "~/shared/ui/folder-breadcrumb";
-import { useSession } from "~/store/tinybase/hooks";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 function useFolderTree() {
-  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
+  const sessionIds = useAllSessionIds();
+  const store = useMainStore();
 
   return useMemo(() => {
     if (!store || !sessionIds)
@@ -219,11 +223,7 @@ function FolderCard({ folderId }: { folderId: string }) {
 
   const childFolderIds = byParent[folderId] || [];
 
-  const sessionIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionsByFolder,
-    folderId,
-    main.STORE_ID,
-  );
+  const sessionIds = useSessionIdsInFolder(folderId);
 
   const childCount = childFolderIds.length + (sessionIds?.length ?? 0);
 
@@ -313,11 +313,7 @@ function TabContentFolderSpecific({ folderId }: { folderId: string }) {
   const { byParent } = useFolderTree();
   const childFolderIds = byParent[folderId] || [];
 
-  const sessionIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionsByFolder,
-    folderId,
-    main.STORE_ID,
-  );
+  const sessionIds = useSessionIdsInFolder(folderId);
 
   const isEmpty =
     childFolderIds.length === 0 && (sessionIds?.length ?? 0) === 0;

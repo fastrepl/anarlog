@@ -12,6 +12,7 @@ import {
 import { SettingsLab } from "./lab";
 import { AgentIntegrations } from "./lab/agent-integrations";
 import { DeveloperSettings } from "./lab/developer";
+import { DictationSettings } from "./lab/dictation";
 import { SettingsTodo } from "./todo";
 
 import { LLM } from "~/settings/ai/llm";
@@ -81,6 +82,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <AgentIntegrations />;
       case "developer":
         return <DeveloperSettings />;
+      case "dictation":
+        return <DictationSettings />;
       case "transcription":
         return <STT />;
       case "intelligence":

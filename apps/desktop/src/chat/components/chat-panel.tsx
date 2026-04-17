@@ -9,9 +9,9 @@ import { ChatSession } from "./session-provider";
 import { useSessionTab } from "./use-session-tab";
 
 import { useLanguageModel } from "~/ai/hooks";
-import { useChatActions } from "~/chat/store/use-chat-actions";
+import { useCurrentUserId } from "~/chat/hooks/chat-store";
+import { useChatActions } from "~/chat/hooks/use-chat-actions";
 import { useShell } from "~/contexts/shell";
-import * as main from "~/store/tinybase/store/main";
 
 export function ChatView() {
   const { chat } = useShell();
@@ -20,7 +20,7 @@ export function ChatView() {
   const { currentSessionId } = useSessionTab();
 
   const model = useLanguageModel("chat");
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const userId = useCurrentUserId();
 
   const handleGroupCreated = useCallback(
     (newGroupId: string) => {
@@ -47,7 +47,7 @@ export function ChatView() {
         onSelectChat={selectChat}
         handleClose={() => chat.sendEvent({ type: "CLOSE" })}
       />
-      {user_id && (
+      {userId && (
         <ChatSession
           key={sessionId}
           sessionId={sessionId}

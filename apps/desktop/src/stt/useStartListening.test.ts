@@ -79,6 +79,13 @@ vi.mock("~/store/tinybase/store/main", () => ({
   },
   UI: {
     useValues: useValuesMock,
+    useValue: (key: string) => {
+      if (key === "user_id") {
+        const values = useValuesMock();
+        return values?.user_id;
+      }
+      return undefined;
+    },
     useStore: useStoreMock,
     useIndexes: useIndexesMock,
   },

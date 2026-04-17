@@ -10,8 +10,14 @@ import {
   type PlaceholderFunction,
 } from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
+import {
+  useExportTimelineSessions,
+  useExportVisibleHumans,
+  useExportVisibleOrganizations,
+  useSessionCell,
+  useUpdateSessionCell,
+} from "~/session/hooks/storage";
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
-import * as main from "~/store/tinybase/store/main";
 
 export const RawEditor = forwardRef<
   NoteEditorRef,
@@ -20,20 +26,20 @@ export const RawEditor = forwardRef<
     onNavigateToTitle?: (pixelWidth?: number) => void;
   }
 >(({ sessionId, onNavigateToTitle }, ref) => {
-  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const rawMd = useSessionCell(sessionId, "raw_md");
   const onFileUpload = useFileUpload(sessionId);
 
   const initialContent = useMemo<JSONContent>(
-    () => parseJsonContent(rawMd as string),
+    () => parseJsonContent(rawMd),
     [rawMd],
   );
 
-  const persistChange = main.UI.useSetPartialRowCallback(
-    "sessions",
-    sessionId,
-    (input: JSONContent) => ({ raw_md: JSON.stringify(input) }),
-    [],
-    main.STORE_ID,
+  const setRawMd = useUpdateSessionCell(sessionId, "raw_md");
+  const persistChange = useCallback(
+    (input: JSONContent) => {
+      setRawMd(JSON.stringify(input));
+    },
+    [setRawMd],
   );
 
   const hasTrackedWriteRef = useRef(false);
@@ -68,18 +74,9 @@ export const RawEditor = forwardRef<
   );
 
   const { search } = useSearchEngine();
-  const sessions = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
-  const humans = main.UI.useResultTable(
-    main.QUERIES.visibleHumans,
-    main.STORE_ID,
-  );
-  const organizations = main.UI.useResultTable(
-    main.QUERIES.visibleOrganizations,
-    main.STORE_ID,
-  );
+  const sessions = useExportTimelineSessions();
+  const humans = useExportVisibleHumans();
+  const organizations = useExportVisibleOrganizations();
 
   const mentionConfig = useMemo(
     () => ({

@@ -9,7 +9,13 @@ import { cn } from "@hypr/utils";
 
 import { getContactBgClass } from "./shared";
 
-import * as main from "~/store/tinybase/store/main";
+import {
+  useAllHumans,
+  useHumansByOrg,
+  useOrganization,
+  useOrganizationCell,
+  useUpdateOrganizationStringCell,
+} from "~/contacts/hooks";
 
 export function OrganizationDetailsColumn({
   selectedOrganizationId,
@@ -18,23 +24,13 @@ export function OrganizationDetailsColumn({
   selectedOrganizationId?: string | null;
   onPersonClick?: (personId: string) => void;
 }) {
-  const selectedOrgData = main.UI.useRow(
-    "organizations",
-    selectedOrganizationId ?? "",
-    main.STORE_ID,
-  );
-
-  const peopleInOrg = main.UI.useSliceRowIds(
-    main.INDEXES.humansByOrg,
-    selectedOrganizationId ?? "",
-    main.STORE_ID,
-  );
-
-  const allHumans = main.UI.useTable("humans", main.STORE_ID);
+  const selectedOrg = useOrganization(selectedOrganizationId);
+  const peopleInOrg = useHumansByOrg(selectedOrganizationId);
+  const allHumans = useAllHumans();
 
   return (
     <div className="flex flex-1 flex-col">
-      {selectedOrgData && selectedOrganizationId ? (
+      {selectedOrg && selectedOrganizationId ? (
         <>
           <div className="flex items-center justify-center border-b border-neutral-200 py-6">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-200">
@@ -83,22 +79,18 @@ export function OrganizationDetailsColumn({
                               className={cn([
                                 "shrink-0 rounded-full",
                                 getContactBgClass(
-                                  String(human.name || human.email || humanId),
+                                  human.name || human.email || humanId,
                                 ),
                               ])}
                             >
                               <Facehash
-                                name={String(
-                                  human.name || human.email || humanId,
-                                )}
+                                name={human.name || human.email || humanId}
                                 size={48}
                                 interactive={false}
                                 showInitial={false}
                                 colorClasses={[
                                   getContactBgClass(
-                                    String(
-                                      human.name || human.email || humanId,
-                                    ),
+                                    human.name || human.email || humanId,
                                   ),
                                 ]}
                               />
@@ -109,7 +101,7 @@ export function OrganizationDetailsColumn({
                               </div>
                               {human.job_title && (
                                 <div className="mt-1 truncate text-xs text-neutral-500">
-                                  {human.job_title as string}
+                                  {human.job_title}
                                 </div>
                               )}
                             </div>
@@ -136,9 +128,7 @@ export function OrganizationDetailsColumn({
                                   size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const v = String(
-                                      human.linkedin_username ?? "",
-                                    );
+                                    const v = human.linkedin_username;
                                     const href = /^https?:\/\//i.test(v)
                                       ? v
                                       : `https://www.linkedin.com/in/${v.replace(/^@/, "")}`;
@@ -182,25 +172,12 @@ function EditableOrganizationNameField({
 }: {
   organizationId: string;
 }) {
-  const value = main.UI.useCell(
-    "organizations",
-    organizationId,
-    "name",
-    main.STORE_ID,
-  );
-
-  const handleChange = main.UI.useSetCellCallback(
-    "organizations",
-    organizationId,
-    "name",
-    (e: React.ChangeEvent<HTMLInputElement>) => e.target.value,
-    [],
-    main.STORE_ID,
-  );
+  const value = useOrganizationCell(organizationId, "name");
+  const handleChange = useUpdateOrganizationStringCell(organizationId, "name");
 
   return (
     <Input
-      value={(value as string) || ""}
+      value={value}
       onChange={handleChange}
       placeholder="Organization name"
       className="h-7 border-none p-0 text-base shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"

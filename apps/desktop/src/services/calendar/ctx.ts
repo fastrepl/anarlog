@@ -7,11 +7,12 @@ import type {
   ProviderConnectionIds,
 } from "@hypr/plugin-calendar";
 
+import { ENABLED_CALENDARS_QUERY } from "~/calendar/hooks";
 import {
   findCalendarByTrackingId,
   getCalendarTrackingKey,
 } from "~/calendar/utils";
-import { QUERIES, type Schemas, type Store } from "~/store/tinybase/store/main";
+import type { Schemas, Store } from "~/store/tinybase/store/main";
 
 // ---
 
@@ -34,7 +35,7 @@ export function createCtx(
   provider: CalendarProviderType,
   connectionId: string,
 ): Ctx | null {
-  const resultTable = queries.getResultTable(QUERIES.enabledCalendars);
+  const resultTable = queries.getResultTable(ENABLED_CALENDARS_QUERY);
 
   const calendarIds = new Set<string>();
   const calendarTrackingIdToId = new Map<string, string>();

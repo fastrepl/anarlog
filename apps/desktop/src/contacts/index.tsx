@@ -6,9 +6,12 @@ import type { ContactsSelection } from "@hypr/plugin-windows";
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
 
+import {
+  useSortedVisibleHumanIds,
+  useSortedVisibleOrganizationIds,
+} from "~/contacts/hooks";
 import { StandardTabWrapper } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export const TabItemContact: TabItem<Extract<Tab, { type: "contacts" }>> = ({
@@ -72,23 +75,8 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
     [openCurrent],
   );
 
-  const allHumanIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleHumans,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
-
-  const allOrgIds = main.UI.useResultSortedRowIds(
-    main.QUERIES.visibleOrganizations,
-    "name",
-    false,
-    0,
-    undefined,
-    main.STORE_ID,
-  );
+  const allHumanIds = useSortedVisibleHumanIds("name", false);
+  const allOrgIds = useSortedVisibleOrganizationIds("name", false);
 
   useEffect(() => {
     if (!selected) {

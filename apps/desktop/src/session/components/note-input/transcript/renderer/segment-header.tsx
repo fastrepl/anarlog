@@ -5,7 +5,7 @@ import { cn } from "@hypr/utils";
 import { SpeakerAssignPopover } from "./speaker-assign";
 import { getTimestampRange, useSegmentColor } from "./utils";
 
-import * as main from "~/store/tinybase/store/main";
+import { useMainStore } from "~/session/hooks/storage";
 import type { Segment } from "~/stt/live-segment";
 import { SegmentKeyUtils, SpeakerLabelManager } from "~/stt/live-segment";
 import { defaultRenderLabelContext } from "~/stt/segment/shared";
@@ -43,7 +43,7 @@ export function SegmentHeader({
 }
 
 function useSpeakerLabel(key: Segment["key"], manager?: SpeakerLabelManager) {
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
 
   return useMemo(() => {
     if (!store) {

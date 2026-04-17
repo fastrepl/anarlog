@@ -5,7 +5,8 @@ import { Button } from "@hypr/ui/components/ui/button";
 import { computeCurrentNoteTab } from "./compute-note-tab";
 
 import { useAITaskTask } from "~/ai/hooks";
-import * as main from "~/store/tinybase/store/main";
+import { useTranscriptIdsForSession } from "~/session/hooks/storage";
+import { useEnhancedNotes } from "~/session/hooks/useEnhancedNotes";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import type { Tab } from "~/store/zustand/tabs/schema";
 import { type EditorView } from "~/store/zustand/tabs/schema";
@@ -14,12 +15,7 @@ import { useListener } from "~/stt/contexts";
 export { computeCurrentNoteTab } from "./compute-note-tab";
 
 export function useHasTranscript(sessionId: string): boolean {
-  const transcriptIds = main.UI.useSliceRowIds(
-    main.INDEXES.transcriptBySession,
-    sessionId,
-    main.STORE_ID,
-  );
-
+  const transcriptIds = useTranscriptIdsForSession(sessionId);
   return !!transcriptIds && transcriptIds.length > 0;
 }
 
@@ -29,11 +25,7 @@ export function useCurrentNoteTab(
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const isLiveSessionActive = sessionMode === "active";
 
-  const enhancedNoteIds = main.UI.useSliceRowIds(
-    main.INDEXES.enhancedNotesBySession,
-    tab.id,
-    main.STORE_ID,
-  );
+  const enhancedNoteIds = useEnhancedNotes(tab.id);
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
 
   return useMemo(

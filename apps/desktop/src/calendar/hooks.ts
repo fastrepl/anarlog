@@ -1,12 +1,13 @@
 import { format } from "date-fns";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { IgnoredEvent, IgnoredRecurringSeries } from "@hypr/store";
 import { safeParseDate } from "@hypr/utils";
 import { TZDate } from "@hypr/utils";
 
 import { useConfigValue } from "~/shared/config";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
+import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 
 export function useTimezone() {
   return useConfigValue("timezone") || undefined;
@@ -95,6 +96,316 @@ export function useEnabledCalendars(): EnabledCalendar[] {
       provider: row.provider ?? "",
     }));
   }, [resultTable]);
+}
+
+export const ENABLED_CALENDARS_QUERY = main.QUERIES.enabledCalendars;
+
+export function useCalendarsByProvider(provider: string): Calendar[] {
+  const table = main.UI.useTable("calendars", main.STORE_ID);
+  return useMemo(() => {
+    const out: Calendar[] = [];
+    for (const [id, row] of Object.entries(table)) {
+      if (row.provider !== provider) continue;
+      out.push({
+        id,
+        tracking_id_calendar: (row.tracking_id_calendar as string) ?? "",
+        name: (row.name as string) ?? "",
+        enabled: (row.enabled as boolean) ?? false,
+        provider: (row.provider as string) ?? "",
+        source: (row.source as string) ?? "",
+        color: (row.color as string) ?? "",
+        connection_id: (row.connection_id as string) ?? "",
+        created_at: (row.created_at as string) ?? "",
+      });
+    }
+    return out;
+  }, [table, provider]);
+}
+
+export function useSetCalendarEnabled(): (
+  calendarId: string,
+  enabled: boolean,
+) => void {
+  const store = main.UI.useStore(main.STORE_ID);
+  return useCallback(
+    (calendarId, enabled) => {
+      if (!store) return;
+      store.setPartialRow("calendars", calendarId, { enabled });
+    },
+    [store],
+  );
+}
+
+export type EventDetails = {
+  title: string | undefined;
+  startedAt: string | undefined;
+  endedAt: string | undefined;
+  location: string | undefined;
+  meetingLink: string | undefined;
+  description: string | undefined;
+  calendarId: string | undefined;
+};
+
+export function useEvent(eventId: string | undefined): EventDetails | null {
+  const title = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "title",
+    main.STORE_ID,
+  );
+  const startedAt = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "started_at",
+    main.STORE_ID,
+  );
+  const endedAt = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "ended_at",
+    main.STORE_ID,
+  );
+  const location = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "location",
+    main.STORE_ID,
+  );
+  const meetingLink = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "meeting_link",
+    main.STORE_ID,
+  );
+  const description = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "description",
+    main.STORE_ID,
+  );
+  const calendarId = main.UI.useCell(
+    "events",
+    eventId ?? "",
+    "calendar_id",
+    main.STORE_ID,
+  );
+
+  return useMemo(
+    () =>
+      eventId
+        ? {
+            title,
+            startedAt,
+            endedAt,
+            location,
+            meetingLink,
+            description,
+            calendarId,
+          }
+        : null,
+    [
+      eventId,
+      title,
+      startedAt,
+      endedAt,
+      location,
+      meetingLink,
+      description,
+      calendarId,
+    ],
+  );
+}
+
+function parseIgnoredEvents(raw: string | undefined): IgnoredEvent[] {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as IgnoredEvent[];
+  } catch {
+    return [];
+  }
+}
+
+function parseIgnoredSeries(raw: string | undefined): IgnoredRecurringSeries[] {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as IgnoredRecurringSeries[];
+  } catch {
+    return [];
+  }
+}
+
+export function useIgnoredEvents() {
+  const store = main.UI.useStore(main.STORE_ID);
+
+  const ignoredEventsRaw = main.UI.useValue("ignored_events", main.STORE_ID) as
+    | string
+    | undefined;
+  const ignoredSeriesRaw = main.UI.useValue(
+    "ignored_recurring_series",
+    main.STORE_ID,
+  ) as string | undefined;
+
+  const ignoredIds = useMemo(() => {
+    const list = parseIgnoredEvents(ignoredEventsRaw);
+    return new Set(list.map((e) => e.tracking_id));
+  }, [ignoredEventsRaw]);
+
+  const ignoredSeriesIds = useMemo(() => {
+    const list = parseIgnoredSeries(ignoredSeriesRaw);
+    return new Set(list.map((e) => e.id));
+  }, [ignoredSeriesRaw]);
+
+  const isIgnored = useCallback(
+    (
+      trackingId: string | null | undefined,
+      recurrenceSeriesId: string | null | undefined,
+    ) => {
+      if (!trackingId) return false;
+      if (ignoredIds.has(trackingId)) return true;
+      if (recurrenceSeriesId && ignoredSeriesIds.has(recurrenceSeriesId))
+        return true;
+      return false;
+    },
+    [ignoredIds, ignoredSeriesIds],
+  );
+
+  const ignoreEvent = useCallback(
+    (trackingId: string) => {
+      if (!store) return;
+      const list = parseIgnoredEvents(
+        store.getValue("ignored_events") as string | undefined,
+      );
+      const now = new Date().toISOString();
+      list.push({
+        tracking_id: trackingId,
+        last_seen: now,
+      });
+      store.setValue("ignored_events", JSON.stringify(list));
+    },
+    [store],
+  );
+
+  const unignoreEvent = useCallback(
+    (trackingId: string) => {
+      if (!store) return;
+      const list = parseIgnoredEvents(
+        store.getValue("ignored_events") as string | undefined,
+      );
+      const filtered = list.filter((e) => e.tracking_id !== trackingId);
+      store.setValue("ignored_events", JSON.stringify(filtered));
+    },
+    [store],
+  );
+
+  const ignoreSeries = useCallback(
+    (seriesId: string) => {
+      if (!store) return;
+      const list = parseIgnoredSeries(
+        store.getValue("ignored_recurring_series") as string | undefined,
+      );
+      if (!list.some((e) => e.id === seriesId)) {
+        list.push({ id: seriesId, last_seen: new Date().toISOString() });
+        store.setValue("ignored_recurring_series", JSON.stringify(list));
+      }
+    },
+    [store],
+  );
+
+  const unignoreSeries = useCallback(
+    (seriesId: string) => {
+      if (!store) return;
+      const list = parseIgnoredSeries(
+        store.getValue("ignored_recurring_series") as string | undefined,
+      );
+      store.setValue(
+        "ignored_recurring_series",
+        JSON.stringify(list.filter((e) => e.id !== seriesId)),
+      );
+    },
+    [store],
+  );
+
+  return {
+    isIgnored,
+    ignoreEvent,
+    unignoreEvent,
+    ignoreSeries,
+    unignoreSeries,
+  };
+}
+
+export type TimelineEvent = {
+  id: string;
+  title: string;
+  started_at: string;
+  ended_at: string;
+  calendar_id: string;
+  tracking_id_event: string;
+  has_recurrence_rules: boolean;
+  recurrence_series_id: string;
+  is_all_day: boolean;
+};
+
+export function useTimelineEvent(eventId: string): TimelineEvent | null {
+  const row = main.UI.useResultRow(
+    main.QUERIES.timelineEvents,
+    eventId,
+    main.STORE_ID,
+  );
+  return useMemo(() => {
+    if (!row || Object.keys(row).length === 0) return null;
+    return {
+      id: eventId,
+      title: (row.title as string) ?? "",
+      started_at: (row.started_at as string) ?? "",
+      ended_at: (row.ended_at as string) ?? "",
+      calendar_id: (row.calendar_id as string) ?? "",
+      tracking_id_event: (row.tracking_id_event as string) ?? "",
+      has_recurrence_rules: (row.has_recurrence_rules as boolean) ?? false,
+      recurrence_series_id: (row.recurrence_series_id as string) ?? "",
+      is_all_day: (row.is_all_day as boolean) ?? false,
+    };
+  }, [eventId, row]);
+}
+
+export type TimelineSession = {
+  id: string;
+  title: string;
+  created_at: string;
+  event_json: string;
+  folder_id: string;
+};
+
+export function useGetOrCreateSessionForEventId(): (
+  eventId: string,
+  title: string,
+) => string | null {
+  const store = main.UI.useStore(main.STORE_ID);
+  return useCallback(
+    (eventId, title) => {
+      if (!store) return null;
+      return getOrCreateSessionForEventId(store, eventId, title);
+    },
+    [store],
+  );
+}
+
+export function useTimelineSession(sessionId: string): TimelineSession | null {
+  const row = main.UI.useResultRow(
+    main.QUERIES.timelineSessions,
+    sessionId,
+    main.STORE_ID,
+  );
+  return useMemo(() => {
+    if (!row || Object.keys(row).length === 0) return null;
+    return {
+      id: sessionId,
+      title: (row.title as string) ?? "",
+      created_at: (row.created_at as string) ?? "",
+      event_json: (row.event_json as string) ?? "",
+      folder_id: (row.folder_id as string) ?? "",
+    };
+  }, [sessionId, row]);
 }
 
 export type CalendarData = {

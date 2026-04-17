@@ -15,10 +15,11 @@ import { cn } from "@hypr/utils";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing";
+import { useHumanCell } from "~/contacts/hooks";
+import { useCurrentUserId } from "~/session/hooks/storage";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { AuthSection } from "~/sidebar/profile/auth";
 import { MenuItem, ProfileFacehash } from "~/sidebar/profile/shared";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ProfileMenu() {
@@ -136,8 +137,8 @@ export function ProfileMenu() {
 function ProfileName() {
   const auth = useAuth();
   const { plan } = useBillingAccess();
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-  const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
+  const userId = useCurrentUserId();
+  const name = useHumanCell(userId ?? "", "name");
   const displayName = name || auth?.session?.user.email || "Unknown";
 
   const facehashName = displayName;
@@ -176,8 +177,8 @@ function AvatarButton({
   onClick: () => void;
 }) {
   const auth = useAuth();
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-  const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
+  const userId = useCurrentUserId();
+  const name = useHumanCell(userId ?? "", "name");
   const displayName = name || auth?.session?.user.email || "Unknown";
   const [imgError, setImgError] = useState(false);
 

@@ -1,9 +1,9 @@
+import { useMainIndexes, useMainStore } from "~/session/hooks/storage";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
-import * as main from "~/store/tinybase/store/main";
 
 export function useMain2Lifecycle() {
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
 
   useDesktopTabLifecycle({
     store,

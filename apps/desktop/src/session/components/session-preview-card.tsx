@@ -14,10 +14,14 @@ import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { streamdownComponents } from "~/session/components/streamdown";
 import {
+  useExportSessionParticipantsTable,
+  useSessionCell,
+  useSessionParticipantMappingIds,
+} from "~/session/hooks/storage";
+import {
   useEnhancedNote,
   useEnhancedNotes,
 } from "~/session/hooks/useEnhancedNotes";
-import * as main from "~/store/tinybase/store/main";
 
 const previewCardComponents: typeof streamdownComponents = {
   ...streamdownComponents,
@@ -116,34 +120,12 @@ function extractPreviewImage(markdown: string | null) {
 }
 
 function useSessionPreviewData(sessionId: string) {
-  const title =
-    (main.UI.useCell("sessions", sessionId, "title", main.STORE_ID) as
-      | string
-      | undefined) || "";
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
-  const createdAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  ) as string | undefined;
-  const eventJson = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "event_json",
-    main.STORE_ID,
-  ) as string | undefined;
+  const title = useSessionCell(sessionId, "title");
+  const rawMd = useSessionCell(sessionId, "raw_md");
+  const createdAt = useSessionCell(sessionId, "created_at");
+  const eventJson = useSessionCell(sessionId, "event_json");
 
-  const participantMappingIds = main.UI.useSliceRowIds(
-    main.INDEXES.sessionParticipantsBySession,
-    sessionId,
-    main.STORE_ID,
-  );
+  const participantMappingIds = useSessionParticipantMappingIds(sessionId);
 
   const enhancedNoteIds = useEnhancedNotes(sessionId);
   const firstEnhancedNoteId = enhancedNoteIds?.[0];
@@ -247,10 +229,7 @@ function useCursorFollow(axis: "x" | "y") {
 }
 
 function useParticipantNames(mappingIds: string[]) {
-  const allResults = main.UI.useResultTable(
-    main.QUERIES.sessionParticipantsWithDetails,
-    main.STORE_ID,
-  );
+  const allResults = useExportSessionParticipantsTable();
 
   return useMemo(() => {
     const names: string[] = [];

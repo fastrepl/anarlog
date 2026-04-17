@@ -7,16 +7,16 @@ import { buildChatTools } from "~/chat/tools";
 import { useRegisterTools } from "~/contexts/tool";
 import { useSearchEngine } from "~/search/contexts/engine";
 import { initEnhancerService } from "~/services/enhancer";
+import { useMainIndexes, useMainStore } from "~/session/hooks/storage";
 import { getSessionEvent } from "~/session/utils";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
-import * as main from "~/store/tinybase/store/main";
 import * as settings from "~/store/tinybase/store/settings";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function useClassicMainLifecycle() {
   const openNew = useTabs((state) => state.openNew);
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
 
   const openDefaultEmptyTab = useCallback(() => {
     openNew({ type: "empty" });
@@ -41,8 +41,8 @@ export function ClassicMainServices() {
 
 function ToolRegistration() {
   const { search } = useSearchEngine();
-  const store = main.UI.useStore(main.STORE_ID);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const store = useMainStore();
+  const indexes = useMainIndexes();
   const storeRef = useRef(store);
   storeRef.current = store;
   const indexesRef = useRef(indexes);
@@ -270,7 +270,7 @@ function EnhancerInit() {
 
   const model = useLanguageModel("enhance");
   const { conn: llmConn } = useLLMConnection();
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const indexes = useMainIndexes();
   const selectedTemplateId = settings.UI.useValue(
     "selected_template_id",
     settings.STORE_ID,

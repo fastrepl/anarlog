@@ -3,7 +3,11 @@ import { useMemo } from "react";
 import type { DegradedError } from "@hypr/plugin-transcription";
 
 import { useAudioPlayer } from "~/audio-player";
-import * as main from "~/store/tinybase/store/main";
+import {
+  useMainStore,
+  useTranscriptIdsForSession,
+  useTranscriptsTable,
+} from "~/session/hooks/storage";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
@@ -103,15 +107,10 @@ export function useTranscriptScreen({
 }
 
 function useTranscriptContent(sessionId: string) {
-  const transcriptIds =
-    main.UI.useSliceRowIds(
-      main.INDEXES.transcriptBySession,
-      sessionId,
-      main.STORE_ID,
-    ) ?? [];
-  const transcriptsTable = main.UI.useTable("transcripts", main.STORE_ID);
+  const transcriptIds = useTranscriptIdsForSession(sessionId) ?? [];
+  const transcriptsTable = useTranscriptsTable();
   const liveSegments = useListener((state) => state.liveSegments);
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
 
   const hasTranscriptWords = useMemo(() => {
     if (!store) {

@@ -26,7 +26,7 @@ vi.mock("../task-source", () => ({
   useTaskSourceOptional: () => null,
 }));
 
-vi.mock("../task-storage", () => ({
+vi.mock("~/tasks/hooks", () => ({
   useTaskRecord: () => null,
   useTaskStorageOptional: () => null,
 }));

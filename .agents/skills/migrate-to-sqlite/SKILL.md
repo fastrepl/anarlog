@@ -8,39 +8,68 @@ description: Migrate a TinyBase table to SQLite. Use when asked to move a data d
 Keep up to date as each PR lands. Outer box = fully done across both
 phases. Sub-bullets track sub-states where relevant.
 
+Phase 0 is essentially complete — every non-entrypoint consumer of the
+main TinyBase store's `UI.*` surface goes through `~/<domain>/hooks*`.
+`apps/desktop/src/main.tsx` (the app entry wiring up the
+`TinyBaseProvider`) is the only consumer that still touches `UI.*`
+directly.
+
+Non-UI imperative helpers (`store/sessions`, `store/save`,
+`store/deleteSession`, `store/importer`, `store/settings`, `persister/*`)
+are still imported directly from a handful of consumer files. These are
+outside phase-0 scope — phase 0 targets reactive UI access only — and
+the `hypr/no-raw-tinybase` rule permits them.
+
 - [x] `templates` — already Drizzle, no Phase 0 needed
 - [ ] `calendars`
-  - [x] Phase 0 reads (PR 2: `useCalendar`, `useEnabledCalendars`)
-  - [ ] Phase 0 writes — `services/calendar/ctx.ts` has a cross-domain
-        calendars+events transaction; lands with events PR
+  - [x] Phase 0 — `calendar/hooks.ts`
   - [ ] Phase 1 — Rust migration + ops exist
 - [ ] `events`
-  - [ ] Phase 0
+  - [x] Phase 0 — `calendar/hooks.ts` + `services/calendar/*` (sync via `ctx.store`)
   - [ ] Phase 1 — Rust migration + ops exist
 - [ ] `sessions`
+  - [x] Phase 0 — `session/hooks/storage.ts` used by session UI, STT, sidebar, main2/home, editor, services
+  - [ ] Phase 1
 - [ ] `transcripts`
+  - [x] Phase 0 — `session/hooks/storage.ts` + STT hooks
+  - [ ] Phase 1
 - [ ] `humans`
+  - [x] Phase 0 — `contacts/hooks.ts`
+  - [ ] Phase 1
 - [ ] `organizations`
+  - [x] Phase 0 — `contacts/hooks.ts`
+  - [ ] Phase 1
 - [ ] `enhanced_notes`
-  - [x] Phase 0 reads — `session/hooks/useEnhancedNotes.ts`
-  - [ ] Phase 0 writes
+  - [x] Phase 0 — `session/hooks/useEnhancedNotes.ts` + `session/hooks/storage.ts`
   - [ ] Phase 1
 - [ ] `mapping_session_participant`
+  - [x] Phase 0 — `session/hooks/storage.ts` (reads + writes)
+  - [ ] Phase 1
 - [ ] `mapping_tag_session`
+  - [x] Phase 0 — `session/hooks/storage.ts`
+  - [ ] Phase 1
 - [ ] `mapping_mention`
 - [ ] `tags`
+  - [x] Phase 0 — `session/hooks/storage.ts`
+  - [ ] Phase 1
 - [ ] `chat_groups`
+  - [x] Phase 0 — `chat/hooks/chat-groups.ts`
+  - [ ] Phase 1
 - [ ] `chat_messages`
-  - [x] Phase 0 writes (partial) — `chat/store/*`
-  - [ ] Phase 0 reads
+  - [x] Phase 0 — `chat/hooks/*`
   - [ ] Phase 1
 - [ ] `chat_shortcuts`
+  - [x] Phase 0 — `chat_shortcuts/hooks.ts`
+  - [ ] Phase 1
 - [ ] `tasks`
+  - [x] Phase 0 — `tasks/hooks.tsx`
+  - [ ] Phase 1
 - [ ] `memories`
-  - [x] Phase 0 writes — `settings/memory/custom-vocabulary.tsx`
-  - [ ] Phase 0 reads
+  - [x] Phase 0 — `settings/memory/hooks.ts`
   - [ ] Phase 1
 - [ ] `daily_notes`
+  - [x] Phase 0 — `session/hooks/storage.ts` (`useUpdateDailyNoteContent`) + `main2/home/note-editor.tsx` uses it
+  - [ ] Phase 1
 
 ## Strategy
 

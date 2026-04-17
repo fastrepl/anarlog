@@ -17,8 +17,15 @@ import { formatDate, formatDuration } from "./export-utils";
 
 import { json2md } from "~/editor/markdown";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
-import { useSessionEvent } from "~/store/tinybase/hooks";
-import * as main from "~/store/tinybase/store/main";
+import {
+  SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
+  useEnhancedNoteCell,
+  useMainQueries,
+  useMainStore,
+  useSessionCell,
+  useSessionEvent,
+  useTranscriptIdsForSession,
+} from "~/session/hooks/storage";
 import type { EditorView } from "~/store/zustand/tabs/schema";
 
 type FileFormat = "pdf" | "txt" | "md" | "org";
@@ -66,56 +73,35 @@ export function ExportModal({
   const [includeSummary, setIncludeSummary] = useState(true);
   const [includeTranscript, setIncludeTranscript] = useState(false);
 
-  const store = main.UI.useStore(main.STORE_ID);
-  const queries = main.UI.useQueries(main.STORE_ID);
+  const store = useMainStore();
+  const queries = useMainQueries();
 
-  const sessionTitle = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "title",
-    main.STORE_ID,
-  ) as string | undefined;
-
-  const sessionCreatedAt = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "created_at",
-    main.STORE_ID,
-  ) as string | undefined;
+  const sessionTitle = useSessionCell(sessionId, "title");
+  const sessionCreatedAt = useSessionCell(sessionId, "created_at");
 
   const event = useSessionEvent(sessionId);
   const eventTitle = event?.title;
 
-  const rawMd = main.UI.useCell(
-    "sessions",
-    sessionId,
-    "raw_md",
-    main.STORE_ID,
-  ) as string | undefined;
+  const rawMd = useSessionCell(sessionId, "raw_md");
 
   const enhancedNoteId = currentView.type === "enhanced" ? currentView.id : "";
-  const enhancedNoteContent = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  ) as string | undefined;
+  const enhancedNoteContent = useEnhancedNoteCell(enhancedNoteId, "content");
 
   const participantNames = useMemo((): string[] => {
     if (!queries) return [];
 
     const names: string[] = [];
     queries.forEachResultRow(
-      main.QUERIES.sessionParticipantsWithDetails,
+      SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
       (rowId) => {
         const participantSessionId = queries.getResultCell(
-          main.QUERIES.sessionParticipantsWithDetails,
+          SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
           rowId,
           "session_id",
         );
         if (participantSessionId === sessionId) {
           const name = queries.getResultCell(
-            main.QUERIES.sessionParticipantsWithDetails,
+            SESSION_PARTICIPANTS_WITH_DETAILS_QUERY,
             rowId,
             "human_name",
           );
@@ -131,11 +117,7 @@ export function ExportModal({
   const { data: transcriptItems, isLoading: isTranscriptLoading } =
     useTranscriptExportSegments(sessionId);
 
-  const transcriptIds = main.UI.useSliceRowIds(
-    main.INDEXES.transcriptBySession,
-    sessionId,
-    main.STORE_ID,
-  );
+  const transcriptIds = useTranscriptIdsForSession(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
     if (!store || !transcriptIds || transcriptIds.length === 0) {

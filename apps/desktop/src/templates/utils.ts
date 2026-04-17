@@ -9,8 +9,9 @@ import {
   type UserTemplate,
 } from "./queries";
 
+import { useHumanCell } from "~/contacts/hooks";
+import { useCurrentUserId } from "~/session/hooks/storage";
 import { useWebResources } from "~/shared/ui/resource-list";
-import * as main from "~/store/tinybase/store/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 export function resolveTemplateTabSelection({
@@ -73,12 +74,10 @@ export function resolveTemplateTabSelection({
 }
 
 export function useTemplateCreatorName() {
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-  const name = main.UI.useCell("humans", userId ?? "", "name", main.STORE_ID);
+  const userId = useCurrentUserId();
+  const name = useHumanCell(userId ?? "", "name");
 
-  return typeof name === "string" && name.trim().length > 0
-    ? name.trim()
-    : "user";
+  return name.trim().length > 0 ? name.trim() : "user";
 }
 
 export function getTemplateCreatorLabel({

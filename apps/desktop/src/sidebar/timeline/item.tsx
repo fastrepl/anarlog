@@ -18,17 +18,21 @@ import {
   TimelinePrecision,
 } from "./utils";
 
+import { useCalendar, useIgnoredEvents } from "~/calendar/hooks";
 import { SessionPreviewCard } from "~/session/components/session-preview-card";
+import {
+  useMainIndexes,
+  useMainStore,
+  useSessionCell,
+} from "~/session/hooks/storage";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getSessionEvent } from "~/session/utils";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
 import { InteractiveButton } from "~/shared/ui/interactive-button";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
   deleteSessionCascade,
 } from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { getOrCreateSessionForEventId } from "~/store/tinybase/store/sessions";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
@@ -165,7 +169,7 @@ const EventItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
   }) => {
-    const store = main.UI.useStore(main.STORE_ID);
+    const store = useMainStore();
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
 
@@ -326,8 +330,8 @@ const SessionItem = memo(
     multiSelected: boolean;
     flatItemKeys: string[];
   }) => {
-    const store = main.UI.useStore(main.STORE_ID);
-    const indexes = main.UI.useIndexes(main.STORE_ID);
+    const store = useMainStore();
+    const indexes = useMainIndexes();
     const openCurrent = useTabs((state) => state.openCurrent);
     const openNew = useTabs((state) => state.openNew);
     const invalidateResource = useTabs((state) => state.invalidateResource);
@@ -335,12 +339,7 @@ const SessionItem = memo(
     const { ignoreEvent } = useIgnoredEvents();
 
     const sessionId = item.id;
-    const storeTitle = main.UI.useCell(
-      "sessions",
-      sessionId,
-      "title",
-      main.STORE_ID,
-    ) as string | undefined;
+    const storeTitle = useSessionCell(sessionId, "title");
     const title = useSessionTitle(sessionId, storeTitle);
 
     const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -498,10 +497,10 @@ function formatDisplayTime(
 }
 
 function CalendarIndicator({ calendarId }: { calendarId: string }) {
-  const calendar = main.UI.useRow("calendars", calendarId, main.STORE_ID);
+  const calendar = useCalendar(calendarId);
 
-  const name = calendar?.name ? String(calendar.name) : undefined;
-  const color = calendar?.color ? String(calendar.color) : "#888";
+  const name = calendar?.name || undefined;
+  const color = calendar?.color || "#888";
 
   return (
     <Tooltip delayDuration={0}>

@@ -58,7 +58,6 @@ import {
   taskIdentityPlugin,
 } from "../plugins";
 import { TaskSourceProvider } from "../task-source";
-import { useTaskStorageOptional } from "../task-storage";
 import {
   extractTasksFromContent,
   hydrateTaskContent,
@@ -78,6 +77,8 @@ import {
   type LinkedItemOpenBehavior,
 } from "./linked-item-open-behavior";
 import { schema } from "./schema";
+
+import { useTaskStorageOptional } from "~/tasks/hooks";
 
 export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
 export { schema };

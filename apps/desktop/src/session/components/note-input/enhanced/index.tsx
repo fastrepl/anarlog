@@ -8,7 +8,7 @@ import { StreamingView } from "./streaming";
 import { useAITaskTask } from "~/ai/hooks";
 import { useLLMConnectionStatus } from "~/ai/hooks";
 import type { NoteEditorRef } from "~/editor/session";
-import * as main from "~/store/tinybase/store/main";
+import { useEnhancedNoteCell } from "~/session/hooks/storage";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
 export const Enhanced = forwardRef<
@@ -22,14 +22,9 @@ export const Enhanced = forwardRef<
   const taskId = createTaskId(enhancedNoteId, "enhance");
   const llmStatus = useLLMConnectionStatus();
   const { status, error } = useAITaskTask(taskId, "enhance");
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  );
+  const content = useEnhancedNoteCell(enhancedNoteId, "content");
 
-  const hasContent = typeof content === "string" && content.trim().length > 0;
+  const hasContent = content.trim().length > 0;
 
   const isConfigError =
     llmStatus.status === "pending" ||

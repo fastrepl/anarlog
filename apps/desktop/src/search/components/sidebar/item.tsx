@@ -4,8 +4,8 @@ import { useCallback, useMemo } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useHumansByOrg } from "~/contacts/hooks";
 import { type SearchResult } from "~/search/contexts/ui";
-import * as main from "~/store/tinybase/store/main";
 import { type TabInput, useTabs } from "~/store/zustand/tabs";
 
 export function SearchResultItem({
@@ -117,11 +117,7 @@ function OrganizationSearchResultItem({
   onClick: () => void;
   isSelected: boolean;
 }) {
-  const humanIds = main.UI.useSliceRowIds(
-    main.INDEXES.humansByOrg,
-    result.id,
-    main.STORE_ID,
-  );
+  const humanIds = useHumansByOrg(result.id);
 
   const sanitizedTitle = useMemo(
     () =>

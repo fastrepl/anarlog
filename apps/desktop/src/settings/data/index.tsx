@@ -13,9 +13,10 @@ import {
 import { ImportPreview } from "./import-preview";
 import { SourceItem } from "./source-item";
 
+import { useCurrentUserId, useMainStore } from "~/session/hooks/storage";
 import { StyledStreamdown } from "~/settings/ai/shared";
 import { importData } from "~/store/tinybase/store/importer";
-import * as main from "~/store/tinybase/store/main";
+import type { Store } from "~/store/tinybase/store/main";
 import { save } from "~/store/tinybase/store/save";
 
 type DryRunResult = {
@@ -27,8 +28,8 @@ export function Data() {
   const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
   const [successfulSource, setSuccessfulSource] =
     useState<ImportSourceKind | null>(null);
-  const store = main.UI.useStore(main.STORE_ID);
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const store = useMainStore();
+  const user_id = useCurrentUserId();
 
   const { data: sources } = useQuery({
     queryKey: ["import-sources"],
@@ -53,7 +54,7 @@ export function Data() {
       }
 
       const importResult = await importData(
-        store as main.Store,
+        store as Store,
         result.data.data,
         save,
       );

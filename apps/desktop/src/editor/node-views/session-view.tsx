@@ -18,8 +18,8 @@ import { TaskCheckbox } from "./task-checkbox";
 
 import { toTz, useTimezone } from "~/calendar/hooks";
 import { useLinkedItemOpenBehavior } from "~/editor/session/linked-item-open-behavior";
+import { useSessionCell } from "~/session/hooks/storage";
 import { getSessionEvent } from "~/session/utils";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 
@@ -79,24 +79,28 @@ export const SessionNodeView = forwardRef<
   const { node, getPos } = nodeProps;
   const sessionId = node.attrs.sessionId as string;
 
-  const session = main.UI.useRow("sessions", sessionId, main.STORE_ID);
+  const eventJson = useSessionCell(sessionId, "event_json");
+  const createdAt = useSessionCell(sessionId, "created_at");
   const tz = useTimezone();
   const liveSessionId = useListener((state) => state.live.sessionId);
   const liveStatus = useListener((state) => state.live.status);
   const isRecording =
     liveSessionId === sessionId &&
     (liveStatus === "active" || liveStatus === "finalizing");
-  const event = useMemo(() => getSessionEvent(session), [session]);
+  const event = useMemo(
+    () => getSessionEvent({ event_json: eventJson }),
+    [eventJson],
+  );
   const displayTime = useMemo(() => {
     if (event?.is_all_day) {
       return null;
     }
 
-    const rawDate = event?.started_at ?? session?.created_at;
+    const rawDate = event?.started_at ?? createdAt;
     const parsed = rawDate ? safeParseDate(rawDate) : null;
 
     return parsed ? format(toTz(parsed, tz), "h:mm a") : null;
-  }, [event?.is_all_day, event?.started_at, session?.created_at, tz]);
+  }, [event?.is_all_day, event?.started_at, createdAt, tz]);
 
   const isMeetingOver = useMemo(() => {
     if (!event?.ended_at) return false;

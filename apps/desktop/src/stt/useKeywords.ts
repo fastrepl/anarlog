@@ -10,16 +10,15 @@ import retextStringify from "retext-stringify";
 import { unified } from "unified";
 import type { VFile } from "vfile";
 
-import * as main from "~/store/tinybase/store/main";
+import { useSessionCell } from "~/session/hooks/storage";
 
 export function useKeywords(sessionId: string) {
-  const rawMd = main.UI.useCell("sessions", sessionId, "raw_md", main.STORE_ID);
+  const rawMd = useSessionCell(sessionId, "raw_md");
 
   return useMemo(() => {
-    const { keywords, keyphrases } =
-      rawMd && typeof rawMd === "string"
-        ? extractKeywordsFromMarkdown(rawMd)
-        : { keywords: [], keyphrases: [] };
+    const { keywords, keyphrases } = rawMd
+      ? extractKeywordsFromMarkdown(rawMd)
+      : { keywords: [], keyphrases: [] };
 
     return combineKeywords([...keywords, ...keyphrases]);
   }, [rawMd]);

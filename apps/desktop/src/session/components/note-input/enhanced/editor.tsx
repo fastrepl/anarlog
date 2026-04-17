@@ -7,8 +7,14 @@ import {
   type NoteEditorRef,
 } from "~/editor/session";
 import { useSearchEngine } from "~/search/contexts/engine";
+import {
+  useEnhancedNoteCell,
+  useExportTimelineSessions,
+  useExportVisibleHumans,
+  useExportVisibleOrganizations,
+  useUpdateEnhancedNoteContent,
+} from "~/session/hooks/storage";
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
-import * as main from "~/store/tinybase/store/main";
 
 export const EnhancedEditor = forwardRef<
   NoteEditorRef,
@@ -19,39 +25,23 @@ export const EnhancedEditor = forwardRef<
   }
 >(({ sessionId, enhancedNoteId, onNavigateToTitle }, ref) => {
   const onFileUpload = useFileUpload(sessionId);
-  const content = main.UI.useCell(
-    "enhanced_notes",
-    enhancedNoteId,
-    "content",
-    main.STORE_ID,
-  );
+  const content = useEnhancedNoteCell(enhancedNoteId, "content");
 
   const initialContent = useMemo<JSONContent>(
-    () => parseJsonContent(content as string),
+    () => parseJsonContent(content),
     [content],
   );
 
-  const handleChange = main.UI.useSetPartialRowCallback(
-    "enhanced_notes",
-    enhancedNoteId,
-    (input: JSONContent) => ({ content: JSON.stringify(input) }),
-    [],
-    main.STORE_ID,
+  const persistContent = useUpdateEnhancedNoteContent(enhancedNoteId);
+  const handleChange = useMemo(
+    () => (input: JSONContent) => persistContent(JSON.stringify(input)),
+    [persistContent],
   );
 
   const { search } = useSearchEngine();
-  const sessions = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
-  const humans = main.UI.useResultTable(
-    main.QUERIES.visibleHumans,
-    main.STORE_ID,
-  );
-  const organizations = main.UI.useResultTable(
-    main.QUERIES.visibleOrganizations,
-    main.STORE_ID,
-  );
+  const sessions = useExportTimelineSessions();
+  const humans = useExportVisibleHumans();
+  const organizations = useExportVisibleOrganizations();
 
   const mentionConfig = useMemo(
     () => ({

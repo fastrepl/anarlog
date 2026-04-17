@@ -32,14 +32,19 @@ import {
   type TimelineSessionsTable,
 } from "./utils";
 
+import { useIgnoredEvents } from "~/calendar/hooks";
+import {
+  useMainIndexes,
+  useMainStore,
+  useTimelineEventsTable,
+  useTimelineSessionsTable,
+} from "~/session/hooks/storage";
 import { useConfigValue } from "~/shared/config";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import { useIgnoredEvents } from "~/store/tinybase/hooks";
 import {
   captureSessionData,
   deleteSessionCascade,
 } from "~/store/tinybase/store/deleteSession";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useUndoDelete } from "~/store/zustand/undo-delete";
@@ -127,11 +132,11 @@ export function TimelineView() {
     return currentTab?.type === "sessions" ? currentTab.id : undefined;
   }, [currentTab]);
 
-  const store = main.UI.useStore(main.STORE_ID);
+  const store = useMainStore();
 
   const selectedIds = useTimelineSelection((s) => s.selectedIds);
   const clearSelection = useTimelineSelection((s) => s.clear);
-  const indexes = main.UI.useIndexes(main.STORE_ID);
+  const indexes = useMainIndexes();
   const invalidateResource = useTabs((state) => state.invalidateResource);
   const addDeletion = useUndoDelete((state) => state.addDeletion);
 
@@ -549,14 +554,8 @@ function useTimelineTables(): {
   timelineEventsTable: TimelineEventsTable;
   timelineSessionsTable: TimelineSessionsTable;
 } {
-  const timelineEventsTable = main.UI.useResultTable(
-    main.QUERIES.timelineEvents,
-    main.STORE_ID,
-  );
-  const timelineSessionsTable = main.UI.useResultTable(
-    main.QUERIES.timelineSessions,
-    main.STORE_ID,
-  );
+  const timelineEventsTable = useTimelineEventsTable();
+  const timelineSessionsTable = useTimelineSessionsTable();
 
   return { timelineEventsTable, timelineSessionsTable };
 }

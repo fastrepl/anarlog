@@ -19,7 +19,7 @@ import { ChannelProfile } from "./segment";
 import { isStoppedTranscriptionError, useRunBatch } from "./useRunBatch";
 
 import { getEnhancerService } from "~/services/enhancer";
-import * as main from "~/store/tinybase/store/main";
+import { useCurrentUserId, useMainStore } from "~/session/hooks/storage";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "mp4", "m4a", "flac"];
@@ -33,8 +33,8 @@ export function useUploadFile(sessionId: string) {
   const updateBatchProgress = useListener((state) => state.updateBatchProgress);
   const clearBatchSession = useListener((state) => state.clearBatchSession);
 
-  const store = main.UI.useStore(main.STORE_ID) as main.Store | undefined;
-  const { user_id } = main.UI.useValues(main.STORE_ID);
+  const store = useMainStore();
+  const user_id = useCurrentUserId();
   const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const sessionTab = useTabs((state) => {
     const found = state.tabs.find(

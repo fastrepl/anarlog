@@ -18,13 +18,17 @@ import {
 } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { useBillingAccess } from "~/auth/billing";
+import {
+  useAllSessionIds,
+  useMainStore,
+  useSessionCell,
+} from "~/session/hooks/storage";
 import { sessionOps } from "~/store/tinybase/persister/session/ops";
-import * as main from "~/store/tinybase/store/main";
 import { useListener } from "~/stt/contexts";
 
 function useFolders() {
-  const sessionIds = main.UI.useRowIds("sessions", main.STORE_ID);
-  const store = main.UI.useStore(main.STORE_ID);
+  const sessionIds = useAllSessionIds();
+  const store = useMainStore();
 
   return useMemo(() => {
     if (!store || !sessionIds) return {};
@@ -194,11 +198,7 @@ function useMoveSessionToFolder(sessionId: string) {
 }
 
 function useSessionFolderId(sessionId: string) {
-  return (
-    (main.UI.useCell("sessions", sessionId, "folder_id", main.STORE_ID) as
-      | string
-      | undefined) ?? ""
-  );
+  return useSessionCell(sessionId, "folder_id");
 }
 
 function useMoveDisabledReason(sessionId: string) {

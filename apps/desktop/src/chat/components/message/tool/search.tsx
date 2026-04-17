@@ -14,7 +14,6 @@ import { useToolState } from "./shared";
 
 import { Disclosure } from "~/chat/components/message/shared";
 import { ToolRenderer } from "~/chat/components/message/types";
-import * as main from "~/store/tinybase/store/main";
 import { useTabs } from "~/store/zustand/tabs";
 
 type Renderer = ToolRenderer<"tool-search_sessions">;
@@ -222,7 +221,6 @@ function RenderContent({ part }: { part: Part }) {
 
 function RenderSession({ result }: { result: SearchResult }) {
   const { id: sessionId } = result;
-  const session = main.UI.useRow("sessions", sessionId, main.STORE_ID);
   const openNew = useTabs((state) => state.openNew);
 
   const handleClick = useCallback(() => {
@@ -233,14 +231,6 @@ function RenderSession({ result }: { result: SearchResult }) {
     if (!result.created_at) return null;
     return new Date(result.created_at).toLocaleString();
   }, [result.created_at]);
-
-  if (!session) {
-    return (
-      <div className="text-muted-foreground text-xs italic">
-        Session unavailable
-      </div>
-    );
-  }
 
   return (
     <button

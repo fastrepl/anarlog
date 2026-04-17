@@ -1,7 +1,7 @@
 import { CornerDownLeft } from "lucide-react";
 import React, { useState } from "react";
 
-import * as main from "~/store/tinybase/store/main";
+import { useCreateHuman } from "~/contacts/hooks";
 
 export function NewPersonForm({
   onSave,
@@ -11,25 +11,7 @@ export function NewPersonForm({
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
-  const userId = main.UI.useValue("user_id", main.STORE_ID);
-
-  const createHuman = main.UI.useSetRowCallback(
-    "humans",
-    (p: { name: string; humanId: string }) => p.humanId,
-    (p: { name: string; humanId: string }) => ({
-      user_id: userId || "",
-      created_at: new Date().toISOString(),
-      name: p.name,
-      email: "",
-      org_id: "",
-      job_title: "",
-      linkedin_username: "",
-      memo: "",
-      pinned: false,
-    }),
-    [userId],
-    main.STORE_ID,
-  );
+  const createHuman = useCreateHuman();
 
   const handleAdd = () => {
     const humanId = crypto.randomUUID();

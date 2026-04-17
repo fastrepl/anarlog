@@ -15,6 +15,7 @@ import { SessionPreviewCard } from "./components/session-preview-card";
 import { SessionSurface } from "./components/session-surface";
 import { useCurrentNoteTab, useHasTranscript } from "./components/shared";
 import { TitleInput, type TitleInputHandle } from "./components/title-input";
+import { useSessionCell } from "./hooks/storage";
 import { useAutoEnhance } from "./hooks/useAutoEnhance";
 import { useIsSessionEnhancing } from "./hooks/useEnhancedNotes";
 import { getSessionTabStatus } from "./tab-visual-state";
@@ -24,7 +25,6 @@ import * as AudioPlayer from "~/audio-player";
 import { useShell } from "~/contexts/shell";
 import { useSessionStatusBanner } from "~/shared/main";
 import { type TabItem, TabItemBase } from "~/shared/tabs";
-import * as main from "~/store/tinybase/store/main";
 import { useSessionTitle } from "~/store/zustand/live-title";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
@@ -45,13 +45,8 @@ export const TabItemNote: TabItem<Extract<Tab, { type: "sessions" }>> = ({
   pendingCloseConfirmationTab,
   setPendingCloseConfirmationTab,
 }) => {
-  const storeTitle = main.UI.useCell(
-    "sessions",
-    tab.id,
-    "title",
-    main.STORE_ID,
-  );
-  const title = useSessionTitle(tab.id, storeTitle as string | undefined);
+  const storeTitle = useSessionCell(tab.id, "title");
+  const title = useSessionTitle(tab.id, storeTitle);
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const stop = useListener((state) => state.stop);
   const degraded = useListener((state) => state.live.degraded);
@@ -300,7 +295,7 @@ function useAutoFocusTitle({
   // Prevent re-focusing when the user intentionally leaves the title empty.
   const didAutoFocus = useRef(false);
 
-  const title = main.UI.useCell("sessions", sessionId, "title", main.STORE_ID);
+  const title = useSessionCell(sessionId, "title");
 
   useEffect(() => {
     if (didAutoFocus.current) return;

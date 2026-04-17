@@ -3,8 +3,8 @@ import React, { useCallback } from "react";
 
 import { cn } from "@hypr/utils";
 
+import { useOrganization, useToggleOrganizationPin } from "~/contacts/hooks";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
-import * as main from "~/store/tinybase/store/main";
 
 export function OrganizationItem({
   organizationId,
@@ -17,44 +17,9 @@ export function OrganizationItem({
   onClick: () => void;
   onDelete?: (id: string) => void;
 }) {
-  const organization = main.UI.useRow(
-    "organizations",
-    organizationId,
-    main.STORE_ID,
-  );
-  const isPinned = Boolean(organization.pinned);
-  const store = main.UI.useStore(main.STORE_ID);
-
-  const togglePin = useCallback(() => {
-    if (!store) return;
-
-    const currentPinned = store.getCell(
-      "organizations",
-      organizationId,
-      "pinned",
-    );
-    if (currentPinned) {
-      store.setPartialRow("organizations", organizationId, {
-        pinned: false,
-        pin_order: 0,
-      });
-    } else {
-      const allOrgs = store.getTable("organizations");
-      const allHumans = store.getTable("humans");
-      const maxOrgOrder = Object.values(allOrgs).reduce((max, o) => {
-        const order = (o.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      const maxHumanOrder = Object.values(allHumans).reduce((max, h) => {
-        const order = (h.pin_order as number | undefined) ?? 0;
-        return Math.max(max, order);
-      }, 0);
-      store.setPartialRow("organizations", organizationId, {
-        pinned: true,
-        pin_order: Math.max(maxOrgOrder, maxHumanOrder) + 1,
-      });
-    }
-  }, [store, organizationId]);
+  const organization = useOrganization(organizationId);
+  const isPinned = organization?.pinned ?? false;
+  const togglePin = useToggleOrganizationPin(organizationId);
 
   const showContextMenu = useNativeContextMenu([
     {
