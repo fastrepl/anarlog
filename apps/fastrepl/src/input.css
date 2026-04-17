@@ -36,3 +36,10 @@ hr {
     animation-duration: 0s !important;
   }
 }
+
+.hero-h1 em::first-letter {
+  font-size: 1.6em;
+  line-height: 0.85;
+  padding-right: 0.02em;
+  color: var(--color-accent);
+}
