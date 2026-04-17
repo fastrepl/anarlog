@@ -52,7 +52,7 @@ Everything you do in a day flows through one note. Meetings, emails, screen acti
 
 One timeline for your day. Meetings, emails, screen activity, and quick thoughts all flow into a single note that evolves as the day goes on.
 
-<!-- TODO: add daily note screenshot (Char 1.1) -->
+<img alt="Daily note with action items surfacing" src=".github/readme/daily-note-action-items.png" />
 
 ### Meeting Capture
 
@@ -76,7 +76,7 @@ Char notices what you're actually working on — the doc you're writing, the PR 
 
 Action items don't just sit on a list. Delegate them to AI agents (Claude, Cursor, Devin) or route them to the right person on your team — directly from your daily note.
 
-<!-- TODO: add task delegation screenshot -->
+<img alt="Task delegation to AI agents and teammates" src=".github/readme/task-delegation.png" />
 
 ### Realtime Transcript
 
@@ -133,3 +133,9 @@ Ask follow-ups right inside your notes:
 - Coming soon: Notion, Slack, Hubspot, Salesforce
 
 <img width="912" height="712" alt="Integrations" src="https://github.com/user-attachments/assets/ab559e54-fda5-4c8c-97d7-ba1b9d134cc8" />
+
+## Where This Is Going
+
+When everyone on a team has their own daily note, those notes become a shared operating layer. Context flows between people automatically. Decisions leave a trail. Nothing falls through the cracks because the system remembers even when people don't.
+
+<img alt="Team operating layer — shared daily notes" src=".github/readme/team-operating-layer.png" />
