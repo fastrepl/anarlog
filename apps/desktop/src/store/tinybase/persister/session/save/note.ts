@@ -1,8 +1,8 @@
 import { sep } from "@tauri-apps/api/path";
 
 import type { ParsedDocument } from "@hypr/plugin-fs-sync";
-import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 
+import { isValidContent, json2md } from "~/editor/markdown";
 import type { NoteFrontmatter } from "~/store/tinybase/persister/session/types";
 import {
   buildSessionPath,
@@ -131,7 +131,7 @@ function tryParseAndConvertToMarkdown(content: string): string | undefined {
     return content.trim() || undefined;
   }
 
-  if (!isValidTiptapContent(parsed)) {
+  if (!isValidContent(parsed)) {
     return undefined;
   }
 

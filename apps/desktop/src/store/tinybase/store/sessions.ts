@@ -6,10 +6,10 @@ import type {
   MappingSessionParticipantStorage,
   SessionEvent,
 } from "@hypr/store";
-import { json2md } from "@hypr/tiptap/shared";
 
 import * as main from "./main";
 
+import { json2md } from "~/editor/markdown";
 import { findSessionByEventId } from "~/session/utils";
 import { DEFAULT_USER_ID } from "~/shared/utils";
 import { id } from "~/shared/utils";

@@ -1,9 +1,10 @@
 import { createMergeableStore } from "tinybase/with-schemas";
 
 import { SCHEMA } from "@hypr/store";
-import { isValidTiptapContent, md2json } from "@hypr/tiptap/shared";
 
 import type { Store } from "./main";
+
+import { isValidContent, md2json } from "~/editor/markdown";
 
 export type ImportResult =
   | { status: "success"; rowsImported: number; valuesImported: number }
@@ -54,7 +55,7 @@ const convertMarkdownToTiptapJson = (content: string): string => {
 
   try {
     const parsed = JSON.parse(content);
-    if (isValidTiptapContent(parsed)) {
+    if (isValidContent(parsed)) {
       return content;
     }
   } catch {

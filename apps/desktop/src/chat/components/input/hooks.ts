@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { EMPTY_TIPTAP_DOC } from "@hypr/tiptap/shared";
 
 import type { ContextRef } from "~/chat/context/entities";
 import type { ChatEditorHandle, JSONContent } from "~/editor/chat";
+import { EMPTY_DOC } from "~/editor/markdown";
 import type { MentionConfig } from "~/editor/widgets";
 import { useSearchEngine } from "~/search/contexts/engine";
 import * as main from "~/store/tinybase/store/main";
@@ -19,7 +19,7 @@ export function useDraftState({
   onContextRefsChange?: (refs: ContextRef[]) => void;
 }) {
   const [hasContent, setHasContent] = useState(false);
-  const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_TIPTAP_DOC);
+  const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_DOC);
 
   useEffect(() => {
     onContextRefsChange?.(

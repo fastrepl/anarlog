@@ -10,11 +10,11 @@ import {
   type TranscriptItem,
 } from "@hypr/plugin-export";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { json2md } from "@hypr/tiptap/shared";
 import { DropdownMenuItem } from "@hypr/ui/components/ui/dropdown-menu";
 
 import { formatDate, formatDuration } from "./export-utils";
 
+import { json2md } from "~/editor/markdown";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";
 import type { EditorView } from "~/store/zustand/tabs/schema";

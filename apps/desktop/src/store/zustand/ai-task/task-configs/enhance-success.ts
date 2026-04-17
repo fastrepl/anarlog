@@ -1,6 +1,6 @@
-import { md2json } from "@hypr/tiptap/shared";
-
 import { createTaskId, type TaskConfig } from ".";
+
+import { md2json } from "~/editor/markdown";
 
 const onSuccess: NonNullable<TaskConfig<"enhance">["onSuccess"]> = ({
   text,

@@ -11,11 +11,11 @@ import {
 } from "@hypr/plugin-export";
 import { commands as fs2Commands } from "@hypr/plugin-fs2";
 import { commands as openerCommands } from "@hypr/plugin-opener2";
-import { json2md } from "@hypr/tiptap/shared";
 import { cn } from "@hypr/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
 
+import { json2md } from "~/editor/markdown";
 import { useTranscriptExportSegments } from "~/session/components/note-input/transcript/export-data";
 import { useSessionEvent } from "~/store/tinybase/hooks";
 import * as main from "~/store/tinybase/store/main";

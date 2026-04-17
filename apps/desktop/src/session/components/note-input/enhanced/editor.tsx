@@ -1,7 +1,6 @@
 import { forwardRef, useMemo } from "react";
 
-import { parseJsonContent } from "@hypr/tiptap/shared";
-
+import { parseJsonContent } from "~/editor/markdown";
 import {
   NoteEditor,
   type JSONContent,

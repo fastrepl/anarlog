@@ -2,7 +2,6 @@ import { useMotionValue, useSpring, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { defaultRehypePlugins, Streamdown } from "streamdown";
 
-import { isValidTiptapContent, json2md } from "@hypr/tiptap/shared";
 import {
   HoverCard,
   HoverCardContent,
@@ -10,6 +9,7 @@ import {
 } from "@hypr/ui/components/ui/hover-card";
 import { cn, format, safeParseDate } from "@hypr/utils";
 
+import { isValidContent, json2md } from "~/editor/markdown";
 import { parseImageMetadata } from "~/editor/node-views/image-view";
 import { extractPlainText } from "~/search/contexts/engine/utils";
 import { streamdownComponents } from "~/session/components/streamdown";
@@ -162,7 +162,7 @@ function useSessionPreviewData(sessionId: string) {
     if (trimmed.startsWith("{")) {
       try {
         const parsed = JSON.parse(trimmed);
-        if (isValidTiptapContent(parsed)) {
+        if (isValidContent(parsed)) {
           const md = json2md(parsed).trim();
           if (md) return { previewMarkdown: md, previewPlainText: "" };
         }

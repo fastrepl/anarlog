@@ -1,8 +1,8 @@
 import { forwardRef, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { commands as analyticsCommands } from "@hypr/plugin-analytics";
-import { parseJsonContent } from "@hypr/tiptap/shared";
 
+import { parseJsonContent } from "~/editor/markdown";
 import {
   NoteEditor,
   type JSONContent,

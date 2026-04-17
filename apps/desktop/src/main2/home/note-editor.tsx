@@ -4,10 +4,10 @@ import { Node as PMNode } from "prosemirror-model";
 import type { EditorView } from "prosemirror-view";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { parseJsonContent } from "@hypr/tiptap/shared";
 import { format, parseISO, subDays } from "@hypr/utils";
 
 import { useCalendarData } from "~/calendar/hooks";
+import { parseJsonContent } from "~/editor/markdown";
 import {
   type JSONContent,
   NoteEditor,
