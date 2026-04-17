@@ -25,6 +25,8 @@ One note per day. Context that compounds.
 
 <!-- TODO: add Char 1.1 daily note overview screenshot -->
 
+> **Just want a local-first, on-device AI meeting notetaker?** Check out [Unsigned Char](https://github.com/fastrepl/unsigned-char) — a free standalone notetaker with speaker identification. No daily notes, no task delegation. Just transcription and summaries, fully local.
+
 ## Installation
 
 ```bash
