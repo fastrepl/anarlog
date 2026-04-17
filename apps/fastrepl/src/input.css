@@ -14,15 +14,18 @@
   --color-border: oklch(0.7782 0.0018 67.8);
   --color-border-subtle: oklch(0.9213 0.0027 106.45);
   --color-brand-dark: #57534e;
+  --color-accent: oklch(0.38 0.05 155);
 }
 
 hr {
-  border-color: var(--color-border);
+  border-color: var(--color-border-subtle);
+  border-top-width: 1px;
+  border-bottom: 0;
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-fg);
-  outline-offset: 4px;
+  outline: 1.5px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
